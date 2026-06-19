@@ -480,6 +480,16 @@ const GAMES=[
   {id:'match',e:'🟨',n:'Cheese Match',d:'Збирай 3+ однакові сирки в ряд.'},
   {id:'escape',e:'🐱',n:'Hole Escape',d:'Тікай від котів та пасток!'},
   {id:'factory',e:'🏭',n:'Cheese Factory',d:'Idle-фабрика: монети навіть офлайн.'},
+  {id:'stack',e:'🏗️',n:'Cheese Stack',d:'Стакай блоки точно один на одного!'},
+  {id:'fishing',e:'🎣',n:'Mouse Fishing',d:'Закинь вудку і витягни сир із ставка.'},
+  {id:'shooter',e:'🎯',n:'Cheese Shooter',d:'Стріляй по мішенях — комбо множить очки!'},
+  {id:'maze',e:'🌀',n:'Maze Runner',d:'Знайди 3 ключі і вирвись із лабіринту.'},
+  {id:'raid',e:'🥷',n:'Kitchen Raid',d:'Крадись непомітно, збирай сир зі столу!'},
+  {id:'racing',e:'🚗',n:'Mouse Racing',d:'Гонки на 3 смугах — обжени суперників!'},
+  {id:'balloon',e:'🎈',n:'Balloon Mouse',d:'Тримай — вниз, відпусти — вгору. Не торкайся стін!'},
+  {id:'miner',e:'⛏️',n:'Cheese Miner',d:'Копай блоки та збирай захований сир.'},
+  {id:'memory',e:'🃏',n:'Memory Cheese',d:'Знайди всі пари сирних карток за 60 секунд!'},
+  {id:'builder',e:'🏠',n:'Mouse Builder',d:'Розстав меблі у будиночку мишки правильно.'},
 ];
 const DAILY=[
   {c:50,e:'🪙'},{c:80,e:'🪙'},{c:120,e:'🪙'},{c:160,g:1,e:'🧀'},
@@ -491,7 +501,8 @@ const ACHS=[
   {id:'lvl5',e:'⭐',n:'Зростання',d:'Досягни 5 рівня',g:3,goal:s=>s.level>=5,prog:s=>[s.level,5]},
   {id:'lvl10',e:'🌟',n:'Дорослішання',d:'Досягни 10 рівня',g:5,goal:s=>s.level>=10,prog:s=>[s.level,10]},
   {id:'friend5',e:'💖',n:'Найкращі друзі',d:'Дружба 5 рівня',g:5,goal:s=>s.friend.lvl>=5,prog:s=>[s.friend.lvl,5]},
-  {id:'gamer',e:'🎮',n:'Гравець',d:'Зіграй в усі 5 ігор',g:3,goal:s=>Object.keys(s.tot.played).length>=5,prog:s=>[Object.keys(s.tot.played).length,5]},
+  {id:'gamer',e:'🎮',n:'Гравець',d:'Зіграй у 5 різних ігор',g:3,goal:s=>Object.keys(s.tot.played).length>=5,prog:s=>[Object.keys(s.tot.played).length,5]},
+  {id:'allgames',e:'🕹️',n:'Майстер ігор',d:'Зіграй у всі 15 ігор',g:8,goal:s=>Object.keys(s.tot.played).length>=15,prog:s=>[Object.keys(s.tot.played).length,15]},
   {id:'rich',e:'💰',n:'Багатій',d:'Заробити 2000 монет',g:5,goal:s=>s.tot.coinsEarned>=2000,prog:s=>[Math.min(s.tot.coinsEarned,2000),2000]},
   {id:'hats5',e:'🎩',n:'Колекціонер',d:'Зібрати 5 капелюхів',g:4,goal:s=>s.ownHats.length>=5,prog:s=>[s.ownHats.length,5]},
   {id:'hats10',e:'👑',n:'Модник',d:'Зібрати 10 капелюхів',g:8,goal:s=>s.ownHats.length>=10,prog:s=>[s.ownHats.length,10]},
@@ -507,7 +518,7 @@ let S={
   friend:{lvl:1,xp:0},
   hunger:90, thirst:90, energy:90, hygiene:90, health:100,
   ownFurs:[...FREE_FUR], ownHats:['none'], ownOutfits:['none'], ownRooms:['living','kitchen','bath'],
-  best:{dash:0,jump:0,match:0,escape:0},
+  best:{dash:0,jump:0,match:0,escape:0,stack:0,fishing:0,shooter:0,maze:0,raid:0,racing:0,balloon:0,miner:0,memory:0,builder:0},
   factory:{p:[1,0,0], stored:0, lastTick:now()},
   daily:{streak:0, last:0},
   achDone:[],
@@ -1142,7 +1153,464 @@ function FACT_escape(){
   function die(){ alive=false; endGame('🐱','Спіймали!'); }
 }
 
-const FACT={dash:FACT_dash,jump:FACT_jump,match:FACT_match,escape:FACT_escape};
+/* ───────── GAME 6: CHEESE STACK ───────── */
+function FACT_stack(){
+  let blocks=[],mover={x:0,w:0,v:0},tower=[],level=0,over=false,phase='move';
+  const BH=28,maxW=mgW*0.7,BW0=maxW;
+  function reset(){
+    blocks=[]; tower=[]; level=0; over=false;
+    mover={x:0,w:BW0,v:80};
+    tower.push({x:(mgW-BW0)/2,w:BW0,y:mgH-BH-10});
+    phase='move';
+  }
+  reset();
+  $('#mgHint').textContent='Тапай, щоб скинути блок';
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over)return;
+      if(phase!=='move')return;
+      const top=tower[tower.length-1];
+      const ox=Math.max(mover.x,top.x), ox2=Math.min(mover.x+mover.w,top.x+top.w);
+      const overlap=ox2-ox;
+      if(overlap<=4){ over=true; endGame('🏗️','Впало!'); return; }
+      tower.push({x:ox,w:overlap,y:top.y-BH});
+      mgScore=tower.length-1; mgCoins=Math.floor(mgScore/3); updMg();
+      mover={x:0,w:Math.min(overlap*0.97,maxW),v:(80+level*6)*(Math.random()<0.5?1:-1)};
+      level++;
+    },
+    update(dt){ if(over)return;
+      mover.x+=mover.v*dt;
+      if(mover.x<0){mover.x=0;mover.v*=-1;}
+      if(mover.x+mover.w>mgW){mover.x=mgW-mover.w;mover.v*=-1;}
+    },
+    draw(){ mgBg('#1a3a5c','#0d1e30');
+      const colors=['#ffd23f','#ff9f1c','#ff6b6b','#46d6a0','#56c1ff','#a98bff'];
+      tower.forEach((b,i)=>{ gx.fillStyle=colors[i%colors.length]; rr(b.x,b.y,b.w,BH,6); gx.fill();
+        gx.fillStyle='rgba(255,255,255,.25)'; rr(b.x,b.y,b.w,8,6); gx.fill(); });
+      if(!over){ gx.fillStyle='#ffcf3f'; rr(mover.x,tower[tower.length-1].y-BH*2,mover.w,BH,6); gx.fill();
+        gx.fillStyle='rgba(255,255,255,.25)'; rr(mover.x,tower[tower.length-1].y-BH*2,mover.w,8,6); gx.fill(); }
+      gx.fillStyle='#fff'; gx.font='bold 26px sans-serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(mgScore,mgW/2,36);
+    }
+  };
+}
+
+/* ───────── GAME 7: MOUSE FISHING ───────── */
+function FACT_fishing(){
+  let phase='wait',hookY=0,lineX=mgW/2,fishes=[],reelFill=0,reelMax=100,reelTimeout=0,caught=null,round=0,score=0,floatAnim=0;
+  const waterY=mgH*0.45,hookSpd=320;
+  function spawnFish(){ fishes=[]; const n=2+Math.floor(round/3);
+    for(let i=0;i<n;i++) fishes.push({x:rnd(40,mgW-40),y:waterY+rnd(40,mgH*0.38),vx:rnd(30,60)*(Math.random()<.5?1:-1),e:Math.random()<0.6?'🧀':'🐟',val:Math.random()<0.6?3:1}); }
+  spawnFish();
+  $('#mgHint').textContent='Тапни щоб закинути вудку · потім тапай швидко!';
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown')return;
+      if(phase==='wait'){ phase='cast'; hookY=waterY-10; lineX=x; }
+      else if(phase==='reel'){ reelFill=Math.min(reelMax,reelFill+18); }
+    },
+    update(dt){ floatAnim+=dt;
+      if(phase==='cast'){ hookY+=hookSpd*dt; if(hookY>=mgH-40)hookY=mgH-40;
+        for(let i=fishes.length-1;i>=0;i--){ const f=fishes[i];
+          if(Math.hypot(lineX-f.x,hookY-f.y)<22){ caught=f; fishes.splice(i,1); phase='reel'; reelFill=0; reelTimeout=2.8; break; } }
+        if(hookY>=mgH-40 && phase==='cast'){ phase='wait'; hookY=0; }
+      } else if(phase==='reel'){ reelFill=Math.max(0,reelFill-22*dt); reelTimeout-=dt;
+        if(reelFill>=reelMax){ score+=caught.val; mgScore=score*10; mgCoins+=caught.val; updMg(); round++; caught=null; phase='wait'; hookY=0; spawnFish(); }
+        else if(reelTimeout<=0){ caught=null; phase='wait'; hookY=0; }
+      }
+      for(const f of fishes){ f.x+=f.vx*dt; if(f.x<20||f.x>mgW-20)f.vx*=-1; }
+      mgScore=score*10; updMg();
+    },
+    draw(){ gx.fillStyle='#5a3e1a'; gx.fillRect(0,0,mgW,waterY);
+      const wg=gx.createLinearGradient(0,waterY,0,mgH); wg.addColorStop(0,'#1a6fa0'); wg.addColorStop(1,'#0a3050'); gx.fillStyle=wg; gx.fillRect(0,waterY,mgW,mgH-waterY);
+      gx.fillStyle='rgba(255,255,255,.12)'; for(let i=0;i<4;i++){ gx.beginPath(); gx.ellipse(mgW*(0.15+i*0.2)+Math.sin(floatAnim+i)*18,waterY+12,44,9,0,0,Math.PI*2); gx.fill(); }
+      // mouse angler
+      miniMouse(lineX,waterY-55,22);
+      // fishing rod
+      gx.strokeStyle='#8B4513'; gx.lineWidth=3; gx.beginPath(); gx.moveTo(lineX,waterY-45); gx.lineTo(lineX+30,waterY-90); gx.stroke();
+      gx.strokeStyle='rgba(200,200,255,.7)'; gx.lineWidth=1; gx.beginPath(); gx.moveTo(lineX+30,waterY-90);
+      if(phase==='cast'||phase==='reel'){ gx.lineTo(lineX,hookY); } else { gx.lineTo(lineX,waterY); }
+      gx.stroke();
+      if((phase==='cast'||phase==='reel')){ gx.fillStyle='#ff4444'; gx.beginPath(); gx.arc(lineX,hookY,5,0,7); gx.fill(); }
+      if(caught){ gx.font='22px serif'; gx.textAlign='center'; gx.fillText(caught.e,lineX,hookY-14); }
+      gx.font='22px serif'; gx.textAlign='center'; gx.textBaseline='middle';
+      for(const f of fishes) gx.fillText(f.e,f.x,f.y);
+      if(phase==='reel'){
+        const bx=mgW/2-80,by=mgH-55,bw=160,bh=22;
+        gx.fillStyle='rgba(0,0,0,.5)'; rr(bx,by,bw,bh,11); gx.fill();
+        gx.fillStyle=reelFill/reelMax>0.7?'#46d6a0':'#ffcf3f'; rr(bx,by,bw*reelFill/reelMax,bh,11); gx.fill();
+        gx.fillStyle='#fff'; gx.font='bold 12px sans-serif'; gx.fillText('ТЯГНИ!',mgW/2,by+bh/2);
+      }
+      gx.fillStyle='#fff'; gx.font='bold 22px sans-serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('🎣 '+score,mgW/2,38);
+      if(score>=10) setTimeout(()=>endGame('🎣','Чудовий улов!'),50);
+    }
+  };
+}
+
+/* ───────── GAME 8: CHEESE SHOOTER ───────── */
+function FACT_shooter(){
+  let targets=[],time=30,combo=0,comboT=0,shots=0,hits=0;
+  function spawn(){ if(targets.length>=7)return; const bad=Math.random()<0.28;
+    targets.push({x:rnd(36,mgW-36),y:rnd(80,mgH-80),r:bad?22:26,life:rnd(1.8,3.2),bad,e:bad?'🐱':'🧀',sc:bad?-3:1,vx:rnd(-40,40),vy:rnd(-40,40)}); }
+  for(let i=0;i<4;i++)spawn();
+  $('#mgHint').textContent='Тапай 🧀 щоб збирати, уникай 🐱';
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||time<=0)return; shots++;
+      let hit=false;
+      for(let i=targets.length-1;i>=0;i--){ const t=targets[i];
+        if(Math.hypot(x-t.x,y-t.y)<t.r+10){
+          if(t.bad){ combo=0; comboT=0; mgScore=Math.max(0,mgScore+t.sc*Math.max(1,combo)); }
+          else { combo++; comboT=1.5; hits++; const mul=Math.min(combo,8); mgScore+=t.sc*mul; mgCoins=Math.floor(mgScore/12); }
+          targets.splice(i,1); spawn(); updMg(); hit=true; break; } }
+    },
+    update(dt){ time-=dt; if(time<=0){endGame('🎯','Час вийшов!');return;}
+      comboT=Math.max(0,comboT-dt); if(comboT===0&&combo>0)combo=0;
+      for(let i=targets.length-1;i>=0;i--){ const t=targets[i]; t.life-=dt; t.x+=t.vx*dt; t.y+=t.vy*dt;
+        if(t.x<20||t.x>mgW-20)t.vx*=-1; if(t.y<70||t.y>mgH-30)t.vy*=-1;
+        if(t.life<=0){targets.splice(i,1);spawn();} }
+      updMg();
+    },
+    draw(){ mgBg('#2d1044','#150820');
+      gx.strokeStyle='rgba(255,255,255,.04)'; for(let i=0;i<8;i++){gx.beginPath();gx.arc(mgW/2,mgH/2,(i+1)*60,0,7);gx.stroke();}
+      for(const t of targets){ const pulse=Math.sin(Date.now()/300)*3;
+        gx.fillStyle=t.bad?'rgba(255,80,80,.25)':'rgba(255,210,60,.22)'; gx.beginPath(); gx.arc(t.x,t.y,t.r+8+pulse,0,7); gx.fill();
+        gx.fillStyle=t.bad?'rgba(255,100,100,.5)':'rgba(255,220,80,.6)'; gx.beginPath(); gx.arc(t.x,t.y,t.r,0,7); gx.fill();
+        gx.font=`${t.r*1.3}px serif`; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(t.e,t.x,t.y+2); }
+      gx.fillStyle='rgba(0,0,0,.5)'; rr(0,0,mgW,56,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 18px sans-serif'; gx.textAlign='left'; gx.textBaseline='middle'; gx.fillText('⏱ '+Math.ceil(time)+'s',14,30);
+      gx.textAlign='center'; gx.fillText(mgScore,mgW/2,30);
+      if(combo>1){ gx.fillStyle='#ffcf3f'; gx.font='bold 15px sans-serif'; gx.textAlign='right'; gx.fillText('x'+combo+' COMBO!',mgW-12,30); }
+    }
+  };
+}
+
+/* ───────── GAME 9: MAZE RUNNER ───────── */
+function FACT_maze(){
+  const CW=9,CH=11,CS=Math.floor(Math.min(mgW/CW,mgH*0.88/CH));
+  const OX=Math.floor((mgW-CW*CS)/2), OY=Math.floor((mgH-CH*CS)/2)+10;
+  let cells,px,py,keys,keyPos,exit_,cat,steps,found,time,over;
+  function mkMaze(){ cells=[];
+    for(let y=0;y<CH;y++){cells[y]=[];for(let x=0;x<CW;x++)cells[y][x]={n:1,e:1,s:1,w:1,vis:0};}
+    const st=[]; let cx=0,cy=0; cells[0][0].vis=1;
+    const dirs=[[0,-1,'n','s'],[1,0,'e','w'],[0,1,'s','n'],[-1,0,'w','e']];
+    st.push([0,0]);
+    while(st.length){ const [cx2,cy2]=st[st.length-1]; const nb=dirs.filter(([dx,dy])=>{const nx=cx2+dx,ny=cy2+dy;return nx>=0&&ny>=0&&nx<CW&&ny<CH&&!cells[ny][nx].vis;});
+      if(!nb.length){st.pop();continue;} const [dx,dy,d,od]=nb[Math.floor(Math.random()*nb.length)]; const nx=cx2+dx,ny=cy2+dy;
+      cells[cy2][cx2][d]=0; cells[ny][nx][od]=0; cells[ny][nx].vis=1; st.push([nx,ny]); } }
+  function reset(){ mkMaze(); px=0; py=0; exit_={x:CW-1,y:CH-1}; keys=0; found=0; time=60; over=false; steps=0;
+    const kp=[[ri(1,CW-1),ri(1,CH/2-1)],[ri(0,CW-2),ri(CH/2,CH-2)],[ri(CW/2,CW-1),ri(1,CH/2)]];
+    keyPos=kp; cat={x:ri(CW/2,CW-1),y:ri(CH/2,CH-1),timer:0}; }
+  reset();
+  $('#mgHint').textContent='Свайп або стрілки • 3 ключі 🗝️ → вихід 🚪';
+  let dragX=0,dragY=0;
+  function tryMove(dx,dy){ if(over)return;
+    const cell=cells[py][px];
+    if(dx===1&&cell.e)return; if(dx===-1&&cell.w)return; if(dy===1&&cell.s)return; if(dy===-1&&cell.n)return;
+    px+=dx; py+=dy; steps++;
+    for(let i=keyPos.length-1;i>=0;i--){ if(keyPos[i][0]===px&&keyPos[i][1]===py){keyPos.splice(i,1);keys++;toast('🗝️ Ключ '+keys+'/3!');} }
+    if(keys>=3&&px===exit_.x&&py===exit_.y){ const bonus=Math.max(0,Math.floor(time))*2; mgScore=bonus+steps>5?100:80; mgCoins=6+Math.floor(keys); updMg(); endGame('🌀','Вирвався!'); over=true; } }
+  return {
+    onPointer(x,y,type){ if(type==='pointerdown'){dragX=x;dragY=y;} else if(type==='pointerup'){const dx=x-dragX,dy=y-dragY;if(Math.max(Math.abs(dx),Math.abs(dy))<12)return; if(Math.abs(dx)>Math.abs(dy)){tryMove(dx>0?1:-1,0);}else{tryMove(0,dy>0?1:-1);}} },
+    update(dt){ if(over)return; time-=dt; if(time<=0){endGame('🌀','Час вийшов!');over=true;return;}
+      cat.timer-=dt; if(cat.timer<=0){ cat.timer=0.7;
+        const dx=px-cat.x,dy=py-cat.y; const cc=cells[cat.y][cat.x];
+        const opts=[];
+        if(dx>0&&!cc.e)opts.push([1,0]); if(dx<0&&!cc.w)opts.push([-1,0]);
+        if(dy>0&&!cc.s)opts.push([0,1]); if(dy<0&&!cc.n)opts.push([0,-1]);
+        if(!opts.length){if(!cc.e)opts.push([1,0]);if(!cc.w)opts.push([-1,0]);if(!cc.s)opts.push([0,1]);if(!cc.n)opts.push([0,-1]);}
+        if(opts.length){const[mx,my]=opts[Math.floor(Math.random()*opts.length)];cat.x+=mx;cat.y+=my;}
+        if(cat.x===px&&cat.y===py&&!over){endGame('🐱','Зловили!');over=true;} }
+      mgScore=steps*2+keys*30; updMg();
+    },
+    draw(){ gx.fillStyle='#1c1228'; gx.fillRect(0,0,mgW,mgH);
+      for(let y=0;y<CH;y++) for(let x=0;x<CW;x++){
+        const c=cells[y][x]; const rx2=OX+x*CS,ry=OY+y*CS;
+        gx.fillStyle='#2a1e38'; gx.fillRect(rx2+1,ry+1,CS-2,CS-2);
+        gx.strokeStyle='#7a50b0'; gx.lineWidth=2;
+        if(c.n){gx.beginPath();gx.moveTo(rx2,ry);gx.lineTo(rx2+CS,ry);gx.stroke();}
+        if(c.s){gx.beginPath();gx.moveTo(rx2,ry+CS);gx.lineTo(rx2+CS,ry+CS);gx.stroke();}
+        if(c.w){gx.beginPath();gx.moveTo(rx2,ry);gx.lineTo(rx2,ry+CS);gx.stroke();}
+        if(c.e){gx.beginPath();gx.moveTo(rx2+CS,ry);gx.lineTo(rx2+CS,ry+CS);gx.stroke();} }
+      gx.font=`${CS*0.7}px serif`; gx.textAlign='center'; gx.textBaseline='middle';
+      keyPos.forEach(([kx,ky])=>gx.fillText('🗝️',OX+kx*CS+CS/2,OY+ky*CS+CS/2));
+      if(keys>=3){ gx.fillText('🚪',OX+exit_.x*CS+CS/2,OY+exit_.y*CS+CS/2); } else { gx.globalAlpha=0.3; gx.fillText('🚪',OX+exit_.x*CS+CS/2,OY+exit_.y*CS+CS/2); gx.globalAlpha=1; }
+      gx.fillText('🐱',OX+cat.x*CS+CS/2,OY+cat.y*CS+CS/2);
+      miniMouse(OX+px*CS+CS/2,OY+py*CS+CS/2,CS*0.32);
+      gx.fillStyle='rgba(0,0,0,.5)'; rr(0,0,mgW,50,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 15px sans-serif'; gx.textAlign='left'; gx.textBaseline='middle'; gx.fillText('⏱ '+Math.ceil(time)+'s',12,28);
+      gx.textAlign='right'; gx.fillText('🗝️'+keys+'/3',mgW-12,28);
+    }
+  };
+}
+
+/* ───────── GAME 10: KITCHEN RAID ───────── */
+function FACT_raid(){
+  const GW=7,GH=9,CS2=Math.min(Math.floor(mgW/GW),Math.floor(mgH*0.82/GH));
+  const OX2=Math.floor((mgW-GW*CS2)/2),OY2=30;
+  let px,py,guards,cheeses,collected,total,over,time2;
+  function reset(){ px=0; py=GH-1; collected=0; total=5; over=false; time2=45;
+    cheeses=[];
+    while(cheeses.length<total){ const cx=ri(2,GW-1),cy=ri(0,GH-3); if(!cheeses.some(c=>c.x===cx&&c.y===cy))cheeses.push({x:cx,y:cy,got:false}); }
+    guards=[
+      {x:GW-1,y:0,dx:0,dy:1,angle:Math.PI*0.75,rotSpd:0.8,fov:0.9,dist:4},
+      {x:GW-1,y:GH-1,dx:0,dy:-1,angle:Math.PI*1.3,rotSpd:0.7,fov:0.85,dist:3.5},
+    ]; }
+  reset();
+  let lastTapX=0,lastTapY=0;
+  $('#mgHint').textContent='Тапни клітинку щоб перейти • уникай погляду 👁️';
+  function inSight(gd,tx,ty){ const dx=tx-gd.x,dy=ty-gd.y,dist2=Math.hypot(dx,dy);
+    if(dist2>gd.dist+0.1)return false;
+    const angle2=Math.atan2(dy,dx); let diff=angle2-gd.angle; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2;
+    return Math.abs(diff)<gd.fov/2; }
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over)return;
+      const gx2=Math.floor((x-OX2)/CS2),gy=Math.floor((y-OY2)/CS2);
+      if(gx2<0||gx2>=GW||gy<0||gy>=GH)return;
+      if(Math.abs(gx2-px)+Math.abs(gy-py)!==1)return;
+      px=gx2; py=gy;
+      for(let i=cheeses.length-1;i>=0;i--){ if(cheeses[i].x===px&&cheeses[i].y===py&&!cheeses[i].got){ cheeses[i].got=true; collected++; mgCoins++; if(collected>=total){mgScore=Math.floor(time2)*5+50;updMg();endGame('🥷','Місія виконана!');over=true;} } }
+      if(!over && guards.some(g=>inSight(g,px,py))){mgScore=collected*20;updMg();endGame('🚨','Помічений!');over=true;}
+    },
+    update(dt){ if(over)return; time2-=dt; if(time2<=0){endGame('⏰','Час вийшов!');over=true;return;}
+      for(const g of guards){ g.angle+=g.rotSpd*dt; if(inSight(g,px,py)){mgScore=collected*20;updMg();endGame('🚨','Помічений!');over=true;return;} }
+      mgScore=collected*20; updMg();
+    },
+    draw(){ gx.fillStyle='#1a2a1a'; gx.fillRect(0,0,mgW,mgH);
+      for(let y=0;y<GH;y++) for(let x=0;x<GW;x++){
+        gx.fillStyle=(x+y)%2===0?'#2a3a2a':'#223022'; gx.fillRect(OX2+x*CS2,OY2+y*CS2,CS2,CS2); }
+      // guard vision
+      for(const g of guards){ gx.save(); gx.globalAlpha=0.28;
+        gx.fillStyle='#ff4444'; gx.beginPath(); gx.moveTo(OX2+g.x*CS2+CS2/2,OY2+g.y*CS2+CS2/2);
+        gx.arc(OX2+g.x*CS2+CS2/2,OY2+g.y*CS2+CS2/2,g.dist*CS2,g.angle-g.fov/2,g.angle+g.fov/2); gx.closePath(); gx.fill();
+        gx.globalAlpha=1; gx.restore();
+        gx.font=`${CS2*0.7}px serif`; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('👮',OX2+g.x*CS2+CS2/2,OY2+g.y*CS2+CS2/2); }
+      // cheeses
+      gx.font=`${CS2*0.65}px serif`; gx.textAlign='center'; gx.textBaseline='middle';
+      for(const c of cheeses) if(!c.got) gx.fillText('🧀',OX2+c.x*CS2+CS2/2,OY2+c.y*CS2+CS2/2);
+      // player
+      miniMouse(OX2+px*CS2+CS2/2,OY2+py*CS2+CS2/2,CS2*0.32);
+      gx.fillStyle='rgba(0,0,0,.55)'; rr(0,0,mgW,28,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 13px sans-serif'; gx.textAlign='left'; gx.textBaseline='middle'; gx.fillText('⏱ '+Math.ceil(time2)+'s',10,16);
+      gx.textAlign='right'; gx.fillText('🧀 '+collected+'/'+total,mgW-10,16);
+    }
+  };
+}
+
+/* ───────── GAME 11: MOUSE RACING ───────── */
+function FACT_racing(){
+  const LANES=[mgW*0.22,mgW*0.5,mgW*0.78];
+  let laneIdx=1,rivals=[],obs=[],boost=0,boostT=0,dist2=0,spd2=200,t2=0,over2=false;
+  function initRivals(){ rivals=[{lane:0,y:-80,spd:180},{lane:2,y:-40,spd:175}]; }
+  initRivals();
+  $('#mgHint').textContent='Тапни ліво/право щоб змінити ряд | 💨 boost';
+  let tDown=0;
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over2)return;
+      if(x<mgW/3){if(laneIdx>0)laneIdx--;} else if(x>mgW*2/3){if(laneIdx<2)laneIdx++;} else if(boostT<=0){boostT=0.8;boost=1.6;toast('💨 Boost!');} },
+    update(dt){ if(over2)return; t2+=dt;
+      if(boostT>0){boostT-=dt;if(boostT<=0)boost=1;} if(!boost)boost=1;
+      spd2=200+t2*8; dist2+=spd2*boost*dt; mgScore=Math.floor(dist2/20); mgCoins=Math.floor(mgScore/40); updMg();
+      for(const r of rivals){ r.y+=spd2*(0.82+Math.random()*0.05)*dt; if(r.y>mgH+40)r.y=-80-rnd(0,60);
+        if(Math.abs(r.lane-laneIdx)<0.5&&r.y>mgH*0.6&&r.y<mgH*0.85){over2=true;endGame('💥','Зіткнення!');return;} }
+      // obstacles
+      if(Math.random()<dt*1.2){ const l=ri(0,2); if(l!==laneIdx||Math.random()<0.2) obs.push({x:LANES[l],y:-20,e:['🪨','🛢️','🌵'][ri(0,2)]}); }
+      for(let i=obs.length-1;i>=0;i--){ obs[i].y+=spd2*boost*dt;
+        if(obs[i].y>mgH*0.8&&obs[i].y<mgH*0.95&&Math.abs(obs[i].x-LANES[laneIdx])<30){over2=true;endGame('💥','Перешкода!');return;}
+        if(obs[i].y>mgH+20)obs.splice(i,1); }
+    },
+    draw(){ gx.fillStyle='#2a2a2a'; gx.fillRect(0,0,mgW,mgH);
+      // road
+      gx.fillStyle='#3a3a3a'; gx.fillRect(mgW*0.08,0,mgW*0.84,mgH);
+      gx.strokeStyle='rgba(255,255,255,.18)'; gx.lineWidth=4; gx.setLineDash([30,25]);
+      const dashOff=(t2*180)%55;
+      gx.lineDashOffset=-dashOff;
+      [mgW/3,mgW*2/3].forEach(lx=>{gx.beginPath();gx.moveTo(lx,0);gx.lineTo(lx,mgH);gx.stroke();});
+      gx.setLineDash([]);
+      // rivals
+      gx.font='32px serif'; gx.textAlign='center'; gx.textBaseline='middle';
+      for(const r of rivals) gx.fillText('🐭',LANES[r.lane],r.y);
+      for(const o of obs) gx.fillText(o.e,o.x,o.y);
+      // boost pickups
+      if(boostT>0){ gx.fillStyle='rgba(255,220,0,.22)'; gx.fillRect(0,0,mgW,mgH); }
+      // player car
+      miniMouse(LANES[laneIdx],mgH*0.82,26);
+      gx.fillStyle='rgba(0,0,0,.5)'; rr(0,0,mgW,44,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 16px sans-serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('🏎️ '+Math.floor(dist2/20)+' м',mgW/2,24);
+    }
+  };
+}
+
+/* ───────── GAME 12: BALLOON MOUSE ───────── */
+function FACT_balloon(){
+  let by=mgH*0.5,vy3=0,obs3=[],time3=0,alive3=true,score3=0,scrollX=0;
+  const FLOAT_ACCEL=-280,FALL_ACCEL=480,GRAV=90;
+  $('#mgHint').textContent='Тримай — вниз · відпусти — вгору · збирай 🧀';
+  return {
+    onPointer(){},
+    update(dt){ if(!alive3)return; time3+=dt; scrollX+=80*dt;
+      const acc=pDown?FALL_ACCEL:(vy3>0?GRAV:FLOAT_ACCEL);
+      vy3+=acc*dt; by+=vy3*dt;
+      by=clamp(by,40,mgH-40);
+      if(by<=41||by>=mgH-41){ alive3=false; endGame('🎈','Лопнула!'); return; }
+      // spawn obstacles (horizontal pipes from sides)
+      if(Math.random()<dt*1.4 && obs3.length<6){ const side=Math.random()<0.5?-1:1; const gapY=rnd(80,mgH-80);
+        obs3.push({x:mgW+30,gap:gapY,w:18,spd:90+time3*4,side}); }
+      // cheese items
+      if(Math.random()<dt*0.8) obs3.push({x:mgW+20,gap:rnd(60,mgH-60),cheese:true,w:0});
+      for(let i=obs3.length-1;i>=0;i--){ const o=obs3[i]; o.x-=o.spd?o.spd*dt:90*dt;
+        if(o.cheese){ if(Math.hypot(o.x-mgW*0.28,o.gap-by)<24){ score3++; mgScore=score3*15+Math.floor(time3*5); mgCoins=Math.floor(score3/2)+1; updMg(); obs3.splice(i,1); continue; } }
+        else { if(o.x<mgW*0.28+18 && o.x>mgW*0.28-18){ if(by<o.gap-44||by>o.gap+44){alive3=false;endGame('🎈','Лопнула!');return;} } }
+        if(o.x<-40)obs3.splice(i,1); }
+      mgScore=score3*15+Math.floor(time3*5); updMg();
+    },
+    draw(){ const sg=gx.createLinearGradient(0,0,0,mgH); sg.addColorStop(0,'#6aa0e8'); sg.addColorStop(1,'#b8d8ff'); gx.fillStyle=sg; gx.fillRect(0,0,mgW,mgH);
+      // clouds
+      gx.fillStyle='rgba(255,255,255,.7)';
+      for(let i=0;i<4;i++){ const cx3=(scrollX*0.3+i*mgW*0.25+50)%mgW,cy3=50+i*40; gx.beginPath(); gx.arc(cx3,cy3,28,0,7); gx.arc(cx3+24,cy3-8,22,0,7); gx.arc(cx3+48,cy3,28,0,7); gx.fill(); }
+      for(const o of obs3){
+        if(o.cheese){ gx.font='22px serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('🧀',o.x,o.gap); continue; }
+        gx.fillStyle='#5a8a3a'; gx.fillRect(o.x-o.w/2,0,o.w,o.gap-44); gx.fillRect(o.x-o.w/2,o.gap+44,o.w,mgH-(o.gap+44)); }
+      // balloon
+      gx.fillStyle='#ff4466'; gx.beginPath(); gx.ellipse(mgW*0.28,by-28,22,28,0,0,7); gx.fill();
+      gx.fillStyle='rgba(255,255,255,.35)'; gx.beginPath(); gx.ellipse(mgW*0.28-7,by-38,8,13,-.4,0,7); gx.fill();
+      gx.strokeStyle='#8b4513'; gx.lineWidth=2; gx.beginPath(); gx.moveTo(mgW*0.28,by); gx.lineTo(mgW*0.28,by+12); gx.stroke();
+      miniMouse(mgW*0.28,by+28,16);
+      gx.fillStyle='rgba(0,0,0,.4)'; rr(0,0,mgW,42,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 16px sans-serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('🎈 '+mgScore,mgW/2,22);
+    }
+  };
+}
+
+/* ───────── GAME 13: CHEESE MINER ───────── */
+function FACT_miner(){
+  const GW2=8,GH2=10,CS3=Math.min(Math.floor((mgW-20)/GW2),Math.floor((mgH-100)/GH2));
+  const OX3=Math.floor((mgW-GW2*CS3)/2),OY3=60;
+  let grid3,digs,over3,score4;
+  const TILE={empty:0,stone:1,soft:2,cheese:3,golden:4,bomb:5};
+  const EMOJIS={1:'🪨',2:'🟫',3:'🧀',4:'⭐',5:'💣'};
+  function reset(){ digs=50; over3=false; score4=0; grid3=[];
+    for(let y=0;y<GH2;y++){grid3[y]=[];for(let x=0;x<GW2;x++){
+      const r=Math.random(); grid3[y][x]={type:r<0.08?TILE.cheese:r<0.13?TILE.golden:r<0.16?TILE.bomb:r<0.45?TILE.soft:TILE.stone,dug:false};
+    }} }
+  reset();
+  $('#mgHint').textContent='Тапни блок щоб копати · знайди 🧀 та ⭐ (50 ударів)';
+  function hasAdj(x,y){ return(x===0||grid3[y][x-1]?.dug)||(x===GW2-1||grid3[y][x+1]?.dug)||(y===0||grid3[y-1]?.[x]?.dug)||(y===GH2-1||grid3[y+1]?.[x]?.dug); }
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over3||digs<=0)return;
+      const gx2=Math.floor((x-OX3)/CS3),gy=Math.floor((y-OY3)/CS3);
+      if(gx2<0||gx2>=GW2||gy<0||gy>=GH2)return; const cell=grid3[gy][gx2];
+      if(cell.dug)return;
+      if(gy>0&&!hasAdj(gx2,gy)){toast('Копай поруч!');return;}
+      if(cell.type===TILE.stone){digs-=2;}else{digs--;}
+      cell.dug=true;
+      if(cell.type===TILE.cheese){score4+=10;mgScore+=10;mgCoins+=1;updMg();toast('🧀 +10!');}
+      else if(cell.type===TILE.golden){score4+=30;mgScore+=30;mgCoins+=3;updMg();toast('⭐ +30!');}
+      else if(cell.type===TILE.bomb){digs=Math.max(0,digs-8);toast('💣 -8 ударів!');}
+      if(digs<=0){endGame('⛏️','Кайло зламалось!');over3=true;}
+    },
+    update(dt){ if(over3)return; if(digs<=0&&!over3){endGame('⛏️','Готово!');over3=true;} },
+    draw(){ const sg2=gx.createLinearGradient(0,0,0,mgH); sg2.addColorStop(0,'#8B5E3C'); sg2.addColorStop(1,'#3d1f0a'); gx.fillStyle=sg2; gx.fillRect(0,0,mgW,mgH);
+      for(let y=0;y<GH2;y++) for(let x=0;x<GW2;x++){
+        const c=grid3[y][x]; const rx3=OX3+x*CS3,ry2=OY3+y*CS3;
+        if(c.dug){ gx.fillStyle='rgba(0,0,0,.55)'; rr(rx3+2,ry2+2,CS3-4,CS3-4,5); gx.fill(); }
+        else { const col=c.type===TILE.stone?'#6a6060':c.type===TILE.soft?'#a07050':c.type===TILE.cheese?'#8a6020':c.type===TILE.golden?'#8a7020':'#602020';
+          gx.fillStyle=col; rr(rx3+2,ry2+2,CS3-4,CS3-4,5); gx.fill();
+          gx.fillStyle='rgba(255,255,255,.15)'; rr(rx3+2,ry2+2,CS3-4,CS3/3,5); gx.fill();
+          if(c.type>2){ gx.font=`${CS3*0.55}px serif`; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(EMOJIS[c.type],rx3+CS3/2,ry2+CS3/2); } } }
+      gx.fillStyle='rgba(0,0,0,.55)'; rr(0,0,mgW,54,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 15px sans-serif'; gx.textAlign='left'; gx.textBaseline='middle'; gx.fillText('⛏️ '+digs,12,28);
+      gx.textAlign='center'; gx.fillText('🧀 '+mgScore,mgW/2,28);
+    }
+  };
+}
+
+/* ───────── GAME 14: MEMORY CHEESE ───────── */
+function FACT_memory(){
+  const COLS2=4,ROWS2=4,N=8,CS4=Math.min(Math.floor((mgW-24)/COLS2),Math.floor((mgH-90)/(ROWS2)));
+  const OX4=Math.floor((mgW-COLS2*CS4)/2),OY4=70;
+  const ITEMS=['🧀','🍕','🍔','🥨','🍪','🐭','⭐','🎈'];
+  let cards,flip1,flip2,matched,time4,over4,locked4;
+  function reset(){ const deck=[...ITEMS,...ITEMS]; for(let i=deck.length-1;i>0;i--){const j=ri(0,i);[deck[i],deck[j]]=[deck[j],deck[i]];}
+    cards=deck.map((e,i)=>({e,row:Math.floor(i/COLS2),col:i%COLS2,flipped:false,matched:false,flipAnim:0}));
+    flip1=null; flip2=null; matched=0; time4=60; over4=false; locked4=false; }
+  reset();
+  $('#mgHint').textContent='Перевертай карти та знаходь однакові пари';
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over4||locked4)return;
+      const col=Math.floor((x-OX4)/CS4),row=Math.floor((y-OY4)/CS4);
+      if(col<0||col>=COLS2||row<0||row>=ROWS2)return;
+      const card=cards.find(c=>c.col===col&&c.row===row);
+      if(!card||card.flipped||card.matched)return;
+      card.flipped=true; card.flipAnim=0;
+      if(!flip1){flip1=card;}
+      else if(!flip2&&card!==flip1){ flip2=card;
+        if(flip1.e===flip2.e){ flip1.matched=true; flip2.matched=true; flip1=null; flip2=null; matched+=2;
+          mgScore+=10; mgCoins=Math.floor(matched/2); updMg();
+          if(matched>=N*2){endGame('🃏','Всі пари!');over4=true;} }
+        else { locked4=true; setTimeout(()=>{ flip1.flipped=false; flip2.flipped=false; flip1=null; flip2=null; locked4=false; },800); } }
+    },
+    update(dt){ if(over4)return; time4-=dt; if(time4<=0){endGame('🃏','Час вийшов!');over4=true;return;}
+      for(const c of cards){ if(c.flipped||c.matched)c.flipAnim=Math.min(1,c.flipAnim+dt*5); else c.flipAnim=Math.max(0,c.flipAnim-dt*5); }
+    },
+    draw(){ mgBg('#1e3a5f','#0d1e30');
+      gx.fillStyle='rgba(0,0,0,.4)'; rr(0,0,mgW,54,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 16px sans-serif'; gx.textAlign='left'; gx.textBaseline='middle'; gx.fillText('⏱ '+Math.ceil(time4)+'s',12,28);
+      gx.textAlign='right'; gx.fillText('✅ '+matched/2+'/'+N,mgW-12,28);
+      for(const c of cards){ const x=OX4+c.col*CS4,y=OY4+c.row*CS4,w=CS4-6,h=CS4-6;
+        const prog=c.flipAnim; const scaleX=Math.abs(prog*2-1);
+        gx.save(); gx.translate(x+w/2,y+h/2); gx.scale(scaleX,1);
+        if(prog<0.5){ gx.fillStyle=c.matched?'#1a4a1a':'#1a3a6f'; rr(-w/2,-h/2,w,h,10); gx.fill();
+          gx.fillStyle='rgba(255,255,255,.15)'; rr(-w/2,-h/2,w,h/3,10); gx.fill();
+          gx.font='18px serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('❓',0,2); }
+        else { gx.fillStyle=c.matched?'#2a7a2a':'#2a5fa0'; rr(-w/2,-h/2,w,h,10); gx.fill();
+          gx.fillStyle='rgba(255,255,255,.2)'; rr(-w/2,-h/2,w,h/3,10); gx.fill();
+          gx.font=`${CS4*0.5}px serif`; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(c.e,0,2); }
+        gx.restore(); }
+    }
+  };
+}
+
+/* ───────── GAME 15: MOUSE BUILDER ───────── */
+function FACT_builder(){
+  const ITEMS2=[{e:'🛋️',n:'Диван'},{e:'🪴',n:'Квітка'},{e:'📺',n:'Телевізор'},{e:'🛏️',n:'Ліжко'},{e:'🪑',n:'Стілець'},{e:'🍽️',n:'Стіл'}];
+  const SLOTS2=[{x:0.18,y:0.55},{x:0.5,y:0.55},{x:0.82,y:0.55},{x:0.18,y:0.8},{x:0.5,y:0.8},{x:0.82,y:0.8}];
+  let placed,selItem,over5,hint5;
+  function reset(){ placed=new Array(6).fill(null); selItem=null; over5=false; hint5='Оберіть меблі внизу!'; }
+  reset();
+  $('#mgHint').textContent='Оберіть меблі · потім тапни місце у кімнаті';
+  return {
+    onPointer(x,y,type){ if(type!=='pointerdown'||over5)return;
+      // bottom item bar click
+      if(y>mgH*0.85){ const idx=Math.floor((x/mgW)*ITEMS2.length); if(idx>=0&&idx<ITEMS2.length&&!placed.includes(idx)){selItem=idx;hint5='Постав '+ITEMS2[idx].n+' у кімнату';} return; }
+      // slot click
+      if(selItem===null){hint5='Спочатку оберіть меблі внизу!';return;}
+      for(let i=0;i<SLOTS2.length;i++){ const s=SLOTS2[i]; const sx=s.x*mgW,sy=s.y*mgH;
+        if(Math.hypot(x-sx,y-sy)<36){ placed[i]=selItem; selItem=null; hint5='Молодець! '+placed.filter(p=>p!==null).length+'/6 розставлено';
+          mgScore=placed.filter(p=>p!==null).length*15; mgCoins=Math.floor(mgScore/15); updMg();
+          if(placed.every(p=>p!==null)){endGame('🏠','Дім прибрано!');over5=true;} return; } }
+    },
+    update(dt){},
+    draw(){ const rg=gx.createLinearGradient(0,0,0,mgH*0.85); rg.addColorStop(0,'#ffd9a3'); rg.addColorStop(1,'#f0b870'); gx.fillStyle=rg; gx.fillRect(0,0,mgW,mgH*0.85);
+      gx.fillStyle='#c88040'; gx.fillRect(0,mgH*0.72,mgW,mgH*0.13);
+      gx.fillStyle='#b06830'; gx.fillRect(0,mgH*0.72,mgW,6);
+      // slots
+      for(let i=0;i<SLOTS2.length;i++){ const s=SLOTS2[i],sx=s.x*mgW,sy=s.y*mgH;
+        gx.fillStyle=placed[i]!==null?'rgba(80,200,80,.2)':'rgba(255,255,255,.35)'; gx.beginPath(); gx.arc(sx,sy,34,0,7); gx.fill();
+        gx.strokeStyle='rgba(255,255,255,.7)'; gx.lineWidth=2; gx.beginPath(); gx.arc(sx,sy,34,0,7); gx.stroke();
+        if(placed[i]!==null){ gx.font='32px serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(ITEMS2[placed[i]].e,sx,sy); }
+        else { gx.fillStyle='rgba(255,255,255,.4)'; gx.font='22px serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText('✚',sx,sy); } }
+      // bottom bar
+      gx.fillStyle='#3a2a18'; gx.fillRect(0,mgH*0.85,mgW,mgH*0.15);
+      const bw=mgW/ITEMS2.length;
+      ITEMS2.forEach((it,i)=>{ const bx=i*bw,by=mgH*0.85,used=placed.includes(i);
+        gx.fillStyle=selItem===i?'rgba(255,210,60,.35)':(used?'rgba(80,200,80,.18)':'rgba(255,255,255,.08)'); gx.fillRect(bx,by,bw-2,mgH*0.15);
+        gx.font='26px serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.globalAlpha=used?0.35:1; gx.fillText(it.e,bx+bw/2,by+mgH*0.075); gx.globalAlpha=1;
+        if(selItem===i){ gx.strokeStyle='#ffd23f'; gx.lineWidth=3; gx.strokeRect(bx,by,bw-2,mgH*0.15); } });
+      // hint
+      gx.fillStyle='rgba(0,0,0,.5)'; rr(0,0,mgW,46,0); gx.fill();
+      gx.fillStyle='#fff'; gx.font='bold 13px sans-serif'; gx.textAlign='center'; gx.textBaseline='middle'; gx.fillText(hint5,mgW/2,24);
+    }
+  };
+}
+
+const FACT={dash:FACT_dash,jump:FACT_jump,match:FACT_match,escape:FACT_escape,stack:FACT_stack,fishing:FACT_fishing,shooter:FACT_shooter,maze:FACT_maze,raid:FACT_raid,racing:FACT_racing,balloon:FACT_balloon,miner:FACT_miner,memory:FACT_memory,builder:FACT_builder};
 
 /* ════════════════════════════════════════════════════════════════
    FACTORY (idle overlay)
