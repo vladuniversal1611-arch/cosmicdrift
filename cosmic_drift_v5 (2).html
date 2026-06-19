@@ -165,6 +165,9 @@ canvas{display:block;border-radius:20px}
 .set-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:rgba(60,90,200,.25);outline:none}
 .set-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#4488ff;box-shadow:0 0 8px #2255ff;cursor:pointer}
 .set-slider::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#4488ff;box-shadow:0 0 8px #2255ff;cursor:pointer}
+.spd-btn{flex:1;padding:9px 0;border-radius:8px;font-size:11px;font-weight:700;font-family:'Courier New',monospace;cursor:pointer;border:1px solid rgba(70,100,190,.55);background:rgba(14,22,55,.9);color:#9db4e6;transition:all .12s}
+.spd-btn.sel{background:linear-gradient(135deg,#0a1a70,#1030c0);border-color:rgba(90,140,255,.75);color:#dfeaff;box-shadow:0 0 12px rgba(40,90,255,.35)}
+.spd-btn:active{transform:scale(.96)}
 /* weapon HUD */
 #weaponRow{position:absolute;bottom:58px;left:50%;transform:translateX(-50%);display:none;gap:7px;z-index:11;pointer-events:none}
 #weaponRow.on{display:flex}
@@ -266,6 +269,7 @@ canvas{display:block;border-radius:20px}
     <div class="p-section">Settings</div>
     <div class="set-row"><span class="set-lbl">🔊 SFX</span><input type="range" id="sfxSlider" class="set-slider" min="0" max="100"></div>
     <div class="set-row"><span class="set-lbl">🎵 Music</span><input type="range" id="musSlider" class="set-slider" min="0" max="100"></div>
+    <div class="set-row"><span class="set-lbl">⏩ Speed</span><div style="flex:1;display:flex;gap:6px"><button class="spd-btn" data-s="1">1×</button><button class="spd-btn" data-s="1.3">1.3×</button><button class="spd-btn" data-s="1.6">1.6×</button></div></div>
     <button class="p-btn quit" id="shakeBtn" style="margin-top:-4px">📳 SCREEN SHAKE: ON</button>
     <button class="p-btn quit" id="quitBtn">✕ QUIT TO MENU</button>
   </div>
@@ -404,6 +408,7 @@ let AC=null,sfxBus=null,musicBus=null;
 let sfxVol=localStorage.getItem('cd5sfx')!==null?+localStorage.getItem('cd5sfx'):.8;
 let musicVol=localStorage.getItem('cd5mus')!==null?+localStorage.getItem('cd5mus'):.6;
 let shakeEnabled=localStorage.getItem('cd5shake')!=='0';
+let gameSpeed=+localStorage.getItem('cd5spd')||1;
 function getAC(){
   if(!AC){try{
     AC=new(window.AudioContext||window.webkitAudioContext)();
@@ -2051,7 +2056,7 @@ function openPause(){
   applyDiffButtons();
   document.getElementById('sfxSlider').value=Math.round(sfxVol*100);
   document.getElementById('musSlider').value=Math.round(musicVol*100);
-  updateShakeBtn();
+  updateShakeBtn();applySpeedButtons();
   document.getElementById('pauseOv').className='on';
 }
 function closePause(){
@@ -2096,6 +2101,12 @@ _musSlider.addEventListener('input',e=>{
   if(musicOn&&(st==='playing'||st==='shop')&&!musicInterval)startMusic();
 });
 function updateShakeBtn(){document.getElementById('shakeBtn').textContent='📳 SCREEN SHAKE: '+(shakeEnabled?'ON':'OFF');}
+function applySpeedButtons(){document.querySelectorAll('.spd-btn').forEach(b=>b.classList.toggle('sel',Math.abs(+b.dataset.s-gameSpeed)<0.01));}
+document.querySelectorAll('.spd-btn').forEach(b=>{
+  const h=()=>{gameSpeed=+b.dataset.s;localStorage.setItem('cd5spd',gameSpeed);applySpeedButtons();};
+  b.addEventListener('click',h);
+  b.addEventListener('touchend',e=>{e.preventDefault();h();});
+});
 document.getElementById('shakeBtn').addEventListener('click',()=>{shakeEnabled=!shakeEnabled;localStorage.setItem('cd5shake',shakeEnabled?'1':'0');updateShakeBtn();});
 document.getElementById('shakeBtn').addEventListener('touchend',e=>{e.preventDefault();shakeEnabled=!shakeEnabled;localStorage.setItem('cd5shake',shakeEnabled?'1':'0');updateShakeBtn();});
 document.getElementById('quitBtn').addEventListener('click',quitToMenu);
@@ -2135,7 +2146,7 @@ document.getElementById('contBtn').addEventListener('touchend',e=>{e.preventDefa
 const SIM_STEP=1000/60;
 let _lastT=performance.now(),_acc=0;
 function loop(now){
-  _acc+=Math.min(now-_lastT,250); // clamp to avoid spiral-of-death after pauses
+  _acc+=Math.min(now-_lastT,250)*gameSpeed; // clamp to avoid spiral-of-death; scale by chosen game speed
   _lastT=now;
   let steps=0;
   while(_acc>=SIM_STEP&&steps<6){update();_acc-=SIM_STEP;steps++;}
