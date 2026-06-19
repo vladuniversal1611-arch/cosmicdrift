@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#120a28">
+<meta name="description" content="Dragon Merge Blast — сучасна гра 3-в-ряд з драконами, які допомагають у бою.">
+<title>Dragon Merge Blast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+/* ============================================================
+   Dragon Merge Blast — premium UI styling, portrait-first.
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --gold: #ffd24d; --gem: #79e0ff; --energy: #b48bff;
+  --ink: #efe7ff; --muted: #b3a9d8;
+  --panel: rgba(18, 12, 40, 0.78);
+  --panel2: rgba(30, 20, 60, 0.7);
+  --accent: #ff7a59; --accent2: #ffd24d;
+  --ok: #5fe39a;
+}
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0618;
+  font-family: 'Baloo 2', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--ink); user-select: none; touch-action: none;
+  display: flex; justify-content: center; align-items: center;
+}
+#app {
+  position: relative; width: 100vw; height: 100vh;
+  max-width: 480px; max-height: 100vh;
+  overflow: hidden; background: #120a28;
+  box-shadow: 0 0 80px rgba(120, 60, 255, 0.15);
+}
+@media (min-aspect-ratio: 1/1) {
+  #app { max-width: 56vh; border-radius: 18px; height: 96vh; }
+}
+canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
+
+.hidden { display: none !important; }
+
+/* ---- Screens ---- */
+.screen {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 0 0 76px;
+  -webkit-overflow-scrolling: touch;
+}
+.screen::-webkit-scrollbar { width: 0; }
+#screen-game { background: transparent; z-index: 6; padding: 0; overflow: hidden; }
+
+/* ---- Currency bar ---- */
+.currency-bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; gap: 8px; justify-content: center;
+  padding: 12px; backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(10,6,24,0.85), rgba(10,6,24,0));
+}
+.cur {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 6px 14px; font-weight: 800; font-size: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.cur-ic { font-size: 16px; }
+
+/* ---- Titles ---- */
+.home-title { text-align: center; padding: 8px 16px; }
+.home-title h1 {
+  font-size: 30px; font-weight: 900; letter-spacing: 0.5px;
+  background: linear-gradient(90deg, #ff7a59, #ffd24d, #ff7a59);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 2px 18px rgba(255,160,80,0.25);
+}
+.home-title p { color: var(--muted); font-weight: 700; margin-top: 2px; }
+.section-h { font-size: 16px; font-weight: 800; padding: 14px 18px 6px; color: var(--ink); }
+.section-h.center { text-align: center; }
+
+/* ---- Island scene ---- */
+.island-scene {
+  position: relative; height: 150px; margin: 6px 14px;
+  border-radius: 22px; overflow: hidden;
+  background: radial-gradient(circle at 50% 120%, rgba(255,210,120,0.25), transparent 60%),
+              linear-gradient(180deg, rgba(120,80,200,0.18), rgba(40,20,80,0.35));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.island-sun {
+  position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, #ffe6a0, #ff9d4d);
+  filter: blur(2px); opacity: 0.7;
+}
+.isle-dragon { position: absolute; font-size: 34px; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-10px) } }
+
+/* ---- Eggs ---- */
+.eggs-wrap { padding: 0 12px; }
+.egg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.egg-card {
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 12px; text-align: center;
+}
+.egg-emoji { font-size: 36px; animation: float 2.6s ease-in-out infinite; }
+.egg-name { font-size: 12px; font-weight: 800; margin: 4px 0; color: var(--muted); }
+.egg-pct { font-size: 11px; color: var(--muted); margin: 6px 0; }
+
+/* ---- Bars ---- */
+.bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; margin: 4px 0; }
+.bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+
+/* ---- Buttons ---- */
+.btn {
+  border: none; border-radius: 14px; font-family: inherit;
+  font-weight: 800; font-size: 15px; color: #1a0e2e;
+  padding: 12px 18px; cursor: pointer; transition: transform 0.08s, filter 0.15s;
+}
+.btn:active { transform: scale(0.95); }
+.btn-primary { background: linear-gradient(180deg, #ffd56b, #ff9d3d); color: #3a1e00; box-shadow: 0 5px 0 #c46a16, 0 8px 16px rgba(0,0,0,0.3); }
+.btn-primary:active { box-shadow: 0 2px 0 #c46a16; transform: translateY(3px) scale(0.98); }
+.btn-buy { background: linear-gradient(180deg, #7be0ff, #3aa6ff); color: #042038; box-shadow: 0 5px 0 #1c6fb0; }
+.btn-buy:active { box-shadow: 0 2px 0 #1c6fb0; transform: translateY(3px); }
+.btn-ghost { background: rgba(255,255,255,0.1); color: var(--ink); border: 1px solid rgba(255,255,255,0.15); }
+.btn-mini { padding: 8px 14px; font-size: 13px; border-radius: 12px; }
+.btn-big { width: 100%; padding: 16px; font-size: 18px; }
+
+.home-actions { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.home-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.btn-tile {
+  background: var(--panel); color: var(--ink); border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; padding: 10px 4px; border-radius: 14px;
+}
+.btn-tile span { font-size: 22px; }
+
+/* ---- Nav bar ---- */
+.nav-bar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 30;
+  display: flex; justify-content: space-around;
+  background: rgba(12, 7, 28, 0.92); backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,0.08); padding: 6px 4px 8px;
+}
+.nav-btn {
+  background: none; border: none; color: var(--muted); font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 10px; font-weight: 700; padding: 4px 10px; cursor: pointer; border-radius: 12px;
+}
+.nav-ic { font-size: 22px; }
+.nav-btn.active { color: var(--gold); background: rgba(255,210,77,0.12); }
+
+/* ---- Level map ---- */
+.map-scroll { padding: 0 12px; }
+.island-block { border-radius: 20px; padding: 12px; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.08); }
+.island-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; margin-bottom: 10px; }
+.lock { font-size: 11px; color: var(--muted); }
+.level-nodes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.lv-node {
+  aspect-ratio: 1; border-radius: 14px; border: none; cursor: pointer;
+  background: linear-gradient(180deg, #6a4ec0, #3a2680);
+  color: #fff; font-weight: 900; font-size: 16px; font-family: inherit;
+  position: relative; box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+}
+.lv-node.current { box-shadow: 0 0 0 3px var(--gold), 0 3px 8px rgba(0,0,0,0.4); animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{ transform: scale(1) } 50%{ transform: scale(1.06) } }
+.lv-node.locked { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); box-shadow: none; }
+.lv-node.boss { background: linear-gradient(180deg, #ff6a3d, #b3002d); font-size: 22px; }
+.lv-stars { position: absolute; bottom: -6px; font-size: 9px; color: var(--gold); text-shadow: 0 1px 2px #000; }
+
+/* ---- Collection ---- */
+.dragon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 12px; }
+.dragon-card {
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px; padding: 14px 10px; text-align: center; position: relative; cursor: pointer;
+}
+.dragon-card.locked { opacity: 0.55; cursor: default; }
+.dc-emoji { font-size: 48px; animation: float 3s ease-in-out infinite; }
+.dc-name { font-size: 16px; font-weight: 900; margin-top: 4px; }
+.dc-title { font-size: 11px; color: var(--muted); }
+.dc-lvl { font-size: 12px; font-weight: 700; color: var(--gold); margin: 4px 0; }
+.dc-desc { font-size: 10px; color: var(--muted); line-height: 1.3; }
+.rar { position: absolute; top: 8px; right: 8px; font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; }
+.rar-common { background: #4a6; color: #032; }
+.rar-rare { background: #4af; color: #024; }
+.rar-epic { background: #c5f; color: #213; }
+
+/* ---- Shop ---- */
+.shop-card {
+  display: flex; align-items: center; gap: 12px; margin: 8px 12px;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 12px 14px;
+}
+.shop-card.highlight { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,210,77,0.2); }
+.shop-ic { font-size: 30px; }
+.shop-info { flex: 1; display: flex; flex-direction: column; }
+.shop-info b { font-size: 15px; }
+.shop-info span { font-size: 11px; color: var(--muted); }
+
+/* ---- Battle pass ---- */
+.pass-head { margin: 8px 14px; background: var(--panel); border-radius: 16px; padding: 14px; }
+.premium-badge { margin-top: 8px; text-align: center; font-weight: 900; color: var(--gold); }
+.pass-track { padding: 0 12px; }
+.pass-row { display: grid; grid-template-columns: 36px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 8px; opacity: 0.5; }
+.pass-row.unlocked { opacity: 1; }
+.pass-tier { width: 36px; height: 36px; border-radius: 50%; background: var(--panel2); display: flex; align-items: center; justify-content: center; font-weight: 900; }
+.pass-reward { background: var(--panel); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 13px; cursor: pointer; }
+.pass-reward.premium { border-color: rgba(255,210,77,0.4); }
+.pass-reward.claimed { opacity: 0.4; }
+.pass-reward.locked { opacity: 0.5; cursor: default; }
+
+/* ---- Game HUD ---- */
+.game-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+}
+.btn-back, .btn-pause {
+  width: 40px; height: 40px; border-radius: 12px; border: none;
+  background: var(--panel); color: var(--ink); font-size: 22px; font-weight: 900; cursor: pointer;
+}
+.lvl-name { font-weight: 800; font-size: 15px; }
+.hud { position: absolute; top: 56px; left: 0; right: 0; z-index: 10; padding: 0 14px; }
+.hud-stats { display: flex; gap: 10px; }
+.hud-pill { flex: 1; background: var(--panel); border-radius: 14px; padding: 8px 12px; text-align: center; }
+.hp-l { font-size: 9px; letter-spacing: 2px; color: var(--muted); }
+.hp-v { font-size: 22px; font-weight: 900; }
+.hp-v.low { color: #ff6a6a; }
+.hud-obj { margin-top: 8px; background: var(--panel); border-radius: 14px; padding: 8px 12px; }
+.obj-top { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+
+.dragon-bars { position: absolute; bottom: 14px; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; padding: 0 14px; }
+.dragon-bar { display: flex; align-items: center; gap: 6px; background: var(--panel); border-radius: 20px; padding: 5px 10px 5px 6px; flex: 1; max-width: 130px; }
+.dragon-bar.flash { animation: dflash 0.6s; }
+@keyframes dflash { 0%,100%{ box-shadow: none } 50%{ box-shadow: 0 0 18px var(--gold) } }
+.db-emoji { font-size: 24px; }
+.db-track { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
+.db-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+.combo-pop {
+  position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+  z-index: 12; font-size: 32px; font-weight: 900; color: var(--gold);
+  text-shadow: 0 0 18px rgba(255,160,40,0.7), 0 3px 0 #b3002d; opacity: 0; pointer-events: none;
+}
+.combo-pop.show { animation: comboPop 0.8s ease-out; }
+@keyframes comboPop {
+  0% { transform: translate(-50%,-50%) scale(0.4); opacity: 0; }
+  30% { transform: translate(-50%,-50%) scale(1.2); opacity: 1; }
+  70% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%,-60%) scale(1); opacity: 0; }
+}
+
+/* ---- Modal ---- */
+.modal-layer {
+  position: absolute; inset: 0; z-index: 50;
+  background: rgba(5, 2, 14, 0.7); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-card {
+  width: 100%; max-width: 360px; background: linear-gradient(180deg, #2a1c52, #1a1038);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 24px;
+  padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: modalIn 0.25s cubic-bezier(.2,1.4,.4,1); max-height: 86%; overflow-y: auto;
+}
+@keyframes modalIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-title { font-size: 20px; font-weight: 900; text-align: center; margin-bottom: 12px; }
+.modal-body { text-align: center; font-size: 14px; color: var(--ink); line-height: 1.5; }
+.modal-body p { margin: 6px 0; }
+.modal-body .muted, .muted { color: var(--muted); }
+.small { font-size: 11px; }
+.scroll-body { max-height: 50vh; overflow-y: auto; }
+.big-emoji { font-size: 64px; margin: 6px 0; animation: float 2.5s ease-in-out infinite; }
+.modal-btns { display: flex; gap: 8px; margin-top: 16px; }
+.modal-btns .btn { flex: 1; }
+.obj { font-size: 15px; font-weight: 800; }
+
+/* equip picker */
+.equip-picker { display: flex; gap: 10px; justify-content: center; margin: 10px 0; }
+.equip-slot { flex: 1; background: var(--panel2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 14px; padding: 10px 4px; cursor: pointer; }
+.eq-emoji { font-size: 30px; }
+.eq-emoji.empty { color: var(--muted); }
+.eq-name { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* upgrade */
+.up-stats { background: var(--panel2); border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 13px; text-align: left; }
+.up-stats div { margin: 4px 0; }
+
+/* quests */
+.quest-card { background: var(--panel2); border-radius: 14px; padding: 12px; margin-bottom: 10px; text-align: left; }
+.quest-text { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+
+/* daily */
+.daily-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.daily-cell { background: var(--panel2); border-radius: 12px; padding: 10px 4px; text-align: center; border: 1px solid transparent; }
+.daily-cell.done { opacity: 0.4; }
+.daily-cell.today { border-color: var(--gold); box-shadow: 0 0 14px rgba(255,210,77,0.3); }
+.dd { font-size: 10px; color: var(--muted); }
+.da { font-size: 15px; font-weight: 900; margin-top: 4px; }
+
+/* settings */
+.set-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--panel2); border-radius: 12px; margin-bottom: 8px; font-weight: 700; }
+.toggle { border: none; border-radius: 20px; padding: 6px 14px; font-weight: 800; font-family: inherit; cursor: pointer; font-size: 12px; }
+.toggle.on { background: var(--ok); color: #043; }
+.toggle.off { background: rgba(255,255,255,0.15); color: var(--muted); }
+
+/* win */
+.win-body .stars-row { display: flex; justify-content: center; gap: 8px; margin: 10px 0; }
+.big-star { font-size: 48px; color: rgba(255,255,255,0.15); }
+.big-star.on { color: var(--gold); text-shadow: 0 0 20px rgba(255,210,77,0.7); animation: starPop 0.5s backwards; }
+@keyframes starPop { from { transform: scale(0) rotate(-40deg); } to { transform: scale(1) rotate(0); } }
+.win-score { font-size: 18px; font-weight: 800; margin: 8px 0; }
+.win-rewards { font-size: 18px; font-weight: 900; color: var(--gold); }
+
+/* ad box */
+.ad-box { font-size: 40px; line-height: 1.4; padding: 20px; }
+.ad-box span { font-size: 28px; font-weight: 900; color: var(--gold); }
+
+/* toast */
+.toast {
+  position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(10,6,24,0.95); border: 1px solid rgba(255,255,255,0.12);
+  color: var(--ink); padding: 10px 18px; border-radius: 20px; font-weight: 700; font-size: 13px;
+  z-index: 60; opacity: 0; pointer-events: none; transition: all 0.3s; white-space: nowrap; max-width: 90%;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+</style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="board"></canvas>
+
+    <!-- Meta screens (populated by ui.js) -->
+    <div id="screen-home" class="screen"></div>
+    <div id="screen-map" class="screen hidden"></div>
+    <div id="screen-collection" class="screen hidden"></div>
+    <div id="screen-shop" class="screen hidden"></div>
+    <div id="screen-pass" class="screen hidden"></div>
+
+    <!-- In-level screen (HUD injected by main.js) -->
+    <div id="screen-game" class="screen hidden"></div>
+  </div>
+
+  <script>
+/* ============================================================
+   Dragon Merge Blast — Game Data
+   Dragons, crystals, islands, levels, quests, achievements,
+   battle pass, shop & daily rewards definitions.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  // ---- Crystal (gem) types -------------------------------------------------
+  // Each crystal has an id, a display glyph and a vivid gradient palette.
+  const CRYSTALS = [
+    { id: 0, name: 'Ruby',     glyph: '🔥', c1: '#ff5d6c', c2: '#b3002d', core: '#ffd5da' },
+    { id: 1, name: 'Sapphire', glyph: '💧', c1: '#5db4ff', c2: '#0046b3', core: '#d5ecff' },
+    { id: 2, name: 'Emerald',  glyph: '🍃', c1: '#56e29a', c2: '#0a8a4a', core: '#d8ffe9' },
+    { id: 3, name: 'Topaz',    glyph: '⚡', c1: '#ffd24d', c2: '#c98800', core: '#fff4cf' },
+    { id: 4, name: 'Amethyst', glyph: '🔮', c1: '#c58bff', c2: '#6a1fb3', core: '#efddff' },
+    { id: 5, name: 'Pearl',    glyph: '🌙', c1: '#f3f0ff', c2: '#b9c0e0', core: '#ffffff' }
+  ];
+
+  // Special crystals created by big matches.
+  const SPECIAL = {
+    NONE: 0,
+    LINE_H: 1,   // clears its row
+    LINE_V: 2,   // clears its column
+    BOMB: 3,     // clears 3x3 area
+    RAINBOW: 4   // clears all of one colour
+  };
+
+  // ---- Dragons -------------------------------------------------------------
+  // ability: triggered automatically when the dragon's charge bar fills.
+  const DRAGONS = [
+    {
+      id: 'flare', name: 'Flare', title: 'Вогняний дракон', emoji: '🐉',
+      color: '#ff6a3d', glow: '#ff9d5c',
+      ability: 'row', // destroys full row(s)
+      desc: 'Спалює цілі ряди кристалів, перетворюючи їх на енергію.',
+      chargeNeed: 24, basePower: 1, rarity: 'common', skins: ['classic', 'lava', 'gold']
+    },
+    {
+      id: 'frost', name: 'Frost', title: 'Крижаний дракон', emoji: '🐲',
+      color: '#5fd0ff', glow: '#bff0ff',
+      ability: 'freeze', // removes ice/obstacles & freezes board damage
+      desc: 'Заморожує перешкоди та розбиває кригу на полі.',
+      chargeNeed: 26, basePower: 1, rarity: 'common', skins: ['classic', 'glacier', 'aurora']
+    },
+    {
+      id: 'storm', name: 'Storm', title: 'Грозовий дракон', emoji: '🦅',
+      color: '#b48bff', glow: '#e3d2ff',
+      ability: 'random', // destroys random crystals
+      desc: 'Б’є блискавками по випадкових кристалах поля.',
+      chargeNeed: 22, basePower: 4, rarity: 'rare', skins: ['classic', 'voltage', 'nebula']
+    },
+    {
+      id: 'verdant', name: 'Verdant', title: 'Лісовий дракон', emoji: '🦎',
+      color: '#5fe39a', glow: '#c7ffe0',
+      ability: 'bonus', // spawns bonus/special crystals
+      desc: 'Вирощує бонусні кристали-підсилювачі на полі.',
+      chargeNeed: 28, basePower: 1, rarity: 'rare', skins: ['classic', 'bloom', 'crystal']
+    },
+    {
+      id: 'aether', name: 'Aether', title: 'Ефірний дракон', emoji: '✨',
+      color: '#ffd24d', glow: '#fff2c2',
+      ability: 'shuffle', // reshuffles board & adds moves
+      desc: 'Перемішує поле та дарує додаткові ходи.',
+      chargeNeed: 30, basePower: 1, rarity: 'epic', skins: ['classic', 'prism']
+    }
+  ];
+
+  // ---- Islands -------------------------------------------------------------
+  const ISLANDS = [
+    { id: 0, name: 'Острів Світанку',   theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a', unlockLevel: 0  },
+    { id: 1, name: 'Крижані Вершини',   theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63', unlockLevel: 25 },
+    { id: 2, name: 'Грозове Плато',     theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470', unlockLevel: 50 },
+    { id: 3, name: 'Смарагдові Хащі',   theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236', unlockLevel: 75 },
+    { id: 4, name: 'Небесна Цитадель',  theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18', unlockLevel: 100 }
+  ];
+
+  // ---- Level generator -----------------------------------------------------
+  // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice' };
+
+  function buildLevels() {
+    const levels = [];
+    const total = 125; // > 100 levels
+    for (let i = 0; i < total; i++) {
+      const n = i + 1;
+      const island = Math.min(ISLANDS.length - 1, Math.floor(i / 25));
+      const inIsland = i % 25;
+      const cols = 8;
+      const rows = 8;
+      const colors = Math.min(6, 4 + Math.floor(i / 30)); // 4 → 6 colours
+      const moves = 30 - Math.min(12, Math.floor(i / 12)); // 30 → 18 moves
+      let objective, target, color = 0, iceCount = 0;
+      const cycle = inIsland % 5;
+      if (cycle === 2) {
+        objective = OBJ.COLLECT;
+        color = (i % colors);
+        target = 28 + Math.floor(i * 0.9);
+      } else if (cycle === 4) {
+        objective = OBJ.ICE;
+        iceCount = 8 + Math.floor(i / 6) + (island * 3);
+        target = iceCount;
+      } else {
+        objective = OBJ.SCORE;
+        target = 1200 + i * 240 + (island * 600);
+      }
+      const isBoss = inIsland === 24;
+      levels.push({
+        n, island, cols, rows, colors, moves: isBoss ? moves + 6 : moves,
+        objective, target, color, iceCount,
+        star2: Math.round(target * 1.4),
+        star3: Math.round(target * 1.9),
+        reward: { gold: 50 + i * 6, energy: 14 + Math.floor(i / 3) },
+        boss: isBoss,
+        name: isBoss ? 'Лігво Боса' : ('Рівень ' + n)
+      });
+    }
+    return levels;
+  }
+
+  const LEVELS = buildLevels();
+
+  // ---- Achievements --------------------------------------------------------
+  const ACHIEVEMENTS = [
+    { id: 'first_blood', name: 'Перший вибух',     desc: 'Завершіть рівень 1',            goal: 1,    stat: 'levelsWon',   reward: 100 },
+    { id: 'combo_master', name: 'Майстер комбо',   desc: 'Зробіть комбо x5',              goal: 5,    stat: 'maxCombo',    reward: 200 },
+    { id: 'hatch5',       name: 'Дракононяня',     desc: 'Виведіть 5 драконів',           goal: 5,    stat: 'dragonsHatched', reward: 300 },
+    { id: 'crush1000',    name: 'Подрібнювач',     desc: 'Знищіть 1000 кристалів',        goal: 1000, stat: 'crystalsCrushed', reward: 250 },
+    { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 400 },
+    { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 600 },
+    { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 800 },
+    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 1500 }
+  ];
+
+  // ---- Daily quests pool ---------------------------------------------------
+  const QUEST_POOL = [
+    { id: 'q_win3',    text: 'Виграйте 3 рівні',          goal: 3,   stat: 'levelsWon',      reward: 120 },
+    { id: 'q_crush200',text: 'Знищіть 200 кристалів',     goal: 200, stat: 'crystalsCrushed',reward: 150 },
+    { id: 'q_combo4',  text: 'Зробіть комбо x4',          goal: 4,   stat: 'maxCombo',       reward: 180 },
+    { id: 'q_dragon',  text: 'Активуйте драконів 8 разів',goal: 8,   stat: 'dragonProcs',    reward: 160 },
+    { id: 'q_energy',  text: 'Зберіть 200 енергії',       goal: 200, stat: 'energyEarned',   reward: 140 },
+    { id: 'q_special', text: 'Створіть 6 особливих кристалів', goal: 6, stat: 'specialsMade',reward: 170 }
+  ];
+
+  // ---- Battle pass tiers (50 tiers) ---------------------------------------
+  function buildPass() {
+    const tiers = [];
+    for (let i = 1; i <= 50; i++) {
+      const free = i % 5 === 0
+        ? { type: 'gems', amount: 20 }
+        : { type: 'gold', amount: 80 + i * 10 };
+      const premium = i % 10 === 0
+        ? { type: 'dragon', amount: 1 }
+        : (i % 5 === 0 ? { type: 'gems', amount: 60 } : { type: 'gold', amount: 200 + i * 15 });
+      tiers.push({ tier: i, xp: i * 100, free, premium });
+    }
+    return tiers;
+  }
+  const BATTLE_PASS = buildPass();
+
+  // ---- Cosmetic skin shop --------------------------------------------------
+  const SKINS = [
+    { id: 'flare_lava',   dragon: 'flare',  skin: 'lava',    name: 'Лавовий Flare',   price: 250, cur: 'gems' },
+    { id: 'flare_gold',   dragon: 'flare',  skin: 'gold',    name: 'Золотий Flare',   price: 400, cur: 'gems' },
+    { id: 'frost_glacier',dragon: 'frost',  skin: 'glacier', name: 'Льодовик Frost',  price: 250, cur: 'gems' },
+    { id: 'frost_aurora', dragon: 'frost',  skin: 'aurora',  name: 'Аврора Frost',    price: 400, cur: 'gems' },
+    { id: 'storm_voltage',dragon: 'storm',  skin: 'voltage', name: 'Вольтаж Storm',   price: 300, cur: 'gems' },
+    { id: 'storm_nebula', dragon: 'storm',  skin: 'nebula',  name: 'Небула Storm',    price: 450, cur: 'gems' },
+    { id: 'verdant_bloom',dragon: 'verdant',skin: 'bloom',   name: 'Цвіт Verdant',    price: 300, cur: 'gems' },
+    { id: 'aether_prism', dragon: 'aether', skin: 'prism',   name: 'Призма Aether',   price: 600, cur: 'gems' }
+  ];
+
+  // Skin colour overrides for rendering.
+  const SKIN_COLORS = {
+    lava:    { color: '#ff3b1f', glow: '#ffae5c' },
+    gold:    { color: '#ffd24d', glow: '#fff4c2' },
+    glacier: { color: '#9fe8ff', glow: '#ffffff' },
+    aurora:  { color: '#7affd0', glow: '#c2b9ff' },
+    voltage: { color: '#d6a3ff', glow: '#fff0a0' },
+    nebula:  { color: '#7a5cff', glow: '#ff7ad0' },
+    bloom:   { color: '#5fe39a', glow: '#ffd0e8' },
+    crystal: { color: '#a0ffd6', glow: '#ffffff' },
+    prism:   { color: '#ffd24d', glow: '#9fd0ff' }
+  };
+
+  global.GameData = {
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ,
+    ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
+    dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
+  };
+})(window);
+
+//----
+/* ============================================================
+   Save system — persistent player profile via localStorage.
+   Robust to corrupted/old data; auto-creates defaults.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const KEY = 'dragonMergeBlast.save.v1';
+
+  function freshProfile() {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      version: 1,
+      gold: 200,
+      gems: 30,
+      energy: 0,
+      levelProgress: 1,            // highest unlocked level
+      stars: {},                   // { levelNumber: starCount }
+      ownedDragons: ['flare'],     // start with the fire dragon
+      dragonLevels: { flare: 1 },  // upgrade level per dragon
+      equipped: ['flare', null, null],
+      eggs: [                      // incubating eggs on the island
+        { dragon: 'frost',   charge: 0, need: 120 },
+        { dragon: 'storm',   charge: 0, need: 220 },
+        { dragon: 'verdant', charge: 0, need: 340 },
+        { dragon: 'aether',  charge: 0, need: 520 }
+      ],
+      ownedSkins: [],
+      activeSkins: {},             // { dragonId: skinId }
+      stats: {
+        levelsWon: 0, maxCombo: 0, dragonsHatched: 0, crystalsCrushed: 0,
+        totalStars: 0, dragonProcs: 0, energyEarned: 0, specialsMade: 0
+      },
+      achievements: {},            // { id: claimed bool }
+      quests: { date: today, list: [], progressBase: {} },
+      daily: { lastClaim: '', streak: 0 },
+      pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
+      settings: { sound: true, music: true },
+      firstRun: true
+    };
+  }
+
+  let profile = null;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        profile = Object.assign(freshProfile(), data);
+        // Deep-merge nested objects that may be missing in old saves.
+        const def = freshProfile();
+        ['stats', 'daily', 'pass', 'settings', 'quests'].forEach(function (k) {
+          profile[k] = Object.assign(def[k], profile[k] || {});
+        });
+        profile.stats = Object.assign(def.stats, profile.stats || {});
+      } else {
+        profile = freshProfile();
+      }
+    } catch (e) {
+      profile = freshProfile();
+    }
+    return profile;
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch (e) {}
+  }
+
+  function get() { return profile || load(); }
+
+  function reset() { profile = freshProfile(); save(); return profile; }
+
+  function addStat(stat, value, isMax) {
+    const s = get().stats;
+    if (isMax) s[stat] = Math.max(s[stat] || 0, value);
+    else s[stat] = (s[stat] || 0) + value;
+    save();
+  }
+
+  global.Save = { load, save, get, reset, addStat, KEY };
+})(window);
+
+//----
+/* ============================================================
+   Audio — fully synthesized SFX + procedural background music
+   using the WebAudio API (no asset files required, tiny size).
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  let ctx = null;
+  let master = null;
+  let musicGain = null;
+  let sfxGain = null;
+  let musicTimer = null;
+  let musicOn = false;
+
+  function ensure() {
+    if (ctx) return;
+    const AC = global.AudioContext || global.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.18; musicGain.connect(master);
+    sfxGain = ctx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(master);
+  }
+
+  function resume() { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+
+  function tone(freq, dur, type, gain, dest, slideTo) {
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, ctx.currentTime);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ctx.currentTime + dur);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(gain || 0.3, ctx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g); g.connect(dest || sfxGain);
+    o.start(); o.stop(ctx.currentTime + dur + 0.02);
+  }
+
+  function noise(dur, gain) {
+    if (!ctx) return;
+    const n = ctx.createBufferSource();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    n.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = gain || 0.25;
+    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 800;
+    n.connect(f); f.connect(g); g.connect(sfxGain);
+    n.start();
+  }
+
+  // ---- Public SFX ----------------------------------------------------------
+  const SFX = {
+    swap:    function () { tone(420, 0.08, 'triangle', 0.25, null, 520); },
+    match:   function (combo) {
+      const base = 440 + Math.min(8, combo || 0) * 60;
+      tone(base, 0.12, 'sine', 0.3, null, base * 1.5);
+      tone(base * 1.5, 0.1, 'triangle', 0.15);
+    },
+    invalid: function () { tone(200, 0.12, 'sawtooth', 0.2, null, 120); },
+    special: function () { tone(660, 0.2, 'square', 0.25, null, 1320); noise(0.15, 0.15); },
+    dragon:  function () {
+      tone(140, 0.5, 'sawtooth', 0.35, null, 70);
+      noise(0.4, 0.3);
+      tone(330, 0.4, 'triangle', 0.2, null, 660);
+    },
+    hatch:   function () { tone(523, 0.15, 'sine', 0.3, null, 784); setTimeout(function(){tone(784,0.25,'sine',0.3,null,1046);},120); },
+    win:     function () { [523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.3,'triangle',0.3);},i*120);}); },
+    lose:    function () { [392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.35,'sawtooth',0.25);},i*150);}); },
+    click:   function () { tone(600, 0.05, 'square', 0.18); },
+    coin:    function () { tone(880, 0.07, 'square', 0.2, null, 1320); setTimeout(function(){tone(1320,0.08,'square',0.18);},60); },
+    star:    function (i) { tone(660 + (i||0)*220, 0.2, 'triangle', 0.3); }
+  };
+
+  function play(name, arg) {
+    if (!ctx) return;
+    if (!global.Save || global.Save.get().settings.sound === false) return;
+    if (SFX[name]) SFX[name](arg);
+  }
+
+  // ---- Procedural background music ----------------------------------------
+  // A gentle, looping arpeggio in a pentatonic scale — pleasant, royalty free.
+  const SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+  let step = 0;
+  function musicTick() {
+    if (!musicOn || !ctx) return;
+    const root = SCALE[step % SCALE.length];
+    tone(root, 0.5, 'sine', 0.22, musicGain, root * 1.001);
+    if (step % 2 === 0) tone(root / 2, 0.9, 'triangle', 0.12, musicGain);
+    if (step % 4 === 0) tone(SCALE[(step / 4) % SCALE.length] * 2, 0.4, 'sine', 0.1, musicGain);
+    step++;
+  }
+
+  function startMusic() {
+    ensure();
+    if (!ctx) return;
+    if (global.Save && global.Save.get().settings.music === false) return;
+    if (musicOn) return;
+    musicOn = true;
+    musicTimer = setInterval(musicTick, 340);
+  }
+
+  function stopMusic() {
+    musicOn = false;
+    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  }
+
+  function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
+  function setSoundEnabled() { /* checked at play time */ }
+
+  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled };
+})(window);
+
+//----
+/* ============================================================
+   Match-3 Engine — board logic, animations, particles, specials
+   and automatic dragon abilities. Canvas rendered.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const D = global.GameData;
+  const SP = D.SPECIAL;
+  const rnd = function (n) { return Math.floor(Math.random() * n); };
+  const ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // easeOutCubic
+
+  function Engine() {
+    this.cb = {};
+    this.particles = [];
+    this.floaters = [];
+    this.viewport = { x: 0, y: 0, size: 100 };
+    this.state = 'idle';
+    this.nextStep = null;
+    this.activeAnims = 0;
+    this.combo = 0;
+    this.shake = 0;
+    this.dragonFx = []; // visual dragon flyovers
+  }
+
+  Engine.prototype.init = function (level, equipped, callbacks) {
+    this.level = level;
+    this.cb = callbacks || {};
+    this.cols = level.cols;
+    this.rows = level.rows;
+    this.colors = level.colors;
+    this.score = 0;
+    this.movesLeft = level.moves;
+    this.collected = 0;
+    this.iceLeft = 0;
+    this.combo = 0;
+    this.particles = [];
+    this.floaters = [];
+    this.dragonFx = [];
+    this.grid = [];
+    this.selected = null;
+    this.state = 'idle';
+    this.nextStep = null;
+    this.activeAnims = 0;
+    this.finished = false;
+    this.pendingDragons = [];
+    this.dragonsActivatedThisMove = {};
+
+    // Equipped dragons → charge bars.
+    this.dragons = (equipped || []).filter(Boolean).map(function (id) {
+      const def = D.dragonById(id);
+      const lvl = (global.Save.get().dragonLevels[id]) || 1;
+      return { id: id, def: def, charge: 0, need: Math.max(8, def.chargeNeed - lvl), level: lvl, flashing: 0 };
+    });
+
+    this.buildBoard();
+    this.emitObjective();
+  };
+
+  Engine.prototype.buildBoard = function () {
+    this.grid = [];
+    for (let r = 0; r < this.rows; r++) {
+      const row = [];
+      for (let c = 0; c < this.cols; c++) {
+        row.push(this.makeTile(r, c, true));
+      }
+      this.grid.push(row);
+    }
+    // Remove any starting matches.
+    let guard = 0;
+    while (this.findMatches().length && guard++ < 60) {
+      const m = this.findMatches()[0];
+      const cell = m[0];
+      this.grid[cell.r][cell.c].type = (this.grid[cell.r][cell.c].type + 1) % this.colors;
+    }
+    // Add ice obstacles for ICE objective levels.
+    if (this.level.objective === D.OBJ.ICE) {
+      let placed = 0;
+      let guard2 = 0;
+      while (placed < this.level.iceCount && guard2++ < 400) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; placed++; }
+      }
+      this.iceLeft = placed;
+    }
+  };
+
+  Engine.prototype.makeTile = function (r, c, instant) {
+    return {
+      type: rnd(this.colors),
+      special: SP.NONE,
+      ice: false,
+      r: r, c: c,
+      scale: instant ? 1 : 0,
+      offY: 0,
+      anim: null,
+      dying: false
+    };
+  };
+
+  // ---- Viewport / coordinate helpers --------------------------------------
+  Engine.prototype.setViewport = function (x, y, size) {
+    this.viewport = { x: x, y: y, size: size };
+    this.tile = size / this.cols;
+  };
+  Engine.prototype.cellX = function (c) { return this.viewport.x + c * this.tile; };
+  Engine.prototype.cellY = function (r) { return this.viewport.y + r * this.tile; };
+  Engine.prototype.pickCell = function (px, py) {
+    const c = Math.floor((px - this.viewport.x) / this.tile);
+    const r = Math.floor((py - this.viewport.y) / this.tile);
+    if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return null;
+    return { r: r, c: c };
+  };
+
+  // ---- Input --------------------------------------------------------------
+  Engine.prototype.onDown = function (px, py) {
+    if (this.state !== 'idle' || this.finished) return;
+    this.selected = this.pickCell(px, py);
+    this.downPx = { x: px, y: py };
+  };
+  Engine.prototype.onMove = function (px, py) {
+    if (!this.selected || this.state !== 'idle') return;
+    const dx = px - this.downPx.x, dy = py - this.downPx.y;
+    if (Math.abs(dx) < this.tile * 0.4 && Math.abs(dy) < this.tile * 0.4) return;
+    let tr = this.selected.r, tc = this.selected.c;
+    if (Math.abs(dx) > Math.abs(dy)) tc += dx > 0 ? 1 : -1;
+    else tr += dy > 0 ? 1 : -1;
+    if (tr < 0 || tr >= this.rows || tc < 0 || tc >= this.cols) { this.selected = null; return; }
+    this.trySwap(this.selected, { r: tr, c: tc });
+    this.selected = null;
+  };
+  Engine.prototype.onUp = function () { this.selected = null; };
+
+  // ---- Swap ---------------------------------------------------------------
+  Engine.prototype.trySwap = function (a, b) {
+    if (this.state !== 'idle' || this.finished) return;
+    const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
+    if (ta.ice || tb.ice) { global.Audio2.play('invalid'); return; }
+    this.state = 'busy';
+    global.Audio2.play('swap');
+    this.swapTiles(a, b);
+    const self = this;
+    this.animateSwap(a, b, function () {
+      const matches = self.findMatches();
+      const isSpecialMove = ta.special !== SP.NONE || tb.special !== SP.NONE;
+      if (matches.length || isSpecialMove) {
+        self.movesLeft--;
+        self.cb.onMoves && self.cb.onMoves(self.movesLeft);
+        self.combo = 0;
+        self.dragonsActivatedThisMove = {}; // each dragon may fire once per move
+        // Activate a special directly involved in the swap.
+        if (isSpecialMove && !matches.length) {
+          const set = {};
+          self.addSpecialEffect(set, a.r, a.c);
+          self.addSpecialEffect(set, b.r, b.c);
+          self.clearSet(set);
+        } else {
+          self.resolveStep();
+        }
+      } else {
+        // Swap back — invalid move.
+        global.Audio2.play('invalid');
+        self.swapTiles(a, b);
+        self.animateSwap(a, b, function () { self.state = 'idle'; });
+      }
+    });
+  };
+
+  Engine.prototype.swapTiles = function (a, b) {
+    const t = this.grid[a.r][a.c];
+    this.grid[a.r][a.c] = this.grid[b.r][b.c];
+    this.grid[b.r][b.c] = t;
+    this.grid[a.r][a.c].r = a.r; this.grid[a.r][a.c].c = a.c;
+    this.grid[b.r][b.c].r = b.r; this.grid[b.r][b.c].c = b.c;
+  };
+
+  Engine.prototype.animateSwap = function (a, b, done) {
+    const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
+    this.startAnim(ta, 'swap', a.r, a.c, b.r, b.c, 0.14);
+    this.startAnim(tb, 'swap', b.r, b.c, a.r, a.c, 0.14);
+    this.afterAnims(done);
+  };
+
+  // ---- Tween bookkeeping ---------------------------------------------------
+  Engine.prototype.startAnim = function (tile, type, fr, fc, tr, tc, dur) {
+    tile.anim = {
+      type: type, t: 0, dur: dur || 0.2,
+      fromX: this.cellX(fc), fromY: this.cellY(fr),
+      toX: this.cellX(tc), toY: this.cellY(tr)
+    };
+    this.activeAnims++;
+  };
+  Engine.prototype.afterAnims = function (fn) { this._afterFn = fn; };
+
+  Engine.prototype.update = function (dt) {
+    // advance tile animations
+    let stillActive = 0;
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const tile = this.grid[r] && this.grid[r][c];
+      if (!tile) continue;
+      if (tile.scale < 1 && !tile.dying) tile.scale = Math.min(1, tile.scale + dt * 6);
+      if (tile.anim) {
+        tile.anim.t += dt;
+        if (tile.anim.t >= tile.anim.dur) { tile.anim = null; }
+        else stillActive++;
+      }
+    }
+    // dying tiles handled separately
+    for (let i = this.dyingTiles ? this.dyingTiles.length - 1 : -1; i >= 0; i--) {
+      const d = this.dyingTiles[i];
+      d.t += dt;
+      d.tile.scale = Math.max(0, 1 - d.t / 0.18);
+      if (d.t >= 0.18) this.dyingTiles.splice(i, 1);
+      else stillActive++;
+    }
+    this.activeAnims = stillActive;
+
+    if (this.activeAnims === 0 && this._afterFn) {
+      const fn = this._afterFn; this._afterFn = null; fn();
+    }
+
+    // particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt;
+      if (p.t >= p.life) this.particles.splice(i, 1);
+    }
+    // floating score text
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.t += dt; f.y -= 40 * dt;
+      if (f.t >= f.life) this.floaters.splice(i, 1);
+    }
+    // dragon flyover fx
+    for (let i = this.dragonFx.length - 1; i >= 0; i--) {
+      const fx = this.dragonFx[i];
+      fx.t += dt; fx.x += fx.vx * dt;
+      if (fx.t >= fx.life) this.dragonFx.splice(i, 1);
+    }
+    // dragon charge flash decay
+    this.dragons.forEach(function (d) { if (d.flashing > 0) d.flashing -= dt; });
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+  };
+
+  // ---- Match detection ----------------------------------------------------
+  Engine.prototype.findMatches = function () {
+    const g = this.grid, groups = [];
+    // horizontal
+    for (let r = 0; r < this.rows; r++) {
+      let run = 1;
+      for (let c = 1; c <= this.cols; c++) {
+        const same = c < this.cols && g[r][c] && g[r][c - 1] &&
+          !g[r][c].ice && !g[r][c - 1].ice && g[r][c].type === g[r][c - 1].type;
+        if (same) run++;
+        else {
+          if (run >= 3) { const grp = []; for (let k = c - run; k < c; k++) grp.push({ r: r, c: k }); groups.push(grp); }
+          run = 1;
+        }
+      }
+    }
+    // vertical
+    for (let c = 0; c < this.cols; c++) {
+      let run = 1;
+      for (let r = 1; r <= this.rows; r++) {
+        const same = r < this.rows && g[r][c] && g[r - 1][c] &&
+          !g[r][c].ice && !g[r - 1][c].ice && g[r][c].type === g[r - 1][c].type;
+        if (same) run++;
+        else {
+          if (run >= 3) { const grp = []; for (let k = r - run; k < r; k++) grp.push({ r: k, c: c }); groups.push(grp); }
+          run = 1;
+        }
+      }
+    }
+    return groups;
+  };
+
+  // ---- Resolve loop -------------------------------------------------------
+  Engine.prototype.resolveStep = function () {
+    const groups = this.findMatches();
+    if (!groups.length) { this.endResolve(); return; }
+    this.combo++;
+    if (this.combo > 1) global.Audio2.play('match', this.combo);
+    else global.Audio2.play('match', 1);
+    global.Save.addStat('maxCombo', this.combo, true);
+    if (this.cb.onCombo && this.combo > 1) this.cb.onCombo(this.combo);
+
+    const clearSet = {};
+    const self = this;
+    let specialToMake = [];
+
+    groups.forEach(function (grp) {
+      grp.forEach(function (cell) { clearSet[cell.r + ',' + cell.c] = cell; });
+      // Big matches create special crystals.
+      if (grp.length === 4) {
+        const c0 = grp[0], c1 = grp[1];
+        const horiz = c0.r === c1.r;
+        specialToMake.push({ r: grp[Math.floor(grp.length / 2)].r, c: grp[Math.floor(grp.length / 2)].c,
+          special: horiz ? SP.LINE_V : SP.LINE_H, type: self.grid[c0.r][c0.c].type });
+      } else if (grp.length >= 5) {
+        const mid = grp[Math.floor(grp.length / 2)];
+        specialToMake.push({ r: mid.r, c: mid.c, special: SP.RAINBOW, type: self.grid[mid.r][mid.c].type });
+      }
+    });
+
+    // Expand clear set via any specials caught in the matches.
+    Object.keys(clearSet).slice().forEach(function (k) {
+      const cell = clearSet[k];
+      const t = self.grid[cell.r][cell.c];
+      if (t && t.special !== SP.NONE) self.addSpecialEffect(clearSet, cell.r, cell.c);
+    });
+
+    this.specialToMake = specialToMake;
+    this.clearSet(clearSet, specialToMake);
+  };
+
+  Engine.prototype.addSpecialEffect = function (set, r, c) {
+    const t = this.grid[r][c];
+    if (!t) return;
+    const sp = t.special;
+    set[r + ',' + c] = { r: r, c: c };
+    const self = this;
+    const recurse = function (rr, cc) {
+      const key = rr + ',' + cc;
+      if (set[key]) return;
+      set[key] = { r: rr, c: cc };
+      const nt = self.grid[rr] && self.grid[rr][cc];
+      if (nt && nt.special !== SP.NONE) self.addSpecialEffect(set, rr, cc);
+    };
+    if (sp === SP.LINE_H) { for (let cc = 0; cc < this.cols; cc++) recurse(r, cc); this.shake = 0.5; }
+    else if (sp === SP.LINE_V) { for (let rr = 0; rr < this.rows; rr++) recurse(rr, c); this.shake = 0.5; }
+    else if (sp === SP.BOMB) {
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < this.rows && cc >= 0 && cc < this.cols) recurse(rr, cc);
+      }
+      this.shake = 0.6;
+    } else if (sp === SP.RAINBOW) {
+      const col = t.type;
+      for (let rr = 0; rr < this.rows; rr++) for (let cc = 0; cc < this.cols; cc++) {
+        if (this.grid[rr][cc] && this.grid[rr][cc].type === col && !this.grid[rr][cc].ice) recurse(rr, cc);
+      }
+      this.shake = 0.7;
+    }
+  };
+
+  Engine.prototype.clearSet = function (set, specialToMake) {
+    const keys = Object.keys(set);
+    if (!keys.length) { this.endResolve(); return; }
+    const self = this;
+    this.dyingTiles = this.dyingTiles || [];
+    let cleared = 0, energyGain = 0;
+    const makeSet = {};
+    (specialToMake || []).forEach(function (s) { makeSet[s.r + ',' + s.c] = s; });
+
+    keys.forEach(function (k) {
+      const cell = set[k];
+      const t = self.grid[cell.r][cell.c];
+      if (!t) return;
+      // Crystals next to ice crack the ice instead of clearing the gem.
+      // (Direct: if tile itself is ice it cannot be in a match anyway.)
+      if (makeSet[k]) {
+        // Transform into a special crystal instead of dying.
+        t.special = makeSet[k].special;
+        t.type = makeSet[k].type;
+        t.scale = 0.3;
+        global.Audio2.play('special');
+        global.Save.addStat('specialsMade', 1);
+        self.spawnBurst(self.cellX(cell.c) + self.tile / 2, self.cellY(cell.r) + self.tile / 2, '#ffffff', 10);
+        return;
+      }
+      cleared++;
+      energyGain += 2;
+      // crack adjacent ice
+      self.crackAdjacentIce(cell.r, cell.c);
+      // collect objective colour
+      if (self.level.objective === D.OBJ.COLLECT && t.type === self.level.color) {
+        self.collected++;
+      }
+      const cx = self.cellX(cell.c) + self.tile / 2, cy = self.cellY(cell.r) + self.tile / 2;
+      self.spawnBurst(cx, cy, D.CRYSTALS[t.type].c1, 7);
+      t.dying = true;
+      self.dyingTiles.push({ tile: t, t: 0 });
+      // mark cell for removal after death
+      self.grid[cell.r][cell.c] = self.grid[cell.r][cell.c];
+      t._remove = true;
+    });
+
+    // scoring
+    const gained = cleared * 30 * Math.max(1, this.combo);
+    this.score += gained;
+    if (gained > 0) {
+      this.addFloater(this.viewport.x + this.viewport.size / 2,
+        this.viewport.y + this.viewport.size / 2 - 20, '+' + gained, '#fff2a0');
+    }
+    global.Save.addStat('crystalsCrushed', cleared);
+    global.Save.addStat('energyEarned', energyGain);
+    this.chargeDragons(energyGain);
+    this.cb.onScore && this.cb.onScore(this.score);
+    this.emitObjective();
+
+    // After death animation completes → collapse.
+    this.afterAnims(function () {
+      // actually remove tiles
+      for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) {
+        const t = self.grid[r][c];
+        if (t && t._remove) self.grid[r][c] = null;
+      }
+      self.collapse();
+    });
+  };
+
+  Engine.prototype.crackAdjacentIce = function (r, c) {
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (let i = 0; i < dirs.length; i++) {
+      const rr = r + dirs[i][0], cc = c + dirs[i][1];
+      if (rr < 0 || rr >= this.rows || cc < 0 || cc >= this.cols) continue;
+      const t = this.grid[rr][cc];
+      if (t && t.ice) {
+        t.ice = false;
+        this.iceLeft = Math.max(0, this.iceLeft - 1);
+        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#bff0ff', 8);
+      }
+    }
+  };
+
+  // ---- Collapse + refill --------------------------------------------------
+  Engine.prototype.collapse = function () {
+    const self = this;
+    for (let c = 0; c < this.cols; c++) {
+      let write = this.rows - 1;
+      for (let r = this.rows - 1; r >= 0; r--) {
+        const t = this.grid[r][c];
+        if (t && t.ice) {
+          // ice blocks stay in place; reset write pointer above it
+          if (write !== r) {
+            // move floating gems above the ice down to just above it (handled per segment)
+          }
+        }
+        if (t && !t._remove && !t.dying) {
+          if (write !== r) {
+            this.grid[write][c] = t;
+            this.grid[r][c] = null;
+            t.r = write; t.c = c;
+            this.startAnim(t, 'fall', r, c, write, c, 0.22);
+          }
+          write--;
+        }
+      }
+      // spawn new tiles to fill the gaps from the top
+      for (let r = write; r >= 0; r--) {
+        const t = this.makeTile(r, c, false);
+        t.scale = 1;
+        this.grid[r][c] = t;
+        this.startAnim(t, 'fall', r - (write + 1), c, r, c, 0.26);
+      }
+    }
+    this.dyingTiles = [];
+    this.afterAnims(function () { self.resolveStep(); });
+  };
+
+  Engine.prototype.endResolve = function () {
+    this.combo = 0;
+    // Drain queued dragon activations one at a time (no recursion into chargeDragons).
+    if (this.pendingDragons && this.pendingDragons.length && !this.finished) {
+      const d = this.pendingDragons.shift();
+      this.activateDragon(d);
+      return;
+    }
+    this.state = 'idle';
+    if (this.checkWin()) return;
+    if (this.movesLeft <= 0) { this.fail(); return; }
+    if (!this.hasPossibleMove()) this.shuffleBoard();
+  };
+
+  // ---- Dragons ------------------------------------------------------------
+  Engine.prototype.chargeDragons = function (amount) {
+    const self = this;
+    this.dragons.forEach(function (d) {
+      if (self.finished) return;
+      d.charge += amount;
+      if (d.charge >= d.need) {
+        if (self.dragonsActivatedThisMove[d.id]) {
+          d.charge = d.need; // already fired this move — hold full until next move
+        } else {
+          d.charge = 0;
+          d.flashing = 0.8;
+          self.dragonsActivatedThisMove[d.id] = true;
+          // Queue activation; processed between resolve passes (never recursively).
+          if (self.pendingDragons.indexOf(d) === -1) self.pendingDragons.push(d);
+        }
+      }
+    });
+    this.cb.onDragons && this.cb.onDragons(this.dragons);
+  };
+
+  Engine.prototype.activateDragon = function (d) {
+    global.Audio2.play('dragon');
+    global.Save.addStat('dragonProcs', 1);
+    this.cb.onDragonProc && this.cb.onDragonProc(d);
+    const power = d.level;
+    const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || null;
+    const color = sc ? sc.color : d.def.color;
+    // visual flyover
+    this.dragonFx.push({
+      x: this.viewport.x - 60, y: this.viewport.y + rnd(this.viewport.size),
+      vx: (this.viewport.size + 120) / 0.7, t: 0, life: 0.7, emoji: d.def.emoji, color: color
+    });
+    this.shake = 0.5;
+
+    const set = {};
+    const self = this;
+    if (d.def.ability === 'row') {
+      const count = Math.min(this.rows, 1 + Math.floor(power / 2));
+      for (let k = 0; k < count; k++) {
+        const r = rnd(this.rows);
+        for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      }
+    } else if (d.def.ability === 'random') {
+      const count = d.def.basePower + power * 2;
+      for (let k = 0; k < count; k++) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      }
+    } else if (d.def.ability === 'freeze') {
+      // shatter all ice on the board
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+        if (this.grid[r][c].ice) {
+          this.grid[r][c].ice = false;
+          this.iceLeft = Math.max(0, this.iceLeft - 1);
+          this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#bff0ff', 10);
+        }
+      }
+      this.emitObjective();
+    } else if (d.def.ability === 'bonus') {
+      // turn random crystals into special bonus crystals
+      const count = 1 + power;
+      for (let k = 0; k < count; k++) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        const t = this.grid[r][c];
+        if (t && !t.ice && t.special === SP.NONE) {
+          t.special = (rnd(2) === 0) ? SP.LINE_H : SP.BOMB;
+          this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fe39a', 12);
+        }
+      }
+    } else if (d.def.ability === 'shuffle') {
+      this.movesLeft += 2 + power;
+      this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+      this.state = 'busy';
+      this.shuffleBoard(true); // sets afterAnims → resolveStep → endResolve
+      return;
+    }
+
+    if (Object.keys(set).length) {
+      this.state = 'busy';
+      this.combo = Math.max(this.combo, 1);
+      this.clearSet(set); // → collapse → resolveStep → endResolve (drains next)
+    } else {
+      // Instantaneous ability (freeze/bonus): continue draining the queue.
+      this.endResolve();
+    }
+  };
+
+  // ---- Objective / win / lose ---------------------------------------------
+  Engine.prototype.emitObjective = function () {
+    let cur, goal, label;
+    if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = 'Очки'; }
+    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].name; }
+    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = 'Крига'; }
+    this.cb.onObjective && this.cb.onObjective(Math.min(cur, goal), goal, label);
+  };
+
+  Engine.prototype.checkWin = function () {
+    let done = false;
+    if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
+    else if (this.level.objective === D.OBJ.COLLECT) done = this.collected >= this.level.target;
+    else done = this.iceLeft <= 0;
+    if (done && !this.finished) { this.win(); return true; }
+    return false;
+  };
+
+  Engine.prototype.computeStars = function () {
+    let stars = 1;
+    const sc = this.score;
+    if (this.level.objective === D.OBJ.SCORE) {
+      if (sc >= this.level.star3) stars = 3; else if (sc >= this.level.star2) stars = 2;
+    } else {
+      // bonus stars from leftover moves
+      if (this.movesLeft >= 8) stars = 3; else if (this.movesLeft >= 3) stars = 2;
+    }
+    return stars;
+  };
+
+  Engine.prototype.win = function () {
+    this.finished = true;
+    this.state = 'done';
+    const stars = this.computeStars();
+    global.Audio2.play('win');
+    this.cb.onWin && this.cb.onWin({ score: this.score, stars: stars });
+  };
+  Engine.prototype.fail = function () {
+    if (this.finished) return;
+    this.finished = true;
+    this.state = 'done';
+    global.Audio2.play('lose');
+    this.cb.onLose && this.cb.onLose({ score: this.score });
+  };
+
+  // ---- Helpers: possible moves / shuffle ----------------------------------
+  Engine.prototype.hasPossibleMove = function () {
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      if (c + 1 < this.cols) { this.swapRaw(r, c, r, c + 1); const m = this.findMatches().length; this.swapRaw(r, c, r, c + 1); if (m) return true; }
+      if (r + 1 < this.rows) { this.swapRaw(r, c, r + 1, c); const m = this.findMatches().length; this.swapRaw(r, c, r + 1, c); if (m) return true; }
+    }
+    return false;
+  };
+  Engine.prototype.swapRaw = function (r1, c1, r2, c2) {
+    const t = this.grid[r1][c1]; this.grid[r1][c1] = this.grid[r2][c2]; this.grid[r2][c2] = t;
+  };
+  Engine.prototype.shuffleBoard = function (silent) {
+    const types = [];
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+      if (!this.grid[r][c].ice) types.push(this.grid[r][c].type);
+    let guard = 0;
+    do {
+      for (let i = types.length - 1; i > 0; i--) { const j = rnd(i + 1); const t = types[i]; types[i] = types[j]; types[j] = t; }
+      let idx = 0;
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+        if (!this.grid[r][c].ice) { this.grid[r][c].type = types[idx++]; this.grid[r][c].special = SP.NONE; }
+    } while ((this.findMatches().length || !this.hasPossibleMove()) && guard++ < 40);
+    if (!silent) this.cb.onShuffle && this.cb.onShuffle();
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) this.grid[r][c].scale = 0.4;
+    const self = this;
+    if (silent) { this.afterAnims(function () { self.resolveStep(); }); }
+  };
+
+  // ---- Particles / floaters -----------------------------------------------
+  Engine.prototype.spawnBurst = function (x, y, color, n) {
+    for (let i = 0; i < (n || 6); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 180;
+      this.particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, t: 0, life: 0.4 + Math.random() * 0.4, color: color, size: 2 + Math.random() * 4 });
+    }
+  };
+  Engine.prototype.addFloater = function (x, y, text, color) {
+    this.floaters.push({ x: x, y: y, text: text, color: color, t: 0, life: 0.9 });
+  };
+
+  // ---- Rendering ----------------------------------------------------------
+  Engine.prototype.draw = function (g) {
+    const v = this.viewport, tile = this.tile;
+    g.save();
+    if (this.shake > 0) {
+      g.translate((Math.random() - 0.5) * this.shake * 10, (Math.random() - 0.5) * this.shake * 10);
+    }
+    // board backing
+    this.roundRect(g, v.x - 8, v.y - 8, v.size + 16, v.size + 16, 22);
+    g.fillStyle = 'rgba(8,6,30,0.55)'; g.fill();
+    // grid cells checker
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      g.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)';
+      g.fillRect(this.cellX(c), this.cellY(r), tile, tile);
+    }
+    // tiles
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const t = this.grid[r][c];
+      if (!t) continue;
+      let x = this.cellX(c), y = this.cellY(r);
+      if (t.anim) {
+        const p = ease(Math.min(1, t.anim.t / t.anim.dur));
+        x = t.anim.fromX + (t.anim.toX - t.anim.fromX) * p;
+        y = t.anim.fromY + (t.anim.toY - t.anim.fromY) * p;
+      }
+      this.drawTile(g, t, x, y, tile);
+    }
+    // selection highlight
+    if (this.selected) {
+      g.strokeStyle = '#ffffff'; g.lineWidth = 3;
+      this.roundRect(g, this.cellX(this.selected.c) + 3, this.cellY(this.selected.r) + 3, tile - 6, tile - 6, 10);
+      g.stroke();
+    }
+    // particles
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      g.globalAlpha = Math.max(0, 1 - p.t / p.life);
+      g.fillStyle = p.color;
+      g.beginPath(); g.arc(p.x, p.y, p.size, 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+    // dragon flyover
+    for (let i = 0; i < this.dragonFx.length; i++) {
+      const fx = this.dragonFx[i];
+      g.globalAlpha = Math.min(1, fx.t * 4) * Math.max(0, 1 - fx.t / fx.life);
+      g.shadowColor = fx.color; g.shadowBlur = 30;
+      g.font = (tile * 1.6) + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(fx.emoji, fx.x, fx.y);
+      g.shadowBlur = 0;
+    }
+    g.globalAlpha = 1;
+    // floaters
+    for (let i = 0; i < this.floaters.length; i++) {
+      const f = this.floaters[i];
+      g.globalAlpha = Math.max(0, 1 - f.t / f.life);
+      g.fillStyle = f.color; g.font = 'bold 22px system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(f.text, f.x, f.y);
+    }
+    g.globalAlpha = 1;
+    g.restore();
+  };
+
+  Engine.prototype.drawTile = function (g, t, x, y, tile) {
+    const pad = tile * 0.1;
+    const s = tile * t.scale;
+    const cx = x + tile / 2, cy = y + tile / 2;
+    g.save();
+    g.translate(cx, cy);
+    g.scale(t.scale, t.scale);
+    g.translate(-cx, -cy);
+
+    if (t.ice) {
+      // frozen obstacle block
+      this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, 8);
+      const ig = g.createLinearGradient(x, y, x, y + tile);
+      ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8');
+      g.fillStyle = ig; g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      g.restore();
+      return;
+    }
+
+    const cr = D.CRYSTALS[t.type];
+    // gem body — rounded gradient
+    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, tile * 0.22);
+    const grd = g.createLinearGradient(x, y, x, y + tile);
+    grd.addColorStop(0, cr.c1); grd.addColorStop(1, cr.c2);
+    g.fillStyle = grd; g.fill();
+    // glossy highlight
+    g.beginPath();
+    g.ellipse(cx - tile * 0.12, cy - tile * 0.14, tile * 0.18, tile * 0.1, -0.5, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fill();
+    // core sparkle / glyph
+    if (t.special !== SP.NONE) {
+      g.shadowColor = '#fff'; g.shadowBlur = 14;
+      g.fillStyle = '#fff'; g.font = 'bold ' + (tile * 0.42) + 'px system-ui';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : '↔');
+      g.fillText(sym, cx, cy);
+      g.shadowBlur = 0;
+    } else {
+      g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
+      g.fillStyle = cr.core; g.fill();
+    }
+    g.restore();
+  };
+
+  Engine.prototype.roundRect = function (g, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  };
+
+  global.Engine = Engine;
+})(window);
+
+//----
+/* ============================================================
+   UI — DOM screens for the meta game: island hub, level map,
+   collection, upgrades, shop, battle pass, daily, quests,
+   achievements, settings. Plus toast & modal helpers.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const D = global.GameData;
+
+  function el(tag, cls, html) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function click(node, fn) {
+    node.addEventListener('click', function (ev) {
+      global.Audio2.resume(); global.Audio2.play('click'); fn(ev);
+    });
+    return node;
+  }
+
+  const UI = {
+    screens: {},
+    current: 'home',
+
+    init: function (root) {
+      this.root = root;
+      // build static layers
+      this.toastEl = el('div', 'toast'); root.appendChild(this.toastEl);
+      this.modalLayer = el('div', 'modal-layer hidden'); root.appendChild(this.modalLayer);
+    },
+
+    show: function (id) {
+      const all = this.root.querySelectorAll('.screen');
+      for (let i = 0; i < all.length; i++) all[i].classList.add('hidden');
+      const s = document.getElementById('screen-' + id);
+      if (s) { s.classList.remove('hidden'); s.scrollTop = 0; }
+      this.current = id;
+    },
+
+    toast: function (msg) {
+      this.toastEl.textContent = msg;
+      this.toastEl.classList.add('show');
+      const self = this;
+      clearTimeout(this._tt);
+      this._tt = setTimeout(function () { self.toastEl.classList.remove('show'); }, 1800);
+    },
+
+    modal: function (titleText, bodyNode, buttons) {
+      clear(this.modalLayer);
+      const card = el('div', 'modal-card');
+      const t = el('div', 'modal-title', titleText);
+      card.appendChild(t);
+      if (bodyNode) card.appendChild(bodyNode);
+      const row = el('div', 'modal-btns');
+      (buttons || [{ label: 'OK', primary: true }]).forEach(function (b) {
+        const btn = el('button', 'btn ' + (b.primary ? 'btn-primary' : 'btn-ghost'), b.label);
+        click(btn, function () {
+          if (!b.keepOpen) UI.modalLayer.classList.add('hidden');
+          b.onClick && b.onClick();
+        });
+        row.appendChild(btn);
+      });
+      card.appendChild(row);
+      this.modalLayer.appendChild(card);
+      this.modalLayer.classList.remove('hidden');
+    },
+
+    closeModal: function () { this.modalLayer.classList.add('hidden'); },
+
+    // ---- top currency bar (shared) ----------------------------------------
+    currencyBar: function () {
+      const p = global.Save.get();
+      const bar = el('div', 'currency-bar');
+      bar.innerHTML =
+        '<div class="cur"><span class="cur-ic">🪙</span><span id="ui-gold">' + p.gold + '</span></div>' +
+        '<div class="cur"><span class="cur-ic">💎</span><span id="ui-gems">' + p.gems + '</span></div>' +
+        '<div class="cur"><span class="cur-ic">⚡</span><span id="ui-energy">' + p.energy + '</span></div>';
+      return bar;
+    },
+    refreshCurrencies: function () {
+      const p = global.Save.get();
+      const set = function (id, v) { const e = document.getElementById(id); if (e) e.textContent = v; };
+      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy);
+    },
+
+    navBar: function (active) {
+      const items = [
+        { id: 'map', ic: '🗺️', label: 'Карта' },
+        { id: 'collection', ic: '🐲', label: 'Дракони' },
+        { id: 'shop', ic: '🛒', label: 'Магазин' },
+        { id: 'pass', ic: '🎖️', label: 'Пропуск' },
+        { id: 'home', ic: '🏝️', label: 'Острів' }
+      ];
+      const bar = el('div', 'nav-bar');
+      items.forEach(function (it) {
+        const b = el('button', 'nav-btn' + (it.id === active ? ' active' : ''),
+          '<span class="nav-ic">' + it.ic + '</span><span class="nav-lb">' + it.label + '</span>');
+        click(b, function () { global.Game.go(it.id); });
+        bar.appendChild(b);
+      });
+      return bar;
+    },
+
+    // ---- HOME / ISLAND HUB ------------------------------------------------
+    renderHome: function () {
+      const p = global.Save.get();
+      const s = document.getElementById('screen-home');
+      clear(s);
+      const island = D.ISLANDS[Math.min(D.ISLANDS.length - 1, Math.floor((p.levelProgress - 1) / 25))];
+      s.style.background = 'linear-gradient(160deg,' + island.bg1 + ',' + island.bg2 + ')';
+      s.appendChild(this.currencyBar());
+
+      const title = el('div', 'home-title');
+      title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
+      s.appendChild(title);
+
+      // Island scene with eggs incubating
+      const scene = el('div', 'island-scene');
+      scene.innerHTML = '<div class="island-sun"></div>';
+      // owned dragons floating
+      p.ownedDragons.forEach(function (id, i) {
+        const def = D.dragonById(id);
+        const d = el('div', 'isle-dragon', def.emoji);
+        d.style.left = (12 + (i % 4) * 22) + '%';
+        d.style.top = (18 + Math.floor(i / 4) * 26) + '%';
+        d.style.filter = 'drop-shadow(0 0 12px ' + def.glow + ')';
+        scene.appendChild(d);
+      });
+      s.appendChild(scene);
+
+      // Egg incubator row
+      const eggsWrap = el('div', 'eggs-wrap');
+      eggsWrap.appendChild(el('div', 'section-h', '🥚 Інкубатор драконів'));
+      const eggGrid = el('div', 'egg-grid');
+      p.eggs.forEach(function (egg, idx) {
+        const def = D.dragonById(egg.dragon);
+        const pct = Math.min(100, Math.round(egg.charge / egg.need * 100));
+        const card = el('div', 'egg-card');
+        card.innerHTML =
+          '<div class="egg-emoji">🥚</div>' +
+          '<div class="egg-name">' + def.title + '</div>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
+          '<div class="egg-pct">' + egg.charge + ' / ' + egg.need + ' ⚡</div>';
+        const btn = el('button', 'btn btn-mini ' + (pct >= 100 ? 'btn-primary' : 'btn-ghost'),
+          pct >= 100 ? 'Вилупити!' : 'Зарядити +10⚡');
+        click(btn, function () { UI.handleEgg(idx); });
+        card.appendChild(btn);
+        eggGrid.appendChild(card);
+      });
+      eggsWrap.appendChild(eggGrid);
+      s.appendChild(eggsWrap);
+
+      // Quick action buttons
+      const acts = el('div', 'home-actions');
+      const playBtn = click(el('button', 'btn btn-primary btn-big', '▶ Грати рівень ' + p.levelProgress), function () { global.Game.go('map'); });
+      acts.appendChild(playBtn);
+      const grid2 = el('div', 'home-grid');
+      [
+        { ic: '🎁', label: 'Щоденна', go: function () { UI.showDaily(); } },
+        { ic: '📜', label: 'Квести', go: function () { UI.showQuests(); } },
+        { ic: '🏆', label: 'Досягнення', go: function () { UI.showAchievements(); } },
+        { ic: '⚙️', label: 'Налаштування', go: function () { UI.showSettings(); } }
+      ].forEach(function (a) {
+        const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
+        grid2.appendChild(b);
+      });
+      acts.appendChild(grid2);
+      s.appendChild(acts);
+
+      s.appendChild(this.navBar('home'));
+      // daily reminder badge
+      if (UI.dailyAvailable()) UI.toast('🎁 Доступна щоденна нагорода!');
+    },
+
+    handleEgg: function (idx) {
+      const p = global.Save.get();
+      const egg = p.eggs[idx];
+      if (!egg) return;
+      if (egg.charge >= egg.need) {
+        // hatch
+        if (p.ownedDragons.indexOf(egg.dragon) === -1) {
+          p.ownedDragons.push(egg.dragon);
+          p.dragonLevels[egg.dragon] = 1;
+        }
+        global.Save.addStat('dragonsHatched', 1);
+        p.eggs.splice(idx, 1);
+        global.Save.save();
+        global.Audio2.play('hatch');
+        const def = D.dragonById(egg.dragon);
+        UI.modal('🎉 Новий дракон!', el('div', 'modal-body',
+          '<div class="big-emoji">' + def.emoji + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
+          [{ label: 'Чудово!', primary: true, onClick: function () { UI.renderHome(); } }]);
+      } else {
+        if (p.energy < 10) { UI.toast('Недостатньо енергії ⚡ (грайте рівні)'); return; }
+        p.energy -= 10; egg.charge = Math.min(egg.need, egg.charge + 10);
+        global.Save.save();
+        global.Audio2.play('coin');
+        UI.refreshCurrencies();
+        UI.renderHome();
+      }
+    },
+
+    // ---- LEVEL MAP --------------------------------------------------------
+    renderMap: function () {
+      const p = global.Save.get();
+      const s = document.getElementById('screen-map');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', '🗺️ Острови драконів'));
+
+      const scroll = el('div', 'map-scroll');
+      D.ISLANDS.forEach(function (island) {
+        const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
+        const block = el('div', 'island-block');
+        block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
+        const head = el('div', 'island-head');
+        head.innerHTML = '<b style="color:' + island.theme + '">' + island.name + '</b>' +
+          (unlocked ? '' : '<span class="lock">🔒 рівень ' + (island.unlockLevel + 1) + '</span>');
+        block.appendChild(head);
+        const nodes = el('div', 'level-nodes');
+        for (let i = 0; i < 25; i++) {
+          const lvNum = island.id * 25 + i + 1;
+          const lv = D.LEVELS[lvNum - 1];
+          if (!lv) continue;
+          const stars = p.stars[lvNum] || 0;
+          const isUnlocked = lvNum <= p.levelProgress;
+          const node = el('button', 'lv-node' +
+            (lvNum === p.levelProgress ? ' current' : '') +
+            (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
+          node.innerHTML = (lv.boss ? '👑' : lvNum) +
+            (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
+          if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
+          else node.disabled = true;
+          nodes.appendChild(node);
+        }
+        block.appendChild(nodes);
+        scroll.appendChild(block);
+      });
+      s.appendChild(scroll);
+      s.appendChild(this.navBar('map'));
+      // scroll to current
+      setTimeout(function () {
+        const cur = s.querySelector('.lv-node.current');
+        if (cur) cur.scrollIntoView({ block: 'center' });
+      }, 30);
+    },
+
+    showLevelPreview: function (lvNum) {
+      const lv = D.LEVELS[lvNum - 1];
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      let objText = lv.objective === D.OBJ.SCORE ? ('Набрати ' + lv.target + ' очок')
+        : lv.objective === D.OBJ.COLLECT ? ('Зібрати ' + lv.target + ' × ' + D.CRYSTALS[lv.color].glyph)
+        : ('Розбити всю кригу (' + lv.iceCount + ')');
+      body.innerHTML =
+        '<p class="obj">🎯 ' + objText + '</p>' +
+        '<p class="muted">Ходів: ' + lv.moves + ' · Нагорода: ' + lv.reward.gold + '🪙 ' + lv.reward.energy + '⚡</p>' +
+        '<div class="section-h">Бойова команда драконів</div>';
+      body.appendChild(UI.equipPicker());
+      this.modal((lv.boss ? '👑 ' : '') + lv.name, body, [
+        { label: '✖', onClick: function () {} },
+        { label: '▶ Старт', primary: true, onClick: function () { global.Game.startLevel(lvNum); } }
+      ]);
+    },
+
+    equipPicker: function () {
+      const p = global.Save.get();
+      const wrap = el('div', 'equip-picker');
+      for (let slot = 0; slot < 3; slot++) {
+        const cell = el('div', 'equip-slot');
+        const id = p.equipped[slot];
+        if (id) {
+          const def = D.dragonById(id);
+          cell.innerHTML = '<div class="eq-emoji" style="filter:drop-shadow(0 0 8px ' + def.glow + ')">' + def.emoji + '</div><div class="eq-name">' + def.name + '</div>';
+        } else {
+          cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">Порожньо</div>';
+        }
+        (function (slot) { click(cell, function () { UI.cycleEquip(slot); }); })(slot);
+        wrap.appendChild(cell);
+      }
+      const hint = el('div', 'muted small', 'Торкніться слота, щоб змінити дракона');
+      const container = el('div');
+      container.appendChild(wrap); container.appendChild(hint);
+      return container;
+    },
+
+    cycleEquip: function (slot) {
+      const p = global.Save.get();
+      const owned = p.ownedDragons.slice();
+      const options = [null].concat(owned);
+      const cur = p.equipped[slot];
+      let idx = options.indexOf(cur);
+      // next, skipping dragons already equipped in other slots
+      let guard = 0;
+      do {
+        idx = (idx + 1) % options.length;
+        guard++;
+      } while (options[idx] && p.equipped.indexOf(options[idx]) !== -1 && p.equipped[slot] !== options[idx] && guard < 20);
+      p.equipped[slot] = options[idx];
+      global.Save.save();
+      // re-render the picker inside the modal
+      const old = this.modalLayer.querySelector('.equip-picker');
+      if (old && old.parentNode) {
+        const fresh = UI.equipPicker();
+        old.parentNode.parentNode.replaceChild(fresh, old.parentNode);
+      }
+      global.Audio2.play('click');
+    },
+
+    // ---- COLLECTION -------------------------------------------------------
+    renderCollection: function () {
+      const p = global.Save.get();
+      const s = document.getElementById('screen-collection');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', '🐲 Колекція драконів'));
+      const grid = el('div', 'dragon-grid');
+      D.DRAGONS.forEach(function (def) {
+        const owned = p.ownedDragons.indexOf(def.id) !== -1;
+        const lvl = p.dragonLevels[def.id] || 0;
+        const card = el('div', 'dragon-card' + (owned ? '' : ' locked'));
+        const skinColor = (D.SKIN_COLORS[p.activeSkins[def.id]] || {}).color || def.color;
+        card.innerHTML =
+          '<div class="rar rar-' + def.rarity + '">' + def.rarity + '</div>' +
+          '<div class="dc-emoji" style="filter:drop-shadow(0 0 14px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
+          '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
+          '<div class="dc-title">' + def.title + '</div>' +
+          (owned ? '<div class="dc-lvl">Рівень ' + lvl + '</div>' : '<div class="dc-lvl muted">Не відкрито</div>') +
+          '<div class="dc-desc">' + def.desc + '</div>';
+        if (owned) click(card, function () { UI.showUpgrade(def.id); });
+        grid.appendChild(card);
+      });
+      s.appendChild(grid);
+      s.appendChild(this.navBar('collection'));
+    },
+
+    showUpgrade: function (id) {
+      const p = global.Save.get();
+      const def = D.dragonById(id);
+      const lvl = p.dragonLevels[id] || 1;
+      const cost = lvl * 150;
+      const body = el('div', 'modal-body');
+      body.innerHTML =
+        '<div class="big-emoji" style="filter:drop-shadow(0 0 16px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<p>' + def.desc + '</p>' +
+        '<div class="up-stats">' +
+        '<div>Поточний рівень: <b>' + lvl + '</b></div>' +
+        '<div>Сила здатності: <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
+        '<div>Заряджається швидше з кожним рівнем</div>' +
+        '</div>';
+      this.modal('⬆ Прокачка: ' + def.name, body, [
+        { label: 'Закрити' },
+        { label: 'Покращити (' + cost + '🪙)', primary: true, onClick: function () {
+          if (p.gold < cost) { UI.toast('Недостатньо золота 🪙'); return; }
+          p.gold -= cost; p.dragonLevels[id] = lvl + 1; global.Save.save();
+          global.Audio2.play('coin'); UI.toast(def.name + ' тепер рівня ' + (lvl + 1) + '!');
+          UI.renderCollection();
+        }}
+      ]);
+    },
+
+    // ---- SHOP -------------------------------------------------------------
+    renderShop: function () {
+      const p = global.Save.get();
+      const s = document.getElementById('screen-shop');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', '🛒 Магазин'));
+
+      // Rewarded ad
+      const adCard = el('div', 'shop-card highlight');
+      adCard.innerHTML = '<div class="shop-ic">📺</div><div class="shop-info"><b>Реклама за винагороду</b><span>Перегляньте рекламу → +100🪙 та +20⚡</span></div>';
+      const adBtn = click(el('button', 'btn btn-primary btn-mini', 'Дивитись'), function () { UI.watchAd(); });
+      adCard.appendChild(adBtn);
+      s.appendChild(adCard);
+
+      // Gem packs (IAP placeholders)
+      s.appendChild(el('div', 'section-h', '💎 Кристали'));
+      [
+        { gems: 100, price: '$0.99' }, { gems: 550, price: '$4.99' }, { gems: 1200, price: '$9.99' }
+      ].forEach(function (pack) {
+        const c = el('div', 'shop-card');
+        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' кристалів</b><span>Найкраща ціна</span></div>';
+        const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
+        c.appendChild(b); s.appendChild(c);
+      });
+
+      // Gold for gems
+      s.appendChild(el('div', 'section-h', '🪙 Золото'));
+      [{ gold: 500, gems: 20 }, { gold: 1500, gems: 50 }].forEach(function (pack) {
+        const c = el('div', 'shop-card');
+        c.innerHTML = '<div class="shop-ic">🪙</div><div class="shop-info"><b>' + pack.gold + ' золота</b><span>за ' + pack.gems + '💎</span></div>';
+        const b = click(el('button', 'btn btn-buy btn-mini', pack.gems + '💎'), function () {
+          if (p.gems < pack.gems) { UI.toast('Недостатньо кристалів 💎'); return; }
+          p.gems -= pack.gems; p.gold += pack.gold; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + pack.gold + ' золота!');
+        });
+        c.appendChild(b); s.appendChild(c);
+      });
+
+      // Cosmetic skins
+      s.appendChild(el('div', 'section-h', '🎨 Косметичні скіни драконів'));
+      D.SKINS.forEach(function (sk) {
+        const owned = p.ownedSkins.indexOf(sk.id) !== -1;
+        const def = D.dragonById(sk.dragon);
+        const sc = D.SKIN_COLORS[sk.skin] || def;
+        const c = el('div', 'shop-card');
+        c.innerHTML = '<div class="shop-ic" style="filter:drop-shadow(0 0 10px ' + sc.glow + ')">' + def.emoji + '</div>' +
+          '<div class="shop-info"><b style="color:' + sc.color + '">' + sk.name + '</b><span>Скін для ' + def.name + '</span></div>';
+        const active = p.activeSkins[sk.dragon] === sk.skin;
+        const b = click(el('button', 'btn btn-mini ' + (owned ? (active ? 'btn-ghost' : 'btn-primary') : 'btn-buy'),
+          owned ? (active ? '✓ Активний' : 'Вдягти') : (sk.price + '💎')), function () {
+          if (!owned) {
+            if (p.ownedDragons.indexOf(sk.dragon) === -1) { UI.toast('Спочатку отримайте дракона ' + def.name); return; }
+            if (p.gems < sk.price) { UI.toast('Недостатньо кристалів 💎'); return; }
+            p.gems -= sk.price; p.ownedSkins.push(sk.id);
+            p.activeSkins[sk.dragon] = sk.skin; global.Save.save();
+            global.Audio2.play('coin'); UI.toast('Скін розблоковано!');
+          } else {
+            p.activeSkins[sk.dragon] = active ? null : sk.skin; global.Save.save();
+          }
+          UI.refreshCurrencies(); UI.renderShop();
+        });
+        c.appendChild(b); s.appendChild(c);
+      });
+
+      s.appendChild(this.navBar('shop'));
+    },
+
+    watchAd: function () {
+      // Simulated rewarded ad. In the packaged app this calls the AdMob plugin.
+      const body = el('div', 'modal-body');
+      body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>Реклама...</small></div>';
+      this.modal('Реклама за винагороду', body, [{ label: 'Зачекайте...', primary: true, keepOpen: true }]);
+      let n = 5;
+      const cnt = body.querySelector('#ad-count');
+      const iv = setInterval(function () {
+        n--; if (cnt) cnt.textContent = n;
+        if (n <= 0) {
+          clearInterval(iv);
+          const p = global.Save.get();
+          p.gold += 100; p.energy += 20; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies();
+          UI.closeModal(); UI.toast('Нагорода: +100🪙 +20⚡');
+        }
+      }, 700);
+      // If a real ad plugin exists, use it instead.
+      if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
+        clearInterval(iv); UI.closeModal();
+        global.AdMobBridge.showRewarded(function () {
+          const p = global.Save.get(); p.gold += 100; p.energy += 20; global.Save.save();
+          UI.refreshCurrencies(); UI.toast('Нагорода: +100🪙 +20⚡');
+        });
+      }
+    },
+
+    fakePurchase: function (gems) {
+      // Placeholder for Google Play Billing; grants gems for demo.
+      const p = global.Save.get();
+      p.gems += gems; global.Save.save();
+      global.Audio2.play('coin'); UI.refreshCurrencies();
+      UI.toast('Покупка успішна: +' + gems + '💎 (демо)');
+      UI.renderShop();
+    },
+
+    // ---- BATTLE PASS ------------------------------------------------------
+    renderPass: function () {
+      const p = global.Save.get();
+      const s = document.getElementById('screen-pass');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', '🎖️ Бойовий пропуск — Сезон 1'));
+
+      const tier = Math.min(50, Math.floor(p.pass.xp / 100) + 1);
+      const into = p.pass.xp % 100;
+      const head = el('div', 'pass-head');
+      head.innerHTML = '<div>Рівень <b>' + tier + '</b> / 50</div>' +
+        '<div class="bar"><div class="bar-fill" style="width:' + into + '%;background:#ffd24d"></div></div>' +
+        '<div class="muted small">' + into + ' / 100 XP до наступного рівня</div>';
+      if (!p.pass.premium) {
+        const buy = click(el('button', 'btn btn-buy btn-mini', '👑 Преміум 500💎'), function () {
+          if (p.gems < 500) { UI.toast('Недостатньо кристалів 💎'); return; }
+          p.gems -= 500; p.pass.premium = true; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Преміум-пропуск активовано! 👑');
+          UI.renderPass();
+        });
+        head.appendChild(buy);
+      } else {
+        head.appendChild(el('div', 'premium-badge', '👑 ПРЕМІУМ АКТИВНО'));
+      }
+      s.appendChild(head);
+
+      const track = el('div', 'pass-track');
+      D.BATTLE_PASS.forEach(function (t) {
+        const row = el('div', 'pass-row' + (tier >= t.tier ? ' unlocked' : ''));
+        const claimedF = p.pass.claimedFree.indexOf(t.tier) !== -1;
+        const claimedP = p.pass.claimedPremium.indexOf(t.tier) !== -1;
+        row.appendChild(el('div', 'pass-tier', '' + t.tier));
+        const free = el('div', 'pass-reward' + (claimedF ? ' claimed' : ''), UI.rewardLabel(t.free));
+        if (tier >= t.tier && !claimedF) click(free, function () { UI.claimPass(t.tier, 'free'); });
+        row.appendChild(free);
+        const prem = el('div', 'pass-reward premium' + (claimedP ? ' claimed' : '') + (p.pass.premium ? '' : ' locked'),
+          (p.pass.premium ? '' : '🔒 ') + UI.rewardLabel(t.premium));
+        if (p.pass.premium && tier >= t.tier && !claimedP) click(prem, function () { UI.claimPass(t.tier, 'premium'); });
+        row.appendChild(prem);
+        track.appendChild(row);
+      });
+      s.appendChild(track);
+      s.appendChild(this.navBar('pass'));
+    },
+
+    rewardLabel: function (r) {
+      if (r.type === 'gold') return r.amount + '🪙';
+      if (r.type === 'gems') return r.amount + '💎';
+      if (r.type === 'dragon') return '🐲 скін';
+      return '?';
+    },
+    claimPass: function (tier, track) {
+      const p = global.Save.get();
+      const t = D.BATTLE_PASS[tier - 1];
+      const r = track === 'free' ? t.free : t.premium;
+      if (track === 'free') p.pass.claimedFree.push(tier); else p.pass.claimedPremium.push(tier);
+      if (r.type === 'gold') p.gold += r.amount;
+      else if (r.type === 'gems') p.gems += r.amount;
+      else if (r.type === 'dragon') p.gems += 50;
+      global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
+      UI.toast('Отримано: ' + UI.rewardLabel(r)); UI.renderPass();
+    },
+    addPassXp: function (xp) {
+      const p = global.Save.get();
+      p.pass.xp += xp; global.Save.save();
+    },
+
+    // ---- DAILY REWARDS ----------------------------------------------------
+    dailyAvailable: function () {
+      const p = global.Save.get();
+      return p.daily.lastClaim !== new Date().toISOString().slice(0, 10);
+    },
+    showDaily: function () {
+      const p = global.Save.get();
+      const today = new Date().toISOString().slice(0, 10);
+      const rewards = [50, 80, 120, 160, 200, 300, 500];
+      const body = el('div', 'modal-body');
+      const grid = el('div', 'daily-grid');
+      const dayIdx = p.daily.streak % 7;
+      rewards.forEach(function (amt, i) {
+        const cell = el('div', 'daily-cell' + (i < dayIdx ? ' done' : (i === dayIdx && UI.dailyAvailable() ? ' today' : '')));
+        cell.innerHTML = '<div class="dd">День ' + (i + 1) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
+        grid.appendChild(cell);
+      });
+      body.appendChild(grid);
+      this.modal('🎁 Щоденна нагорода', body, [
+        { label: 'Закрити' },
+        UI.dailyAvailable()
+          ? { label: 'Забрати', primary: true, onClick: function () {
+              const amt = rewards[dayIdx];
+              if (dayIdx === 6) p.gems += amt; else p.gold += amt;
+              p.daily.streak += 1; p.daily.lastClaim = today;
+              global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
+              UI.toast('Отримано щоденну нагороду!');
+            }}
+          : { label: 'Вже отримано', primary: true }
+      ]);
+    },
+
+    // ---- QUESTS -----------------------------------------------------------
+    ensureQuests: function () {
+      const p = global.Save.get();
+      const today = new Date().toISOString().slice(0, 10);
+      if (p.quests.date !== today || !p.quests.list || !p.quests.list.length) {
+        const pool = D.QUEST_POOL.slice();
+        for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+        const chosen = pool.slice(0, 3);
+        p.quests = { date: today, list: chosen.map(function (q) { return { id: q.id, claimed: false }; }), progressBase: {} };
+        chosen.forEach(function (q) { p.quests.progressBase[q.id] = p.stats[q.stat] || 0; });
+        global.Save.save();
+      }
+    },
+    showQuests: function () {
+      this.ensureQuests();
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      p.quests.list.forEach(function (entry) {
+        const q = D.QUEST_POOL.find(function (x) { return x.id === entry.id; });
+        const base = p.quests.progressBase[q.id] || 0;
+        const cur = Math.max(0, (q.stat === 'maxCombo' ? p.stats[q.stat] : (p.stats[q.stat] - base)));
+        const prog = Math.min(q.goal, cur);
+        const pct = Math.round(prog / q.goal * 100);
+        const done = prog >= q.goal;
+        const card = el('div', 'quest-card');
+        card.innerHTML = '<div class="quest-text">' + q.text + '</div>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#5fe39a"></div></div>' +
+          '<div class="muted small">' + prog + ' / ' + q.goal + ' · нагорода ' + q.reward + '🪙</div>';
+        const btn = el('button', 'btn btn-mini ' + (entry.claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
+          entry.claimed ? '✓' : (done ? 'Забрати' : '...'));
+        if (done && !entry.claimed) click(btn, function () {
+          entry.claimed = true; p.gold += q.reward; UI.addPassXp(50); global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + q.reward + '🪙'); UI.showQuests();
+        });
+        card.appendChild(btn);
+        body.appendChild(card);
+      });
+      this.modal('📜 Щоденні квести', body, [{ label: 'Закрити', primary: true }]);
+    },
+
+    // ---- ACHIEVEMENTS -----------------------------------------------------
+    showAchievements: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body scroll-body');
+      D.ACHIEVEMENTS.forEach(function (a) {
+        const cur = p.stats[a.stat] || 0;
+        const done = cur >= a.goal;
+        const claimed = p.achievements[a.id];
+        const card = el('div', 'quest-card');
+        const pct = Math.min(100, Math.round(cur / a.goal * 100));
+        card.innerHTML = '<div class="quest-text">' + a.name + '<span class="muted small"> — ' + a.desc + '</span></div>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#ffd24d"></div></div>' +
+          '<div class="muted small">' + Math.min(cur, a.goal) + ' / ' + a.goal + ' · ' + a.reward + '💎</div>';
+        const btn = el('button', 'btn btn-mini ' + (claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
+          claimed ? '✓' : (done ? 'Забрати' : '🔒'));
+        if (done && !claimed) click(btn, function () {
+          p.achievements[a.id] = true; p.gems += a.reward; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Досягнення! +' + a.reward + '💎'); UI.showAchievements();
+        });
+        card.appendChild(btn);
+        body.appendChild(card);
+      });
+      this.modal('🏆 Досягнення', body, [{ label: 'Закрити', primary: true }]);
+    },
+
+    // ---- SETTINGS ---------------------------------------------------------
+    showSettings: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      const mkToggle = function (label, key, onChange) {
+        const row = el('div', 'set-row');
+        row.innerHTML = '<span>' + label + '</span>';
+        const tg = el('button', 'toggle ' + (p.settings[key] ? 'on' : 'off'), p.settings[key] ? 'УВІМК' : 'ВИМК');
+        click(tg, function () {
+          p.settings[key] = !p.settings[key]; global.Save.save();
+          tg.className = 'toggle ' + (p.settings[key] ? 'on' : 'off');
+          tg.textContent = p.settings[key] ? 'УВІМК' : 'ВИМК';
+          onChange && onChange(p.settings[key]);
+        });
+        row.appendChild(tg);
+        return row;
+      };
+      body.appendChild(mkToggle('🔊 Звуки', 'sound'));
+      body.appendChild(mkToggle('🎵 Музика', 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
+      const reset = click(el('button', 'btn btn-ghost btn-mini', '🗑️ Скинути прогрес'), function () {
+        UI.modal('Скинути прогрес?', el('div', 'modal-body', '<p>Весь прогрес буде втрачено назавжди.</p>'), [
+          { label: 'Ні' },
+          { label: 'Так, скинути', primary: true, onClick: function () {
+            global.Save.reset(); UI.toast('Прогрес скинуто'); global.Game.go('home');
+          }}
+        ]);
+      });
+      body.appendChild(el('div', 'set-row', '<span>Версія 1.0.0</span>'));
+      body.appendChild(reset);
+      this.modal('⚙️ Налаштування', body, [{ label: 'Закрити', primary: true }]);
+    }
+  };
+
+  global.UI = UI;
+})(window);
+
+//----
+/* ============================================================
+   Main — boot, canvas game loop, in-level HUD, navigation glue.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const D = global.GameData;
+
+  const Game = {
+    engine: null,
+    inLevel: false,
+    last: 0,
+
+    boot: function () {
+      global.Save.load();
+      const root = document.getElementById('app');
+      this.root = root;
+      global.UI.init(root);
+
+      this.canvas = document.getElementById('board');
+      this.ctx = this.canvas.getContext('2d');
+      this.gameScreen = document.getElementById('screen-game');
+
+      this.bindInput();
+      this.resize();
+      global.addEventListener('resize', this.resize.bind(this));
+
+      // Resume audio on first interaction.
+      const kick = function () { global.Audio2.resume(); global.Audio2.startMusic(); document.removeEventListener('pointerdown', kick); };
+      document.addEventListener('pointerdown', kick);
+
+      // Welcome
+      const p = global.Save.get();
+      this.go('home');
+      if (p.firstRun) {
+        p.firstRun = false; global.Save.save();
+        global.UI.modal('🐉 Ласкаво просимо!', this.welcomeBody(), [
+          { label: 'Почати пригоду!', primary: true }
+        ]);
+      }
+      requestAnimationFrame(this.loop.bind(this));
+    },
+
+    welcomeBody: function () {
+      const b = document.createElement('div');
+      b.className = 'modal-body';
+      b.innerHTML =
+        '<div class="big-emoji">🐉</div>' +
+        '<p>Поєднуйте 3+ кристали, щоб генерувати <b>енергію</b>.</p>' +
+        '<p>Енергія заряджає <b>яйця драконів</b> на острові.</p>' +
+        '<p>Дракони допомагають у бою: палять ряди, ламають кригу, б’ють блискавками та ростять бонуси!</p>';
+      return b;
+    },
+
+    go: function (id) {
+      this.inLevel = false;
+      this.gameScreen.classList.add('hidden');
+      global.UI.closeModal();
+      if (id === 'home') global.UI.renderHome();
+      else if (id === 'map') global.UI.renderMap();
+      else if (id === 'collection') global.UI.renderCollection();
+      else if (id === 'shop') global.UI.renderShop();
+      else if (id === 'pass') global.UI.renderPass();
+      global.UI.show(id);
+    },
+
+    // ---- Level lifecycle --------------------------------------------------
+    startLevel: function (lvNum) {
+      const p = global.Save.get();
+      global.UI.closeModal();
+      const lv = D.LEVELS[lvNum - 1];
+      this.currentLevel = lvNum;
+      this.engine = new global.Engine();
+      const self = this;
+      this.engine.init(lv, p.equipped, {
+        onScore: function (s) { self.hud.score.textContent = s; },
+        onMoves: function (m) { self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
+        onObjective: function (cur, goal, label) {
+          self.hud.objLabel.textContent = label;
+          self.hud.objVal.textContent = cur + ' / ' + goal;
+          self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
+        },
+        onDragons: function (dragons) { self.renderDragonBars(dragons); },
+        onDragonProc: function (d) { global.UI.toast(d.def.emoji + ' ' + d.def.name + ' активовано!'); },
+        onCombo: function (n) { self.showCombo(n); },
+        onShuffle: function () { global.UI.toast('🔀 Поле перемішано!'); },
+        onWin: function (res) { self.onWin(res); },
+        onLose: function (res) { self.onLose(res); }
+      });
+      this.buildHud(lv);
+      this.inLevel = true;
+      global.UI.show('game');
+      this.gameScreen.classList.remove('hidden');
+      this.resize();
+      global.Audio2.startMusic();
+    },
+
+    buildHud: function (lv) {
+      const s = this.gameScreen;
+      // remove old overlay
+      const old = s.querySelector('.hud');
+      if (old) old.remove();
+      const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
+      const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
+
+      const top = document.createElement('div');
+      top.className = 'game-top';
+      top.innerHTML =
+        '<button class="btn-back">‹</button>' +
+        '<div class="lvl-name">' + (lv.boss ? '👑 ' : '') + lv.name + '</div>' +
+        '<button class="btn-pause">⏸</button>';
+      s.appendChild(top);
+      const self = this;
+      top.querySelector('.btn-back').addEventListener('click', function () { global.Audio2.play('click'); self.confirmQuit(); });
+      top.querySelector('.btn-pause').addEventListener('click', function () { global.Audio2.play('click'); self.pause(); });
+
+      const hud = document.createElement('div');
+      hud.className = 'hud';
+      hud.innerHTML =
+        '<div class="hud-stats">' +
+          '<div class="hud-pill"><div class="hp-l">ОЧКИ</div><div class="hp-v" id="hud-score">0</div></div>' +
+          '<div class="hud-pill"><div class="hp-l">ХОДИ</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
+        '</div>' +
+        '<div class="hud-obj">' +
+          '<div class="obj-top"><span id="hud-obj-label">Ціль</span><span id="hud-obj-val">0 / 0</span></div>' +
+          '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
+        '</div>';
+      s.appendChild(hud);
+
+      const drBars = document.createElement('div');
+      drBars.className = 'dragon-bars';
+      s.appendChild(drBars);
+
+      this.hud = {
+        score: hud.querySelector('#hud-score'),
+        moves: hud.querySelector('#hud-moves'),
+        objLabel: hud.querySelector('#hud-obj-label'),
+        objVal: hud.querySelector('#hud-obj-val'),
+        objBar: hud.querySelector('#hud-obj-bar'),
+        dragonBars: drBars
+      };
+      this.renderDragonBars(this.engine.dragons);
+      this.engine.emitObjective();
+    },
+
+    renderDragonBars: function (dragons) {
+      if (!this.hud) return;
+      const wrap = this.hud.dragonBars;
+      wrap.innerHTML = '';
+      const p = global.Save.get();
+      dragons.forEach(function (d) {
+        const pct = Math.min(100, Math.round(d.charge / d.need * 100));
+        const sc = D.SKIN_COLORS[p.activeSkins[d.id]] || d.def;
+        const cell = document.createElement('div');
+        cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '');
+        cell.innerHTML =
+          '<div class="db-emoji" style="filter:drop-shadow(0 0 8px ' + (sc.glow || d.def.glow) + ')">' + d.def.emoji + '</div>' +
+          '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>';
+        wrap.appendChild(cell);
+      });
+    },
+
+    showCombo: function (n) {
+      let c = this.gameScreen.querySelector('.combo-pop');
+      if (!c) { c = document.createElement('div'); c.className = 'combo-pop'; this.gameScreen.appendChild(c); }
+      c.textContent = 'КОМБО ×' + n + '!';
+      c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+    },
+
+    confirmQuit: function () {
+      const self = this;
+      global.UI.modal('Вийти з рівня?', null, [
+        { label: 'Продовжити' },
+        { label: 'Вийти', primary: true, onClick: function () { self.go('map'); } }
+      ]);
+    },
+    pause: function () {
+      const self = this;
+      global.UI.modal('⏸ Пауза', null, [
+        { label: 'Вийти на карту', onClick: function () { self.go('map'); } },
+        { label: 'Продовжити', primary: true }
+      ]);
+    },
+
+    onWin: function (res) {
+      const p = global.Save.get();
+      const lvNum = this.currentLevel;
+      const lv = D.LEVELS[lvNum - 1];
+      const prevStars = p.stars[lvNum] || 0;
+      const newStars = Math.max(prevStars, res.stars);
+      if (newStars > prevStars) {
+        global.Save.addStat('totalStars', newStars - prevStars);
+      }
+      p.stars[lvNum] = newStars;
+      // rewards (full reward first time, half on replay)
+      const firstTime = lvNum >= p.levelProgress;
+      const gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
+      const energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
+      p.gold += gold; p.energy += energy;
+      global.Save.addStat('levelsWon', firstTime ? 1 : 0);
+      if (lvNum >= p.levelProgress) p.levelProgress = Math.min(D.LEVELS.length, lvNum + 1);
+      // charge a random egg with energy
+      if (p.eggs.length) {
+        const egg = p.eggs[0];
+        egg.charge = Math.min(egg.need, egg.charge + energy + 10);
+      }
+      global.UI.addPassXp(50 + res.stars * 20);
+      global.Save.save();
+      this.checkUnlocks();
+
+      const body = document.createElement('div');
+      body.className = 'modal-body win-body';
+      body.innerHTML =
+        '<div class="stars-row">' +
+          ['s1','s2','s3'].map(function (id, i) {
+            return '<span class="big-star ' + (i < res.stars ? 'on' : '') + '" style="animation-delay:' + (i * 0.15) + 's">★</span>';
+          }).join('') +
+        '</div>' +
+        '<div class="win-score">Очки: ' + res.score + '</div>' +
+        '<div class="win-rewards">+' + gold + '🪙  +' + energy + '⚡</div>';
+      const self = this;
+      const btns = [
+        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
+        { label: '🔁 Ще раз', onClick: function () { self.startLevel(lvNum); } }
+      ];
+      if (lvNum < D.LEVELS.length) btns.push({ label: '▶ Далі', primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
+      else btns.push({ label: '🏝 Острів', primary: true, onClick: function () { self.go('home'); } });
+      // staggered star sounds
+      for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
+      global.UI.modal('🎉 Перемога!', body, btns);
+    },
+
+    onLose: function (res) {
+      const self = this;
+      const lvNum = this.currentLevel;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">😢</div><p>Цілі не досягнуто.</p><div class="win-score">Очки: ' + res.score + '</div>' +
+        '<p class="muted small">Перегляньте рекламу, щоб отримати +5 ходів!</p>';
+      global.UI.modal('Поразка', body, [
+        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
+        { label: '📺 +5 ходів', onClick: function () {
+            global.UI.watchAd();
+            // grant extra moves and resume
+            self.engine.movesLeft += 5; self.engine.finished = false; self.engine.state = 'idle';
+            self.hud.moves.textContent = self.engine.movesLeft;
+            setTimeout(function () { global.UI.closeModal(); }, 50);
+          }},
+        { label: '🔁 Ще раз', primary: true, onClick: function () { self.startLevel(lvNum); } }
+      ]);
+    },
+
+    checkUnlocks: function () {
+      const p = global.Save.get();
+      // auto-claim nothing; just notify island unlocks
+      D.ISLANDS.forEach(function (isl) {
+        if (isl.unlockLevel > 0 && p.levelProgress === isl.unlockLevel + 1 && !p['_isleNotified_' + isl.id]) {
+          p['_isleNotified_' + isl.id] = true; global.Save.save();
+          setTimeout(function () { global.UI.toast('🏝 Відкрито новий острів: ' + isl.name + '!'); }, 1500);
+        }
+      });
+    },
+
+    // ---- Canvas / input ---------------------------------------------------
+    resize: function () {
+      const rect = this.root.getBoundingClientRect();
+      const dpr = Math.min(2, global.devicePixelRatio || 1);
+      const w = rect.width, h = rect.height;
+      this.canvas.width = w * dpr;
+      this.canvas.height = h * dpr;
+      this.canvas.style.width = w + 'px';
+      this.canvas.style.height = h + 'px';
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.viewW = w; this.viewH = h;
+      if (this.engine) {
+        const margin = w * 0.04;
+        const size = w - margin * 2;
+        const top = h * 0.30; // leave room for HUD
+        this.engine.setViewport(margin, top, size);
+      }
+    },
+
+    bindInput: function () {
+      const self = this;
+      const getPos = function (ev) {
+        const rect = self.canvas.getBoundingClientRect();
+        const t = ev.touches ? ev.touches[0] : ev;
+        return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+      };
+      this.canvas.addEventListener('pointerdown', function (ev) {
+        if (!self.inLevel || !self.engine) return;
+        const p = getPos(ev); self.engine.onDown(p.x, p.y);
+      });
+      this.canvas.addEventListener('pointermove', function (ev) {
+        if (!self.inLevel || !self.engine) return;
+        const p = getPos(ev); self.engine.onMove(p.x, p.y);
+      });
+      this.canvas.addEventListener('pointerup', function () {
+        if (self.engine) self.engine.onUp();
+      });
+    },
+
+    // ---- Loop -------------------------------------------------------------
+    loop: function (ts) {
+      const dt = Math.min(0.05, (ts - this.last) / 1000) || 0;
+      this.last = ts;
+      const g = this.ctx;
+      g.clearRect(0, 0, this.viewW, this.viewH);
+      if (this.inLevel && this.engine) {
+        // animated gradient backdrop for the board area
+        const lv = D.LEVELS[this.currentLevel - 1];
+        const isl = D.ISLANDS[lv.island];
+        const grd = g.createLinearGradient(0, 0, 0, this.viewH);
+        grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
+        g.fillStyle = grd; g.fillRect(0, 0, this.viewW, this.viewH);
+        this.engine.update(dt);
+        this.engine.draw(g);
+      }
+      requestAnimationFrame(this.loop.bind(this));
+    }
+  };
+
+  global.Game = Game;
+  document.addEventListener('DOMContentLoaded', function () { Game.boot(); });
+})(window);
+
+</script>
+</body>
+</html>
