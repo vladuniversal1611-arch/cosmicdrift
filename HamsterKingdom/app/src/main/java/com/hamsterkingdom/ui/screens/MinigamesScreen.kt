@@ -17,7 +17,7 @@ import com.hamsterkingdom.ui.minigames.*
 import com.hamsterkingdom.ui.theme.*
 import com.hamsterkingdom.viewmodel.GameViewModel
 
-enum class ActiveMinigame { NONE, CHEESE_DASH, HAMSTER_JUMP, WHEEL_SPIN, TUNNEL_ESCAPE }
+enum class ActiveMinigame { NONE, CHEESE_DASH, HAMSTER_JUMP, WHEEL_SPIN, TUNNEL_ESCAPE, CHEESE_PUZZLE }
 
 data class MinigameInfo(
     val id: ActiveMinigame,
@@ -32,7 +32,8 @@ val MINIGAMES = listOf(
     MinigameInfo(ActiveMinigame.CHEESE_DASH, "Cheese Dash", "🏃", "Run, collect cheese, avoid obstacles!", "🧀 Cheese + 💰 Coins", Color(0xFFFF6B35)),
     MinigameInfo(ActiveMinigame.HAMSTER_JUMP, "Hamster Jump", "⬆️", "Jump as high as you can on platforms!", "🧀 Cheese + 💰 Coins", Color(0xFF7B1FA2)),
     MinigameInfo(ActiveMinigame.TUNNEL_ESCAPE, "Tunnel Escape", "🕳️", "Escape the mole through the tunnels!", "🧀 Cheese + 💰 Coins", Color(0xFF5D3A1A)),
-    MinigameInfo(ActiveMinigame.WHEEL_SPIN, "Wheel of Fortune", "🎡", "Spin daily for amazing prizes!", "🧀💰💎 Random Prizes", Color(0xFF1565C0))
+    MinigameInfo(ActiveMinigame.WHEEL_SPIN, "Wheel of Fortune", "🎡", "Spin daily for amazing prizes!", "🧀💰💎 Random Prizes", Color(0xFF1565C0)),
+    MinigameInfo(ActiveMinigame.CHEESE_PUZZLE, "Cheese Puzzle", "🧩", "Match cheese pairs before time runs out!", "🧀 Cheese + 💰 Coins", Color(0xFF2E7D32))
 )
 
 @Composable
@@ -44,6 +45,7 @@ fun MinigamesScreen(vm: GameViewModel) {
         ActiveMinigame.HAMSTER_JUMP -> HamsterJumpScreen(vm, onBack = { activeGame = ActiveMinigame.NONE })
         ActiveMinigame.WHEEL_SPIN -> WheelSpinScreen(vm, onBack = { activeGame = ActiveMinigame.NONE })
         ActiveMinigame.TUNNEL_ESCAPE -> TunnelEscapeScreen(vm, onBack = { activeGame = ActiveMinigame.NONE })
+        ActiveMinigame.CHEESE_PUZZLE -> CheesePuzzleScreen(vm, onBack = { activeGame = ActiveMinigame.NONE })
         ActiveMinigame.NONE -> MinigamesList { activeGame = it }
     }
 }

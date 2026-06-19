@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,23 +21,61 @@ import com.hamsterkingdom.viewmodel.GameViewModel
 
 @Composable
 fun AchievementsScreen(vm: GameViewModel) {
-    val state by vm.state.collectAsState()
-    val achievements = state.achievements
-    val unlocked = achievements.count { it.isUnlocked }
-    var filter by remember { mutableStateOf("All") }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("🏆 Trophies", "📋 Tasks")
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF1A0A2E), Color(0xFF0D1B3E))))
-            .padding(16.dp)
     ) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color(0xFF0D0520),
+            contentColor = HamsterGold,
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                    color = HamsterGold
+                )
+            }
+        ) {
+            tabs.forEachIndexed { i, label ->
+                Tab(
+                    selected = selectedTab == i,
+                    onClick = { selectedTab = i },
+                    text = {
+                        Text(
+                            label,
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedTab == i) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == i) HamsterGold else Color.White.copy(alpha = 0.5f)
+                        )
+                    }
+                )
+            }
+        }
+
+        when (selectedTab) {
+            0 -> AchievementsList(vm)
+            1 -> DailyTasksScreen(vm)
+        }
+    }
+}
+
+@Composable
+private fun AchievementsList(vm: GameViewModel) {
+    val state by vm.state.collectAsState()
+    val achievements = state.achievements
+    val unlocked = achievements.count { it.isUnlocked }
+    var filter by remember { mutableStateOf("All") }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("🏆 Achievements", style = MaterialTheme.typography.headlineMedium, color = HamsterGold, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(6.dp))
         Text("$unlocked / ${achievements.size} unlocked", fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
         Spacer(Modifier.height(8.dp))
 
-        // Progress
         LinearProgressIndicator(
             progress = { unlocked.toFloat() / achievements.size },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
@@ -45,7 +84,6 @@ fun AchievementsScreen(vm: GameViewModel) {
         )
         Spacer(Modifier.height(12.dp))
 
-        // Filter tabs
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Unlocked", "Locked").forEach { f ->
                 FilterChip(
@@ -70,9 +108,7 @@ fun AchievementsScreen(vm: GameViewModel) {
         }
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(filtered) { ach ->
-                AchievementCard(ach)
-            }
+            items(filtered) { ach -> AchievementCard(ach) }
             item { Spacer(Modifier.height(80.dp)) }
         }
     }

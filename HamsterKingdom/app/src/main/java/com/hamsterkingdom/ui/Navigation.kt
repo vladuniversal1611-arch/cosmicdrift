@@ -19,11 +19,11 @@ sealed class Screen(val route: String, val label: String, val emoji: String) {
     object Kingdom : Screen("kingdom", "Kingdom", "🏰")
     object Minigames : Screen("minigames", "Games", "🎮")
     object Collection : Screen("collection", "Items", "🎒")
+    object Pets : Screen("pets", "Pets", "🐾")
     object Achievements : Screen("achievements", "Trophy", "🏆")
-    object DailyTasks : Screen("tasks", "Tasks", "📋")
 }
 
-val screens = listOf(Screen.Home, Screen.Kingdom, Screen.Minigames, Screen.Collection, Screen.Achievements, Screen.DailyTasks)
+val screens = listOf(Screen.Home, Screen.Kingdom, Screen.Minigames, Screen.Collection, Screen.Pets, Screen.Achievements)
 
 @Composable
 fun HamsterKingdomNavigation(vm: GameViewModel) {
@@ -48,8 +48,8 @@ fun HamsterKingdomNavigation(vm: GameViewModel) {
                     Screen.Kingdom -> KingdomScreen(vm)
                     Screen.Minigames -> MinigamesScreen(vm)
                     Screen.Collection -> CollectionScreen(vm)
+                    Screen.Pets -> PetsScreen(vm)
                     Screen.Achievements -> AchievementsScreen(vm)
-                    Screen.DailyTasks -> DailyTasksScreen(vm)
                 }
             }
         }
