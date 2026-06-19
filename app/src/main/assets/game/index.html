@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Hole Evolution</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- UI Overlay -->
+  <div id="ui">
+
+    <!-- LOADING SCREEN -->
+    <div id="screen-loading" class="screen active">
+      <div class="loading-content">
+        <div class="loading-hole"></div>
+        <div class="loading-title">HOLE EVOLUTION</div>
+        <div class="loading-sub">Поглинай. Зростай. Еволюціонуй.</div>
+        <div class="loading-bar-wrap"><div id="loadingBar" class="loading-bar"></div></div>
+        <div id="loadingText" class="loading-text">Завантаження...</div>
+      </div>
+    </div>
+
+    <!-- BASE SCREEN -->
+    <div id="screen-base" class="screen">
+      <!-- Top resource bar -->
+      <div class="res-bar">
+        <div class="res-item"><span class="res-icon">🪙</span><span id="hud-coins">0</span></div>
+        <div class="res-item"><span class="res-icon">⭐</span><span id="hud-stars">0</span></div>
+        <div class="res-item"><span class="res-icon">💎</span><span id="hud-gems">0</span></div>
+        <div class="res-item settings-btn" onclick="game.showSettings()">⚙️</div>
+      </div>
+
+      <!-- Hole display area -->
+      <div class="hole-display">
+        <canvas id="holeCanvas" width="220" height="220"></canvas>
+        <div id="evo-name" class="evo-name">Сингулярність</div>
+        <div id="evo-bonus" class="evo-bonus">Базова чорна діра</div>
+      </div>
+
+      <!-- Daily event banner -->
+      <div id="daily-banner" class="daily-banner" onclick="game.showDailyEvent()" style="display:none">
+        <span id="daily-icon">🎉</span>
+        <span id="daily-text">Щоденна подія!</span>
+        <span class="daily-arrow">›</span>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="base-actions">
+        <button class="btn-play" onclick="game.showWorldSelect()">
+          <span class="btn-play-icon">▶</span>
+          <span>ГРАТИ</span>
+          <span class="btn-play-sub" id="play-level-info">Рівень 1</span>
+        </button>
+      </div>
+
+      <!-- Nav buttons -->
+      <div class="base-nav">
+        <button class="nav-btn" onclick="game.showUpgrades()">
+          <div class="nav-icon">⬆️</div>
+          <div class="nav-label">Покращення</div>
+        </button>
+        <button class="nav-btn" onclick="game.showEvolutions()">
+          <div class="nav-icon">🌀</div>
+          <div class="nav-label">Еволюції</div>
+        </button>
+        <button class="nav-btn" onclick="game.showCollection()">
+          <div class="nav-icon">🃏</div>
+          <div class="nav-label">Картки</div>
+        </button>
+        <button class="nav-btn" onclick="game.showAchievements()">
+          <div class="nav-icon">🏆</div>
+          <div class="nav-label">Досягнення</div>
+          <div id="ach-badge" class="notif-badge" style="display:none">!</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- WORLD SELECT SCREEN -->
+    <div id="screen-world" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>Оберіть Світ</h2>
+      </div>
+      <div class="world-grid" id="worldGrid"></div>
+    </div>
+
+    <!-- GAME HUD (shown during gameplay) -->
+    <div id="screen-game-hud" class="screen">
+      <div class="game-hud-top">
+        <div class="hud-left">
+          <div class="hud-world-name" id="hud-world-name">Місто</div>
+          <div class="hud-level" id="hud-level">Рівень 1</div>
+        </div>
+        <div class="hud-center">
+          <div class="hud-timer-ring">
+            <svg id="timerSvg" width="70" height="70" viewBox="0 0 70 70">
+              <circle cx="35" cy="35" r="30" fill="none" stroke="#ffffff22" stroke-width="5"/>
+              <circle id="timerArc" cx="35" cy="35" r="30" fill="none" stroke="#f1c40f"
+                stroke-width="5" stroke-dasharray="188.5" stroke-dashoffset="0"
+                stroke-linecap="round" transform="rotate(-90 35 35)"/>
+            </svg>
+            <div id="hud-timer" class="hud-timer-text">60</div>
+          </div>
+        </div>
+        <div class="hud-right">
+          <div class="hud-score-label">Монети</div>
+          <div id="hud-score" class="hud-score">0</div>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div id="hud-size-bar-wrap" class="size-bar-wrap">
+          <div class="size-bar-label">Розмір</div>
+          <div class="size-bar-track">
+            <div id="hud-size-bar" class="size-bar-fill"></div>
+          </div>
+          <div id="hud-size-val" class="size-bar-val">30</div>
+        </div>
+        <div id="hud-combo" class="hud-combo" style="display:none">
+          <span>КОМБО </span><span id="hud-combo-num">x2</span>
+        </div>
+      </div>
+
+      <button class="pause-btn" onclick="game.pauseGame()">⏸</button>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div id="screen-pause" class="screen">
+      <div class="modal-backdrop">
+        <div class="modal-box">
+          <div class="modal-title">⏸ Пауза</div>
+          <button class="modal-btn" onclick="game.resumeGame()">▶ Продовжити</button>
+          <button class="modal-btn modal-btn-secondary" onclick="game.quitToBase()">🏠 На базу</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL RESULT SCREEN -->
+    <div id="screen-result" class="screen">
+      <div class="result-backdrop">
+        <div class="result-box">
+          <div id="result-title" class="result-title">РІВЕНЬ ПРОЙДЕНО!</div>
+          <div class="result-stars" id="result-stars">⭐⭐⭐</div>
+          <div class="result-rewards" id="result-rewards"></div>
+          <div id="result-card" class="result-card-drop" style="display:none">
+            <div class="card-drop-label">🃏 Нова картка!</div>
+            <div id="result-card-info" class="card-drop-info"></div>
+          </div>
+          <button class="btn-play result-next-btn" onclick="game.nextLevel()">
+            НАСТУПНИЙ РІВЕНЬ ›
+          </button>
+          <button class="modal-btn modal-btn-secondary" onclick="game.quitToBase()" style="margin-top:8px">
+            🏠 На базу
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOSS RESULT SCREEN -->
+    <div id="screen-boss-result" class="screen">
+      <div class="result-backdrop">
+        <div class="result-box">
+          <div class="result-title boss-result-title">👑 БОС ПЕРЕМОЖЕНИЙ!</div>
+          <div id="boss-result-name" class="boss-result-name"></div>
+          <div class="result-rewards" id="boss-result-rewards"></div>
+          <button class="btn-play result-next-btn" onclick="game.nextLevel()">ПРОДОВЖИТИ ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPGRADES PANEL -->
+    <div id="screen-upgrades" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>⬆️ Покращення</h2>
+        <div class="panel-res"><span>🪙</span><span id="upg-coins">0</span></div>
+      </div>
+      <div class="upgrades-list" id="upgradesList"></div>
+    </div>
+
+    <!-- EVOLUTIONS PANEL -->
+    <div id="screen-evolutions" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>🌀 Еволюції</h2>
+      </div>
+      <div class="evo-list" id="evoList"></div>
+    </div>
+
+    <!-- COLLECTION / CARDS PANEL -->
+    <div id="screen-collection" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>🃏 Картки</h2>
+        <div class="panel-res"><span>🪙</span><span id="col-coins">0</span></div>
+      </div>
+      <div class="card-grid" id="cardGrid"></div>
+    </div>
+
+    <!-- ACHIEVEMENTS PANEL -->
+    <div id="screen-achievements" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>🏆 Досягнення</h2>
+        <div class="panel-res" id="ach-progress-text">0/105</div>
+      </div>
+      <div class="ach-list" id="achList"></div>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div id="screen-settings" class="screen">
+      <div class="panel-header">
+        <button class="back-btn" onclick="game.showBase()">‹</button>
+        <h2>⚙️ Налаштування</h2>
+      </div>
+      <div class="settings-list">
+        <div class="settings-row">
+          <span>🔊 Звук</span>
+          <button class="toggle-btn" id="toggle-sound" onclick="game.toggleSound()">ВКЛ</button>
+        </div>
+        <div class="settings-row">
+          <span>🎵 Музика</span>
+          <button class="toggle-btn" id="toggle-music" onclick="game.toggleMusic()">ВКЛ</button>
+        </div>
+        <div class="settings-row">
+          <span>📳 Вібрація</span>
+          <button class="toggle-btn" id="toggle-vibro" onclick="game.toggleVibro()">ВКЛ</button>
+        </div>
+        <div class="settings-sep"></div>
+        <div class="settings-row">
+          <span>Версія</span>
+          <span class="settings-val">1.0.0</span>
+        </div>
+        <button class="modal-btn modal-btn-danger" onclick="game.confirmReset()" style="margin-top:20px">
+          🗑️ Скинути прогрес
+        </button>
+      </div>
+    </div>
+
+    <!-- OFFLINE REWARD POPUP -->
+    <div id="screen-offline" class="screen">
+      <div class="modal-backdrop">
+        <div class="modal-box">
+          <div class="modal-title">🌙 Офлайн прибуток</div>
+          <div id="offline-time" class="offline-time"></div>
+          <div id="offline-rewards" class="offline-rewards"></div>
+          <button class="btn-play" onclick="game.collectOffline()" style="margin-top:16px">Зібрати</button>
+          <button class="modal-btn modal-btn-secondary" onclick="game.collectOfflineX2()" style="margin-top:8px">📺 x2 (реклама)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAILY EVENT POPUP -->
+    <div id="screen-daily" class="screen">
+      <div class="modal-backdrop">
+        <div class="modal-box">
+          <div class="modal-title" id="daily-popup-title">🎉 Щоденна подія</div>
+          <div id="daily-popup-desc" class="daily-popup-desc"></div>
+          <div id="daily-popup-timer" class="daily-popup-timer"></div>
+          <button class="btn-play" onclick="game.activateDailyEvent()" style="margin-top:16px">Активувати!</button>
+          <button class="modal-btn modal-btn-secondary" onclick="game.closePopup()" style="margin-top:8px">Пізніше</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container"></div>
+
+    <!-- ACHIEVEMENT POPUP -->
+    <div id="ach-popup" class="ach-popup" style="display:none">
+      <div class="ach-popup-icon" id="ach-popup-icon">🏆</div>
+      <div class="ach-popup-info">
+        <div class="ach-popup-label">Досягнення!</div>
+        <div class="ach-popup-name" id="ach-popup-name"></div>
+      </div>
+    </div>
+
+  </div><!-- #ui -->
+
+  <script src="game.js"></script>
+</body>
+</html>
