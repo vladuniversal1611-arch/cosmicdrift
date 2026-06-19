@@ -1,0 +1,3 @@
+-keep class com.dragoncollector.** { *; }
+-keepattributes *Annotation*
+-dontwarn kotlinx.**
