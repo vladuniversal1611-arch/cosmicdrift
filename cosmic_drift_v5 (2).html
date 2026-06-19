@@ -196,6 +196,8 @@ canvas{display:block;border-radius:20px}
 #metaOv{position:absolute;inset:0;z-index:39;border-radius:20px;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;overflow-y:auto}
 #metaOv.on{display:flex}
 #metaBg{position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 50% 25%,rgba(10,8,40,.97) 0%,rgba(0,0,0,.98) 100%)}
+.ov-close-x{position:sticky;top:0;align-self:flex-end;z-index:9;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#dfeaff;background:rgba(22,32,78,.95);border:1px solid rgba(95,140,255,.7);border-radius:50%;cursor:pointer;box-shadow:0 0 16px rgba(40,90,255,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.ov-close-x:active{background:rgba(40,60,130,.98);transform:scale(.92)}
 /* REVIVE */
 #reviveOv{position:absolute;inset:0;z-index:37;border-radius:20px;display:none;flex-direction:column;justify-content:center;align-items:center;padding:28px}
 #reviveOv.on{display:flex}
@@ -287,6 +289,7 @@ canvas{display:block;border-radius:20px}
 <div id="lbOv">
   <div id="lbBg"></div>
   <div class="lbc">
+    <div class="ov-close-x" id="lbCloseTop">✕</div>
     <div class="lb-title">— hall of fame —</div>
     <div class="lb-head">RECORDS</div>
     <div class="lb-hr"></div>
@@ -300,6 +303,7 @@ canvas{display:block;border-radius:20px}
 <div id="metaOv">
   <div id="metaBg"></div>
   <div class="lbc">
+    <div class="ov-close-x" id="metaCloseTop">✕</div>
     <div class="lb-title">— hangar · permanent upgrades —</div>
     <div class="lb-head">HANGAR</div>
     <div class="sh-coins" id="metaCoins" style="margin-top:-4px">💠 0</div>
@@ -934,11 +938,11 @@ function spawnEnemy(type){
   const d=getDiff();
   const gw=zoneIdx*5+waveInZone+1; // global wave
   const base={x:18+Math.random()*(W-36),y:-40,dead:false,fl:0};
-  if(type==='rock'){const big=Math.random()<Math.min(.58,.18+gw*.025);const r=big?17+Math.random()*11:7+Math.random()*8;const hp=Math.max(1,Math.round((big?3:1)*d.enemyHp));return Object.assign(base,{type:'rock',r,vy:(1+Math.random()*(1+gw*.18))*d.enemySpd,vx:(Math.random()-.5)*1.8,rot:Math.random()*6.28,rs:(Math.random()-.5)*.06,big,hp,mhp:hp,seed:Math.random()*100,pts:big?40:14});}
+  if(type==='rock'){const big=Math.random()<Math.min(.58,.18+gw*.025);const r=big?17+Math.random()*11:7+Math.random()*8;const hp=Math.max(1,Math.round(((big?3:1)+Math.floor(gw/7))*d.enemyHp));return Object.assign(base,{type:'rock',r,vy:(1+gw*.13+Math.random()*.5)*d.enemySpd,vx:(Math.random()-.5)*1.8,rot:Math.random()*6.28,rs:(Math.random()-.5)*.06,big,hp,mhp:hp,seed:Math.random()*100,pts:big?40:14});}
   if(type==='kamikaze'){const hp=Math.max(1,Math.round((1+Math.floor(gw/8))*d.enemyHp));return Object.assign(base,{type:'kamikaze',r:9,hp,mhp:hp,vx:0,vy:(1.4+gw*.08)*d.enemySpd,phase:0,pts:20,angle:0});}
   if(type==='sniper'){const hp=Math.max(1,Math.round((2+Math.floor(gw/6))*d.enemyHp));return Object.assign(base,{type:'sniper',r:12,hp,mhp:hp,vx:(Math.random()-.5)*1.2,vy:(.6+gw*.04)*d.enemySpd,sCd:Math.floor(55+Math.random()*55),pts:35});}
   if(type==='shielded'){const r=15+Math.random()*6;const hp=Math.max(2,Math.round((4+Math.floor(gw/5))*d.enemyHp));return Object.assign(base,{type:'shielded',r,hp,mhp:hp,shieldHp:Math.max(1,Math.round((2+Math.floor(gw/7))*d.enemyHp)),shieldOn:true,vx:(Math.random()-.5)*1.4,vy:(.9+gw*.06)*d.enemySpd,rot:0,rs:.03,pts:60,seed:Math.random()*100});}
-  if(type==='splitter'){const r=17+Math.random()*7;const hp=Math.max(2,Math.round((3+Math.floor(gw/6))*d.enemyHp));return Object.assign(base,{type:'splitter',r,hp,mhp:hp,vy:(.9+Math.random()*(.7+gw*.1))*d.enemySpd,vx:(Math.random()-.5)*1.5,rot:Math.random()*6.28,rs:(Math.random()-.5)*.05,seed:Math.random()*100,pts:55});}
+  if(type==='splitter'){const r=17+Math.random()*7;const hp=Math.max(2,Math.round((3+Math.floor(gw/6))*d.enemyHp));return Object.assign(base,{type:'splitter',r,hp,mhp:hp,vy:(.9+gw*.09+Math.random()*.4)*d.enemySpd,vx:(Math.random()-.5)*1.5,rot:Math.random()*6.28,rs:(Math.random()-.5)*.05,seed:Math.random()*100,pts:55});}
   if(type==='turret'){const hp=Math.max(3,Math.round((5+Math.floor(gw/4))*d.enemyHp));return Object.assign(base,{type:'turret',r:16,hp,mhp:hp,vx:0,vy:1.3*d.enemySpd,stopY:90+Math.random()*70,sCd:Math.floor(50+Math.random()*40),pts:80,rot:0});}
   return spawnEnemy('rock');
 }
@@ -950,7 +954,7 @@ function getWaveComposition(){
   const types=[];
   for(let i=0;i<count;i++){
     const r=Math.random();
-    if(zoneIdx===0)types.push(globalWave<=2?'rock':r<.55?'rock':r<.85?'kamikaze':'splitter');
+    if(zoneIdx===0)types.push(globalWave<=1?'rock':globalWave===2?(r<.75?'rock':'kamikaze'):r<.55?'rock':r<.85?'kamikaze':'splitter');
     else if(zoneIdx===1)types.push(r<.34?'rock':r<.58?'kamikaze':r<.78?'sniper':'splitter');
     else if(zoneIdx===2)types.push(r<.24?'rock':r<.44?'kamikaze':r<.62?'sniper':r<.80?'shielded':'splitter');
     else if(zoneIdx===3)types.push(r<.16?'rock':r<.34?'kamikaze':r<.52?'sniper':r<.70?'shielded':r<.86?'splitter':'turret');
@@ -1437,6 +1441,8 @@ function openLB(){
 function closeLB(){document.getElementById('lbOv').className='';}
 document.getElementById('lbClose').addEventListener('click',closeLB);
 document.getElementById('lbClose').addEventListener('touchend',e=>{e.preventDefault();closeLB();});
+document.getElementById('lbCloseTop').addEventListener('click',closeLB);
+document.getElementById('lbCloseTop').addEventListener('touchend',e=>{e.preventDefault();closeLB();});
 document.getElementById('lbOpenBtn').addEventListener('click',openLB);
 document.getElementById('lbOpenBtn').addEventListener('touchend',e=>{e.preventDefault();openLB();});
 
@@ -1487,6 +1493,8 @@ document.getElementById('metaOpenBtn').addEventListener('click',openMeta);
 document.getElementById('metaOpenBtn').addEventListener('touchend',e=>{e.preventDefault();openMeta();});
 document.getElementById('metaClose').addEventListener('click',closeMeta);
 document.getElementById('metaClose').addEventListener('touchend',e=>{e.preventDefault();closeMeta();});
+document.getElementById('metaCloseTop').addEventListener('click',closeMeta);
+document.getElementById('metaCloseTop').addEventListener('touchend',e=>{e.preventDefault();closeMeta();});
 
 // ═══════════════════════════════════════════
 // DAILY REWARD (streak-based)
