@@ -2,1642 +2,581 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Lucky Vault Casino</title>
 <style>
-  :root {
-    --gold: #FFD700;
-    --gold2: #FFA500;
-    --neon-blue: #00CFFF;
-    --neon-purple: #BF5FFF;
-    --neon-pink: #FF2D78;
-    --neon-green: #00FF88;
-    --dark: #0A0A1A;
-    --dark2: #0F0F2A;
-    --card: rgba(255,255,255,0.06);
-    --card-border: rgba(255,255,255,0.12);
-    --text: #FFFFFF;
-    --text2: rgba(255,255,255,0.65);
-    --radius: 18px;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { width:100%; height:100%; overflow:hidden; background:#0A0A1A; font-family:'Segoe UI',Arial,sans-serif; }
+:root{
+  --gold:#FFD700;--gold2:#FFA500;
+  --blue:#00CFFF;--purple:#BF5FFF;--pink:#FF2D78;--green:#00FF88;
+  --dark:#07071A;--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
+  font-family:'Segoe UI',Arial,sans-serif;color:#fff;}
 
-  /* ── BG Canvas ── */
-  #bgCanvas { position:fixed; inset:0; z-index:0; }
+canvas{position:fixed;inset:0;pointer-events:none;}
+#bgC{z-index:0;}
+#pC{z-index:2;}
 
-  /* ── Screens ── */
-  .screen { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; overflow:hidden;
-    opacity:0; pointer-events:none; transition:opacity .35s ease; }
-  .screen.active { opacity:1; pointer-events:all; }
+/* ── Layout ── */
+#app{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;overflow:hidden;}
 
-  /* ── Top Bar ── */
-  .topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 14px 6px;
-    background:rgba(10,10,26,.85); backdrop-filter:blur(8px); border-bottom:1px solid var(--card-border);
-    flex-shrink:0; z-index:5; }
-  .topbar-logo { font-size:17px; font-weight:900; letter-spacing:1px;
-    background:linear-gradient(135deg,var(--gold),var(--gold2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  .topbar-stats { display:flex; gap:10px; }
-  .stat-pill { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.14); border-radius:30px; padding:4px 10px; font-size:13px; font-weight:700; color:#fff; }
-  .stat-pill .icon { font-size:15px; }
+/* ── Top Bar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px 8px;
+  background:rgba(7,7,26,.88);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.logo{
+  font-size:18px;font-weight:900;letter-spacing:1.5px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.top-right{display:flex;gap:8px;align-items:center;}
+.pill{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+  border-radius:30px;padding:5px 11px;font-size:13px;font-weight:700;
+}
+.pill-icon{font-size:15px;}
+.settings-btn{
+  width:34px;height:34px;border-radius:50%;border:1px solid var(--border);
+  background:rgba(255,255,255,.07);display:flex;align-items:center;
+  justify-content:center;font-size:17px;cursor:pointer;
+}
 
-  /* ── Level bar ── */
-  .levelbar { display:flex; align-items:center; gap:10px; padding:7px 14px;
-    background:rgba(10,10,26,.7); flex-shrink:0; }
-  .lv-badge { background:linear-gradient(135deg,var(--neon-purple),var(--neon-blue)); border-radius:8px;
-    padding:3px 8px; font-size:12px; font-weight:900; color:#fff; white-space:nowrap; }
-  .xp-track { flex:1; height:8px; background:rgba(255,255,255,.1); border-radius:10px; overflow:hidden; }
-  .xp-fill { height:100%; background:linear-gradient(90deg,var(--neon-purple),var(--neon-blue)); border-radius:10px;
-    transition:width .5s ease; }
-  .xp-label { font-size:11px; color:var(--text2); white-space:nowrap; }
+/* ── Level / XP Bar ── */
+.lvbar{
+  display:flex;align-items:center;gap:8px;padding:7px 14px;
+  background:rgba(7,7,26,.7);flex-shrink:0;
+}
+.lv-badge{
+  background:linear-gradient(135deg,var(--purple),var(--blue));
+  border-radius:8px;padding:3px 9px;font-size:12px;font-weight:900;white-space:nowrap;
+}
+.xp-track{flex:1;height:7px;background:rgba(255,255,255,.1);border-radius:10px;overflow:hidden;}
+.xp-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--blue));
+  border-radius:10px;transition:width .5s;}
+.xp-label{font-size:11px;color:rgba(255,255,255,.5);white-space:nowrap;}
 
-  /* ── Jackpot Banner ── */
-  .jackpot-banner { text-align:center; padding:8px; background:linear-gradient(90deg,#2a0a3a,#0a1a3a,#2a0a3a);
-    border-bottom:1px solid rgba(255,215,0,.3); flex-shrink:0; animation:jackpotGlow 2s ease-in-out infinite alternate; }
-  @keyframes jackpotGlow { from{box-shadow:inset 0 0 20px rgba(255,215,0,.1)} to{box-shadow:inset 0 0 40px rgba(255,215,0,.25)} }
-  .jackpot-label { font-size:11px; color:var(--gold2); letter-spacing:2px; font-weight:600; }
-  .jackpot-value { font-size:22px; font-weight:900; color:var(--gold);
-    text-shadow:0 0 20px rgba(255,215,0,.8); animation:jpPulse 1.5s ease-in-out infinite alternate; }
-  @keyframes jpPulse { from{transform:scale(1)} to{transform:scale(1.04)} }
+/* ── Jackpot Banner ── */
+.jp-banner{
+  text-align:center;padding:8px;flex-shrink:0;
+  background:linear-gradient(90deg,#1a0535,#060d25,#1a0535);
+  border-bottom:1px solid rgba(255,215,0,.2);
+  animation:jpGlow 2s ease-in-out infinite alternate;
+}
+@keyframes jpGlow{
+  from{box-shadow:inset 0 0 20px rgba(255,215,0,.06)}
+  to{box-shadow:inset 0 0 40px rgba(255,215,0,.18)}
+}
+.jp-label{font-size:10px;color:var(--gold2);letter-spacing:2px;font-weight:600;}
+.jp-value{
+  font-size:22px;font-weight:900;color:var(--gold);
+  text-shadow:0 0 18px rgba(255,215,0,.8);
+  animation:jpPulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes jpPulse{from{transform:scale(1)}to{transform:scale(1.04)}}
 
-  /* ── Slot Area ── */
-  .slot-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:10px 12px; overflow:hidden; }
+/* ── Lobby Body ── */
+.lobby-body{
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:14px 12px 10px;
+}
+.lobby-body::-webkit-scrollbar{width:0;}
 
-  /* ── Reels ── */
-  #slotCanvas { border-radius:16px; box-shadow:0 0 40px rgba(0,207,255,.25), 0 0 80px rgba(0,0,0,.5);
-    border:2px solid rgba(0,207,255,.3); max-width:100%; }
+/* ── Section Title ── */
+.section-title{
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.45);
+  letter-spacing:2px;text-transform:uppercase;
+  margin:6px 0 10px;display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1);}
 
-  /* ── Controls ── */
-  .controls { display:flex; flex-direction:column; align-items:center; gap:10px;
-    padding:10px 14px 14px; flex-shrink:0; }
-  .bet-row { display:flex; align-items:center; gap:12px; }
-  .bet-btn { width:38px; height:38px; border-radius:50%; border:2px solid var(--gold);
-    background:rgba(255,215,0,.1); color:var(--gold); font-size:20px; font-weight:900;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s;
-    -webkit-user-select:none; user-select:none; }
-  .bet-btn:active { transform:scale(.9); background:rgba(255,215,0,.25); }
-  .bet-display { display:flex; flex-direction:column; align-items:center; }
-  .bet-label { font-size:10px; color:var(--text2); letter-spacing:1px; text-transform:uppercase; }
-  .bet-value { font-size:22px; font-weight:900; color:var(--gold);
-    text-shadow:0 0 10px rgba(255,215,0,.6); }
-  .spin-row { display:flex; align-items:center; gap:16px; }
-  .btn-secondary { padding:10px 18px; border-radius:30px; border:2px solid rgba(255,255,255,.2);
-    background:rgba(255,255,255,.07); color:#fff; font-size:13px; font-weight:700; cursor:pointer;
-    transition:all .2s; -webkit-user-select:none; user-select:none; }
-  .btn-secondary:active { transform:scale(.95); background:rgba(255,255,255,.14); }
-  .spin-btn { width:90px; height:90px; border-radius:50%; cursor:pointer; position:relative;
-    display:flex; align-items:center; justify-content:center; -webkit-user-select:none; user-select:none;
-    transition:transform .15s; border:none; outline:none;
-    background:linear-gradient(145deg,#ff6b35,#ff2d78,#bf00ff);
-    box-shadow:0 0 30px rgba(255,45,120,.6), 0 0 60px rgba(191,0,255,.3), inset 0 2px 4px rgba(255,255,255,.3); }
-  .spin-btn:active { transform:scale(.93); }
-  .spin-btn.spinning { animation:spinBtnPulse .6s ease-in-out infinite alternate; }
-  @keyframes spinBtnPulse { from{box-shadow:0 0 30px rgba(255,45,120,.6)} to{box-shadow:0 0 60px rgba(255,45,120,1),0 0 100px rgba(191,0,255,.6)} }
-  .spin-btn-text { font-size:14px; font-weight:900; color:#fff; letter-spacing:1px;
-    text-shadow:0 1px 3px rgba(0,0,0,.5); text-align:center; line-height:1.2; }
-  .spin-count { font-size:10px; opacity:.8; }
+/* ── Game Grid ── */
+.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:18px;}
 
-  /* ── Free Spins indicator ── */
-  .free-spins-badge { display:none; background:linear-gradient(135deg,var(--neon-green),#00AA55);
-    color:#000; font-weight:900; font-size:12px; padding:4px 12px; border-radius:20px;
-    box-shadow:0 0 15px rgba(0,255,136,.6); animation:fsBadgePulse 1s ease-in-out infinite alternate; }
-  .free-spins-badge.visible { display:block; }
-  @keyframes fsBadgePulse { from{transform:scale(1)} to{transform:scale(1.08)} }
+/* ── Game Card ── */
+.game-card{
+  position:relative;border-radius:18px;overflow:hidden;cursor:pointer;
+  aspect-ratio:1.6;transition:transform .18s,box-shadow .18s;
+  -webkit-user-select:none;user-select:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+.game-card:active{transform:scale(.95);}
+.game-card:not(.locked):hover{transform:scale(1.02);box-shadow:0 8px 32px rgba(0,0,0,.5);}
 
-  /* ── Bottom Nav ── */
-  .bottom-nav { display:flex; background:rgba(10,10,26,.92); backdrop-filter:blur(10px);
-    border-top:1px solid var(--card-border); flex-shrink:0; }
-  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:8px 4px; cursor:pointer; border:none; background:none; color:var(--text2);
-    font-size:10px; font-weight:600; gap:3px; transition:all .2s; -webkit-user-select:none; user-select:none; }
-  .nav-btn .nav-icon { font-size:22px; transition:transform .2s; }
-  .nav-btn.active { color:var(--neon-blue); }
-  .nav-btn.active .nav-icon { transform:scale(1.2); filter:drop-shadow(0 0 6px var(--neon-blue)); }
-  .nav-btn:active .nav-icon { transform:scale(.9); }
+.gc-bg{position:absolute;inset:0;}
+.gc-glow{
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 55%);
+}
+.gc-border{
+  position:absolute;inset:0;border-radius:18px;
+  border:1.5px solid rgba(255,255,255,.15);
+  pointer-events:none;
+}
+.gc-preview{
+  position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;font-size:36px;letter-spacing:-6px;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.6));
+  padding-bottom:30px;
+}
+.gc-bottom{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.82));
+  padding:8px 10px 9px;
+}
+.gc-name{font-size:12px;font-weight:800;line-height:1.25;}
+.gc-type{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;}
 
-  /* ── Sub Screens ── */
-  .sub-screen { position:fixed; inset:0; z-index:20; background:var(--dark);
-    display:flex; flex-direction:column; transform:translateX(100%); transition:transform .35s cubic-bezier(.4,0,.2,1); }
-  .sub-screen.open { transform:translateX(0); }
-  .sub-header { display:flex; align-items:center; gap:12px; padding:14px 16px;
-    background:rgba(255,255,255,.04); border-bottom:1px solid var(--card-border); flex-shrink:0; }
-  .back-btn { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.1);
-    border:none; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .sub-title { font-size:18px; font-weight:800; color:#fff; flex:1; }
-  .sub-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.gc-badge{
+  position:absolute;top:8px;right:8px;
+  padding:2px 7px;border-radius:10px;
+  font-size:9px;font-weight:900;letter-spacing:.5px;
+}
 
-  /* ── Cards ── */
-  .card { background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius); padding:16px; }
-  .card-title { font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; letter-spacing:.5px; }
+/* Locked overlay */
+.gc-lock{
+  position:absolute;inset:0;border-radius:18px;
+  background:rgba(0,0,0,.68);backdrop-filter:blur(2px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+}
+.gc-lock-icon{font-size:26px;opacity:.8;}
+.gc-lock-lv{font-size:11px;font-weight:700;color:rgba(255,255,255,.6);}
 
-  /* ── Profile ── */
-  .avatar-area { display:flex; flex-direction:column; align-items:center; gap:10px; padding:20px 0; }
-  .avatar { width:90px; height:90px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-size:44px; background:linear-gradient(135deg,var(--neon-purple),var(--neon-blue));
-    box-shadow:0 0 30px rgba(191,95,255,.5); border:3px solid rgba(255,255,255,.2); }
-  .profile-name { font-size:22px; font-weight:900; color:#fff; }
-  .profile-lvl { font-size:13px; color:var(--neon-blue); font-weight:600; }
-  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .stat-card { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
-    border-radius:12px; padding:12px; text-align:center; }
-  .stat-card .sv { font-size:20px; font-weight:900; color:var(--gold); }
-  .stat-card .sl { font-size:11px; color:var(--text2); margin-top:3px; }
+/* ── Featured Card (full width) ── */
+.game-card.featured{
+  grid-column:1/-1;aspect-ratio:2.6;
+}
+.game-card.featured .gc-preview{font-size:52px;letter-spacing:-8px;}
+.game-card.featured .gc-name{font-size:15px;}
 
-  /* ── Shop ── */
-  .shop-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .shop-item { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
-    border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
-    transition:all .2s; position:relative; overflow:hidden; }
-  .shop-item:active { transform:scale(.97); }
-  .shop-item::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,215,0,.05),transparent);
-    opacity:0; transition:opacity .2s; }
-  .shop-item:active::before { opacity:1; }
-  .shop-item-icon { font-size:36px; }
-  .shop-item-name { font-size:12px; font-weight:700; color:#fff; text-align:center; }
-  .shop-item-price { font-size:11px; font-weight:600; color:var(--gold); }
-  .shop-item-badge { position:absolute; top:6px; right:6px; background:var(--neon-pink);
-    color:#fff; font-size:9px; font-weight:900; padding:2px 6px; border-radius:10px; }
-  .shop-section-title { font-size:13px; font-weight:700; color:var(--text2); letter-spacing:1px;
-    text-transform:uppercase; padding:4px 0; }
+/* ── Daily Bonus Card ── */
+.daily-card{
+  grid-column:1/-1;
+  background:linear-gradient(135deg,#1a0535,#060d25);
+  border:1px solid rgba(255,215,0,.25);border-radius:18px;
+  padding:14px 16px;display:flex;align-items:center;gap:14px;
+  cursor:pointer;transition:transform .18s;-webkit-user-select:none;user-select:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);
+}
+.daily-card:active{transform:scale(.97);}
+.daily-icon{font-size:44px;flex-shrink:0;animation:dailyFloat 2s ease-in-out infinite alternate;}
+@keyframes dailyFloat{from{transform:translateY(0) scale(1)}to{transform:translateY(-5px) scale(1.06)}}
+.daily-info{flex:1;}
+.daily-title{font-size:15px;font-weight:900;color:var(--gold);}
+.daily-sub{font-size:12px;color:rgba(255,255,255,.55);margin-top:3px;}
+.daily-streak{
+  display:flex;gap:5px;margin-top:8px;
+}
+.day-dot{
+  width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:rgba(255,255,255,.4);
+}
+.day-dot.done{background:var(--gold);border-color:var(--gold);color:#000;}
+.day-dot.today{border-color:var(--blue);box-shadow:0 0 8px var(--blue);color:#fff;}
+.daily-btn{
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#000;font-size:13px;font-weight:900;padding:10px 16px;
+  border-radius:12px;white-space:nowrap;border:none;cursor:pointer;flex-shrink:0;
+}
 
-  /* ── Missions ── */
-  .mission-item { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:14px; }
-  .mission-icon { font-size:28px; flex-shrink:0; }
-  .mission-info { flex:1; }
-  .mission-name { font-size:13px; font-weight:700; color:#fff; }
-  .mission-desc { font-size:11px; color:var(--text2); margin-top:2px; }
-  .mission-prog-track { height:6px; background:rgba(255,255,255,.1); border-radius:10px; margin-top:8px; overflow:hidden; }
-  .mission-prog-fill { height:100%; background:linear-gradient(90deg,var(--neon-blue),var(--neon-purple)); border-radius:10px; transition:width .5s; }
-  .mission-reward { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
-  .mission-reward-val { font-size:13px; font-weight:800; color:var(--gold); }
-  .claim-btn { padding:5px 12px; border-radius:20px; background:linear-gradient(135deg,var(--gold),var(--gold2));
-    color:#000; font-size:11px; font-weight:900; border:none; cursor:pointer; }
-  .claim-btn:disabled { opacity:.4; filter:grayscale(1); }
+/* ── Bottom Nav ── */
+.bottom-nav{
+  display:flex;background:rgba(7,7,26,.95);backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);flex-shrink:0;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:9px 4px 7px;border:none;background:none;
+  color:rgba(255,255,255,.45);font-size:10px;font-weight:600;gap:3px;
+  cursor:pointer;transition:color .2s;-webkit-user-select:none;user-select:none;
+}
+.nav-icon{font-size:22px;transition:transform .2s;}
+.nav-btn.active{color:var(--blue);}
+.nav-btn.active .nav-icon{transform:scale(1.2);filter:drop-shadow(0 0 7px var(--blue));}
+.nav-btn:active .nav-icon{transform:scale(.9);}
 
-  /* ── Achievements ── */
-  .ach-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .ach-item { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
-    border-radius:14px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px;
-    position:relative; transition:all .3s; }
-  .ach-item.unlocked { border-color:rgba(255,215,0,.4); background:rgba(255,215,0,.06);
-    box-shadow:0 0 20px rgba(255,215,0,.1); }
-  .ach-item.locked { filter:grayscale(.8); opacity:.6; }
-  .ach-icon { font-size:34px; }
-  .ach-name { font-size:11px; font-weight:700; color:#fff; text-align:center; }
-  .ach-desc { font-size:10px; color:var(--text2); text-align:center; }
-  .ach-badge { position:absolute; top:6px; right:6px; background:var(--gold); color:#000;
-    font-size:9px; font-weight:900; width:18px; height:18px; border-radius:50%; display:flex;
-    align-items:center; justify-content:center; display:none; }
-  .ach-item.unlocked .ach-badge { display:flex; }
+/* ── Toast ── */
+#toast{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:rgba(15,15,35,.96);border:1px solid var(--border);
+  border-radius:30px;padding:9px 22px;color:#fff;
+  font-size:13px;font-weight:700;z-index:200;opacity:0;
+  transition:all .3s;white-space:nowrap;pointer-events:none;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  /* ── Settings ── */
-  .setting-row { display:flex; align-items:center; justify-content:space-between;
-    padding:14px 0; border-bottom:1px solid rgba(255,255,255,.07); }
-  .setting-label { font-size:14px; font-weight:600; color:#fff; }
-  .setting-sub { font-size:11px; color:var(--text2); margin-top:2px; }
-  .toggle { width:50px; height:26px; border-radius:13px; background:rgba(255,255,255,.15);
-    position:relative; cursor:pointer; transition:background .3s; flex-shrink:0; }
-  .toggle.on { background:linear-gradient(135deg,var(--neon-blue),var(--neon-purple)); }
-  .toggle::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px;
-    border-radius:50%; background:#fff; transition:transform .3s; box-shadow:0 2px 4px rgba(0,0,0,.3); }
-  .toggle.on::after { transform:translateX(24px); }
-
-  /* ── Overlays ── */
-  .overlay { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
-    opacity:0; pointer-events:none; transition:opacity .3s; }
-  .overlay.show { opacity:1; pointer-events:all; }
-  .overlay-box { background:linear-gradient(145deg,#0e0e2a,#1a0a2e); border:1px solid var(--card-border);
-    border-radius:24px; padding:28px 24px; max-width:340px; width:90%; text-align:center;
-    transform:scale(.8); transition:transform .3s; box-shadow:0 20px 60px rgba(0,0,0,.8); }
-  .overlay.show .overlay-box { transform:scale(1); }
-  .overlay-icon { font-size:56px; margin-bottom:12px; }
-  .overlay-title { font-size:26px; font-weight:900; margin-bottom:8px; }
-  .overlay-subtitle { font-size:14px; color:var(--text2); margin-bottom:20px; }
-  .overlay-amount { font-size:36px; font-weight:900; color:var(--gold);
-    text-shadow:0 0 20px rgba(255,215,0,.7); margin-bottom:20px; }
-  .overlay-btn { padding:14px 32px; border-radius:30px; font-size:16px; font-weight:900;
-    color:#000; border:none; cursor:pointer; transition:transform .15s;
-    background:linear-gradient(135deg,var(--gold),var(--gold2));
-    box-shadow:0 4px 20px rgba(255,215,0,.4); }
-  .overlay-btn:active { transform:scale(.96); }
-  .win-mega .overlay-title { color:var(--neon-purple); text-shadow:0 0 30px rgba(191,95,255,.8); }
-  .win-big .overlay-title { color:var(--neon-blue); text-shadow:0 0 30px rgba(0,207,255,.8); }
-  .win-epic .overlay-title { color:var(--neon-pink); text-shadow:0 0 30px rgba(255,45,120,.8); }
-  .win-jackpot .overlay-title { color:var(--gold); text-shadow:0 0 40px rgba(255,215,0,1); animation:jpPulse 1s infinite alternate; }
-
-  /* ── Daily Bonus Overlay ── */
-  .daily-days { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:16px 0; }
-  .day-circle { width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.1);
-    border:2px solid rgba(255,255,255,.2); display:flex; flex-direction:column;
-    align-items:center; justify-content:center; font-size:9px; color:var(--text2); font-weight:700; }
-  .day-circle.collected { background:linear-gradient(135deg,var(--gold),var(--gold2));
-    border-color:var(--gold); color:#000; }
-  .day-circle.today { border-color:var(--neon-blue); box-shadow:0 0 12px var(--neon-blue); color:#fff; }
-
-  /* ── Lucky Chest ── */
-  .chest-icon { font-size:80px; animation:chestFloat 2s ease-in-out infinite alternate; cursor:pointer;
-    filter:drop-shadow(0 0 20px rgba(255,215,0,.6)); }
-  @keyframes chestFloat { from{transform:translateY(0) scale(1)} to{transform:translateY(-10px) scale(1.05)} }
-
-  /* ── Toast ── */
-  #toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
-    background:rgba(20,20,40,.95); border:1px solid var(--card-border); border-radius:30px;
-    padding:10px 24px; color:#fff; font-size:13px; font-weight:700; z-index:200;
-    opacity:0; transition:all .3s; white-space:nowrap; pointer-events:none; }
-  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-
-  /* ── Particle canvas ── */
-  #particleCanvas { position:fixed; inset:0; z-index:50; pointer-events:none; }
-
-  /* ── Confetti canvas ── */
-  #confettiCanvas { position:fixed; inset:0; z-index:51; pointer-events:none; }
-
-  /* ── Win lines canvas (overlays slot) ── */
-  #winCanvas { position:absolute; top:0; left:0; pointer-events:none; border-radius:16px; z-index:5; }
-  .slot-container { position:relative; display:inline-block; }
-
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width:4px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.2); border-radius:4px; }
-
-  /* ── Responsive ── */
-  @media (max-height: 640px) {
-    .jackpot-value { font-size:18px; }
-    .spin-btn { width:76px; height:76px; }
-    .topbar { padding:6px 14px 4px; }
-  }
+/* ── Coming Soon badge pulse ── */
+@keyframes badgePulse{
+  0%,100%{opacity:1}50%{opacity:.6}
+}
 </style>
 </head>
 <body>
 
-<!-- Background Canvas -->
-<canvas id="bgCanvas"></canvas>
-<!-- Particle Canvas -->
-<canvas id="particleCanvas"></canvas>
-<!-- Confetti Canvas -->
-<canvas id="confettiCanvas"></canvas>
+<canvas id="bgC"></canvas>
+<canvas id="pC"></canvas>
 
-<!-- ════════════════════ MAIN SCREEN ════════════════════ -->
-<div class="screen active" id="mainScreen">
-  <!-- Top Bar -->
+<div id="app">
+
+  <!-- TOP BAR -->
   <div class="topbar">
-    <div class="topbar-logo">💎 LUCKY VAULT</div>
-    <div class="topbar-stats">
-      <div class="stat-pill"><span class="icon">🪙</span><span id="coinDisplay">10,000</span></div>
-      <div class="stat-pill"><span class="icon">💎</span><span id="gemDisplay">50</span></div>
+    <div class="logo">💎 LUCKY VAULT</div>
+    <div class="top-right">
+      <div class="pill"><span class="pill-icon">🪙</span><span id="coinD">10,000</span></div>
+      <div class="pill"><span class="pill-icon">💎</span><span id="gemD">50</span></div>
+      <div class="settings-btn" onclick="showToast('⚙️ Settings — coming soon')">⚙️</div>
     </div>
   </div>
 
-  <!-- Level Bar -->
-  <div class="levelbar">
-    <div class="lv-badge">LV <span id="lvDisplay">1</span></div>
-    <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
-    <div class="xp-label" id="xpLabel">0 / 100 XP</div>
+  <!-- LEVEL BAR -->
+  <div class="lvbar">
+    <div class="lv-badge">LV <span id="lvD">1</span></div>
+    <div class="xp-track"><div class="xp-fill" id="xpF" style="width:0%"></div></div>
+    <div class="xp-label" id="xpL">0 / 100 XP</div>
   </div>
 
-  <!-- Jackpot Banner -->
-  <div class="jackpot-banner">
-    <div class="jackpot-label">🏆 PROGRESSIVE JACKPOT</div>
-    <div class="jackpot-value" id="jackpotDisplay">1,250,000</div>
+  <!-- JACKPOT BANNER -->
+  <div class="jp-banner">
+    <div class="jp-label">🏆 PROGRESSIVE JACKPOT</div>
+    <div class="jp-value" id="jpD">1,250,000</div>
   </div>
 
-  <!-- Slot Machine -->
-  <div class="slot-wrapper">
-    <div class="slot-container">
-      <canvas id="slotCanvas"></canvas>
-      <canvas id="winCanvas"></canvas>
-    </div>
-  </div>
+  <!-- LOBBY BODY -->
+  <div class="lobby-body">
 
-  <!-- Controls -->
-  <div class="controls">
-    <div id="freeSpinsBadge" class="free-spins-badge">🎰 FREE SPINS: <span id="fsCount">0</span></div>
-    <div class="bet-row">
-      <div class="bet-btn" id="betDown">−</div>
-      <div class="bet-display">
-        <div class="bet-label">BET PER LINE</div>
-        <div class="bet-value" id="betValue">100</div>
+    <!-- Daily Bonus Card -->
+    <div class="daily-card" id="dailyCard" onclick="claimDaily()">
+      <div class="daily-icon">🎁</div>
+      <div class="daily-info">
+        <div class="daily-title">Daily Bonus!</div>
+        <div class="daily-sub">Come back every day for bigger rewards</div>
+        <div class="daily-streak" id="dailyStreak"></div>
       </div>
-      <div class="bet-btn" id="betUp">+</div>
+      <button class="daily-btn" id="dailyBtn">CLAIM</button>
     </div>
-    <div class="spin-row">
-      <button class="btn-secondary" id="maxBetBtn">MAX BET</button>
-      <button class="spin-btn" id="spinBtn">
-        <div class="spin-btn-text">SPIN<div class="spin-count" id="autoSpinLabel"></div></div>
-      </button>
-      <button class="btn-secondary" id="autoSpinBtn">AUTO</button>
-    </div>
+
+    <!-- Slot Machines -->
+    <div class="section-title">🎰 Slot Machines</div>
+    <div class="game-grid" id="slotsGrid"></div>
+
+    <!-- Table Games -->
+    <div class="section-title">🃏 Table Games</div>
+    <div class="game-grid" id="tableGrid"></div>
+
+    <!-- Quick Games -->
+    <div class="section-title">⚡ Quick Win</div>
+    <div class="game-grid" id="quickGrid"></div>
+
+    <div style="height:8px"></div>
   </div>
 
-  <!-- Bottom Nav -->
+  <!-- BOTTOM NAV -->
   <div class="bottom-nav">
-    <button class="nav-btn active" data-screen="main">
-      <span class="nav-icon">🎰</span><span>SLOTS</span>
+    <button class="nav-btn active" id="nb-lobby">
+      <span class="nav-icon">🏠</span><span>LOBBY</span>
     </button>
-    <button class="nav-btn" data-screen="profile">
+    <button class="nav-btn" onclick="showToast('👤 Profile — coming soon')">
       <span class="nav-icon">👤</span><span>PROFILE</span>
     </button>
-    <button class="nav-btn" data-screen="shop">
+    <button class="nav-btn" onclick="showToast('🛒 Shop — coming soon')">
       <span class="nav-icon">🛒</span><span>SHOP</span>
     </button>
-    <button class="nav-btn" data-screen="missions">
+    <button class="nav-btn" onclick="showToast('📋 Missions — coming soon')">
       <span class="nav-icon">📋</span><span>MISSIONS</span>
     </button>
-    <button class="nav-btn" data-screen="achievements">
+    <button class="nav-btn" onclick="showToast('🏆 Awards — coming soon')">
       <span class="nav-icon">🏆</span><span>AWARDS</span>
     </button>
   </div>
+
 </div>
 
-<!-- ════════════════════ PROFILE SCREEN ════════════════════ -->
-<div class="sub-screen" id="profileScreen">
-  <div class="sub-header">
-    <button class="back-btn" data-close="profileScreen">←</button>
-    <div class="sub-title">Profile</div>
-  </div>
-  <div class="sub-body">
-    <div class="avatar-area">
-      <div class="avatar" id="profileAvatar">🎭</div>
-      <div class="profile-name" id="profileName">Lucky Player</div>
-      <div class="profile-lvl" id="profileLvl">Level 1 • Beginner</div>
-    </div>
-    <div class="card">
-      <div class="card-title">⚡ Experience</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="xp-track" style="flex:1;height:12px"><div class="xp-fill" id="profileXpFill"></div></div>
-        <div style="font-size:12px;color:var(--text2)" id="profileXpLabel"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">📊 Statistics</div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="sv" id="statSpins">0</div><div class="sl">Total Spins</div></div>
-        <div class="stat-card"><div class="sv" id="statWins">0</div><div class="sl">Total Wins</div></div>
-        <div class="stat-card"><div class="sv" id="statBiggest">0</div><div class="sl">Biggest Win</div></div>
-        <div class="stat-card"><div class="sv" id="statWinPct">0%</div><div class="sl">Win Rate</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">💰 Balance Overview</div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="sv" id="statCoins">0</div><div class="sl">🪙 Coins</div></div>
-        <div class="stat-card"><div class="sv" id="statGems">0</div><div class="sl">💎 Gems</div></div>
-        <div class="stat-card"><div class="sv" id="statFS">0</div><div class="sl">🎰 Free Spins</div></div>
-        <div class="stat-card"><div class="sv" id="statJP">0</div><div class="sl">🏆 Jackpots</div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════ SHOP SCREEN ════════════════════ -->
-<div class="sub-screen" id="shopScreen">
-  <div class="sub-header">
-    <button class="back-btn" data-close="shopScreen">←</button>
-    <div class="sub-title">Shop</div>
-  </div>
-  <div class="sub-body">
-    <div class="card">
-      <div class="card-title">🪙 Coin Packages</div>
-      <div class="shop-grid">
-        <div class="shop-item" data-buy="coins_sm"><div class="shop-item-icon">🪙</div><div class="shop-item-name">Coin Starter</div><div style="font-size:11px;color:var(--text2)">10,000 coins</div><div class="shop-item-price">💎 20 Gems</div></div>
-        <div class="shop-item" data-buy="coins_md"><div class="shop-item-icon">🪙</div><div class="shop-item-name">Coin Stack</div><div style="font-size:11px;color:var(--text2)">50,000 coins</div><div class="shop-item-price">💎 80 Gems</div></div>
-        <div class="shop-item" data-buy="coins_lg"><div class="shop-item-badge">BEST</div><div class="shop-item-icon">💰</div><div class="shop-item-name">Mega Coins</div><div style="font-size:11px;color:var(--text2)">150,000 coins</div><div class="shop-item-price">💎 200 Gems</div></div>
-        <div class="shop-item" data-buy="coins_xl"><div class="shop-item-icon">💎</div><div class="shop-item-name">Vault Fortune</div><div style="font-size:11px;color:var(--text2)">500,000 coins</div><div class="shop-item-price">💎 500 Gems</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">🎰 Free Spin Packs</div>
-      <div class="shop-grid">
-        <div class="shop-item" data-buy="fs_sm"><div class="shop-item-icon">🎰</div><div class="shop-item-name">5 Free Spins</div><div class="shop-item-price">💎 10 Gems</div></div>
-        <div class="shop-item" data-buy="fs_md"><div class="shop-item-badge">POPULAR</div><div class="shop-item-icon">🎰</div><div class="shop-item-name">20 Free Spins</div><div class="shop-item-price">💎 35 Gems</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">✨ Special Items</div>
-      <div class="shop-grid">
-        <div class="shop-item" data-buy="gem_refill"><div class="shop-item-icon">💎</div><div class="shop-item-name">+100 Gems</div><div style="font-size:10px;color:var(--text2)">Watch Ad (free)</div><div class="shop-item-price">FREE</div></div>
-        <div class="shop-item" data-buy="lucky_chest"><div class="shop-item-badge">NEW</div><div class="shop-item-icon">📦</div><div class="shop-item-name">Lucky Chest</div><div style="font-size:10px;color:var(--text2)">Random reward</div><div class="shop-item-price">💎 15 Gems</div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════ MISSIONS SCREEN ════════════════════ -->
-<div class="sub-screen" id="missionsScreen">
-  <div class="sub-header">
-    <button class="back-btn" data-close="missionsScreen">←</button>
-    <div class="sub-title">Daily Missions</div>
-  </div>
-  <div class="sub-body" id="missionsList"></div>
-</div>
-
-<!-- ════════════════════ ACHIEVEMENTS SCREEN ════════════════════ -->
-<div class="sub-screen" id="achievementsScreen">
-  <div class="sub-header">
-    <button class="back-btn" data-close="achievementsScreen">←</button>
-    <div class="sub-title">Achievements</div>
-  </div>
-  <div class="sub-body">
-    <div class="ach-grid" id="achGrid"></div>
-  </div>
-</div>
-
-<!-- ════════════════════ SETTINGS SCREEN ════════════════════ -->
-<div class="sub-screen" id="settingsScreen">
-  <div class="sub-header">
-    <button class="back-btn" data-close="settingsScreen">←</button>
-    <div class="sub-title">Settings</div>
-  </div>
-  <div class="sub-body">
-    <div class="card">
-      <div class="card-title">🔊 Audio</div>
-      <div class="setting-row"><div><div class="setting-label">Sound Effects</div><div class="setting-sub">Win sounds, spin sounds</div></div><div class="toggle on" data-toggle="sound" id="toggleSound"></div></div>
-      <div class="setting-row"><div><div class="setting-label">Background Music</div><div class="setting-sub">Casino ambient music</div></div><div class="toggle on" data-toggle="music" id="toggleMusic"></div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📱 Gameplay</div>
-      <div class="setting-row"><div><div class="setting-label">Vibration</div><div class="setting-sub">Haptic feedback on wins</div></div><div class="toggle on" data-toggle="vibration" id="toggleVibration"></div></div>
-      <div class="setting-row"><div><div class="setting-label">Fast Spin</div><div class="setting-sub">Skip spin animation</div></div><div class="toggle" data-toggle="fastSpin" id="toggleFastSpin"></div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">ℹ️ Info</div>
-      <div class="setting-row"><div><div class="setting-label">Version</div><div class="setting-sub">Lucky Vault Casino v1.0</div></div><div style="color:var(--text2);font-size:12px;">1.0.0</div></div>
-      <div class="setting-row"><div><div class="setting-label">Reset Progress</div><div class="setting-sub">Clear all saved data</div></div><button onclick="resetGame()" style="padding:6px 14px;border-radius:20px;background:rgba(255,45,120,.2);border:1px solid var(--neon-pink);color:var(--neon-pink);font-size:12px;font-weight:700;cursor:pointer;">RESET</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════ OVERLAYS ════════════════════ -->
-
-<!-- Win Overlay -->
-<div class="overlay" id="winOverlay">
-  <div class="overlay-box" id="winBox">
-    <div class="overlay-icon" id="winIcon">🎉</div>
-    <div class="overlay-title" id="winTitle">BIG WIN!</div>
-    <div class="overlay-subtitle" id="winSubtitle">Incredible!</div>
-    <div class="overlay-amount" id="winAmount">+50,000</div>
-    <button class="overlay-btn" onclick="closeWinOverlay()">COLLECT</button>
-  </div>
-</div>
-
-<!-- Daily Bonus Overlay -->
-<div class="overlay" id="dailyOverlay">
-  <div class="overlay-box">
-    <div class="overlay-icon">🎁</div>
-    <div class="overlay-title" style="color:var(--gold)">Daily Bonus!</div>
-    <div class="overlay-subtitle">Come back every day for bigger rewards!</div>
-    <div class="daily-days" id="dailyDays"></div>
-    <div class="overlay-amount" id="dailyAmount">+5,000</div>
-    <button class="overlay-btn" onclick="closeDailyBonus()">CLAIM!</button>
-  </div>
-</div>
-
-<!-- Lucky Chest Overlay -->
-<div class="overlay" id="chestOverlay">
-  <div class="overlay-box">
-    <div class="chest-icon" id="chestIcon" onclick="openChest()">📦</div>
-    <div class="overlay-title" style="color:var(--gold)" id="chestTitle">Lucky Chest!</div>
-    <div class="overlay-subtitle" id="chestSub">Tap the chest to reveal your prize!</div>
-    <div class="overlay-amount" id="chestAmount" style="display:none"></div>
-    <button class="overlay-btn" id="chestBtn" onclick="closeChest()">OPEN</button>
-  </div>
-</div>
-
-<!-- Achievement Popup -->
-<div class="overlay" id="achOverlay">
-  <div class="overlay-box">
-    <div class="overlay-icon" id="achIcon">🏆</div>
-    <div class="overlay-title" style="color:var(--gold);font-size:18px">Achievement Unlocked!</div>
-    <div class="overlay-subtitle" id="achName" style="color:#fff;font-size:16px;font-weight:700"></div>
-    <div class="overlay-subtitle" id="achDesc"></div>
-    <div class="overlay-amount" id="achReward"></div>
-    <button class="overlay-btn" onclick="closeAchOverlay()">AWESOME!</button>
-  </div>
-</div>
-
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  LUCKY VAULT CASINO - Main Game Engine
-// ═══════════════════════════════════════════════════════
-
-// ── Constants ──────────────────────────────────────────
-const ROWS = 3, COLS = 5;
-const SPIN_DURATION_BASE = 1200; // ms
-const BET_OPTIONS = [50, 100, 200, 500, 1000, 2000, 5000];
-
-// Symbol definitions: [emoji, name, value(x bet), weight]
-const SYMBOLS = [
-  { id:'seven',   e:'7️⃣',  name:'Lucky Seven',  val:100, w:2  },
-  { id:'bell',    e:'🔔',  name:'Bell',          val:40,  w:4  },
-  { id:'diamond', e:'💎',  name:'Diamond',       val:30,  w:5  },
-  { id:'crown',   e:'👑',  name:'Crown',         val:20,  w:7  },
-  { id:'star',    e:'⭐',  name:'Star',          val:15,  w:10 },
-  { id:'coin',    e:'🪙',  name:'Coin',          val:10,  w:14 },
-  { id:'cherry',  e:'🍒',  name:'Cherry',        val:8,   w:16 },
-  { id:'lemon',   e:'🍋',  name:'Lemon',         val:6,   w:18 },
-  { id:'wild',    e:'🌟',  name:'WILD',          val:0,   w:3  }, // Wild substitutes
-  { id:'scatter', e:'🎰',  name:'SCATTER',       val:0,   w:3  }, // Scatter triggers FS
-];
-
-const SYM_BY_ID = {};
-SYMBOLS.forEach(s => SYM_BY_ID[s.id] = s);
-
-// Win lines for 5x3 grid (row indices per column)
-const WIN_LINES = [
-  [1,1,1,1,1], // Middle straight
-  [0,0,0,0,0], // Top straight
-  [2,2,2,2,2], // Bottom straight
-  [0,1,2,1,0], // V shape
-  [2,1,0,1,2], // inverted V
-  [0,0,1,2,2], // diagonal down-right
-  [2,2,1,0,0], // diagonal up-right
-  [1,0,0,0,1], // top wings
-  [1,2,2,2,1], // bottom wings
-];
-
-// Levels: [xpRequired, title]
-const LEVELS = [
-  [0,'Beginner'],[100,'Novice'],[250,'Spinner'],[500,'Gambler'],
-  [900,'High Roller'],[1500,'Casino Star'],[2500,'Diamond Hand'],
-  [4000,'Vault Master'],[6000,'Lucky Legend'],[9999999,'Jackpot King'],
-];
-
-// Missions
-const MISSION_DEFS = [
-  { id:'spin10',    icon:'🎰', name:'Spin Master',    desc:'Spin 10 times',       goal:10,  field:'spins',   reward:{coins:5000}  },
-  { id:'win5',      icon:'🏆', name:'5 Wins Today',   desc:'Win 5 times',         goal:5,   field:'wins',    reward:{coins:3000}  },
-  { id:'bet1000',   icon:'💰', name:'High Roller',    desc:'Place a 1000+ bet',   goal:1,   field:'big_bet', reward:{gems:5}      },
-  { id:'bigwin',    icon:'💥', name:'Big Win',        desc:'Land a Big Win',      goal:1,   field:'bigwin',  reward:{gems:10}     },
-  { id:'freespin',  icon:'🎁', name:'Free Spinner',   desc:'Use 3 free spins',    goal:3,   field:'fsspins', reward:{coins:8000}  },
-];
-
-// Achievements
-const ACHIEVEMENT_DEFS = [
-  { id:'first_win',  icon:'🥇', name:'First Blood',    desc:'Win for the first time',      cond:s=>s.wins>=1,              reward:{coins:1000}   },
-  { id:'spin50',     icon:'🌀', name:'Spinner',         desc:'Spin 50 times',               cond:s=>s.totalSpins>=50,       reward:{coins:2000}   },
-  { id:'spin200',    icon:'🎡', name:'Reel Maniac',     desc:'Spin 200 times',              cond:s=>s.totalSpins>=200,      reward:{coins:5000}   },
-  { id:'win10k',     icon:'💰', name:'10K Winner',      desc:'Win 10,000 coins in one spin', cond:s=>s.biggestWin>=10000,   reward:{gems:20}      },
-  { id:'win100k',    icon:'💎', name:'Diamond Win',     desc:'Win 100,000 coins in one spin',cond:s=>s.biggestWin>=100000,  reward:{gems:50}      },
-  { id:'jackpot',    icon:'🏆', name:'Jackpot Winner',  desc:'Hit the Jackpot',             cond:s=>s.jackpotsWon>=1,       reward:{gems:100}     },
-  { id:'lv5',        icon:'⭐', name:'Rising Star',     desc:'Reach Level 5',               cond:s=>s.level>=5,             reward:{coins:10000}  },
-  { id:'lv10',       icon:'👑', name:'Casino Royale',   desc:'Reach Level 10',              cond:s=>s.level>=10,            reward:{gems:200}     },
-  { id:'freespin3',  icon:'🎁', name:'Free Rider',      desc:'Trigger Free Spins 3 times',  cond:s=>s.fsTriggers>=3,        reward:{coins:5000}   },
-  { id:'bigwin3',    icon:'💥', name:'Big Baller',      desc:'Land 3 Big Wins',             cond:s=>s.bigWins>=3,           reward:{coins:8000}   },
-  { id:'megawin',    icon:'🌟', name:'Mega Player',     desc:'Land a Mega Win',             cond:s=>s.megaWins>=1,          reward:{gems:30}      },
-  { id:'daily7',     icon:'📅', name:'Loyal Player',    desc:'Claim 7 daily bonuses',       cond:s=>s.dailyStreak>=7,       reward:{gems:15}      },
-];
-
-// ── Game State ──────────────────────────────────────────
-let gs = {
+// ── State ──────────────────────────────────────────────
+let gs = JSON.parse(localStorage.getItem('lvc_gs') || 'null') || {
   coins: 10000, gems: 50, level: 1, xp: 0,
-  totalSpins: 0, wins: 0, biggestWin: 0, jackpotsWon: 0,
-  fsTriggers: 0, bigWins: 0, megaWins: 0, dailyStreak: 0,
-  lastDaily: 0, freeSpin: 0, jackpotPool: 1250000,
-  settings: { sound:true, music:true, vibration:true, fastSpin:false },
-  unlockedAch: [],
-  missions: {}, // { id: { prog, claimed } }
-  todayMissions: [], // [missionId, ...]
+  dailyStreak: 0, lastDaily: 0, jackpot: 1250000,
+};
+function save(){ localStorage.setItem('lvc_gs', JSON.stringify(gs)); }
+
+// ── Format number ──────────────────────────────────────
+function fmt(n){
+  if(n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if(n >= 1000) return Math.floor(n/1000)+'K';
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ── HUD ────────────────────────────────────────────────
+const LEVELS = [0,100,250,500,900,1500,2500,4000,6000,9999999];
+const LV_TITLES = ['Beginner','Novice','Spinner','Gambler','High Roller','Casino Star','Diamond Hand','Vault Master','Lucky Legend','Jackpot King'];
+
+function updateHUD(){
+  document.getElementById('coinD').textContent = fmt(gs.coins);
+  document.getElementById('gemD').textContent  = fmt(gs.gems);
+  document.getElementById('lvD').textContent   = gs.level;
+  document.getElementById('jpD').textContent   = fmt(gs.jackpot);
+  const cur = gs.xp - LEVELS[gs.level-1];
+  const max = LEVELS[gs.level] - LEVELS[gs.level-1];
+  const pct = Math.min(100, Math.floor(cur/max*100));
+  document.getElementById('xpF').style.width = pct + '%';
+  document.getElementById('xpL').textContent = cur + ' / ' + max + ' XP';
+  renderStreak();
+}
+
+// ── Daily Bonus ────────────────────────────────────────
+const DAILY_REWARDS = [2000,3000,5000,7500,10000,15000,25000];
+
+function renderStreak(){
+  const c = document.getElementById('dailyStreak');
+  c.innerHTML = '';
+  for(let i=1;i<=7;i++){
+    const d = document.createElement('div');
+    d.className = 'day-dot' + (i < gs.dailyStreak ? ' done' : i === gs.dailyStreak ? ' today' : '');
+    d.textContent = i;
+    c.appendChild(d);
+  }
+}
+
+function claimDaily(){
+  const now = Date.now();
+  const lastDate = new Date(gs.lastDaily).toDateString();
+  const today    = new Date(now).toDateString();
+  if(lastDate === today){
+    showToast('⏰ Come back tomorrow for your next bonus!');
+    return;
+  }
+  gs.lastDaily = now;
+  gs.dailyStreak = Math.min((gs.dailyStreak||0) + 1, 7);
+  const reward = DAILY_REWARDS[gs.dailyStreak - 1];
+  gs.coins += reward;
+  spawnCoins(innerWidth/2, innerHeight/2, 35);
+  showToast('🎁 Daily Bonus! +' + fmt(reward) + ' 🪙');
+  updateHUD();
+  save();
+  document.getElementById('dailyBtn').textContent = '✓ CLAIMED';
+  document.getElementById('dailyBtn').style.opacity = '.5';
+}
+
+// ── Game Definitions ───────────────────────────────────
+const GAME_DEFS = {
+  slots: [
+    {
+      id:'vault', name:'Lucky Vault', sub:'Classic 5×3 Slots',
+      emoji:'7️⃣🔔💎', badge:'HOT', badgeColor:'#FF2D78',
+      grad:'linear-gradient(145deg,#1a0535 0%,#0a1a3a 100%)',
+      glow:'rgba(0,207,255,.35)', minLv:1, featured:true,
+    },
+    {
+      id:'egypt', name:'Egyptian Gold', sub:'5×3 Egypt Theme',
+      emoji:'🔱👁️🦅', badge:'NEW', badgeColor:'#FFB800',
+      grad:'linear-gradient(145deg,#2a1200 0%,#1a0800 100%)',
+      glow:'rgba(255,184,0,.3)', minLv:1,
+    },
+    {
+      id:'space', name:'Space Galaxy', sub:'5×3 Space Theme',
+      emoji:'🚀👽🛸', badge:'VIP', badgeColor:'#BF5FFF',
+      grad:'linear-gradient(145deg,#020215 0%,#0a0235 100%)',
+      glow:'rgba(191,95,255,.3)', minLv:3,
+    },
+    {
+      id:'fruits', name:'Fruit Fiesta', sub:'3×3 Classic Fruits',
+      emoji:'🍒🍋🍉', badge:null, badgeColor:null,
+      grad:'linear-gradient(145deg,#1a0a00 0%,#0a1500 100%)',
+      glow:'rgba(0,255,136,.25)', minLv:5,
+    },
+  ],
+  table: [
+    {
+      id:'roulette', name:'Roulette', sub:'European Roulette',
+      emoji:'🎡🔴⚫', badge:'SOON', badgeColor:'#00FF88',
+      grad:'linear-gradient(145deg,#051a05 0%,#030f03 100%)',
+      glow:'rgba(0,255,136,.3)', minLv:1, coming:true,
+    },
+    {
+      id:'blackjack', name:'Blackjack', sub:'Classic 21',
+      emoji:'🃏♠️♥️', badge:'SOON', badgeColor:'#FFFFFF',
+      grad:'linear-gradient(145deg,#111 0%,#1a1a1a 100%)',
+      glow:'rgba(255,255,255,.2)', minLv:1, coming:true,
+    },
+  ],
+  quick: [
+    {
+      id:'wheel', name:'Lucky Wheel', sub:'Daily Prize Wheel',
+      emoji:'🎡💫⭐', badge:'FREE', badgeColor:'#FFD700',
+      grad:'linear-gradient(145deg,#1a1000 0%,#0a0800 100%)',
+      glow:'rgba(255,215,0,.3)', minLv:1, coming:true,
+    },
+    {
+      id:'scratch', name:'Scratch Cards', sub:'Instant Win',
+      emoji:'🎫💎🃏', badge:'SOON', badgeColor:'#00CFFF',
+      grad:'linear-gradient(145deg,#001a10 0%,#000f08 100%)',
+      glow:'rgba(0,207,255,.3)', minLv:1, coming:true,
+    },
+  ],
 };
 
-// Mission daily tracking
-let missionDayData = {}; // { field: count }
+// ── Build Lobby ────────────────────────────────────────
+function makeCard(g){
+  const locked = gs.level < g.minLv;
+  const div = document.createElement('div');
+  div.className = 'game-card' + (g.featured?' featured':'');
+  div.style.background = g.grad;
+  if(g.glow) div.style.boxShadow = `0 6px 24px ${g.glow}, 0 2px 8px rgba(0,0,0,.5)`;
 
-let betIdx = 1; // index into BET_OPTIONS
-function getBet() { return BET_OPTIONS[betIdx]; }
+  div.innerHTML = `
+    <div class="gc-bg"></div>
+    <div class="gc-preview">${g.emoji}</div>
+    <div class="gc-glow"></div>
+    <div class="gc-border"></div>
+    <div class="gc-bottom">
+      <div class="gc-name">${g.name}</div>
+      <div class="gc-type">${g.sub}</div>
+    </div>
+    ${g.badge ? `<div class="gc-badge" style="background:${g.badgeColor};color:${g.badgeColor==='#FFFFFF'?'#000':'#fff'}">${g.badge}</div>` : ''}
+    ${locked ? `<div class="gc-lock"><div class="gc-lock-icon">🔒</div><div class="gc-lock-lv">Unlock at Level ${g.minLv}</div></div>` : ''}
+  `;
 
-let isSpinning = false;
-let autoSpinCount = 0;
-let autoSpinTimer = null;
-let freeSpinsLeft = 0;
-let pendingWinOverlay = null;
-let chestOpened = false;
-
-// ── Canvas Setup ────────────────────────────────────────
-const bgCanvas  = document.getElementById('bgCanvas');
-const bgCtx     = bgCanvas.getContext('2d');
-const pCanvas   = document.getElementById('particleCanvas');
-const pCtx      = pCanvas.getContext('2d');
-const confCanvas= document.getElementById('confettiCanvas');
-const confCtx   = confCanvas.getContext('2d');
-const slotCanvas= document.getElementById('slotCanvas');
-const slotCtx   = slotCanvas.getContext('2d');
-const winCanvas = document.getElementById('winCanvas');
-const winCtx    = winCanvas.getContext('2d');
-
-function resizeAll() {
-  const W = window.innerWidth, H = window.innerHeight;
-  [bgCanvas,pCanvas,confCanvas].forEach(c=>{c.width=W;c.height=H;});
-
-  // Slot canvas sizing - fit within available space
-  const slotW = Math.min(W - 24, 480);
-  const cellW = Math.floor(slotW / COLS);
-  const cellH = Math.floor(cellW * 1.1);
-  const slotH = cellH * ROWS;
-  slotCanvas.width  = cellW * COLS;
-  slotCanvas.height = slotH;
-  winCanvas.width   = slotCanvas.width;
-  winCanvas.height  = slotCanvas.height;
-  slotCanvas.style.width  = slotCanvas.width+'px';
-  slotCanvas.style.height = slotCanvas.height+'px';
-  winCanvas.style.width   = winCanvas.width+'px';
-  winCanvas.style.height  = winCanvas.height+'px';
+  if(!locked){
+    div.addEventListener('click', () => {
+      if(g.coming) showToast('🚧 ' + g.name + ' — Coming Soon!');
+      else showToast('🎰 Opening ' + g.name + '...');
+    });
+  }
+  return div;
 }
-resizeAll();
-window.addEventListener('resize', ()=>{ resizeAll(); drawReels(); });
 
-// ── Background Animation ────────────────────────────────
-const BG_STARS = Array.from({length:80},()=>({
-  x:Math.random()*1, y:Math.random()*1,
-  r:Math.random()*1.5+0.5, a:Math.random(), sp:Math.random()*0.003+0.001
+function buildLobby(){
+  const sg = document.getElementById('slotsGrid');
+  const tg = document.getElementById('tableGrid');
+  const qg = document.getElementById('quickGrid');
+  GAME_DEFS.slots.forEach(g => sg.appendChild(makeCard(g)));
+  GAME_DEFS.table.forEach(g => tg.appendChild(makeCard(g)));
+  GAME_DEFS.quick.forEach(g => qg.appendChild(makeCard(g)));
+  // Check daily btn
+  const lastDate = new Date(gs.lastDaily).toDateString();
+  if(lastDate === new Date().toDateString()){
+    document.getElementById('dailyBtn').textContent = '✓ CLAIMED';
+    document.getElementById('dailyBtn').style.opacity = '.5';
+  }
+}
+
+// ── Jackpot ticker ─────────────────────────────────────
+setInterval(()=>{
+  gs.jackpot += Math.floor(Math.random()*80+30);
+  document.getElementById('jpD').textContent = fmt(gs.jackpot);
+}, 2800);
+
+// ── Toast ──────────────────────────────────────────────
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ── Background Canvas ──────────────────────────────────
+const bgC = document.getElementById('bgC');
+const bgX = bgC.getContext('2d');
+
+const STARS = Array.from({length:90}, ()=>({
+  x:Math.random(), y:Math.random(),
+  r:Math.random()*1.6+.4,
+  a:Math.random(), sp:Math.random()*.003+.001,
 }));
-const BG_ORBS = [
-  {x:.2, y:.3, r:.25, c:'rgba(191,95,255,', sp:.0004},
-  {x:.8, y:.7, r:.22, c:'rgba(0,207,255,',  sp:.0006},
-  {x:.5, y:.1, r:.18, c:'rgba(255,45,120,', sp:.0005},
+const ORBS = [
+  {x:.15,y:.25,r:.28,c:'191,95,255',sp:.00035},
+  {x:.85,y:.65,r:.22,c:'0,207,255', sp:.00055},
+  {x:.5, y:.85,r:.20,c:'255,45,120',sp:.00045},
+  {x:.7, y:.1, r:.16,c:'255,184,0', sp:.00065},
 ];
 let bgT = 0;
-function drawBg() {
-  const W=bgCanvas.width, H=bgCanvas.height;
-  bgCtx.fillStyle='#07071A';
-  bgCtx.fillRect(0,0,W,H);
-  // orbs
-  BG_ORBS.forEach(o=>{
-    const rx = o.x*W + Math.sin(bgT*o.sp*1000)*W*.08;
-    const ry = o.y*H + Math.cos(bgT*o.sp*1000)*H*.08;
-    const gr = bgCtx.createRadialGradient(rx,ry,0,rx,ry,o.r*W);
-    gr.addColorStop(0, o.c+'0.18)');
-    gr.addColorStop(1, o.c+'0)');
-    bgCtx.fillStyle=gr;
-    bgCtx.fillRect(0,0,W,H);
+
+function drawBg(){
+  const W=bgC.width, H=bgC.height;
+  bgX.fillStyle='#07071A';
+  bgX.fillRect(0,0,W,H);
+  ORBS.forEach(o=>{
+    const rx = o.x*W + Math.sin(bgT*o.sp*900)*W*.09;
+    const ry = o.y*H + Math.cos(bgT*o.sp*900)*H*.09;
+    const gr = bgX.createRadialGradient(rx,ry,0,rx,ry,o.r*W);
+    gr.addColorStop(0,`rgba(${o.c},.14)`);
+    gr.addColorStop(1,`rgba(${o.c},0)`);
+    bgX.fillStyle=gr;
+    bgX.fillRect(0,0,W,H);
   });
-  // stars
-  BG_STARS.forEach(s=>{
-    s.a += s.sp; if(s.a>1) s.a=0;
-    const alpha = Math.sin(s.a*Math.PI);
-    bgCtx.beginPath();
-    bgCtx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
-    bgCtx.fillStyle = `rgba(255,255,255,${alpha*.7})`;
-    bgCtx.fill();
+  STARS.forEach(s=>{
+    s.a+=s.sp; if(s.a>1)s.a=0;
+    const alpha = Math.sin(s.a*Math.PI)*0.75;
+    bgX.beginPath();
+    bgX.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+    bgX.fillStyle=`rgba(255,255,255,${alpha})`;
+    bgX.fill();
   });
   bgT++;
 }
 
-// ── Particle System ─────────────────────────────────────
-let particles = [];
-function spawnCoinBurst(x,y,count=30) {
-  for(let i=0;i<count;i++) {
-    const angle = Math.random()*Math.PI*2;
-    const speed = Math.random()*8+3;
-    particles.push({
-      x,y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed,
+// ── Particle Coins ─────────────────────────────────────
+const pC2 = document.getElementById('pC');
+const pX2 = pC2.getContext('2d');
+let parts = [];
+
+function spawnCoins(x,y,n=20){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, sp=Math.random()*9+3;
+    parts.push({
+      x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
       life:1, decay:Math.random()*.02+.015,
-      size:Math.random()*12+6, type:'coin',
-      rotation:Math.random()*Math.PI*2, rotSpeed:Math.random()*.3-.15,
+      sz:Math.random()*12+6, rot:Math.random()*Math.PI*2,
+      rs:(Math.random()-.5)*.25,
     });
   }
 }
-function spawnStarburst(x,y,color,count=20) {
-  for(let i=0;i<count;i++) {
-    const angle = (i/count)*Math.PI*2;
-    const speed = Math.random()*6+2;
-    particles.push({
-      x,y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed,
-      life:1, decay:Math.random()*.025+.012,
-      size:Math.random()*6+3, type:'star', color,
-    });
-  }
-}
-function drawParticles() {
-  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
-  particles = particles.filter(p=>p.life>0);
-  particles.forEach(p=>{
-    p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life-=p.decay;
-    pCtx.save();
-    pCtx.globalAlpha = Math.max(0,p.life);
-    if(p.type==='coin') {
-      pCtx.translate(p.x,p.y);
-      pCtx.rotate(p.rotation||0);
-      p.rotation=(p.rotation||0)+(p.rotSpeed||0);
-      pCtx.font = p.size+'px serif';
-      pCtx.textAlign='center'; pCtx.textBaseline='middle';
-      pCtx.fillText('🪙',0,0);
-    } else {
-      pCtx.beginPath();
-      pCtx.arc(p.x,p.y,p.size,0,Math.PI*2);
-      pCtx.fillStyle = p.color||'#FFD700';
-      pCtx.shadowColor = p.color||'#FFD700';
-      pCtx.shadowBlur = p.size*2;
-      pCtx.fill();
-    }
-    pCtx.restore();
+
+function drawParts(){
+  pX2.clearRect(0,0,pC2.width,pC2.height);
+  parts = parts.filter(p=>p.life>0);
+  parts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.22;
+    p.life-=p.decay; p.rot+=p.rs;
+    pX2.save();
+    pX2.globalAlpha=Math.max(0,p.life);
+    pX2.translate(p.x,p.y); pX2.rotate(p.rot);
+    pX2.font=p.sz+'px serif';
+    pX2.textAlign='center'; pX2.textBaseline='middle';
+    pX2.fillText('🪙',0,0);
+    pX2.restore();
   });
 }
 
-// ── Confetti ─────────────────────────────────────────────
-let confettis = [];
-let confettiActive = false;
-function startConfetti(duration=3000) {
-  confettiActive = true;
-  const colors=['#FFD700','#FF2D78','#00CFFF','#BF5FFF','#00FF88','#FF6B35'];
-  const end = Date.now()+duration;
-  const spawn = () => {
-    if(Date.now()>end){confettiActive=false;return;}
-    for(let i=0;i<6;i++){
-      confettis.push({
-        x:Math.random()*confCanvas.width, y:-10,
-        vx:(Math.random()-.5)*4, vy:Math.random()*4+2,
-        w:Math.random()*12+4, h:Math.random()*6+3,
-        color:colors[Math.floor(Math.random()*colors.length)],
-        rotation:Math.random()*Math.PI*2, rotSpeed:(Math.random()-.5)*.2,
-        life:1,
-      });
-    }
-    setTimeout(spawn,80);
-  };
-  spawn();
+// ── Resize ─────────────────────────────────────────────
+function resize(){
+  bgC.width=pC2.width=innerWidth;
+  bgC.height=pC2.height=innerHeight;
 }
-function drawConfetti() {
-  confCtx.clearRect(0,0,confCanvas.width,confCanvas.height);
-  confettis = confettis.filter(c=>c.y<confCanvas.height+20);
-  confettis.forEach(c=>{
-    c.x+=c.vx; c.y+=c.vy; c.vy+=0.1; c.rotation+=c.rotSpeed;
-    confCtx.save();
-    confCtx.translate(c.x,c.y);
-    confCtx.rotate(c.rotation);
-    confCtx.fillStyle=c.color;
-    confCtx.fillRect(-c.w/2,-c.h/2,c.w,c.h);
-    confCtx.restore();
-  });
+resize();
+addEventListener('resize',resize);
+
+// ── Main Loop ──────────────────────────────────────────
+let lastF=0;
+function loop(ts){
+  if(ts-lastF>16){ drawBg(); drawParts(); lastF=ts; }
+  requestAnimationFrame(loop);
 }
 
-// ── Slot Rendering ──────────────────────────────────────
-// Grid of symbol ids
-let grid = [];
-// Reel strip for each column
-let reelStrips = [];
-let spinOffsets = []; // y-offset per reel (for animation)
-let spinVelocities = [];
-let spinTargets = [];
-let spinDone = [];
-let spinStartTime = 0;
-
-function buildGrid() {
-  // Build weighted pool
-  const pool = [];
-  SYMBOLS.forEach(s=>{ for(let i=0;i<s.w;i++) pool.push(s.id); });
-
-  grid = [];
-  for(let c=0;c<COLS;c++){
-    const col=[];
-    for(let r=0;r<ROWS;r++) col.push(pool[Math.floor(Math.random()*pool.length)]);
-    grid.push(col);
-  }
-  return grid;
-}
-buildGrid();
-
-// Build long reel strips for each column
-function buildReelStrips(targetGrid) {
-  const pool=[];
-  SYMBOLS.forEach(s=>{for(let i=0;i<s.w;i++) pool.push(s.id);});
-  reelStrips = [];
-  for(let c=0;c<COLS;c++){
-    const strip = [];
-    // Add 30 random symbols at top, then target column at end
-    for(let i=0;i<30;i++) strip.push(pool[Math.floor(Math.random()*pool.length)]);
-    // The last 3 are the visible result
-    strip.push(targetGrid[c][0], targetGrid[c][1], targetGrid[c][2]);
-    reelStrips.push(strip);
-  }
-}
-
-function getCellSize() {
-  return { cw: slotCanvas.width/COLS, ch: slotCanvas.height/ROWS };
-}
-
-function drawSymbol(ctx, symId, x, y, cw, ch, alpha=1, scale=1) {
-  const sym = SYM_BY_ID[symId];
-  if(!sym) return;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x+cw/2, y+ch/2);
-  ctx.scale(scale,scale);
-  const fontSize = Math.min(cw,ch)*.52;
-  ctx.font = `${fontSize}px serif`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  // Glow for special symbols
-  if(symId==='seven'){ctx.shadowColor='#FFD700';ctx.shadowBlur=20;}
-  else if(symId==='wild'){ctx.shadowColor='#00FF88';ctx.shadowBlur=25;}
-  else if(symId==='scatter'){ctx.shadowColor='#FF2D78';ctx.shadowBlur=25;}
-  else if(symId==='diamond'){ctx.shadowColor='#00CFFF';ctx.shadowBlur=15;}
-  ctx.fillText(sym.e,0,0);
-  ctx.restore();
-}
-
-// Current spin animation state
-let reelAnimOffsets = Array(COLS).fill(0); // pixel offset downward
-let reelAnimActive  = Array(COLS).fill(false);
-let reelAnimDone    = Array(COLS).fill(true);
-
-function drawReels(animOffsets) {
-  const {cw,ch} = getCellSize();
-  const W=slotCanvas.width, H=slotCanvas.height;
-  slotCtx.clearRect(0,0,W,H);
-
-  // Background gradient
-  const bg = slotCtx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#0D0D2B');
-  bg.addColorStop(1,'#110525');
-  slotCtx.fillStyle=bg;
-  slotCtx.fillRect(0,0,W,H);
-
-  // Column separators
-  for(let c=1;c<COLS;c++){
-    slotCtx.beginPath();
-    slotCtx.moveTo(c*cw,0); slotCtx.lineTo(c*cw,H);
-    slotCtx.strokeStyle='rgba(255,255,255,0.06)';
-    slotCtx.lineWidth=1; slotCtx.stroke();
-  }
-  // Row separators
-  for(let r=1;r<ROWS;r++){
-    slotCtx.beginPath();
-    slotCtx.moveTo(0,r*ch); slotCtx.lineTo(W,r*ch);
-    slotCtx.strokeStyle='rgba(255,255,255,0.06)';
-    slotCtx.lineWidth=1; slotCtx.stroke();
-  }
-
-  // Draw symbols
-  for(let c=0;c<COLS;c++){
-    slotCtx.save();
-    slotCtx.beginPath();
-    slotCtx.rect(c*cw,0,cw,H);
-    slotCtx.clip();
-
-    const offset = (animOffsets&&animOffsets[c]) ? animOffsets[c] : 0;
-    // Draw 3 rows + extra above/below for scroll effect
-    if(offset>0 && reelStrips[c]){
-      const strip=reelStrips[c];
-      const stripLen=strip.length;
-      // How many cells scroll
-      const cellOffset = offset / ch;
-      const startIdx = Math.max(0, stripLen-ROWS-1-Math.ceil(cellOffset));
-      const pixOff = offset % ch;
-      for(let di=0;di<ROWS+2;di++){
-        const si = startIdx+di;
-        const sy = (di-1)*ch + pixOff;
-        if(si>=0&&si<strip.length){
-          drawSymbol(slotCtx, strip[si], c*cw, sy, cw, ch);
-        }
-      }
-    } else {
-      for(let r=0;r<ROWS;r++){
-        drawSymbol(slotCtx, grid[c][r], c*cw, r*ch, cw, ch);
-      }
-    }
-    slotCtx.restore();
-  }
-
-  // Vignette edges
-  const vg = slotCtx.createLinearGradient(0,0,0,H);
-  vg.addColorStop(0,'rgba(0,0,0,0.5)');
-  vg.addColorStop(0.15,'rgba(0,0,0,0)');
-  vg.addColorStop(0.85,'rgba(0,0,0,0)');
-  vg.addColorStop(1,'rgba(0,0,0,0.5)');
-  slotCtx.fillStyle=vg;
-  slotCtx.fillRect(0,0,W,H);
-
-  // Center line highlight
-  slotCtx.beginPath();
-  slotCtx.moveTo(0, ch+ch/2); slotCtx.lineTo(W, ch+ch/2);
-  slotCtx.strokeStyle='rgba(0,207,255,0.15)';
-  slotCtx.lineWidth=2; slotCtx.stroke();
-}
-
-function drawWinLines(winResult) {
-  const {cw,ch}=getCellSize();
-  winCtx.clearRect(0,0,winCanvas.width,winCanvas.height);
-  if(!winResult||!winResult.lines||winResult.lines.length===0) return;
-  const colors=['#FFD700','#00CFFF','#FF2D78','#00FF88','#BF5FFF','#FF6B35','#FF0000','#00FFFF','#FFFFFF'];
-  winResult.lines.forEach((line,li)=>{
-    const color = colors[li%colors.length];
-    winCtx.strokeStyle=color;
-    winCtx.lineWidth=3;
-    winCtx.shadowColor=color;
-    winCtx.shadowBlur=12;
-    winCtx.setLineDash([8,4]);
-    winCtx.globalAlpha=0.85;
-    winCtx.beginPath();
-    const linePattern = WIN_LINES[line.lineIdx];
-    linePattern.forEach((row,col)=>{
-      const px = col*cw+cw/2;
-      const py = row*ch+ch/2;
-      if(col===0) winCtx.moveTo(px,py); else winCtx.lineTo(px,py);
-    });
-    winCtx.stroke();
-    winCtx.setLineDash([]);
-    winCtx.globalAlpha=1;
-    winCtx.shadowBlur=0;
-
-    // Highlight matching cells
-    linePattern.forEach((row,col)=>{
-      if(col<line.length){
-        winCtx.beginPath();
-        winCtx.roundRect(col*cw+3, row*ch+3, cw-6, ch-6, 10);
-        winCtx.strokeStyle=color;
-        winCtx.lineWidth=2;
-        winCtx.shadowColor=color;
-        winCtx.shadowBlur=15;
-        winCtx.globalAlpha=0.5;
-        winCtx.stroke();
-        winCtx.globalAlpha=1;
-        winCtx.shadowBlur=0;
-      }
-    });
-  });
-}
-
-// ── Spin Logic ──────────────────────────────────────────
-function weightedRandom() {
-  const pool=[];
-  SYMBOLS.forEach(s=>{ for(let i=0;i<s.w;i++) pool.push(s.id); });
-  return pool[Math.floor(Math.random()*pool.length)];
-}
-
-function generateResult() {
-  // Very occasionally force jackpot during normal play (0.01%)
-  const jackpotRoll = Math.random();
-  const newGrid=[];
-  for(let c=0;c<COLS;c++){
-    const col=[];
-    for(let r=0;r<ROWS;r++) col.push(jackpotRoll<0.0001 ? 'seven' : weightedRandom());
-    newGrid.push(col);
-  }
-  return newGrid;
-}
-
-function evaluateWins(g) {
-  const lines=[];
-  let totalWin=0;
-  const bet=getBet();
-
-  WIN_LINES.forEach((pattern,li)=>{
-    // Get symbols on this line
-    const syms=pattern.map((row,col)=>g[col][row]);
-    // Find first non-wild
-    let baseId=null;
-    for(let s of syms){ if(s!=='wild'&&s!=='scatter'){baseId=s;break;} }
-    if(!baseId) baseId='wild';
-    // Count length
-    let length=0;
-    for(let i=0;i<COLS;i++){
-      if(syms[i]===baseId||syms[i]==='wild') length++;
-      else break;
-    }
-    if(length>=3){
-      const sym=SYM_BY_ID[baseId];
-      const mult=sym?sym.val:1;
-      const multiplier=length===5?mult*3:length===4?mult*1.5:mult;
-      const win=Math.floor(bet*multiplier);
-      lines.push({lineIdx:li,symId:baseId,length,win});
-      totalWin+=win;
-    }
-  });
-
-  // Scatter check (3+ scatter anywhere = free spins)
-  let scatterCount=0;
-  for(let c=0;c<COLS;c++) for(let r=0;r<ROWS;r++) if(g[c][r]==='scatter') scatterCount++;
-  let fsTrigger=scatterCount>=3;
-
-  // Jackpot: all 5 sevens on middle line
-  const midLine=g.map(col=>col[1]);
-  const isJackpot=midLine.every(s=>s==='seven');
-
-  return {lines,totalWin,fsTrigger,isJackpot,scatterCount};
-}
-
-// Easing function
-function easeOut(t){ return 1 - Math.pow(1-t,3); }
-
-let reelAnimState = null; // {startTime, durations[], targets[], offsets[], done[]}
-
-function startSpin() {
-  if(isSpinning) return;
-  const cost = freeSpinsLeft>0 ? 0 : getBet()*WIN_LINES.length;
-  if(freeSpinsLeft===0 && gs.coins<cost){
-    showToast('Not enough coins!'); return;
-  }
-
-  isSpinning=true;
-  document.getElementById('spinBtn').classList.add('spinning');
-
-  if(freeSpinsLeft>0){ freeSpinsLeft--; updateFSBadge(); }
-  else { gs.coins-=cost; updateHUD(); }
-
-  // Track missions
-  missionDayData.spins=(missionDayData.spins||0)+1;
-  if(getBet()>=1000) missionDayData.big_bet=(missionDayData.big_bet||0)+1;
-  if(freeSpinsLeft>=0&&gs.freeSpin>0) {} // tracked below
-
-  gs.totalSpins++;
-
-  // Generate target grid
-  const newGrid=generateResult();
-  buildReelStrips(newGrid);
-
-  // Reel animation
-  const {ch}=getCellSize();
-  const baseDur = gs.settings.fastSpin ? 300 : SPIN_DURATION_BASE;
-  const stripLen=33; // total symbols in strip
-  const totalScroll=(stripLen)*ch;
-
-  reelAnimState={
-    startTime:Date.now(),
-    durations:Array.from({length:COLS},(_,i)=>baseDur+i*(gs.settings.fastSpin?50:150)),
-    totalScroll,
-    ch,
-    done:Array(COLS).fill(false),
-    newGrid,
-  };
-  reelAnimOffsets=Array(COLS).fill(0);
-
-  requestAnimationFrame(animateSpin);
-}
-
-function animateSpin(ts) {
-  if(!reelAnimState){drawReels();return;}
-  const now=Date.now();
-  const elapsed=now-reelAnimState.startTime;
-  let allDone=true;
-
-  for(let c=0;c<COLS;c++){
-    if(reelAnimState.done[c]) continue;
-    allDone=false;
-    const dur=reelAnimState.durations[c];
-    const t=Math.min(elapsed/dur,1);
-    const eased=easeOut(t);
-    reelAnimOffsets[c]=eased*reelAnimState.totalScroll;
-    if(t>=1) reelAnimState.done[c]=true;
-  }
-
-  drawReels(reelAnimOffsets);
-
-  if(allDone){
-    grid=reelAnimState.newGrid;
-    reelAnimState=null;
-    reelAnimOffsets=Array(COLS).fill(0);
-    drawReels();
-    onSpinEnd();
-  } else {
-    requestAnimationFrame(animateSpin);
-  }
-}
-
-function onSpinEnd(){
-  isSpinning=false;
-  document.getElementById('spinBtn').classList.remove('spinning');
-
-  const result=evaluateWins(grid);
-
-  // XP gain
-  const xpGain=Math.max(2, Math.floor(result.totalWin/getBet())*2+2);
-  addXP(xpGain);
-
-  if(result.isJackpot){
-    const jpWin=gs.jackpotPool;
-    gs.coins+=jpWin;
-    gs.jackpotPool=Math.floor(500000+Math.random()*500000);
-    gs.wins++; gs.jackpotsWon++;
-    gs.biggestWin=Math.max(gs.biggestWin,jpWin);
-    missionDayData.bigwin=(missionDayData.bigwin||0)+1;
-    missionDayData.wins=(missionDayData.wins||0)+1;
-    startConfetti(6000);
-    spawnCoinBurst(window.innerWidth/2,window.innerHeight/2,80);
-    showWinOverlay('jackpot','🏆 JACKPOT!','LEGENDARY WIN!',jpWin);
-    drawWinLines(result);
-    vibrate([200,100,200,100,200]);
-  } else if(result.totalWin>0){
-    gs.coins+=result.totalWin;
-    gs.wins++;
-    gs.biggestWin=Math.max(gs.biggestWin,result.totalWin);
-    missionDayData.wins=(missionDayData.wins||0)+1;
-
-    const betTotal=getBet()*WIN_LINES.length;
-    const ratio=result.totalWin/betTotal;
-
-    drawWinLines(result);
-
-    if(ratio>=50){ gs.megaWins++; missionDayData.bigwin=(missionDayData.bigwin||0)+1; startConfetti(4000); spawnCoinBurst(window.innerWidth/2,window.innerHeight/2,60); showWinOverlay('mega','🌟 MEGA WIN!','UNBELIEVABLE!',result.totalWin); vibrate([150,50,150]); }
-    else if(ratio>=20){ gs.bigWins++; missionDayData.bigwin=(missionDayData.bigwin||0)+1; startConfetti(2500); spawnCoinBurst(window.innerWidth/2,window.innerHeight/2,40); showWinOverlay('epic','💥 EPIC WIN!','AMAZING!',result.totalWin); vibrate([100,50,100]); }
-    else if(ratio>=5){ gs.bigWins++; spawnCoinBurst(window.innerWidth/2,window.innerHeight*.6,25); showWinOverlay('big','⭐ BIG WIN!','Great!',result.totalWin); vibrate([80]); }
-    else {
-      // Small win, just update coins
-      spawnCoinBurst(window.innerWidth/2,window.innerHeight*.7,10);
-      showToast(`+${fmt(result.totalWin)} 🪙`);
-      setTimeout(()=>drawWinLines(null),1500);
-    }
-  } else {
-    setTimeout(()=>drawWinLines(null),500);
-  }
-
-  if(result.fsTrigger && !result.isJackpot){
-    freeSpinsLeft+=10; gs.fsTriggers++; gs.freeSpin=(gs.freeSpin||0)+result.scatterCount;
-    missionDayData.fsspins=(missionDayData.fsspins||0)+1;
-    updateFSBadge();
-    showToast('🎁 10 FREE SPINS AWARDED!');
-  }
-
-  // Jackpot pool grows
-  gs.jackpotPool+=Math.floor(getBet()*WIN_LINES.length*.01);
-  updateHUD();
-  updateJackpotDisplay();
-  checkAchievements();
-  updateMissions();
-  saveGame();
-
-  // Auto spin
-  if(autoSpinCount>0){
-    autoSpinCount--;
-    updateAutoLabel();
-    if(autoSpinCount===0){
-      showToast('Auto Spin complete');
-    } else {
-      autoSpinTimer=setTimeout(startSpin,800);
-    }
-  }
-  if(freeSpinsLeft>0&&autoSpinCount===0){
-    autoSpinTimer=setTimeout(startSpin,600);
-  }
-}
-
-// ── HUD Updates ─────────────────────────────────────────
-function fmt(n){
-  if(n>=1000000) return (n/1000000).toFixed(1)+'M';
-  if(n>=1000) return Math.floor(n/1000)+'K';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
-}
-
-function updateHUD(){
-  document.getElementById('coinDisplay').textContent=fmt(gs.coins);
-  document.getElementById('gemDisplay').textContent=fmt(gs.gems);
-  document.getElementById('lvDisplay').textContent=gs.level;
-  const {cur,max}=getXPProgress();
-  const pct=Math.min(100,Math.floor((cur/max)*100));
-  document.getElementById('xpFill').style.width=pct+'%';
-  document.getElementById('xpLabel').textContent=cur+' / '+max+' XP';
-}
-function updateJackpotDisplay(){
-  document.getElementById('jackpotDisplay').textContent=fmt(gs.jackpotPool);
-}
-function updateFSBadge(){
-  const b=document.getElementById('freeSpinsBadge');
-  if(freeSpinsLeft>0){b.classList.add('visible');document.getElementById('fsCount').textContent=freeSpinsLeft;}
-  else b.classList.remove('visible');
-}
-function updateAutoLabel(){
-  document.getElementById('autoSpinLabel').textContent=autoSpinCount>0?`x${autoSpinCount}`:'';
-}
-
-function getXPProgress(){
-  const lv=gs.level;
-  const next=LEVELS[Math.min(lv,LEVELS.length-1)];
-  const prev=LEVELS[Math.min(lv-1,LEVELS.length-1)];
-  const maxXP=next[0]-prev[0];
-  const curXP=gs.xp-prev[0];
-  return {cur:Math.max(0,curXP),max:maxXP||100};
-}
-
-function addXP(amount){
-  gs.xp+=amount;
-  while(gs.level<LEVELS.length-1 && gs.xp>=LEVELS[gs.level][0]){
-    gs.level++;
-    showToast(`🎉 Level Up! You are now Level ${gs.level}!`);
-  }
-  updateHUD();
-}
-
-// ── Win Overlay ─────────────────────────────────────────
-function showWinOverlay(type,title,sub,amount){
-  const overlay=document.getElementById('winOverlay');
-  const box=document.getElementById('winBox');
-  box.className='overlay-box win-'+type;
-  document.getElementById('winIcon').textContent= type==='jackpot'?'🏆':type==='mega'?'🌟':type==='epic'?'💥':'⭐';
-  document.getElementById('winTitle').textContent=title;
-  document.getElementById('winSubtitle').textContent=sub;
-  document.getElementById('winAmount').textContent='+'+fmt(amount)+' 🪙';
-  overlay.classList.add('show');
-  pendingWinOverlay=true;
-}
-function closeWinOverlay(){
-  document.getElementById('winOverlay').classList.remove('show');
-  pendingWinOverlay=false;
-  // clear win lines after a delay
-  setTimeout(()=>drawWinLines(null),500);
-}
-
-// ── Daily Bonus ──────────────────────────────────────────
-const DAILY_REWARDS=[2000,3000,5000,7500,10000,15000,25000];
-function checkDailyBonus(){
-  const now=Date.now();
-  const lastDay=new Date(gs.lastDaily);
-  const today=new Date(now);
-  if(lastDay.toDateString()===today.toDateString()) return;
-  gs.lastDaily=now;
-  gs.dailyStreak=Math.min(gs.dailyStreak+1,7);
-  const reward=DAILY_REWARDS[Math.min(gs.dailyStreak-1,DAILY_REWARDS.length-1)];
-  gs.coins+=reward;
-
-  // Build day circles
-  const container=document.getElementById('dailyDays');
-  container.innerHTML='';
-  for(let i=1;i<=7;i++){
-    const d=document.createElement('div');
-    d.className='day-circle'+(i<gs.dailyStreak?' collected':i===gs.dailyStreak?' today':'');
-    d.innerHTML=`<div>Day</div><div>${i}</div>`;
-    container.appendChild(d);
-  }
-  document.getElementById('dailyAmount').textContent='+'+fmt(reward)+' 🪙';
-  document.getElementById('dailyOverlay').classList.add('show');
-  saveGame();
-}
-function closeDailyBonus(){
-  document.getElementById('dailyOverlay').classList.remove('show');
-  updateHUD();
-}
-
-// ── Lucky Chest ──────────────────────────────────────────
-chestOpened=false;
-function openChestOverlay(){
-  const overlay=document.getElementById('chestOverlay');
-  document.getElementById('chestIcon').textContent='📦';
-  document.getElementById('chestTitle').textContent='Lucky Chest!';
-  document.getElementById('chestSub').textContent='Tap the chest to reveal your prize!';
-  document.getElementById('chestAmount').style.display='none';
-  document.getElementById('chestBtn').textContent='OPEN';
-  chestOpened=false;
-  overlay.classList.add('show');
-}
-function openChest(){
-  if(chestOpened)return;
-  chestOpened=true;
-  const prizes=[
-    {type:'coins',amount:5000,icon:'🪙',label:'5,000 Coins'},
-    {type:'coins',amount:15000,icon:'💰',label:'15,000 Coins'},
-    {type:'gems',amount:10,icon:'💎',label:'10 Gems'},
-    {type:'gems',amount:25,icon:'💎',label:'25 Gems'},
-    {type:'fs',amount:5,icon:'🎰',label:'5 Free Spins'},
-    {type:'fs',amount:10,icon:'🎰',label:'10 Free Spins'},
-  ];
-  const prize=prizes[Math.floor(Math.random()*prizes.length)];
-  document.getElementById('chestIcon').textContent=prize.icon;
-  document.getElementById('chestTitle').textContent='You Won!';
-  document.getElementById('chestSub').textContent='Congratulations!';
-  const amtEl=document.getElementById('chestAmount');
-  amtEl.textContent=prize.label;
-  amtEl.style.display='block';
-  document.getElementById('chestBtn').textContent='COLLECT';
-  if(prize.type==='coins') gs.coins+=prize.amount;
-  else if(prize.type==='gems') gs.gems+=prize.amount;
-  else if(prize.type==='fs'){freeSpinsLeft+=prize.amount;updateFSBadge();}
-  spawnCoinBurst(window.innerWidth/2,window.innerHeight/2,20);
-  updateHUD(); saveGame();
-}
-function closeChest(){
-  document.getElementById('chestOverlay').classList.remove('show');
-}
-
-// ── Achievements ─────────────────────────────────────────
-function checkAchievements(){
-  ACHIEVEMENT_DEFS.forEach(def=>{
-    if(gs.unlockedAch.includes(def.id)) return;
-    if(def.cond(gs)){
-      gs.unlockedAch.push(def.id);
-      setTimeout(()=>showAchievement(def),500);
-      if(def.reward.coins) gs.coins+=def.reward.coins;
-      if(def.reward.gems) gs.gems+=def.reward.gems;
-    }
-  });
-}
-let achQueue=[];
-let achShowing=false;
-function showAchievement(def){
-  achQueue.push(def);
-  if(!achShowing) nextAch();
-}
-function nextAch(){
-  if(!achQueue.length){achShowing=false;return;}
-  achShowing=true;
-  const def=achQueue.shift();
-  document.getElementById('achIcon').textContent=def.icon;
-  document.getElementById('achName').textContent=def.name;
-  document.getElementById('achDesc').textContent=def.desc;
-  const r=def.reward;
-  document.getElementById('achReward').textContent=r.coins?'+'+fmt(r.coins)+' 🪙':'+'+r.gems+' 💎';
-  document.getElementById('achOverlay').classList.add('show');
-  updateHUD(); saveGame();
-}
-function closeAchOverlay(){
-  document.getElementById('achOverlay').classList.remove('show');
-  setTimeout(nextAch,400);
-}
-
-function renderAchievements(){
-  const grid=document.getElementById('achGrid');
-  grid.innerHTML='';
-  ACHIEVEMENT_DEFS.forEach(def=>{
-    const unlocked=gs.unlockedAch.includes(def.id);
-    const el=document.createElement('div');
-    el.className='ach-item '+(unlocked?'unlocked':'locked');
-    el.innerHTML=`<div class="ach-icon">${def.icon}</div>
-      <div class="ach-name">${def.name}</div>
-      <div class="ach-desc">${def.desc}</div>
-      <div class="ach-badge">✓</div>`;
-    grid.appendChild(el);
-  });
-}
-
-// ── Missions ─────────────────────────────────────────────
-function initMissions(){
-  const today=new Date().toDateString();
-  const saved=localStorage.getItem('lvc_missions_day');
-  if(saved!==today){
-    localStorage.setItem('lvc_missions_day',today);
-    missionDayData={};
-    gs.missions={};
-    // Pick 4 random missions
-    const shuffled=[...MISSION_DEFS].sort(()=>Math.random()-.5);
-    gs.todayMissions=shuffled.slice(0,4).map(m=>m.id);
-  } else {
-    try{missionDayData=JSON.parse(localStorage.getItem('lvc_mdd')||'{}');}catch(e){}
-  }
-}
-
-function updateMissions(){
-  localStorage.setItem('lvc_mdd',JSON.stringify(missionDayData));
-}
-
-function renderMissions(){
-  const list=document.getElementById('missionsList');
-  list.innerHTML='';
-  gs.todayMissions.forEach(mid=>{
-    const def=MISSION_DEFS.find(m=>m.id===mid);
-    if(!def)return;
-    const prog=missionDayData[def.field]||0;
-    const pct=Math.min(100,Math.floor((prog/def.goal)*100));
-    const done=prog>=def.goal;
-    const claimed=gs.missions[mid]&&gs.missions[mid].claimed;
-    const r=def.reward;
-    const rewardStr=r.coins?'+'+fmt(r.coins)+' 🪙':'+'+r.gems+' 💎';
-
-    const el=document.createElement('div');
-    el.className='mission-item';
-    el.innerHTML=`<div class="mission-icon">${def.icon}</div>
-      <div class="mission-info">
-        <div class="mission-name">${def.name}</div>
-        <div class="mission-desc">${def.desc}</div>
-        <div class="mission-prog-track"><div class="mission-prog-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:10px;color:var(--text2);margin-top:4px">${Math.min(prog,def.goal)} / ${def.goal}</div>
-      </div>
-      <div class="mission-reward">
-        <div class="mission-reward-val">${rewardStr}</div>
-        <button class="claim-btn" ${(!done||claimed)?'disabled':''} data-mid="${mid}">${claimed?'✓':'CLAIM'}</button>
-      </div>`;
-    list.appendChild(el);
-  });
-
-  list.querySelectorAll('.claim-btn:not([disabled])').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const mid=btn.dataset.mid;
-      const def=MISSION_DEFS.find(m=>m.id===mid);
-      if(!def)return;
-      if(!gs.missions[mid]) gs.missions[mid]={};
-      gs.missions[mid].claimed=true;
-      if(def.reward.coins) gs.coins+=def.reward.coins;
-      if(def.reward.gems) gs.gems+=def.reward.gems;
-      showToast('Mission reward claimed! '+( def.reward.coins?'+'+fmt(def.reward.coins)+' 🪙':'+'+def.reward.gems+' 💎'));
-      updateHUD(); saveGame(); renderMissions();
-    });
-  });
-}
-
-// ── Settings ─────────────────────────────────────────────
-function renderSettings(){
-  ['sound','music','vibration','fastSpin'].forEach(key=>{
-    const el=document.getElementById('toggle'+key.charAt(0).toUpperCase()+key.slice(1));
-    if(el) el.classList.toggle('on',gs.settings[key]);
-  });
-}
-document.querySelectorAll('.toggle').forEach(el=>{
-  el.addEventListener('click',()=>{
-    const key=el.dataset.toggle;
-    gs.settings[key]=!gs.settings[key];
-    el.classList.toggle('on',gs.settings[key]);
-    saveGame();
-  });
-});
-
-// ── Profile ───────────────────────────────────────────────
-function renderProfile(){
-  document.getElementById('profileName').textContent='Lucky Player';
-  const lv=LEVELS[Math.min(gs.level,LEVELS.length-1)];
-  document.getElementById('profileLvl').textContent=`Level ${gs.level} • ${lv[1]}`;
-  const {cur,max}=getXPProgress();
-  const pct=Math.min(100,Math.floor((cur/max)*100));
-  document.getElementById('profileXpFill').style.width=pct+'%';
-  document.getElementById('profileXpLabel').textContent=cur+'/'+max;
-  document.getElementById('statSpins').textContent=fmt(gs.totalSpins);
-  document.getElementById('statWins').textContent=fmt(gs.wins);
-  document.getElementById('statBiggest').textContent=fmt(gs.biggestWin);
-  document.getElementById('statWinPct').textContent=gs.totalSpins>0?Math.round((gs.wins/gs.totalSpins)*100)+'%':'0%';
-  document.getElementById('statCoins').textContent=fmt(gs.coins);
-  document.getElementById('statGems').textContent=fmt(gs.gems);
-  document.getElementById('statFS').textContent=freeSpinsLeft;
-  document.getElementById('statJP').textContent=gs.jackpotsWon;
-}
-
-// ── Shop ─────────────────────────────────────────────────
-document.querySelectorAll('.shop-item[data-buy]').forEach(el=>{
-  el.addEventListener('click',()=>handleBuy(el.dataset.buy));
-});
-function handleBuy(item){
-  const costs={coins_sm:{gems:20,coins:10000},coins_md:{gems:80,coins:50000},
-    coins_lg:{gems:200,coins:150000},coins_xl:{gems:500,coins:500000},
-    fs_sm:{gems:10,fs:5},fs_md:{gems:35,fs:20},
-    gem_refill:{gems:-100,type:'gems'},lucky_chest:{gems:15,type:'chest'}};
-  const c=costs[item];
-  if(!c)return;
-  if(item==='gem_refill'){gs.gems+=100;showToast('+100 💎 Gems!');updateHUD();saveGame();return;}
-  if(item==='lucky_chest'){
-    if(gs.gems<15){showToast('Not enough gems!');return;}
-    gs.gems-=15;updateHUD();openChestOverlay();saveGame();return;
-  }
-  if(gs.gems<c.gems){showToast('Not enough gems!');return;}
-  gs.gems-=c.gems;
-  if(c.coins){gs.coins+=c.coins;showToast('+'+fmt(c.coins)+' 🪙 Coins added!');}
-  if(c.fs){freeSpinsLeft+=c.fs;updateFSBadge();showToast('+'+c.fs+' Free Spins!');}
-  updateHUD(); saveGame();
-}
-
-// ── Toast ─────────────────────────────────────────────────
-let toastTimer=null;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('show');
-  if(toastTimer) clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
-}
-
-// ── Vibration ─────────────────────────────────────────────
-function vibrate(pattern){
-  if(gs.settings.vibration&&navigator.vibrate) navigator.vibrate(pattern);
-}
-
-// ── Navigation ───────────────────────────────────────────
-document.querySelectorAll('.nav-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const target=btn.dataset.screen;
-    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    if(target==='main'){ closeAllSubs(); return; }
-    openSubScreen(target+'Screen');
-  });
-});
-document.querySelectorAll('.back-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const target=btn.dataset.close;
-    closeSubScreen(target);
-    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelector('.nav-btn[data-screen="main"]').classList.add('active');
-  });
-});
-function openSubScreen(id){
-  const el=document.getElementById(id);
-  if(!el)return;
-  if(id==='profileScreen') renderProfile();
-  if(id==='missionsScreen') renderMissions();
-  if(id==='achievementsScreen') renderAchievements();
-  if(id==='settingsScreen') renderSettings();
-  el.classList.add('open');
-}
-function closeSubScreen(id){
-  const el=document.getElementById(id);
-  if(el) el.classList.remove('open');
-}
-function closeAllSubs(){
-  document.querySelectorAll('.sub-screen').forEach(s=>s.classList.remove('open'));
-}
-
-// ── Bet Controls ─────────────────────────────────────────
-document.getElementById('betDown').addEventListener('click',()=>{
-  if(betIdx>0){betIdx--;updateBetDisplay();}
-});
-document.getElementById('betUp').addEventListener('click',()=>{
-  if(betIdx<BET_OPTIONS.length-1){betIdx++;updateBetDisplay();}
-});
-document.getElementById('maxBetBtn').addEventListener('click',()=>{
-  betIdx=BET_OPTIONS.length-1; updateBetDisplay();
-  showToast('Max Bet: '+fmt(getBet()));
-});
-function updateBetDisplay(){
-  document.getElementById('betValue').textContent=fmt(getBet());
-}
-
-// ── Auto Spin ─────────────────────────────────────────────
-const AUTO_OPTIONS=[5,10,25,50];
-let autoOptIdx=0;
-document.getElementById('autoSpinBtn').addEventListener('click',()=>{
-  if(autoSpinCount>0){
-    autoSpinCount=0; updateAutoLabel();
-    if(autoSpinTimer){clearTimeout(autoSpinTimer);autoSpinTimer=null;}
-    showToast('Auto Spin stopped');
-    return;
-  }
-  autoOptIdx=(autoOptIdx+1)%AUTO_OPTIONS.length;
-  autoSpinCount=AUTO_OPTIONS[autoOptIdx-1>=0?autoOptIdx-1:AUTO_OPTIONS.length-1];
-  // Cycle through options and start
-  autoSpinCount=AUTO_OPTIONS[autoOptIdx];
-  updateAutoLabel();
-  showToast(`Auto Spin: ${autoSpinCount} spins`);
-  if(!isSpinning) startSpin();
-});
-
-// ── Spin Button ──────────────────────────────────────────
-document.getElementById('spinBtn').addEventListener('click',()=>{
-  if(pendingWinOverlay) return;
-  startSpin();
-});
-
-// ── Save / Load ───────────────────────────────────────────
-function saveGame(){
-  localStorage.setItem('lvc_gs',JSON.stringify(gs));
-  localStorage.setItem('lvc_bidx',betIdx);
-  localStorage.setItem('lvc_fs',freeSpinsLeft);
-  localStorage.setItem('lvc_mdd',JSON.stringify(missionDayData));
-}
-function loadGame(){
-  try{
-    const raw=localStorage.getItem('lvc_gs');
-    if(raw) gs=Object.assign(gs,JSON.parse(raw));
-    const bi=localStorage.getItem('lvc_bidx');
-    if(bi!==null) betIdx=parseInt(bi);
-    const fs=localStorage.getItem('lvc_fs');
-    if(fs!==null) freeSpinsLeft=parseInt(fs);
-    const mdd=localStorage.getItem('lvc_mdd');
-    if(mdd) missionDayData=JSON.parse(mdd);
-  }catch(e){console.warn('Load failed',e);}
-}
-function resetGame(){
-  if(!confirm('Reset all progress? This cannot be undone!'))return;
-  localStorage.clear();
-  location.reload();
-}
-
-// ── Main Loop ─────────────────────────────────────────────
-let lastFrame=0;
-function mainLoop(ts){
-  if(ts-lastFrame>16){ // ~60fps cap
-    drawBg();
-    drawParticles();
-    drawConfetti();
-    lastFrame=ts;
-  }
-  requestAnimationFrame(mainLoop);
-}
-
-// ── Init ──────────────────────────────────────────────────
-function init(){
-  loadGame();
-  initMissions();
-  updateHUD();
-  updateBetDisplay();
-  updateJackpotDisplay();
-  updateFSBadge();
-  drawReels();
-  renderAchievements();
-  requestAnimationFrame(mainLoop);
-
-  // Show daily bonus after short delay
-  setTimeout(checkDailyBonus, 800);
-
-  // Jackpot counter animation
-  setInterval(()=>{
-    gs.jackpotPool+=Math.floor(Math.random()*100+50);
-    updateJackpotDisplay();
-  },3000);
-}
-
-init();
+// ── Init ───────────────────────────────────────────────
+buildLobby();
+updateHUD();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
