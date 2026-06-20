@@ -1552,23 +1552,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <div id="diceResultMsg" style="font-size:17px;font-weight:800;letter-spacing:.06em;min-height:26px;"></div>
       <div style="width:100%;max-width:340px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px;font-weight:700;">
-          <span style="color:#00FF88">UNDER <span id="diceUnderV">50</span></span>
+          <span style="color:#FF4444">SHORT <span id="diceUnderV">50</span></span>
           <span style="color:rgba(255,255,255,.5)">TARGET: <span id="diceTargetV" style="color:#fff;font-size:14px;">50</span></span>
-          <span style="color:#FF4444">OVER <span id="diceOverV">50</span></span>
+          <span style="color:#00FF88">LONG <span id="diceOverV">50</span></span>
         </div>
         <input type="range" id="diceSlider" min="2" max="98" value="50" oninput="diceSliderChange()" style="width:100%;accent-color:#00CFFF;">
         <div style="display:flex;justify-content:space-between;margin-top:14px;padding:0 4px;">
           <div style="text-align:center;">
-            <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;">UNDER MULT</div>
-            <div id="diceUnderMult" style="font-size:20px;font-weight:900;color:#00FF88;">1.96×</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;">SHORT MULT</div>
+            <div id="diceUnderMult" style="font-size:20px;font-weight:900;color:#FF4444;">1.96×</div>
           </div>
           <div style="text-align:center;">
             <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;">WIN CHANCE</div>
             <div id="diceChance" style="font-size:20px;font-weight:900;color:#00CFFF;">49.5%</div>
           </div>
           <div style="text-align:center;">
-            <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;">OVER MULT</div>
-            <div id="diceOverMult" style="font-size:20px;font-weight:900;color:#FF4444;">2.02×</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;">LONG MULT</div>
+            <div id="diceOverMult" style="font-size:20px;font-weight:900;color:#00FF88;">2.02×</div>
           </div>
         </div>
       </div>
@@ -1580,8 +1580,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
         <button class="fruit-bet-btn" onclick="diceBetDouble()">×2</button>
       </div>
       <div style="display:flex;gap:8px;">
-        <button onclick="diceRoll('under')" style="flex:1;padding:15px 4px;border-radius:14px;border:none;background:linear-gradient(135deg,#003800,#00AA00);color:#00FF88;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:.04em;">⬇ UNDER</button>
-        <button onclick="diceRoll('over')" style="flex:1;padding:15px 4px;border-radius:14px;border:none;background:linear-gradient(135deg,#380000,#AA0000);color:#FF4444;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:.04em;">OVER ⬆</button>
+        <button onclick="diceRoll('under')" style="flex:1;padding:15px 4px;border-radius:14px;border:none;background:linear-gradient(135deg,#380000,#AA0000);color:#FF4444;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:.04em;">↓ SHORT</button>
+        <button onclick="diceRoll('over')" style="flex:1;padding:15px 4px;border-radius:14px;border:none;background:linear-gradient(135deg,#003800,#00AA00);color:#00FF88;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:.04em;">LONG ↑</button>
       </div>
     </div>
   </div>
@@ -1664,6 +1664,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
         <div id="limboResultMsg" style="font-size:16px;font-weight:800;letter-spacing:.08em;min-height:22px;margin-top:4px;"></div>
       </div>
     </div>
+
+    <!-- Multiplier chart -->
+    <canvas id="limboGraphC" style="width:100%;height:58px;flex-shrink:0;display:block;border-radius:10px;"></canvas>
 
     <!-- Target & payout -->
     <div style="background:rgba(255,255,255,.05);border-radius:14px;padding:12px 16px;flex-shrink:0;">
@@ -5854,15 +5857,31 @@ function drawPlinkoFrame(ts){
 
   drawPlinkoStatic();
 
-  // Draw peg flashes
+  // Draw peg flashes (enhanced: bright peg + shockwave rings)
   plinkoBalls.forEach(b=>{
-    b.pegFlash = (b.pegFlash||[]).filter(f=>Date.now()-f.t < 250);
+    b.pegFlash = (b.pegFlash||[]).filter(f=>Date.now()-f.t < 380);
     b.pegFlash.forEach(f=>{
-      const age = (Date.now()-f.t)/250;
-      plinkoX.fillStyle = `rgba(0,200,255,${(1-age)*0.6})`;
-      plinkoX.beginPath();
-      plinkoX.arc(f.x, f.y, pegR*(1+age*2), 0, Math.PI*2);
-      plinkoX.fill();
+      const age = (Date.now()-f.t)/380;
+      // Bright peg overlay (fades quickly)
+      if(age < 0.28){
+        const a = 1 - age/0.28;
+        const g2 = plinkoX.createRadialGradient(f.x,f.y,0,f.x,f.y,pegR);
+        g2.addColorStop(0,`rgba(255,255,255,${a})`);
+        g2.addColorStop(1,`rgba(180,240,255,${a*0.5})`);
+        plinkoX.fillStyle=g2;
+        plinkoX.beginPath(); plinkoX.arc(f.x,f.y,pegR*1.1,0,Math.PI*2); plinkoX.fill();
+      }
+      // Inner shockwave ring (fast)
+      plinkoX.strokeStyle=`rgba(255,255,255,${(1-age)*0.8})`;
+      plinkoX.lineWidth=Math.max(0.5,3*(1-age));
+      plinkoX.beginPath(); plinkoX.arc(f.x,f.y,pegR*(1.4+age*4.5),0,Math.PI*2); plinkoX.stroke();
+      // Outer cyan ring (slower)
+      if(age<0.75){
+        const a2=1-age/0.75;
+        plinkoX.strokeStyle=`rgba(0,220,255,${a2*0.5})`;
+        plinkoX.lineWidth=1.5;
+        plinkoX.beginPath(); plinkoX.arc(f.x,f.y,pegR*(2.2+age*7),0,Math.PI*2); plinkoX.stroke();
+      }
     });
   });
 
@@ -5923,22 +5942,28 @@ function drawPlinkoFrame(ts){
       const y2 = topPad + row*rowH + rowH/2;
 
       const t = b.progress;
-      const ease = t*t*(3-2*t); // smoothstep
-      const bx = x1 + (x2-x1)*ease;
-      const by = y1 + (y2-y1)*ease + Math.sin(Math.PI*t)*rowH*0.18; // arc between pegs
+      // Linear position — no smoothstep, no pause at peg contact
+      const bx = x1 + (x2-x1)*t;
+      // Ball arcs UPWARD between pegs (bounce-off effect), then falls to next peg
+      const by = y1 + (y2-y1)*t - Math.sin(Math.PI*t)*rowH*0.30;
+
+      // Ball squish: flattened at moment of peg impact (t near 0 = just bounced)
+      const sq = Math.max(0, 1 - t/0.14);
+      const rX = (1 + sq*0.40);
+      const rY = (1 - sq*0.28);
 
       const ballR = pegR * 1.7;
-      const grd = plinkoX.createRadialGradient(bx-ballR*.3,by-ballR*.4,0,bx,by,ballR);
+      const grd = plinkoX.createRadialGradient(bx-ballR*.3,by-ballR*.35,0,bx,by,ballR);
       grd.addColorStop(0,'#FFFFFF');
-      grd.addColorStop(.35,'#88DDFF');
-      grd.addColorStop(.7,'#0088FF');
-      grd.addColorStop(1,'rgba(0,50,180,0.3)');
+      grd.addColorStop(.3,'#AAE8FF');
+      grd.addColorStop(.65,'#0099FF');
+      grd.addColorStop(1,'rgba(0,40,180,0.25)');
       plinkoX.fillStyle=grd;
-      plinkoX.beginPath(); plinkoX.arc(bx,by,ballR,0,Math.PI*2); plinkoX.fill();
+      plinkoX.beginPath(); plinkoX.ellipse(bx,by,ballR*rX,ballR*rY,0,0,Math.PI*2); plinkoX.fill();
 
       // Ball glow trail
-      plinkoX.fillStyle='rgba(0,136,255,0.15)';
-      plinkoX.beginPath(); plinkoX.arc(bx,by+ballR*.5,ballR*.8,0,Math.PI*2); plinkoX.fill();
+      plinkoX.fillStyle='rgba(0,136,255,0.12)';
+      plinkoX.beginPath(); plinkoX.arc(bx,by+ballR*.55,ballR*.75,0,Math.PI*2); plinkoX.fill();
     }
   });
 
@@ -7357,6 +7382,85 @@ function updateTowerBal(){ document.getElementById('towerBal').textContent=fmt(g
 // ── Limbo ──────────────────────────────────────────────────────────────────
 let limboBet=100, limboTarget=2.00, limboRunning=false, limboAnimId=null;
 
+function drawLimboChart(target, result, win){
+  const c=document.getElementById('limboGraphC');
+  if(!c) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=c.offsetWidth*dpr, H=c.offsetHeight*dpr;
+  if(!W||!H) return;
+  c.width=W; c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const PAD=W*0.04;
+  const barY=H*0.52, barH=H*0.28;
+  const logMin=Math.log(1.01), logMax=Math.log(99);
+  function m2x(m){ return PAD+(Math.log(Math.min(99,Math.max(1.01,m)))-logMin)/(logMax-logMin)*(W-PAD*2); }
+
+  const tx=m2x(target);
+
+  // Red zone (lose: result < target)
+  const rg=ctx.createLinearGradient(PAD,0,tx,0);
+  rg.addColorStop(0,'rgba(255,50,50,0.08)'); rg.addColorStop(1,'rgba(255,50,50,0.28)');
+  ctx.fillStyle=rg;
+  ctx.beginPath(); ctx.roundRect(PAD,barY,Math.max(0,tx-PAD),barH,[3,0,0,3]); ctx.fill();
+
+  // Green zone (win: result >= target)
+  const gg=ctx.createLinearGradient(tx,0,W-PAD,0);
+  gg.addColorStop(0,'rgba(0,255,100,0.28)'); gg.addColorStop(1,'rgba(0,255,100,0.06)');
+  ctx.fillStyle=gg;
+  ctx.beginPath(); ctx.roundRect(tx,barY,Math.max(0,W-PAD-tx),barH,[0,3,3,0]); ctx.fill();
+
+  // Bar border
+  ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(PAD,barY,W-PAD*2,barH,3); ctx.stroke();
+
+  // Tick labels
+  ctx.fillStyle='rgba(255,255,255,0.28)';
+  ctx.font=`bold ${H*0.2}px Arial`;
+  ctx.textBaseline='bottom';
+  [1.5,2,3,5,10,25,50].forEach(m=>{
+    const mx=m2x(m);
+    if(mx>PAD*3&&mx<W-PAD*3){
+      ctx.textAlign='center';
+      ctx.fillText(m+'×',mx,barY-2*dpr);
+      ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(mx,barY); ctx.lineTo(mx,barY+barH); ctx.stroke();
+    }
+  });
+
+  // Target dashed line
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=2*dpr; ctx.setLineDash([4*dpr,3*dpr]);
+  ctx.beginPath(); ctx.moveTo(tx,barY-H*0.1); ctx.lineTo(tx,barY+barH+H*0.05); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Target label
+  ctx.fillStyle='#FFD700';
+  ctx.font=`bold ${H*0.26}px Arial`;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const lblX=Math.min(W-PAD*5,Math.max(PAD*5,tx));
+  ctx.fillText(target.toFixed(2)+'×',lblX,H*0.02);
+
+  // Result dot
+  if(result!=null){
+    const rx=m2x(result);
+    const dc=win?'#00FF88':'#FF4444';
+    const dr=barH*0.55;
+    const glw=ctx.createRadialGradient(rx,barY+barH/2,0,rx,barY+barH/2,dr*2.5);
+    glw.addColorStop(0,dc+'99'); glw.addColorStop(1,'transparent');
+    ctx.fillStyle=glw;
+    ctx.beginPath(); ctx.arc(rx,barY+barH/2,dr*2.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=dc; ctx.strokeStyle='#fff'; ctx.lineWidth=2*dpr;
+    ctx.beginPath(); ctx.arc(rx,barY+barH/2,dr,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Result label
+    ctx.fillStyle=dc;
+    ctx.font=`bold ${H*0.23}px Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    const rlx=Math.min(W-PAD*5,Math.max(PAD*5,rx));
+    ctx.fillText(result.toFixed(2)+'×',rlx,barY+barH+2*dpr);
+  }
+}
+
 function openLimbo(){
   document.getElementById('limboScreen').classList.add('open');
   updateLimboBal();
@@ -7377,9 +7481,9 @@ function limboRenderInfo(){
   const chance=Math.min(98, 99/t);
   document.getElementById('limboChance').textContent=chance.toFixed(2)+'%';
   document.getElementById('limboPayout').textContent=t.toFixed(2)+'×';
-  // slider position: map target 1.01-100 → slider 101-9900 (value=target*100)
   const sv=Math.round(Math.min(9900,Math.max(101,t*100)));
   document.getElementById('limboSlider').value=sv;
+  setTimeout(()=>drawLimboChart(limboTarget,null,false),0);
 }
 
 function limboSliderChange(){
@@ -7458,6 +7562,7 @@ function limboFinish(win, result){
     msgEl.style.color='#FF4444';
     addLimboChip(result, false);
   }
+  drawLimboChart(limboTarget, result, win);
   limboRunning=false;
   document.getElementById('limboLaunchBtn').disabled=false;
 }
