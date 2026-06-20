@@ -874,6 +874,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .tower-tile.mine{background:rgba(255,50,50,.25);border-color:#FF3232;}
 .tower-tile.locked,.tower-tile.disabled{opacity:.25;cursor:default;pointer-events:none;}
 .tower-floor-lbl{font-size:10px;color:rgba(255,255,255,.3);text-align:center;margin-bottom:3px;}
+#limboScreen{background:radial-gradient(ellipse at 50% 30%,#0a003a 0%,#020010 100%);}
+.limbo-preset{padding:5px 10px;border-radius:8px;border:1.5px solid rgba(255,215,0,.28);background:rgba(255,215,0,.08);color:#FFD700;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;}
+.limbo-preset:hover{background:rgba(255,215,0,.2);border-color:#FFD700;}
+.limbo-hist-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;transition:transform .2s;}
 </style>
 </head>
 <body>
@@ -1637,6 +1641,71 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
         <button id="towerCashBtn" onclick="towerCashout(false)" style="display:none;flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#AA8800,#DDAA00);color:#000;font-size:13px;font-weight:900;cursor:pointer;">💰 CASH OUT</button>
         <button id="towerStartBtn" onclick="towerStart()" style="flex:1;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#4A00E0,#8E2DE2);color:#fff;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:.04em;">🏰 PLAY</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Limbo ── -->
+<div class="game-screen" id="limboScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeLimbo()">←</button>
+    <span>🚀 Limbo</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="limboBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:14px;gap:12px;box-sizing:border-box;">
+    <!-- History bar -->
+    <div id="limboHistory" style="display:flex;gap:5px;flex-wrap:wrap;min-height:32px;"></div>
+
+    <!-- Main display -->
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;">
+      <canvas id="limboC" style="position:absolute;inset:0;width:100%;height:100%;border-radius:16px;"></canvas>
+      <div style="position:relative;z-index:1;text-align:center;">
+        <div id="limboResult" style="font-size:72px;font-weight:900;font-family:'Arial Black',Arial;letter-spacing:-2px;color:#fff;transition:color .3s;text-shadow:0 0 40px rgba(0,207,255,.6);">×1.00</div>
+        <div id="limboResultMsg" style="font-size:16px;font-weight:800;letter-spacing:.08em;min-height:22px;margin-top:4px;"></div>
+      </div>
+    </div>
+
+    <!-- Target & payout -->
+    <div style="background:rgba(255,255,255,.05);border-radius:14px;padding:12px 16px;flex-shrink:0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:3px">TARGET</div>
+          <div style="font-size:22px;font-weight:900;color:#FFD700" id="limboTargetDisplay">2.00×</div>
+        </div>
+        <div style="text-align:center;flex:1;border-left:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1);">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:3px">WIN CHANCE</div>
+          <div style="font-size:22px;font-weight:900;color:#00CFFF" id="limboChance">49.5%</div>
+        </div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:3px">PAYOUT</div>
+          <div style="font-size:22px;font-weight:900;color:#00FF88" id="limboPayout">2.00×</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:11px;color:rgba(255,255,255,.5);width:28px">1×</span>
+        <input type="range" id="limboSlider" min="101" max="9900" value="200" step="1" oninput="limboSliderChange()" style="flex:1;accent-color:#FFD700;">
+        <span style="font-size:11px;color:rgba(255,255,255,.5);width:32px">99×</span>
+      </div>
+      <div style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button onclick="limboSetTarget(1.5)" class="limbo-preset">1.5×</button>
+        <button onclick="limboSetTarget(2)" class="limbo-preset">2×</button>
+        <button onclick="limboSetTarget(3)" class="limbo-preset">3×</button>
+        <button onclick="limboSetTarget(5)" class="limbo-preset">5×</button>
+        <button onclick="limboSetTarget(10)" class="limbo-preset">10×</button>
+        <button onclick="limboSetTarget(50)" class="limbo-preset">50×</button>
+      </div>
+    </div>
+
+    <!-- Bet row + launch -->
+    <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+      <div class="vp-bet-row">
+        <button class="fruit-bet-btn" onclick="limboBetHalf()">½</button>
+        <div class="fruit-bet-box" style="flex:1"><div style="font-size:9px;color:rgba(255,255,255,.4)">BET</div><div style="font-size:18px;font-weight:900" id="limboBetV">100</div></div>
+        <button class="fruit-bet-btn" onclick="limboBetDouble()">×2</button>
+      </div>
+      <button id="limboLaunchBtn" onclick="limboLaunch()" style="padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#1a0055,#4A00E0,#8E2DE2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.05em;box-shadow:0 4px 24px rgba(100,0,255,.45);position:relative;overflow:hidden;">
+        🚀 LAUNCH
+      </button>
     </div>
   </div>
 </div>
@@ -5086,6 +5155,10 @@ const GAME_DEFS = {
      emoji:'🏰⚡💎', badge:'NEW', badgeColor:'#FFD700',
      grad:'linear-gradient(145deg,#130820,#1E0C30)',
      glow:'rgba(191,95,255,.28)', minLv:1, action:'tower'},
+    {id:'limbo', name:'Limbo', sub:'Set Target — Win if Result Beats It!',
+     emoji:'🚀📈🎯', badge:'NEW', badgeColor:'#00CFFF',
+     grad:'linear-gradient(145deg,#04001a,#0a003a)',
+     glow:'rgba(0,207,255,.32)', minLv:1, action:'limbo'},
   ],
 };
 
@@ -5422,6 +5495,21 @@ function gcSVG(g){
     ${e}`;
   }
 
+  if(act==='limbo'){
+    return `${s}
+      <defs>
+        <linearGradient id="limboBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a003a"/><stop offset="1" stop-color="#020010"/></linearGradient>
+        <linearGradient id="limboLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A00E0"/><stop offset=".5" stop-color="#00CFFF"/><stop offset="1" stop-color="#00FF88"/></linearGradient>
+      </defs>
+      <rect width="160" height="100" fill="url(#limboBg)"/>
+      <polyline points="10,88 30,80 50,70 70,55 90,38 110,22 130,12 150,5" fill="none" stroke="url(#limboLine)" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="150" cy="5" r="5" fill="#00FF88" opacity=".9"/>
+      <circle cx="10" cy="88" r="3" fill="#4A00E0" opacity=".8"/>
+      <text x="80" y="96" font-size="7" fill="rgba(255,255,255,.35)" font-family="Arial" text-anchor="middle">Target Multiplier</text>
+      <text x="112" y="30" font-size="11" fill="#00CFFF" font-family="Arial Black" font-weight="900">×5.00</text>
+    ${e}`;
+  }
+
   // fallback — plain emoji
   return `${s}<text x="80" y="58" font-size="36" text-anchor="middle" font-family="Arial">${g.emoji||'🎮'}</text>${e}`;
 }
@@ -5459,6 +5547,7 @@ function makeCard(g){
       else if(g.action==='dice') openDice();
       else if(g.action==='keno') openKeno();
       else if(g.action==='tower') openTower();
+      else if(g.action==='limbo') openLimbo();
       else showToast('🚧 '+g.name+' — Coming Soon!');
     });
   }
@@ -7264,6 +7353,126 @@ function openTower(){
 }
 function closeTower(){ document.getElementById('towerScreen').classList.remove('open'); }
 function updateTowerBal(){ document.getElementById('towerBal').textContent=fmt(gs.coins)+' 🪙'; }
+
+// ── Limbo ──────────────────────────────────────────────────────────────────
+let limboBet=100, limboTarget=2.00, limboRunning=false, limboAnimId=null;
+
+function openLimbo(){
+  document.getElementById('limboScreen').classList.add('open');
+  updateLimboBal();
+  limboRenderInfo();
+  document.getElementById('limboResult').textContent='×1.00';
+  document.getElementById('limboResult').style.color='#fff';
+  document.getElementById('limboResultMsg').textContent='';
+}
+function closeLimbo(){
+  if(limboRunning) return;
+  document.getElementById('limboScreen').classList.remove('open');
+}
+function updateLimboBal(){ document.getElementById('limboBal').textContent=fmt(gs.coins)+' 🪙'; }
+
+function limboRenderInfo(){
+  const t=limboTarget;
+  document.getElementById('limboTargetDisplay').textContent=t.toFixed(2)+'×';
+  const chance=Math.min(98, 99/t);
+  document.getElementById('limboChance').textContent=chance.toFixed(2)+'%';
+  document.getElementById('limboPayout').textContent=t.toFixed(2)+'×';
+  // slider position: map target 1.01-100 → slider 101-9900 (value=target*100)
+  const sv=Math.round(Math.min(9900,Math.max(101,t*100)));
+  document.getElementById('limboSlider').value=sv;
+}
+
+function limboSliderChange(){
+  const sv=parseInt(document.getElementById('limboSlider').value)||200;
+  limboTarget=Math.round(sv)/100;
+  limboRenderInfo();
+}
+
+function limboSetTarget(t){
+  limboTarget=Math.max(1.01,Math.min(99,t));
+  limboRenderInfo();
+}
+
+function limboBetHalf(){
+  limboBet=Math.max(10,Math.floor(limboBet/2));
+  document.getElementById('limboBetV').textContent=fmt(limboBet);
+}
+function limboBetDouble(){
+  limboBet=Math.min(gs.coins||limboBet,limboBet*2);
+  document.getElementById('limboBetV').textContent=fmt(limboBet);
+}
+
+function limboLaunch(){
+  if(limboRunning) return;
+  if(gs.coins<limboBet){ showToast('💸 Not enough coins!'); return; }
+  limboRunning=true;
+  gs.coins-=limboBet; save(); updateHUD(); updateLimboBal();
+
+  const btn=document.getElementById('limboLaunchBtn');
+  btn.disabled=true;
+
+  // Generate result: use 1/(1-r) distribution with 99% RTP
+  const r=Math.random();
+  const result=Math.max(1.01, Math.min(1000, 0.99/(1-r)));
+
+  const win=result>=limboTarget;
+  const startDisp=1.00;
+  const endDisp=parseFloat(result.toFixed(2));
+  const duration=1200;
+  const startTime=performance.now();
+
+  const resEl=document.getElementById('limboResult');
+  const msgEl=document.getElementById('limboResultMsg');
+  resEl.style.color='#fff';
+  msgEl.textContent='';
+
+  function animate(now){
+    const t=Math.min(1,(now-startTime)/duration);
+    const ease=1-Math.pow(1-t,3);
+    const cur=startDisp+(endDisp-startDisp)*ease;
+    resEl.textContent='×'+cur.toFixed(2);
+    if(t<1){
+      limboAnimId=requestAnimationFrame(animate);
+    } else {
+      resEl.textContent='×'+endDisp.toFixed(2);
+      limboAnimId=null;
+      limboFinish(win, result);
+    }
+  }
+  limboAnimId=requestAnimationFrame(animate);
+}
+
+function limboFinish(win, result){
+  const resEl=document.getElementById('limboResult');
+  const msgEl=document.getElementById('limboResultMsg');
+  if(win){
+    const payout=Math.floor(limboBet*limboTarget);
+    gs.coins+=payout; save(); updateHUD(); updateLimboBal();
+    resEl.style.color='#00FF88';
+    msgEl.textContent='WIN  +'+fmt(payout)+' 🪙';
+    msgEl.style.color='#00FF88';
+    addLimboChip(result, true);
+  } else {
+    resEl.style.color='#FF4444';
+    msgEl.textContent='BUST  -'+fmt(limboBet)+' 🪙';
+    msgEl.style.color='#FF4444';
+    addLimboChip(result, false);
+  }
+  limboRunning=false;
+  document.getElementById('limboLaunchBtn').disabled=false;
+}
+
+function addLimboChip(result, win){
+  const hist=document.getElementById('limboHistory');
+  const chip=document.createElement('div');
+  chip.className='limbo-hist-chip';
+  chip.style.background=win?'rgba(0,255,136,.18)':'rgba(255,68,68,.18)';
+  chip.style.color=win?'#00FF88':'#FF4444';
+  chip.style.border=`1px solid ${win?'rgba(0,255,136,.4)':'rgba(255,68,68,.4)'}`;
+  chip.textContent='×'+result.toFixed(2);
+  hist.insertBefore(chip, hist.firstChild);
+  while(hist.children.length>15) hist.removeChild(hist.lastChild);
+}
 function towerBetHalf(){ towerBet=Math.max(10,Math.floor(towerBet/2)); document.getElementById('towerBetV').textContent=fmt(towerBet); }
 function towerBetDouble(){ towerBet=Math.min(gs.coins||towerBet,towerBet*2); document.getElementById('towerBetV').textContent=fmt(towerBet); }
 
