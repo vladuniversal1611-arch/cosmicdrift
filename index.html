@@ -143,21 +143,53 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   border:1px solid rgba(255,255,255,.14);border-radius:30px;padding:4px 10px;
   font-size:13px;font-weight:700;margin-left:4px;}
 
+/* Slot screen background */
+#slotScreen{
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(191,95,255,.18) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 50% 100%,rgba(0,207,255,.14)  0%, transparent 60%),
+    linear-gradient(180deg,#0d0520 0%,#07071A 45%,#050d1a 100%);
+}
+/* Decorative corner glows */
+#slotScreen::before,#slotScreen::after{
+  content:'';position:absolute;pointer-events:none;z-index:0;border-radius:50%;filter:blur(60px);
+}
+#slotScreen::before{
+  width:220px;height:220px;top:-40px;left:-40px;
+  background:rgba(191,95,255,.18);
+}
+#slotScreen::after{
+  width:200px;height:200px;bottom:-30px;right:-30px;
+  background:rgba(0,207,255,.15);
+}
+
 /* Reel area */
-.reel-area{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;}
+.reel-area{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;position:relative;z-index:1;}
 .reel-wrap{position:relative;display:inline-block;}
-#slotC{border-radius:16px;border:2px solid rgba(0,207,255,.3);
-  box-shadow:0 0 30px rgba(0,207,255,.2),0 0 60px rgba(0,0,0,.5);display:block;}
+#slotC{border-radius:16px;border:2px solid rgba(0,207,255,.35);
+  box-shadow:0 0 35px rgba(0,207,255,.25),0 0 70px rgba(0,0,0,.6),
+  inset 0 0 30px rgba(0,0,0,.4);display:block;}
 #winC{position:absolute;top:0;left:0;border-radius:16px;pointer-events:none;}
 
 /* Controls */
-.slot-controls{padding:8px 14px 14px;flex-shrink:0;
-  display:flex;flex-direction:column;align-items:center;gap:9px;}
+.slot-controls{padding:6px 14px 14px;flex-shrink:0;position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;gap:7px;}
 .fs-badge{display:none;background:linear-gradient(135deg,var(--green),#00AA55);
   color:#000;font-weight:900;font-size:12px;padding:4px 14px;border-radius:20px;
   box-shadow:0 0 15px rgba(0,255,136,.5);animation:pulse 1s ease-in-out infinite alternate;}
 .fs-badge.on{display:block;}
 @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+
+/* Total bet strip */
+.total-bet-strip{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);
+  border-radius:30px;padding:5px 18px;
+}
+.tbs-lbl{font-size:10px;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;}
+.tbs-val{font-size:17px;font-weight:900;color:var(--gold);text-shadow:0 0 12px rgba(255,215,0,.6);}
+.tbs-lines{font-size:10px;color:rgba(255,255,255,.35);}
+
 .bet-row{display:flex;align-items:center;gap:14px;}
 .bet-btn{width:38px;height:38px;border-radius:50%;border:2px solid var(--gold);
   background:rgba(255,215,0,.1);color:var(--gold);font-size:22px;font-weight:900;
@@ -297,6 +329,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 
   <div class="slot-controls">
     <div class="fs-badge" id="fsB">🎰 FREE SPINS: <span id="fsN">0</span></div>
+    <div class="total-bet-strip">
+      <span class="tbs-lbl">TOTAL BET</span>
+      <span class="tbs-val" id="totalBetV">900</span>
+      <span class="tbs-lines">• 9 LINES</span>
+    </div>
     <div class="bet-row">
       <div class="bet-btn" id="bdD">−</div>
       <div class="bet-info">
@@ -412,7 +449,9 @@ function updateHUD(){
   updateFSBadge();
 }
 function updateBet(){
-  document.getElementById('betV').textContent = fmt(BET_OPTS[betIdx]);
+  const bet = BET_OPTS[betIdx];
+  document.getElementById('betV').textContent = fmt(bet);
+  document.getElementById('totalBetV').textContent = fmt(bet * WIN_LINES.length);
 }
 function updateFSBadge(){
   const b = document.getElementById('fsB');
