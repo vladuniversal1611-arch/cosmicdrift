@@ -171,6 +171,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   display:block;transition:border-color .3s,box-shadow .3s;}
 #winC{position:absolute;top:0;left:0;border-radius:16px;pointer-events:none;}
 
+/* Book Reveal Overlay */
+.br-box{
+  background:linear-gradient(145deg,#2a1400,#160900);
+  border:2px solid #FFD700;border-radius:24px;
+  padding:30px 36px;text-align:center;
+  box-shadow:0 0 80px rgba(255,184,0,.55),0 0 160px rgba(255,100,0,.2);
+  animation:br-appear .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes br-appear{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.br-title{font-size:20px;font-weight:900;color:#FFD700;letter-spacing:1px;margin-bottom:6px;}
+.br-sub{font-size:12px;color:rgba(255,255,255,.55);margin-bottom:8px;}
+.br-sym{font-size:88px;margin:6px 0;display:block;animation:br-pulse .55s ease-in-out infinite alternate;}
+@keyframes br-pulse{from{transform:scale(1);filter:drop-shadow(0 0 8px #FFD700)}
+                    to{transform:scale(1.18);filter:drop-shadow(0 0 28px #FFB800)}}
+.br-name{font-size:18px;font-weight:800;color:#fff;margin-bottom:10px;}
+.br-fscount{font-size:13px;font-weight:700;color:#FFD700;background:rgba(255,184,0,.15);
+  border:1px solid rgba(255,184,0,.35);border-radius:20px;padding:4px 16px;display:inline-block;}
+
 /* Controls */
 .slot-controls{padding:6px 14px 14px;flex-shrink:0;position:relative;z-index:1;
   display:flex;flex-direction:column;align-items:center;gap:7px;}
@@ -349,6 +367,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       </button>
       <button class="sec-btn" id="autoBtn">AUTO</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ BOOK REVEAL OVERLAY ════════════════ -->
+<div class="overlay" id="bookRevOv">
+  <div class="br-box">
+    <div class="br-title">📖 BOOK OF PHARAOH</div>
+    <div class="br-sub">Special expanding symbol:</div>
+    <div class="br-sym" id="brSym">🗿</div>
+    <div class="br-name" id="brName">Pharaoh</div>
+    <div class="br-fscount">10 FREE SPINS</div>
   </div>
 </div>
 
@@ -817,12 +846,19 @@ function easeOut(t){ return 1 - Math.pow(1-t,3); }
 // ── Book mechanic ──────────────────────────────
 let bookSpecialSym = null;
 
-function triggerBookFS(){
+function triggerBookFS(callback){
   const eligible = currentTheme.syms.filter(s=>s.id!=='wild'&&s.id!=='scatter');
   bookSpecialSym = eligible[Math.floor(Math.random()*eligible.length)];
   freeSpins += 10; gs.fsTriggers++;
   updateFSBadge();
-  showToast('📖 BOOK SPINS! Special: '+bookSpecialSym.e+' — 10 FREE SPINS!');
+  // Show Book Reveal overlay
+  document.getElementById('brSym').textContent  = bookSpecialSym.e;
+  document.getElementById('brName').textContent = bookSpecialSym.id.charAt(0).toUpperCase()+bookSpecialSym.id.slice(1);
+  const ov = document.getElementById('bookRevOv');
+  ov.classList.add('show');
+  startConfetti(2000);
+  vibrate([80,40,80]);
+  setTimeout(()=>{ ov.classList.remove('show'); if(callback) callback(); }, 2400);
 }
 
 function applyBookExpansion(g){
@@ -834,7 +870,105 @@ function applyBookExpansion(g){
   );
 }
 
+function animateBookExpansion(expandedGrid, expandingCols, callback){
+  if(!expandingCols.length){ callback(); return; }
+  const cw = slotC.width/5, ch = slotC.height/3, H = slotC.height;
+  const sym = bookSpecialSym;
+  const dur = 650;
+  const start = Date.now();
+
+  function frame(){
+    const raw = (Date.now()-start)/dur;
+    const t   = Math.min(raw, 1);
+    const ease= 1-(1-t)*(1-t)*(1-t); // cubic ease out
+
+    // Redraw base grid each frame so normal columns stay correct
+    drawReels();
+
+    expandingCols.forEach(c=>{
+      const cx = c*cw + cw/2;
+
+      // Warm column glow
+      const grd = slotX.createLinearGradient(c*cw,0,c*cw+cw,0);
+      grd.addColorStop(0,`rgba(255,140,0,0)`);
+      grd.addColorStop(.5,`rgba(255,140,0,${.3*ease})`);
+      grd.addColorStop(1,`rgba(255,140,0,0)`);
+      slotX.fillStyle=grd; slotX.fillRect(c*cw,0,cw,H);
+
+      // Symbol scales from single-cell size up to fill the full column height
+      const baseSz = Math.min(cw,ch)*.52;
+      const targetSz = H*.78;
+      const fs = baseSz+(targetSz-baseSz)*ease;
+      slotX.save();
+      slotX.font = fs+'px serif';
+      slotX.textAlign='center'; slotX.textBaseline='middle';
+      slotX.shadowColor='#FFD700'; slotX.shadowBlur=8+50*ease;
+      slotX.fillText(sym.e, cx, H/2);
+      slotX.restore();
+
+      // Golden border expands outward from centre
+      if(t>.25){
+        const bt=(t-.25)/.75;
+        const bh=H*bt;
+        slotX.save();
+        slotX.strokeStyle=`rgba(255,215,0,${.9*bt})`;
+        slotX.lineWidth=3; slotX.shadowColor='#FFD700'; slotX.shadowBlur=18;
+        slotX.beginPath();
+        slotX.roundRect(c*cw+3, H/2-bh/2, cw-6, bh, 6);
+        slotX.stroke();
+        slotX.restore();
+      }
+    });
+
+    if(t<1){
+      requestAnimationFrame(frame);
+    } else {
+      // Flash, then lock in expanded grid
+      slotX.save();
+      slotX.fillStyle='rgba(255,215,0,.18)';
+      expandingCols.forEach(c=>slotX.fillRect(c*cw,0,cw,H));
+      slotX.restore();
+      grid = expandedGrid;
+      const rect = slotC.getBoundingClientRect();
+      expandingCols.forEach(c=>{
+        spawnCoins(rect.left+c*(rect.width/5)+(rect.width/10), rect.top+rect.height/2, 10);
+      });
+      setTimeout(()=>{ drawReels(); callback(); }, 280);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
 // ── Cascade mechanic ───────────────────────────
+function animateCascadeDissolve(g, winCells, onDone){
+  const cw=slotC.width/5, ch=slotC.height/3;
+  const dur=420, start=Date.now();
+  const MULTI_COLS=['#FFD700','#FF2D78','#00CFFF','#BF5FFF','#00FF88'];
+  function frame(){
+    const t=Math.min((Date.now()-start)/dur,1);
+    drawReels();
+    // Flash winning cells: bright → fade out
+    winCells.forEach(key=>{
+      const [c,r]=key.split(',').map(Number);
+      const alpha = t < .5 ? t*2 : 2-t*2;
+      slotX.save();
+      slotX.fillStyle=`rgba(255,215,0,${.55*alpha})`;
+      slotX.shadowColor='#FFD700'; slotX.shadowBlur=24*alpha;
+      slotX.fillRect(c*cw+2,r*ch+2,cw-4,ch-4);
+      // Shrink symbol
+      const sym=currentTheme.symMap[g[c][r]]; if(!sym){slotX.restore();return;}
+      const fs=Math.min(cw,ch)*.52*(1-t*.7);
+      slotX.font=fs+'px serif'; slotX.textAlign='center'; slotX.textBaseline='middle';
+      slotX.globalAlpha=1-t;
+      slotX.fillText(sym.e, c*cw+cw/2, r*ch+ch/2);
+      slotX.restore();
+    });
+    if(t<1) requestAnimationFrame(frame);
+    else onDone();
+  }
+  requestAnimationFrame(frame);
+}
+
 function startCascadeChain(g, res, accumulated, multi, onDone){
   const award = res.total * multi;
   gs.coins += award;
@@ -844,29 +978,27 @@ function startCascadeChain(g, res, accumulated, multi, onDone){
   spawnCoins(innerWidth/2, innerHeight*.5, Math.min(18, Math.floor(award/BET_OPTS[betIdx]))+4);
   if(multi > 1) showToast('x'+multi+' CASCADE! 🔥');
 
-  // Identify winning cells
   const winCells = new Set();
   res.lines.forEach(line=>{
     const pat = WIN_LINES[line.lineIdx];
     for(let c=0;c<line.length;c++) winCells.add(c+','+pat[c]);
   });
 
-  // Drop remaining symbols, fill new from top
-  const pool = buildPool();
-  const newG = [];
-  for(let c=0;c<5;c++){
-    const kept=[];
-    for(let r=0;r<3;r++) if(!winCells.has(c+','+r)) kept.push(g[c][r]);
-    while(kept.length<3) kept.unshift(pick(pool));
-    newG.push(kept);
-  }
-
-  setTimeout(()=>{
-    grid = newG; drawReels();
+  // Animate dissolve of winning symbols, then drop new ones in
+  animateCascadeDissolve(g, winCells, ()=>{
     winX.clearRect(0,0,winC.width,winC.height);
+    const pool = buildPool();
+    const newG = [];
+    for(let c=0;c<5;c++){
+      const kept=[];
+      for(let r=0;r<3;r++) if(!winCells.has(c+','+r)) kept.push(g[c][r]);
+      while(kept.length<3) kept.unshift(pick(pool));
+      newG.push(kept);
+    }
+    grid = newG; drawReels();
     const nextRes = evalWins(newG);
     if(nextRes.total > 0 && multi < 8){
-      setTimeout(()=>startCascadeChain(newG,nextRes,accumulated,multi+1,onDone),450);
+      setTimeout(()=>startCascadeChain(newG,nextRes,accumulated,multi+1,onDone),350);
     } else {
       gs.wins++; gs.biggestWin=Math.max(gs.biggestWin,accumulated);
       const ratio = accumulated/(BET_OPTS[betIdx]*WIN_LINES.length);
@@ -877,13 +1009,20 @@ function startCascadeChain(g, res, accumulated, multi, onDone){
       updateHUD(); save();
       if(onDone) onDone();
     }
-  }, 720);
+  });
 }
 
 function finishTurn(res){
   if(res.fsTrig && !res.isJP){
-    if(currentTheme.mechanic==='book') triggerBookFS();
-    else{ freeSpins+=10; gs.fsTriggers++; updateFSBadge(); showToast('🎁 10 FREE SPINS triggered!'); }
+    if(currentTheme.mechanic==='book'){
+      // Show reveal overlay, then schedule first FS after overlay closes
+      triggerBookFS(()=>{
+        if(freeSpins>0) autoTimer=setTimeout(startSpin,300);
+      });
+      return; // scheduling handled in callback
+    } else {
+      freeSpins+=10; gs.fsTriggers++; updateFSBadge(); showToast('🎁 10 FREE SPINS triggered!');
+    }
   }
   if(currentTheme.mechanic==='book' && freeSpins===0) bookSpecialSym=null;
 
@@ -946,16 +1085,7 @@ function animLoop(){
   } else requestAnimationFrame(animLoop);
 }
 
-function onSpinEnd(){
-  isSpinning = false;
-  document.getElementById('spinBtn').classList.remove('spinning');
-
-  // Book mechanic: expand special symbol across any reel it lands on
-  if(currentTheme.mechanic==='book' && bookSpecialSym){
-    grid = applyBookExpansion(grid);
-    drawReels();
-  }
-
+function processSpinResult(){
   const res = evalWins(grid);
   addXP(Math.max(2, Math.floor(res.total / BET_OPTS[betIdx]) * 2 + 2));
   gs.jackpot += Math.floor(BET_OPTS[betIdx] * WIN_LINES.length * .01);
@@ -973,7 +1103,6 @@ function onSpinEnd(){
     finishTurn(res);
 
   } else if(currentTheme.mechanic==='cascade' && res.total > 0){
-    // Cascade: chain wins with rising multiplier
     startCascadeChain(grid, res, 0, 1, ()=>finishTurn(res));
 
   } else if(res.total > 0){
@@ -1011,6 +1140,24 @@ function onSpinEnd(){
     setTimeout(()=>drawWinLines(null),500);
     updateHUD(); save();
     finishTurn(res);
+  }
+}
+
+function onSpinEnd(){
+  isSpinning = false;
+  document.getElementById('spinBtn').classList.remove('spinning');
+
+  if(currentTheme.mechanic==='book' && bookSpecialSym){
+    // Find which columns have the special symbol and animate their expansion
+    const expandedGrid = applyBookExpansion(grid);
+    const expandingCols = grid.reduce((acc,col,c)=>{ if(col.includes(bookSpecialSym.id)) acc.push(c); return acc; },[]);
+    if(expandingCols.length){
+      animateBookExpansion(expandedGrid, expandingCols, processSpinResult);
+    } else {
+      processSpinResult();
+    }
+  } else {
+    processSpinResult();
   }
 }
 
