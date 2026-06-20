@@ -164,12 +164,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 }
 
 /* Reel area */
-.reel-area{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;position:relative;z-index:1;}
-.reel-wrap{position:relative;display:inline-block;}
-#slotC{border-radius:16px;border:2px solid rgba(0,207,255,.35);
-  box-shadow:0 0 35px rgba(0,207,255,.25),0 0 70px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.4);
-  display:block;transition:border-color .3s,box-shadow .3s;}
-#winC{position:absolute;top:0;left:0;border-radius:16px;pointer-events:none;}
+.reel-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:8px 10px 4px;position:relative;z-index:1;gap:6px;}
+/* Gold casino machine frame */
+.reel-wrap{
+  position:relative;display:inline-block;
+  padding:5px;border-radius:22px;
+  background:linear-gradient(135deg,#FFD700 0%,#BB8800 22%,#FFE570 44%,#996600 66%,#FFDE50 84%,#AA7700 100%);
+  box-shadow:0 0 55px rgba(255,200,0,.45),0 0 110px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.5);
+  transition:box-shadow .4s;
+}
+#slotC{border-radius:16px;border:none;
+  box-shadow:inset 0 2px 20px rgba(0,0,0,.6);
+  display:block;}
+#winC{position:absolute;top:5px;left:5px;border-radius:16px;pointer-events:none;}
+/* Small win amount strip below reels */
+.slot-win-strip{font-size:18px;font-weight:900;color:#FFD700;min-height:22px;
+  text-shadow:0 0 14px rgba(255,215,0,.7);letter-spacing:.05em;transition:opacity .3s;}
 
 /* Book Reveal Overlay */
 .br-box{
@@ -932,6 +943,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <canvas id="slotC"></canvas>
       <canvas id="winC"></canvas>
     </div>
+    <div class="slot-win-strip" id="slotWinStrip"></div>
   </div>
 
   <div class="slot-controls">
@@ -1928,6 +1940,7 @@ const SLOT_THEMES = {
 };
 
 let currentTheme = SLOT_THEMES.vault;
+let slotStars = null;
 // initialise symMap for the default theme
 (function(){ currentTheme.symMap={}; currentTheme.syms.forEach(s=>currentTheme.symMap[s.id]=s); })();
 
@@ -1935,8 +1948,11 @@ function setTheme(key){
   currentTheme = SLOT_THEMES[key] || SLOT_THEMES.vault;
   currentTheme.symMap = {};
   currentTheme.syms.forEach(s => currentTheme.symMap[s.id] = s);
-  slotC.style.border = '2px solid '+currentTheme.borderColor;
-  slotC.style.boxShadow = '0 0 35px '+currentTheme.glowColor+',0 0 70px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.4)';
+  slotC.style.border='none';
+  slotC.style.boxShadow='inset 0 2px 20px rgba(0,0,0,.6)';
+  const rw=document.querySelector('.reel-wrap');
+  if(rw) rw.style.boxShadow=`0 0 55px ${currentTheme.glowColor},0 0 110px rgba(0,0,0,.75)`;
+  slotStars=null;
   document.getElementById('slotTitle').textContent = currentTheme.name;
 }
 
@@ -1990,6 +2006,7 @@ function buildStrips(target){
 }
 
 function resizeSlot(){
+  slotStars=null;
   const sw = Math.min(innerWidth - 20, 460);
   const cw = Math.floor(sw/5);
   const ch = Math.floor(cw * 1.12);
@@ -2001,91 +2018,189 @@ function resizeSlot(){
   winC.style.height  = winC.height+'px';
 }
 
+// ── Slot visual helpers ─────────────────────────
+function generateSlotStars(W,H){
+  slotStars=[];
+  for(let i=0;i<70;i++){
+    slotStars.push({x:Math.random()*W, y:Math.random()*H,
+      s:Math.random()<.65?1:Math.random()<.5?1.5:2.5, a:Math.random()*.45+.08});
+  }
+}
+
+function getSlotLabel(id){
+  const M={
+    seven:'7', bell:'BEL', diamond:'A', crown:'K', star:'Q', coin:'J', cherry:'10', lemon:'9',
+    ankh:'A', eye:'K', falcon:'Q', sphinx:'J', scarab:'10', gem:'9', sand:'8', papyrus:'7',
+    ufo:'A', alien:'K', rocket:'Q', planet:'J', comet:'10', star2:'9', moon:'8', astro:'7',
+    pharaoh:'A', anubis:'K', isis:'Q', pyramid:'J', ankh2:'10', scarab3:'9', gold:'8', card_a:'7',
+    thunder:'A', gem3:'Q', crown3:'J', bolt:'10', bar:'9',
+    dragon:'A', tiger:'K', coin4:'Q', lantern:'J', fan:'10', bamboo:'9', fish:'8', cherry3:'7',
+  };
+  return M[id]||id.charAt(0).toUpperCase();
+}
+
+function drawSlotSymbol(ctx,id,x,y,cw,ch){
+  const s=currentTheme.symMap[id]; if(!s) return;
+  const val=s.val, isWild=id==='wild', isScat=id==='scatter', isCoinHs=id==='coin_hs';
+  const isHigh=val>=60, isMid=val>=20&&val<60;
+  const bx=x+cw/2, by=y+ch/2;
+  const r=Math.min(cw,ch)*0.39;
+  ctx.save();
+
+  // Outer ambient glow
+  if(isWild||isScat||isHigh){
+    const gc=isWild?'255,215,0':isScat?'160,80,255':'255,50,80';
+    const gr=ctx.createRadialGradient(bx,by,r*.4,bx,by,r*1.85);
+    gr.addColorStop(0,`rgba(${gc},0.32)`);
+    gr.addColorStop(1,`rgba(${gc},0)`);
+    ctx.fillStyle=gr;
+    ctx.beginPath(); ctx.arc(bx,by,r*1.85,0,Math.PI*2); ctx.fill();
+  }
+
+  // Badge fill gradient
+  let c1,c2,c3;
+  if(isWild)      {c1='#FFD700';c2='#FF7700';c3='#991100';}
+  else if(isScat) {c1='#BB44FF';c2='#6622BB';c3='#2A006A';}
+  else if(isCoinHs){c1='#FFD700';c2='#CC9900';c3='#664400';}
+  else if(isHigh) {c1='#FF2255';c2='#AA0030';c3='#500015';}
+  else if(isMid)  {c1='#0099EE';c2='#0055BB';c3='#002268';}
+  else            {c1='#3344AA';c2='#1A2360';c3='#0A0E30';}
+
+  const bg=ctx.createRadialGradient(bx-r*.28,by-r*.34,r*.04,bx,by,r);
+  bg.addColorStop(0,c1); bg.addColorStop(0.5,c2); bg.addColorStop(1,c3);
+  ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2);
+  ctx.fillStyle=bg; ctx.fill();
+
+  // Ring border
+  const rg=ctx.createLinearGradient(bx-r,by-r,bx+r,by+r);
+  if(isWild||isScat||isCoinHs||isHigh){
+    rg.addColorStop(0,'#FFD700'); rg.addColorStop(.5,'#FFFACC'); rg.addColorStop(1,'#CC9900');
+    ctx.lineWidth=Math.max(1.5,r*.095);
+  } else if(isMid){
+    rg.addColorStop(0,'#66BBFF'); rg.addColorStop(.5,'#AADDFF'); rg.addColorStop(1,'#4499CC');
+    ctx.lineWidth=Math.max(1,r*.065);
+  } else {
+    rg.addColorStop(0,'rgba(100,120,200,.3)'); rg.addColorStop(1,'rgba(80,100,180,.2)');
+    ctx.lineWidth=1;
+  }
+  ctx.strokeStyle=rg; ctx.stroke();
+
+  // Inner sphere highlight
+  const sh=ctx.createRadialGradient(bx-r*.32,by-r*.4,0,bx,by,r);
+  sh.addColorStop(0,'rgba(255,255,255,.48)');
+  sh.addColorStop(.42,'rgba(255,255,255,.09)');
+  sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fill();
+
+  // Bottom shadow in badge
+  const sd=ctx.createRadialGradient(bx+r*.15,by+r*.38,0,bx,by,r);
+  sd.addColorStop(0,'rgba(0,0,0,.28)'); sd.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sd; ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fill();
+
+  // Text / label
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';
+  if(isWild){
+    ctx.shadowColor='#FF6B00'; ctx.shadowBlur=9;
+    ctx.font=`900 italic ${r*.50}px Arial,sans-serif`;
+    ctx.fillText('WILD',bx,by);
+  } else if(isScat){
+    ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=5;
+    ctx.font=`900 ${r*.30}px Arial,sans-serif`;
+    ctx.fillText('FREE',bx,by-r*.18);
+    ctx.fillStyle='#FFD700';
+    ctx.font=`900 ${r*.24}px Arial,sans-serif`;
+    ctx.fillText('SPINS',bx,by+r*.27);
+  } else if(isCoinHs){
+    ctx.shadowColor='#AA5500'; ctx.shadowBlur=6;
+    ctx.font=`900 ${r*.62}px Arial,sans-serif`;
+    ctx.fillStyle='#FFD700'; ctx.fillText('$',bx,by);
+  } else {
+    const lbl=getSlotLabel(id);
+    const fs=lbl.length===1?r*.70:lbl.length===2?r*.56:r*.37;
+    ctx.shadowColor='rgba(0,0,0,.85)'; ctx.shadowBlur=6;
+    if(isHigh){ctx.shadowColor='rgba(255,120,150,.5)'; ctx.shadowBlur=8;}
+    else if(isMid){ctx.shadowColor='rgba(80,180,255,.4)'; ctx.shadowBlur=6;}
+    ctx.font=`900 italic ${fs}px Arial,sans-serif`;
+    ctx.fillText(lbl,bx,by);
+  }
+  ctx.restore();
+}
+
 function drawReels(offsets){
   const cw=slotC.width/5, ch=slotC.height/3;
   const W=slotC.width, H=slotC.height;
 
-  // BG
-  const bg = slotX.createLinearGradient(0,0,0,H);
+  // Background
+  const bg=slotX.createLinearGradient(0,0,0,H);
   bg.addColorStop(0,currentTheme.bgTop); bg.addColorStop(1,currentTheme.bgBot);
   slotX.fillStyle=bg; slotX.fillRect(0,0,W,H);
 
-  // Grid lines
-  slotX.strokeStyle='rgba(255,255,255,.07)'; slotX.lineWidth=1;
-  for(let c=1;c<5;c++){ slotX.beginPath(); slotX.moveTo(c*cw,0); slotX.lineTo(c*cw,H); slotX.stroke(); }
-  for(let r=1;r<3;r++){ slotX.beginPath(); slotX.moveTo(0,r*ch); slotX.lineTo(W,r*ch); slotX.stroke(); }
+  // Starfield
+  if(!slotStars) generateSlotStars(W,H);
+  slotStars.forEach(st=>{
+    slotX.globalAlpha=st.a; slotX.fillStyle='#fff';
+    slotX.fillRect(Math.round(st.x),Math.round(st.y),st.s,st.s);
+  });
+  slotX.globalAlpha=1;
 
-  const drawSym = (id, x, y) => {
-    const s = currentTheme.symMap[id]; if(!s) return;
-    slotX.save();
-    const pad = Math.min(cw,ch)*0.07;
-    // Tile background
-    const isWild = id==='wild', isScat = id==='scatter';
-    const isTop = s.val>=80, isMid = s.val>=20&&s.val<80;
-    const tileFill = isWild ? 'rgba(0,255,136,.14)' :
-                     isScat ? 'rgba(255,215,0,.16)' :
-                     isTop  ? 'rgba(255,215,0,.11)' :
-                     isMid  ? 'rgba(0,150,255,.08)' :
-                               'rgba(255,255,255,.04)';
-    const tileBord = isWild ? 'rgba(0,255,136,.45)' :
-                     isScat ? 'rgba(255,215,0,.55)' :
-                     isTop  ? 'rgba(255,215,0,.28)' :
-                     isMid  ? 'rgba(0,170,255,.2)'  :
-                               'rgba(255,255,255,.07)';
-    slotX.fillStyle=tileFill; slotX.strokeStyle=tileBord; slotX.lineWidth=1.5;
-    slotX.beginPath();
-    const rx=x+pad, ry=y+pad, rw=cw-pad*2, rh=ch-pad*2, rr=7;
-    slotX.moveTo(rx+rr,ry);
-    slotX.arcTo(rx+rw,ry,rx+rw,ry+rh,rr);
-    slotX.arcTo(rx+rw,ry+rh,rx,ry+rh,rr);
-    slotX.arcTo(rx,ry+rh,rx,ry,rr);
-    slotX.arcTo(rx,ry,rx+rw,ry,rr);
-    slotX.closePath();
-    slotX.fill(); slotX.stroke();
-    // Emoji — reset fillStyle to opaque white so Android WebView renders emoji at full opacity
-    slotX.fillStyle = '#ffffff';
-    slotX.shadowColor = 'transparent';
-    slotX.shadowBlur = 0;
-    const fs = Math.min(cw,ch) * .50;
-    slotX.font = fs+'px serif';
-    slotX.textAlign='center'; slotX.textBaseline='middle';
-    if(isWild||isScat){ slotX.shadowColor='#00FF88'; slotX.shadowBlur=20; }
-    else if(isTop){ slotX.shadowColor='#FFD700'; slotX.shadowBlur=18; }
-    slotX.fillText(s.e, x+cw/2, y+ch/2);
-    slotX.restore();
-  };
+  // Reel cell dark pockets
+  for(let c=0;c<5;c++) for(let r=0;r<3;r++){
+    slotX.fillStyle='rgba(0,0,0,.26)';
+    slotX.beginPath(); slotX.roundRect(c*cw+3,r*ch+3,cw-6,ch-6,8); slotX.fill();
+  }
 
+  // Symbols
   for(let c=0;c<5;c++){
     slotX.save();
     slotX.beginPath(); slotX.rect(c*cw,0,cw,H); slotX.clip();
-    const off = offsets ? offsets[c] : 0;
-    if(off > 0 && reelStrips[c]){
-      const strip = reelStrips[c];
-      const vStart = Math.floor(off/ch);
-      const pixOff = off % ch;
+    const off=offsets?offsets[c]:0;
+    if(off>0&&reelStrips[c]){
+      const strip=reelStrips[c];
+      const vStart=Math.floor(off/ch), pixOff=off%ch;
       for(let di=0;di<4;di++){
-        const si = vStart + di;
-        const sy = di*ch - pixOff;
-        if(si>=0 && si<strip.length) drawSym(strip[si], c*cw, sy);
+        const si=vStart+di, sy=di*ch-pixOff;
+        if(si>=0&&si<strip.length) drawSlotSymbol(slotX,strip[si],c*cw,sy,cw,ch);
       }
     } else {
-      for(let r=0;r<3;r++) drawSym(grid[c][r], c*cw, r*ch);
+      for(let r=0;r<3;r++) drawSlotSymbol(slotX,grid[c][r],c*cw,r*ch,cw,ch);
     }
     slotX.restore();
   }
 
-  // Vignette
-  const vg = slotX.createLinearGradient(0,0,0,H);
-  vg.addColorStop(0,'rgba(0,0,0,.55)');
-  vg.addColorStop(.18,'rgba(0,0,0,0)');
-  vg.addColorStop(.82,'rgba(0,0,0,0)');
-  vg.addColorStop(1,'rgba(0,0,0,.55)');
+  // Gold column separators
+  for(let c=1;c<5;c++){
+    const gx=c*cw;
+    const pg=slotX.createLinearGradient(gx-5,0,gx+5,0);
+    pg.addColorStop(0,'rgba(0,0,0,0)');
+    pg.addColorStop(.3,'rgba(140,100,0,.45)');
+    pg.addColorStop(.5,'rgba(255,210,60,.75)');
+    pg.addColorStop(.7,'rgba(140,100,0,.45)');
+    pg.addColorStop(1,'rgba(0,0,0,0)');
+    slotX.fillStyle=pg; slotX.fillRect(gx-5,0,10,H);
+  }
+  // Gold row separators
+  for(let r=1;r<3;r++){
+    const gy=r*ch;
+    const sg=slotX.createLinearGradient(0,gy-2,0,gy+2);
+    sg.addColorStop(0,'rgba(0,0,0,0)');
+    sg.addColorStop(.5,'rgba(255,210,60,.32)');
+    sg.addColorStop(1,'rgba(0,0,0,0)');
+    slotX.fillStyle=sg; slotX.fillRect(0,gy-2,W,4);
+  }
+
+  // Top & bottom vignette
+  const vg=slotX.createLinearGradient(0,0,0,H);
+  vg.addColorStop(0,'rgba(0,0,0,.72)');
+  vg.addColorStop(.17,'rgba(0,0,0,0)');
+  vg.addColorStop(.83,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,.72)');
   slotX.fillStyle=vg; slotX.fillRect(0,0,W,H);
 
-  // Centre payline glow
+  // Centre payline
   slotX.beginPath();
-  slotX.moveTo(0, ch*1.5); slotX.lineTo(W, ch*1.5);
-  slotX.strokeStyle=currentTheme.lineColor; slotX.lineWidth=2; slotX.stroke();
+  slotX.moveTo(0,ch*1.5); slotX.lineTo(W,ch*1.5);
+  slotX.strokeStyle='rgba(255,200,0,.28)'; slotX.lineWidth=1.5; slotX.stroke();
 
   if(holdPhase) drawLockedCells();
 }
@@ -2525,6 +2640,7 @@ function startSpin(){
   isSpinning = true; pendingWin = false;
   document.getElementById('spinBtn').classList.add('spinning');
   winX.clearRect(0,0,winC.width,winC.height);
+  setSlotWinStrip(0);
 
   if(freeSpins > 0){ freeSpins--; }
   else { gs.coins -= cost; }
@@ -2638,7 +2754,8 @@ function processSpinResult(){
     } else {
       spawnCoins(innerWidth/2, innerHeight*.6, 10);
       showToast('+'+fmt(res.total)+' 🪙');
-      setTimeout(()=>drawWinLines(null),1600);
+      setSlotWinStrip(res.total);
+      setTimeout(()=>{ drawWinLines(null); setSlotWinStrip(0); },1600);
     }
     updateHUD(); save();
     finishTurn(res);
@@ -2666,6 +2783,11 @@ function onSpinEnd(){
   } else {
     processSpinResult();
   }
+}
+
+function setSlotWinStrip(amt){
+  const el=document.getElementById('slotWinStrip'); if(!el) return;
+  el.textContent=amt>0?'+'+fmt(amt)+' 🪙':'';
 }
 
 // ── Win overlay ────────────────────────────────
