@@ -2516,6 +2516,7 @@ let crashState='idle'; // idle | wait | fly | crash
 let crashMult=1.00;
 let crashCrashPt=1.00;
 let crashFlyStart=0;
+let crashFlyPending=false;
 let crashBetAmt=0;
 let crashBetPlaced=false;
 let crashCashedOut=false;
@@ -2568,6 +2569,7 @@ function genCrashPoint(){
 function kickCrashRound(){
   crashState='wait';
   crashMult=1.00;
+  crashFlyPending=false;
   crashBetPlaced=false;
   crashCashedOut=false;
   crashParticles=[];
@@ -2593,31 +2595,34 @@ function kickCrashRound(){
 function startCrashFly(){
   if(crashState!=='wait') return;
   crashState='fly';
-  crashFlyStart=performance.now();
+  crashFlyPending=true; // RAF will stamp crashFlyStart on first fly frame
   document.getElementById('crashWaitTxt').style.display='none';
   updateCrashBtn();
   schedFakeCashouts();
 }
 
 function crashDrawLoop(ts){
-  if(crashState==='fly'){
-    const ms=ts-crashFlyStart;
-    crashMult=Math.max(1.00, Math.pow(Math.E,0.000062*ms));
-    // Auto cashout
-    if(crashBetPlaced&&!crashCashedOut&&crashAutoOn){
-      const aVal=parseFloat(document.getElementById('crashAutoInp').value)||2.0;
-      if(crashMult>=aVal) doCrashCashout();
+  try {
+    if(crashState==='fly'){
+      if(crashFlyPending){ crashFlyStart=ts; crashFlyPending=false; }
+      const ms=ts-crashFlyStart;
+      crashMult=Math.max(1.00, Math.pow(Math.E,0.000062*ms));
+      // Auto cashout
+      if(crashBetPlaced&&!crashCashedOut&&crashAutoOn){
+        const aVal=parseFloat(document.getElementById('crashAutoInp').value)||2.0;
+        if(crashMult>=aVal) doCrashCashout();
+      }
+      // Hit crash point?
+      if(crashMult>=crashCrashPt){
+        crashMult=crashCrashPt;
+        triggerCrash();
+      } else {
+        updateCrashMultUI();
+        if(crashBetPlaced&&!crashCashedOut) updateCrashBtn();
+      }
     }
-    // Hit crash point?
-    if(crashMult>=crashCrashPt){
-      crashMult=crashCrashPt;
-      triggerCrash();
-    } else {
-      updateCrashMultUI();
-      if(crashBetPlaced&&!crashCashedOut) updateCrashBtn();
-    }
-  }
-  drawCrashFrame(ts);
+    drawCrashFrame(ts);
+  } catch(e){ console.error('[aviator]',e); }
   crashRaf=requestAnimationFrame(crashDrawLoop);
 }
 
@@ -2803,8 +2808,9 @@ function drawCrashFrame(ts){
     crashParticles=crashParticles.filter(p=>p.life>0);
     crashParticles.forEach(p=>{
       p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=p.decay;
+      if(p.life<=0) return;
       ctx.globalAlpha=Math.max(0,p.life);
-      ctx.beginPath();ctx.arc(p.x,p.y,p.sz*p.life,0,Math.PI*2);
+      ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0.1,p.sz*p.life),0,Math.PI*2);
       ctx.fillStyle=p.color; ctx.fill();
     });
     ctx.restore();
