@@ -167,8 +167,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .reel-area{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;position:relative;z-index:1;}
 .reel-wrap{position:relative;display:inline-block;}
 #slotC{border-radius:16px;border:2px solid rgba(0,207,255,.35);
-  box-shadow:0 0 35px rgba(0,207,255,.25),0 0 70px rgba(0,0,0,.6),
-  inset 0 0 30px rgba(0,0,0,.4);display:block;}
+  box-shadow:0 0 35px rgba(0,207,255,.25),0 0 70px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.4);
+  display:block;transition:border-color .3s,box-shadow .3s;}
 #winC{position:absolute;top:0;left:0;border-radius:16px;pointer-events:none;}
 
 /* Controls */
@@ -403,8 +403,7 @@ function save(){
 // ── Helpers ────────────────────────────────────
 function fmt(n){
   if(n>=1e6) return (n/1e6).toFixed(1)+'M';
-  if(n>=1000) return Math.floor(n/1000)+'K';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
 }
 let toastTimer;
 function showToast(msg){
@@ -524,20 +523,78 @@ function checkDailyOnLoad(){
 // ══════════════════════════════════════════════
 //  SLOT ENGINE
 // ══════════════════════════════════════════════
-const SYMS = [
-  {id:'seven',   e:'7️⃣', val:100, w:2},
-  {id:'bell',    e:'🔔', val:40,  w:4},
-  {id:'diamond', e:'💎', val:30,  w:5},
-  {id:'crown',   e:'👑', val:20,  w:7},
-  {id:'star',    e:'⭐', val:15,  w:10},
-  {id:'coin',    e:'🪙', val:10,  w:14},
-  {id:'cherry',  e:'🍒', val:8,   w:16},
-  {id:'lemon',   e:'🍋', val:6,   w:18},
-  {id:'wild',    e:'🌟', val:0,   w:3},
-  {id:'scatter', e:'🎰', val:0,   w:3},
-];
-const SYM_MAP = {};
-SYMS.forEach(s => SYM_MAP[s.id] = s);
+const SLOT_THEMES = {
+  vault:{
+    name:'Lucky Vault',
+    bgTop:'#0D0D2B', bgBot:'#110525',
+    lineColor:'rgba(0,207,255,.18)',
+    borderColor:'rgba(0,207,255,.35)',
+    glowColor:'rgba(0,207,255,.25)',
+    syms:[
+      {id:'seven',   e:'7️⃣', val:100, w:2},
+      {id:'bell',    e:'🔔', val:40,  w:4},
+      {id:'diamond', e:'💎', val:30,  w:5},
+      {id:'crown',   e:'👑', val:20,  w:7},
+      {id:'star',    e:'⭐', val:15,  w:10},
+      {id:'coin',    e:'🪙', val:10,  w:14},
+      {id:'cherry',  e:'🍒', val:8,   w:16},
+      {id:'lemon',   e:'🍋', val:6,   w:18},
+      {id:'wild',    e:'🌟', val:0,   w:3},
+      {id:'scatter', e:'🎰', val:0,   w:3},
+    ],
+  },
+  egypt:{
+    name:'Egyptian Gold',
+    bgTop:'#1A0800', bgBot:'#0D0400',
+    lineColor:'rgba(255,184,0,.22)',
+    borderColor:'rgba(255,184,0,.5)',
+    glowColor:'rgba(255,184,0,.3)',
+    syms:[
+      {id:'ankh',    e:'☥',  val:100, w:2},
+      {id:'eye',     e:'👁️', val:40,  w:4},
+      {id:'falcon',  e:'🦅', val:30,  w:5},
+      {id:'sphinx',  e:'🔱', val:20,  w:7},
+      {id:'scarab',  e:'🪲', val:15,  w:10},
+      {id:'gem',     e:'💎', val:10,  w:14},
+      {id:'sand',    e:'⏳', val:8,   w:16},
+      {id:'papyrus', e:'📜', val:6,   w:18},
+      {id:'wild',    e:'🌟', val:0,   w:3},
+      {id:'scatter', e:'🎰', val:0,   w:3},
+    ],
+  },
+  space:{
+    name:'Space Galaxy',
+    bgTop:'#020215', bgBot:'#080228',
+    lineColor:'rgba(191,95,255,.22)',
+    borderColor:'rgba(191,95,255,.5)',
+    glowColor:'rgba(191,95,255,.3)',
+    syms:[
+      {id:'ufo',     e:'🛸', val:100, w:2},
+      {id:'alien',   e:'👽', val:40,  w:4},
+      {id:'rocket',  e:'🚀', val:30,  w:5},
+      {id:'planet',  e:'🪐', val:20,  w:7},
+      {id:'comet',   e:'☄️', val:15,  w:10},
+      {id:'star2',   e:'⭐', val:10,  w:14},
+      {id:'moon',    e:'🌙', val:8,   w:16},
+      {id:'astro',   e:'👨‍🚀', val:6,   w:18},
+      {id:'wild',    e:'🌟', val:0,   w:3},
+      {id:'scatter', e:'🎰', val:0,   w:3},
+    ],
+  },
+};
+
+let currentTheme = SLOT_THEMES.vault;
+// initialise symMap for the default theme
+(function(){ currentTheme.symMap={}; currentTheme.syms.forEach(s=>currentTheme.symMap[s.id]=s); })();
+
+function setTheme(key){
+  currentTheme = SLOT_THEMES[key] || SLOT_THEMES.vault;
+  currentTheme.symMap = {};
+  currentTheme.syms.forEach(s => currentTheme.symMap[s.id] = s);
+  slotC.style.border = '2px solid '+currentTheme.borderColor;
+  slotC.style.boxShadow = '0 0 35px '+currentTheme.glowColor+',0 0 70px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.4)';
+  document.getElementById('slotTitle').textContent = currentTheme.name;
+}
 
 // 9 win lines on 5x3 grid (each entry = row index for that column)
 const WIN_LINES = [
@@ -565,7 +622,7 @@ let reelAnim = null;
 
 function buildPool(){
   const p=[];
-  SYMS.forEach(s=>{ for(let i=0;i<s.w;i++) p.push(s.id); });
+  currentTheme.syms.forEach(s=>{ for(let i=0;i<s.w;i++) p.push(s.id); });
   return p;
 }
 function pick(pool){ return pool[Math.floor(Math.random()*pool.length)]; }
@@ -606,7 +663,7 @@ function drawReels(offsets){
 
   // BG
   const bg = slotX.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#0D0D2B'); bg.addColorStop(1,'#110525');
+  bg.addColorStop(0,currentTheme.bgTop); bg.addColorStop(1,currentTheme.bgBot);
   slotX.fillStyle=bg; slotX.fillRect(0,0,W,H);
 
   // Grid lines
@@ -615,7 +672,7 @@ function drawReels(offsets){
   for(let r=1;r<3;r++){ slotX.beginPath(); slotX.moveTo(0,r*ch); slotX.lineTo(W,r*ch); slotX.stroke(); }
 
   const drawSym = (id, x, y) => {
-    const s = SYM_MAP[id]; if(!s) return;
+    const s = currentTheme.symMap[id]; if(!s) return;
     slotX.save();
     const fs = Math.min(cw,ch) * .52;
     slotX.font = fs+'px serif';
@@ -656,7 +713,7 @@ function drawReels(offsets){
   // Centre payline glow
   slotX.beginPath();
   slotX.moveTo(0, ch*1.5); slotX.lineTo(W, ch*1.5);
-  slotX.strokeStyle='rgba(0,207,255,.18)'; slotX.lineWidth=2; slotX.stroke();
+  slotX.strokeStyle=currentTheme.lineColor; slotX.lineWidth=2; slotX.stroke();
 }
 
 function drawWinLines(res){
@@ -700,7 +757,7 @@ function evalWins(g){
     let len = 0;
     for(let i=0;i<5;i++){ if(row[i]===base||row[i]==='wild') len++; else break; }
     if(len >= 3){
-      const s=SYM_MAP[base]; const v=s?s.val:1;
+      const s=currentTheme.symMap[base]; const v=s?s.val:1;
       const m = len===5?v*3 : len===4?v*1.5 : v;
       const win = Math.floor(bet*m);
       lines.push({lineIdx:li, symId:base, length:len, win});
@@ -853,7 +910,8 @@ function closeWin(){
 }
 
 // ── Slot open / close ──────────────────────────
-function openSlot(){
+function openSlot(themeKey){
+  setTheme(themeKey || 'vault');
   resizeSlot();
   grid = makeGrid();
   buildStrips(grid);
@@ -907,11 +965,11 @@ const GAME_DEFS = {
     {id:'egypt', name:'Egyptian Gold', sub:'5×3 Egypt Theme',
      emoji:'🔱👁️🦅', badge:'NEW', badgeColor:'#FFB800',
      grad:'linear-gradient(145deg,#2a1200,#1a0800)',
-     glow:'rgba(255,184,0,.28)', minLv:1, action:'coming'},
+     glow:'rgba(255,184,0,.28)', minLv:1, action:'slot'},
     {id:'space', name:'Space Galaxy', sub:'5×3 Space Theme',
      emoji:'🚀👽🛸', badge:'VIP', badgeColor:'#BF5FFF',
      grad:'linear-gradient(145deg,#020215,#0a0235)',
-     glow:'rgba(191,95,255,.3)', minLv:3, action:'coming'},
+     glow:'rgba(191,95,255,.3)', minLv:3, action:'slot'},
     {id:'fruits', name:'Fruit Fiesta', sub:'3×3 Classic Fruits',
      emoji:'🍒🍋🍉', badge:null, badgeColor:null,
      grad:'linear-gradient(145deg,#1a0a00,#0a1500)',
@@ -957,7 +1015,7 @@ function makeCard(g){
      ${locked?`<div class="gc-lock"><div class="gc-lock-icon">🔒</div><div class="gc-lock-lv">Level ${g.minLv}</div></div>`:''}`;
   if(!locked){
     div.addEventListener('click',()=>{
-      if(g.action==='slot') openSlot();
+      if(g.action==='slot') openSlot(g.id);
       else showToast('🚧 '+g.name+' — Coming Soon!');
     });
   }
