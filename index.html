@@ -1049,6 +1049,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 <div id="toast"></div>
 
 <script>
+// ── Canvas roundRect polyfill for Android WebView ──
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    r=Math.min(+r||0,w/2,h/2);
+    this.moveTo(x+r,y);
+    this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r);
+    this.arcTo(x,y,x+w,y,r);
+    this.closePath();
+  };
+}
+
 // ═══════════════════════════════════════════════
 //  LUCKY VAULT CASINO — Engine
 // ═══════════════════════════════════════════════
@@ -1434,12 +1447,15 @@ function drawReels(offsets){
     slotX.arcTo(rx,ry,rx+rw,ry,rr);
     slotX.closePath();
     slotX.fill(); slotX.stroke();
-    // Emoji
+    // Emoji — reset fillStyle to opaque white so Android WebView renders emoji at full opacity
+    slotX.fillStyle = '#ffffff';
+    slotX.shadowColor = 'transparent';
+    slotX.shadowBlur = 0;
     const fs = Math.min(cw,ch) * .50;
     slotX.font = fs+'px serif';
     slotX.textAlign='center'; slotX.textBaseline='middle';
-    if(isWild||isScat){ slotX.shadowColor='#00FF88'; slotX.shadowBlur=18; }
-    else if(isTop){ slotX.shadowColor='#FFD700'; slotX.shadowBlur=16; }
+    if(isWild||isScat){ slotX.shadowColor='#00FF88'; slotX.shadowBlur=20; }
+    else if(isTop){ slotX.shadowColor='#FFD700'; slotX.shadowBlur=18; }
     slotX.fillText(s.e, x+cw/2, y+ch/2);
     slotX.restore();
   };
