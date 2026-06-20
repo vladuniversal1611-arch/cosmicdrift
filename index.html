@@ -581,6 +581,46 @@ const SLOT_THEMES = {
       {id:'scatter', e:'🎰', val:0,   w:3},
     ],
   },
+  pharaoh:{
+    name:'Book of Pharaoh',
+    bgTop:'#180A00', bgBot:'#0B0500',
+    lineColor:'rgba(255,184,0,.28)',
+    borderColor:'rgba(255,184,0,.65)',
+    glowColor:'rgba(255,140,0,.4)',
+    mechanic:'book',
+    syms:[
+      {id:'pharaoh', e:'🗿', val:200, w:1},
+      {id:'anubis',  e:'🐺', val:80,  w:3},
+      {id:'isis',    e:'🦋', val:50,  w:5},
+      {id:'pyramid', e:'🔺', val:30,  w:7},
+      {id:'ankh2',   e:'🔑', val:20,  w:10},
+      {id:'scarab3', e:'🐞', val:12,  w:13},
+      {id:'gold',    e:'🪙', val:8,   w:15},
+      {id:'card_a',  e:'🎴', val:5,   w:18},
+      {id:'wild',    e:'🌟', val:0,   w:2},
+      {id:'scatter', e:'📖', val:0,   w:2},
+    ],
+  },
+  dragon:{
+    name:'Fortune Dragon',
+    bgTop:'#14000A', bgBot:'#060018',
+    lineColor:'rgba(255,45,120,.22)',
+    borderColor:'rgba(255,45,120,.55)',
+    glowColor:'rgba(255,45,120,.35)',
+    mechanic:'cascade',
+    syms:[
+      {id:'dragon',  e:'🐉', val:150, w:1},
+      {id:'tiger',   e:'🐯', val:70,  w:3},
+      {id:'coin4',   e:'🟡', val:45,  w:5},
+      {id:'lantern', e:'🏮', val:28,  w:8},
+      {id:'fan',     e:'🪭', val:18,  w:11},
+      {id:'bamboo',  e:'🎋', val:12,  w:14},
+      {id:'fish',    e:'🐟', val:8,   w:16},
+      {id:'cherry3', e:'🍒', val:5,   w:18},
+      {id:'wild',    e:'🌟', val:0,   w:3},
+      {id:'scatter', e:'🎰', val:0,   w:3},
+    ],
+  },
 };
 
 let currentTheme = SLOT_THEMES.vault;
@@ -767,11 +807,93 @@ function evalWins(g){
   let scatters=0;
   for(let c=0;c<5;c++) for(let r=0;r<3;r++) if(g[c][r]==='scatter') scatters++;
   const fsTrig = scatters >= 3;
-  const isJP   = g.map(col=>col[1]).every(s=>s==='seven');
+  const jpSym  = currentTheme.syms[0].id;
+  const isJP   = g.map(col=>col[1]).every(s=>s===jpSym);
   return { lines, total, fsTrig, isJP };
 }
 
 function easeOut(t){ return 1 - Math.pow(1-t,3); }
+
+// ── Book mechanic ──────────────────────────────
+let bookSpecialSym = null;
+
+function triggerBookFS(){
+  const eligible = currentTheme.syms.filter(s=>s.id!=='wild'&&s.id!=='scatter');
+  bookSpecialSym = eligible[Math.floor(Math.random()*eligible.length)];
+  freeSpins += 10; gs.fsTriggers++;
+  updateFSBadge();
+  showToast('📖 BOOK SPINS! Special: '+bookSpecialSym.e+' — 10 FREE SPINS!');
+}
+
+function applyBookExpansion(g){
+  if(!bookSpecialSym) return g;
+  return g.map(col =>
+    col.includes(bookSpecialSym.id)
+      ? [bookSpecialSym.id, bookSpecialSym.id, bookSpecialSym.id]
+      : col
+  );
+}
+
+// ── Cascade mechanic ───────────────────────────
+function startCascadeChain(g, res, accumulated, multi, onDone){
+  const award = res.total * multi;
+  gs.coins += award;
+  accumulated += award;
+
+  drawWinLines(res);
+  spawnCoins(innerWidth/2, innerHeight*.5, Math.min(18, Math.floor(award/BET_OPTS[betIdx]))+4);
+  if(multi > 1) showToast('x'+multi+' CASCADE! 🔥');
+
+  // Identify winning cells
+  const winCells = new Set();
+  res.lines.forEach(line=>{
+    const pat = WIN_LINES[line.lineIdx];
+    for(let c=0;c<line.length;c++) winCells.add(c+','+pat[c]);
+  });
+
+  // Drop remaining symbols, fill new from top
+  const pool = buildPool();
+  const newG = [];
+  for(let c=0;c<5;c++){
+    const kept=[];
+    for(let r=0;r<3;r++) if(!winCells.has(c+','+r)) kept.push(g[c][r]);
+    while(kept.length<3) kept.unshift(pick(pool));
+    newG.push(kept);
+  }
+
+  setTimeout(()=>{
+    grid = newG; drawReels();
+    winX.clearRect(0,0,winC.width,winC.height);
+    const nextRes = evalWins(newG);
+    if(nextRes.total > 0 && multi < 8){
+      setTimeout(()=>startCascadeChain(newG,nextRes,accumulated,multi+1,onDone),450);
+    } else {
+      gs.wins++; gs.biggestWin=Math.max(gs.biggestWin,accumulated);
+      const ratio = accumulated/(BET_OPTS[betIdx]*WIN_LINES.length);
+      if(ratio>=50){gs.megaWins++;startConfetti(4000);spawnCoins(innerWidth/2,innerHeight*.45,60);showWin('mega','🐉 MEGA CASCADE!','CHAIN MADNESS!',accumulated);vibrate([150,50,150]);}
+      else if(ratio>=15){gs.bigWins++;startConfetti(2500);spawnCoins(innerWidth/2,innerHeight*.5,40);showWin('epic','🔥 EPIC CASCADE!','Great chain!',accumulated);vibrate([100,50,100]);}
+      else if(ratio>=4){gs.bigWins++;spawnCoins(innerWidth/2,innerHeight*.55,22);showWin('big','🐉 CASCADE WIN!','Nice cascade!',accumulated);}
+      else{showToast('+'+fmt(accumulated)+' 🪙');setTimeout(()=>drawWinLines(null),1600);}
+      updateHUD(); save();
+      if(onDone) onDone();
+    }
+  }, 720);
+}
+
+function finishTurn(res){
+  if(res.fsTrig && !res.isJP){
+    if(currentTheme.mechanic==='book') triggerBookFS();
+    else{ freeSpins+=10; gs.fsTriggers++; updateFSBadge(); showToast('🎁 10 FREE SPINS triggered!'); }
+  }
+  if(currentTheme.mechanic==='book' && freeSpins===0) bookSpecialSym=null;
+
+  if(autoCount>0){
+    autoCount--; updateAutoLabel();
+    if(autoCount>0) autoTimer=setTimeout(startSpin,800);
+    else showToast('Auto Spin complete');
+  }
+  if(freeSpins>0 && autoCount===0) autoTimer=setTimeout(startSpin,600);
+}
 
 function startSpin(){
   if(isSpinning) return;
@@ -828,8 +950,15 @@ function onSpinEnd(){
   isSpinning = false;
   document.getElementById('spinBtn').classList.remove('spinning');
 
+  // Book mechanic: expand special symbol across any reel it lands on
+  if(currentTheme.mechanic==='book' && bookSpecialSym){
+    grid = applyBookExpansion(grid);
+    drawReels();
+  }
+
   const res = evalWins(grid);
   addXP(Math.max(2, Math.floor(res.total / BET_OPTS[betIdx]) * 2 + 2));
+  gs.jackpot += Math.floor(BET_OPTS[betIdx] * WIN_LINES.length * .01);
 
   if(res.isJP){
     const jp = gs.jackpot;
@@ -840,6 +969,12 @@ function onSpinEnd(){
     showWin('jackpot','🏆 JACKPOT!','LEGENDARY WIN!', jp);
     drawWinLines(res);
     vibrate([200,100,200,100,200]);
+    updateHUD(); save();
+    finishTurn(res);
+
+  } else if(currentTheme.mechanic==='cascade' && res.total > 0){
+    // Cascade: chain wins with rising multiplier
+    startCascadeChain(grid, res, 0, 1, ()=>finishTurn(res));
 
   } else if(res.total > 0){
     gs.coins += res.total; gs.wins++;
@@ -869,26 +1004,14 @@ function onSpinEnd(){
       showToast('+'+fmt(res.total)+' 🪙');
       setTimeout(()=>drawWinLines(null),1600);
     }
+    updateHUD(); save();
+    finishTurn(res);
+
   } else {
     setTimeout(()=>drawWinLines(null),500);
+    updateHUD(); save();
+    finishTurn(res);
   }
-
-  if(res.fsTrig && !res.isJP){
-    freeSpins += 10; gs.fsTriggers++;
-    updateFSBadge();
-    showToast('🎁 10 FREE SPINS triggered!');
-  }
-
-  gs.jackpot += Math.floor(BET_OPTS[betIdx] * WIN_LINES.length * .01);
-  updateHUD(); save();
-
-  if(autoCount > 0){
-    autoCount--;
-    updateAutoLabel();
-    if(autoCount > 0) autoTimer = setTimeout(startSpin, 800);
-    else showToast('Auto Spin complete');
-  }
-  if(freeSpins > 0 && autoCount === 0) autoTimer = setTimeout(startSpin, 600);
 }
 
 // ── Win overlay ────────────────────────────────
@@ -922,6 +1045,7 @@ function openSlot(themeKey){
 function closeSlot(){
   if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; }
   autoCount = 0; updateAutoLabel();
+  bookSpecialSym = null;
   document.getElementById('slotScreen').classList.remove('open');
 }
 
@@ -970,6 +1094,14 @@ const GAME_DEFS = {
      emoji:'🚀👽🛸', badge:'VIP', badgeColor:'#BF5FFF',
      grad:'linear-gradient(145deg,#020215,#0a0235)',
      glow:'rgba(191,95,255,.3)', minLv:3, action:'slot'},
+    {id:'pharaoh', name:'Book of Pharaoh', sub:'Expanding Wild — Free Spins',
+     emoji:'🗿📖🔺', badge:'HOT', badgeColor:'#FFB800',
+     grad:'linear-gradient(145deg,#1e0d00,#0d0500)',
+     glow:'rgba(255,140,0,.35)', minLv:1, action:'slot'},
+    {id:'dragon', name:'Fortune Dragon', sub:'Cascade Wins — Rising x8',
+     emoji:'🐉🏮🎋', badge:'NEW', badgeColor:'#FF2D78',
+     grad:'linear-gradient(145deg,#14000a,#06001a)',
+     glow:'rgba(255,45,120,.32)', minLv:2, action:'slot'},
     {id:'fruits', name:'Fruit Fiesta', sub:'3×3 Classic Fruits',
      emoji:'🍒🍋🍉', badge:null, badgeColor:null,
      grad:'linear-gradient(145deg,#1a0a00,#0a1500)',
