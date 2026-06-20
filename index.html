@@ -1819,6 +1819,7 @@ function checkDailyOnLoad(){
 // ══════════════════════════════════════════════
 //  SLOT ENGINE
 // ══════════════════════════════════════════════
+// symColors: { high:[c1,c2,c3], mid:[c1,c2,c3], low:[c1,c2,c3], wildRgb, scatRgb, frameGrad }
 const SLOT_THEMES = {
   vault:{
     name:'Lucky Vault',
@@ -1826,6 +1827,13 @@ const SLOT_THEMES = {
     lineColor:'rgba(0,207,255,.18)',
     borderColor:'rgba(0,207,255,.35)',
     glowColor:'rgba(0,207,255,.25)',
+    symColors:{
+      high:['#FF2255','#AA0030','#550018'],
+      mid: ['#0088EE','#004EBB','#001E66'],
+      low: ['#1E2EA0','#0E1A5A','#07102E'],
+      wildRgb:'255,150,0', scatRgb:'160,80,255',
+      frameGrad:['#FFD700','#BB8800','#FFE570'],
+    },
     syms:[
       {id:'seven',   e:'7️⃣', val:100, w:2},
       {id:'bell',    e:'🔔', val:40,  w:4},
@@ -1845,6 +1853,13 @@ const SLOT_THEMES = {
     lineColor:'rgba(255,184,0,.22)',
     borderColor:'rgba(255,184,0,.5)',
     glowColor:'rgba(255,184,0,.3)',
+    symColors:{
+      high:['#FFB700','#CC7700','#663300'],
+      mid: ['#CC5500','#883300','#441800'],
+      low: ['#6B4200','#3D2600','#1E1200'],
+      wildRgb:'0,200,180', scatRgb:'255,180,0',
+      frameGrad:['#FFD700','#886600','#FFE080'],
+    },
     syms:[
       {id:'ankh',    e:'☥',  val:100, w:2},
       {id:'eye',     e:'👁️', val:40,  w:4},
@@ -1864,6 +1879,13 @@ const SLOT_THEMES = {
     lineColor:'rgba(191,95,255,.22)',
     borderColor:'rgba(191,95,255,.5)',
     glowColor:'rgba(191,95,255,.3)',
+    symColors:{
+      high:['#DD00FF','#9900CC','#440066'],
+      mid: ['#2200FF','#1100AA','#080055'],
+      low: ['#1A0066','#0D0033','#060019'],
+      wildRgb:'0,220,255', scatRgb:'255,0,200',
+      frameGrad:['#AA44FF','#6600BB','#CC88FF'],
+    },
     syms:[
       {id:'ufo',     e:'🛸', val:100, w:2},
       {id:'alien',   e:'👽', val:40,  w:4},
@@ -1884,6 +1906,13 @@ const SLOT_THEMES = {
     borderColor:'rgba(255,184,0,.65)',
     glowColor:'rgba(255,140,0,.4)',
     mechanic:'book',
+    symColors:{
+      high:['#FFD700','#AA8800','#554400'],
+      mid: ['#CC8800','#885500','#442200'],
+      low: ['#664400','#332200','#191100'],
+      wildRgb:'255,200,0', scatRgb:'255,130,0',
+      frameGrad:['#FFD700','#AA7700','#FFE570'],
+    },
     syms:[
       {id:'pharaoh', e:'🗿', val:200, w:1},
       {id:'anubis',  e:'🐺', val:80,  w:3},
@@ -1905,6 +1934,13 @@ const SLOT_THEMES = {
     glowColor:'rgba(255,215,0,.45)',
     mechanic:'holdnspin',
     coinSym:'coin_hs',
+    symColors:{
+      high:['#66FF00','#33AA00','#186600'],
+      mid: ['#BBEE00','#778800','#3A4400'],
+      low: ['#223311','#111A08','#080D04'],
+      wildRgb:'180,255,0', scatRgb:'255,220,0',
+      frameGrad:['#BBFF00','#778800','#DDFF66'],
+    },
     syms:[
       {id:'thunder', e:'⚡', val:80,  w:2},
       {id:'gold',    e:'🥇', val:50,  w:4},
@@ -1924,6 +1960,13 @@ const SLOT_THEMES = {
     borderColor:'rgba(255,45,120,.55)',
     glowColor:'rgba(255,45,120,.35)',
     mechanic:'cascade',
+    symColors:{
+      high:['#FF1100','#BB0000','#550000'],
+      mid: ['#FF6600','#AA3300','#551800'],
+      low: ['#330011','#1A0008','#0A0004'],
+      wildRgb:'255,215,0', scatRgb:'0,200,100',
+      frameGrad:['#FF4444','#AA0022','#FF8888'],
+    },
     syms:[
       {id:'dragon',  e:'🐉', val:150, w:1},
       {id:'tiger',   e:'🐯', val:70,  w:3},
@@ -1951,7 +1994,11 @@ function setTheme(key){
   slotC.style.border='none';
   slotC.style.boxShadow='inset 0 2px 20px rgba(0,0,0,.6)';
   const rw=document.querySelector('.reel-wrap');
-  if(rw) rw.style.boxShadow=`0 0 55px ${currentTheme.glowColor},0 0 110px rgba(0,0,0,.75)`;
+  if(rw){
+    const fg=currentTheme.symColors&&currentTheme.symColors.frameGrad||['#FFD700','#BB8800','#FFE570'];
+    rw.style.background=`linear-gradient(135deg,${fg[0]} 0%,${fg[1]} 30%,${fg[2]} 55%,${fg[1]} 78%,${fg[0]} 100%)`;
+    rw.style.boxShadow=`0 0 55px ${currentTheme.glowColor},0 0 110px rgba(0,0,0,.75)`;
+  }
   slotStars=null;
   document.getElementById('slotTitle').textContent = currentTheme.name;
 }
@@ -2045,26 +2092,46 @@ function drawSlotSymbol(ctx,id,x,y,cw,ch){
   const isHigh=val>=60, isMid=val>=20&&val<60;
   const bx=x+cw/2, by=y+ch/2;
   const r=Math.min(cw,ch)*0.39;
+  const pal=currentTheme.symColors||{
+    high:['#FF2255','#AA0030','#500015'],
+    mid:['#0099EE','#0055BB','#002268'],
+    low:['#1E2EA0','#0E1A5A','#07102E'],
+    wildRgb:'255,150,0', scatRgb:'160,80,255',
+  };
   ctx.save();
 
   // Outer ambient glow
-  if(isWild||isScat||isHigh){
-    const gc=isWild?'255,215,0':isScat?'160,80,255':'255,50,80';
+  const glowRgb=isWild?pal.wildRgb:isScat?pal.scatRgb:isHigh?pal.high[0].replace('#','').replace(/(..)(..)(..)/, (_,a,b,c)=>`${parseInt(a,16)},${parseInt(b,16)},${parseInt(c,16)}`):null;
+  if(glowRgb){
     const gr=ctx.createRadialGradient(bx,by,r*.4,bx,by,r*1.85);
-    gr.addColorStop(0,`rgba(${gc},0.32)`);
-    gr.addColorStop(1,`rgba(${gc},0)`);
+    gr.addColorStop(0,`rgba(${glowRgb},0.32)`);
+    gr.addColorStop(1,`rgba(${glowRgb},0)`);
     ctx.fillStyle=gr;
     ctx.beginPath(); ctx.arc(bx,by,r*1.85,0,Math.PI*2); ctx.fill();
   }
 
-  // Badge fill gradient
+  // Badge fill
   let c1,c2,c3;
-  if(isWild)      {c1='#FFD700';c2='#FF7700';c3='#991100';}
-  else if(isScat) {c1='#BB44FF';c2='#6622BB';c3='#2A006A';}
-  else if(isCoinHs){c1='#FFD700';c2='#CC9900';c3='#664400';}
-  else if(isHigh) {c1='#FF2255';c2='#AA0030';c3='#500015';}
-  else if(isMid)  {c1='#0099EE';c2='#0055BB';c3='#002268';}
-  else            {c1='#3344AA';c2='#1A2360';c3='#0A0E30';}
+  if(isWild){
+    const wRgb=pal.wildRgb;
+    const wParts=wRgb.split(',').map(Number);
+    c1=`rgb(${Math.min(255,wParts[0]+40)},${Math.min(255,wParts[1]+20)},${wParts[2]})`;
+    c2=`rgb(${wParts[0]},${Math.max(0,wParts[1]-40)},${wParts[2]})`;
+    c3=`rgb(${Math.floor(wParts[0]*.5)},${Math.max(0,wParts[1]-80)},${wParts[2]})`;
+  } else if(isScat){
+    const sc=pal.scatRgb.split(',').map(Number);
+    c1=`rgb(${Math.min(255,sc[0]+60)},${Math.min(255,sc[1]+40)},${Math.min(255,sc[2]+40)})`;
+    c2=`rgb(${sc[0]},${sc[1]},${sc[2]})`;
+    c3=`rgb(${Math.floor(sc[0]*.4)},${Math.floor(sc[1]*.4)},${Math.floor(sc[2]*.4)})`;
+  } else if(isCoinHs){
+    c1='#FFD700'; c2='#CC9900'; c3='#664400';
+  } else if(isHigh){
+    [c1,c2,c3]=pal.high;
+  } else if(isMid){
+    [c1,c2,c3]=pal.mid;
+  } else {
+    [c1,c2,c3]=pal.low;
+  }
 
   const bg=ctx.createRadialGradient(bx-r*.28,by-r*.34,r*.04,bx,by,r);
   bg.addColorStop(0,c1); bg.addColorStop(0.5,c2); bg.addColorStop(1,c3);
@@ -2077,38 +2144,37 @@ function drawSlotSymbol(ctx,id,x,y,cw,ch){
     rg.addColorStop(0,'#FFD700'); rg.addColorStop(.5,'#FFFACC'); rg.addColorStop(1,'#CC9900');
     ctx.lineWidth=Math.max(1.5,r*.095);
   } else if(isMid){
-    rg.addColorStop(0,'#66BBFF'); rg.addColorStop(.5,'#AADDFF'); rg.addColorStop(1,'#4499CC');
+    const mc=c1; rg.addColorStop(0,mc); rg.addColorStop(.5,'rgba(255,255,255,.55)'); rg.addColorStop(1,mc);
     ctx.lineWidth=Math.max(1,r*.065);
   } else {
-    rg.addColorStop(0,'rgba(100,120,200,.3)'); rg.addColorStop(1,'rgba(80,100,180,.2)');
+    rg.addColorStop(0,'rgba(255,255,255,.15)'); rg.addColorStop(1,'rgba(255,255,255,.06)');
     ctx.lineWidth=1;
   }
   ctx.strokeStyle=rg; ctx.stroke();
 
   // Inner sphere highlight
   const sh=ctx.createRadialGradient(bx-r*.32,by-r*.4,0,bx,by,r);
-  sh.addColorStop(0,'rgba(255,255,255,.48)');
+  sh.addColorStop(0,'rgba(255,255,255,.50)');
   sh.addColorStop(.42,'rgba(255,255,255,.09)');
   sh.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fill();
 
-  // Bottom shadow in badge
+  // Bottom shadow
   const sd=ctx.createRadialGradient(bx+r*.15,by+r*.38,0,bx,by,r);
-  sd.addColorStop(0,'rgba(0,0,0,.28)'); sd.addColorStop(1,'rgba(0,0,0,0)');
+  sd.addColorStop(0,'rgba(0,0,0,.30)'); sd.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=sd; ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fill();
 
-  // Text / label
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillStyle='#fff';
+  // Label
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
   if(isWild){
-    ctx.shadowColor='#FF6B00'; ctx.shadowBlur=9;
+    ctx.shadowColor=`rgb(${pal.wildRgb})`; ctx.shadowBlur=10;
     ctx.font=`900 italic ${r*.50}px Arial,sans-serif`;
     ctx.fillText('WILD',bx,by);
   } else if(isScat){
-    ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=5;
+    ctx.shadowColor=`rgba(${pal.scatRgb},.9)`; ctx.shadowBlur=8;
     ctx.font=`900 ${r*.30}px Arial,sans-serif`;
     ctx.fillText('FREE',bx,by-r*.18);
-    ctx.fillStyle='#FFD700';
+    ctx.fillStyle=`rgb(${pal.scatRgb})`;
     ctx.font=`900 ${r*.24}px Arial,sans-serif`;
     ctx.fillText('SPINS',bx,by+r*.27);
   } else if(isCoinHs){
@@ -2119,8 +2185,7 @@ function drawSlotSymbol(ctx,id,x,y,cw,ch){
     const lbl=getSlotLabel(id);
     const fs=lbl.length===1?r*.70:lbl.length===2?r*.56:r*.37;
     ctx.shadowColor='rgba(0,0,0,.85)'; ctx.shadowBlur=6;
-    if(isHigh){ctx.shadowColor='rgba(255,120,150,.5)'; ctx.shadowBlur=8;}
-    else if(isMid){ctx.shadowColor='rgba(80,180,255,.4)'; ctx.shadowBlur=6;}
+    if(isHigh){ctx.shadowColor=c1; ctx.shadowBlur=10;}
     ctx.font=`900 italic ${fs}px Arial,sans-serif`;
     ctx.fillText(lbl,bx,by);
   }
