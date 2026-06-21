@@ -1390,6 +1390,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .ngu-num-btn.wrong{border-color:#FF4444;background:rgba(200,0,0,.15);color:#FF4444;opacity:.7;}
 .ngu-result{font-size:15px;font-weight:700;text-align:center;margin:6px 0;}
 .ngu-result-w{color:#00FF88;} .ngu-result-l{color:#FF4444;}
+/* ── Poker Dice ── */
+#pdScreen{background:radial-gradient(ellipse at 50% 20%,#080018 0%,#040010 100%);}
+.pd-die{width:46px;height:46px;border-radius:10px;border:2px solid rgba(140,0,255,.3);background:linear-gradient(145deg,#14002A,#0A0018);display:inline-flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.pd-die.held{border-color:#BF5FFF;box-shadow:0 0 12px rgba(180,0,255,.4);transform:translateY(-6px);}
+.pd-die.win-die{border-color:#FFD700;box-shadow:0 0 10px rgba(255,210,0,.4);}
+.pd-held-tag{width:46px;text-align:center;font-size:9px;font-weight:700;color:#BF5FFF;height:14px;}
+.pd-rank-tag{font-size:11px;font-weight:700;text-align:center;padding:3px 10px;border-radius:8px;background:rgba(0,0,0,.3);display:inline-block;}
+.pd-rank-tag.win{background:rgba(255,200,0,.2);color:#FFD700;border:1px solid rgba(255,200,0,.4);}
+.pd-result-w{color:#FFD700;} .pd-result-l{color:#FF4444;}
+/* ── Lucky 9 ── */
+#l9Screen{background:radial-gradient(ellipse at 50% 20%,#0A1800 0%,#040C00 100%);}
+.l9-card{width:40px;height:58px;border-radius:6px;background:white;border:1.5px solid #ddd;display:inline-flex;flex-direction:column;align-items:flex-start;padding:3px;font-size:9px;font-weight:900;flex-shrink:0;}
+.l9-card.face-down{background:linear-gradient(135deg,#0A1800 0%,#040C00 50%,#0A1800 100%);border:2px solid rgba(80,200,0,.3);}
+.l9-card.win-card{box-shadow:0 4px 14px rgba(150,255,0,.5);transform:translateY(-4px);}
+.l9-score{font-size:18px;font-weight:900;text-align:center;padding:2px 0;}
+.l9-score.natural{color:#FFD700;} .l9-score.bust{color:#FF4444;} .l9-score.neutral{color:#AAA;}
+.l9-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.l9-result-w{color:#FFD700;} .l9-result-l{color:#FF4444;} .l9-result-p{color:#00CFFF;}
+/* ── Penalty Kick ── */
+#pkScreen{background:radial-gradient(ellipse at 50% 20%,#001A06 0%,#000D03 100%);}
+.pk-goal{width:100%;max-width:280px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:4px;padding:4px;background:rgba(0,40,10,.5);border:2px solid rgba(0,120,30,.4);border-radius:10px;}
+.pk-zone{height:52px;border-radius:6px;border:1.5px solid rgba(0,180,40,.2);background:rgba(0,60,15,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s;}
+.pk-zone:hover{border-color:rgba(0,220,60,.5);background:rgba(0,80,20,.5);}
+.pk-zone.sel{border-color:#00FF66;background:rgba(0,120,30,.5);box-shadow:0 0 12px rgba(0,255,80,.3);}
+.pk-zone.goal-in{background:rgba(0,200,50,.3);border-color:#00FF66;box-shadow:0 0 10px rgba(0,255,80,.4);}
+.pk-zone.saved{background:rgba(255,60,0,.2);border-color:#FF4400;}
+.pk-result{font-size:15px;font-weight:700;text-align:center;margin:4px 0;}
+.pk-result-w{color:#00FF66;} .pk-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -2615,6 +2643,86 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   </div>
 </div>
 
+<!-- ══ Poker Dice ═════════════════════════════════════════════════ -->
+<div class="game-screen" id="pdScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closePD()">←</button>
+    <span>🎲 Poker Dice</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="pdBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="pdHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Roll 5 dice · Hold any · Reroll once · Best poker hand wins</div>
+    <div style="display:flex;gap:8px;justify-content:center;padding:6px 0" id="pdDice"></div>
+    <div style="display:flex;gap:8px;justify-content:center" id="pdHeldRow">
+      <div class="pd-held-tag"></div><div class="pd-held-tag"></div><div class="pd-held-tag"></div><div class="pd-held-tag"></div><div class="pd-held-tag"></div>
+    </div>
+    <div id="pdRank" class="pd-rank-tag" style="margin:0 auto">Roll the dice!</div>
+    <div style="font-size:9px;color:#555;text-align:center">5ok=50× · 4ok=20× · FH=10× · Str=8× · 3ok=4× · 2P=2× · 1P=1×</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="pdBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="pdBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="pdBetDouble()">2×</button>
+    </div>
+    <div id="pdBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Lucky 9 ════════════════════════════════════════════════════ -->
+<div class="game-screen" id="l9Screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeL9()">←</button>
+    <span>9️⃣ Lucky 9</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="l9Bal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="l9History">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Closest to 9 wins · A=1 · 2-9=face · 10/J/Q/K=0</div>
+    <div style="text-align:center">
+      <div style="font-size:11px;color:#888;margin-bottom:4px">Dealer</div>
+      <div id="l9DCards" style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:62px"></div>
+      <div id="l9DScore" class="l9-score neutral">—</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:11px;color:#888;margin-bottom:4px">You</div>
+      <div id="l9PCards" style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:62px"></div>
+      <div id="l9PScore" class="l9-score neutral">—</div>
+    </div>
+    <div id="l9Result" class="l9-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="l9BetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="l9BetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="l9BetDouble()">2×</button>
+    </div>
+    <div id="l9BtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Penalty Kick ════════════════════════════════════════════════ -->
+<div class="game-screen" id="pkScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closePK()">←</button>
+    <span>⚽ Penalty Kick</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="pkBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="pkHistory">&nbsp;</div>
+    <div id="pkStatus" style="text-align:center;font-size:13px;color:#AAA">Pick where to kick!</div>
+    <div class="pk-goal" id="pkGoal">
+      <div class="pk-zone" id="pkZ0" onclick="pkKick(0)">↖️</div>
+      <div class="pk-zone" id="pkZ1" onclick="pkKick(1)">⬆️</div>
+      <div class="pk-zone" id="pkZ2" onclick="pkKick(2)">↗️</div>
+      <div class="pk-zone" id="pkZ3" onclick="pkKick(3)">↙️</div>
+      <div class="pk-zone" id="pkZ4" onclick="pkKick(4)">⬇️</div>
+      <div class="pk-zone" id="pkZ5" onclick="pkKick(5)">↘️</div>
+    </div>
+    <div id="pkResult" class="pk-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="pkBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="pkBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="pkBetDouble()">2×</button>
+    </div>
+    <div id="pkBtnRow" style="display:flex;gap:8px;justify-content:center"><div style="font-size:12px;color:#666;padding:8px">Click a zone to kick!</div></div>
+  </div>
+</div>
 <!-- ══ Rock Paper Scissors ════════════════════════════════════════ -->
 <div class="game-screen" id="rpsScreen">
   <div class="game-header">
@@ -7514,6 +7622,18 @@ const GAME_DEFS = {
      emoji:'🪨📄✂️', badge:'HOT', badgeColor:'#BF5FFF',
      grad:'linear-gradient(145deg,#0A001A,#050010)',
      glow:'rgba(180,0,255,.3)', minLv:1, action:'rpsbet'},
+    {id:'pokerdice', name:'Poker Dice', sub:'Roll 5 Dice — Best Poker Hand!',
+     emoji:'🎲🃏🏆', badge:'HOT', badgeColor:'#BF5FFF',
+     grad:'linear-gradient(145deg,#080018,#040010)',
+     glow:'rgba(140,0,255,.32)', minLv:1, action:'pokerdice'},
+    {id:'lucky9', name:'Lucky 9', sub:'Closest to 9 Wins — Asian Classic!',
+     emoji:'9️⃣🃏🏆', badge:'NEW', badgeColor:'#AAFF00',
+     grad:'linear-gradient(145deg,#0A1800,#040C00)',
+     glow:'rgba(100,200,0,.28)', minLv:1, action:'lucky9'},
+    {id:'penaltykick', name:'Penalty Kick', sub:'Pick a Corner — Score vs Goalie!',
+     emoji:'⚽🥅🎯', badge:'HOT', badgeColor:'#00FF66',
+     grad:'linear-gradient(145deg,#001A06,#000D03)',
+     glow:'rgba(0,200,60,.28)', minLv:1, action:'penaltykick'},
     {id:'warofcards', name:'War of Cards', sub:'One Card Each — Higher Wins!',
      emoji:'⚔️🃏👑', badge:'HOT', badgeColor:'#FF4400',
      grad:'linear-gradient(145deg,#1A0000,#0A0000)',
@@ -8309,6 +8429,44 @@ function gcSVG(g){
       <text x="80" y="88" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,180,255,.9)" font-family="Arial,sans-serif">PICK 1-10 — CORRECT PAYS 8×</text>
     ${e}`;
   }
+  if(act==='pokerdice'){
+    return `${s}
+      <rect width="160" height="100" fill="#080018"/>
+      <ellipse cx="80" cy="70" rx="68" ry="28" fill="#100028" stroke="#280060" stroke-width="1.5"/>
+      ${[20,45,70,95,120].map((x,i)=>`
+        <rect x="${x}" y="${16+i%2*6}" width="28" height="28" rx="6" fill="#14002A" stroke="rgba(140,0,255,.5)" stroke-width="1.5"/>
+        <text x="${x+14}" y="${32+i%2*6}" text-anchor="middle" font-size="16" font-family="Arial">${['⚀','⚁','⚂','⚃','⚄'][i]}</text>
+      `).join('')}
+      <text x="80" y="90" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">HOLD DICE · REROLL · BEST HAND!</text>
+    ${e}`;
+  }
+  if(act==='lucky9'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A1800"/>
+      <ellipse cx="80" cy="68" rx="68" ry="28" fill="#162800" stroke="#2A5000" stroke-width="1.5"/>
+      <rect x="24" y="14" width="32" height="50" rx="5" fill="white" stroke="#ddd" stroke-width="1.5"/>
+      <text x="29" y="28" font-size="10" font-weight="900" fill="#CC0000" font-family="Arial">9</text>
+      <text x="31" y="48" font-size="16" fill="#CC0000" font-family="Arial">♥</text>
+      <rect x="64" y="10" width="32" height="50" rx="5" fill="white" stroke="#ddd" stroke-width="1.5"/>
+      <text x="69" y="24" font-size="10" font-weight="900" fill="#111" font-family="Arial">A</text>
+      <text x="71" y="44" font-size="16" fill="#111" font-family="Arial">♠</text>
+      <rect x="104" y="14" width="32" height="50" rx="5" fill="white" stroke="#ddd" stroke-width="1.5"/>
+      <text x="109" y="28" font-size="9" font-weight="900" fill="#CC0000" font-family="Arial">8</text>
+      <text x="111" y="48" font-size="16" fill="#CC0000" font-family="Arial">♦</text>
+      <text x="80" y="90" text-anchor="middle" font-size="9" font-weight="900" fill="rgba(150,255,0,.9)" font-family="Arial,sans-serif">CLOSEST TO 9 WINS</text>
+    ${e}`;
+  }
+  if(act==='penaltykick'){
+    return `${s}
+      <rect width="160" height="100" fill="#001A06"/>
+      <rect x="10" y="12" width="140" height="76" rx="4" fill="none" stroke="rgba(0,180,40,.3)" stroke-width="1.5"/>
+      <rect x="45" y="30" width="70" height="50" rx="3" fill="none" stroke="rgba(0,200,50,.5)" stroke-width="1.5"/>
+      <ellipse cx="80" cy="80" rx="18" ry="6" fill="none" stroke="rgba(0,200,50,.4)" stroke-width="1"/>
+      <text x="80" y="62" text-anchor="middle" font-size="22" font-family="Arial">⚽</text>
+      <text x="80" y="40" text-anchor="middle" font-size="12" font-family="Arial">🧤</text>
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,220,60,.9)" font-family="Arial,sans-serif">PICK A CORNER — SCORE!</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -8712,6 +8870,9 @@ function makeCard(g){
       else if(g.action==='horserace') openHR();
       else if(g.action==='luckycups') openLC();
       else if(g.action==='rpsbet') openRPS();
+      else if(g.action==='pokerdice') openPD();
+      else if(g.action==='lucky9') openL9();
+      else if(g.action==='penaltykick') openPK();
       else if(g.action==='warofcards') openWOC();
       else if(g.action==='numberguess') openNGU();
       else if(g.action==='msstud') openMSStud();
@@ -12510,6 +12671,227 @@ function addDWChip(outcome){
   chip.className='dw-hc '+(outcome==='W'?'dw-hc-w':'dw-hc-l'); chip.textContent=outcome;
   hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
+
+// ── Poker Dice ────────────────────────────────────────────────────────────────
+const PD_FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
+let pdBetAmt=100, pdPhase='bet';
+let pdDice=[1,1,1,1,1], pdHeld=[false,false,false,false,false];
+
+function openPD(){
+  document.getElementById('pdScreen').classList.add('open');
+  pdPhase='bet'; pdBetAmt=100; pdHeld=[false,false,false,false,false]; pdDice=[1,1,1,1,1];
+  updatePDBal(); document.getElementById('pdBetV').textContent=fmt(pdBetAmt);
+  document.getElementById('pdRank').textContent='Roll the dice!'; document.getElementById('pdRank').className='pd-rank-tag';
+  document.getElementById('pdHistory').innerHTML='&nbsp;';
+  pdRenderDice('idle'); pdSetBtnRow('roll');
+}
+function closePD(){ document.getElementById('pdScreen').classList.remove('open'); pdPhase='bet'; }
+function updatePDBal(){ document.getElementById('pdBal').textContent=fmt(gs.coins)+' 🪙'; }
+function pdBetHalf(){ pdBetAmt=Math.max(10,Math.floor(pdBetAmt/2)); document.getElementById('pdBetV').textContent=fmt(pdBetAmt); }
+function pdBetDouble(){ pdBetAmt=Math.min(gs.coins,pdBetAmt*2); document.getElementById('pdBetV').textContent=fmt(pdBetAmt); }
+function pdRollOne(){ return Math.floor(Math.random()*6)+1; }
+function pdRenderDice(phase){
+  const box=document.getElementById('pdDice'); box.innerHTML='';
+  const hRow=document.getElementById('pdHeldRow'); hRow.innerHTML='';
+  pdDice.forEach((v,i)=>{
+    const d=document.createElement('div');
+    d.className='pd-die'+(pdHeld[i]?' held':'');
+    d.textContent=PD_FACES[v-1];
+    if(phase==='hold') d.onclick=()=>pdToggleHold(i);
+    box.appendChild(d);
+    const ht=document.createElement('div');
+    ht.className='pd-held-tag'; ht.textContent=pdHeld[i]&&phase==='hold'?'HELD':'';
+    hRow.appendChild(ht);
+  });
+}
+function pdToggleHold(idx){
+  if(pdPhase!=='hold') return;
+  pdHeld[idx]=!pdHeld[idx]; pdRenderDice('hold');
+}
+function pdSetBtnRow(state){
+  const r=document.getElementById('pdBtnRow');
+  if(state==='roll') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="pdRoll()">ROLL</button>`;
+  else if(state==='reroll') r.innerHTML=`<button class="tcp-action-btn tcp-btn-play" onclick="pdReroll()">REROLL</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="pdNewRound()">NEW ROLL</button>`;
+}
+function pdRoll(){
+  if(pdPhase!=='bet') return;
+  if(gs.coins<pdBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=pdBetAmt; updatePDBal();
+  pdDice=[pdRollOne(),pdRollOne(),pdRollOne(),pdRollOne(),pdRollOne()];
+  pdHeld=[false,false,false,false,false]; pdPhase='hold';
+  pdRenderDice('hold');
+  document.getElementById('pdRank').textContent='Hold dice, then Reroll!';
+  pdSetBtnRow('reroll');
+}
+function pdReroll(){
+  if(pdPhase!=='hold') return;
+  pdDice=pdDice.map((v,i)=>pdHeld[i]?v:pdRollOne());
+  pdPhase='result'; pdRenderDice('result');
+  const {name,mult}=pdEval(pdDice);
+  const rEl=document.getElementById('pdRank');
+  rEl.textContent=name+(mult>0?` — ${mult}×`:'');
+  rEl.className='pd-rank-tag'+(mult>0?' win':'');
+  if(mult>0){
+    const win=pdBetAmt*mult; gs.coins+=win; updatePDBal();
+    document.getElementById('pdHistory').innerHTML=`<span style="color:#FFD700">WIN +${fmt(win-pdBetAmt)} 🪙</span>`;
+    addHistory('pokerdice',win-pdBetAmt);
+  } else {
+    document.getElementById('pdHistory').innerHTML=`<span style="color:#FF4444">LOSS −${fmt(pdBetAmt)} 🪙</span>`;
+    addHistory('pokerdice',-pdBetAmt);
+  }
+  pdSetBtnRow('new');
+}
+function pdEval(dice){
+  const cnt={}; dice.forEach(v=>{cnt[v]=(cnt[v]||0)+1;});
+  const vals=Object.values(cnt).sort((a,b)=>b-a);
+  const sorted=[...dice].sort((a,b)=>a-b);
+  const isStr=(sorted[4]-sorted[0]===4&&new Set(sorted).size===5);
+  if(vals[0]===5) return {name:'Five of a Kind',mult:50};
+  if(vals[0]===4) return {name:'Four of a Kind',mult:20};
+  if(vals[0]===3&&vals[1]===2) return {name:'Full House',mult:10};
+  if(isStr) return {name:'Straight',mult:8};
+  if(vals[0]===3) return {name:'Three of a Kind',mult:4};
+  if(vals[0]===2&&vals[1]===2) return {name:'Two Pair',mult:2};
+  if(vals[0]===2) return {name:'One Pair',mult:1};
+  return {name:'No Match',mult:0};
+}
+function pdNewRound(){ pdPhase='bet'; pdHeld=[false,false,false,false,false]; pdDice=[1,1,1,1,1]; document.getElementById('pdRank').textContent='Roll the dice!'; document.getElementById('pdRank').className='pd-rank-tag'; pdRenderDice('idle'); pdSetBtnRow('roll'); }
+
+// ── Lucky 9 ───────────────────────────────────────────────────────────────────
+const L9_RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const L9_SUITS=['♠','♥','♦','♣'];
+const L9_RED=['♥','♦'];
+let l9BetAmt=100, l9Phase='bet';
+let l9Deck=[], l9PH=[], l9DH=[];
+
+function openL9(){
+  document.getElementById('l9Screen').classList.add('open');
+  l9Phase='bet'; l9BetAmt=100;
+  updateL9Bal(); document.getElementById('l9BetV').textContent=fmt(l9BetAmt);
+  document.getElementById('l9DCards').innerHTML=''; document.getElementById('l9PCards').innerHTML='';
+  document.getElementById('l9DScore').textContent='—'; document.getElementById('l9DScore').className='l9-score neutral';
+  document.getElementById('l9PScore').textContent='—'; document.getElementById('l9PScore').className='l9-score neutral';
+  document.getElementById('l9Result').textContent=' ';
+  l9SetBtnRow('deal');
+}
+function closeL9(){ document.getElementById('l9Screen').classList.remove('open'); l9Phase='bet'; }
+function updateL9Bal(){ document.getElementById('l9Bal').textContent=fmt(gs.coins)+' 🪙'; }
+function l9BetHalf(){ l9BetAmt=Math.max(10,Math.floor(l9BetAmt/2)); document.getElementById('l9BetV').textContent=fmt(l9BetAmt); }
+function l9BetDouble(){ l9BetAmt=Math.min(gs.coins,l9BetAmt*2); document.getElementById('l9BetV').textContent=fmt(l9BetAmt); }
+function l9MakeDeck(){
+  l9Deck=[];
+  for(const s of L9_SUITS) for(const r of L9_RANKS) l9Deck.push({r,s});
+  for(let i=l9Deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[l9Deck[i],l9Deck[j]]=[l9Deck[j],l9Deck[i]];}
+}
+function l9Val(r){ if(['10','J','Q','K'].includes(r)) return 0; if(r==='A') return 1; return parseInt(r); }
+function l9Score(hand){ return hand.reduce((s,c)=>s+l9Val(c.r),0)%10; }
+function l9CardEl(c,faceDown=false){
+  const div=document.createElement('div'); div.className='l9-card'+(faceDown?' face-down':'');
+  if(!faceDown){
+    const isRed=L9_RED.includes(c.s);
+    div.style.color=isRed?'#CC0000':'#111';
+    div.innerHTML=`${c.r}<br>${c.s}`;
+  }
+  return div;
+}
+function l9SetBtnRow(state){
+  const r=document.getElementById('l9BtnRow');
+  if(state==='deal') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="l9Deal()">DEAL</button>`;
+  else if(state==='action') r.innerHTML=`<button class="tcp-action-btn tcp-btn-play" onclick="l9Hit()">HIT</button><button class="tcp-action-btn tcp-btn-fold" onclick="l9Stand()">STAND</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="l9NewRound()">NEW DEAL</button>`;
+}
+function l9Deal(){
+  if(l9Phase!=='bet') return;
+  if(gs.coins<l9BetAmt){alert('Not enough coins!');return;}
+  gs.coins-=l9BetAmt; updateL9Bal();
+  l9MakeDeck(); l9PH=[l9Deck.pop(),l9Deck.pop()]; l9DH=[l9Deck.pop(),l9Deck.pop()];
+  l9Phase='action';
+  const pBox=document.getElementById('l9PCards'); pBox.innerHTML=''; l9PH.forEach(c=>pBox.appendChild(l9CardEl(c)));
+  const dBox=document.getElementById('l9DCards'); dBox.innerHTML=''; l9DH.forEach((c,i)=>dBox.appendChild(l9CardEl(c,i>0)));
+  const ps=l9Score(l9PH);
+  document.getElementById('l9PScore').textContent=ps; document.getElementById('l9PScore').className='l9-score'+(ps===9||ps===8?' natural':'  neutral');
+  document.getElementById('l9DScore').textContent='?'; document.getElementById('l9DScore').className='l9-score neutral';
+  if(ps>=8){ l9Stand(); return; } // natural 8 or 9 stands automatically
+  l9SetBtnRow('action');
+}
+function l9Hit(){
+  if(l9Phase!=='action') return;
+  l9PH.push(l9Deck.pop());
+  const pBox=document.getElementById('l9PCards'); pBox.innerHTML=''; l9PH.forEach(c=>pBox.appendChild(l9CardEl(c)));
+  const ps=l9Score(l9PH);
+  document.getElementById('l9PScore').textContent=ps; document.getElementById('l9PScore').className='l9-score neutral';
+  l9Stand();
+}
+function l9Stand(){
+  if(l9Phase!=='action'&&l9Phase!=='bet') return;
+  l9Phase='result';
+  // dealer draws if score < 6
+  while(l9Score(l9DH)<6) l9DH.push(l9Deck.pop());
+  const dBox=document.getElementById('l9DCards'); dBox.innerHTML=''; l9DH.forEach(c=>dBox.appendChild(l9CardEl(c)));
+  const ps=l9Score(l9PH), ds=l9Score(l9DH);
+  document.getElementById('l9DScore').textContent=ds; document.getElementById('l9DScore').className='l9-score'+(ds===9||ds===8?' natural':' neutral');
+  const rEl=document.getElementById('l9Result');
+  const hEl=document.getElementById('l9History');
+  if(ps>ds){ rEl.textContent=`You win! ${ps} vs ${ds}`; rEl.className='l9-result l9-result-w'; gs.coins+=l9BetAmt*2; updateL9Bal(); hEl.innerHTML=`<span style="color:#AAFF00">WIN +${fmt(l9BetAmt)} 🪙</span>`; addHistory('lucky9',l9BetAmt); }
+  else if(ps===ds){ rEl.textContent=`Tie! ${ps} each`; rEl.className='l9-result l9-result-p'; gs.coins+=l9BetAmt; updateL9Bal(); hEl.innerHTML=`<span style="color:#00CFFF">TIE — returned</span>`; addHistory('lucky9',0); }
+  else { rEl.textContent=`Dealer wins! ${ds} vs ${ps}`; rEl.className='l9-result l9-result-l'; hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(l9BetAmt)} 🪙</span>`; addHistory('lucky9',-l9BetAmt); }
+  l9SetBtnRow('new');
+}
+function l9NewRound(){ l9Phase='bet'; l9PH=[]; l9DH=[]; document.getElementById('l9DCards').innerHTML=''; document.getElementById('l9PCards').innerHTML=''; document.getElementById('l9DScore').textContent='—'; document.getElementById('l9DScore').className='l9-score neutral'; document.getElementById('l9PScore').textContent='—'; document.getElementById('l9PScore').className='l9-score neutral'; document.getElementById('l9Result').textContent=' '; l9SetBtnRow('deal'); }
+
+// ── Penalty Kick ──────────────────────────────────────────────────────────────
+let pkBetAmt=100, pkPhase='bet';
+
+function openPK(){
+  document.getElementById('pkScreen').classList.add('open');
+  pkPhase='bet'; pkBetAmt=100;
+  updatePKBal(); document.getElementById('pkBetV').textContent=fmt(pkBetAmt);
+  document.getElementById('pkStatus').textContent='Pick where to kick!';
+  document.getElementById('pkResult').textContent=' '; document.getElementById('pkResult').className='pk-result';
+  for(let i=0;i<6;i++){ const z=document.getElementById('pkZ'+i); z.className='pk-zone'; z.style.pointerEvents=''; }
+  pkSetBtnRow('kick');
+}
+function closePK(){ document.getElementById('pkScreen').classList.remove('open'); pkPhase='bet'; }
+function updatePKBal(){ document.getElementById('pkBal').textContent=fmt(gs.coins)+' 🪙'; }
+function pkBetHalf(){ pkBetAmt=Math.max(10,Math.floor(pkBetAmt/2)); document.getElementById('pkBetV').textContent=fmt(pkBetAmt); }
+function pkBetDouble(){ pkBetAmt=Math.min(gs.coins,pkBetAmt*2); document.getElementById('pkBetV').textContent=fmt(pkBetAmt); }
+function pkKick(zone){
+  if(pkPhase!=='bet') return;
+  if(gs.coins<pkBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=pkBetAmt; updatePKBal(); pkPhase='result';
+  for(let i=0;i<6;i++) document.getElementById('pkZ'+i).style.pointerEvents='none';
+  document.getElementById('pkZ'+zone).className='pk-zone sel';
+  // goalie saves a random zone (biased toward corners = easier to score in middle)
+  const goalieSave=Math.floor(Math.random()*6);
+  const goal=(zone!==goalieSave);
+  setTimeout(()=>{
+    document.getElementById('pkZ'+goalieSave).className='pk-zone saved';
+    if(goal) document.getElementById('pkZ'+zone).className='pk-zone goal-in';
+    const rEl=document.getElementById('pkResult');
+    const hEl=document.getElementById('pkHistory');
+    const stEl=document.getElementById('pkStatus');
+    if(goal){
+      const win=pkBetAmt*2; gs.coins+=win; updatePKBal();
+      stEl.textContent='⚽ GOAL! The keeper dived '+['top-left','top','top-right','bottom-left','bottom','bottom-right'][goalieSave]+'!';
+      rEl.textContent='GOAL! You win!'; rEl.className='pk-result pk-result-w';
+      hEl.innerHTML=`<span style="color:#00FF66">GOAL! WIN +${fmt(pkBetAmt)} 🪙</span>`;
+      addHistory('penaltykick',pkBetAmt);
+    } else {
+      stEl.textContent='🧤 SAVED! The keeper guessed right!';
+      rEl.textContent='Saved! Dealer wins.'; rEl.className='pk-result pk-result-l';
+      hEl.innerHTML=`<span style="color:#FF4444">SAVED! LOSS −${fmt(pkBetAmt)} 🪙</span>`;
+      addHistory('penaltykick',-pkBetAmt);
+    }
+    pkSetBtnRow('new');
+  },500);
+}
+function pkSetBtnRow(state){
+  const r=document.getElementById('pkBtnRow');
+  if(state==='kick') r.innerHTML=`<div style="font-size:12px;color:#666;padding:8px">Click a zone to kick!</div>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="pkNewRound()">KICK AGAIN</button>`;
+}
+function pkNewRound(){ pkPhase='bet'; document.getElementById('pkStatus').textContent='Pick where to kick!'; document.getElementById('pkResult').textContent=' '; document.getElementById('pkResult').className='pk-result'; for(let i=0;i<6;i++){const z=document.getElementById('pkZ'+i);z.className='pk-zone';z.style.pointerEvents='';} pkSetBtnRow('kick'); }
 
 // ── Rock Paper Scissors ───────────────────────────────────────────────────────
 const RPS_CHOICES=['rock','paper','scissors'];
