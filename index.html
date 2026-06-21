@@ -1687,6 +1687,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .cduel-score{font-size:16px;font-weight:900;text-align:center;}
 .cduel-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
 .cduel-result-w{color:#00FF88;} .cduel-result-l{color:#FF4444;} .cduel-result-t{color:#FFD700;}
+/* Number Wheel */
+#nwScreen{background:radial-gradient(ellipse at 50% 20%,#04000A 0%,#020005 100%);}
+.nw-segment{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:2px solid #444;font-size:14px;font-weight:900;cursor:pointer;transition:all .15s;}
+.nw-segment:hover{transform:scale(1.1);}
+.nw-segment.selected{border-color:#FFD700;box-shadow:0 0 12px rgba(255,215,0,.4);}
+.nw-segment.hit{border-color:#00FF88;box-shadow:0 0 12px rgba(0,255,136,.4);}
+.nw-pointer{font-size:36px;text-align:center;transition:transform .8s cubic-bezier(.2,.8,.2,1);}
+.nw-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.nw-result-w{color:#FFD700;} .nw-result-l{color:#FF4444;}
+/* Prize Vault */
+#pvScreen{background:radial-gradient(ellipse at 50% 20%,#050A00 0%,#020500 100%);}
+.pv-door{width:60px;height:80px;border-radius:10px;background:#051A05;border:2px solid #444;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:all .2s;}
+.pv-door:hover{transform:scale(1.08);}
+.pv-door.open-good{border-color:#00FF88;box-shadow:0 0 14px rgba(0,255,136,.4);cursor:default;}
+.pv-door.open-bad{border-color:#FF4444;background:#1a0505;cursor:default;}
+.pv-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.pv-result-w{color:#00FF88;} .pv-result-l{color:#FF4444;}
+/* Gem Blast */
+#gbScreen{background:radial-gradient(ellipse at 50% 20%,#000A12 0%,#000408 100%);}
+.gb-gem{width:48px;height:48px;border-radius:8px;background:#001020;border:2px solid #333;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:all .15s;}
+.gb-gem:hover{transform:scale(1.08);}
+.gb-gem.selected{border-color:#FFD700;}
+.gb-gem.blast{animation:gemPop .3s ease-out forwards;}
+.gb-gem.safe{border-color:#00FF88;}
+.gb-gem.mine-gem{border-color:#FF4444;}
+@keyframes gemPop{0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}
+.gb-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.gb-result-w{color:#00FF88;} .gb-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -3396,6 +3424,69 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
     <div id="ldiceBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
   </div>
 </div>
+<!-- ══ Number Wheel ══════════════════════════════════════════════ -->
+<div class="game-screen" id="nwScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeNW()">←</button>
+    <span>🎡 Number Wheel</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="nwBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="nwHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Pick 1-12 · Exact = 10× · Adjacent = 2× · Miss = lose</div>
+    <div class="nw-pointer" id="nwPointer">🎯</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center" id="nwGrid"></div>
+    <div class="nw-result" id="nwResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="nwBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="nwBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="nwBetDouble()">2×</button>
+    </div>
+    <div id="nwBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Prize Vault ════════════════════════════════════════════════ -->
+<div class="game-screen" id="pvScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closePV()">←</button>
+    <span>🔐 Prize Vault</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="pvBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="pvHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">4 vaults — 3 have prizes! Pick wisely and go big!</div>
+    <div style="display:flex;gap:12px;justify-content:center;padding:8px 0" id="pvDoors"></div>
+    <div style="font-size:12px;color:#888;text-align:center" id="pvMsg">Pick a vault!</div>
+    <div class="pv-result" id="pvResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="pvBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="pvBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="pvBetDouble()">2×</button>
+    </div>
+    <div id="pvBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Gem Blast ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="gbScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeGB()">←</button>
+    <span>💎 Gem Blast</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="gbBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="gbHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">9 gems · 2 bombs hidden · Pick gems to collect · Hit bomb = lose!</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:4px 0" id="gbGrid"></div>
+    <div style="font-size:12px;color:#888;text-align:center">Collected: <span id="gbCount">0</span> gems (+<span id="gbMult">0</span>%/gem)</div>
+    <div class="gb-result" id="gbResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="gbBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="gbBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="gbBetDouble()">2×</button>
+    </div>
+    <div id="gbBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
 <!-- ══ Coin Storm ════════════════════════════════════════════════ -->
 <div class="game-screen" id="cstmScreen">
   <div class="game-header">
@@ -4805,6 +4896,7 @@ function fmt(n){
   if(n>=1e6) return (n/1e6).toFixed(1)+'M';
   return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
 }
+function addHistory(game,net){ /* game history stub — used by newer mini-games */ }
 let toastTimer;
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -8707,6 +8799,18 @@ const GAME_DEFS = {
      emoji:'⚡🎲💥', badge:'HOT', badgeColor:'#FFD700',
      grad:'linear-gradient(145deg,#001010,#000808)',
      glow:'rgba(200,160,0,.3)', minLv:1, action:'lightningdice'},
+    {id:'numberwheel', name:'Number Wheel', sub:'Pick 1-12 — Spin & Win!',
+     emoji:'🎡🔢✨', badge:'NEW', badgeColor:'#AA44FF',
+     grad:'linear-gradient(145deg,#04000A,#020005)',
+     glow:'rgba(140,0,255,.3)', minLv:1, action:'numberwheel'},
+    {id:'prizevault', name:'Prize Vault', sub:'3 of 4 Vaults Have Prizes!',
+     emoji:'🔐💰🏆', badge:'HOT', badgeColor:'#00FF88',
+     grad:'linear-gradient(145deg,#050A00,#020500)',
+     glow:'rgba(0,200,80,.3)', minLv:1, action:'prizevault'},
+    {id:'gemblast', name:'Gem Blast', sub:'Pick Gems — Avoid the Bombs!',
+     emoji:'💎💥🔥', badge:'NEW', badgeColor:'#00CFFF',
+     grad:'linear-gradient(145deg,#000A12,#000408)',
+     glow:'rgba(0,160,220,.3)', minLv:1, action:'gemblast'},
     {id:'coinstorm', name:'Coin Storm', sub:'Predict the Coin Count — Storm to Win!',
      emoji:'🪙🌩️💰', badge:'HOT', badgeColor:'#FFD700',
      grad:'linear-gradient(145deg,#080800,#040400)',
@@ -9829,6 +9933,41 @@ function gcSVG(g){
       <text x="80" y="86" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,160,0,.9)" font-family="Arial,sans-serif">5 DICE · LIGHTNING MULTIPLIERS</text>
     ${e}`;
   }
+  // ── NUMBER WHEEL ─────────────────────────────────────────────────
+  if(act==='numberwheel'){
+    const colors=['#FF4444','#8888FF','#00FF88','#FFD700','#FF88FF','#88FFFF'];
+    let segs='';
+    for(let i=0;i<12;i++){const a=i*30*Math.PI/180,cx=80+32*Math.cos(a),cy=48+32*Math.sin(a);segs+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="${colors[i%6]}" opacity=".7"/><text x="${cx.toFixed(1)}" y="${(cy+4).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="900" fill="#000" font-family="Arial">${i+1}</text>`;}
+    return `${s}${segs}
+      <circle cx="80" cy="48" r="6" fill="#FFD700"/>
+      <text x="80" y="80" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">Pick a number · Exact=10× · Adjacent=2×</text>
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(160,80,255,.9)" font-family="Arial,sans-serif">NUMBER WHEEL</text>
+    ${e}`;
+  }
+  // ── PRIZE VAULT ──────────────────────────────────────────────────
+  if(act==='prizevault'){
+    return `${s}
+      <rect x="22" y="24" width="32" height="42" rx="4" fill="#051A05" stroke="#00FF88" stroke-width="1.5"/>
+      <rect x="58" y="24" width="32" height="42" rx="4" fill="#051A05" stroke="#00FF88" stroke-width="1.5"/>
+      <rect x="94" y="24" width="32" height="42" rx="4" fill="#1a0505" stroke="#FF4444" stroke-width="1.5"/>
+      <circle cx="38" cy="45" r="6" fill="none" stroke="#00FF88" stroke-width="1.5"/>
+      <circle cx="74" cy="45" r="6" fill="none" stroke="#00FF88" stroke-width="1.5"/>
+      <text x="38" y="49" text-anchor="middle" font-size="8" fill="#00FF88" font-family="Arial">💰</text>
+      <text x="74" y="49" text-anchor="middle" font-size="8" fill="#00FF88" font-family="Arial">💎</text>
+      <text x="110" y="49" text-anchor="middle" font-size="10" fill="#FF4444" font-family="Arial">💣</text>
+      <text x="80" y="78" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">3 of 4 vaults hide prizes!</text>
+      <text x="80" y="91" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,255,136,.9)" font-family="Arial,sans-serif">PRIZE VAULT</text>
+    ${e}`;
+  }
+  // ── GEM BLAST ────────────────────────────────────────────────────
+  if(act==='gemblast'){
+    const gems=['💎','💙','💚','💛','💜','💎','💙','💚','💣'];
+    let gemEls=''; gems.forEach((g,i)=>{const x=24+(i%3)*38,y=16+Math.floor(i/3)*28;gemEls+=`<text x="${x}" y="${y}" font-size="16" font-family="Arial">${g}</text>`;});
+    return `${s}${gemEls}
+      <text x="80" y="108" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">Pick gems · Avoid bombs!</text>
+      <text x="80" y="120" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,200,255,.9)" font-family="Arial,sans-serif">GEM BLAST</text>
+    ${e}`;
+  }
   // ── COIN STORM ───────────────────────────────────────────────────
   if(act==='coinstorm'){
     return `${s}
@@ -10338,6 +10477,9 @@ function makeCard(g){
       else if(g.action==='colormatch') openCM();
       else if(g.action==='magictrio') openMT();
       else if(g.action==='lightningdice') openLDice();
+      else if(g.action==='numberwheel') openNW();
+      else if(g.action==='prizevault') openPV();
+      else if(g.action==='gemblast') openGB();
       else if(g.action==='coinstorm') openCSTM();
       else if(g.action==='jackpotladder') openJLAD();
       else if(g.action==='cardduel') openCDuel();
@@ -15641,6 +15783,187 @@ function ldiceSetBtn(state){
   const r=document.getElementById('ldiceBtnRow');
   r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="ldiceRoll()">ROLL!</button>`;
 }
+
+// ── Number Wheel ──────────────────────────────────────────────────────────────
+const NW_EMOJIS=['🎯','🌀','💫','⭐','🔮','🪄','✨','🎆','🎇','🌟','💥','🎊'];
+let nwBetAmt=100, nwPhase='bet', nwPick=0;
+
+function openNW(){
+  document.getElementById('nwScreen').classList.add('open');
+  nwPhase='bet'; nwBetAmt=100; nwPick=0;
+  updateNWBal(); document.getElementById('nwBetV').textContent=fmt(nwBetAmt);
+  document.getElementById('nwResult').textContent=' '; document.getElementById('nwResult').className='nw-result';
+  document.getElementById('nwHistory').innerHTML='&nbsp;';
+  document.getElementById('nwPointer').textContent='🎯';
+  nwBuildGrid(); nwSetBtn('spin');
+}
+function closeNW(){ document.getElementById('nwScreen').classList.remove('open'); nwPhase='bet'; }
+function updateNWBal(){ document.getElementById('nwBal').textContent=fmt(gs.coins)+' 🪙'; }
+function nwBetHalf(){ nwBetAmt=Math.max(10,Math.floor(nwBetAmt/2)); document.getElementById('nwBetV').textContent=fmt(nwBetAmt); }
+function nwBetDouble(){ nwBetAmt=Math.min(gs.coins,nwBetAmt*2); document.getElementById('nwBetV').textContent=fmt(nwBetAmt); }
+function nwBuildGrid(){
+  const grid=document.getElementById('nwGrid'); grid.innerHTML='';
+  for(let n=1;n<=12;n++){
+    const el=document.createElement('div'); el.className='nw-segment'; el.id='nwN'+n;
+    el.textContent=n; el.onclick=()=>nwSelect(n); grid.appendChild(el);
+  }
+}
+function nwSelect(n){ nwPick=n; document.querySelectorAll('.nw-segment').forEach(e=>e.classList.remove('selected')); if(n) document.getElementById('nwN'+n).classList.add('selected'); }
+function nwSetBtn(state){
+  const r=document.getElementById('nwBtnRow');
+  if(state==='spin') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="nwSpin()">SPIN!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="nwNewRound()">SPIN AGAIN</button>`;
+}
+function nwSpin(){
+  if(nwPhase!=='bet') return;
+  if(!nwPick){alert('Pick a number 1-12!');return;}
+  if(gs.coins<nwBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=nwBetAmt; updateNWBal(); nwPhase='spin'; nwSetBtn('none');
+  const result=Math.floor(Math.random()*12)+1;
+  let frame=0; const interval=setInterval(()=>{ document.getElementById('nwPointer').textContent=NW_EMOJIS[frame%12]; frame++; if(frame>12){ clearInterval(interval); nwResolve(result); } },80);
+}
+function nwResolve(result){
+  document.getElementById('nwPointer').textContent=result;
+  document.getElementById('nwN'+result).classList.add('hit');
+  const adj=(result===12?1:result+1); const adj2=(result===1?12:result-1);
+  const exact=result===nwPick, adjacent=adj===nwPick||adj2===nwPick;
+  let won=0, desc='';
+  const rEl=document.getElementById('nwResult'); const hEl=document.getElementById('nwHistory');
+  if(exact){ won=Math.round(nwBetAmt*10); desc=`Exact ${result}! 10× = +${fmt(won-nwBetAmt)} 🪙`; }
+  else if(adjacent){ won=Math.round(nwBetAmt*2); desc=`Adjacent ${result}! 2× = +${fmt(won-nwBetAmt)} 🪙`; }
+  else { desc=`Landed ${result} — Lose −${fmt(nwBetAmt)} 🪙`; }
+  gs.coins+=won; updateNWBal();
+  const net=won-nwBetAmt;
+  rEl.textContent=desc; rEl.className='nw-result '+(won>0?'nw-result-w':'nw-result-l');
+  hEl.innerHTML=won>0?`<span style="color:#FFD700">WIN +${fmt(net)} 🪙</span>`:`<span style="color:#FF4444">LOSS −${fmt(nwBetAmt)} 🪙</span>`;
+  addHistory('numberwheel',net); nwPhase='result'; nwSetBtn('again');
+}
+function nwNewRound(){ nwPhase='bet'; nwPick=0; nwBuildGrid(); document.getElementById('nwPointer').textContent='🎯'; document.getElementById('nwResult').textContent=' '; nwSetBtn('spin'); }
+
+// ── Prize Vault ────────────────────────────────────────────────────────────────
+const PV_PRIZES=[
+  {mult:1.5,emoji:'💰',label:'1.5×'},
+  {mult:2,emoji:'💎',label:'2×'},
+  {mult:3,emoji:'🏆',label:'3×'},
+  {mult:0,emoji:'💣',label:'BOMB'}
+];
+let pvBetAmt=100, pvPhase='bet', pvOrder=[];
+
+function openPV(){
+  document.getElementById('pvScreen').classList.add('open');
+  pvPhase='bet'; pvBetAmt=100;
+  updatePVBal(); document.getElementById('pvBetV').textContent=fmt(pvBetAmt);
+  document.getElementById('pvResult').textContent=' '; document.getElementById('pvResult').className='pv-result';
+  document.getElementById('pvHistory').innerHTML='&nbsp;';
+  document.getElementById('pvMsg').textContent='Pick a vault!';
+  pvBuildDoors(); pvSetBtn('pick');
+}
+function closePV(){ document.getElementById('pvScreen').classList.remove('open'); pvPhase='bet'; }
+function updatePVBal(){ document.getElementById('pvBal').textContent=fmt(gs.coins)+' 🪙'; }
+function pvBetHalf(){ pvBetAmt=Math.max(10,Math.floor(pvBetAmt/2)); document.getElementById('pvBetV').textContent=fmt(pvBetAmt); }
+function pvBetDouble(){ pvBetAmt=Math.min(gs.coins,pvBetAmt*2); document.getElementById('pvBetV').textContent=fmt(pvBetAmt); }
+function pvBuildDoors(){
+  pvOrder=[...PV_PRIZES].sort(()=>Math.random()-.5);
+  const box=document.getElementById('pvDoors'); box.innerHTML='';
+  pvOrder.forEach((_,i)=>{
+    const el=document.createElement('div'); el.className='pv-door'; el.id='pvD'+i;
+    el.textContent='🔐'; el.onclick=()=>pvPick(i); box.appendChild(el);
+  });
+}
+function pvSetBtn(state){
+  const r=document.getElementById('pvBtnRow');
+  if(state==='pick') r.innerHTML='';
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="pvNewRound()">PLAY AGAIN</button>`;
+}
+function pvPick(i){
+  if(pvPhase!=='bet') return;
+  if(gs.coins<pvBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=pvBetAmt; updatePVBal(); pvPhase='open';
+  const prize=pvOrder[i];
+  const el=document.getElementById('pvD'+i);
+  el.textContent=prize.emoji;
+  el.className='pv-door '+(prize.mult>0?'open-good':'open-bad');
+  pvOrder.forEach((_,j)=>{ if(j!==i){ const e=document.getElementById('pvD'+j); e.textContent=pvOrder[j].emoji; e.className='pv-door '+(pvOrder[j].mult>0?'open-good':'open-bad'); } });
+  const won=prize.mult>0?Math.round(pvBetAmt*prize.mult):0;
+  gs.coins+=won; updatePVBal();
+  const net=won-pvBetAmt;
+  const rEl=document.getElementById('pvResult'); const hEl=document.getElementById('pvHistory');
+  rEl.textContent=prize.mult>0?`${prize.emoji} ${prize.label} = +${fmt(net)} 🪙`:`💣 BOMB! Lose −${fmt(pvBetAmt)} 🪙`;
+  rEl.className='pv-result '+(prize.mult>0?'pv-result-w':'pv-result-l');
+  hEl.innerHTML=prize.mult>0?`<span style="color:#00FF88">WIN +${fmt(net)} 🪙</span>`:`<span style="color:#FF4444">LOSS −${fmt(pvBetAmt)} 🪙</span>`;
+  addHistory('prizevault',net); pvSetBtn('again');
+}
+function pvNewRound(){ pvPhase='bet'; document.getElementById('pvResult').textContent=' '; document.getElementById('pvMsg').textContent='Pick a vault!'; pvBuildDoors(); pvSetBtn('pick'); }
+
+// ── Gem Blast ─────────────────────────────────────────────────────────────────
+const GB_GEMS=['💎','💙','💚','💛','💜'];
+let gbBetAmt=100, gbPhase='bet', gbBombs=[], gbFound=0, gbGems=7;
+
+function openGB(){
+  document.getElementById('gbScreen').classList.add('open');
+  gbPhase='bet'; gbBetAmt=100; gbFound=0; gbGems=7;
+  updateGBBal(); document.getElementById('gbBetV').textContent=fmt(gbBetAmt);
+  document.getElementById('gbResult').textContent=' '; document.getElementById('gbResult').className='gb-result';
+  document.getElementById('gbHistory').innerHTML='&nbsp;';
+  document.getElementById('gbCount').textContent='0';
+  document.getElementById('gbMult').textContent='0';
+  gbBuildGrid(); gbSetBtn('start');
+}
+function closeGB(){ document.getElementById('gbScreen').classList.remove('open'); gbPhase='bet'; }
+function updateGBBal(){ document.getElementById('gbBal').textContent=fmt(gs.coins)+' 🪙'; }
+function gbBetHalf(){ gbBetAmt=Math.max(10,Math.floor(gbBetAmt/2)); document.getElementById('gbBetV').textContent=fmt(gbBetAmt); }
+function gbBetDouble(){ gbBetAmt=Math.min(gs.coins,gbBetAmt*2); document.getElementById('gbBetV').textContent=fmt(gbBetAmt); }
+function gbBuildGrid(){
+  const indices=Array.from({length:9},(_,i)=>i); gbBombs=[]; while(gbBombs.length<2){const i=Math.floor(Math.random()*9);if(!gbBombs.includes(i))gbBombs.push(i);}
+  const grid=document.getElementById('gbGrid'); grid.innerHTML='';
+  indices.forEach(i=>{
+    const el=document.createElement('div'); el.className='gb-gem'; el.id='gbG'+i;
+    el.textContent='💠'; el.onclick=()=>gbClick(i); grid.appendChild(el);
+  });
+}
+function gbSetBtn(state){
+  const r=document.getElementById('gbBtnRow');
+  if(state==='start') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="gbStart()">START</button>`;
+  else if(state==='play') r.innerHTML=`<button class="tcp-action-btn" style="background:#222;border-color:#888" onclick="gbCashOut()">CASH OUT (${gbMult()}×)</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="gbNewRound()">PLAY AGAIN</button>`;
+}
+function gbMult(){ return parseFloat((1+gbFound*0.25).toFixed(2)); }
+function gbStart(){
+  if(gbPhase!=='bet') return;
+  if(gs.coins<gbBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=gbBetAmt; updateGBBal(); gbPhase='play'; gbFound=0;
+  document.getElementById('gbCount').textContent='0';
+  document.getElementById('gbMult').textContent='0';
+  gbSetBtn('play');
+}
+function gbClick(i){
+  if(gbPhase!=='play') return;
+  const el=document.getElementById('gbG'+i); el.onclick=null;
+  if(gbBombs.includes(i)){
+    el.textContent='💣'; el.className='gb-gem mine-gem';
+    gbBombs.forEach(b=>{ const be=document.getElementById('gbG'+b); be.textContent='💣'; be.className='gb-gem mine-gem'; });
+    const rEl=document.getElementById('gbResult'); rEl.textContent=`💣 BOMB! Lose −${fmt(gbBetAmt)} 🪙`; rEl.className='gb-result gb-result-l';
+    document.getElementById('gbHistory').innerHTML=`<span style="color:#FF4444">LOSS −${fmt(gbBetAmt)} 🪙</span>`;
+    addHistory('gemblast',-gbBetAmt); gbPhase='result'; gbSetBtn('again');
+  } else {
+    gbFound++; el.textContent=GB_GEMS[gbFound%GB_GEMS.length]; el.className='gb-gem safe';
+    document.getElementById('gbCount').textContent=gbFound;
+    document.getElementById('gbMult').textContent=Math.round((gbMult()-1)*100);
+    gbSetBtn('play');
+    if(gbFound===7){ gbCashOut(); }
+  }
+}
+function gbCashOut(){
+  if(gbPhase!=='play') return;
+  if(gbFound===0){alert('Find at least 1 gem first!');return;}
+  const won=Math.round(gbBetAmt*gbMult());
+  gs.coins+=won; updateGBBal();
+  const net=won-gbBetAmt;
+  const rEl=document.getElementById('gbResult'); rEl.textContent=`${gbFound} gems × ${gbMult()}× = +${fmt(net)} 🪙`; rEl.className='gb-result gb-result-w';
+  document.getElementById('gbHistory').innerHTML=`<span style="color:#00FF88">WIN +${fmt(net)} 🪙</span>`;
+  addHistory('gemblast',net); gbPhase='result'; gbSetBtn('again');
+}
+function gbNewRound(){ gbPhase='bet'; gbFound=0; gbBuildGrid(); document.getElementById('gbResult').textContent=' '; document.getElementById('gbCount').textContent='0'; document.getElementById('gbMult').textContent='0'; gbSetBtn('start'); }
 
 // ── Coin Storm ────────────────────────────────────────────────────────────────
 let cstmBetAmt=100, cstmPhase='bet', cstmPicked='';
