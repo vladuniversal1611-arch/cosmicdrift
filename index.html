@@ -934,6 +934,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .tcp-hc{display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
 .tcp-hc-w{background:rgba(0,255,136,.2);color:#00FF88;border:1px solid rgba(0,255,136,.4);}
 .tcp-hc-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
+
+/* ── Sic Bo ── */
+#sicboScreen{background:radial-gradient(ellipse at 50% 20%,#1A0800 0%,#0A0300 100%);}
+.sb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 4px;}
+.sb-bet{padding:8px 4px;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);text-align:center;cursor:pointer;transition:border-color .15s,background .15s;user-select:none;}
+.sb-bet:active{transform:scale(.96);}
+.sb-bet.selected{border-color:rgba(255,180,0,.6);background:rgba(255,180,0,.12);}
+.sb-bet.win{border-color:rgba(0,255,136,.7);background:rgba(0,255,136,.15);}
+.sb-bet.lose{border-color:rgba(255,68,68,.4);background:rgba(255,68,68,.06);}
+.sb-bet-name{font-size:10px;color:rgba(255,255,255,.5);margin-bottom:2px;}
+.sb-bet-odds{font-size:13px;font-weight:900;color:#FFD700;}
+.sb-die{width:52px;height:52px;border-radius:10px;background:white;border:2px solid #ddd;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;padding:6px;box-sizing:border-box;gap:2px;transition:transform .15s;}
+.sb-die.rolling{animation:sbRoll .08s linear infinite;}
+@keyframes sbRoll{0%{transform:rotate(-4deg) scale(1.04);}50%{transform:rotate(4deg) scale(.96);}100%{transform:rotate(-4deg) scale(1.04);}}
+.sb-pip{border-radius:50%;background:#111;width:100%;height:100%;}
+.sb-pip.red{background:#CC0000;}
+.sb-pip.empty{background:transparent;}
+.sb-hc2{display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
+.sb-hc2-w{background:rgba(0,255,136,.2);color:#00FF88;border:1px solid rgba(0,255,136,.4);}
+.sb-hc2-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
 .tcp-hc-p{background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);}
 </style>
 </head>
@@ -1767,6 +1787,65 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
         🚀 LAUNCH
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ══ Sic Bo ══════════════════════════════════════════════════════ -->
+<div class="game-screen" id="sicboScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeSicbo()">←</button>
+    <span>🎲 Sic Bo</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="sicboBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:9px;box-sizing:border-box;overflow-y:auto;">
+
+    <!-- History -->
+    <div id="sicboHistory" style="display:flex;gap:5px;flex-wrap:wrap;min-height:22px;"></div>
+
+    <!-- Dice display -->
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;padding:6px 0;">
+      <div class="sb-die" id="sbDie0"></div>
+      <div class="sb-die" id="sbDie1"></div>
+      <div class="sb-die" id="sbDie2"></div>
+    </div>
+    <div id="sbResult" style="text-align:center;font-size:13px;font-weight:800;color:rgba(255,255,255,.6);min-height:18px;letter-spacing:.04em;"></div>
+
+    <!-- Big / Small -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <div class="sb-bet" id="sbb_big" onclick="sbToggle('big')">
+        <div class="sb-bet-name">BIG (11–17)</div>
+        <div class="sb-bet-odds">1×</div>
+      </div>
+      <div class="sb-bet" id="sbb_small" onclick="sbToggle('small')">
+        <div class="sb-bet-name">SMALL (4–10)</div>
+        <div class="sb-bet-odds">1×</div>
+      </div>
+    </div>
+
+    <!-- Odd / Even -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <div class="sb-bet" id="sbb_odd" onclick="sbToggle('odd')">
+        <div class="sb-bet-name">ODD</div>
+        <div class="sb-bet-odds">1×</div>
+      </div>
+      <div class="sb-bet" id="sbb_even" onclick="sbToggle('even')">
+        <div class="sb-bet-name">EVEN</div>
+        <div class="sb-bet-odds">1×</div>
+      </div>
+    </div>
+
+    <!-- Sum bets 4–17 -->
+    <div class="sb-grid" id="sbSumGrid"></div>
+
+    <!-- Bet row + roll -->
+    <div class="vp-bet-row" style="flex-shrink:0;">
+      <button class="fruit-bet-btn" onclick="sbBetHalf()">½</button>
+      <div class="fruit-bet-box" style="flex:1"><div style="font-size:9px;color:rgba(255,255,255,.4)">BET PER SELECTION</div><div style="font-size:18px;font-weight:900" id="sbBetV">100</div></div>
+      <button class="fruit-bet-btn" onclick="sbBetDouble()">×2</button>
+    </div>
+    <button id="sbRollBtn" onclick="sbRoll()" style="padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#6A3A00,#CC7700,#FFB700);color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.05em;box-shadow:0 4px 24px rgba(200,120,0,.45);flex-shrink:0;">
+      🎲 ROLL DICE
+    </button>
   </div>
 </div>
 
@@ -5650,6 +5729,10 @@ const GAME_DEFS = {
      emoji:'🐉🐯🃏', badge:'HOT', badgeColor:'#FF3366',
      grad:'linear-gradient(145deg,#1A0508,#08000F)',
      glow:'rgba(255,50,80,.28)', minLv:1, action:'dragontiger'},
+    {id:'sicbo', name:'Sic Bo', sub:'Three Dice — Big, Small, Totals',
+     emoji:'🎲🎲🎲', badge:'HOT', badgeColor:'#FFB700',
+     grad:'linear-gradient(145deg,#1A0800,#0A0300)',
+     glow:'rgba(200,120,0,.32)', minLv:1, action:'sicbo'},
     {id:'threecard', name:'Three Card Poker', sub:'Ante + Pair Plus — Beat the Dealer',
      emoji:'♣🃏♠', badge:'NEW', badgeColor:'#00FF88',
      grad:'linear-gradient(145deg,#051A08,#010A04)',
@@ -6070,6 +6153,27 @@ function gcSVG(g){
     ${e}`;
   }
 
+  // ── SIC BO ────────────────────────────────────────────────────────
+  if(act==='sicbo'){
+    return `${s}
+      <rect width="160" height="100" fill="#1A0800"/>
+      <rect x="8" y="8" width="144" height="84" rx="10" fill="#0D3A00" stroke="#CC8800" stroke-width="1.5" opacity=".8"/>
+      <rect x="16" y="16" width="38" height="38" rx="7" fill="white" stroke="#DDD" stroke-width="1"/>
+      <circle cx="35" cy="35" r="5" fill="#111"/>
+      <rect x="61" y="16" width="38" height="38" rx="7" fill="white" stroke="#DDD" stroke-width="1"/>
+      <circle cx="71" cy="26" r="4" fill="#CC0000"/><circle cx="80" cy="35" r="4" fill="#CC0000"/><circle cx="89" cy="44" r="4" fill="#CC0000"/>
+      <rect x="106" y="16" width="38" height="38" rx="7" fill="white" stroke="#DDD" stroke-width="1"/>
+      <circle cx="116" cy="26" r="3.5" fill="#111"/><circle cx="125" cy="26" r="3.5" fill="#111"/>
+      <circle cx="116" cy="35" r="3.5" fill="#111"/><circle cx="125" cy="35" r="3.5" fill="#111"/>
+      <circle cx="116" cy="44" r="3.5" fill="#111"/><circle cx="125" cy="44" r="3.5" fill="#111"/>
+      <text x="28" y="82" font-size="9" fill="#FFD700" font-family="Arial" font-weight="700" text-anchor="middle">SMALL</text>
+      <text x="80" y="82" font-size="9" fill="#FFD700" font-family="Arial" font-weight="700" text-anchor="middle">TOTAL 10</text>
+      <text x="132" y="82" font-size="9" fill="#FFD700" font-family="Arial" font-weight="700" text-anchor="middle">BIG</text>
+      <line x1="52" y1="70" x2="52" y2="90" stroke="rgba(255,200,0,.3)" stroke-width="1"/>
+      <line x1="108" y1="70" x2="108" y2="90" stroke="rgba(255,200,0,.3)" stroke-width="1"/>
+    ${e}`;
+  }
+
   // ── THREE CARD POKER ─────────────────────────────────────────────
   if(act==='threecard'){
     return `${s}
@@ -6150,6 +6254,7 @@ function makeCard(g){
       else if(g.action==='tower') openTower();
       else if(g.action==='limbo') openLimbo();
       else if(g.action==='dragontiger') openDT();
+      else if(g.action==='sicbo') openSicbo();
       else if(g.action==='threecard') openTCP();
       else showToast('🚧 '+g.name+' — Coming Soon!');
     });
@@ -8283,6 +8388,156 @@ function towerCashout(auto){
   document.getElementById('towerStartBtn').style.display='';
   document.getElementById('towerCashBtn').style.display='none';
   ['easy','normal','hard'].forEach(x=>{ const b=document.getElementById('td'+x.charAt(0).toUpperCase()+x.slice(1)); if(b) b.disabled=false; });
+}
+
+// ══════════════════════════════════════════════
+// Sic Bo
+// ══════════════════════════════════════════════
+// Odds for sum totals 4–17 (lose on triple)
+const SB_SUM_ODDS={4:60,5:30,6:17,7:12,8:8,9:6,10:6,11:6,12:6,13:8,14:12,15:17,16:30,17:60};
+// Die pip layouts: which of 9 cells (3×3 grid, row-major) are filled
+const SB_PIPS={
+  1:[false,false,false, false,true,false, false,false,false],
+  2:[false,false,true,  false,false,false, true,false,false],
+  3:[false,false,true,  false,true,false,  true,false,false],
+  4:[true,false,true,   false,false,false, true,false,true],
+  5:[true,false,true,   false,true,false,  true,false,true],
+  6:[true,false,true,   true,false,true,   true,false,true],
+};
+
+let sbBetAmt=100, sbBets=new Set(), sbRolling=false;
+
+function openSicbo(){
+  document.getElementById('sicboScreen').classList.add('open');
+  sbBets.clear(); sbRolling=false;
+  updateSicboBal();
+  document.getElementById('sbBetV').textContent=fmt(sbBetAmt);
+  sbBuildSumGrid();
+  sbRenderDie(document.getElementById('sbDie0'),1);
+  sbRenderDie(document.getElementById('sbDie1'),2);
+  sbRenderDie(document.getElementById('sbDie2'),3);
+  document.getElementById('sbResult').textContent='';
+  sbClearHighlights();
+}
+
+function closeSicbo(){ document.getElementById('sicboScreen').classList.remove('open'); sbRolling=false; }
+function updateSicboBal(){ document.getElementById('sicboBal').textContent=fmt(gs.coins)+' 🪙'; }
+
+function sbBetHalf(){ sbBetAmt=Math.max(10,Math.floor(sbBetAmt/2)); document.getElementById('sbBetV').textContent=fmt(sbBetAmt); }
+function sbBetDouble(){ sbBetAmt=Math.min(gs.coins||sbBetAmt,sbBetAmt*2); document.getElementById('sbBetV').textContent=fmt(sbBetAmt); }
+
+function sbBuildSumGrid(){
+  const g=document.getElementById('sbSumGrid'); g.innerHTML='';
+  for(let sum=4;sum<=17;sum++){
+    const el=document.createElement('div');
+    el.className='sb-bet'; el.id='sbb_sum'+sum;
+    el.innerHTML=`<div class="sb-bet-name">SUM ${sum}</div><div class="sb-bet-odds">${SB_SUM_ODDS[sum]}×</div>`;
+    el.onclick=()=>sbToggle('sum'+sum);
+    g.appendChild(el);
+  }
+}
+
+function sbToggle(key){
+  if(sbRolling) return;
+  const el=document.getElementById('sbb_'+key);
+  if(!el) return;
+  if(sbBets.has(key)){ sbBets.delete(key); el.classList.remove('selected'); }
+  else { sbBets.add(key); el.classList.add('selected'); }
+}
+
+function sbRenderDie(el, val){
+  const pips=SB_PIPS[val]||SB_PIPS[1];
+  const isRed=(val===4||val===5);
+  el.innerHTML=pips.map(on=>`<div class="sb-pip${on?(isRed?' red':''):('' +' empty')}"></div>`).join('');
+}
+
+function sbClearHighlights(){
+  document.querySelectorAll('#sicboScreen .sb-bet').forEach(el=>{
+    el.classList.remove('win','lose');
+    if(!sbBets.has(el.id.replace('sbb_',''))) el.classList.remove('selected');
+    else el.classList.add('selected');
+  });
+}
+
+function sbRoll(){
+  if(sbRolling) return;
+  if(sbBets.size===0){ showToast('Select at least one bet!'); return; }
+  const total=sbBetAmt*sbBets.size;
+  if(gs.coins<total){ showToast('💸 Not enough coins!'); return; }
+  sbRolling=true;
+  gs.coins-=total; save(); updateHUD(); updateSicboBal();
+  document.getElementById('sbRollBtn').disabled=true;
+  document.getElementById('sbResult').textContent='Rolling…';
+
+  // Animate dice
+  const dice=[document.getElementById('sbDie0'),document.getElementById('sbDie1'),document.getElementById('sbDie2')];
+  dice.forEach(d=>d.classList.add('rolling'));
+  let frames=0;
+  const anim=setInterval(()=>{
+    dice.forEach(d=>sbRenderDie(d,Math.floor(Math.random()*6)+1));
+    frames++;
+    if(frames>=18){
+      clearInterval(anim);
+      dice.forEach(d=>d.classList.remove('rolling'));
+      const r=[Math.floor(Math.random()*6)+1,Math.floor(Math.random()*6)+1,Math.floor(Math.random()*6)+1];
+      r.forEach((v,i)=>sbRenderDie(dice[i],v));
+      sbResolve(r);
+    }
+  },80);
+}
+
+function sbResolve(dice){
+  const sum=dice[0]+dice[1]+dice[2];
+  const isTriple=dice[0]===dice[1]&&dice[1]===dice[2];
+  const isOdd=sum%2===1;
+
+  document.getElementById('sbResult').textContent=`${dice.join(' + ')} = ${sum}${isTriple?' 🎯 TRIPLE!':''}`;
+
+  let totalWin=0;
+  sbBets.forEach(key=>{
+    const el=document.getElementById('sbb_'+key);
+    let won=false, odds=1;
+    if(key==='big')  { won=sum>=11&&sum<=17&&!isTriple; odds=1; }
+    else if(key==='small'){ won=sum>=4&&sum<=10&&!isTriple; odds=1; }
+    else if(key==='odd')  { won=isOdd&&!isTriple; odds=1; }
+    else if(key==='even') { won=!isOdd&&!isTriple; odds=1; }
+    else if(key.startsWith('sum')){
+      const s=parseInt(key.slice(3));
+      won=sum===s;
+      odds=SB_SUM_ODDS[s]||6;
+    }
+    if(won){
+      totalWin+=sbBetAmt*(odds+1);
+      if(el){ el.classList.add('win'); el.classList.remove('selected','lose'); }
+    } else {
+      if(el){ el.classList.add('lose'); el.classList.remove('selected','win'); }
+    }
+  });
+
+  if(totalWin>0){
+    gs.coins+=totalWin; gs.wins=(gs.wins||0)+1;
+    if(totalWin>=sbBetAmt*5) gs.bigWins=(gs.bigWins||0)+1;
+    save(); updateHUD(); updateSicboBal();
+    const net=totalWin-sbBetAmt*sbBets.size;
+    showToast('🎲 WIN! +'+fmt(net)+' 🪙'); addXP(2); vibrate([50,30,100]);
+    addSicboChip('w');
+  } else {
+    showToast('🎲 Sum: '+sum+(isTriple?' (Triple)':'')+'. Better luck!'); vibrate([120]);
+    addSicboChip('l');
+  }
+
+  sbRolling=false;
+  document.getElementById('sbRollBtn').disabled=false;
+  sbBets.clear();
+}
+
+function addSicboChip(type){
+  const hist=document.getElementById('sicboHistory');
+  const chip=document.createElement('div');
+  chip.className='sb-hc2 sb-hc2-'+(type==='w'?'w':'l');
+  chip.textContent=type==='w'?'WIN':'L';
+  hist.insertBefore(chip,hist.firstChild);
+  while(hist.children.length>14) hist.removeChild(hist.lastChild);
 }
 
 // ══════════════════════════════════════════════
