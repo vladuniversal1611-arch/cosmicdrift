@@ -878,6 +878,35 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .limbo-preset{padding:5px 10px;border-radius:8px;border:1.5px solid rgba(255,215,0,.28);background:rgba(255,215,0,.08);color:#FFD700;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;}
 .limbo-preset:hover{background:rgba(255,215,0,.2);border-color:#FFD700;}
 .limbo-hist-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:800;transition:transform .2s;}
+/* ── Dragon Tiger ── */
+#dtScreen{background:radial-gradient(ellipse at 50% 15%,#1A0508 0%,#08000F 100%);}
+.dt-table-area{flex:1;display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 14px;}
+.dt-side-panel{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;}
+.dt-label-d{font-size:16px;font-weight:900;letter-spacing:.06em;color:#FF3366;text-shadow:0 0 18px rgba(255,50,80,.5);}
+.dt-label-t{font-size:16px;font-weight:900;letter-spacing:.06em;color:#FFD700;text-shadow:0 0 18px rgba(255,215,0,.5);}
+.dt-vs-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;}
+.dt-card-scene{width:76px;height:110px;perspective:700px;}
+.dt-card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.4,0,.2,1);}
+.dt-card-inner.flipped{transform:rotateY(180deg);}
+.dt-card-face,.dt-card-back{position:absolute;width:100%;height:100%;border-radius:11px;backface-visibility:hidden;box-sizing:border-box;}
+.dt-card-back{background:linear-gradient(135deg,#AA0000 0%,#550000 50%,#AA0000 100%);border:2.5px solid rgba(255,215,0,.55);display:flex;align-items:center;justify-content:center;font-size:32px;}
+.dt-card-face{background:#fff;border:2px solid rgba(0,0,0,.12);transform:rotateY(180deg);padding:5px;display:flex;flex-direction:column;justify-content:space-between;}
+.dt-card-rank-top{font-size:14px;font-weight:900;line-height:1;align-self:flex-start;}
+.dt-card-suit-big{font-size:32px;text-align:center;line-height:1;}
+.dt-card-rank-bot{font-size:14px;font-weight:900;line-height:1;align-self:flex-end;transform:rotate(180deg);}
+.dt-win-glow-d{box-shadow:0 0 28px rgba(255,50,80,.7),0 0 60px rgba(255,50,80,.3);}
+.dt-win-glow-t{box-shadow:0 0 28px rgba(255,215,0,.7),0 0 60px rgba(255,215,0,.3);}
+.dt-card-placeholder{width:76px;height:110px;border-radius:11px;border:2px dashed rgba(255,255,255,.15);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:28px;color:rgba(255,255,255,.2);}
+.dt-bet-btn{flex:1;padding:13px 4px;border-radius:13px;border:none;font-size:13px;font-weight:900;cursor:pointer;letter-spacing:.04em;transition:transform .1s,box-shadow .15s;}
+.dt-bet-btn:active{transform:scale(.96);}
+.dt-bet-btn:disabled{opacity:.38;cursor:not-allowed;}
+.dt-btn-d{background:linear-gradient(135deg,#6A0000,#CC1100,#FF4466);color:#FFD0D8;box-shadow:0 4px 20px rgba(255,30,80,.4);}
+.dt-btn-tie{background:linear-gradient(135deg,#003300,#006600,#00AA22);color:#AAFFBB;box-shadow:0 4px 20px rgba(0,200,80,.3);}
+.dt-btn-t{background:linear-gradient(135deg,#5A3A00,#AA6600,#FFB700);color:#FFF8CC;box-shadow:0 4px 20px rgba(255,180,0,.4);}
+.dt-hc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:900;flex-shrink:0;}
+.dt-hc-d{background:rgba(255,50,80,.22);color:#FF4466;border:1px solid rgba(255,50,80,.4);}
+.dt-hc-t{background:rgba(255,215,0,.18);color:#FFD700;border:1px solid rgba(255,215,0,.38);}
+.dt-hc-tie{background:rgba(0,200,80,.18);color:#00CC44;border:1px solid rgba(0,200,80,.35);}
 </style>
 </head>
 <body>
@@ -1709,6 +1738,90 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <button id="limboLaunchBtn" onclick="limboLaunch()" style="padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#1a0055,#4A00E0,#8E2DE2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.05em;box-shadow:0 4px 24px rgba(100,0,255,.45);position:relative;overflow:hidden;">
         🚀 LAUNCH
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Dragon Tiger ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="dtScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeDT()">←</button>
+    <span>🐉 Dragon Tiger</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="dtBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:14px;gap:10px;box-sizing:border-box;">
+
+    <!-- History -->
+    <div id="dtHistory" style="display:flex;gap:5px;flex-wrap:wrap;min-height:28px;"></div>
+
+    <!-- Table area -->
+    <div class="dt-table-area">
+      <div class="dt-side-panel">
+        <div class="dt-label-d">🐉 DRAGON</div>
+        <div class="dt-card-scene" id="dtDragonScene">
+          <div class="dt-card-inner" id="dtDragonInner">
+            <div class="dt-card-back">🐉</div>
+            <div class="dt-card-face" id="dtDragonFace">
+              <div class="dt-card-rank-top" id="dtDragonRankTop"></div>
+              <div class="dt-card-suit-big" id="dtDragonSuit"></div>
+              <div class="dt-card-rank-bot" id="dtDragonRankBot"></div>
+            </div>
+          </div>
+        </div>
+        <div id="dtDragonResult" style="font-size:13px;font-weight:900;min-height:18px;color:#FF3366;letter-spacing:.06em;text-align:center;"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 6px;">
+        <div style="font-size:20px;font-weight:900;color:rgba(255,255,255,.45);letter-spacing:.1em;">VS</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.3);text-align:center;line-height:1.6;">
+          TIE<br><span style="color:#00CC44;font-weight:900;font-size:12px;">8:1</span>
+        </div>
+      </div>
+
+      <div class="dt-side-panel">
+        <div class="dt-label-t">🐯 TIGER</div>
+        <div class="dt-card-scene" id="dtTigerScene">
+          <div class="dt-card-inner" id="dtTigerInner">
+            <div class="dt-card-back">🐯</div>
+            <div class="dt-card-face" id="dtTigerFace">
+              <div class="dt-card-rank-top" id="dtTigerRankTop"></div>
+              <div class="dt-card-suit-big" id="dtTigerSuit"></div>
+              <div class="dt-card-rank-bot" id="dtTigerRankBot"></div>
+            </div>
+          </div>
+        </div>
+        <div id="dtTigerResult" style="font-size:13px;font-weight:900;min-height:18px;color:#FFD700;letter-spacing:.06em;text-align:center;"></div>
+      </div>
+    </div>
+
+    <!-- Session stats -->
+    <div style="display:flex;justify-content:center;gap:20px;flex-shrink:0;">
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">DRAGON</div>
+        <div style="font-size:15px;font-weight:900;color:#FF3366;" id="dtDragonWinsEl">0</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">TIE</div>
+        <div style="font-size:15px;font-weight:900;color:#00CC44;" id="dtTieWinsEl">0</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">TIGER</div>
+        <div style="font-size:15px;font-weight:900;color:#FFD700;" id="dtTigerWinsEl">0</div>
+      </div>
+    </div>
+
+    <!-- Bet row -->
+    <div class="vp-bet-row" style="flex-shrink:0;">
+      <button class="fruit-bet-btn" onclick="dtBetHalf()">½</button>
+      <div class="fruit-bet-box" style="flex:1"><div style="font-size:9px;color:rgba(255,255,255,.4)">BET</div><div style="font-size:18px;font-weight:900" id="dtBetV">100</div></div>
+      <button class="fruit-bet-btn" onclick="dtBetDouble()">×2</button>
+    </div>
+
+    <!-- Bet buttons -->
+    <div style="display:flex;gap:7px;flex-shrink:0;">
+      <button class="dt-bet-btn dt-btn-d" id="dtBtnD" onclick="dtBet('dragon')">🐉 DRAGON<br><span style="font-size:11px;opacity:.7">pays 1:1</span></button>
+      <button class="dt-bet-btn dt-btn-tie" id="dtBtnTie" onclick="dtBet('tie')">🤝 TIE<br><span style="font-size:11px;opacity:.7">pays 8:1</span></button>
+      <button class="dt-bet-btn dt-btn-t" id="dtBtnT" onclick="dtBet('tiger')">🐯 TIGER<br><span style="font-size:11px;opacity:.7">pays 1:1</span></button>
     </div>
   </div>
 </div>
@@ -5435,6 +5548,10 @@ const GAME_DEFS = {
      emoji:'🀄🎴🃏', badge:'VIP', badgeColor:'#FFD700',
      grad:'linear-gradient(145deg,#1A0800,#2A1000)',
      glow:'rgba(255,180,0,.25)', minLv:3, action:'baccarat'},
+    {id:'dragontiger', name:'Dragon Tiger', sub:'Dragon vs Tiger — Quick Card Duel',
+     emoji:'🐉🐯🃏', badge:'HOT', badgeColor:'#FF3366',
+     grad:'linear-gradient(145deg,#1A0508,#08000F)',
+     glow:'rgba(255,50,80,.28)', minLv:1, action:'dragontiger'},
   ],
   quick:[
     {id:'aviator', name:'Aviator', sub:'Crash — Cash Out Before It Flies!',
@@ -5851,6 +5968,29 @@ function gcSVG(g){
     ${e}`;
   }
 
+  // ── DRAGON TIGER ─────────────────────────────────────────────────
+  if(act==='dragontiger'){
+    return `${s}
+      <rect width="160" height="100" fill="#1A0508"/>
+      <ellipse cx="80" cy="64" rx="74" ry="38" fill="#0D3B1E" stroke="#2A6B3A" stroke-width="1.5"/>
+      <g transform="rotate(-9,38,52)">
+        <rect x="16" y="22" width="40" height="58" rx="6" fill="white" stroke="#DDD" stroke-width="1.5"/>
+        <text x="21" y="38" font-size="11" font-weight="900" fill="#CC0000" font-family="Arial,sans-serif">A</text>
+        <text x="24" y="54" font-size="18" fill="#CC0000" font-family="Arial,sans-serif">♥</text>
+        <text x="20" y="72" font-size="11" font-weight="900" fill="#CC0000" font-family="Arial,sans-serif" transform="rotate(180,31,68)">A</text>
+      </g>
+      <g transform="rotate(9,122,52)">
+        <rect x="104" y="22" width="40" height="58" rx="6" fill="white" stroke="#DDD" stroke-width="1.5"/>
+        <text x="109" y="38" font-size="11" font-weight="900" fill="#111" font-family="Arial,sans-serif">K</text>
+        <text x="112" y="54" font-size="18" fill="#111" font-family="Arial,sans-serif">♠</text>
+        <text x="108" y="72" font-size="11" font-weight="900" fill="#111" font-family="Arial,sans-serif" transform="rotate(180,119,68)">K</text>
+      </g>
+      <text x="80" y="57" text-anchor="middle" font-size="12" font-weight="900" fill="rgba(255,255,255,.55)" font-family="Arial,sans-serif">VS</text>
+      <text x="36" y="96" text-anchor="middle" font-size="8" font-weight="900" fill="#FF4466" font-family="Arial,sans-serif">🐉 DRAGON</text>
+      <text x="124" y="96" text-anchor="middle" font-size="8" font-weight="900" fill="#FFD700" font-family="Arial,sans-serif">🐯 TIGER</text>
+    ${e}`;
+  }
+
   // fallback — plain emoji
   return `${s}<text x="80" y="58" font-size="36" text-anchor="middle" font-family="Arial">${g.emoji||'🎮'}</text>${e}`;
 }
@@ -5889,6 +6029,7 @@ function makeCard(g){
       else if(g.action==='keno') openKeno();
       else if(g.action==='tower') openTower();
       else if(g.action==='limbo') openLimbo();
+      else if(g.action==='dragontiger') openDT();
       else showToast('🚧 '+g.name+' — Coming Soon!');
     });
   }
@@ -8021,6 +8162,140 @@ function towerCashout(auto){
   document.getElementById('towerStartBtn').style.display='';
   document.getElementById('towerCashBtn').style.display='none';
   ['easy','normal','hard'].forEach(x=>{ const b=document.getElementById('td'+x.charAt(0).toUpperCase()+x.slice(1)); if(b) b.disabled=false; });
+}
+
+// ══════════════════════════════════════════════
+// Dragon Tiger
+// ══════════════════════════════════════════════
+let dtBetAmt=100, dtState='idle';
+let dtDragonWinCt=0, dtTigerWinCt=0, dtTieWinCt=0;
+const DT_RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const DT_SUITS=['♠','♥','♦','♣'];
+const DT_RED_SUITS=['♥','♦'];
+
+function openDT(){
+  document.getElementById('dtScreen').classList.add('open');
+  updateDTBal();
+  dtState='idle';
+  dtEnableBtns(true);
+  document.getElementById('dtDragonInner').classList.remove('flipped');
+  document.getElementById('dtTigerInner').classList.remove('flipped');
+  document.getElementById('dtDragonResult').textContent='';
+  document.getElementById('dtTigerResult').textContent='';
+  document.getElementById('dtDragonScene').className='dt-card-scene';
+  document.getElementById('dtTigerScene').className='dt-card-scene';
+}
+
+function closeDT(){
+  document.getElementById('dtScreen').classList.remove('open');
+  dtState='idle';
+}
+
+function updateDTBal(){
+  document.getElementById('dtBal').textContent=fmt(gs.coins)+' 🪙';
+}
+
+function dtBetHalf(){
+  dtBetAmt=Math.max(10,Math.floor(dtBetAmt/2));
+  document.getElementById('dtBetV').textContent=fmt(dtBetAmt);
+}
+
+function dtBetDouble(){
+  dtBetAmt=Math.min(gs.coins||dtBetAmt,dtBetAmt*2);
+  document.getElementById('dtBetV').textContent=fmt(dtBetAmt);
+}
+
+function dtEnableBtns(e){
+  ['dtBtnD','dtBtnTie','dtBtnT'].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.disabled=!e;
+  });
+}
+
+function dtRenderCard(prefix, rank, suit){
+  const col=DT_RED_SUITS.includes(suit)?'#CC1100':'#111';
+  ['RankTop','Suit','RankBot'].forEach(p=>{
+    const el=document.getElementById(prefix+p);
+    el.textContent=p==='Suit'?suit:rank;
+    el.style.color=col;
+  });
+}
+
+function dtBet(side){
+  if(dtState==='dealing') return;
+  if(gs.coins<dtBetAmt){ showToast('💸 Not enough coins!'); return; }
+  dtState='dealing';
+  dtEnableBtns(false);
+  gs.coins-=dtBetAmt; save(); updateHUD(); updateDTBal();
+
+  // Reset visuals
+  document.getElementById('dtDragonInner').classList.remove('flipped');
+  document.getElementById('dtTigerInner').classList.remove('flipped');
+  document.getElementById('dtDragonResult').textContent='';
+  document.getElementById('dtTigerResult').textContent='';
+  document.getElementById('dtDragonScene').className='dt-card-scene';
+  document.getElementById('dtTigerScene').className='dt-card-scene';
+
+  // Deal two cards
+  const dRankIdx=Math.floor(Math.random()*13);
+  const tRankIdx=Math.floor(Math.random()*13);
+  const dRank=DT_RANKS[dRankIdx], dSuit=DT_SUITS[Math.floor(Math.random()*4)];
+  const tRank=DT_RANKS[tRankIdx], tSuit=DT_SUITS[Math.floor(Math.random()*4)];
+  const outcome=dRankIdx>tRankIdx?'dragon':dRankIdx<tRankIdx?'tiger':'tie';
+
+  dtRenderCard('dtDragon',dRank,dSuit);
+  dtRenderCard('dtTiger',tRank,tSuit);
+
+  // Flip Dragon first, then Tiger
+  setTimeout(()=>{
+    document.getElementById('dtDragonInner').classList.add('flipped');
+    setTimeout(()=>{
+      document.getElementById('dtTigerInner').classList.add('flipped');
+      setTimeout(()=>dtFinish(side,outcome), 700);
+    }, 380);
+  }, 300);
+}
+
+function dtFinish(side, outcome){
+  let winAmt=0, won=false;
+  if(outcome==='dragon'){
+    dtDragonWinCt++; document.getElementById('dtDragonWinsEl').textContent=dtDragonWinCt;
+    document.getElementById('dtDragonResult').textContent='WIN!';
+    document.getElementById('dtDragonScene').classList.add('dt-win-glow-d');
+    if(side==='dragon'){ winAmt=dtBetAmt*2; won=true; }
+  } else if(outcome==='tiger'){
+    dtTigerWinCt++; document.getElementById('dtTigerWinsEl').textContent=dtTigerWinCt;
+    document.getElementById('dtTigerResult').textContent='WIN!';
+    document.getElementById('dtTigerScene').classList.add('dt-win-glow-t');
+    if(side==='tiger'){ winAmt=dtBetAmt*2; won=true; }
+  } else {
+    dtTieWinCt++; document.getElementById('dtTieWinsEl').textContent=dtTieWinCt;
+    document.getElementById('dtDragonResult').textContent='TIE';
+    document.getElementById('dtTigerResult').textContent='TIE';
+    if(side==='tie'){ winAmt=dtBetAmt*9; won=true; }
+    else { winAmt=Math.floor(dtBetAmt*0.5); } // push — return half on tie
+  }
+
+  gs.coins+=winAmt;
+  if(won){ gs.wins=(gs.wins||0)+1; if(winAmt>=dtBetAmt*5) gs.bigWins=(gs.bigWins||0)+1; }
+  save(); updateHUD(); updateDTBal();
+
+  const label={dragon:'🐉 Dragon',tiger:'🐯 Tiger',tie:'🤝 Tie'}[outcome];
+  if(won) { showToast('🏆 '+label+' wins! +'+fmt(winAmt)+' 🪙'); addXP(3); vibrate([50,30,100]); }
+  else if(outcome==='tie') { showToast('🤝 Tie — push! +'+fmt(winAmt)+' 🪙 back'); vibrate([60]); }
+  else { showToast('❌ '+label+' wins. Try again!'); vibrate([120]); }
+
+  addDTChip(outcome);
+  dtState='idle';
+  setTimeout(()=>dtEnableBtns(true), 400);
+}
+
+function addDTChip(outcome){
+  const hist=document.getElementById('dtHistory');
+  const chip=document.createElement('div');
+  chip.className='dt-hc '+(outcome==='dragon'?'dt-hc-d':outcome==='tiger'?'dt-hc-t':'dt-hc-tie');
+  chip.textContent=outcome==='dragon'?'D':outcome==='tiger'?'T':'=';
+  hist.insertBefore(chip,hist.firstChild);
+  while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
 
 // ── Jackpot ticker ─────────────────────────────
