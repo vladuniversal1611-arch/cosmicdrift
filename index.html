@@ -1446,6 +1446,30 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .sm-mult-badge{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid;}
 .sm-result{font-size:14px;font-weight:700;text-align:center;}
 .sm-result-w{color:#FFD700;} .sm-result-l{color:#FF4444;}
+/* ── Balloon Pop ── */
+#bpScreen{background:radial-gradient(ellipse at 50% 20%,#000A1A 0%,#00050D 100%);}
+.bp-balloon{width:54px;height:64px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid;transition:transform .15s,opacity .2s;position:relative;}
+.bp-balloon:hover{transform:scale(1.08);}
+.bp-balloon.popped{opacity:.3;cursor:default;filter:blur(1px);}
+.bp-balloon.popped::after{content:'💥';position:absolute;font-size:18px;}
+.bp-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.bp-result-w{color:#00FF88;} .bp-result-l{color:#FF4444;}
+/* ── Lucky Draw ── */
+#ldScreen{background:radial-gradient(ellipse at 50% 20%,#0A0012 0%,#050009 100%);}
+.ld-card{width:52px;height:74px;border-radius:10px;border:2px solid rgba(180,0,255,.3);background:linear-gradient(145deg,#140020,#0A0016);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.ld-card:hover{border-color:rgba(180,0,255,.7);transform:translateY(-4px);}
+.ld-card.revealed{cursor:default;border-color:#FFD700;background:linear-gradient(145deg,#1A1400,#100C00);}
+.ld-card.revealed.win{box-shadow:0 0 16px rgba(255,200,0,.5);}
+.ld-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.ld-result-w{color:#FFD700;} .ld-result-l{color:#FF4444;}
+/* ── Dice Battle ── */
+#dbScreen{background:radial-gradient(ellipse at 50% 20%,#100008 0%,#080004 100%);}
+.db-die{width:52px;height:52px;border-radius:12px;border:2px solid rgba(200,0,100,.3);background:linear-gradient(145deg,#1A0010,#0E0008);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.db-die.win{border-color:#00FF88;box-shadow:0 0 12px rgba(0,255,136,.4);}
+.db-die.lose{border-color:#FF4444;opacity:.7;}
+.db-vs{font-size:20px;color:#666;}
+.db-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.db-result-w{color:#00FF88;} .db-result-l{color:#FF4444;} .db-result-p{color:#00CFFF;}
 </style>
 </head>
 <body>
@@ -2671,6 +2695,85 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   </div>
 </div>
 
+<!-- ══ Balloon Pop ════════════════════════════════════════════════ -->
+<div class="game-screen" id="bpScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeBP()">←</button>
+    <span>🎈 Balloon Pop</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="bpBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:10px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="bpHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">9 balloons · 1 contains a BOMB 💣 · Others give prizes!</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:4px 0" id="bpBalloons"></div>
+    <div id="bpStatus" style="text-align:center;font-size:12px;color:#888">Pop balloons to collect prizes!</div>
+    <div id="bpResult" class="bp-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="bpBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="bpBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="bpBetDouble()">2×</button>
+    </div>
+    <div id="bpBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Lucky Draw ═════════════════════════════════════════════════ -->
+<div class="game-screen" id="ldScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeLD()">←</button>
+    <span>🎴 Lucky Draw</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="ldBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="ldHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Pick 1 of 5 mystery cards · Prizes: 0.5×/1×/2×/5×/10×</div>
+    <div style="display:flex;gap:10px;justify-content:center;padding:8px 0" id="ldCards"></div>
+    <div id="ldResult" class="ld-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="ldBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="ldBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="ldBetDouble()">2×</button>
+    </div>
+    <div id="ldBtnRow" style="display:flex;gap:8px;justify-content:center"><div style="font-size:12px;color:#666;padding:8px">Click a card to draw!</div></div>
+  </div>
+</div>
+<!-- ══ Dice Battle ════════════════════════════════════════════════ -->
+<div class="game-screen" id="dbScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeDB()">←</button>
+    <span>🎲 Dice Battle</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="dbBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:10px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="dbHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Roll 2 dice each · Higher sum wins · Tie = push!</div>
+    <div style="display:flex;justify-content:space-around;align-items:center">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Dealer</div>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <div class="db-die" id="dbD0">🎲</div>
+          <div class="db-die" id="dbD1">🎲</div>
+        </div>
+        <div id="dbDSum" style="font-size:18px;font-weight:900;text-align:center;margin-top:6px;color:#888">—</div>
+      </div>
+      <div class="db-vs">VS</div>
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">You</div>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <div class="db-die" id="dbP0">🎲</div>
+          <div class="db-die" id="dbP1">🎲</div>
+        </div>
+        <div id="dbPSum" style="font-size:18px;font-weight:900;text-align:center;margin-top:6px;color:#888">—</div>
+      </div>
+    </div>
+    <div id="dbResult" class="db-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="dbBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="dbBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="dbBetDouble()">2×</button>
+    </div>
+    <div id="dbBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
 <!-- ══ Gem Finder ═════════════════════════════════════════════════ -->
 <div class="game-screen" id="gfScreen">
   <div class="game-header">
@@ -7747,6 +7850,18 @@ const GAME_DEFS = {
      emoji:'💫✨🎰', badge:'HOT', badgeColor:'#FF44FF',
      grad:'linear-gradient(145deg,#100010,#080008)',
      glow:'rgba(200,0,200,.3)', minLv:1, action:'spinmult'},
+    {id:'balloonpop', name:'Balloon Pop', sub:'Pop Balloons — Avoid the Bomb!',
+     emoji:'🎈💣🎉', badge:'HOT', badgeColor:'#FF66BB',
+     grad:'linear-gradient(145deg,#000A1A,#00050D)',
+     glow:'rgba(0,120,255,.3)', minLv:1, action:'balloonpop'},
+    {id:'luckydraw', name:'Lucky Draw', sub:'Pick 1 of 5 Mystery Cards!',
+     emoji:'🎴🃏✨', badge:'NEW', badgeColor:'#BF5FFF',
+     grad:'linear-gradient(145deg,#0A0012,#050009)',
+     glow:'rgba(180,0,255,.3)', minLv:1, action:'luckydraw'},
+    {id:'dicebattle', name:'Dice Battle', sub:'Roll 2 Dice Each — Higher Sum Wins!',
+     emoji:'🎲⚔️🎲', badge:'HOT', badgeColor:'#FF2266',
+     grad:'linear-gradient(145deg,#100008,#080004)',
+     glow:'rgba(200,0,80,.3)', minLv:1, action:'dicebattle'},
     {id:'warofcards', name:'War of Cards', sub:'One Card Each — Higher Wins!',
      emoji:'⚔️🃏👑', badge:'HOT', badgeColor:'#FF4400',
      grad:'linear-gradient(145deg,#1A0000,#0A0000)',
@@ -8618,6 +8733,38 @@ function gcSVG(g){
       <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(220,100,255,.9)" font-family="Arial,sans-serif">MATCH REELS + MULTIPLIER BONUS</text>
     ${e}`;
   }
+  if(act==='balloonpop'){
+    return `${s}
+      <rect width="160" height="100" fill="#000A1A"/>
+      ${[['#FF4488',20,28],['#4488FF',50,22],['#FFD700',80,30],['#00CC66',110,24],['#FF6600',140,28]].map(([c,x,y])=>`
+        <ellipse cx="${x}" cy="${y}" rx="13" ry="15" fill="${c}" opacity=".85"/>
+        <line x1="${x}" y1="${y+15}" x2="${x}" y2="${y+28}" stroke="${c}" stroke-width="1.5" opacity=".6"/>
+      `).join('')}
+      <text x="80" y="70" text-anchor="middle" font-size="18" font-family="Arial">💣</text>
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,100,180,.9)" font-family="Arial,sans-serif">POP BALLOONS — AVOID THE BOMB!</text>
+    ${e}`;
+  }
+  if(act==='luckydraw'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A0012"/>
+      <ellipse cx="80" cy="70" rx="68" ry="26" fill="#140020" stroke="#280040" stroke-width="1.5"/>
+      ${[12,40,68,96,124].map(x=>`
+        <rect x="${x}" y="14" width="26" height="40" rx="6" fill="#180028" stroke="rgba(180,0,255,.4)" stroke-width="1.5"/>
+        <text x="${x+13}" y="40" text-anchor="middle" font-size="16" font-family="Arial">✨</text>
+      `).join('')}
+      <text x="80" y="90" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">PICK 1 OF 5 — WIN UP TO 10×!</text>
+    ${e}`;
+  }
+  if(act==='dicebattle'){
+    return `${s}
+      <rect width="160" height="100" fill="#100008"/>
+      <ellipse cx="80" cy="70" rx="68" ry="26" fill="#1A000C" stroke="#380018" stroke-width="1.5"/>
+      <text x="40" y="52" text-anchor="middle" font-size="28" font-family="Arial">🎲</text>
+      <text x="80" y="58" text-anchor="middle" font-size="20" font-family="Arial">⚔️</text>
+      <text x="120" y="52" text-anchor="middle" font-size="28" font-family="Arial">🎲</text>
+      <text x="80" y="90" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,50,100,.9)" font-family="Arial,sans-serif">2 DICE EACH — HIGHER SUM WINS!</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -9027,6 +9174,9 @@ function makeCard(g){
       else if(g.action==='gemfinder') openGF();
       else if(g.action==='miniroulette') openMR();
       else if(g.action==='spinmult') openSM();
+      else if(g.action==='balloonpop') openBP();
+      else if(g.action==='luckydraw') openLD();
+      else if(g.action==='dicebattle') openDB();
       else if(g.action==='warofcards') openWOC();
       else if(g.action==='numberguess') openNGU();
       else if(g.action==='msstud') openMSStud();
@@ -12825,6 +12975,241 @@ function addDWChip(outcome){
   chip.className='dw-hc '+(outcome==='W'?'dw-hc-w':'dw-hc-l'); chip.textContent=outcome;
   hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
+
+// ── Balloon Pop ───────────────────────────────────────────────────────────────
+const BP_COLORS=['#FF4488','#4488FF','#FFD700','#00CC66','#FF6600','#BF5FFF','#00CFFF','#FF3333'];
+const BP_PRIZES=[0.2,0.3,0.5,0.5,1,1,2,3]; // 8 prize balloons
+let bpBetAmt=100, bpPhase='bet';
+let bpBombIdx=0, bpPrizePot=0, bpPopped=0;
+
+function openBP(){
+  document.getElementById('bpScreen').classList.add('open');
+  bpPhase='bet'; bpBetAmt=100; bpPrizePot=0; bpPopped=0;
+  updateBPBal(); document.getElementById('bpBetV').textContent=fmt(bpBetAmt);
+  document.getElementById('bpStatus').textContent='Pop balloons to collect prizes!';
+  document.getElementById('bpResult').textContent=' '; document.getElementById('bpResult').className='bp-result';
+  document.getElementById('bpHistory').innerHTML='&nbsp;';
+  bpBuildBalloons(); bpSetBtnRow('start');
+}
+function closeBP(){ document.getElementById('bpScreen').classList.remove('open'); bpPhase='bet'; }
+function updateBPBal(){ document.getElementById('bpBal').textContent=fmt(gs.coins)+' 🪙'; }
+function bpBetHalf(){ bpBetAmt=Math.max(10,Math.floor(bpBetAmt/2)); document.getElementById('bpBetV').textContent=fmt(bpBetAmt); }
+function bpBetDouble(){ bpBetAmt=Math.min(gs.coins,bpBetAmt*2); document.getElementById('bpBetV').textContent=fmt(bpBetAmt); }
+function bpBuildBalloons(){
+  const box=document.getElementById('bpBalloons'); box.innerHTML='';
+  for(let i=0;i<9;i++){
+    const b=document.createElement('div');
+    b.className='bp-balloon'; b.id='bpB'+i;
+    b.style.background=BP_COLORS[i%BP_COLORS.length];
+    b.style.borderColor=BP_COLORS[i%BP_COLORS.length];
+    b.style.boxShadow=`0 0 10px ${BP_COLORS[i%BP_COLORS.length]}66`;
+    b.textContent='🎈'; b.onclick=()=>bpPop(i);
+    box.appendChild(b);
+  }
+}
+function bpStart(){
+  if(bpPhase!=='bet') return;
+  if(gs.coins<bpBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=bpBetAmt; updateBPBal();
+  bpBombIdx=Math.floor(Math.random()*9); bpPrizePot=0; bpPopped=0;
+  bpPhase='active'; bpSetBtnRow('cashout');
+  document.getElementById('bpStatus').textContent='Click a balloon!';
+}
+function bpPop(idx){
+  if(bpPhase!=='active') return;
+  const b=document.getElementById('bpB'+idx); b.onclick=null;
+  if(idx===bpBombIdx){
+    b.textContent='💣'; b.className='bp-balloon popped'; b.style.background='#440000'; b.style.borderColor='#FF4444';
+    // reveal all
+    for(let i=0;i<9;i++){
+      const bi=document.getElementById('bpB'+i); bi.onclick=null;
+      if(i!==idx&&i!==bpBombIdx) bi.className='bp-balloon popped';
+    }
+    const rEl=document.getElementById('bpResult');
+    const hEl=document.getElementById('bpHistory');
+    if(bpPrizePot>0){
+      const won=Math.round(bpBetAmt*bpPrizePot); gs.coins+=won; updateBPBal();
+      rEl.textContent=`💥 BOMB! But saved ${bpPrizePot.toFixed(1)}× = +${fmt(won-bpBetAmt)} 🪙`; rEl.className='bp-result bp-result-w';
+      hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(won-bpBetAmt)} 🪙</span>`;
+      addHistory('balloonpop',won-bpBetAmt);
+    } else {
+      rEl.textContent='💥 BOMB! Lose it all!'; rEl.className='bp-result bp-result-l';
+      hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(bpBetAmt)} 🪙</span>`;
+      addHistory('balloonpop',-bpBetAmt);
+    }
+    bpPhase='result'; bpSetBtnRow('new');
+  } else {
+    bpPopped++;
+    const prize=BP_PRIZES[(bpPopped-1)%BP_PRIZES.length];
+    bpPrizePot+=prize;
+    b.textContent=`+${prize}×`; b.className='bp-balloon popped'; b.style.fontSize='11px'; b.style.fontWeight='700';
+    document.getElementById('bpStatus').textContent=`Collected ${bpPrizePot.toFixed(1)}× — Keep popping or cash out!`;
+    if(bpPopped>=8){
+      // all prizes collected
+      const won=Math.round(bpBetAmt*bpPrizePot); gs.coins+=won; updateBPBal();
+      document.getElementById('bpResult').textContent=`All prizes! ${bpPrizePot.toFixed(1)}× = +${fmt(won-bpBetAmt)} 🪙`; document.getElementById('bpResult').className='bp-result bp-result-w';
+      document.getElementById('bpHistory').innerHTML=`<span style="color:#FFD700">WIN +${fmt(won-bpBetAmt)} 🪙</span>`;
+      addHistory('balloonpop',won-bpBetAmt);
+      bpPhase='result'; bpSetBtnRow('new');
+    }
+  }
+}
+function bpCashOut(){
+  if(bpPhase!=='active') return;
+  for(let i=0;i<9;i++) document.getElementById('bpB'+i).onclick=null;
+  const rEl=document.getElementById('bpResult');
+  const hEl=document.getElementById('bpHistory');
+  if(bpPrizePot>0){
+    const won=Math.round(bpBetAmt*bpPrizePot); gs.coins+=won; updateBPBal();
+    rEl.textContent=`Cashed out ${bpPrizePot.toFixed(1)}× = +${fmt(won-bpBetAmt)} 🪙`; rEl.className='bp-result bp-result-w';
+    hEl.innerHTML=`<span style="color:#00FF88">WIN +${fmt(won-bpBetAmt)} 🪙</span>`;
+    addHistory('balloonpop',won-bpBetAmt);
+  } else {
+    rEl.textContent='No prizes collected!'; rEl.className='bp-result bp-result-l';
+    hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(bpBetAmt)} 🪙</span>`;
+    addHistory('balloonpop',-bpBetAmt);
+  }
+  bpPhase='result'; bpSetBtnRow('new');
+}
+function bpSetBtnRow(state){
+  const r=document.getElementById('bpBtnRow');
+  if(state==='start') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="bpStart()">START</button>`;
+  else if(state==='cashout') r.innerHTML=`<button class="tcp-action-btn tcp-btn-play" onclick="bpCashOut()">CASH OUT</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="bpNewRound()">POP AGAIN</button>`;
+}
+function bpNewRound(){ bpPhase='bet'; bpPrizePot=0; bpPopped=0; document.getElementById('bpStatus').textContent='Pop balloons to collect prizes!'; document.getElementById('bpResult').textContent=' '; bpBuildBalloons(); bpSetBtnRow('start'); }
+
+// ── Lucky Draw ────────────────────────────────────────────────────────────────
+const LD_PRIZES=[0.5,1,2,5,10];
+const LD_EMOJIS=['💰','🎁','💎','⭐','👑'];
+let ldBetAmt=100, ldPhase='bet';
+
+function openLD(){
+  document.getElementById('ldScreen').classList.add('open');
+  ldPhase='bet'; ldBetAmt=100;
+  updateLDBal(); document.getElementById('ldBetV').textContent=fmt(ldBetAmt);
+  document.getElementById('ldResult').textContent=' ';
+  document.getElementById('ldHistory').innerHTML='&nbsp;';
+  ldBuildCards(); ldSetBtnRow('draw');
+}
+function closeLD(){ document.getElementById('ldScreen').classList.remove('open'); ldPhase='bet'; }
+function updateLDBal(){ document.getElementById('ldBal').textContent=fmt(gs.coins)+' 🪙'; }
+function ldBetHalf(){ ldBetAmt=Math.max(10,Math.floor(ldBetAmt/2)); document.getElementById('ldBetV').textContent=fmt(ldBetAmt); }
+function ldBetDouble(){ ldBetAmt=Math.min(gs.coins,ldBetAmt*2); document.getElementById('ldBetV').textContent=fmt(ldBetAmt); }
+function ldBuildCards(){
+  const box=document.getElementById('ldCards'); box.innerHTML='';
+  for(let i=0;i<5;i++){
+    const c=document.createElement('div'); c.className='ld-card'; c.textContent='✨'; c.id='ldCard'+i;
+    c.onclick=()=>ldPick(i); box.appendChild(c);
+  }
+}
+function ldPick(idx){
+  if(ldPhase!=='bet') return;
+  if(gs.coins<ldBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=ldBetAmt; updateLDBal(); ldPhase='result';
+  // shuffle prizes
+  const shuffled=[...LD_PRIZES].sort(()=>Math.random()-.5);
+  // reveal all with delay
+  for(let i=0;i<5;i++){
+    const c=document.getElementById('ldCard'+i); c.onclick=null;
+    setTimeout(()=>{
+      c.className='ld-card revealed'+(i===idx?' win':'');
+      c.textContent=LD_EMOJIS[LD_PRIZES.indexOf(shuffled[i])];
+      c.title=shuffled[i]+'×';
+      if(i===idx){
+        const mult=shuffled[i];
+        const rEl=document.getElementById('ldResult');
+        const hEl=document.getElementById('ldHistory');
+        if(mult>=1){
+          const win=Math.round(ldBetAmt*mult); gs.coins+=win; updateLDBal();
+          rEl.textContent=`${LD_EMOJIS[LD_PRIZES.indexOf(mult)]} ${mult}× — WIN +${fmt(win-ldBetAmt)} 🪙`; rEl.className='ld-result ld-result-w';
+          hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(win-ldBetAmt)} 🪙</span>`;
+          addHistory('luckydraw',win-ldBetAmt);
+        } else {
+          const refund=Math.round(ldBetAmt*mult); gs.coins+=refund; updateLDBal();
+          rEl.textContent=`${LD_EMOJIS[LD_PRIZES.indexOf(mult)]} ${mult}× — partial refund`; rEl.className='ld-result ld-result-l';
+          hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(ldBetAmt-refund)} 🪙</span>`;
+          addHistory('luckydraw',-(ldBetAmt-refund));
+        }
+        ldSetBtnRow('new');
+      }
+    }, i*120);
+  }
+}
+function ldSetBtnRow(state){
+  const r=document.getElementById('ldBtnRow');
+  if(state==='draw') r.innerHTML=`<div style="font-size:12px;color:#666;padding:8px">Click a card to draw!</div>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="ldNewRound()">DRAW AGAIN</button>`;
+}
+function ldNewRound(){ ldPhase='bet'; document.getElementById('ldResult').textContent=' '; ldBuildCards(); ldSetBtnRow('draw'); }
+
+// ── Dice Battle ───────────────────────────────────────────────────────────────
+const DB_FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
+let dbBetAmt=100, dbPhase='bet';
+
+function openDB(){
+  document.getElementById('dbScreen').classList.add('open');
+  dbPhase='bet'; dbBetAmt=100;
+  updateDBBal(); document.getElementById('dbBetV').textContent=fmt(dbBetAmt);
+  ['dbD0','dbD1','dbP0','dbP1'].forEach(id=>{const el=document.getElementById(id);el.textContent='🎲';el.className='db-die';});
+  document.getElementById('dbDSum').textContent='—'; document.getElementById('dbPSum').textContent='—';
+  document.getElementById('dbResult').textContent=' ';
+  document.getElementById('dbHistory').innerHTML='&nbsp;';
+  dbSetBtnRow('roll');
+}
+function closeDB(){ document.getElementById('dbScreen').classList.remove('open'); dbPhase='bet'; }
+function updateDBBal(){ document.getElementById('dbBal').textContent=fmt(gs.coins)+' 🪙'; }
+function dbBetHalf(){ dbBetAmt=Math.max(10,Math.floor(dbBetAmt/2)); document.getElementById('dbBetV').textContent=fmt(dbBetAmt); }
+function dbBetDouble(){ dbBetAmt=Math.min(gs.coins,dbBetAmt*2); document.getElementById('dbBetV').textContent=fmt(dbBetAmt); }
+function dbSetBtnRow(state){
+  const r=document.getElementById('dbBtnRow');
+  if(state==='roll') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="dbRoll()">ROLL!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="dbNewRound()">ROLL AGAIN</button>`;
+}
+function dbRoll(){
+  if(dbPhase!=='bet') return;
+  if(gs.coins<dbBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=dbBetAmt; updateDBBal(); dbPhase='rolling';
+  let ticks=0;
+  const pD=[Math.floor(Math.random()*6),Math.floor(Math.random()*6)];
+  const dD=[Math.floor(Math.random()*6),Math.floor(Math.random()*6)];
+  const iv=setInterval(()=>{
+    ticks++;
+    ['dbD0','dbD1','dbP0','dbP1'].forEach(id=>document.getElementById(id).textContent=DB_FACES[Math.floor(Math.random()*6)]);
+    if(ticks>=16){
+      clearInterval(iv);
+      document.getElementById('dbD0').textContent=DB_FACES[dD[0]];
+      document.getElementById('dbD1').textContent=DB_FACES[dD[1]];
+      document.getElementById('dbP0').textContent=DB_FACES[pD[0]];
+      document.getElementById('dbP1').textContent=DB_FACES[pD[1]];
+      const pSum=pD[0]+pD[1]+2, dSum=dD[0]+dD[1]+2;
+      document.getElementById('dbPSum').textContent=pSum;
+      document.getElementById('dbDSum').textContent=dSum;
+      const rEl=document.getElementById('dbResult');
+      const hEl=document.getElementById('dbHistory');
+      if(pSum>dSum){
+        document.getElementById('dbP0').className='db-die win'; document.getElementById('dbP1').className='db-die win';
+        gs.coins+=dbBetAmt*2; updateDBBal();
+        rEl.textContent=`${pSum} vs ${dSum} — YOU WIN!`; rEl.className='db-result db-result-w';
+        hEl.innerHTML=`<span style="color:#00FF88">WIN +${fmt(dbBetAmt)} 🪙</span>`;
+        addHistory('dicebattle',dbBetAmt);
+      } else if(pSum===dSum){
+        gs.coins+=dbBetAmt; updateDBBal();
+        rEl.textContent=`${pSum} vs ${dSum} — TIE! Push.`; rEl.className='db-result db-result-p';
+        hEl.innerHTML=`<span style="color:#00CFFF">TIE — returned</span>`;
+        addHistory('dicebattle',0);
+      } else {
+        document.getElementById('dbD0').className='db-die win'; document.getElementById('dbD1').className='db-die win';
+        document.getElementById('dbP0').className='db-die lose'; document.getElementById('dbP1').className='db-die lose';
+        rEl.textContent=`${dSum} vs ${pSum} — Dealer wins.`; rEl.className='db-result db-result-l';
+        hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(dbBetAmt)} 🪙</span>`;
+        addHistory('dicebattle',-dbBetAmt);
+      }
+      dbPhase='result'; dbSetBtnRow('new');
+    }
+  },80);
+}
+function dbNewRound(){ dbPhase='bet'; ['dbD0','dbD1','dbP0','dbP1'].forEach(id=>{const el=document.getElementById(id);el.textContent='🎲';el.className='db-die';}); document.getElementById('dbDSum').textContent='—'; document.getElementById('dbPSum').textContent='—'; document.getElementById('dbResult').textContent=' '; dbSetBtnRow('roll'); }
 
 // ── Gem Finder ────────────────────────────────────────────────────────────────
 const GF_TOTAL=15, GF_GEMS=5;
