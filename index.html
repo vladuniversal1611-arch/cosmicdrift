@@ -1364,6 +1364,32 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .lc-ball-spot{font-size:22px;opacity:0;transition:opacity .3s .35s;}
 .lc-result{font-size:15px;font-weight:700;text-align:center;margin:4px 0;}
 .lc-result-w{color:#00FF88;} .lc-result-l{color:#FF4444;}
+/* ── Rock Paper Scissors ── */
+#rpsScreen{background:radial-gradient(ellipse at 50% 20%,#0A001A 0%,#050010 100%);}
+.rps-pick-btn{width:68px;height:68px;border-radius:16px;font-size:30px;cursor:pointer;border:2px solid rgba(180,0,255,.3);background:rgba(60,0,120,.2);transition:all .2s;}
+.rps-pick-btn:hover{border-color:rgba(180,0,255,.6);background:rgba(80,0,160,.3);}
+.rps-pick-btn.sel{border-color:#BF5FFF;background:rgba(120,0,200,.4);box-shadow:0 0 16px rgba(180,0,255,.4);transform:scale(1.1);}
+.rps-reveal{display:flex;justify-content:space-around;align-items:center;padding:8px 0;}
+.rps-choice{font-size:44px;text-align:center;}
+.rps-result{font-size:15px;font-weight:700;text-align:center;margin:4px 0;}
+.rps-result-w{color:#00FF88;} .rps-result-l{color:#FF4444;} .rps-result-p{color:#00CFFF;}
+/* ── War of Cards ── */
+#wocScreen{background:radial-gradient(ellipse at 50% 20%,#1A0000 0%,#0A0000 100%);}
+.woc-card{width:52px;height:74px;border-radius:8px;background:white;border:2px solid #ddd;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;}
+.woc-card.face-down{background:linear-gradient(135deg,#1A0000 0%,#0A0000 50%,#1A0000 100%);border:2px solid rgba(200,0,0,.3);}
+.woc-card.win-card{box-shadow:0 6px 18px rgba(255,200,0,.5);transform:translateY(-6px);border-color:#FFD700;}
+.woc-card.lose-card{opacity:.6;transform:translateY(4px);}
+.woc-result{font-size:16px;font-weight:700;text-align:center;}
+.woc-result-w{color:#FFD700;} .woc-result-l{color:#FF4444;} .woc-result-p{color:#00CFFF;}
+/* ── Number Guess ── */
+#nguScreen{background:radial-gradient(ellipse at 50% 20%,#000A1A 0%,#000408 100%);}
+.ngu-num-btn{width:52px;height:52px;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;border:2px solid rgba(0,180,255,.3);background:rgba(0,60,120,.2);color:#00CFFF;transition:all .2s;flex-shrink:0;}
+.ngu-num-btn:hover{border-color:rgba(0,180,255,.7);background:rgba(0,80,160,.3);}
+.ngu-num-btn.sel{border-color:#00CFFF;background:rgba(0,120,200,.4);box-shadow:0 0 12px rgba(0,180,255,.4);transform:scale(1.08);}
+.ngu-num-btn.correct{border-color:#00FF88;background:rgba(0,200,80,.25);box-shadow:0 0 14px rgba(0,255,136,.5);color:#00FF88;}
+.ngu-num-btn.wrong{border-color:#FF4444;background:rgba(200,0,0,.15);color:#FF4444;opacity:.7;}
+.ngu-result{font-size:15px;font-weight:700;text-align:center;margin:6px 0;}
+.ngu-result-w{color:#00FF88;} .ngu-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -2589,6 +2615,96 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   </div>
 </div>
 
+<!-- ══ Rock Paper Scissors ════════════════════════════════════════ -->
+<div class="game-screen" id="rpsScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeRPS()">←</button>
+    <span>✂️ Rock Paper Scissors</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="rpsBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="rpsHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Win=2× · Tie=return · Loss=0</div>
+    <div style="display:flex;gap:12px;justify-content:center;padding:6px 0">
+      <button class="rps-pick-btn" id="rpsBtnR" onclick="rpsPick('rock')">🪨</button>
+      <button class="rps-pick-btn" id="rpsBtnP" onclick="rpsPick('paper')">📄</button>
+      <button class="rps-pick-btn" id="rpsBtnS" onclick="rpsPick('scissors')">✂️</button>
+    </div>
+    <div class="rps-reveal" id="rpsReveal" style="display:none">
+      <div><div style="font-size:11px;color:#888;text-align:center">You</div><div class="rps-choice" id="rpsYou"></div></div>
+      <div style="font-size:20px;color:#555">VS</div>
+      <div><div style="font-size:11px;color:#888;text-align:center">Dealer</div><div class="rps-choice" id="rpsDlr"></div></div>
+    </div>
+    <div id="rpsResult" class="rps-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="rpsBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="rpsBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="rpsBetDouble()">2×</button>
+    </div>
+    <div id="rpsBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ War of Cards ════════════════════════════════════════════════ -->
+<div class="game-screen" id="wocScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeWOC()">←</button>
+    <span>⚔️ War of Cards</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="wocBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:10px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="wocHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Higher card wins · Tie = WAR (2× stake)!</div>
+    <div style="display:flex;justify-content:space-around;align-items:center;flex:1;max-height:160px">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Dealer</div>
+        <div id="wocDCard" class="woc-card face-down" style="margin:0 auto"><span style="font-size:28px">🂠</span></div>
+      </div>
+      <div id="wocVs" style="font-size:22px;color:#666">VS</div>
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">You</div>
+        <div id="wocPCard" class="woc-card face-down" style="margin:0 auto"><span style="font-size:28px">🂠</span></div>
+      </div>
+    </div>
+    <div id="wocResult" class="woc-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="wocBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="wocBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="wocBetDouble()">2×</button>
+    </div>
+    <div id="wocBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Number Guess ══════════════════════════════════════════════ -->
+<div class="game-screen" id="nguScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeNGU()">←</button>
+    <span>🔢 Number Guess</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="nguBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:10px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="nguHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Pick 1 of 10 numbers · Correct = WIN 8×!</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:6px 0" id="nguNumGrid">
+      <button class="ngu-num-btn" id="nguNum1" onclick="nguPick(1)">1</button>
+      <button class="ngu-num-btn" id="nguNum2" onclick="nguPick(2)">2</button>
+      <button class="ngu-num-btn" id="nguNum3" onclick="nguPick(3)">3</button>
+      <button class="ngu-num-btn" id="nguNum4" onclick="nguPick(4)">4</button>
+      <button class="ngu-num-btn" id="nguNum5" onclick="nguPick(5)">5</button>
+      <button class="ngu-num-btn" id="nguNum6" onclick="nguPick(6)">6</button>
+      <button class="ngu-num-btn" id="nguNum7" onclick="nguPick(7)">7</button>
+      <button class="ngu-num-btn" id="nguNum8" onclick="nguPick(8)">8</button>
+      <button class="ngu-num-btn" id="nguNum9" onclick="nguPick(9)">9</button>
+      <button class="ngu-num-btn" id="nguNum10" onclick="nguPick(10)">10</button>
+    </div>
+    <div id="nguResult" class="ngu-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="nguBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="nguBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="nguBetDouble()">2×</button>
+    </div>
+    <div id="nguBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
 <!-- ══ Coin Flip ══════════════════════════════════════════════════ -->
 <div class="game-screen" id="cfScreen">
   <div class="game-header">
@@ -7394,6 +7510,18 @@ const GAME_DEFS = {
      emoji:'🎩🟠🎩', badge:'HOT', badgeColor:'#BF5FFF',
      grad:'linear-gradient(145deg,#0A0018,#050010)',
      glow:'rgba(180,0,255,.32)', minLv:1, action:'luckycups'},
+    {id:'rpsbet', name:'Rock Paper Scissors', sub:'Beat the Dealer — Win 2×!',
+     emoji:'🪨📄✂️', badge:'HOT', badgeColor:'#BF5FFF',
+     grad:'linear-gradient(145deg,#0A001A,#050010)',
+     glow:'rgba(180,0,255,.3)', minLv:1, action:'rpsbet'},
+    {id:'warofcards', name:'War of Cards', sub:'One Card Each — Higher Wins!',
+     emoji:'⚔️🃏👑', badge:'HOT', badgeColor:'#FF4400',
+     grad:'linear-gradient(145deg,#1A0000,#0A0000)',
+     glow:'rgba(255,60,0,.3)', minLv:1, action:'warofcards'},
+    {id:'numberguess', name:'Number Guess', sub:'Pick 1-10 — Correct Pays 8×!',
+     emoji:'🔢🎯⭐', badge:'NEW', badgeColor:'#00CFFF',
+     grad:'linear-gradient(145deg,#000A1A,#000408)',
+     glow:'rgba(0,180,255,.3)', minLv:1, action:'numberguess'},
   ],
   quick:[
     {id:'aviator', name:'Aviator', sub:'Crash — Cash Out Before It Flies!',
@@ -8146,6 +8274,41 @@ function gcSVG(g){
       <text x="80" y="95" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">FIND THE BALL — WIN 2.5×</text>
     ${e}`;
   }
+  if(act==='rpsbet'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A001A"/>
+      <ellipse cx="80" cy="72" rx="68" ry="26" fill="#140028" stroke="#2A0060" stroke-width="1.5"/>
+      <text x="30" y="58" text-anchor="middle" font-size="28" font-family="Arial">🪨</text>
+      <text x="80" y="52" text-anchor="middle" font-size="28" font-family="Arial">📄</text>
+      <text x="130" y="58" text-anchor="middle" font-size="28" font-family="Arial">✂️</text>
+      <text x="80" y="90" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">BEAT THE DEALER — WIN 2×</text>
+    ${e}`;
+  }
+  if(act==='warofcards'){
+    return `${s}
+      <rect width="160" height="100" fill="#1A0000"/>
+      <text x="80" y="52" text-anchor="middle" font-size="24" font-family="Arial">⚔️</text>
+      <rect x="8" y="14" width="44" height="64" rx="7" fill="white" stroke="#ddd" stroke-width="1.5"/>
+      <text x="13" y="30" font-size="12" font-weight="900" fill="#111" font-family="Arial">A</text>
+      <text x="14" y="52" font-size="18" fill="#111" font-family="Arial">♠</text>
+      <rect x="108" y="14" width="44" height="64" rx="7" fill="white" stroke="#ddd" stroke-width="1.5"/>
+      <text x="113" y="30" font-size="12" font-weight="900" fill="#CC0000" font-family="Arial">K</text>
+      <text x="114" y="52" font-size="18" fill="#CC0000" font-family="Arial">♥</text>
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,100,0,.9)" font-family="Arial,sans-serif">HIGHER CARD WINS · TIE = WAR!</text>
+    ${e}`;
+  }
+  if(act==='numberguess'){
+    return `${s}
+      <rect width="160" height="100" fill="#000A1A"/>
+      <ellipse cx="80" cy="68" rx="68" ry="26" fill="#001030" stroke="#003060" stroke-width="1.5"/>
+      ${[1,2,3,4,5,6,7,8,9,10].map((n,i)=>{
+        const x=10+i*14, y=i%2===0?22:34;
+        return `<rect x="${x}" y="${y}" width="12" height="18" rx="3" fill="rgba(0,100,200,.35)" stroke="rgba(0,180,255,.4)" stroke-width="1"/>
+                <text x="${x+6}" y="${y+13}" text-anchor="middle" font-size="7" font-weight="900" fill="#00CFFF" font-family="Arial">${n}</text>`;
+      }).join('')}
+      <text x="80" y="88" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,180,255,.9)" font-family="Arial,sans-serif">PICK 1-10 — CORRECT PAYS 8×</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -8548,6 +8711,9 @@ function makeCard(g){
       else if(g.action==='coinflip') openCF();
       else if(g.action==='horserace') openHR();
       else if(g.action==='luckycups') openLC();
+      else if(g.action==='rpsbet') openRPS();
+      else if(g.action==='warofcards') openWOC();
+      else if(g.action==='numberguess') openNGU();
       else if(g.action==='msstud') openMSStud();
       else if(g.action==='uth') openUTH();
       else if(g.action==='spinwin') openSpinWin();
@@ -12344,6 +12510,206 @@ function addDWChip(outcome){
   chip.className='dw-hc '+(outcome==='W'?'dw-hc-w':'dw-hc-l'); chip.textContent=outcome;
   hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
+
+// ── Rock Paper Scissors ───────────────────────────────────────────────────────
+const RPS_CHOICES=['rock','paper','scissors'];
+const RPS_EMOJI={rock:'🪨',paper:'📄',scissors:'✂️'};
+const RPS_BEATS={rock:'scissors',paper:'rock',scissors:'paper'};
+let rpsBetAmt=100, rpsPhase='bet', rpsPickedChoice='';
+
+function openRPS(){
+  document.getElementById('rpsScreen').classList.add('open');
+  rpsPhase='bet'; rpsBetAmt=100; rpsPickedChoice='';
+  updateRPSBal(); document.getElementById('rpsBetV').textContent=fmt(rpsBetAmt);
+  document.getElementById('rpsReveal').style.display='none';
+  document.getElementById('rpsResult').textContent=' '; document.getElementById('rpsResult').className='rps-result';
+  document.getElementById('rpsBtnR').className='rps-pick-btn';
+  document.getElementById('rpsBtnP').className='rps-pick-btn';
+  document.getElementById('rpsBtnS').className='rps-pick-btn';
+  rpsSetBtnRow('play');
+}
+function closeRPS(){ document.getElementById('rpsScreen').classList.remove('open'); rpsPhase='bet'; }
+function updateRPSBal(){ document.getElementById('rpsBal').textContent=fmt(gs.coins)+' 🪙'; }
+function rpsBetHalf(){ rpsBetAmt=Math.max(10,Math.floor(rpsBetAmt/2)); document.getElementById('rpsBetV').textContent=fmt(rpsBetAmt); }
+function rpsBetDouble(){ rpsBetAmt=Math.min(gs.coins,rpsBetAmt*2); document.getElementById('rpsBetV').textContent=fmt(rpsBetAmt); }
+function rpsPick(choice){
+  if(rpsPhase!=='bet') return;
+  rpsPickedChoice=choice;
+  document.getElementById('rpsBtnR').className='rps-pick-btn'+(choice==='rock'?' sel':'');
+  document.getElementById('rpsBtnP').className='rps-pick-btn'+(choice==='paper'?' sel':'');
+  document.getElementById('rpsBtnS').className='rps-pick-btn'+(choice==='scissors'?' sel':'');
+}
+function rpsSetBtnRow(state){
+  const r=document.getElementById('rpsBtnRow');
+  if(state==='play') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="rpsPlay()">PLAY!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="rpsNewRound()">PLAY AGAIN</button>`;
+}
+function rpsPlay(){
+  if(rpsPhase!=='bet') return;
+  if(!rpsPickedChoice){alert('Pick Rock, Paper, or Scissors first!');return;}
+  if(gs.coins<rpsBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=rpsBetAmt; updateRPSBal(); rpsPhase='result';
+  const dealer=RPS_CHOICES[Math.floor(Math.random()*3)];
+  document.getElementById('rpsYou').textContent=RPS_EMOJI[rpsPickedChoice];
+  document.getElementById('rpsDlr').textContent=RPS_EMOJI[dealer];
+  document.getElementById('rpsReveal').style.display='flex';
+  const rEl=document.getElementById('rpsResult');
+  const hEl=document.getElementById('rpsHistory');
+  if(RPS_BEATS[rpsPickedChoice]===dealer){
+    gs.coins+=rpsBetAmt*2; updateRPSBal();
+    rEl.textContent=`${RPS_EMOJI[rpsPickedChoice]} beats ${RPS_EMOJI[dealer]}! YOU WIN!`; rEl.className='rps-result rps-result-w';
+    hEl.innerHTML=`<span style="color:#00FF88">WIN +${fmt(rpsBetAmt)} 🪙</span>`;
+    addHistory('rpsbet',rpsBetAmt);
+  } else if(RPS_BEATS[dealer]===rpsPickedChoice){
+    rEl.textContent=`${RPS_EMOJI[dealer]} beats ${RPS_EMOJI[rpsPickedChoice]}! Dealer wins.`; rEl.className='rps-result rps-result-l';
+    hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(rpsBetAmt)} 🪙</span>`;
+    addHistory('rpsbet',-rpsBetAmt);
+  } else {
+    gs.coins+=rpsBetAmt; updateRPSBal();
+    rEl.textContent='Tie! Bet returned.'; rEl.className='rps-result rps-result-p';
+    hEl.innerHTML=`<span style="color:#00CFFF">TIE — returned</span>`;
+    addHistory('rpsbet',0);
+  }
+  rpsSetBtnRow('new');
+}
+function rpsNewRound(){ rpsPhase='bet'; rpsPickedChoice=''; document.getElementById('rpsReveal').style.display='none'; document.getElementById('rpsResult').textContent=' '; document.getElementById('rpsResult').className='rps-result'; document.getElementById('rpsBtnR').className='rps-pick-btn'; document.getElementById('rpsBtnP').className='rps-pick-btn'; document.getElementById('rpsBtnS').className='rps-pick-btn'; rpsSetBtnRow('play'); }
+
+
+// ── War of Cards ──────────────────────────────────────────────────────────────
+const WOC_RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const WOC_SUITS=['♠','♥','♦','♣'];
+const WOC_RED=['♥','♦'];
+let wocBetAmt=100, wocPhase='bet';
+
+function openWOC(){
+  document.getElementById('wocScreen').classList.add('open');
+  wocPhase='bet'; wocBetAmt=100;
+  updateWOCBal(); document.getElementById('wocBetV').textContent=fmt(wocBetAmt);
+  document.getElementById('wocDCard').className='woc-card face-down'; document.getElementById('wocDCard').innerHTML='<span style="font-size:28px">🂠</span>';
+  document.getElementById('wocPCard').className='woc-card face-down'; document.getElementById('wocPCard').innerHTML='<span style="font-size:28px">🂠</span>';
+  document.getElementById('wocResult').textContent=' '; document.getElementById('wocResult').className='woc-result';
+  document.getElementById('wocVs').textContent='VS';
+  wocSetBtnRow('deal');
+}
+function closeWOC(){ document.getElementById('wocScreen').classList.remove('open'); wocPhase='bet'; }
+function updateWOCBal(){ document.getElementById('wocBal').textContent=fmt(gs.coins)+' 🪙'; }
+function wocBetHalf(){ wocBetAmt=Math.max(10,Math.floor(wocBetAmt/2)); document.getElementById('wocBetV').textContent=fmt(wocBetAmt); }
+function wocBetDouble(){ wocBetAmt=Math.min(gs.coins,wocBetAmt*2); document.getElementById('wocBetV').textContent=fmt(wocBetAmt); }
+function wocMakeCard(){ const s=WOC_SUITS[Math.floor(Math.random()*4)]; const r=WOC_RANKS[Math.floor(Math.random()*13)]; return {r,s}; }
+function wocCardEl(c){
+  const isRed=WOC_RED.includes(c.s);
+  const div=document.createElement('div'); div.className='woc-card';
+  div.innerHTML=`<span style="font-size:13px;font-weight:900;color:${isRed?'#CC0000':'#111'}">${c.r}</span><span style="font-size:20px;color:${isRed?'#CC0000':'#111'}">${c.s}</span>`;
+  div.style.flexDirection='column'; div.style.gap='4px';
+  return div;
+}
+function wocSetBtnRow(state){
+  const r=document.getElementById('wocBtnRow');
+  if(state==='deal') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="wocDeal()">DRAW CARDS</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="wocNewRound()">DRAW AGAIN</button>`;
+}
+function wocDeal(){
+  if(wocPhase!=='bet') return;
+  if(gs.coins<wocBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=wocBetAmt; updateWOCBal(); wocPhase='reveal';
+  const pCard=wocMakeCard(), dCard=wocMakeCard();
+  const pRank=WOC_RANKS.indexOf(pCard.r), dRank=WOC_RANKS.indexOf(dCard.r);
+  // animate flip
+  setTimeout(()=>{
+    const pEl=document.getElementById('wocPCard'); pEl.className='woc-card'; pEl.innerHTML=''; pEl.appendChild(wocCardEl(pCard));
+    const dEl=document.getElementById('wocDCard'); dEl.className='woc-card'; dEl.innerHTML=''; dEl.appendChild(wocCardEl(dCard));
+    const rEl=document.getElementById('wocResult');
+    const hEl=document.getElementById('wocHistory');
+    if(pRank>dRank){
+      pEl.classList.add('win-card'); rEl.textContent='Higher card! YOU WIN!'; rEl.className='woc-result woc-result-w';
+      gs.coins+=wocBetAmt*2; updateWOCBal();
+      hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(wocBetAmt)} 🪙</span>`;
+      addHistory('warofcards',wocBetAmt);
+    } else if(pRank<dRank){
+      dEl.classList.add('win-card'); rEl.textContent='Lower card! Dealer wins.'; rEl.className='woc-result woc-result-l';
+      hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(wocBetAmt)} 🪙</span>`;
+      addHistory('warofcards',-wocBetAmt);
+    } else {
+      // WAR — both draw again, winner takes 3×
+      rEl.textContent='TIE — WAR! Drawing again...'; rEl.className='woc-result woc-result-p';
+      document.getElementById('wocVs').textContent='⚔️';
+      setTimeout(()=>{
+        const p2=wocMakeCard(), d2=wocMakeCard();
+        const p2Rank=WOC_RANKS.indexOf(p2.r), d2Rank=WOC_RANKS.indexOf(d2.r);
+        const pEl2=document.getElementById('wocPCard'); pEl2.className='woc-card'; pEl2.innerHTML=''; pEl2.appendChild(wocCardEl(p2));
+        const dEl2=document.getElementById('wocDCard'); dEl2.className='woc-card'; dEl2.innerHTML=''; dEl2.appendChild(wocCardEl(d2));
+        if(p2Rank>=d2Rank){
+          pEl2.classList.add('win-card'); rEl.textContent='WAR WON! You take 3×!'; rEl.className='woc-result woc-result-w';
+          gs.coins+=wocBetAmt*3; updateWOCBal();
+          hEl.innerHTML=`<span style="color:#FFD700">WAR WIN! +${fmt(wocBetAmt*2)} 🪙</span>`;
+          addHistory('warofcards',wocBetAmt*2);
+        } else {
+          dEl2.classList.add('win-card'); rEl.textContent='War lost! Dealer wins.'; rEl.className='woc-result woc-result-l';
+          hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(wocBetAmt)} 🪙</span>`;
+          addHistory('warofcards',-wocBetAmt);
+        }
+        wocPhase='result'; wocSetBtnRow('new');
+      },900);
+      return;
+    }
+    wocPhase='result'; wocSetBtnRow('new');
+  },400);
+}
+function wocNewRound(){ wocPhase='bet'; document.getElementById('wocDCard').className='woc-card face-down'; document.getElementById('wocDCard').innerHTML='<span style="font-size:28px">🂠</span>'; document.getElementById('wocPCard').className='woc-card face-down'; document.getElementById('wocPCard').innerHTML='<span style="font-size:28px">🂠</span>'; document.getElementById('wocResult').textContent=' '; document.getElementById('wocVs').textContent='VS'; wocSetBtnRow('deal'); }
+
+// ── Number Guess ──────────────────────────────────────────────────────────────
+let nguBetAmt=100, nguPhase='bet', nguPickedNum=0;
+
+function openNGU(){
+  document.getElementById('nguScreen').classList.add('open');
+  nguPhase='bet'; nguBetAmt=100; nguPickedNum=0;
+  updateNGUBal(); document.getElementById('nguBetV').textContent=fmt(nguBetAmt);
+  document.getElementById('nguResult').textContent=' ';
+  for(let i=1;i<=10;i++) document.getElementById('nguNum'+i).className='ngu-num-btn';
+  nguSetBtnRow('guess');
+}
+function closeNGU(){ document.getElementById('nguScreen').classList.remove('open'); nguPhase='bet'; }
+function updateNGUBal(){ document.getElementById('nguBal').textContent=fmt(gs.coins)+' 🪙'; }
+function nguBetHalf(){ nguBetAmt=Math.max(10,Math.floor(nguBetAmt/2)); document.getElementById('nguBetV').textContent=fmt(nguBetAmt); }
+function nguBetDouble(){ nguBetAmt=Math.min(gs.coins,nguBetAmt*2); document.getElementById('nguBetV').textContent=fmt(nguBetAmt); }
+function nguPick(n){
+  if(nguPhase!=='bet') return;
+  nguPickedNum=n;
+  for(let i=1;i<=10;i++) document.getElementById('nguNum'+i).className='ngu-num-btn'+(i===n?' sel':'');
+}
+function nguSetBtnRow(state){
+  const r=document.getElementById('nguBtnRow');
+  if(state==='guess') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="nguGuess()">GUESS!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="nguNewRound()">GUESS AGAIN</button>`;
+}
+function nguGuess(){
+  if(nguPhase!=='bet') return;
+  if(!nguPickedNum){alert('Pick a number first!');return;}
+  if(gs.coins<nguBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=nguBetAmt; updateNGUBal(); nguPhase='result';
+  const answer=Math.floor(Math.random()*10)+1;
+  for(let i=1;i<=10;i++){
+    const btn=document.getElementById('nguNum'+i);
+    btn.disabled=true;
+    if(i===answer) btn.className='ngu-num-btn correct';
+    else if(i===nguPickedNum&&nguPickedNum!==answer) btn.className='ngu-num-btn wrong';
+    else btn.className='ngu-num-btn';
+  }
+  const rEl=document.getElementById('nguResult');
+  const hEl=document.getElementById('nguHistory');
+  if(nguPickedNum===answer){
+    const win=nguBetAmt*8; gs.coins+=win; updateNGUBal();
+    rEl.textContent=`🎉 Correct! ${answer} wins! 8× payout!`; rEl.className='ngu-result ngu-result-w';
+    hEl.innerHTML=`<span style="color:#00FF88">WIN +${fmt(win-nguBetAmt)} 🪙</span>`;
+    addHistory('numberguess',win-nguBetAmt);
+  } else {
+    rEl.textContent=`Wrong! The number was ${answer}.`; rEl.className='ngu-result ngu-result-l';
+    hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(nguBetAmt)} 🪙</span>`;
+    addHistory('numberguess',-nguBetAmt);
+  }
+  nguSetBtnRow('new');
+}
+function nguNewRound(){ nguPhase='bet'; nguPickedNum=0; for(let i=1;i<=10;i++){const b=document.getElementById('nguNum'+i);b.className='ngu-num-btn';b.disabled=false;} document.getElementById('nguResult').textContent=' '; nguSetBtnRow('guess'); }
 
 // ── Coin Flip ─────────────────────────────────────────────────────────────────
 let cfBetAmt=100, cfPhase='bet', cfPickedSide='';
