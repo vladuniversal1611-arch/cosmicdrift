@@ -1236,6 +1236,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .ckl-hc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
 .ckl-hc-w{background:rgba(0,255,136,.2);color:#00FF88;border:1px solid rgba(0,255,136,.4);}
 .ckl-hc-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
+
+/* ── Caribbean Draw Poker ── */
+#cdpScreen{background:radial-gradient(ellipse at 50% 20%,#000F1A 0%,#00060E 100%);}
+.cdp-card{width:42px;height:60px;border-radius:7px;background:white;border:1.5px solid #ddd;display:flex;flex-direction:column;justify-content:space-between;padding:3px;box-sizing:border-box;transition:transform .3s,box-shadow .3s,border-color .2s;flex-shrink:0;cursor:pointer;}
+.cdp-card.face-down{background:linear-gradient(135deg,#001A2A 0%,#000A14 50%,#001A2A 100%);border:2px solid rgba(0,150,220,.3);cursor:default;}
+.cdp-card.selected{border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,.4);transform:translateY(-6px);}
+.cdp-card.win-card{transform:translateY(-5px);box-shadow:0 6px 18px rgba(0,180,255,.5);}
+.cdp-rank-tag{display:inline-block;padding:2px 9px;border-radius:14px;font-size:10px;font-weight:900;background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);}
+.cdp-rank-tag.win{background:rgba(0,180,255,.2);color:#00B4FF;border:1px solid rgba(0,180,255,.4);}
+.cdp-hc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
+.cdp-hc-w{background:rgba(0,180,255,.2);color:#00B4FF;border:1px solid rgba(0,180,255,.4);}
+.cdp-hc-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
+.cdp-hc-p{background:rgba(255,215,0,.18);color:#FFD700;border:1px solid rgba(255,215,0,.35);}
 </style>
 </head>
 <body>
@@ -2209,6 +2222,42 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
     </div>
     <div style="display:flex;gap:7px;flex-shrink:0;" id="lirBtnRow">
       <button class="tcp-action-btn tcp-btn-deal" onclick="lirDeal()" style="flex:1">🃏 DEAL</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Caribbean Draw Poker ══════════════════════════════════════ -->
+<div class="game-screen" id="cdpScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeCDP()">←</button>
+    <span>🌊 Caribbean Draw</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="cdpBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;">
+    <div id="cdpHistory" style="display:flex;gap:4px;flex-wrap:wrap;min-height:22px;"></div>
+    <!-- Dealer cards -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="font-size:9px;color:rgba(0,180,255,.5);font-weight:900;">DEALER</div>
+      <div style="display:flex;gap:4px;" id="cdpDCards"></div>
+      <div class="cdp-rank-tag" id="cdpDRank">—</div>
+    </div>
+    <!-- Player cards -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="font-size:9px;color:rgba(255,255,255,.45);font-weight:900;">YOU — tap a card to swap</div>
+      <div style="display:flex;gap:4px;" id="cdpPCards"></div>
+      <div class="cdp-rank-tag" id="cdpPRank">—</div>
+    </div>
+    <!-- Paytable -->
+    <div style="display:flex;gap:3px;justify-content:center;font-size:9px;color:rgba(255,255,255,.3);flex-wrap:wrap;">
+      <span>Royal 100×</span><span style="opacity:.3">|</span><span>StrFlush 50×</span><span style="opacity:.3">|</span><span>Quads 20×</span><span style="opacity:.3">|</span><span>Full 7×</span><span style="opacity:.3">|</span><span>Flush 5×</span><span style="opacity:.3">|</span><span>Str 4×</span><span style="opacity:.3">|</span><span>Trips 3×</span><span style="opacity:.3">|</span><span>2P 2×</span><span style="opacity:.3">|</span><span>Pair 1×</span>
+    </div>
+    <div class="vp-bet-row" style="flex-shrink:0;">
+      <button class="fruit-bet-btn" onclick="cdpBetHalf()">½</button>
+      <div class="fruit-bet-box" style="flex:1"><div style="font-size:9px;color:rgba(255,255,255,.4)">ANTE</div><div style="font-size:18px;font-weight:900" id="cdpBetV">100</div></div>
+      <button class="fruit-bet-btn" onclick="cdpBetDouble()">×2</button>
+    </div>
+    <div style="display:flex;gap:7px;flex-shrink:0;" id="cdpBtnRow">
+      <button class="tcp-action-btn tcp-btn-deal" onclick="cdpDeal()" style="flex:1">🌊 DEAL</button>
     </div>
   </div>
 </div>
@@ -6892,6 +6941,10 @@ const GAME_DEFS = {
      emoji:'🎱🔢🏆', badge:'FUN', badgeColor:'#BF5FFF',
      grad:'linear-gradient(145deg,#12001A,#07000E)',
      glow:'rgba(150,0,255,.3)', minLv:1, action:'bingo'},
+    {id:'caribbeandraw', name:'Caribbean Draw', sub:'5-Card Stud — Swap 1 Card Then Raise!',
+     emoji:'🌊🃏🎲', badge:'HOT', badgeColor:'#00CFFF',
+     grad:'linear-gradient(145deg,#000F1A,#00060E)',
+     glow:'rgba(0,180,255,.28)', minLv:1, action:'caribbeandraw'},
   ],
   quick:[
     {id:'aviator', name:'Aviator', sub:'Crash — Cash Out Before It Flies!',
@@ -7505,6 +7558,20 @@ function gcSVG(g){
     ${e}`;
   }
 
+  // ── CARIBBEAN DRAW POKER ───────────────────────────────────────────
+  if(act==='caribbeandraw'){
+    return `${s}
+      <rect width="160" height="100" fill="#000F1A"/>
+      <ellipse cx="80" cy="72" rx="72" ry="32" fill="#001830" stroke="#003860" stroke-width="1.5"/>
+      ${[0,1,2,3,4].map((i)=>{
+        const x=18+i*30, r=i%2===0?'#CC0000':'#111', s2=i%2===0?'♥':'♠', rk=['A','K','Q','J','10'][i];
+        return `<rect x="${x}" y="14" width="26" height="38" rx="4" fill="white" stroke="#ddd" stroke-width="1"/>
+                <text x="${x+3}" y="27" font-size="8" font-weight="900" fill="${r}" font-family="Arial">${rk}</text>
+                <text x="${x+2}" y="42" font-size="12" fill="${r}" font-family="Arial">${s2}</text>`;
+      }).join('')}
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,180,255,.8)" font-family="Arial,sans-serif">SWAP 1 CARD — THEN RAISE!</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -7897,6 +7964,7 @@ function makeCard(g){
       else if(g.action==='pontoon') openPont();
       else if(g.action==='paigow') openPGP();
       else if(g.action==='chuckaluck') openCKL();
+      else if(g.action==='caribbeandraw') openCDP();
       else if(g.action==='msstud') openMSStud();
       else if(g.action==='uth') openUTH();
       else if(g.action==='spinwin') openSpinWin();
@@ -11251,6 +11319,162 @@ function addDTChip(outcome){
   chip.textContent=outcome==='dragon'?'D':outcome==='tiger'?'T':'=';
   hist.insertBefore(chip,hist.firstChild);
   while(hist.children.length>20) hist.removeChild(hist.lastChild);
+}
+
+// ── Caribbean Draw Poker ─────────────────────────────────────────────────────
+const CDP_RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const CDP_SUITS=['♠','♥','♦','♣'];
+const CDP_RED=['♥','♦'];
+let cdpBetAmt=100, cdpPhase='bet';
+let cdpDeck=[], cdpPHand=[], cdpDHand=[], cdpDiscardIdx=-1;
+
+function openCDP(){
+  document.getElementById('cdpScreen').classList.add('open');
+  cdpPhase='bet'; cdpBetAmt=100; cdpDiscardIdx=-1;
+  updateCDPBal(); document.getElementById('cdpBetV').textContent=fmt(cdpBetAmt);
+  document.getElementById('cdpPCards').innerHTML=''; document.getElementById('cdpDCards').innerHTML='';
+  document.getElementById('cdpPRank').textContent='—'; document.getElementById('cdpPRank').className='cdp-rank-tag';
+  document.getElementById('cdpDRank').textContent='—'; document.getElementById('cdpDRank').className='cdp-rank-tag';
+  cdpSetBtnRow('deal');
+}
+function closeCDP(){ document.getElementById('cdpScreen').classList.remove('open'); cdpPhase='bet'; }
+function updateCDPBal(){ document.getElementById('cdpBal').textContent=fmt(gs.coins)+' 🪙'; }
+function cdpBetHalf(){ if(cdpPhase!=='bet') return; cdpBetAmt=Math.max(10,Math.floor(cdpBetAmt/2)); document.getElementById('cdpBetV').textContent=fmt(cdpBetAmt); }
+function cdpBetDouble(){ if(cdpPhase!=='bet') return; cdpBetAmt=Math.min(gs.coins,cdpBetAmt*2); document.getElementById('cdpBetV').textContent=fmt(cdpBetAmt); }
+function cdpMakeDeck(){
+  const d=[]; CDP_RANKS.forEach(r=>CDP_SUITS.forEach(s=>d.push({r,s})));
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]; } return d;
+}
+function cdpCardEl(c, idx, clickable){
+  const div=document.createElement('div'); div.className='cdp-card';
+  const red=CDP_RED.includes(c.s);
+  div.innerHTML=`<div style="font-size:10px;font-weight:900;color:${red?'#CC0000':'#111'}">${c.r}</div><div style="font-size:13px;text-align:center;color:${red?'#CC0000':'#111'};margin:auto 0;">${c.s}</div>`;
+  if(clickable) div.onclick=()=>cdpSelectDiscard(idx);
+  return div;
+}
+function cdpFaceDownEl(){
+  const div=document.createElement('div'); div.className='cdp-card face-down'; return div;
+}
+function cdpSetBtnRow(state){
+  const row=document.getElementById('cdpBtnRow');
+  if(state==='deal') row.innerHTML='<button class="tcp-action-btn tcp-btn-deal" onclick="cdpDeal()" style="flex:1">🌊 DEAL</button>';
+  else if(state==='draw') row.innerHTML='<button class="tcp-action-btn" style="flex:1;background:rgba(0,180,255,.1);border:1.5px solid #00B4FF;color:#00B4FF;" onclick="cdpConfirmDraw()">SWAP CARD</button><button class="tcp-action-btn tcp-btn-play" onclick="cdpSkipDraw()" style="flex:1">KEEP HAND</button>';
+  else if(state==='action') row.innerHTML='<button class="tcp-action-btn tcp-btn-fold" onclick="cdpFold()" style="flex:1">FOLD</button><button class="tcp-action-btn tcp-btn-play" onclick="cdpCall()" style="flex:1">RAISE 2×</button>';
+  else row.innerHTML='<button class="tcp-action-btn tcp-btn-deal" onclick="cdpNewRound()" style="flex:1">▶ NEW ROUND</button>';
+}
+function cdpDeal(){
+  if(cdpPhase!=='bet') return;
+  if(gs.coins<cdpBetAmt){ showToast('Not enough coins!'); return; }
+  gs.coins-=cdpBetAmt; updateCDPBal(); updateHUD();
+  cdpDeck=cdpMakeDeck(); cdpDiscardIdx=-1;
+  cdpPHand=[cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop()];
+  cdpDHand=[cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop(),cdpDeck.pop()];
+  // Show dealer: first card face up, rest face down
+  const dEl=document.getElementById('cdpDCards'); dEl.innerHTML='';
+  dEl.appendChild(cdpCardEl(cdpDHand[0],0,false));
+  for(let i=1;i<5;i++) dEl.appendChild(cdpFaceDownEl());
+  // Show player: all face up, clickable
+  const pEl=document.getElementById('cdpPCards'); pEl.innerHTML='';
+  cdpPHand.forEach((c,i)=>pEl.appendChild(cdpCardEl(c,i,true)));
+  const rank=cdpRankHand5(cdpPHand);
+  document.getElementById('cdpPRank').textContent=rank.name;
+  document.getElementById('cdpDRank').textContent='?';
+  cdpPhase='draw'; cdpSetBtnRow('draw');
+}
+function cdpSelectDiscard(idx){
+  if(cdpPhase!=='draw') return;
+  cdpDiscardIdx=idx;
+  const pEl=document.getElementById('cdpPCards');
+  Array.from(pEl.children).forEach((el,i)=>el.classList.toggle('selected',i===idx));
+}
+function cdpConfirmDraw(){
+  if(cdpDiscardIdx<0){ showToast('Tap a card to swap first!'); return; }
+  cdpPHand[cdpDiscardIdx]=cdpDeck.pop();
+  const pEl=document.getElementById('cdpPCards'); pEl.innerHTML='';
+  cdpPHand.forEach((c,i)=>pEl.appendChild(cdpCardEl(c,i,false)));
+  const rank=cdpRankHand5(cdpPHand);
+  document.getElementById('cdpPRank').textContent=rank.name;
+  cdpPhase='action'; cdpSetBtnRow('action');
+}
+function cdpSkipDraw(){
+  const pEl=document.getElementById('cdpPCards'); pEl.innerHTML='';
+  cdpPHand.forEach((c,i)=>pEl.appendChild(cdpCardEl(c,i,false)));
+  cdpPhase='action'; cdpSetBtnRow('action');
+}
+function cdpFold(){ cdpPhase='done'; showToast('Folded'); addCDPChip('L'); cdpSetBtnRow('new'); }
+function cdpCall(){
+  if(cdpPhase!=='action') return;
+  if(gs.coins<cdpBetAmt){ showToast('Not enough!'); return; }
+  gs.coins-=cdpBetAmt; updateCDPBal(); updateHUD();
+  // Reveal dealer
+  const dEl=document.getElementById('cdpDCards'); dEl.innerHTML='';
+  cdpDHand.forEach((c,i)=>dEl.appendChild(cdpCardEl(c,i,false)));
+  const dRank=cdpRankHand5(cdpDHand);
+  const pRank=cdpRankHand5(cdpPHand);
+  document.getElementById('cdpDRank').textContent=dRank.name;
+  // Dealer qualifies with A-K high or better (tier>=1)
+  const qualifies=dRank.tier>=1||(dRank.tier===0&&cdpDHand.some(c=>c.r==='A')&&cdpDHand.some(c=>c.r==='K'));
+  if(!qualifies){
+    gs.coins+=cdpBetAmt*3; updateCDPBal(); updateHUD();
+    document.getElementById('cdpPRank').className='cdp-rank-tag win';
+    document.getElementById('cdpDRank').textContent='No Qualify';
+    showToast('Dealer does not qualify — ante wins, raise pushes!'); addCDPChip('W');
+  } else if(cdpCompare5(pRank,dRank)>0){
+    const mult=cdpPayMult(pRank.tier);
+    gs.coins+=cdpBetAmt*(mult+1)+cdpBetAmt; updateCDPBal(); updateHUD();
+    document.getElementById('cdpPRank').className='cdp-rank-tag win';
+    showToast(pRank.name+' — '+mult+'× WIN!'); addCDPChip('W');
+  } else if(cdpCompare5(pRank,dRank)===0){
+    gs.coins+=cdpBetAmt*2; updateCDPBal(); updateHUD();
+    showToast('Push!'); addCDPChip('P');
+  } else {
+    showToast(dRank.name+' beats '+pRank.name); addCDPChip('L');
+    updateCDPBal(); updateHUD();
+  }
+  cdpPhase='done'; cdpSetBtnRow('new');
+}
+function cdpRankHand5(cards){
+  const ri=cards.map(c=>CDP_RANKS.indexOf(c.r));
+  const ss=cards.map(c=>c.s);
+  const sorted=[...ri].sort((a,b)=>b-a);
+  const isFlush=ss.every(s=>s===ss[0]);
+  const isStraight=(sorted[0]-sorted[4]===4&&new Set(sorted).size===5)||(sorted[0]===12&&sorted[1]===3&&sorted[2]===2&&sorted[3]===1&&sorted[4]===0);
+  const counts={}; ri.forEach(r=>counts[r]=(counts[r]||0)+1);
+  const vals=Object.values(counts).sort((a,b)=>b-a);
+  let name,tier;
+  if(isFlush&&isStraight&&sorted[0]===12){name='Royal Flush';tier=9;}
+  else if(isFlush&&isStraight){name='Str. Flush';tier=8;}
+  else if(vals[0]===4){name='Four of a Kind';tier=7;}
+  else if(vals[0]===3&&vals[1]===2){name='Full House';tier=6;}
+  else if(isFlush){name='Flush';tier=5;}
+  else if(isStraight){name='Straight';tier=4;}
+  else if(vals[0]===3){name='Three of a Kind';tier=3;}
+  else if(vals[0]===2&&vals[1]===2){name='Two Pair';tier=2;}
+  else if(vals[0]===2){name='Pair';tier=1;}
+  else{name='High Card';tier=0;}
+  return {name,tier,sorted,vals};
+}
+function cdpPayMult(tier){
+  const t=[0,1,2,3,4,5,7,20,50,100];
+  return t[tier]||0;
+}
+function cdpCompare5(a,b){
+  if(a.tier!==b.tier) return a.tier-b.tier;
+  for(let i=0;i<a.sorted.length;i++){ if(a.sorted[i]!==b.sorted[i]) return a.sorted[i]-b.sorted[i]; }
+  return 0;
+}
+function cdpNewRound(){
+  cdpPhase='bet'; cdpDiscardIdx=-1;
+  document.getElementById('cdpPCards').innerHTML=''; document.getElementById('cdpDCards').innerHTML='';
+  document.getElementById('cdpPRank').textContent='—'; document.getElementById('cdpPRank').className='cdp-rank-tag';
+  document.getElementById('cdpDRank').textContent='—'; document.getElementById('cdpDRank').className='cdp-rank-tag';
+  cdpSetBtnRow('deal');
+}
+function addCDPChip(outcome){
+  const hist=document.getElementById('cdpHistory'); const chip=document.createElement('div');
+  const cls=outcome==='W'?'cdp-hc-w':outcome==='P'?'cdp-hc-p':'cdp-hc-l';
+  chip.className='cdp-hc '+cls; chip.textContent=outcome;
+  hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
 
 // ── Mississippi Stud ───────────────────────────────────────────────────────
