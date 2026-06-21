@@ -1626,6 +1626,38 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .ldice-mult{position:absolute;top:-8px;right:-8px;background:#FFD700;color:#000;font-size:9px;font-weight:900;padding:1px 3px;border-radius:4px;}
 .ldice-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
 .ldice-result-w{color:#FFD700;} .ldice-result-l{color:#FF4444;}
+/* Double Ball Roulette */
+#dbrScreen{background:radial-gradient(ellipse at 50% 20%,#0A0800 0%,#050400 100%);}
+.dbr-wheel{display:flex;gap:10px;justify-content:center;padding:8px 0;}
+.dbr-ball{width:52px;height:52px;border-radius:50%;background:#1a1200;border:2px solid #444;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;transition:all .3s;}
+.dbr-ball.red-n{border-color:#FF5555;color:#FF6666;}
+.dbr-ball.black-n{border-color:#8888FF;color:#AAAAFF;}
+.dbr-ball.green-n{border-color:#00FF88;color:#00FF88;}
+.dbr-choice{padding:10px 16px;border-radius:10px;border:2px solid #444;cursor:pointer;font-size:14px;font-weight:800;transition:all .15s;text-align:center;}
+.dbr-choice:hover{transform:scale(1.06);}
+.dbr-choice.selected{box-shadow:0 0 14px rgba(255,215,0,.4);border-color:#FFD700;color:#FFD700;}
+.dbr-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.dbr-result-w{color:#FFD700;} .dbr-result-l{color:#FF4444;}
+/* Lucky Stars */
+#lstScreen{background:radial-gradient(ellipse at 50% 20%,#080010 0%,#040008 100%);}
+.lst-star{width:44px;height:44px;border-radius:50%;background:#0e0018;border:2px solid #444;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;cursor:pointer;transition:all .15s;}
+.lst-star:hover{transform:scale(1.1);}
+.lst-star.picked{border-color:#FFD700;background:#1a1200;color:#FFD700;box-shadow:0 0 10px rgba(255,215,0,.3);}
+.lst-star.drawn{border-color:#CC88FF;background:#1a0028;color:#EE99FF;}
+.lst-star.match{border-color:#00FF88;background:#001a0a;color:#00FF88;box-shadow:0 0 12px rgba(0,255,136,.4);}
+.lst-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.lst-result-w{color:#FFD700;} .lst-result-l{color:#FF4444;}
+/* Hot or Cold */
+#hcScreen{background:radial-gradient(ellipse at 50% 20%,#0A0000 0%,#050000 100%);}
+.hc-gauge{width:200px;height:20px;border-radius:10px;background:linear-gradient(90deg,#4488FF,#FF4444);position:relative;margin:0 auto;}
+.hc-needle{position:absolute;top:-4px;width:4px;height:28px;background:#FFD700;border-radius:2px;transform:translateX(-50%);transition:left .6s ease;}
+.hc-btn{padding:12px 18px;border-radius:10px;border:2px solid #444;cursor:pointer;font-size:14px;font-weight:800;transition:all .15s;text-align:center;flex:1;}
+.hc-btn:hover{transform:scale(1.05);}
+.hc-btn.cold-btn{background:#000a1a;border-color:#4488FF;color:#88AAFF;}
+.hc-btn.hot-btn{background:#1a0000;border-color:#FF5555;color:#FF8888;}
+.hc-btn.selected{box-shadow:0 0 14px rgba(255,215,0,.4);border-color:#FFD700;}
+.hc-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.hc-result-w{color:#FFD700;} .hc-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -3333,6 +3365,85 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <button class="fruit-bet-btn" onclick="ldiceBetDouble()">2×</button>
     </div>
     <div id="ldiceBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Double Ball Roulette ══════════════════════════════════════ -->
+<div class="game-screen" id="dbrScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeDBR()">←</button>
+    <span>🎡 Double Ball Roulette</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="dbrBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="dbrHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Red/Black: both match = 5× · one match = 1.5× | Number: both = 50× · one = 5×</div>
+    <div class="dbr-wheel" id="dbrBalls">
+      <div class="dbr-ball" id="dbrB1">🎱</div>
+      <div class="dbr-ball" id="dbrB2">🎱</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" id="dbrChoices">
+      <div class="dbr-choice" style="background:#1a0010;border-color:#FF5555;color:#FF6666;" id="dbrRed" onclick="dbrPick('red')">🔴 RED</div>
+      <div class="dbr-choice" style="background:#0a0a1a;border-color:#8888FF;color:#AAAAFF;" id="dbrBlack" onclick="dbrPick('black')">⚫ BLACK</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-height:90px;overflow-y:auto" id="dbrNumGrid"></div>
+    <div class="dbr-result" id="dbrResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="dbrBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="dbrBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="dbrBetDouble()">2×</button>
+    </div>
+    <div id="dbrBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Lucky Stars ══════════════════════════════════════════════ -->
+<div class="game-screen" id="lstScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeLST()">←</button>
+    <span>⭐ Lucky Stars</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="lstBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="lstHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Pick 5 stars · 7 drawn · Match 3=2× · 4=10× · 5=50×</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center" id="lstStars"></div>
+    <div id="lstPicked" style="font-size:12px;text-align:center;color:#888">Picked: <span id="lstPickCount">0</span>/5</div>
+    <div class="lst-result" id="lstResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="lstBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="lstBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="lstBetDouble()">2×</button>
+    </div>
+    <div id="lstBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Hot or Cold ══════════════════════════════════════════════ -->
+<div class="game-screen" id="hcScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeHC()">←</button>
+    <span>🌡️ Hot or Cold</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="hcBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="hcHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Cold ≤50 = 2× · Hot >50 = 2× · Ice <20 = 4× · Fire >80 = 4×</div>
+    <div style="position:relative;padding:16px 0">
+      <div class="hc-gauge" id="hcGaugeBar"></div>
+      <div class="hc-needle" id="hcNeedle" style="left:50%"></div>
+    </div>
+    <div style="text-align:center;font-size:28px;font-weight:900" id="hcValue">??</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <div class="hc-btn cold-btn" id="hcIce" onclick="hcPick('ice')">🧊 ICE<br><span style="font-size:10px">&lt;20 · 4×</span></div>
+      <div class="hc-btn cold-btn" id="hcCold" onclick="hcPick('cold')">❄️ COLD<br><span style="font-size:10px">≤50 · 2×</span></div>
+      <div class="hc-btn hot-btn" id="hcHot" onclick="hcPick('hot')">🔥 HOT<br><span style="font-size:10px">&gt;50 · 2×</span></div>
+      <div class="hc-btn hot-btn" id="hcFire" onclick="hcPick('fire')">☀️ FIRE<br><span style="font-size:10px">&gt;80 · 4×</span></div>
+    </div>
+    <div class="hc-result" id="hcResult">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="hcBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="hcBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="hcBetDouble()">2×</button>
+    </div>
+    <div id="hcBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
   </div>
 </div>
 <!-- ══ Gem Finder ═════════════════════════════════════════════════ -->
@@ -8495,6 +8606,18 @@ const GAME_DEFS = {
      emoji:'⚡🎲💥', badge:'HOT', badgeColor:'#FFD700',
      grad:'linear-gradient(145deg,#001010,#000808)',
      glow:'rgba(200,160,0,.3)', minLv:1, action:'lightningdice'},
+    {id:'dbroulette', name:'Double Ball Roulette', sub:'Two Balls — Double the Fun!',
+     emoji:'🎡🎱🎱', badge:'HOT', badgeColor:'#FFD700',
+     grad:'linear-gradient(145deg,#0A0800,#050400)',
+     glow:'rgba(200,180,0,.3)', minLv:1, action:'dbroulette'},
+    {id:'luckystars', name:'Lucky Stars', sub:'Pick 5 Stars — Match to Win!',
+     emoji:'⭐🌟✨', badge:'NEW', badgeColor:'#CC88FF',
+     grad:'linear-gradient(145deg,#080010,#040008)',
+     glow:'rgba(160,80,255,.3)', minLv:1, action:'luckystars'},
+    {id:'hotcold', name:'Hot or Cold', sub:'Bet the Temperature — Ice to Fire!',
+     emoji:'🌡️🧊🔥', badge:'NEW', badgeColor:'#FF6644',
+     grad:'linear-gradient(145deg,#0A0000,#050000)',
+     glow:'rgba(200,60,0,.3)', minLv:1, action:'hotcold'},
     {id:'warofcards', name:'War of Cards', sub:'One Card Each — Higher Wins!',
      emoji:'⚔️🃏👑', badge:'HOT', badgeColor:'#FF4400',
      grad:'linear-gradient(145deg,#1A0000,#0A0000)',
@@ -9593,6 +9716,42 @@ function gcSVG(g){
       <text x="80" y="86" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,160,0,.9)" font-family="Arial,sans-serif">5 DICE · LIGHTNING MULTIPLIERS</text>
     ${e}`;
   }
+  // ── DOUBLE BALL ROULETTE ─────────────────────────────────────────
+  if(act==='dbroulette'){
+    return `${s}
+      <circle cx="80" cy="48" r="34" fill="none" stroke="#8B6914" stroke-width="3"/>
+      <circle cx="80" cy="48" r="28" fill="#1a0800" stroke="#FFD700" stroke-width="1.5"/>
+      <text x="80" y="26" text-anchor="middle" font-size="11" fill="#FF5555" font-family="Arial,sans-serif" font-weight="900">🎱</text>
+      <text x="80" y="44" text-anchor="middle" font-size="11" fill="#8888FF" font-family="Arial,sans-serif" font-weight="900">🎱</text>
+      <text x="80" y="62" text-anchor="middle" font-size="9" fill="#FFD700" font-family="Arial">Two Balls · Double the Action!</text>
+      <text x="80" y="74" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">Both match Red/Black = 5×</text>
+      <text x="80" y="86" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,215,0,.9)" font-family="Arial,sans-serif">DOUBLE BALL ROULETTE</text>
+    ${e}`;
+  }
+  // ── LUCKY STARS ──────────────────────────────────────────────────
+  if(act==='luckystars'){
+    return `${s}
+      <text x="56" y="36" font-size="16" text-anchor="middle" font-family="Arial">⭐</text>
+      <text x="80" y="28" font-size="14" text-anchor="middle" font-family="Arial">🌟</text>
+      <text x="104" y="36" font-size="16" text-anchor="middle" font-family="Arial">⭐</text>
+      <text x="80" y="52" font-size="20" text-anchor="middle" font-family="Arial">✨</text>
+      <text x="80" y="66" text-anchor="middle" font-size="9" fill="#CC88FF" font-family="Arial">Pick 5 Stars · 7 Drawn</text>
+      <text x="80" y="78" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">Match 3=2× · 4=10× · 5=50×</text>
+      <text x="80" y="90" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,136,255,.9)" font-family="Arial,sans-serif">LUCKY STARS</text>
+    ${e}`;
+  }
+  // ── HOT OR COLD ──────────────────────────────────────────────────
+  if(act==='hotcold'){
+    return `${s}
+      <defs><linearGradient id="hcGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#4488FF"/><stop offset="100%" style="stop-color:#FF4444"/></linearGradient></defs>
+      <rect x="24" y="40" width="112" height="12" rx="6" fill="url(#hcGrad)"/>
+      <rect x="76" y="36" width="4" height="20" rx="2" fill="#FFD700"/>
+      <text x="42" y="70" text-anchor="middle" font-size="14" font-family="Arial">🧊</text>
+      <text x="116" y="70" text-anchor="middle" font-size="14" font-family="Arial">🔥</text>
+      <text x="80" y="82" text-anchor="middle" font-size="9" fill="#FF6644" font-family="Arial">Ice&lt;20=4× · Cold=2× · Hot=2× · Fire&gt;80=4×</text>
+      <text x="80" y="94" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,100,50,.9)" font-family="Arial,sans-serif">HOT OR COLD</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -10023,6 +10182,9 @@ function makeCard(g){
       else if(g.action==='colormatch') openCM();
       else if(g.action==='magictrio') openMT();
       else if(g.action==='lightningdice') openLDice();
+      else if(g.action==='dbroulette') openDBR();
+      else if(g.action==='luckystars') openLST();
+      else if(g.action==='hotcold') openHC();
       else if(g.action==='warofcards') openWOC();
       else if(g.action==='numberguess') openNGU();
       else if(g.action==='msstud') openMSStud();
@@ -15320,6 +15482,210 @@ function ldiceSetBtn(state){
   const r=document.getElementById('ldiceBtnRow');
   r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="ldiceRoll()">ROLL!</button>`;
 }
+
+// ── Double Ball Roulette ───────────────────────────────────────────────────────
+const DBR_REDS=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+let dbrBetAmt=100, dbrPhase='bet', dbrPickType='', dbrPickNum=0;
+
+function openDBR(){
+  document.getElementById('dbrScreen').classList.add('open');
+  dbrPhase='bet'; dbrBetAmt=100; dbrPickType=''; dbrPickNum=0;
+  updateDBRBal(); document.getElementById('dbrBetV').textContent=fmt(dbrBetAmt);
+  document.getElementById('dbrResult').textContent=' '; document.getElementById('dbrResult').className='dbr-result';
+  document.getElementById('dbrHistory').innerHTML='&nbsp;';
+  document.getElementById('dbrB1').textContent='🎱'; document.getElementById('dbrB1').className='dbr-ball';
+  document.getElementById('dbrB2').textContent='🎱'; document.getElementById('dbrB2').className='dbr-ball';
+  dbrBuildNums(); dbrHighlight(); dbrSetBtn('spin');
+}
+function closeDBR(){ document.getElementById('dbrScreen').classList.remove('open'); dbrPhase='bet'; }
+function updateDBRBal(){ document.getElementById('dbrBal').textContent=fmt(gs.coins)+' 🪙'; }
+function dbrBetHalf(){ dbrBetAmt=Math.max(10,Math.floor(dbrBetAmt/2)); document.getElementById('dbrBetV').textContent=fmt(dbrBetAmt); }
+function dbrBetDouble(){ dbrBetAmt=Math.min(gs.coins,dbrBetAmt*2); document.getElementById('dbrBetV').textContent=fmt(dbrBetAmt); }
+function dbrPick(type){ dbrPickType=type; dbrPickNum=0; dbrHighlight(); }
+function dbrPickNumber(n){ dbrPickNum=n; dbrPickType='number'; dbrHighlight(); }
+function dbrHighlight(){
+  ['dbrRed','dbrBlack'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.className='dbr-choice'+(dbrPickType===id.replace('dbr','').toLowerCase()?' selected':''); }
+  });
+  document.getElementById('dbrRed').className='dbr-choice'+(dbrPickType==='red'?' selected':'');
+  document.getElementById('dbrRed').style.cssText='background:#1a0010;border-color:'+(dbrPickType==='red'?'#FFD700':'#FF5555')+';color:#FF6666;';
+  document.getElementById('dbrBlack').className='dbr-choice'+(dbrPickType==='black'?' selected':'');
+  document.getElementById('dbrBlack').style.cssText='background:#0a0a1a;border-color:'+(dbrPickType==='black'?'#FFD700':'#8888FF')+';color:#AAAAFF;';
+  document.querySelectorAll('.dbr-num').forEach(el=>{
+    el.style.borderColor = parseInt(el.dataset.n)===dbrPickNum ? '#FFD700':'#444';
+    el.style.color = DBR_REDS.includes(parseInt(el.dataset.n)) ? '#FF6666':'#AAAAFF';
+  });
+}
+function dbrBuildNums(){
+  const grid=document.getElementById('dbrNumGrid'); grid.innerHTML='';
+  for(let n=1;n<=36;n++){
+    const el=document.createElement('div'); el.className='dbr-num';
+    el.dataset.n=n; el.textContent=n;
+    el.style.cssText=`width:26px;height:26px;border-radius:4px;border:1px solid #444;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;background:${DBR_REDS.includes(n)?'#1a0008':'#0a0a1a'};color:${DBR_REDS.includes(n)?'#FF6666':'#AAAAFF'};`;
+    el.onclick=()=>dbrPickNumber(n); grid.appendChild(el);
+  }
+}
+function dbrSetBtn(state){
+  const r=document.getElementById('dbrBtnRow');
+  if(state==='spin') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="dbrSpin()">SPIN</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="dbrNewRound()">SPIN AGAIN</button>`;
+}
+function dbrSpin(){
+  if(dbrPhase!=='bet') return;
+  if(!dbrPickType){alert('Pick Red, Black, or a Number!');return;}
+  if(gs.coins<dbrBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=dbrBetAmt; updateDBRBal(); dbrPhase='spin'; dbrSetBtn('none');
+  const n1=Math.floor(Math.random()*37), n2=Math.floor(Math.random()*37);
+  const isRed=(n)=>n>0&&DBR_REDS.includes(n);
+  const ballClass=(n)=>n===0?'dbr-ball green-n':isRed(n)?'dbr-ball red-n':'dbr-ball black-n';
+  setTimeout(()=>{
+    document.getElementById('dbrB1').textContent=n1===0?'0':n1; document.getElementById('dbrB1').className=ballClass(n1);
+    document.getElementById('dbrB2').textContent=n2===0?'0':n2; document.getElementById('dbrB2').className=ballClass(n2);
+    const rEl=document.getElementById('dbrResult'); const hEl=document.getElementById('dbrHistory');
+    let won=0, desc='';
+    if(dbrPickType==='red'||dbrPickType==='black'){
+      const m1=(n1>0&&isRed(n1))===(dbrPickType==='red'), m2=(n2>0&&isRed(n2))===(dbrPickType==='red');
+      const matches=+m1+ +m2;
+      if(matches===2){ won=Math.round(dbrBetAmt*5); desc=`Both match! 5× = +${fmt(won-dbrBetAmt)} 🪙`; }
+      else if(matches===1){ won=Math.round(dbrBetAmt*1.5); desc=`One match! 1.5× = +${fmt(won-dbrBetAmt)} 🪙`; }
+      else{ desc=`No match — Lose −${fmt(dbrBetAmt)} 🪙`; }
+    } else {
+      const m1=n1===dbrPickNum, m2=n2===dbrPickNum;
+      if(m1&&m2){ won=Math.round(dbrBetAmt*50); desc=`Both hit ${dbrPickNum}! 50× = +${fmt(won-dbrBetAmt)} 🪙`; }
+      else if(m1||m2){ won=Math.round(dbrBetAmt*5); desc=`One hit ${dbrPickNum}! 5× = +${fmt(won-dbrBetAmt)} 🪙`; }
+      else{ desc=`Missed — Lose −${fmt(dbrBetAmt)} 🪙`; }
+    }
+    gs.coins+=won; updateDBRBal();
+    const net=won-dbrBetAmt;
+    rEl.textContent=desc; rEl.className='dbr-result '+(won>0?'dbr-result-w':'dbr-result-l');
+    hEl.innerHTML=won>0?`<span style="color:#FFD700">WIN +${fmt(net)} 🪙</span>`:`<span style="color:#FF4444">LOSS −${fmt(dbrBetAmt)} 🪙</span>`;
+    addHistory('dbroulette',net); dbrPhase='result'; dbrSetBtn('again');
+  },600);
+}
+function dbrNewRound(){ dbrPhase='bet'; dbrPickNum=0; dbrPickType='';
+  document.getElementById('dbrB1').textContent='🎱'; document.getElementById('dbrB1').className='dbr-ball';
+  document.getElementById('dbrB2').textContent='🎱'; document.getElementById('dbrB2').className='dbr-ball';
+  document.getElementById('dbrResult').textContent=' '; dbrHighlight(); dbrSetBtn('spin');
+}
+
+// ── Lucky Stars ────────────────────────────────────────────────────────────────
+let lstBetAmt=100, lstPhase='bet', lstPicks=new Set();
+
+function openLST(){
+  document.getElementById('lstScreen').classList.add('open');
+  lstPhase='bet'; lstBetAmt=100; lstPicks=new Set();
+  updateLSTBal(); document.getElementById('lstBetV').textContent=fmt(lstBetAmt);
+  document.getElementById('lstResult').textContent=' '; document.getElementById('lstResult').className='lst-result';
+  document.getElementById('lstHistory').innerHTML='&nbsp;';
+  lstBuildStars(); lstSetBtn('draw');
+}
+function closeLST(){ document.getElementById('lstScreen').classList.remove('open'); lstPhase='bet'; }
+function updateLSTBal(){ document.getElementById('lstBal').textContent=fmt(gs.coins)+' 🪙'; }
+function lstBetHalf(){ lstBetAmt=Math.max(10,Math.floor(lstBetAmt/2)); document.getElementById('lstBetV').textContent=fmt(lstBetAmt); }
+function lstBetDouble(){ lstBetAmt=Math.min(gs.coins,lstBetAmt*2); document.getElementById('lstBetV').textContent=fmt(lstBetAmt); }
+function lstBuildStars(){
+  const grid=document.getElementById('lstStars'); grid.innerHTML='';
+  for(let n=1;n<=20;n++){
+    const el=document.createElement('div'); el.className='lst-star'; el.id='lstS'+n; el.textContent=n;
+    el.onclick=()=>lstToggle(n); grid.appendChild(el);
+  }
+  document.getElementById('lstPickCount').textContent='0';
+}
+function lstToggle(n){
+  if(lstPhase!=='bet') return;
+  if(lstPicks.has(n)){ lstPicks.delete(n); document.getElementById('lstS'+n).className='lst-star'; }
+  else if(lstPicks.size<5){ lstPicks.add(n); document.getElementById('lstS'+n).className='lst-star picked'; }
+  document.getElementById('lstPickCount').textContent=lstPicks.size;
+}
+function lstSetBtn(state){
+  const r=document.getElementById('lstBtnRow');
+  if(state==='draw') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="lstDraw()">DRAW!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="lstNewRound()">PLAY AGAIN</button>`;
+}
+function lstDraw(){
+  if(lstPhase!=='bet') return;
+  if(lstPicks.size<5){alert('Pick exactly 5 stars!');return;}
+  if(gs.coins<lstBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=lstBetAmt; updateLSTBal(); lstPhase='draw'; lstSetBtn('none');
+  const pool=Array.from({length:20},(_,i)=>i+1);
+  const drawn=[]; while(drawn.length<7){ const i=Math.floor(Math.random()*pool.length); drawn.push(pool.splice(i,1)[0]); }
+  setTimeout(()=>{
+    let matches=0;
+    drawn.forEach(n=>{
+      const el=document.getElementById('lstS'+n);
+      if(lstPicks.has(n)){ el.className='lst-star match'; matches++; }
+      else el.className='lst-star drawn';
+    });
+    const MULT=[0,0,0,2,10,50];
+    const mult=MULT[matches]||0;
+    const rEl=document.getElementById('lstResult'); const hEl=document.getElementById('lstHistory');
+    let won=0, desc='';
+    if(mult>0){ won=Math.round(lstBetAmt*mult); desc=`${matches} matches! ${mult}× = +${fmt(won-lstBetAmt)} 🪙`; }
+    else { desc=`${matches} match${matches===1?'':'es'} — Lose −${fmt(lstBetAmt)} 🪙`; }
+    gs.coins+=won; updateLSTBal();
+    const net=won-lstBetAmt;
+    rEl.textContent=desc; rEl.className='lst-result '+(won>0?'lst-result-w':'lst-result-l');
+    hEl.innerHTML=won>0?`<span style="color:#CC88FF">WIN +${fmt(net)} 🪙</span>`:`<span style="color:#FF4444">LOSS −${fmt(lstBetAmt)} 🪙</span>`;
+    addHistory('luckystars',net); lstPhase='result'; lstSetBtn('again');
+  },500);
+}
+function lstNewRound(){ lstPhase='bet'; lstPicks=new Set(); lstBuildStars(); lstSetBtn('draw'); }
+
+// ── Hot or Cold ────────────────────────────────────────────────────────────────
+let hcBetAmt=100, hcPhase='bet', hcSelected='';
+
+function openHC(){
+  document.getElementById('hcScreen').classList.add('open');
+  hcPhase='bet'; hcBetAmt=100; hcSelected='';
+  updateHCBal(); document.getElementById('hcBetV').textContent=fmt(hcBetAmt);
+  document.getElementById('hcResult').textContent=' '; document.getElementById('hcResult').className='hc-result';
+  document.getElementById('hcHistory').innerHTML='&nbsp;';
+  document.getElementById('hcValue').textContent='??';
+  document.getElementById('hcNeedle').style.left='50%';
+  hcHighlight(); hcSetBtn('roll');
+}
+function closeHC(){ document.getElementById('hcScreen').classList.remove('open'); hcPhase='bet'; }
+function updateHCBal(){ document.getElementById('hcBal').textContent=fmt(gs.coins)+' 🪙'; }
+function hcBetHalf(){ hcBetAmt=Math.max(10,Math.floor(hcBetAmt/2)); document.getElementById('hcBetV').textContent=fmt(hcBetAmt); }
+function hcBetDouble(){ hcBetAmt=Math.min(gs.coins,hcBetAmt*2); document.getElementById('hcBetV').textContent=fmt(hcBetAmt); }
+function hcPick(type){ hcSelected=type; hcHighlight(); }
+function hcHighlight(){
+  ['hcIce','hcCold','hcHot','hcFire'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.borderColor = el.id.replace('hc','').toLowerCase()===hcSelected ? '#FFD700':'';
+    el.style.boxShadow = el.id.replace('hc','').toLowerCase()===hcSelected ? '0 0 14px rgba(255,215,0,.4)':'';
+  });
+}
+function hcSetBtn(state){
+  const r=document.getElementById('hcBtnRow');
+  if(state==='roll') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="hcRoll()">ROLL</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="hcNewRound()">PLAY AGAIN</button>`;
+}
+function hcRoll(){
+  if(hcPhase!=='bet') return;
+  if(!hcSelected){alert('Pick a temperature zone!');return;}
+  if(gs.coins<hcBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=hcBetAmt; updateHCBal(); hcPhase='roll'; hcSetBtn('none');
+  const val=Math.floor(Math.random()*100)+1;
+  setTimeout(()=>{
+    document.getElementById('hcValue').textContent=val;
+    document.getElementById('hcNeedle').style.left=(val)+'%';
+    let win=false, mult=1, desc='';
+    if(hcSelected==='ice'){ win=val<20; mult=4; desc=win?`${val} — ICE! 4× = +${fmt(hcBetAmt*4-hcBetAmt)} 🪙`:`${val} — Not cold enough! Lose −${fmt(hcBetAmt)} 🪙`; }
+    else if(hcSelected==='cold'){ win=val<=50; mult=2; desc=win?`${val} — COLD! 2× = +${fmt(hcBetAmt*2-hcBetAmt)} 🪙`:`${val} — Too hot! Lose −${fmt(hcBetAmt)} 🪙`; }
+    else if(hcSelected==='hot'){ win=val>50; mult=2; desc=win?`${val} — HOT! 2× = +${fmt(hcBetAmt*2-hcBetAmt)} 🪙`:`${val} — Too cold! Lose −${fmt(hcBetAmt)} 🪙`; }
+    else{ win=val>80; mult=4; desc=win?`${val} — FIRE! 4× = +${fmt(hcBetAmt*4-hcBetAmt)} 🪙`:`${val} — Not hot enough! Lose −${fmt(hcBetAmt)} 🪙`; }
+    const won=win?Math.round(hcBetAmt*mult):0;
+    gs.coins+=won; updateHCBal();
+    const net=won-hcBetAmt;
+    const rEl=document.getElementById('hcResult'); rEl.textContent=desc; rEl.className='hc-result '+(win?'hc-result-w':'hc-result-l');
+    const hEl=document.getElementById('hcHistory');
+    hEl.innerHTML=win?`<span style="color:#FFD700">WIN +${fmt(net)} 🪙</span>`:`<span style="color:#FF4444">LOSS −${fmt(hcBetAmt)} 🪙</span>`;
+    addHistory('hotcold',net); hcPhase='result'; hcSetBtn('again');
+  },600);
+}
+function hcNewRound(){ hcPhase='bet'; hcSelected=''; document.getElementById('hcValue').textContent='??'; document.getElementById('hcNeedle').style.left='50%'; document.getElementById('hcResult').textContent=' '; hcHighlight(); hcSetBtn('roll'); }
 
 // ── Gem Finder ────────────────────────────────────────────────────────────────
 const GF_TOTAL=15, GF_GEMS=5;
