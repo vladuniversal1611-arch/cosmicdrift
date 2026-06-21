@@ -1944,6 +1944,35 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 #spbScreen{background:radial-gradient(ellipse at 50% 20%,#000A08 0%,#000504 100%);}
 .spb-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
 .spb-result-w{color:#FFD700;} .spb-result-l{color:#FF4444;}
+/* Escape Room */
+#esrScreen{background:radial-gradient(ellipse at 50% 20%,#060A04 0%,#030502 100%);}
+.esr-door{width:50px;height:76px;border-radius:8px 8px 0 0;background:#060a04;border:2px solid #335500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .25s;font-size:26px;}
+.esr-door:hover{border-color:#88CC00;transform:scale(1.05);}
+.esr-door.selected{border-color:#CCFF00;background:#0c1400;box-shadow:0 0 10px rgba(150,220,0,.3);}
+.esr-door.safe{border-color:#00FF88;background:#001a0a;}
+.esr-door.trap{border-color:#FF4444;background:#1a0000;}
+.esr-door.locked{pointer-events:none;opacity:.4;}
+.esr-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.esr-result-w{color:#00FF88;} .esr-result-l{color:#FF4444;}
+/* Laser Grid */
+#lsgScreen{background:radial-gradient(ellipse at 50% 20%,#080008 0%,#040004 100%);}
+.lsg-beam{width:54px;height:60px;border-radius:10px;background:#080008;border:2px solid #440044;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .25s;font-size:20px;}
+.lsg-beam:hover{transform:scale(1.06);}
+.lsg-beam.selected{box-shadow:0 0 12px var(--lsg-glow,rgba(200,0,200,.4));}
+.lsg-beam.winner{border-width:3px;}
+.lsg-beam.loser{opacity:.35;}
+.lsg-blabel{font-size:9px;font-weight:800;}
+.lsg-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.lsg-result-w{color:#FFD700;} .lsg-result-l{color:#FF4444;}
+/* Dagger Throw */
+#dgtScreen{background:radial-gradient(ellipse at 50% 20%,#08060A 0%,#040305 100%);}
+.dgt-target{width:52px;height:52px;border-radius:50%;background:#08060a;border:2px solid #553300;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:all .25s;}
+.dgt-target:hover{border-color:#CC8800;transform:scale(1.06);}
+.dgt-target.selected{border-color:#FFD700;box-shadow:0 0 12px rgba(255,215,0,.3);}
+.dgt-target.bull{border-color:#FF4400;background:#1a0800;box-shadow:0 0 16px rgba(255,80,0,.4);}
+.dgt-target.miss{border-color:#444;opacity:.45;}
+.dgt-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.dgt-result-w{color:#FF6600;} .dgt-result-l{color:#FF4444;}
 /* Skull Slots */
 #sklScreen{background:radial-gradient(ellipse at 50% 20%,#0A0006 0%,#050003 100%);}
 .skl-reel{width:72px;height:72px;border-radius:12px;background:#0a0006;border:2px solid #550066;display:flex;align-items:center;justify-content:center;font-size:34px;transition:all .2s;overflow:hidden;}
@@ -3906,6 +3935,72 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
     </div>
     <div id="spbBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
   </div>
+</div>
+<!-- ══ Escape Room ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="esrScreen">
+  <button class="back-btn" onclick="closeESR()">←</button>
+  <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:1px;margin-bottom:2px">🚪 ESCAPE ROOM</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.45);text-align:center;margin-bottom:8px">5 Doors — Pick the Safe One! Cash Out Anytime</div>
+  <div style="font-size:12px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:4px" id="esrBal">0 🪙</div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px">
+    <div class="esr-door" id="esrD0" onclick="esrPick(0)">🚪</div>
+    <div class="esr-door" id="esrD1" onclick="esrPick(1)">🚪</div>
+    <div class="esr-door" id="esrD2" onclick="esrPick(2)">🚪</div>
+    <div class="esr-door" id="esrD3" onclick="esrPick(3)">🚪</div>
+    <div class="esr-door" id="esrD4" onclick="esrPick(4)">🚪</div>
+  </div>
+  <div style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:4px" id="esrStatus">Pick a door to begin!</div>
+  <div style="font-size:18px;font-weight:900;color:#00FF88;text-align:center;margin-bottom:4px" id="esrMult">1.0×</div>
+  <div class="esr-result" id="esrResult"></div>
+  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;justify-content:center">
+    <div class="fruit-bet-btn" onclick="esrBetHalf()">½</div>
+    <span style="font-size:13px;font-weight:700" id="esrBetV">100</span>
+    <div class="fruit-bet-btn" onclick="esrBetDouble()">×2</div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:4px" id="esrBtnRow"></div>
+</div>
+<!-- ══ Laser Grid ═══════════════════════════════════════════════════ -->
+<div class="game-screen" id="lsgScreen">
+  <button class="back-btn" onclick="closeLSG()">←</button>
+  <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:1px;margin-bottom:2px">🔴 LASER GRID</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.45);text-align:center;margin-bottom:8px">4 Lasers — Pick the One That Fires Twice! 3.8×</div>
+  <div style="font-size:12px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:4px" id="lsgBal">0 🪙</div>
+  <div style="display:flex;gap:10px;justify-content:center;margin-bottom:8px">
+    <div class="lsg-beam" id="lsgB0" onclick="lsgPick(0)" style="border-color:#FF3333;--lsg-glow:rgba(255,50,50,.4)">🔴<div class="lsg-blabel" style="color:#FF3333">RED</div></div>
+    <div class="lsg-beam" id="lsgB1" onclick="lsgPick(1)" style="border-color:#3399FF;--lsg-glow:rgba(50,120,255,.4)">🔵<div class="lsg-blabel" style="color:#3399FF">BLUE</div></div>
+    <div class="lsg-beam" id="lsgB2" onclick="lsgPick(2)" style="border-color:#33FF66;--lsg-glow:rgba(50,255,100,.4)">🟢<div class="lsg-blabel" style="color:#33FF66">GREEN</div></div>
+    <div class="lsg-beam" id="lsgB3" onclick="lsgPick(3)" style="border-color:#FFFF00;--lsg-glow:rgba(255,255,0,.4)">🟡<div class="lsg-blabel" style="color:#FFFF00">GOLD</div></div>
+  </div>
+  <div style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:4px" id="lsgStatus">Pick which laser fires twice!</div>
+  <div class="lsg-result" id="lsgResult"></div>
+  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;justify-content:center">
+    <div class="fruit-bet-btn" onclick="lsgBetHalf()">½</div>
+    <span style="font-size:13px;font-weight:700" id="lsgBetV">100</span>
+    <div class="fruit-bet-btn" onclick="lsgBetDouble()">×2</div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:4px" id="lsgBtnRow"></div>
+</div>
+<!-- ══ Dagger Throw ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="dgtScreen">
+  <button class="back-btn" onclick="closeDGT()">←</button>
+  <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:1px;margin-bottom:2px">🗡️ DAGGER THROW</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.45);text-align:center;margin-bottom:8px">5 Targets — Pick the Bullseye! 4×</div>
+  <div style="font-size:12px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:4px" id="dgtBal">0 🪙</div>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
+    <div class="dgt-target" id="dgtT0" onclick="dgtPick(0)">🎯</div>
+    <div class="dgt-target" id="dgtT1" onclick="dgtPick(1)">🎯</div>
+    <div class="dgt-target" id="dgtT2" onclick="dgtPick(2)">🎯</div>
+    <div class="dgt-target" id="dgtT3" onclick="dgtPick(3)">🎯</div>
+    <div class="dgt-target" id="dgtT4" onclick="dgtPick(4)">🎯</div>
+  </div>
+  <div style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:4px" id="dgtStatus">Pick the bullseye target!</div>
+  <div class="dgt-result" id="dgtResult"></div>
+  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;justify-content:center">
+    <div class="fruit-bet-btn" onclick="dgtBetHalf()">½</div>
+    <span style="font-size:13px;font-weight:700" id="dgtBetV">100</span>
+    <div class="fruit-bet-btn" onclick="dgtBetDouble()">×2</div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:4px" id="dgtBtnRow"></div>
 </div>
 <!-- ══ Skull Slots ══════════════════════════════════════════════════ -->
 <div class="game-screen" id="sklScreen">
@@ -10740,6 +10835,18 @@ const GAME_DEFS = {
      emoji:'⚡🗼⚡', badge:'NEW', badgeColor:'#FFFF00',
      grad:'linear-gradient(145deg,#080600,#040300)',
      glow:'rgba(180,180,0,.3)', minLv:1, action:'lightningbolt'},
+    {id:'escaperoom', name:'Escape Room', sub:'5 Doors — Pick Safe Ones! Cash Out Anytime',
+     emoji:'🚪🔑✅', badge:'NEW', badgeColor:'#00FF88',
+     grad:'linear-gradient(145deg,#060A04,#030502)',
+     glow:'rgba(0,180,60,.3)', minLv:1, action:'escaperoom'},
+    {id:'lasergrid', name:'Laser Grid', sub:'4 Lasers — Pick Which Fires Twice! 3.8×',
+     emoji:'🔴🔵🟢', badge:'NEW', badgeColor:'#FF3333',
+     grad:'linear-gradient(145deg,#080008,#040004)',
+     glow:'rgba(160,0,160,.3)', minLv:1, action:'lasergrid'},
+    {id:'daggerthrow', name:'Dagger Throw', sub:'5 Targets — Find the Bullseye! 4×',
+     emoji:'🗡️🎯💥', badge:'NEW', badgeColor:'#FF6600',
+     grad:'linear-gradient(145deg,#08060A,#040305)',
+     glow:'rgba(140,60,0,.3)', minLv:1, action:'daggerthrow'},
     {id:'skullslots', name:'Skull Slots', sub:'3 Reels — Triple Match 10× · Pair 2×',
      emoji:'💀🃏🎯', badge:'NEW', badgeColor:'#FF88FF',
      grad:'linear-gradient(145deg,#0A0006,#050003)',
@@ -11954,6 +12061,38 @@ function gcSVG(g){
       <text x="80" y="122" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,200,255,.9)" font-family="Arial,sans-serif">NEON GRID</text>
     ${e}`;
   }
+  // ── ESCAPE ROOM ──────────────────────────────────────────────────
+  if(act==='escaperoom'){
+    const dx=[20,47,74,101,128];
+    let doors='';
+    dx.forEach((x,i)=>{ doors+=`<rect x="${x-14}" y="25" width="28" height="55" rx="6" fill="#060a04" stroke="${i===2?'#00FF88':'#335500'}" stroke-width="${i===2?2.5:1.5}"/><text x="${x}" y="58" text-anchor="middle" font-size="20" font-family="Arial">🚪</text>`; });
+    return `${s}${doors}
+      <text x="80" y="93" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">5 doors · 75% safe · cash out!</text>
+      <text x="80" y="105" text-anchor="middle" font-size="9" font-weight="900" fill="#00FF88" font-family="Arial">ESCAPE · MAX 12×</text>
+      <text x="80" y="122" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,220,80,.9)" font-family="Arial,sans-serif">ESCAPE ROOM</text>
+    ${e}`;
+  }
+  // ── LASER GRID ────────────────────────────────────────────────────
+  if(act==='lasergrid'){
+    const beams=[{c:'#FF3333',e:'🔴'},{c:'#3399FF',e:'🔵'},{c:'#33FF66',e:'🟢'},{c:'#FFFF00',e:'🟡'}];
+    let bs='';
+    beams.forEach(({c,e},i)=>{ const x=18+i*38; bs+=`<rect x="${x-14}" y="28" width="28" height="50" rx="8" fill="#080008" stroke="${c}" stroke-width="2"/><text x="${x}" y="58" text-anchor="middle" font-size="18" font-family="Arial">${e}</text>`; });
+    return `${s}${bs}
+      <text x="80" y="90" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">4 lasers · pick which fires twice!</text>
+      <text x="80" y="104" text-anchor="middle" font-size="9" font-weight="900" fill="#FF88FF" font-family="Arial">3.8× PAYOUT</text>
+      <text x="80" y="122" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,0,200,.9)" font-family="Arial,sans-serif">LASER GRID</text>
+    ${e}`;
+  }
+  // ── DAGGER THROW ─────────────────────────────────────────────────
+  if(act==='daggerthrow'){
+    const tpos=[[38,38],[122,38],[80,60],[38,82],[122,82]];
+    let targets='';
+    tpos.forEach(([x,y],i)=>{ targets+=`<circle cx="${x}" cy="${y}" r="16" fill="#08060a" stroke="${i===0?'#FF4400':'#553300'}" stroke-width="${i===0?2.5:1.5}"/><text x="${x}" y="${y+6}" text-anchor="middle" font-size="16" font-family="Arial">${i===0?'🔴':'🎯'}</text>`; });
+    return `${s}${targets}
+      <text x="80" y="108" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">5 targets · 1 bullseye · pick it!</text>
+      <text x="80" y="122" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,80,0,.9)" font-family="Arial,sans-serif">DAGGER THROW</text>
+    ${e}`;
+  }
   // ── SKULL SLOTS ──────────────────────────────────────────────────
   if(act==='skullslots'){
     return `${s}
@@ -13097,6 +13236,9 @@ function makeCard(g){
       else if(g.action==='magictiles') openMGT();
       else if(g.action==='stormsurge') openSSU();
       else if(g.action==='lightningbolt') openLGB();
+      else if(g.action==='escaperoom') openESR();
+      else if(g.action==='lasergrid') openLSG();
+      else if(g.action==='daggerthrow') openDGT();
       else if(g.action==='skullslots') openSKL();
       else if(g.action==='oceandive') openOCN();
       else if(g.action==='ringtoss') openRNG();
@@ -18611,6 +18753,186 @@ function ngrPick(i){
 }
 function ngrNewRound(){ ngrPhase='bet'; ngrPicksLeft=4; ngrCollected=0; document.getElementById('ngrResult').textContent=' '; document.getElementById('ngrLeft').textContent='4'; ngrBuildGrid(); ngrSetBtn('start'); }
 
+// ── Escape Room ───────────────────────────────────────────────────────────────
+const ESR_MULTS=[0,1.5,2.2,3.5,6,12];
+let esrBetAmt=100, esrPhase='bet', esrRoom=0;
+function updateESRBal(){ document.getElementById('esrBal').textContent=fmt(gs.coins)+' 🪙'; }
+function openESR(){
+  esrPhase='bet'; esrRoom=0;
+  for(let i=0;i<5;i++){ const el=document.getElementById('esrD'+i); el.className='esr-door'; el.textContent='🚪'; el.style.pointerEvents='auto'; }
+  document.getElementById('esrStatus').textContent='Pick a door to begin!';
+  document.getElementById('esrMult').textContent='1.0×';
+  document.getElementById('esrResult').textContent=''; document.getElementById('esrResult').className='esr-result';
+  document.getElementById('esrBetV').textContent=fmt(esrBetAmt);
+  document.getElementById('esrBtnRow').innerHTML='';
+  updateESRBal();
+  document.getElementById('esrScreen').classList.add('open');
+}
+function closeESR(){ document.getElementById('esrScreen').classList.remove('open'); esrPhase='bet'; }
+function esrBetHalf(){ esrBetAmt=Math.max(10,Math.floor(esrBetAmt/2)); document.getElementById('esrBetV').textContent=fmt(esrBetAmt); }
+function esrBetDouble(){ esrBetAmt=Math.min(gs.coins,esrBetAmt*2); document.getElementById('esrBetV').textContent=fmt(esrBetAmt); }
+function esrPick(i){
+  if(esrPhase==='done') return;
+  if(esrPhase==='bet'){
+    if(gs.coins<esrBetAmt){ showToast('Not enough coins!'); return; }
+    gs.coins-=esrBetAmt; save(); updateESRBal();
+    esrPhase='play';
+    document.getElementById('esrBtnRow').innerHTML='<button class="action-btn" id="esrEscBtn" onclick="esrEscape()" style="background:rgba(0,180,60,.15);border-color:#00AA50">✅ ESCAPE</button>';
+  }
+  const el=document.getElementById('esrD'+i);
+  if(el.classList.contains('safe')||el.classList.contains('trap')) return;
+  const safe=Math.random()<0.75;
+  if(!safe){
+    el.textContent='💀'; el.className='esr-door trap';
+    esrPhase='done';
+    for(let j=0;j<5;j++) document.getElementById('esrD'+j).style.pointerEvents='none';
+    document.getElementById('esrStatus').textContent='TRAP! You\'re caught!';
+    document.getElementById('esrResult').textContent='Trapped in room '+(esrRoom+1)+'! LOSE';
+    document.getElementById('esrResult').className='esr-result esr-result-l';
+    addHistory('Escape Room',-esrBetAmt);
+    document.getElementById('esrBtnRow').innerHTML='<button class="action-btn" onclick="openESR()">▶ AGAIN</button><button class="action-btn" style="background:rgba(255,255,255,.08)" onclick="closeESR()">🏠 LOBBY</button>';
+    return;
+  }
+  el.textContent='✅'; el.className='esr-door safe';
+  esrRoom++;
+  document.getElementById('esrMult').textContent=ESR_MULTS[Math.min(esrRoom,5)]+'×';
+  document.getElementById('esrStatus').textContent='Room '+esrRoom+' cleared! Go deeper or ESCAPE';
+  if(esrRoom>=5){ esrEscape(); }
+}
+function esrEscape(){
+  if(esrPhase!=='play') return;
+  esrPhase='done';
+  const mult=ESR_MULTS[Math.min(esrRoom,5)];
+  for(let j=0;j<5;j++) document.getElementById('esrD'+j).style.pointerEvents='none';
+  if(esrRoom===0){ addHistory('Escape Room',-esrBetAmt); document.getElementById('esrResult').textContent='Escaped with no rooms! LOSE'; document.getElementById('esrResult').className='esr-result esr-result-l'; }
+  else {
+    const win=Math.floor(esrBetAmt*mult);
+    gs.coins+=win; save(); updateESRBal();
+    addHistory('Escape Room',win-esrBetAmt);
+    document.getElementById('esrResult').textContent='Escaped '+esrRoom+' room'+(esrRoom>1?'s':'')+'! WIN '+fmt(win)+' 🪙 ('+mult+'×)';
+    document.getElementById('esrResult').className='esr-result esr-result-w';
+  }
+  document.getElementById('esrBtnRow').innerHTML='<button class="action-btn" onclick="openESR()">▶ AGAIN</button><button class="action-btn" style="background:rgba(255,255,255,.08)" onclick="closeESR()">🏠 LOBBY</button>';
+}
+// ── Laser Grid ────────────────────────────────────────────────────────────────
+const LSG_MULT=3.8;
+const LSG_NAMES=['Red','Blue','Green','Gold'];
+let lsgBetAmt=100, lsgPhase='bet', lsgPicked=-1;
+function updateLSGBal(){ document.getElementById('lsgBal').textContent=fmt(gs.coins)+' 🪙'; }
+function openLSG(){
+  lsgPhase='bet'; lsgPicked=-1;
+  for(let i=0;i<4;i++){ const el=document.getElementById('lsgB'+i); el.className='lsg-beam'; el.style.pointerEvents='auto'; }
+  document.getElementById('lsgStatus').textContent='Pick which laser fires twice!';
+  document.getElementById('lsgResult').textContent=''; document.getElementById('lsgResult').className='lsg-result';
+  document.getElementById('lsgBetV').textContent=fmt(lsgBetAmt);
+  document.getElementById('lsgBtnRow').innerHTML='';
+  updateLSGBal();
+  document.getElementById('lsgScreen').classList.add('open');
+}
+function closeLSG(){ document.getElementById('lsgScreen').classList.remove('open'); lsgPhase='bet'; }
+function lsgBetHalf(){ lsgBetAmt=Math.max(10,Math.floor(lsgBetAmt/2)); document.getElementById('lsgBetV').textContent=fmt(lsgBetAmt); }
+function lsgBetDouble(){ lsgBetAmt=Math.min(gs.coins,lsgBetAmt*2); document.getElementById('lsgBetV').textContent=fmt(lsgBetAmt); }
+function lsgPick(i){
+  if(lsgPhase!=='bet') return;
+  for(let j=0;j<4;j++) document.getElementById('lsgB'+j).className='lsg-beam';
+  lsgPicked=i;
+  document.getElementById('lsgB'+i).classList.add('selected');
+  document.getElementById('lsgStatus').textContent=LSG_NAMES[i]+' laser selected — FIRE!';
+  document.getElementById('lsgBtnRow').innerHTML='<button class="action-btn" id="lsgFireBtn" onclick="lsgFire()">⚡ FIRE!</button>';
+}
+function lsgFire(){
+  if(lsgPhase!=='bet'||lsgPicked<0) return;
+  if(gs.coins<lsgBetAmt){ showToast('Not enough coins!'); return; }
+  gs.coins-=lsgBetAmt; save(); updateLSGBal();
+  lsgPhase='anim';
+  for(let j=0;j<4;j++) document.getElementById('lsgB'+j).style.pointerEvents='none';
+  document.getElementById('lsgBtnRow').innerHTML='';
+  const fires=[]; while(fires.length<4){ fires.push(Math.floor(Math.random()*4)); }
+  const winner=fires[0];
+  let t=0;
+  const iv=setInterval(()=>{
+    const f=Math.floor(Math.random()*4);
+    for(let j=0;j<4;j++) document.getElementById('lsgB'+j).className='lsg-beam'+(j===f?' selected':'');
+    t++;
+    if(t>14){
+      clearInterval(iv);
+      for(let j=0;j<4;j++) document.getElementById('lsgB'+j).className='lsg-beam'+(j===winner?' winner':' loser');
+      lsgPhase='done';
+      const resultEl=document.getElementById('lsgResult');
+      if(lsgPicked===winner){
+        const win=Math.floor(lsgBetAmt*LSG_MULT);
+        gs.coins+=win; save(); updateLSGBal();
+        addHistory('Laser Grid',win-lsgBetAmt);
+        resultEl.textContent=LSG_NAMES[winner]+' laser fired twice! WIN '+fmt(win)+' 🪙 ('+LSG_MULT+'×)';
+        resultEl.className='lsg-result lsg-result-w';
+      } else {
+        addHistory('Laser Grid',-lsgBetAmt);
+        resultEl.textContent=LSG_NAMES[winner]+' laser fired twice! You picked '+LSG_NAMES[lsgPicked]+'. LOSE';
+        resultEl.className='lsg-result lsg-result-l';
+      }
+      document.getElementById('lsgStatus').textContent='Lasers fired!';
+      document.getElementById('lsgBtnRow').innerHTML='<button class="action-btn" onclick="openLSG()">▶ AGAIN</button><button class="action-btn" style="background:rgba(255,255,255,.08)" onclick="closeLSG()">🏠 LOBBY</button>';
+    }
+  },100);
+}
+// ── Dagger Throw ──────────────────────────────────────────────────────────────
+const DGT_MULT=4;
+let dgtBetAmt=100, dgtPhase='bet', dgtPicked=-1, dgtBull=-1;
+function updateDGTBal(){ document.getElementById('dgtBal').textContent=fmt(gs.coins)+' 🪙'; }
+function openDGT(){
+  dgtPhase='bet'; dgtPicked=-1; dgtBull=Math.floor(Math.random()*5);
+  for(let i=0;i<5;i++){ const el=document.getElementById('dgtT'+i); el.className='dgt-target'; el.textContent='🎯'; el.style.pointerEvents='auto'; }
+  document.getElementById('dgtStatus').textContent='Pick the bullseye target!';
+  document.getElementById('dgtResult').textContent=''; document.getElementById('dgtResult').className='dgt-result';
+  document.getElementById('dgtBetV').textContent=fmt(dgtBetAmt);
+  document.getElementById('dgtBtnRow').innerHTML='';
+  updateDGTBal();
+  document.getElementById('dgtScreen').classList.add('open');
+}
+function closeDGT(){ document.getElementById('dgtScreen').classList.remove('open'); dgtPhase='bet'; }
+function dgtBetHalf(){ dgtBetAmt=Math.max(10,Math.floor(dgtBetAmt/2)); document.getElementById('dgtBetV').textContent=fmt(dgtBetAmt); }
+function dgtBetDouble(){ dgtBetAmt=Math.min(gs.coins,dgtBetAmt*2); document.getElementById('dgtBetV').textContent=fmt(dgtBetAmt); }
+function dgtPick(i){
+  if(dgtPhase!=='bet') return;
+  for(let j=0;j<5;j++) document.getElementById('dgtT'+j).className='dgt-target';
+  dgtPicked=i;
+  document.getElementById('dgtT'+i).classList.add('selected');
+  document.getElementById('dgtStatus').textContent='Target '+(i+1)+' aimed — THROW!';
+  document.getElementById('dgtBtnRow').innerHTML='<button class="action-btn" id="dgtThrowBtn" onclick="dgtThrow()">🗡️ THROW!</button>';
+}
+function dgtThrow(){
+  if(dgtPhase!=='bet'||dgtPicked<0) return;
+  if(gs.coins<dgtBetAmt){ showToast('Not enough coins!'); return; }
+  gs.coins-=dgtBetAmt; save(); updateDGTBal();
+  dgtPhase='anim';
+  for(let j=0;j<5;j++) document.getElementById('dgtT'+j).style.pointerEvents='none';
+  document.getElementById('dgtBtnRow').innerHTML='';
+  let t=0;
+  const iv=setInterval(()=>{
+    const f=Math.floor(Math.random()*5);
+    for(let j=0;j<5;j++) document.getElementById('dgtT'+j).className='dgt-target'+(j===f?' selected':'');
+    t++;
+    if(t>14){
+      clearInterval(iv);
+      for(let j=0;j<5;j++){ document.getElementById('dgtT'+j).className='dgt-target'+(j===dgtBull?' bull':' miss'); document.getElementById('dgtT'+j).textContent=j===dgtBull?'💥':'🎯'; }
+      dgtPhase='done';
+      const resultEl=document.getElementById('dgtResult');
+      if(dgtPicked===dgtBull){
+        const win=Math.floor(dgtBetAmt*DGT_MULT);
+        gs.coins+=win; save(); updateDGTBal();
+        addHistory('Dagger Throw',win-dgtBetAmt);
+        resultEl.textContent='BULLSEYE on target '+(dgtBull+1)+'! WIN '+fmt(win)+' 🪙 ('+DGT_MULT+'×)';
+        resultEl.className='dgt-result dgt-result-w';
+      } else {
+        addHistory('Dagger Throw',-dgtBetAmt);
+        resultEl.textContent='Bullseye on target '+(dgtBull+1)+'. You aimed '+(dgtPicked+1)+'. LOSE';
+        resultEl.className='dgt-result dgt-result-l';
+      }
+      document.getElementById('dgtStatus').textContent='Dagger thrown!';
+      document.getElementById('dgtBtnRow').innerHTML='<button class="action-btn" onclick="openDGT()">▶ AGAIN</button><button class="action-btn" style="background:rgba(255,255,255,.08)" onclick="closeDGT()">🏠 LOBBY</button>';
+    }
+  },100);
+}
 // ── Skull Slots ───────────────────────────────────────────────────────────────
 const SKL_SYMS=['💀','🃏','🎯','🎪','👁️'];
 let sklBetAmt=100, sklSpinning=false;
