@@ -1418,6 +1418,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .pk-zone.saved{background:rgba(255,60,0,.2);border-color:#FF4400;}
 .pk-result{font-size:15px;font-weight:700;text-align:center;margin:4px 0;}
 .pk-result-w{color:#00FF66;} .pk-result-l{color:#FF4444;}
+/* ── Gem Finder (Treasure Hunt) ── */
+#gfScreen{background:radial-gradient(ellipse at 50% 20%,#0A0800 0%,#050400 100%);}
+.gf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:4px;}
+.gf-cell{height:44px;border-radius:10px;border:1.5px solid rgba(200,150,0,.25);background:linear-gradient(145deg,#1A1200,#0C0900);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s;}
+.gf-cell:hover{border-color:rgba(255,200,0,.5);background:rgba(30,22,0,.7);}
+.gf-cell.revealed-gem{background:linear-gradient(145deg,#2A1A00,#1A1000);border-color:#FFD700;cursor:default;}
+.gf-cell.revealed-empty{background:rgba(20,20,20,.5);border-color:rgba(60,60,60,.3);cursor:default;opacity:.6;}
+.gf-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.gf-result-w{color:#FFD700;} .gf-result-l{color:#FF4444;}
+/* ── Mini Roulette ── */
+#mrScreen{background:radial-gradient(ellipse at 50% 20%,#0A0010 0%,#050008 100%);}
+.mr-wheel{width:140px;height:140px;border-radius:50%;margin:0 auto;border:4px solid rgba(150,0,255,.4);position:relative;overflow:hidden;background:conic-gradient(#CC0000 0 13deg,#111 13deg 26deg,#CC0000 26deg 39deg,#111 39deg 52deg,#CC0000 52deg 65deg,#111 65deg 78deg,#CC0000 78deg 91deg,#111 91deg 104deg,#00AA00 104deg 117deg,#CC0000 117deg 130deg,#111 130deg 143deg,#CC0000 143deg 156deg,#111 156deg 169deg);}
+.mr-ball{width:12px;height:12px;border-radius:50%;background:white;position:absolute;top:10px;left:50%;transform:translateX(-50%);transition:all .3s;}
+.mr-bet-btn{padding:6px 10px;border-radius:8px;border:1.5px solid;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.04);transition:all .2s;}
+.mr-bet-btn.sel{transform:scale(1.08);}
+.mr-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.mr-result-w{color:#FFD700;} .mr-result-l{color:#FF4444;}
+/* ── Spin Multiplier ── */
+#smScreen{background:radial-gradient(ellipse at 50% 20%,#100010 0%,#080008 100%);}
+.sm-reel-box{display:flex;justify-content:center;gap:6px;padding:8px;}
+.sm-reel{width:68px;height:68px;border-radius:10px;border:2px solid rgba(180,0,255,.3);background:linear-gradient(145deg,#1A001A,#100010);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;position:relative;}
+.sm-reel.spin{animation:smSpin .12s linear infinite;}
+@keyframes smSpin{0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+.sm-reel.win{border-color:#FFD700;box-shadow:0 0 14px rgba(255,200,0,.5);}
+.sm-mult-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:4px 0;}
+.sm-mult-badge{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid;}
+.sm-result{font-size:14px;font-weight:700;text-align:center;}
+.sm-result-w{color:#FFD700;} .sm-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -2643,6 +2671,79 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   </div>
 </div>
 
+<!-- ══ Gem Finder ═════════════════════════════════════════════════ -->
+<div class="game-screen" id="gfScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeGF()">←</button>
+    <span>💎 Gem Finder</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="gfBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:10px 14px;gap:7px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="gfHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">5 gems hidden in 15 tiles · Find all 5 = 10× · Each gem stops = partial pay</div>
+    <div class="gf-grid" id="gfGrid"></div>
+    <div id="gfFound" style="text-align:center;font-size:12px;color:#888">Gems: <span id="gfFoundCount">0</span>/5</div>
+    <div id="gfResult" class="gf-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="gfBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="gfBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="gfBetDouble()">2×</button>
+    </div>
+    <div id="gfBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Mini Roulette ══════════════════════════════════════════════ -->
+<div class="game-screen" id="mrScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeMR()">←</button>
+    <span>🎡 Mini Roulette</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="mrBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:10px 14px;gap:7px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="mrHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">13 slots: 0-12 · Red(1,3,5,7,9,12)=1:1 · Black(2,4,6,8,10,11)=1:1 · 0=house · Single=11:1</div>
+    <div class="mr-wheel" id="mrWheel"><div class="mr-ball" id="mrBall"></div></div>
+    <div id="mrLandEl" style="text-align:center;font-size:22px;font-weight:900;color:#FFD700;min-height:30px"></div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap" id="mrBetBtns">
+      <button class="mr-bet-btn" id="mrBtnRed" onclick="mrBet('red')" style="border-color:#CC0000;color:#CC0000">Red 1:1</button>
+      <button class="mr-bet-btn" id="mrBtnBlk" onclick="mrBet('black')" style="border-color:#888;color:#AAA">Black 1:1</button>
+      <button class="mr-bet-btn" id="mrBtnEven" onclick="mrBet('even')" style="border-color:#00CFFF;color:#00CFFF">Even 1:1</button>
+      <button class="mr-bet-btn" id="mrBtnOdd" onclick="mrBet('odd')" style="border-color:#BF5FFF;color:#BF5FFF">Odd 1:1</button>
+    </div>
+    <div id="mrResult" class="mr-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="mrBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="mrBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="mrBetDouble()">2×</button>
+    </div>
+    <div id="mrBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Spin Multiplier ════════════════════════════════════════════ -->
+<div class="game-screen" id="smScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeSM()">←</button>
+    <span>💫 Spin Multiplier</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="smBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:10px 14px;gap:7px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="smHistory">&nbsp;</div>
+    <div style="font-size:10px;color:#555;text-align:center">Spin 3 reels · Match symbols · Multiplier tiles add bonus!</div>
+    <div class="sm-reel-box">
+      <div class="sm-reel" id="smR0">❓</div>
+      <div class="sm-reel" id="smR1">❓</div>
+      <div class="sm-reel" id="smR2">❓</div>
+    </div>
+    <div class="sm-mult-row" id="smMultRow"></div>
+    <div id="smResult" class="sm-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="smBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="smBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="smBetDouble()">2×</button>
+    </div>
+    <div id="smBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
 <!-- ══ Poker Dice ═════════════════════════════════════════════════ -->
 <div class="game-screen" id="pdScreen">
   <div class="game-header">
@@ -7634,6 +7735,18 @@ const GAME_DEFS = {
      emoji:'⚽🥅🎯', badge:'HOT', badgeColor:'#00FF66',
      grad:'linear-gradient(145deg,#001A06,#000D03)',
      glow:'rgba(0,200,60,.28)', minLv:1, action:'penaltykick'},
+    {id:'gemfinder', name:'Gem Finder', sub:'Find 5 Hidden Gems — 10× Jackpot!',
+     emoji:'💎🗺️⭐', badge:'HOT', badgeColor:'#FFD700',
+     grad:'linear-gradient(145deg,#0A0800,#050400)',
+     glow:'rgba(255,200,0,.32)', minLv:1, action:'gemfinder'},
+    {id:'miniroulette', name:'Mini Roulette', sub:'13 Slots — Red/Black/Single!',
+     emoji:'🎡🔴⚫', badge:'NEW', badgeColor:'#BF5FFF',
+     grad:'linear-gradient(145deg,#0A0010,#050008)',
+     glow:'rgba(150,0,255,.3)', minLv:1, action:'miniroulette'},
+    {id:'spinmult', name:'Spin Multiplier', sub:'3 Reels + Random Multipliers!',
+     emoji:'💫✨🎰', badge:'HOT', badgeColor:'#FF44FF',
+     grad:'linear-gradient(145deg,#100010,#080008)',
+     glow:'rgba(200,0,200,.3)', minLv:1, action:'spinmult'},
     {id:'warofcards', name:'War of Cards', sub:'One Card Each — Higher Wins!',
      emoji:'⚔️🃏👑', badge:'HOT', badgeColor:'#FF4400',
      grad:'linear-gradient(145deg,#1A0000,#0A0000)',
@@ -8467,6 +8580,44 @@ function gcSVG(g){
       <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,220,60,.9)" font-family="Arial,sans-serif">PICK A CORNER — SCORE!</text>
     ${e}`;
   }
+  if(act==='gemfinder'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A0800"/>
+      <ellipse cx="80" cy="72" rx="68" ry="26" fill="#140E00" stroke="#2A1C00" stroke-width="1.5"/>
+      ${Array.from({length:15},(_, i)=>{
+        const x=12+i%5*30, y=16+Math.floor(i/5)*22;
+        const isGem=[0,4,7,10,14].includes(i);
+        return `<rect x="${x}" y="${y}" width="24" height="18" rx="4" fill="${isGem?'#2A1800':'#1A1200'}" stroke="${isGem?'rgba(255,200,0,.5)':'rgba(100,80,0,.3)'}" stroke-width="1"/>
+                ${isGem?`<text x="${x+12}" y="${y+13}" text-anchor="middle" font-size="10" font-family="Arial">💎</text>`:''}`;
+      }).join('')}
+      <text x="80" y="94" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(255,200,0,.9)" font-family="Arial,sans-serif">FIND 5 GEMS — 10× JACKPOT!</text>
+    ${e}`;
+  }
+  if(act==='miniroulette'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A0010"/>
+      <circle cx="80" cy="48" r="38" fill="none" stroke="rgba(150,0,255,.4)" stroke-width="2"/>
+      <circle cx="80" cy="48" r="28" fill="#100020" stroke="rgba(100,0,200,.3)" stroke-width="1"/>
+      ${[0,1,2,3,4,5,6,7,8,9,10,11,12].map((n,i)=>{
+        const ang=(i/13)*2*Math.PI-Math.PI/2;
+        const r=33; const x=80+r*Math.cos(ang), y=48+r*Math.sin(ang);
+        const isRed=[1,3,5,7,9,12].includes(n);
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${n===0?'#00AA00':isRed?'#CC0000':'#111'}" stroke="rgba(255,255,255,.2)" stroke-width=".8"/>`;
+      }).join('')}
+      <text x="80" y="94" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">13 SLOTS · SINGLE NUMBER 11:1</text>
+    ${e}`;
+  }
+  if(act==='spinmult'){
+    return `${s}
+      <rect width="160" height="100" fill="#100010"/>
+      <ellipse cx="80" cy="72" rx="68" ry="26" fill="#1A001A" stroke="#380038" stroke-width="1.5"/>
+      ${[20,62,104].map(x=>`
+        <rect x="${x}" y="14" width="36" height="44" rx="8" fill="#180018" stroke="rgba(200,0,200,.4)" stroke-width="1.5"/>
+        <text x="${x+18}" y="44" text-anchor="middle" font-size="22" font-family="Arial">💫</text>
+      `).join('')}
+      <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(220,100,255,.9)" font-family="Arial,sans-serif">MATCH REELS + MULTIPLIER BONUS</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -8873,6 +9024,9 @@ function makeCard(g){
       else if(g.action==='pokerdice') openPD();
       else if(g.action==='lucky9') openL9();
       else if(g.action==='penaltykick') openPK();
+      else if(g.action==='gemfinder') openGF();
+      else if(g.action==='miniroulette') openMR();
+      else if(g.action==='spinmult') openSM();
       else if(g.action==='warofcards') openWOC();
       else if(g.action==='numberguess') openNGU();
       else if(g.action==='msstud') openMSStud();
@@ -12671,6 +12825,266 @@ function addDWChip(outcome){
   chip.className='dw-hc '+(outcome==='W'?'dw-hc-w':'dw-hc-l'); chip.textContent=outcome;
   hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
+
+// ── Gem Finder ────────────────────────────────────────────────────────────────
+const GF_TOTAL=15, GF_GEMS=5;
+const GF_PAY=[0,0.5,1,2,4,10]; // 0 gems=0, 1=0.5, 2=1, 3=2, 4=4, 5=10
+let gfBetAmt=100, gfPhase='bet';
+let gfGemPos=[], gfRevealed=[], gfFound=0;
+
+function openGF(){
+  document.getElementById('gfScreen').classList.add('open');
+  gfPhase='bet'; gfBetAmt=100; gfFound=0; gfRevealed=Array(GF_TOTAL).fill(false);
+  updateGFBal(); document.getElementById('gfBetV').textContent=fmt(gfBetAmt);
+  document.getElementById('gfFoundCount').textContent='0';
+  document.getElementById('gfResult').textContent=' ';
+  document.getElementById('gfHistory').innerHTML='&nbsp;';
+  gfBuildGrid(); gfSetBtnRow('play');
+}
+function closeGF(){ document.getElementById('gfScreen').classList.remove('open'); gfPhase='bet'; }
+function updateGFBal(){ document.getElementById('gfBal').textContent=fmt(gs.coins)+' 🪙'; }
+function gfBetHalf(){ gfBetAmt=Math.max(10,Math.floor(gfBetAmt/2)); document.getElementById('gfBetV').textContent=fmt(gfBetAmt); }
+function gfBetDouble(){ gfBetAmt=Math.min(gs.coins,gfBetAmt*2); document.getElementById('gfBetV').textContent=fmt(gfBetAmt); }
+function gfMakeGems(){
+  const pos=new Set(); while(pos.size<GF_GEMS) pos.add(Math.floor(Math.random()*GF_TOTAL));
+  gfGemPos=[...pos];
+}
+function gfBuildGrid(){
+  const grid=document.getElementById('gfGrid'); grid.innerHTML='';
+  for(let i=0;i<GF_TOTAL;i++){
+    const cell=document.createElement('div'); cell.className='gf-cell';
+    cell.textContent='❓'; cell.id='gfC'+i;
+    cell.onclick=()=>gfReveal(i);
+    grid.appendChild(cell);
+  }
+}
+function gfReveal(idx){
+  if(gfPhase!=='active'||gfRevealed[idx]) return;
+  gfRevealed[idx]=true;
+  const isGem=gfGemPos.includes(idx);
+  const cell=document.getElementById('gfC'+idx);
+  if(isGem){
+    gfFound++; cell.className='gf-cell revealed-gem'; cell.textContent='💎';
+    cell.onclick=null;
+    document.getElementById('gfFoundCount').textContent=gfFound;
+    if(gfFound===GF_GEMS){
+      // All gems found — big win
+      gfFinish(true);
+    }
+  } else {
+    cell.className='gf-cell revealed-empty'; cell.textContent='🪨'; cell.onclick=null;
+    // Bust — reveal all gems and end
+    gfBust();
+  }
+}
+function gfStart(){
+  if(gfPhase!=='bet') return;
+  if(gs.coins<gfBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=gfBetAmt; updateGFBal();
+  gfMakeGems(); gfRevealed=Array(GF_TOTAL).fill(false); gfFound=0;
+  document.getElementById('gfFoundCount').textContent='0';
+  gfPhase='active'; gfSetBtnRow('cashout');
+}
+function gfBust(){
+  // reveal all remaining gems
+  gfGemPos.forEach(i=>{ if(!gfRevealed[i]){ const c=document.getElementById('gfC'+i); c.className='gf-cell revealed-gem'; c.textContent='💎'; c.onclick=null; }});
+  for(let i=0;i<GF_TOTAL;i++) if(document.getElementById('gfC'+i)) document.getElementById('gfC'+i).onclick=null;
+  const mult=GF_PAY[gfFound];
+  const rEl=document.getElementById('gfResult');
+  const hEl=document.getElementById('gfHistory');
+  if(mult>0){
+    const win=Math.round(gfBetAmt*mult); gs.coins+=win; updateGFBal();
+    rEl.textContent=`Found ${gfFound} gem${gfFound!==1?'s':''}! ${mult}× = WIN +${fmt(win-gfBetAmt)} 🪙`; rEl.className='gf-result gf-result-w';
+    hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(win-gfBetAmt)} 🪙</span>`;
+    addHistory('gemfinder',win-gfBetAmt);
+  } else {
+    rEl.textContent='No gems found! Better luck next time.'; rEl.className='gf-result gf-result-l';
+    hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(gfBetAmt)} 🪙</span>`;
+    addHistory('gemfinder',-gfBetAmt);
+  }
+  gfPhase='result'; gfSetBtnRow('new');
+}
+function gfFinish(allFound){
+  for(let i=0;i<GF_TOTAL;i++) if(document.getElementById('gfC'+i)) document.getElementById('gfC'+i).onclick=null;
+  const mult=GF_PAY[gfFound];
+  const win=Math.round(gfBetAmt*mult); gs.coins+=win; updateGFBal();
+  const rEl=document.getElementById('gfResult');
+  rEl.textContent=`🎉 ALL 5 GEMS! JACKPOT ${mult}× = +${fmt(win-gfBetAmt)} 🪙`; rEl.className='gf-result gf-result-w';
+  document.getElementById('gfHistory').innerHTML=`<span style="color:#FFD700">JACKPOT! +${fmt(win-gfBetAmt)} 🪙</span>`;
+  addHistory('gemfinder',win-gfBetAmt);
+  gfPhase='result'; gfSetBtnRow('new');
+}
+function gfCashOut(){
+  if(gfPhase!=='active') return;
+  for(let i=0;i<GF_TOTAL;i++) if(document.getElementById('gfC'+i)) document.getElementById('gfC'+i).onclick=null;
+  const mult=GF_PAY[Math.max(0,gfFound)];
+  const rEl=document.getElementById('gfResult');
+  const hEl=document.getElementById('gfHistory');
+  if(mult>0&&gfFound>0){
+    const win=Math.round(gfBetAmt*mult); gs.coins+=win; updateGFBal();
+    rEl.textContent=`Cashed out! ${gfFound} gems = ${mult}×`; rEl.className='gf-result gf-result-w';
+    hEl.innerHTML=`<span style="color:#FFD700">CASHOUT +${fmt(win-gfBetAmt)} 🪙</span>`;
+    addHistory('gemfinder',win-gfBetAmt);
+  } else {
+    rEl.textContent='Cashed out with 0 gems!'; rEl.className='gf-result gf-result-l';
+    hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(gfBetAmt)} 🪙</span>`;
+    addHistory('gemfinder',-gfBetAmt);
+  }
+  gfPhase='result'; gfSetBtnRow('new');
+}
+function gfSetBtnRow(state){
+  const r=document.getElementById('gfBtnRow');
+  if(state==='play') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="gfStart()">START</button>`;
+  else if(state==='cashout') r.innerHTML=`<button class="tcp-action-btn tcp-btn-play" onclick="gfCashOut()">CASH OUT</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="gfNewRound()">NEW GAME</button>`;
+}
+function gfNewRound(){ gfPhase='bet'; gfFound=0; gfGemPos=[]; gfRevealed=Array(GF_TOTAL).fill(false); document.getElementById('gfFoundCount').textContent='0'; document.getElementById('gfResult').textContent=' '; gfBuildGrid(); gfSetBtnRow('play'); }
+
+// ── Mini Roulette ─────────────────────────────────────────────────────────────
+const MR_RED=[1,3,5,7,9,12];
+const MR_SLOTS=13; // 0-12
+let mrBetAmt=100, mrPhase='bet', mrPickedBet='';
+
+function openMR(){
+  document.getElementById('mrScreen').classList.add('open');
+  mrPhase='bet'; mrBetAmt=100; mrPickedBet='';
+  updateMRBal(); document.getElementById('mrBetV').textContent=fmt(mrBetAmt);
+  document.getElementById('mrLandEl').textContent='';
+  document.getElementById('mrResult').textContent=' ';
+  document.getElementById('mrHistory').innerHTML='&nbsp;';
+  mrUpdateBtns(); mrSetBtnRow('spin');
+}
+function closeMR(){ document.getElementById('mrScreen').classList.remove('open'); mrPhase='bet'; }
+function updateMRBal(){ document.getElementById('mrBal').textContent=fmt(gs.coins)+' 🪙'; }
+function mrBetHalf(){ mrBetAmt=Math.max(10,Math.floor(mrBetAmt/2)); document.getElementById('mrBetV').textContent=fmt(mrBetAmt); }
+function mrBetDouble(){ mrBetAmt=Math.min(gs.coins,mrBetAmt*2); document.getElementById('mrBetV').textContent=fmt(mrBetAmt); }
+function mrBet(type){ mrPickedBet=type; mrUpdateBtns(); }
+function mrUpdateBtns(){
+  ['red','black','even','odd'].forEach(t=>{
+    const ids={red:'mrBtnRed',black:'mrBtnBlk',even:'mrBtnEven',odd:'mrBtnOdd'};
+    const b=document.getElementById(ids[t]); if(b) b.className='mr-bet-btn'+(mrPickedBet===t?' sel':'');
+  });
+}
+function mrSetBtnRow(state){
+  const r=document.getElementById('mrBtnRow');
+  if(state==='spin') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="mrSpin()">SPIN!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="mrNewRound()">SPIN AGAIN</button>`;
+}
+function mrSpin(){
+  if(mrPhase!=='bet') return;
+  if(!mrPickedBet){alert('Pick a bet type first!');return;}
+  if(gs.coins<mrBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=mrBetAmt; updateMRBal(); mrPhase='spinning';
+  const result=Math.floor(Math.random()*MR_SLOTS);
+  const landEl=document.getElementById('mrLandEl'); landEl.textContent='...';
+  let ticks=0;
+  const iv=setInterval(()=>{
+    ticks++;
+    const t=Math.floor(Math.random()*MR_SLOTS);
+    const tRed=MR_RED.includes(t);
+    landEl.textContent=`${t===0?'0':t} ${t===0?'🟢':tRed?'🔴':'⚫'}`;
+    if(ticks>=20){
+      clearInterval(iv);
+      const isRed=MR_RED.includes(result);
+      const color=result===0?'🟢':isRed?'🔴':'⚫';
+      landEl.textContent=`${result} ${color}`;
+      landEl.style.color=result===0?'#00FF66':isRed?'#FF4444':'#CCC';
+      const rEl=document.getElementById('mrResult');
+      const hEl=document.getElementById('mrHistory');
+      let won=false;
+      if(result===0){won=false;}
+      else if(mrPickedBet==='red'&&isRed) won=true;
+      else if(mrPickedBet==='black'&&!isRed) won=true;
+      else if(mrPickedBet==='even'&&result%2===0) won=true;
+      else if(mrPickedBet==='odd'&&result%2===1) won=true;
+      if(won){
+        gs.coins+=mrBetAmt*2; updateMRBal();
+        rEl.textContent=`${result} — ${mrPickedBet.toUpperCase()} wins!`; rEl.className='mr-result mr-result-w';
+        hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(mrBetAmt)} 🪙</span>`;
+        addHistory('miniroulette',mrBetAmt);
+      } else {
+        rEl.textContent=result===0?'Zero! House wins.':(`${result} — ${mrPickedBet.toUpperCase()} loses.`); rEl.className='mr-result mr-result-l';
+        hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(mrBetAmt)} 🪙</span>`;
+        addHistory('miniroulette',-mrBetAmt);
+      }
+      mrPhase='result'; mrSetBtnRow('new');
+    }
+  },80);
+}
+function mrNewRound(){ mrPhase='bet'; mrPickedBet=''; document.getElementById('mrLandEl').textContent=''; document.getElementById('mrLandEl').style.color=''; document.getElementById('mrResult').textContent=' '; mrUpdateBtns(); mrSetBtnRow('spin'); }
+
+// ── Spin Multiplier ───────────────────────────────────────────────────────────
+const SM_SYMS=['🍒','🍋','🍇','⭐','💎','🔔','💫','7️⃣'];
+const SM_PAY={'🍒':1,'🍋':1.5,'🍇':2,'⭐':3,'💎':5,'🔔':4,'💫':6,'7️⃣':10};
+const SM_MULT=[1,2,3,5,10];
+let smBetAmt=100, smPhase='bet';
+
+function openSM(){
+  document.getElementById('smScreen').classList.add('open');
+  smPhase='bet'; smBetAmt=100;
+  updateSMBal(); document.getElementById('smBetV').textContent=fmt(smBetAmt);
+  for(let i=0;i<3;i++){const r=document.getElementById('smR'+i);r.textContent='❓';r.className='sm-reel';}
+  document.getElementById('smMultRow').innerHTML='';
+  document.getElementById('smResult').textContent=' ';
+  document.getElementById('smHistory').innerHTML='&nbsp;';
+  smSetBtnRow('spin');
+}
+function closeSM(){ document.getElementById('smScreen').classList.remove('open'); smPhase='bet'; }
+function updateSMBal(){ document.getElementById('smBal').textContent=fmt(gs.coins)+' 🪙'; }
+function smBetHalf(){ smBetAmt=Math.max(10,Math.floor(smBetAmt/2)); document.getElementById('smBetV').textContent=fmt(smBetAmt); }
+function smBetDouble(){ smBetAmt=Math.min(gs.coins,smBetAmt*2); document.getElementById('smBetV').textContent=fmt(smBetAmt); }
+function smSetBtnRow(state){
+  const r=document.getElementById('smBtnRow');
+  if(state==='spin') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="smSpin()">SPIN!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="smNewRound()">SPIN AGAIN</button>`;
+}
+function smSpin(){
+  if(smPhase!=='bet') return;
+  if(gs.coins<smBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=smBetAmt; updateSMBal(); smPhase='spinning';
+  const reels=[0,1,2].map(()=>SM_SYMS[Math.floor(Math.random()*SM_SYMS.length)]);
+  // 20% chance of a random multiplier 2x-10x
+  const hasMult=Math.random()<0.2;
+  const mult=hasMult?SM_MULT[Math.floor(Math.random()*SM_MULT.length)]:1;
+  for(let i=0;i<3;i++) document.getElementById('smR'+i).classList.add('spin');
+  let ticks=0;
+  const iv=setInterval(()=>{
+    ticks++;
+    for(let i=0;i<3;i++) document.getElementById('smR'+i).textContent=SM_SYMS[Math.floor(Math.random()*SM_SYMS.length)];
+    if(ticks>=18){
+      clearInterval(iv);
+      for(let i=0;i<3;i++){const r=document.getElementById('smR'+i);r.classList.remove('spin');r.textContent=reels[i];}
+      // Show multiplier
+      const mRow=document.getElementById('smMultRow'); mRow.innerHTML='';
+      if(hasMult){
+        const badge=document.createElement('div'); badge.className='sm-mult-badge';
+        badge.style.borderColor='#FFD700'; badge.style.color='#FFD700'; badge.style.background='rgba(255,200,0,.15)';
+        badge.textContent=`✨ MULTIPLIER ×${mult}!`;
+        mRow.appendChild(badge);
+      }
+      const isMatch=reels[0]===reels[1]&&reels[1]===reels[2];
+      const is2Match=(reels[0]===reels[1]||reels[1]===reels[2]||reels[0]===reels[2]);
+      const rEl=document.getElementById('smResult');
+      const hEl=document.getElementById('smHistory');
+      let basePay=0;
+      if(isMatch){ basePay=SM_PAY[reels[0]]||1; for(let i=0;i<3;i++) document.getElementById('smR'+i).classList.add('win'); }
+      else if(is2Match){ basePay=0.5; }
+      const finalPay=basePay*mult;
+      if(finalPay>0){
+        const win=Math.round(smBetAmt*finalPay); gs.coins+=win; updateSMBal();
+        rEl.textContent=isMatch?`3× ${reels[0]} = ${finalPay}×!`:`2 match + ×${mult} = ${finalPay}×!`; rEl.className='sm-result sm-result-w';
+        hEl.innerHTML=`<span style="color:#FFD700">WIN +${fmt(win-smBetAmt)} 🪙</span>`;
+        addHistory('spinmult',win-smBetAmt);
+      } else {
+        rEl.textContent='No match!'; rEl.className='sm-result sm-result-l';
+        hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(smBetAmt)} 🪙</span>`;
+        addHistory('spinmult',-smBetAmt);
+      }
+      smPhase='result'; smSetBtnRow('new');
+    }
+  },80);
+}
+function smNewRound(){ smPhase='bet'; for(let i=0;i<3;i++){const r=document.getElementById('smR'+i);r.textContent='❓';r.className='sm-reel';} document.getElementById('smMultRow').innerHTML=''; document.getElementById('smResult').textContent=' '; smSetBtnRow('spin'); }
 
 // ── Poker Dice ────────────────────────────────────────────────────────────────
 const PD_FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
