@@ -1328,6 +1328,42 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .cg-hc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
 .cg-hc-w{background:rgba(0,255,136,.2);color:#00FF88;border:1px solid rgba(0,255,136,.4);}
 .cg-hc-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
+/* ── Coin Flip ── */
+#cfScreen{background:radial-gradient(ellipse at 50% 20%,#100800 0%,#050400 100%);}
+.cf-coin{width:80px;height:80px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px;border:3px solid #DAA520;box-shadow:0 0 20px rgba(255,200,0,.3);background:radial-gradient(circle at 35% 35%,#FFE566,#B8860B);}
+.cf-coin.tails-face{background:radial-gradient(circle at 35% 35%,#CCC,#777);border-color:#999;box-shadow:0 0 12px rgba(150,150,150,.3);}
+@keyframes cfSpin{0%{transform:scaleX(1);}50%{transform:scaleX(0.05);}100%{transform:scaleX(1);}}
+.cf-coin.spinning{animation:cfSpin .18s linear infinite;}
+.cf-pick-btn{padding:10px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;border:2px solid;background:rgba(255,255,255,.05);color:#CCC;transition:all .2s;}
+.cf-pick-btn.heads-btn{border-color:#DAA520;color:#FFD700;}
+.cf-pick-btn.heads-btn.sel{background:rgba(255,200,0,.2);box-shadow:0 0 12px rgba(255,200,0,.3);}
+.cf-pick-btn.tails-btn{border-color:#888;color:#CCC;}
+.cf-pick-btn.tails-btn.sel{background:rgba(200,200,200,.15);box-shadow:0 0 8px rgba(200,200,200,.2);}
+.cf-result{font-size:15px;font-weight:700;text-align:center;margin:6px 0;}
+.cf-result-w{color:#FFD700;} .cf-result-l{color:#FF4444;}
+/* ── Horse Racing ── */
+#hrScreen{background:radial-gradient(ellipse at 50% 20%,#001408 0%,#000A04 100%);}
+.hr-track{background:rgba(0,40,15,.4);border:1px solid rgba(0,120,40,.3);border-radius:10px;padding:8px 10px;margin:6px 0;}
+.hr-lane{display:flex;align-items:center;gap:6px;height:30px;margin:3px 0;}
+.hr-label{width:24px;text-align:center;font-size:16px;}
+.hr-bar-bg{flex:1;height:12px;background:rgba(0,60,20,.5);border-radius:6px;overflow:hidden;position:relative;}
+.hr-bar-fill{height:100%;border-radius:6px;transition:width .22s ease;width:0%;}
+.hr-pick-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0;}
+.hr-pick-btn{padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:2px solid;background:rgba(255,255,255,.04);transition:all .2s;}
+.hr-pick-btn.sel{filter:brightness(1.3);transform:scale(1.07);}
+.hr-result{font-size:14px;font-weight:700;text-align:center;margin:4px 0;}
+.hr-result-w{color:#00FF88;} .hr-result-l{color:#FF4444;}
+/* ── Lucky Cups ── */
+#lcScreen{background:radial-gradient(ellipse at 50% 20%,#0A0018 0%,#050010 100%);}
+.lc-cups-area{display:flex;justify-content:center;gap:18px;margin:10px 0;}
+.lc-cup-col{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.lc-cup{width:68px;height:82px;border-radius:10px 10px 16px 16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:30px;border:2px solid rgba(200,150,0,.3);background:linear-gradient(145deg,#2A1800,#1A0E00);transition:transform .35s ease,border-color .2s,opacity .2s;}
+.lc-cup.picked{border-color:#FFD700;}
+.lc-cup.win{border-color:#00FF88;box-shadow:0 0 16px rgba(0,255,136,.4);}
+.lc-cup.lose{border-color:#FF4444;opacity:.65;}
+.lc-ball-spot{font-size:22px;opacity:0;transition:opacity .3s .35s;}
+.lc-result{font-size:15px;font-weight:700;text-align:center;margin:4px 0;}
+.lc-result-w{color:#00FF88;} .lc-result-l{color:#FF4444;}
 </style>
 </head>
 <body>
@@ -2553,6 +2589,92 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   </div>
 </div>
 
+<!-- ══ Coin Flip ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="cfScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeCF()">←</button>
+    <span>🪙 Coin Flip</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="cfBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="cfHistory">&nbsp;</div>
+    <div id="cfCoin" class="cf-coin">🪙</div>
+    <div id="cfStatus" style="text-align:center;font-size:13px;color:#AAA">Pick heads or tails</div>
+    <div style="display:flex;gap:12px;justify-content:center">
+      <button class="cf-pick-btn heads-btn" id="cfBtnH" onclick="cfPick('heads')">🪙 Heads</button>
+      <button class="cf-pick-btn tails-btn" id="cfBtnT" onclick="cfPick('tails')">🦅 Tails</button>
+    </div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="cfBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="cfBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="cfBetDouble()">2×</button>
+    </div>
+    <div id="cfBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Horse Racing ════════════════════════════════════════════════ -->
+<div class="game-screen" id="hrScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeHR()">←</button>
+    <span>🐎 Horse Racing</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="hrBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="hrHistory">&nbsp;</div>
+    <div class="hr-track">
+      <div class="hr-lane"><span class="hr-label">🔴</span><div class="hr-bar-bg"><div class="hr-bar-fill" id="hrBar0" style="background:#FF4444"></div></div></div>
+      <div class="hr-lane"><span class="hr-label">🔵</span><div class="hr-bar-bg"><div class="hr-bar-fill" id="hrBar1" style="background:#4488FF"></div></div></div>
+      <div class="hr-lane"><span class="hr-label">🟢</span><div class="hr-bar-bg"><div class="hr-bar-fill" id="hrBar2" style="background:#00CC44"></div></div></div>
+      <div class="hr-lane"><span class="hr-label">🟡</span><div class="hr-bar-bg"><div class="hr-bar-fill" id="hrBar3" style="background:#FFD700"></div></div></div>
+    </div>
+    <div id="hrStatus" style="text-align:center;font-size:13px;color:#AAA">Pick your horse!</div>
+    <div class="hr-pick-row">
+      <button class="hr-pick-btn" id="hrPick0" style="border-color:#FF4444;color:#FF4444" onclick="hrPickHorse(0)">🔴 Red 3.5×</button>
+      <button class="hr-pick-btn" id="hrPick1" style="border-color:#4488FF;color:#4488FF" onclick="hrPickHorse(1)">🔵 Blue 3.5×</button>
+      <button class="hr-pick-btn" id="hrPick2" style="border-color:#00CC44;color:#00CC44" onclick="hrPickHorse(2)">🟢 Green 3.5×</button>
+      <button class="hr-pick-btn" id="hrPick3" style="border-color:#FFD700;color:#FFD700" onclick="hrPickHorse(3)">🟡 Yellow 3.5×</button>
+    </div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="hrBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="hrBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="hrBetDouble()">2×</button>
+    </div>
+    <div id="hrBtnRow" style="display:flex;gap:8px;justify-content:center"></div>
+  </div>
+</div>
+<!-- ══ Lucky Cups ══════════════════════════════════════════════════ -->
+<div class="game-screen" id="lcScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeLC()">←</button>
+    <span>🎩 Lucky Cups</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="lcBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:12px 14px;gap:8px;box-sizing:border-box;overflow-y:auto">
+    <div style="font-size:11px;color:#888;text-align:center" id="lcHistory">&nbsp;</div>
+    <div id="lcStatus" style="text-align:center;font-size:13px;color:#AAA">Find the ball under a cup! Win 2.5×</div>
+    <div class="lc-cups-area">
+      <div class="lc-cup-col">
+        <div class="lc-cup" id="lcCup0" onclick="lcPickCup(0)">🎩</div>
+        <div class="lc-ball-spot" id="lcBall0">🟠</div>
+      </div>
+      <div class="lc-cup-col">
+        <div class="lc-cup" id="lcCup1" onclick="lcPickCup(1)">🎩</div>
+        <div class="lc-ball-spot" id="lcBall1">🟠</div>
+      </div>
+      <div class="lc-cup-col">
+        <div class="lc-cup" id="lcCup2" onclick="lcPickCup(2)">🎩</div>
+        <div class="lc-ball-spot" id="lcBall2">🟠</div>
+      </div>
+    </div>
+    <div id="lcResult" class="lc-result">&nbsp;</div>
+    <div class="vp-bet-row">
+      <button class="fruit-bet-btn" onclick="lcBetHalf()">½</button>
+      <div class="fruit-bet-box">Bet: <span id="lcBetV">100</span> 🪙</div>
+      <button class="fruit-bet-btn" onclick="lcBetDouble()">2×</button>
+    </div>
+    <div id="lcBtnRow" style="display:flex;gap:8px;justify-content:center"><div style="font-size:12px;color:#666;padding:10px">Click a cup!</div></div>
+  </div>
+</div>
 <!-- ══ Mississippi Stud ══════════════════════════════════════════ -->
 <div class="game-screen" id="msstudScreen">
   <div class="game-header">
@@ -7260,6 +7382,18 @@ const GAME_DEFS = {
      emoji:'🎲🌈🎯', badge:'HOT', badgeColor:'#FF44FF',
      grad:'linear-gradient(145deg,#080010,#040008)',
      glow:'rgba(180,0,255,.32)', minLv:1, action:'colorgame'},
+    {id:'coinflip', name:'Coin Flip', sub:'Heads or Tails — Win 2×!',
+     emoji:'🪙🦅✨', badge:'HOT', badgeColor:'#FFD700',
+     grad:'linear-gradient(145deg,#100800,#050400)',
+     glow:'rgba(255,200,0,.32)', minLv:1, action:'coinflip'},
+    {id:'horserace', name:'Horse Racing', sub:'Pick Your Horse — Win 3.5×!',
+     emoji:'🐎🏆🏁', badge:'NEW', badgeColor:'#00FF88',
+     grad:'linear-gradient(145deg,#001408,#000A04)',
+     glow:'rgba(0,200,80,.28)', minLv:1, action:'horserace'},
+    {id:'luckycups', name:'Lucky Cups', sub:'Shell Game — Find the Ball!',
+     emoji:'🎩🟠🎩', badge:'HOT', badgeColor:'#BF5FFF',
+     grad:'linear-gradient(145deg,#0A0018,#050010)',
+     glow:'rgba(180,0,255,.32)', minLv:1, action:'luckycups'},
   ],
   quick:[
     {id:'aviator', name:'Aviator', sub:'Crash — Cash Out Before It Flies!',
@@ -7979,6 +8113,39 @@ function gcSVG(g){
       <text x="80" y="92" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(200,100,255,.9)" font-family="Arial,sans-serif">3 DICE · 3 MATCH PAYS 10×</text>
     ${e}`;
   }
+  if(act==='coinflip'){
+    return `${s}
+      <rect width="160" height="100" fill="#100800"/>
+      <circle cx="80" cy="46" r="34" fill="url(#cfGrad)" stroke="#DAA520" stroke-width="2.5"/>
+      <defs><radialGradient id="cfGrad" cx="35%" cy="35%"><stop offset="0%" stop-color="#FFE566"/><stop offset="100%" stop-color="#B8860B"/></radialGradient></defs>
+      <text x="80" y="56" text-anchor="middle" font-size="26" font-family="Arial">🪙</text>
+      <text x="80" y="92" text-anchor="middle" font-size="9" font-weight="900" fill="rgba(255,200,0,.9)" font-family="Arial,sans-serif">HEADS OR TAILS — WIN 2×</text>
+    ${e}`;
+  }
+  if(act==='horserace'){
+    return `${s}
+      <rect width="160" height="100" fill="#001408"/>
+      <rect x="8" y="20" width="144" height="12" rx="6" fill="#002A10" stroke="#005A22" stroke-width="1"/>
+      <rect x="8" y="38" width="144" height="12" rx="6" fill="#002A10" stroke="#005A22" stroke-width="1"/>
+      <rect x="8" y="56" width="144" height="12" rx="6" fill="#002A10" stroke="#005A22" stroke-width="1"/>
+      <rect x="8" y="74" width="144" height="12" rx="6" fill="#002A10" stroke="#005A22" stroke-width="1"/>
+      ${[['#FF4444',22,72],['#4488FF',22,40],['#00CC44',22,58],['#FFD700',22,76]].map(([c,x,y])=>`<rect x="${x}" y="${y-4}" width="42" height="8" rx="4" fill="${c}" opacity=".85"/>`).join('')}
+      <text x="160" y="30" text-anchor="end" font-size="8" fill="rgba(0,200,80,.6)" font-family="Arial">🏁</text>
+      <text x="80" y="94" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(0,200,80,.9)" font-family="Arial,sans-serif">PICK A HORSE — WIN 3.5×</text>
+    ${e}`;
+  }
+  if(act==='luckycups'){
+    return `${s}
+      <rect width="160" height="100" fill="#0A0018"/>
+      ${[[28,18],[72,14],[116,18]].map(([cx,cy])=>`
+        <path d="M${cx-20},${cy+40} Q${cx-22},${cy+20} ${cx-14},${cy+10} L${cx+14},${cy+10} Q${cx+22},${cy+20} ${cx+20},${cy+40} Z" fill="url(#lcG${cx})" stroke="rgba(200,150,0,.35)" stroke-width="1.5"/>
+        <defs><linearGradient id="lcG${cx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3A2000"/><stop offset="100%" stop-color="#1A0E00"/></linearGradient></defs>
+        <text x="${cx}" y="${cy+30}" text-anchor="middle" font-size="14" font-family="Arial">🎩</text>
+      `).join('')}
+      <circle cx="72" cy="75" r="8" fill="#FF6600" opacity=".9"/>
+      <text x="80" y="95" text-anchor="middle" font-size="8" font-weight="900" fill="rgba(180,100,255,.9)" font-family="Arial,sans-serif">FIND THE BALL — WIN 2.5×</text>
+    ${e}`;
+  }
   // ── FOUR CARD POKER ───────────────────────────────────────────────
   if(act==='fourcardpoker'){
     return `${s}
@@ -8378,6 +8545,9 @@ function makeCard(g){
       else if(g.action==='jokerpoker') openJP();
       else if(g.action==='settemezz') openSZM();
       else if(g.action==='colorgame') openCG();
+      else if(g.action==='coinflip') openCF();
+      else if(g.action==='horserace') openHR();
+      else if(g.action==='luckycups') openLC();
       else if(g.action==='msstud') openMSStud();
       else if(g.action==='uth') openUTH();
       else if(g.action==='spinwin') openSpinWin();
@@ -12174,6 +12344,199 @@ function addDWChip(outcome){
   chip.className='dw-hc '+(outcome==='W'?'dw-hc-w':'dw-hc-l'); chip.textContent=outcome;
   hist.insertBefore(chip,hist.firstChild); while(hist.children.length>20) hist.removeChild(hist.lastChild);
 }
+
+// ── Coin Flip ─────────────────────────────────────────────────────────────────
+let cfBetAmt=100, cfPhase='bet', cfPickedSide='';
+
+function openCF(){
+  document.getElementById('cfScreen').classList.add('open');
+  cfPhase='bet'; cfBetAmt=100; cfPickedSide='';
+  updateCFBal(); document.getElementById('cfBetV').textContent=fmt(cfBetAmt);
+  const coin=document.getElementById('cfCoin'); coin.className='cf-coin'; coin.textContent='🪙';
+  document.getElementById('cfStatus').textContent='Pick heads or tails';
+  document.getElementById('cfStatus').className='';
+  document.getElementById('cfBtnH').className='cf-pick-btn heads-btn';
+  document.getElementById('cfBtnT').className='cf-pick-btn tails-btn';
+  cfSetBtnRow('flip');
+}
+function closeCF(){ document.getElementById('cfScreen').classList.remove('open'); cfPhase='bet'; }
+function updateCFBal(){ document.getElementById('cfBal').textContent=fmt(gs.coins)+' 🪙'; }
+function cfBetHalf(){ cfBetAmt=Math.max(10,Math.floor(cfBetAmt/2)); document.getElementById('cfBetV').textContent=fmt(cfBetAmt); }
+function cfBetDouble(){ cfBetAmt=Math.min(gs.coins,cfBetAmt*2); document.getElementById('cfBetV').textContent=fmt(cfBetAmt); }
+function cfPick(side){
+  cfPickedSide=side;
+  document.getElementById('cfBtnH').className='cf-pick-btn heads-btn'+(side==='heads'?' sel':'');
+  document.getElementById('cfBtnT').className='cf-pick-btn tails-btn'+(side==='tails'?' sel':'');
+}
+function cfSetBtnRow(state){
+  const r=document.getElementById('cfBtnRow');
+  if(state==='flip') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="cfFlip()">FLIP</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="cfNewRound()">FLIP AGAIN</button>`;
+}
+function cfFlip(){
+  if(cfPhase!=='bet') return;
+  if(!cfPickedSide){alert('Pick Heads or Tails first!');return;}
+  if(gs.coins<cfBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=cfBetAmt; updateCFBal(); cfPhase='flipping';
+  const result=Math.random()<0.5?'heads':'tails';
+  const coin=document.getElementById('cfCoin');
+  coin.classList.add('spinning'); let ticks=0;
+  const iv=setInterval(()=>{
+    ticks++; coin.textContent=ticks%2===0?'🪙':'🦅';
+    if(ticks>=18){
+      clearInterval(iv); coin.classList.remove('spinning');
+      coin.className='cf-coin'+(result==='tails'?' tails-face':'');
+      coin.textContent=result==='heads'?'🪙':'🦅';
+      const won=result===cfPickedSide;
+      const stEl=document.getElementById('cfStatus');
+      if(won){
+        gs.coins+=cfBetAmt*2; updateCFBal();
+        stEl.textContent=result.toUpperCase()+'! You win!'; stEl.className='cf-result cf-result-w';
+        document.getElementById('cfHistory').innerHTML=`<span style="color:#FFD700">WIN +${fmt(cfBetAmt)} 🪙</span>`;
+        addHistory('coinflip',cfBetAmt);
+      } else {
+        stEl.textContent=result.toUpperCase()+'! Better luck next time!'; stEl.className='cf-result cf-result-l';
+        document.getElementById('cfHistory').innerHTML=`<span style="color:#FF4444">LOSS −${fmt(cfBetAmt)} 🪙</span>`;
+        addHistory('coinflip',-cfBetAmt);
+      }
+      cfPhase='result'; cfSetBtnRow('new');
+    }
+  },80);
+}
+function cfNewRound(){ cfPhase='bet'; cfPickedSide=''; document.getElementById('cfBtnH').className='cf-pick-btn heads-btn'; document.getElementById('cfBtnT').className='cf-pick-btn tails-btn'; const c=document.getElementById('cfCoin'); c.className='cf-coin'; c.textContent='🪙'; document.getElementById('cfStatus').textContent='Pick heads or tails'; document.getElementById('cfStatus').className=''; cfSetBtnRow('flip'); }
+
+// ── Horse Racing ──────────────────────────────────────────────────────────────
+let hrBetAmt=100, hrPhase='bet', hrPickedHorse=-1;
+
+function openHR(){
+  document.getElementById('hrScreen').classList.add('open');
+  hrPhase='bet'; hrBetAmt=100; hrPickedHorse=-1;
+  updateHRBal(); document.getElementById('hrBetV').textContent=fmt(hrBetAmt);
+  for(let i=0;i<4;i++) document.getElementById('hrBar'+i).style.width='0%';
+  document.getElementById('hrStatus').textContent='Pick your horse!';
+  document.getElementById('hrStatus').className='';
+  hrUpdatePickBtns(); hrSetBtnRow('race');
+}
+function closeHR(){ document.getElementById('hrScreen').classList.remove('open'); hrPhase='bet'; }
+function updateHRBal(){ document.getElementById('hrBal').textContent=fmt(gs.coins)+' 🪙'; }
+function hrBetHalf(){ hrBetAmt=Math.max(10,Math.floor(hrBetAmt/2)); document.getElementById('hrBetV').textContent=fmt(hrBetAmt); }
+function hrBetDouble(){ hrBetAmt=Math.min(gs.coins,hrBetAmt*2); document.getElementById('hrBetV').textContent=fmt(hrBetAmt); }
+function hrPickHorse(idx){ hrPickedHorse=idx; hrUpdatePickBtns(); }
+function hrUpdatePickBtns(){
+  for(let i=0;i<4;i++){const b=document.getElementById('hrPick'+i); if(b) b.className='hr-pick-btn'+(hrPickedHorse===i?' sel':'');}
+}
+function hrSetBtnRow(state){
+  const r=document.getElementById('hrBtnRow');
+  if(state==='race') r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="hrRace()">RACE!</button>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="hrNewRound()">NEW RACE</button>`;
+}
+function hrRace(){
+  if(hrPhase!=='bet') return;
+  if(hrPickedHorse<0){alert('Pick a horse first!');return;}
+  if(gs.coins<hrBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=hrBetAmt; updateHRBal(); hrPhase='racing';
+  const steps=20, maxPer=3;
+  const pos=[0,0,0,0]; const snapshots=[];
+  for(let s=0;s<steps;s++){
+    for(let i=0;i<4;i++) pos[i]+=Math.floor(Math.random()*(maxPer+1));
+    snapshots.push([...pos]);
+  }
+  const maxFinal=Math.max(...pos);
+  // resolve ties: slight shuffle among leaders
+  let winner=pos.indexOf(maxFinal);
+  let step=0;
+  const iv=setInterval(()=>{
+    const snap=snapshots[step];
+    const maxSnap=Math.max(...snap);
+    for(let i=0;i<4;i++) document.getElementById('hrBar'+i).style.width=Math.round(snap[i]/maxSnap*96)+'%';
+    step++;
+    if(step>=steps){
+      clearInterval(iv);
+      const emojis=['🔴','🔵','🟢','🟡'];
+      const stEl=document.getElementById('hrStatus');
+      const won=winner===hrPickedHorse;
+      if(won){
+        const gain=Math.round(hrBetAmt*3.5); gs.coins+=gain; updateHRBal();
+        stEl.textContent=emojis[winner]+' wins! YOU WIN!'; stEl.className='hr-result hr-result-w';
+        document.getElementById('hrHistory').innerHTML=`<span style="color:#00FF88">WIN +${fmt(gain-hrBetAmt)} 🪙</span>`;
+        addHistory('horserace',gain-hrBetAmt);
+      } else {
+        stEl.textContent=emojis[winner]+' wins the race!'; stEl.className='hr-result hr-result-l';
+        document.getElementById('hrHistory').innerHTML=`<span style="color:#FF4444">LOSS −${fmt(hrBetAmt)} 🪙</span>`;
+        addHistory('horserace',-hrBetAmt);
+      }
+      hrPhase='result'; hrSetBtnRow('new');
+    }
+  },180);
+}
+function hrNewRound(){ hrPhase='bet'; hrPickedHorse=-1; for(let i=0;i<4;i++) document.getElementById('hrBar'+i).style.width='0%'; document.getElementById('hrStatus').textContent='Pick your horse!'; document.getElementById('hrStatus').className=''; hrUpdatePickBtns(); hrSetBtnRow('race'); }
+
+// ── Lucky Cups ────────────────────────────────────────────────────────────────
+let lcBetAmt=100, lcPhase='bet', lcBallPos=-1;
+
+function openLC(){
+  document.getElementById('lcScreen').classList.add('open');
+  lcPhase='bet'; lcBetAmt=100; lcBallPos=-1;
+  updateLCBal(); document.getElementById('lcBetV').textContent=fmt(lcBetAmt);
+  document.getElementById('lcResult').textContent=' ';
+  lcResetCups(); lcSetBtnRow('pick');
+}
+function closeLC(){ document.getElementById('lcScreen').classList.remove('open'); lcPhase='bet'; }
+function updateLCBal(){ document.getElementById('lcBal').textContent=fmt(gs.coins)+' 🪙'; }
+function lcBetHalf(){ lcBetAmt=Math.max(10,Math.floor(lcBetAmt/2)); document.getElementById('lcBetV').textContent=fmt(lcBetAmt); }
+function lcBetDouble(){ lcBetAmt=Math.min(gs.coins,lcBetAmt*2); document.getElementById('lcBetV').textContent=fmt(lcBetAmt); }
+function lcResetCups(){
+  for(let i=0;i<3;i++){
+    const cup=document.getElementById('lcCup'+i);
+    cup.className='lc-cup'; cup.style.transform=''; cup.style.pointerEvents='';
+    document.getElementById('lcBall'+i).style.opacity='0';
+  }
+  document.getElementById('lcStatus').textContent='Find the ball under a cup! Win 2.5×';
+}
+function lcPickCup(idx){
+  if(lcPhase!=='bet') return;
+  if(gs.coins<lcBetAmt){alert('Not enough coins!');return;}
+  gs.coins-=lcBetAmt; updateLCBal(); lcPhase='reveal';
+  lcBallPos=Math.floor(Math.random()*3);
+  const won=idx===lcBallPos;
+  for(let i=0;i<3;i++) document.getElementById('lcCup'+i).style.pointerEvents='none';
+  document.getElementById('lcCup'+idx).className='lc-cup picked';
+  // lift the chosen cup after short pause
+  setTimeout(()=>{
+    const cup=document.getElementById('lcCup'+idx);
+    cup.style.transform='translateY(-36px)';
+    setTimeout(()=>{
+      // reveal ball
+      if(won){
+        document.getElementById('lcBall'+idx).style.opacity='1';
+        cup.classList.add('win');
+      } else {
+        document.getElementById('lcBall'+lcBallPos).style.opacity='1';
+        document.getElementById('lcCup'+lcBallPos).className='lc-cup win';
+        cup.classList.add('lose');
+      }
+      const rEl=document.getElementById('lcResult');
+      const hEl=document.getElementById('lcHistory');
+      if(won){
+        const gain=Math.round(lcBetAmt*2.5); gs.coins+=gain; updateLCBal();
+        rEl.textContent='Found it! YOU WIN!'; rEl.className='lc-result lc-result-w';
+        hEl.innerHTML=`<span style="color:#00FF88">WIN +${fmt(gain-lcBetAmt)} 🪙</span>`;
+        addHistory('luckycups',gain-lcBetAmt);
+      } else {
+        rEl.textContent='Wrong cup! Better luck next time!'; rEl.className='lc-result lc-result-l';
+        hEl.innerHTML=`<span style="color:#FF4444">LOSS −${fmt(lcBetAmt)} 🪙</span>`;
+        addHistory('luckycups',-lcBetAmt);
+      }
+      lcPhase='result'; lcSetBtnRow('new');
+    },380);
+  },150);
+}
+function lcSetBtnRow(state){
+  const r=document.getElementById('lcBtnRow');
+  if(state==='pick') r.innerHTML=`<div style="font-size:12px;color:#666;padding:8px">Click a cup to pick!</div>`;
+  else r.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="lcNewRound()">NEW ROUND</button>`;
+}
+function lcNewRound(){ lcPhase='bet'; lcBallPos=-1; document.getElementById('lcResult').textContent=' '; lcResetCups(); lcSetBtnRow('pick'); }
 
 // ── Joker Poker ───────────────────────────────────────────────────────────────
 const JP_RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
