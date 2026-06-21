@@ -907,6 +907,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .dt-hc-d{background:rgba(255,50,80,.22);color:#FF4466;border:1px solid rgba(255,50,80,.4);}
 .dt-hc-t{background:rgba(255,215,0,.18);color:#FFD700;border:1px solid rgba(255,215,0,.38);}
 .dt-hc-tie{background:rgba(0,200,80,.18);color:#00CC44;border:1px solid rgba(0,200,80,.35);}
+
+/* ── Three Card Poker ── */
+#tcpScreen{background:radial-gradient(ellipse at 50% 20%,#051A08 0%,#010A04 100%);}
+.tcp-felt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:10px 14px;}
+.tcp-hand-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.45);text-transform:uppercase;}
+.tcp-cards{display:flex;gap:8px;justify-content:center;}
+.tcp-card{width:52px;height:76px;border-radius:8px;background:white;border:1.5px solid #ddd;display:flex;flex-direction:column;justify-content:space-between;padding:4px;box-sizing:border-box;transition:transform .3s,box-shadow .3s;}
+.tcp-card.face-down{background:linear-gradient(135deg,#006600 0%,#003300 50%,#006600 100%);border:2px solid rgba(255,215,0,.4);}
+.tcp-card.face-down::after{content:'♠';font-size:22px;color:rgba(255,215,0,.25);display:flex;align-items:center;justify-content:center;height:100%;}
+.tcp-card-r{font-size:12px;font-weight:900;line-height:1;}
+.tcp-card-s{font-size:18px;text-align:center;line-height:1;margin:auto 0;}
+.tcp-card.win-card{transform:translateY(-6px);box-shadow:0 8px 24px rgba(255,215,0,.5);}
+.tcp-rank-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:900;letter-spacing:.05em;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);min-width:80px;text-align:center;}
+.tcp-rank-badge.big{background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.35);}
+.tcp-bet-tab{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 6px;border-radius:12px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .15s,background .15s;}
+.tcp-bet-tab.active{border-color:rgba(255,215,0,.5);background:rgba(255,215,0,.08);}
+.tcp-bet-tab-name{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.06em;margin-bottom:3px;}
+.tcp-bet-tab-val{font-size:15px;font-weight:900;color:#FFD700;}
+.tcp-action-btn{flex:1;padding:13px 4px;border-radius:13px;border:none;font-size:13px;font-weight:900;cursor:pointer;letter-spacing:.04em;transition:transform .1s;}
+.tcp-action-btn:active{transform:scale(.96);}
+.tcp-action-btn:disabled{opacity:.35;cursor:not-allowed;}
+.tcp-btn-deal{background:linear-gradient(135deg,#003A00,#00AA00,#44FF66);color:#CCFFDD;box-shadow:0 4px 20px rgba(0,200,80,.4);}
+.tcp-btn-fold{background:linear-gradient(135deg,#3A0000,#AA0000,#FF4444);color:#FFCCCC;box-shadow:0 4px 20px rgba(200,0,0,.35);}
+.tcp-btn-play{background:linear-gradient(135deg,#002244,#0044AA,#4488FF);color:#CCDDFF;box-shadow:0 4px 20px rgba(0,100,255,.4);}
+.tcp-hc{display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:10px;font-size:9px;font-weight:900;flex-shrink:0;}
+.tcp-hc-w{background:rgba(0,255,136,.2);color:#00FF88;border:1px solid rgba(0,255,136,.4);}
+.tcp-hc-l{background:rgba(255,68,68,.2);color:#FF4444;border:1px solid rgba(255,68,68,.4);}
+.tcp-hc-p{background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);}
 </style>
 </head>
 <body>
@@ -1738,6 +1766,76 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <button id="limboLaunchBtn" onclick="limboLaunch()" style="padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#1a0055,#4A00E0,#8E2DE2);color:#fff;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.05em;box-shadow:0 4px 24px rgba(100,0,255,.45);position:relative;overflow:hidden;">
         🚀 LAUNCH
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Three Card Poker ════════════════════════════════════════════ -->
+<div class="game-screen" id="tcpScreen">
+  <div class="game-header">
+    <button class="back-btn" onclick="closeTCP()">←</button>
+    <span>♣ Three Card Poker</span>
+    <div style="font-size:12px;color:rgba(255,255,255,.4)" id="tcpBal">0 🪙</div>
+  </div>
+  <div style="display:flex;flex-direction:column;height:calc(100% - 56px);padding:14px;gap:10px;box-sizing:border-box;">
+
+    <!-- History -->
+    <div id="tcpHistory" style="display:flex;gap:5px;flex-wrap:wrap;min-height:24px;"></div>
+
+    <!-- Felt area -->
+    <div class="tcp-felt">
+      <!-- Dealer hand -->
+      <div class="tcp-hand-label">Dealer</div>
+      <div class="tcp-cards" id="tcpDealerCards">
+        <div class="tcp-card face-down" id="tcpD0"></div>
+        <div class="tcp-card face-down" id="tcpD1"></div>
+        <div class="tcp-card face-down" id="tcpD2"></div>
+      </div>
+      <div id="tcpDealerRank" class="tcp-rank-badge" style="margin-top:2px;">—</div>
+
+      <div style="width:100%;border-top:1px dashed rgba(255,255,255,.1);margin:6px 0;"></div>
+
+      <!-- Player hand -->
+      <div id="tcpPlayerRank" class="tcp-rank-badge" style="margin-bottom:2px;">—</div>
+      <div class="tcp-cards" id="tcpPlayerCards">
+        <div class="tcp-card face-down" id="tcpP0"></div>
+        <div class="tcp-card face-down" id="tcpP1"></div>
+        <div class="tcp-card face-down" id="tcpP2"></div>
+      </div>
+      <div class="tcp-hand-label" style="margin-top:4px;">Your Hand</div>
+    </div>
+
+    <!-- Pair Plus payout table (mini) -->
+    <div style="display:flex;gap:4px;justify-content:center;flex-shrink:0;font-size:9px;color:rgba(255,255,255,.35);flex-wrap:wrap;padding:0 4px;">
+      <span>Str.Flush 40×</span><span style="opacity:.3">|</span>
+      <span>3-of-Kind 30×</span><span style="opacity:.3">|</span>
+      <span>Straight 6×</span><span style="opacity:.3">|</span>
+      <span>Flush 3×</span><span style="opacity:.3">|</span>
+      <span>Pair 1×</span>
+    </div>
+
+    <!-- Bet tabs -->
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <div class="tcp-bet-tab active" id="tcpTabAnte" onclick="tcpSelectBet('ante')">
+        <div class="tcp-bet-tab-name">ANTE</div>
+        <div class="tcp-bet-tab-val" id="tcpAnteV">100</div>
+      </div>
+      <div class="tcp-bet-tab" id="tcpTabPP" onclick="tcpSelectBet('pp')">
+        <div class="tcp-bet-tab-name">PAIR+</div>
+        <div class="tcp-bet-tab-val" id="tcpPPV">0</div>
+      </div>
+    </div>
+
+    <!-- Bet row -->
+    <div class="vp-bet-row" style="flex-shrink:0;">
+      <button class="fruit-bet-btn" onclick="tcpBetHalf()">½</button>
+      <div class="fruit-bet-box" style="flex:1"><div style="font-size:9px;color:rgba(255,255,255,.4)">ADJUST BET</div><div style="font-size:18px;font-weight:900" id="tcpBetV">100</div></div>
+      <button class="fruit-bet-btn" onclick="tcpBetDouble()">×2</button>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:7px;flex-shrink:0;" id="tcpBtnRow">
+      <button class="tcp-action-btn tcp-btn-deal" id="tcpBtnDeal" onclick="tcpDeal()">🃏 DEAL</button>
     </div>
   </div>
 </div>
@@ -5552,6 +5650,10 @@ const GAME_DEFS = {
      emoji:'🐉🐯🃏', badge:'HOT', badgeColor:'#FF3366',
      grad:'linear-gradient(145deg,#1A0508,#08000F)',
      glow:'rgba(255,50,80,.28)', minLv:1, action:'dragontiger'},
+    {id:'threecard', name:'Three Card Poker', sub:'Ante + Pair Plus — Beat the Dealer',
+     emoji:'♣🃏♠', badge:'NEW', badgeColor:'#00FF88',
+     grad:'linear-gradient(145deg,#051A08,#010A04)',
+     glow:'rgba(0,200,80,.28)', minLv:1, action:'threecard'},
   ],
   quick:[
     {id:'aviator', name:'Aviator', sub:'Crash — Cash Out Before It Flies!',
@@ -5968,6 +6070,24 @@ function gcSVG(g){
     ${e}`;
   }
 
+  // ── THREE CARD POKER ─────────────────────────────────────────────
+  if(act==='threecard'){
+    return `${s}
+      <rect width="160" height="100" fill="#051A08"/>
+      <ellipse cx="80" cy="58" rx="72" ry="42" fill="#0A3A14" stroke="#1A6A2A" stroke-width="1.5"/>
+      <rect x="8" y="30" width="36" height="50" rx="5" fill="white" stroke="#DDD" stroke-width="1" transform="rotate(-6,26,55)"/>
+      <text x="13" y="47" font-size="11" font-weight="900" fill="#CC0000" font-family="Arial" transform="rotate(-6,26,55)">A</text>
+      <text x="16" y="62" font-size="15" fill="#CC0000" font-family="Arial" transform="rotate(-6,26,55)">♥</text>
+      <rect x="62" y="28" width="36" height="50" rx="5" fill="white" stroke="#DDD" stroke-width="1"/>
+      <text x="67" y="46" font-size="11" font-weight="900" fill="#111" font-family="Arial">K</text>
+      <text x="70" y="61" font-size="15" fill="#111" font-family="Arial">♠</text>
+      <rect x="116" y="30" width="36" height="50" rx="5" fill="white" stroke="#DDD" stroke-width="1" transform="rotate(6,134,55)"/>
+      <text x="121" y="47" font-size="11" font-weight="900" fill="#CC0000" font-family="Arial" transform="rotate(6,134,55)">Q</text>
+      <text x="124" y="62" font-size="15" fill="#CC0000" font-family="Arial" transform="rotate(6,134,55)">♦</text>
+      <text x="80" y="96" text-anchor="middle" font-size="8" font-weight="700" fill="rgba(255,215,0,.6)" font-family="Arial">STRAIGHT FLUSH • THREE OF A KIND</text>
+    ${e}`;
+  }
+
   // ── DRAGON TIGER ─────────────────────────────────────────────────
   if(act==='dragontiger'){
     return `${s}
@@ -6030,6 +6150,7 @@ function makeCard(g){
       else if(g.action==='tower') openTower();
       else if(g.action==='limbo') openLimbo();
       else if(g.action==='dragontiger') openDT();
+      else if(g.action==='threecard') openTCP();
       else showToast('🚧 '+g.name+' — Coming Soon!');
     });
   }
@@ -8162,6 +8283,259 @@ function towerCashout(auto){
   document.getElementById('towerStartBtn').style.display='';
   document.getElementById('towerCashBtn').style.display='none';
   ['easy','normal','hard'].forEach(x=>{ const b=document.getElementById('td'+x.charAt(0).toUpperCase()+x.slice(1)); if(b) b.disabled=false; });
+}
+
+// ══════════════════════════════════════════════
+// Three Card Poker
+// ══════════════════════════════════════════════
+let tcpAnte=100, tcpPP=0, tcpBetInput=100, tcpActiveBet='ante', tcpPhase='bet';
+let tcpPlayerHand=[], tcpDealerHand=[];
+const TCP_RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const TCP_SUITS=['♠','♥','♦','♣'];
+const TCP_RED=['♥','♦'];
+
+function openTCP(){
+  document.getElementById('tcpScreen').classList.add('open');
+  tcpPhase='bet'; tcpAnte=100; tcpPP=0; tcpBetInput=100; tcpActiveBet='ante';
+  updateTCPBal(); tcpRefreshTabs();
+  document.getElementById('tcpBetV').textContent=fmt(tcpBetInput);
+  tcpResetCards();
+  document.getElementById('tcpPlayerRank').textContent='—'; document.getElementById('tcpPlayerRank').className='tcp-rank-badge';
+  document.getElementById('tcpDealerRank').textContent='—'; document.getElementById('tcpDealerRank').className='tcp-rank-badge';
+  tcpSetBtnRow('deal');
+}
+
+function closeTCP(){ document.getElementById('tcpScreen').classList.remove('open'); tcpPhase='bet'; }
+
+function updateTCPBal(){ document.getElementById('tcpBal').textContent=fmt(gs.coins)+' 🪙'; }
+
+function tcpRefreshTabs(){
+  document.getElementById('tcpAnteV').textContent=fmt(tcpAnte);
+  document.getElementById('tcpPPV').textContent=fmt(tcpPP);
+  document.getElementById('tcpTabAnte').classList.toggle('active',tcpActiveBet==='ante');
+  document.getElementById('tcpTabPP').classList.toggle('active',tcpActiveBet==='pp');
+}
+
+function tcpSelectBet(which){
+  if(tcpPhase!=='bet') return;
+  tcpActiveBet=which; tcpRefreshTabs();
+}
+
+function tcpBetHalf(){
+  if(tcpPhase!=='bet') return;
+  tcpBetInput=Math.max(10,Math.floor(tcpBetInput/2));
+  document.getElementById('tcpBetV').textContent=fmt(tcpBetInput);
+}
+
+function tcpBetDouble(){
+  if(tcpPhase!=='bet') return;
+  tcpBetInput=Math.min(gs.coins||tcpBetInput,tcpBetInput*2);
+  document.getElementById('tcpBetV').textContent=fmt(tcpBetInput);
+}
+
+function tcpSetBtnRow(state){
+  const row=document.getElementById('tcpBtnRow');
+  if(state==='deal'){
+    row.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" id="tcpBtnDeal" onclick="tcpDeal()">🃏 DEAL</button>`;
+    // Also allow adjusting bet on ante tab click to apply
+    document.getElementById('tcpTabAnte').onclick=()=>{tcpActiveBet='ante';tcpPP=0;tcpRefreshTabs();};
+    document.getElementById('tcpTabPP').onclick=()=>{tcpActiveBet='pp';tcpRefreshTabs();};
+  } else if(state==='action'){
+    row.innerHTML=`<button class="tcp-action-btn tcp-btn-fold" onclick="tcpFold()" style="flex:1">✕ FOLD</button>
+                   <button class="tcp-action-btn tcp-btn-play" onclick="tcpPlay()" style="flex:1.6">▶ PLAY (${fmt(tcpAnte)})</button>`;
+  } else {
+    row.innerHTML=`<button class="tcp-action-btn tcp-btn-deal" onclick="tcpNewRound()" style="flex:1">🔄 NEW ROUND</button>`;
+  }
+}
+
+function tcpMakeDeck(){
+  const d=[];
+  for(const s of TCP_SUITS) for(let r=0;r<13;r++) d.push({r,s,rank:TCP_RANKS[r]});
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]; }
+  return d;
+}
+
+function tcpCardEl(card, faceUp){
+  const el=document.createElement('div');
+  el.className='tcp-card'+(faceUp?'':' face-down');
+  if(faceUp){
+    const col=TCP_RED.includes(card.s)?'#CC1100':'#111';
+    el.innerHTML=`<div class="tcp-card-r" style="color:${col}">${card.rank}</div>
+                  <div class="tcp-card-s" style="color:${col}">${card.s}</div>
+                  <div class="tcp-card-r" style="color:${col};align-self:flex-end;transform:rotate(180deg)">${card.rank}</div>`;
+  }
+  return el;
+}
+
+function tcpResetCards(){
+  for(let i=0;i<3;i++){
+    const pd=document.getElementById('tcpP'+i), dd=document.getElementById('tcpD'+i);
+    if(pd){ pd.className='tcp-card face-down'; pd.innerHTML=''; }
+    if(dd){ dd.className='tcp-card face-down'; dd.innerHTML=''; }
+  }
+}
+
+function tcpDeal(){
+  if(tcpAnte<=0){ showToast('Set an Ante bet first!'); return; }
+  const total=tcpAnte+tcpPP;
+  if(gs.coins<total){ showToast('💸 Not enough coins!'); return; }
+  tcpPhase='action';
+  gs.coins-=total; save(); updateHUD(); updateTCPBal();
+
+  const deck=tcpMakeDeck();
+  tcpPlayerHand=[deck[0],deck[1],deck[2]];
+  tcpDealerHand=[deck[3],deck[4],deck[5]];
+
+  // Reveal player cards
+  for(let i=0;i<3;i++){
+    const el=document.getElementById('tcpP'+i);
+    const card=tcpPlayerHand[i];
+    const col=TCP_RED.includes(card.s)?'#CC1100':'#111';
+    el.className='tcp-card';
+    el.innerHTML=`<div class="tcp-card-r" style="color:${col}">${card.rank}</div>
+                  <div class="tcp-card-s" style="color:${col}">${card.s}</div>
+                  <div class="tcp-card-r" style="color:${col};align-self:flex-end;transform:rotate(180deg)">${card.rank}</div>`;
+  }
+  // Dealer stays face-down
+  for(let i=0;i<3;i++) document.getElementById('tcpD'+i).className='tcp-card face-down';
+
+  const pr=tcpRankHand(tcpPlayerHand);
+  document.getElementById('tcpPlayerRank').textContent=pr.name;
+  document.getElementById('tcpPlayerRank').className='tcp-rank-badge'+(pr.tier>=2?' big':'');
+  document.getElementById('tcpDealerRank').textContent='?';
+  tcpSetBtnRow('action');
+}
+
+function tcpFold(){
+  tcpPhase='result';
+  // Reveal dealer
+  tcpRevealDealer();
+  showToast('✕ Folded — Ante lost.');
+  addTCPChip('l');
+  tcpSetBtnRow('new');
+}
+
+function tcpPlay(){
+  tcpPhase='result';
+  if(gs.coins<tcpAnte){ showToast('💸 Not enough to Play!'); tcpFold(); return; }
+  gs.coins-=tcpAnte; save(); updateHUD(); updateTCPBal();
+  tcpRevealDealer();
+  tcpResolve();
+}
+
+function tcpRevealDealer(){
+  for(let i=0;i<3;i++){
+    const el=document.getElementById('tcpD'+i);
+    const card=tcpDealerHand[i];
+    const col=TCP_RED.includes(card.s)?'#CC1100':'#111';
+    el.className='tcp-card';
+    el.innerHTML=`<div class="tcp-card-r" style="color:${col}">${card.rank}</div>
+                  <div class="tcp-card-s" style="color:${col}">${card.s}</div>
+                  <div class="tcp-card-r" style="color:${col};align-self:flex-end;transform:rotate(180deg)">${card.rank}</div>`;
+  }
+}
+
+function tcpResolve(){
+  const pr=tcpRankHand(tcpPlayerHand);
+  const dr=tcpRankHand(tcpDealerHand);
+  const qualifies=dr.tier>0||(dr.tier===0&&tcpDealerHand.map(c=>c.r).sort((a,b)=>b-a)[0]>=10); // Q-high = index 10
+
+  document.getElementById('tcpDealerRank').textContent=dr.name+(qualifies?'':' (no qualify)');
+  document.getElementById('tcpDealerRank').className='tcp-rank-badge'+(dr.tier>=2?' big':'');
+
+  let win=0, msg='';
+  if(!qualifies){
+    // Dealer doesn't qualify: ante pushes (return), play pays 1:1
+    win=tcpAnte+tcpAnte; // ante back + play back
+    msg='Dealer no qualify — Ante push, Play returned!';
+  } else {
+    const cmp=tcpCompare(pr,dr);
+    if(cmp>0){
+      win=tcpAnte*2+tcpAnte*2; // ante 1:1 + play 1:1 returned
+      for(let i=0;i<3;i++) document.getElementById('tcpP'+i).classList.add('win-card');
+      msg='🏆 You WIN!';
+    } else if(cmp===0){
+      win=tcpAnte+tcpAnte; // push both
+      msg='🤝 Push — bets returned!';
+    } else {
+      msg='❌ Dealer wins.';
+    }
+  }
+
+  // Pair Plus (independent of ante outcome)
+  const ppWin=tcpPairPlus(pr);
+  if(tcpPP>0&&ppWin>0){
+    win+=tcpPP*(ppWin+1);
+    msg+=' Pair+ ×'+ppWin+'!';
+  }
+
+  if(win>0){
+    gs.coins+=win; gs.wins=(gs.wins||0)+1;
+    if(win>=tcpAnte*5) gs.bigWins=(gs.bigWins||0)+1;
+    save(); updateHUD(); updateTCPBal();
+  }
+
+  const netWon=win-(tcpAnte+(tcpPP||0)+tcpAnte);
+  if(win>0&&netWon>0) showToast('🏆 '+msg+' +'+fmt(netWon)+' 🪙');
+  else if(win>0) showToast('🤝 '+msg);
+  else showToast('❌ '+msg);
+
+  addTCPChip(win>0&&netWon>0?'w':win>0?'p':'l');
+  tcpSetBtnRow('new');
+}
+
+function tcpPairPlus(hand){
+  const t=hand.tier||0;
+  if(t===5) return 40; // straight flush
+  if(t===4) return 30; // three of a kind
+  if(t===3) return 6;  // straight
+  if(t===2) return 3;  // flush
+  if(t===1) return 1;  // pair
+  return 0;
+}
+
+function tcpRankHand(cards){
+  const rs=cards.map(c=>c.r).sort((a,b)=>b-a);
+  const ss=cards.map(c=>c.s);
+  const isFlush=ss.every(s=>s===ss[0]);
+  const isStraight=(rs[0]-rs[1]===1&&rs[1]-rs[2]===1)||
+    (rs[0]===12&&rs[1]===1&&rs[2]===0); // A-2-3 wrap
+  const counts={};
+  rs.forEach(r=>counts[r]=(counts[r]||0)+1);
+  const vals=Object.values(counts).sort((a,b)=>b-a);
+  const isThree=vals[0]===3;
+  const isPair=vals[0]===2;
+  if(isFlush&&isStraight) return{name:'Straight Flush',tier:5,high:rs[0]};
+  if(isThree)              return{name:'Three of a Kind',tier:4,high:rs[0]};
+  if(isStraight)           return{name:'Straight',tier:3,high:rs[0]};
+  if(isFlush)              return{name:'Flush',tier:2,high:rs[0]};
+  if(isPair){const pair=+Object.keys(counts).find(k=>counts[k]===2); return{name:'Pair',tier:1,high:pair};}
+  return{name:'High Card',tier:0,high:rs[0]};
+}
+
+function tcpCompare(a,b){
+  if(a.tier!==b.tier) return a.tier>b.tier?1:-1;
+  if(a.high!==b.high) return a.high>b.high?1:-1;
+  return 0;
+}
+
+function tcpNewRound(){
+  tcpPhase='bet';
+  tcpResetCards();
+  document.getElementById('tcpPlayerRank').textContent='—'; document.getElementById('tcpPlayerRank').className='tcp-rank-badge';
+  document.getElementById('tcpDealerRank').textContent='—'; document.getElementById('tcpDealerRank').className='tcp-rank-badge';
+  tcpSetBtnRow('deal');
+  // Remove win highlights
+  for(let i=0;i<3;i++) document.getElementById('tcpP'+i).classList.remove('win-card');
+}
+
+function addTCPChip(type){
+  const hist=document.getElementById('tcpHistory');
+  const chip=document.createElement('div');
+  chip.className='tcp-hc tcp-hc-'+(type==='w'?'w':type==='p'?'p':'l');
+  chip.textContent=type==='w'?'W':type==='p'?'P':'L';
+  hist.insertBefore(chip,hist.firstChild);
+  while(hist.children.length>18) hist.removeChild(hist.lastChild);
 }
 
 // ══════════════════════════════════════════════
