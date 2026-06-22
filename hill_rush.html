@@ -449,9 +449,14 @@ class Car{
     const ok=this.fuel>0;
     if(ok&&gas&&this.rG){this.rvx+=this.engP*boost;this.rang+=this.engP*boost/this.wr;}
     if(ok&&gas&&this.has4wd&&this.fG){this.fvx+=this.engP*.45*boost;this.fang+=this.engP*.45*boost/this.wr;}
-    if(brake){if(this.rG){this.rvx*=.68;this.rang*=.68;}if(this.fG){this.fvx*=.78;this.fang*=.78;}}
-    // Drag
+    if(brake){
+      if(this.rG){this.rvx-=this.engP*.52;this.rang-=this.engP*.52/this.wr;this.rvx*=.85;}
+      if(this.fG&&this.has4wd){this.fvx-=this.engP*.28;this.fang-=this.engP*.28/this.wr;}
+      else if(this.fG){this.fvx*=.8;this.fang*=.8;}
+    }
+    // Drag + speed cap
     this.bvx*=.992;this.bvy*=.9998;this.fvx*=.992;this.rvx*=.992;
+    const maxSpd=18+this.engP*6;if(Math.abs(this.bvx)>maxSpd)this.bvx*=.92;
     // Ground
     this._gnd(terrain,'f');this._gnd(terrain,'r');
     // Integrate
@@ -464,7 +469,7 @@ class Car{
     this.bang+=(ta-this.bang)*.18;
     // Prevent body clipping ground
     const bg=terrain.getY(this.bx);
-    if(this.by>bg-6){this.by=bg-6;if(this.bvy>0)this.bvy*=-.2;}
+    if(this.by>bg-16){this.by=bg-16;if(this.bvy>0)this.bvy*=-.15;}
     this.dist=Math.max(0,this.bx-this.sx);
     // Flip
     if(Math.abs(this.bang)>Math.PI*.72){if(++this.flipT>55){this.crashed=true;this.rsn='FLIPPED!';}}
@@ -491,7 +496,8 @@ class Car{
       const nm=terrain.getNorm(wx);
       const dot=wvx*nm.nx+wvy*nm.ny;
       if(dot<0){wvx-=1.25*dot*nm.nx;wvy-=1.25*dot*nm.ny;}
-      wvx*=this.fric;wvy=Math.min(0,wvy);
+      wvx*=this.fric;wvy*=this.fric;
+      const dot2=wvx*nm.nx+wvy*nm.ny;if(dot2<0){wvx-=dot2*nm.nx;wvy-=dot2*nm.ny;}
       if(sw==='f'){this.fG=true;this.fy=wy;this.fvx=wvx;this.fvy=wvy;}
       else{this.rG=true;this.ry=wy;this.rvx=wvx;this.rvy=wvy;}
     }else{if(sw==='f')this.fG=false;else this.rG=false;}
@@ -516,7 +522,8 @@ function drawWheel(c,x,y,r,ang,vd){
 }
 
 function drawSusp(c,bx,by,bang,off,wx,wy){
-  const ax=bx+off*Math.cos(bang),ay=by+off*Math.sin(bang);
+  const bd=10;
+  const ax=bx+off*Math.cos(bang)-bd*Math.sin(bang),ay=by+off*Math.sin(bang)+bd*Math.cos(bang);
   c.strokeStyle='rgba(70,70,70,.8)';c.lineWidth=3.5;c.lineCap='round';
   c.beginPath();c.moveTo(ax,ay);c.lineTo(wx,wy);c.stroke();
   // Coil
@@ -707,10 +714,10 @@ function renderCar(car,cx,cy){
   const fx=car.fx-cx,fy=car.fy-cy;
   const rx=car.rx-cx,ry=car.ry-cy;
   drawWheel(ctx,rx,ry,car.wr,car.rang,car.vd);
-  drawSusp(ctx,bx,by,car.bang,car.axF,fx,fy);
   drawSusp(ctx,bx,by,car.bang,car.axR,rx,ry);
-  drawWheel(ctx,fx,fy,car.wr,car.fang,car.vd);
   drawBody(ctx,car.vd,car.bang,bx,by);
+  drawSusp(ctx,bx,by,car.bang,car.axF,fx,fy);
+  drawWheel(ctx,fx,fy,car.wr,car.fang,car.vd);
   if(car.turboQ>.7){const tg=ctx.createRadialGradient(bx,by,0,bx,by,52);tg.addColorStop(0,'rgba(0,200,255,.22)');tg.addColorStop(1,'transparent');ctx.fillStyle=tg;ctx.beginPath();ctx.arc(bx,by,52,0,Math.PI*2);ctx.fill();}
 }
 
@@ -748,7 +755,7 @@ function showOvl(id){
   if(id)document.getElementById(id).classList.add('on');
   const ingame=id===null;
   document.getElementById('hud').style.display=ingame?'block':'none';
-  document.getElementById('controls').style.display=ingame?'block':'none';
+  document.getElementById('controls').style.display=ingame?'flex':'none';
   document.getElementById('pauseBtn').style.display=ingame?'block':'none';
 }
 
@@ -853,8 +860,7 @@ function loop(now){
   for(let i=0;i<steps;i++){if(!car.dead)car.step(terrain,gas,brake);tickParts();}
   if(car.noFuel&&!car.crashed&&!car.dead){car.crashed=true;car.rsn='OUT OF FUEL!';}
   // Exhaust
-  car.et++;
-  if(!car.dead&&gas&&car.et%3===0){
+  if(!car.dead&&gas&&car.et%4===0){
     const co=Math.cos(car.bang),si=Math.sin(car.bang);
     emit(car.bx+car.axR*co,car.by+car.axR*si,2,{a:car.bang+Math.PI+(Math.random()-.5)*.5,s:2+Math.random()*1.8,d:.04+Math.random()*.02,r:3+Math.random()*3,c:car.turboQ>.7?'rgba(0,200,255,.7)':`rgba(${160+Math.random()*40|0},${100+Math.random()*30|0},60,.7)`,g:.04,up:.5});
   }
@@ -867,7 +873,7 @@ function loop(now){
   for(const o of terrain.objs){
     if(o.col)continue;
     for(const b of pts2){
-      const d2=(b.x-o.x)**2+(b.y-o.y)**2,rad=o.t==='coin'?9+car.wr*1.1:14+car.wr*1.1;
+      const d2=(b.x-o.x)**2+(b.y-o.y)**2,rad=o.t==='coin'?10+car.wr*.4:12+car.wr*.55;
       if(d2<rad*rad){
         o.col=true;
         if(o.t==='coin'){
