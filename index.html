@@ -212,19 +212,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 /* Reel area — reduce padding so canvas fills more height */
 .egypt-theme .reel-area{padding:10px 4px 2px;}
 
-/* reel-wrap — transparent, overflow visible so temple canvas can extend */
-.egypt-theme #reelWrap{
-  background:transparent;padding:0;
-  border-radius:0;box-shadow:none;overflow:visible;
-}
-.egypt-theme #reelWrap::before,.egypt-theme #reelWrap::after{display:none;}
+/* reelWrap styled via JS */
 
-/* Canvas — stone-style gold border */
-.egypt-theme #slotC{
-  border:2px solid rgba(180,130,10,.9);border-radius:3px;
-  box-shadow:0 0 22px rgba(200,150,10,.5),inset 0 0 32px rgba(0,0,0,.65);
-  display:block;
-}
+.egypt-theme #slotC{display:block;border-radius:6px;}
 .egypt-theme #winC{top:0;left:0;border-radius:3px;}
 
 /* Temple canvas (drawn by JS) */
@@ -238,15 +228,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
   padding:10px 4px 2px;
 }
 
-/* Egypt: reel wrap transparent, tight border only on canvas */
-.egypt-theme #reelWrap{
-  background:transparent!important;
-  padding:0!important;
-  box-shadow:none!important;
-  border-radius:0!important;
-  overflow:visible!important;
-}
-.egypt-theme #reelWrap::before,.egypt-theme #reelWrap::after{display:none;}
+
 
 /* Egypt: canvas uses background image set in first #slotC rule */
 .egypt-theme #winC{top:0;left:0;border-radius:4px;}
@@ -9603,21 +9585,26 @@ function setTheme(key){
   const rw=document.getElementById('reelWrap');
   if(rw){
     if(isEgypt){
-      rw.style.background='transparent';
-      rw.style.boxShadow='none';
-      rw.style.padding='0';
+      // Gold gradient frame around reels
+      rw.style.background='linear-gradient(135deg,#6a4800 0%,#FFD700 18%,#AA7700 38%,#FFE060 55%,#AA7700 72%,#FFD700 88%,#6a4800 100%)';
+      rw.style.boxShadow='0 0 48px rgba(255,200,0,.65),0 0 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.35)';
+      rw.style.padding='5px';
+      rw.style.borderRadius='10px';
+      rw.style.overflow='visible';
     } else {
       const fg=currentTheme.symColors&&currentTheme.symColors.frameGrad||['#FFD700','#BB8800','#FFE570'];
       rw.style.background=`linear-gradient(135deg,${fg[0]} 0%,${fg[1]} 30%,${fg[2]} 55%,${fg[1]} 78%,${fg[0]} 100%)`;
       rw.style.boxShadow=`0 0 55px ${currentTheme.glowColor},0 0 110px rgba(0,0,0,.75)`;
       rw.style.padding='5px';
+      rw.style.borderRadius='';
+      rw.style.overflow='';
     }
   }
   slotStars=null;
   document.getElementById('slotTitle').textContent = currentTheme.name;
   resizeSlot();
-  // Canvas columns disabled — background image provides the frame
-  stopEgyptTemple();
+  if(isEgypt){ const tc=document.getElementById('egyptTempleC'); if(tc){tc.style.display='block';} resizeEgyptTemple(); startEgyptTemple(); }
+  else stopEgyptTemple();
 }
 
 // 9 win lines on 5x3 grid (each entry = row index for that column)
@@ -9716,161 +9703,124 @@ function stopEgyptTemple(){
 function resizeEgyptTemple(){
   const tc=document.getElementById('egyptTempleC');
   if(!tc||tc.style.display==='none') return;
-  const CW=78, archH=62, botH=14;
-  tc.width=slotC.width+CW*2; tc.height=slotC.height+archH+botH;
-  tc.style.left=(-CW)+'px'; tc.style.top=(-archH)+'px';
-  tc.style.width=tc.width+'px'; tc.style.height=tc.height+'px';
+  const scarabH=68, scarabW=Math.floor(slotC.width*.88);
+  tc.width=scarabW; tc.height=scarabH;
+  // center above slotC (slotC has 5px padding from reelWrap on each side)
+  tc.style.left=Math.floor((slotC.width-scarabW)/2+5)+'px';
+  tc.style.top=(-scarabH+10)+'px';
+  tc.style.width=scarabW+'px'; tc.style.height=scarabH+'px';
 }
 
 function renderEgyptTemple(){
   const tc=document.getElementById('egyptTempleC');
   if(!tc) return;
-  const CW=78, archH=62, botH=14;
-  const expW=slotC.width+CW*2, expH=slotC.height+archH+botH;
-  if(tc.width!==expW||tc.height!==expH) resizeEgyptTemple();
+  const scarabH=68, scarabW=Math.floor(slotC.width*.88);
+  if(tc.width!==scarabW||tc.height!==scarabH) resizeEgyptTemple();
   const W=tc.width, H=tc.height;
   const ctx=tc.getContext('2d');
   ctx.clearRect(0,0,W,H);
-  // columns start at archH (below arch area)
-  drawEgyptColumn(ctx,0,archH,CW,H-archH,'left');
-  drawEgyptColumn(ctx,W-CW,archH,CW,H-archH,'right');
-  // winged scarab arch across the top
-  drawWingedScarab(ctx,CW,0,W-CW*2,archH+16);
+  drawWingedScarab(ctx,0,0,W,H);
 }
 
 function drawWingedScarab(ctx,x,y,W,H){
-  const cx=x+W/2;
-  const midY=y+H*.62;
-  const sc=Math.min(W*.11,H*.42);
-
-  // Stone panel
-  const bg=ctx.createLinearGradient(x,y,x,y+H);
-  bg.addColorStop(0,'#030609'); bg.addColorStop(1,'#06122280');
-  ctx.fillStyle=bg; ctx.fillRect(x,y,W,H);
-
-  // Top thin gold rule
-  const topR=ctx.createLinearGradient(x,0,x+W,0);
-  topR.addColorStop(0,'rgba(180,120,0,0)'); topR.addColorStop(.15,'rgba(255,215,0,.65)');
-  topR.addColorStop(.5,'rgba(255,240,100,1)'); topR.addColorStop(.85,'rgba(255,215,0,.65)');
-  topR.addColorStop(1,'rgba(180,120,0,0)');
-  ctx.fillStyle=topR; ctx.fillRect(x,y+1,W,1.5);
-
-  // Hieroglyph text flanking
-  ctx.font=`${H*.38}px serif`; ctx.textBaseline='middle';
-  ctx.fillStyle='rgba(180,130,0,.42)'; ctx.textAlign='right';
-  ctx.fillText('𓂀 𓆣 𓅓',cx-sc*1.8,midY-sc*.15);
-  ctx.textAlign='left';
-  ctx.fillText('𓅓 𓆣 𓂀',cx+sc*1.8,midY-sc*.15);
+  ctx.clearRect(x,y,W,H);
+  const cx=x+W/2, cy=y+H*.58;
+  const sc=Math.min(W*.1, H*.38);
 
   // === WINGS ===
   for(let side=-1;side<=1;side+=2){
-    ctx.save(); ctx.translate(cx,midY);
+    ctx.save(); ctx.translate(cx,cy);
     if(side===1) ctx.scale(-1,1);
-    const wW=W*.43, wH=H*.72;
+    const wW=W*.46, wH=H*.72;
 
-    // Outer wing body
-    const wg=ctx.createLinearGradient(-sc*.4,0,-wW*.9,-wH*.25);
-    wg.addColorStop(0,'#AA6E00'); wg.addColorStop(.35,'#FFD700'); wg.addColorStop(.7,'#BB8800'); wg.addColorStop(1,'#4a2e00');
-    ctx.fillStyle=wg; ctx.strokeStyle='rgba(0,0,0,.38)'; ctx.lineWidth=.9;
+    // Outer primary wing — gold
+    const wg=ctx.createLinearGradient(-sc*.5,0,-wW*.9,-wH*.28);
+    wg.addColorStop(0,'#8a5800'); wg.addColorStop(.3,'#FFD700');
+    wg.addColorStop(.65,'#CC9900'); wg.addColorStop(1,'#4a2c00');
+    ctx.fillStyle=wg; ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=.8;
     ctx.beginPath();
-    ctx.moveTo(-sc*.48,sc*.08);
-    ctx.bezierCurveTo(-wW*.22,-wH*.52,-wW*.62,-wH*.5,-wW*.93,-wH*.2);
-    ctx.bezierCurveTo(-wW*1.0,-wH*.04,-wW*.95,wH*.14,-wW*.78,wH*.2);
-    ctx.bezierCurveTo(-wW*.52,wH*.25,-wW*.26,wH*.12,-sc*.52,sc*.42);
+    ctx.moveTo(-sc*.5,sc*.1);
+    ctx.bezierCurveTo(-wW*.2,-wH*.58,-wW*.6,-wH*.55,-wW*.96,-wH*.22);
+    ctx.bezierCurveTo(-wW*1.02,-wH*.06,-wW*.97,wH*.12,-wW*.8,wH*.2);
+    ctx.bezierCurveTo(-wW*.54,wH*.26,-wW*.26,wH*.14,-sc*.54,sc*.44);
     ctx.closePath(); ctx.fill(); ctx.stroke();
 
-    // Feather divisions
-    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=.7;
-    for(let f=1;f<=5;f++){
-      const t=f/6;
-      const fx=-sc*.48-t*(wW*.78-sc*.48);
-      const fy=(-sc*.08)+t*(sc*.34-(-sc*.08));
-      ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx-wW*.025,fy+wH*.18); ctx.stroke();
-    }
-
-    // Inner blue-teal secondary wing
-    const ig=ctx.createLinearGradient(-sc*.4,0,-wW*.58,-wH*.22);
-    ig.addColorStop(0,'#003f7a'); ig.addColorStop(.5,'#0066aa'); ig.addColorStop(1,'#003060');
-    ctx.fillStyle=ig; ctx.globalAlpha=.78;
+    // Inner secondary wing — teal/blue
+    const ig=ctx.createLinearGradient(-sc*.4,0,-wW*.55,-wH*.22);
+    ig.addColorStop(0,'#004a6e'); ig.addColorStop(.45,'#007abb'); ig.addColorStop(1,'#003555');
+    ctx.fillStyle=ig; ctx.globalAlpha=.85;
     ctx.beginPath();
-    ctx.moveTo(-sc*.44,sc*.12);
-    ctx.bezierCurveTo(-wW*.16,-wH*.26,-wW*.38,-wH*.28,-wW*.6,-wH*.16);
-    ctx.bezierCurveTo(-wW*.66,-wH*.06,-wW*.6,wH*.1,-wW*.44,wH*.14);
-    ctx.bezierCurveTo(-wW*.28,wH*.18,-wW*.14,wH*.1,-sc*.5,sc*.38);
+    ctx.moveTo(-sc*.46,sc*.14);
+    ctx.bezierCurveTo(-wW*.16,-wH*.28,-wW*.36,-wH*.3,-wW*.6,-wH*.17);
+    ctx.bezierCurveTo(-wW*.67,-wH*.06,-wW*.6,wH*.1,-wW*.44,wH*.15);
+    ctx.bezierCurveTo(-wW*.28,wH*.19,-wW*.13,wH*.1,-sc*.52,sc*.4);
     ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
 
-    // Gold edge highlight along leading wing edge
-    ctx.strokeStyle='rgba(255,235,100,.55)'; ctx.lineWidth=1.1;
+    // Wing feather lines
+    ctx.strokeStyle='rgba(0,0,0,.28)'; ctx.lineWidth=.7;
+    for(let f=1;f<=5;f++){
+      const t=f/6.5;
+      const fx=-sc*.5-t*(wW*.82-sc*.5);
+      const fy=-sc*.06+t*(sc*.36-(-sc*.06));
+      ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx-wW*.024,fy+wH*.18); ctx.stroke();
+    }
+    // Gold outer leading-edge highlight
+    ctx.strokeStyle='rgba(255,235,100,.5)'; ctx.lineWidth=1.1;
     ctx.beginPath();
-    ctx.moveTo(-sc*.48,sc*.08);
-    ctx.bezierCurveTo(-wW*.22,-wH*.52,-wW*.62,-wH*.5,-wW*.93,-wH*.2);
+    ctx.moveTo(-sc*.5,sc*.1);
+    ctx.bezierCurveTo(-wW*.2,-wH*.58,-wW*.6,-wH*.55,-wW*.96,-wH*.22);
     ctx.stroke();
 
     ctx.restore();
   }
 
   // === SCARAB BODY ===
-  const bodyG=ctx.createRadialGradient(cx-sc*.12,midY-sc*.22,0,cx,midY,sc*.9);
-  bodyG.addColorStop(0,'#26a226'); bodyG.addColorStop(.5,'#145214'); bodyG.addColorStop(1,'#082808');
-  ctx.fillStyle=bodyG; ctx.strokeStyle='#FFD700'; ctx.lineWidth=1.4;
-  ctx.beginPath(); ctx.ellipse(cx,midY,sc*.52,sc*.7,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  const bg=ctx.createRadialGradient(cx-sc*.12,cy-sc*.22,0,cx,cy,sc*.88);
+  bg.addColorStop(0,'#2ec42e'); bg.addColorStop(.45,'#158815'); bg.addColorStop(1,'#073207');
+  ctx.fillStyle=bg; ctx.strokeStyle='#D4A017'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.ellipse(cx,cy,sc*.5,sc*.68,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
 
-  // Scarab body segments
-  ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=.8;
-  ctx.beginPath(); ctx.moveTo(cx,midY-sc*.68); ctx.lineTo(cx,midY+sc*.68); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx-sc*.5,midY-sc*.18); ctx.lineTo(cx+sc*.5,midY-sc*.18); ctx.stroke();
+  // Body segments
+  ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=.85;
+  ctx.beginPath(); ctx.moveTo(cx,cy-sc*.66); ctx.lineTo(cx,cy+sc*.66); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx-sc*.48,cy-sc*.18); ctx.lineTo(cx+sc*.48,cy-sc*.18); ctx.stroke();
   for(let s=-1;s<=1;s+=2){
     ctx.beginPath();
-    ctx.moveTo(cx+s*sc*.18,midY-sc*.62);
-    ctx.bezierCurveTo(cx+s*sc*.34,midY-sc*.22,cx+s*sc*.34,midY+sc*.22,cx+s*sc*.18,midY+sc*.64);
+    ctx.moveTo(cx+s*sc*.17,cy-sc*.6);
+    ctx.bezierCurveTo(cx+s*sc*.32,cy-sc*.2,cx+s*sc*.32,cy+sc*.2,cx+s*sc*.17,cy+sc*.62);
     ctx.stroke();
   }
-
   // Green shine
-  ctx.fillStyle='rgba(120,220,120,.22)';
-  ctx.beginPath(); ctx.ellipse(cx-sc*.12,midY-sc*.28,sc*.26,sc*.34,-0.2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(140,240,140,.2)';
+  ctx.beginPath(); ctx.ellipse(cx-sc*.1,cy-sc*.27,sc*.24,sc*.32,-0.2,0,Math.PI*2); ctx.fill();
 
   // Scarab head
-  ctx.fillStyle='#0d420d'; ctx.strokeStyle='#FFD700'; ctx.lineWidth=1.1;
-  ctx.beginPath(); ctx.ellipse(cx,midY-sc*.82,sc*.38,sc*.3,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-
-  // Clypeus (horn)
-  ctx.fillStyle='#0a350a';
-  ctx.beginPath(); ctx.moveTo(cx,midY-sc*1.14); ctx.lineTo(cx-sc*.2,midY-sc*.87); ctx.lineTo(cx+sc*.2,midY-sc*.87); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#0e480e'; ctx.strokeStyle='#D4A017'; ctx.lineWidth=1.1;
+  ctx.beginPath(); ctx.ellipse(cx,cy-sc*.82,sc*.36,sc*.28,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  // Clypeus horn
+  ctx.fillStyle='#0a360a';
+  ctx.beginPath(); ctx.moveTo(cx,cy-sc*1.12); ctx.lineTo(cx-sc*.18,cy-sc*.86); ctx.lineTo(cx+sc*.18,cy-sc*.86); ctx.closePath(); ctx.fill(); ctx.stroke();
 
   // Legs (3 per side)
-  ctx.strokeStyle='#1a6b1a'; ctx.lineWidth=1.1; ctx.lineCap='round';
+  ctx.strokeStyle='#1e7a1e'; ctx.lineWidth=1.1; ctx.lineCap='round';
   for(let s=-1;s<=1;s+=2){
     for(let i=0;i<3;i++){
-      const ly=midY-sc*.28+i*sc*.34;
-      ctx.beginPath(); ctx.moveTo(cx+s*sc*.5,ly); ctx.lineTo(cx+s*sc*.88,ly+s*sc*.06+i*sc*.06); ctx.stroke();
+      const ly=cy-sc*.26+i*sc*.32;
+      ctx.beginPath(); ctx.moveTo(cx+s*sc*.48,ly); ctx.lineTo(cx+s*sc*.84,ly+i*sc*.06); ctx.stroke();
     }
   }
 
-  // === SUN DISK (Ra) ===
-  const sunY=midY-sc*1.52, sunR=sc*.26;
-  const sunG=ctx.createRadialGradient(cx-sunR*.2,sunY-sunR*.2,0,cx,sunY,sunR);
-  sunG.addColorStop(0,'#FFFAAA'); sunG.addColorStop(.5,'#FFD700'); sunG.addColorStop(1,'#AA7700');
-  ctx.shadowColor='rgba(255,215,0,.85)'; ctx.shadowBlur=10;
-  ctx.fillStyle=sunG; ctx.beginPath(); ctx.arc(cx,sunY,sunR,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='rgba(255,220,0,.8)'; ctx.lineWidth=1; ctx.stroke();
+  // Red gem on head (eye of Ra accent)
+  ctx.fillStyle='#CC0000'; ctx.shadowColor='rgba(255,0,0,.7)'; ctx.shadowBlur=5;
+  ctx.beginPath(); ctx.ellipse(cx,cy-sc*.82,sc*.1,sc*.08,0,0,Math.PI*2); ctx.fill();
   ctx.shadowBlur=0;
-  // Rays
-  ctx.strokeStyle='rgba(255,215,0,.45)'; ctx.lineWidth=.9;
-  for(let r=0;r<12;r++){
-    const ang=r*Math.PI/6;
-    const r1=sunR*1.35, r2=sunR*1.82;
-    ctx.beginPath(); ctx.moveTo(cx+Math.cos(ang)*r1,sunY+Math.sin(ang)*r1);
-    ctx.lineTo(cx+Math.cos(ang)*r2,sunY+Math.sin(ang)*r2); ctx.stroke();
-  }
 
-  // Bottom gold border (arch bottom)
-  const btm=ctx.createLinearGradient(x,0,x+W,0);
-  btm.addColorStop(0,'rgba(180,120,0,0)'); btm.addColorStop(.08,'rgba(255,215,0,.85)');
-  btm.addColorStop(.5,'rgba(255,240,120,1)'); btm.addColorStop(.92,'rgba(255,215,0,.85)');
-  btm.addColorStop(1,'rgba(180,120,0,0)');
-  ctx.fillStyle=btm; ctx.fillRect(x,y+H-3,W,3);
+  // Small gold antennae
+  ctx.strokeStyle='rgba(255,210,0,.7)'; ctx.lineWidth=1; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx-sc*.1,cy-sc*1.1); ctx.lineTo(cx-sc*.22,cy-sc*1.32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+sc*.1,cy-sc*1.1); ctx.lineTo(cx+sc*.22,cy-sc*1.32); ctx.stroke();
 }
+
 
 function drawEgyptColumn(ctx,x,y,CW,H,side){
   const t=egyptTorchT;
