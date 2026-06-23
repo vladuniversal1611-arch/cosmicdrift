@@ -205,35 +205,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
 .egypt-theme .back-btn{background:rgba(180,130,10,.14);border-color:rgba(180,130,10,.4);}
 
 /* Reel area — reduce padding so canvas fills more height */
-.egypt-theme .reel-area{padding:10px 20px 2px;}
+.egypt-theme .reel-area{padding:10px 4px 2px;}
 
-/* reel-wrap — NO image, just thin gold border + column tabs via pseudo */
+/* reel-wrap — transparent, overflow visible so temple canvas can extend */
 .egypt-theme #reelWrap{
   background:transparent;padding:0;
   border-radius:0;box-shadow:none;overflow:visible;
 }
-/* Thin golden columns flanking the canvas */
-.egypt-theme #reelWrap::before,
-.egypt-theme #reelWrap::after{
-  content:'';position:absolute;
-  width:9px;top:-1px;bottom:-1px;border-radius:4px;
-  background:linear-gradient(180deg,
-    rgba(180,130,10,.4) 0%,rgba(230,185,40,.85) 15%,rgba(120,85,0,.6) 30%,
-    rgba(230,185,40,.85) 45%,rgba(120,85,0,.5) 55%,rgba(230,185,40,.85) 70%,
-    rgba(180,130,10,.4) 85%,rgba(230,185,40,.75) 100%);
-  box-shadow:0 0 10px rgba(200,150,10,.55),0 0 22px rgba(200,150,10,.15);
-}
-.egypt-theme #reelWrap::before{left:-13px;}
-.egypt-theme #reelWrap::after{right:-13px;}
+.egypt-theme #reelWrap::before,.egypt-theme #reelWrap::after{display:none;}
 
-/* Canvas — thin gold border + glow */
+/* Canvas — stone-style gold border */
 .egypt-theme #slotC{
-  border:2px solid rgba(180,130,10,.8);border-radius:4px;
-  box-shadow:0 0 18px rgba(200,150,10,.38),0 0 45px rgba(200,150,10,.1),
-             inset 0 0 28px rgba(0,0,0,.55);
+  border:2px solid rgba(180,130,10,.9);border-radius:3px;
+  box-shadow:0 0 22px rgba(200,150,10,.5),inset 0 0 32px rgba(0,0,0,.65);
   display:block;
 }
-.egypt-theme #winC{top:0;left:0;border-radius:4px;}
+.egypt-theme #winC{top:0;left:0;border-radius:3px;}
+
+/* Temple canvas (drawn by JS) */
+#egyptTempleC{position:absolute;pointer-events:none;display:none;z-index:10;}
 
 /* Win strip */
 .egypt-theme .slot-win-strip{color:#FFD700;}
@@ -2822,6 +2812,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);
       <div id="egyptFrame" style="position:absolute;display:none;pointer-events:none;z-index:0;background-size:100% 100%;background-repeat:no-repeat;"></div>
       <canvas id="slotC" style="position:relative;z-index:1;"></canvas>
       <canvas id="winC"></canvas>
+      <canvas id="egyptTempleC"></canvas>
     </div>
     <div class="slot-win-strip" id="slotWinStrip"></div>
   </div>
@@ -9598,6 +9589,8 @@ function setTheme(key){
   slotStars=null;
   document.getElementById('slotTitle').textContent = currentTheme.name;
   resizeSlot();
+  if(isEgypt){ const tc=document.getElementById('egyptTempleC'); if(tc){tc.style.display='block';} resizeEgyptTemple(); startEgyptTemple(); }
+  else stopEgyptTemple();
 }
 
 // 9 win lines on 5x3 grid (each entry = row index for that column)
@@ -9662,6 +9655,7 @@ function resizeSlot(){
   winC.style.width   = winC.width+'px';
   winC.style.height  = winC.height+'px';
   updateEgyptFrame();
+  resizeEgyptTemple();
 }
 function updateEgyptFrame(){
   const ef=document.getElementById('egyptFrame');
@@ -9674,6 +9668,269 @@ function updateEgyptFrame(){
   ef.style.width=fw+'px'; ef.style.height=fh+'px';
   ef.style.left=(-(cellsL+(cellsW-W)/2))+'px';
   ef.style.top=(-cellsT)+'px';
+}
+
+// ═══════════════════════════════════════════════════
+// EGYPTIAN TEMPLE FRAME ANIMATION
+// ═══════════════════════════════════════════════════
+let egyptTempleRAF=null, egyptTorchT=0;
+
+function startEgyptTemple(){
+  if(egyptTempleRAF) return;
+  function loop(ts){ egyptTorchT=ts*0.0024; renderEgyptTemple(); egyptTempleRAF=requestAnimationFrame(loop); }
+  egyptTempleRAF=requestAnimationFrame(loop);
+}
+function stopEgyptTemple(){
+  if(egyptTempleRAF){cancelAnimationFrame(egyptTempleRAF);egyptTempleRAF=null;}
+  const tc=document.getElementById('egyptTempleC');
+  if(tc) tc.style.display='none';
+}
+
+function resizeEgyptTemple(){
+  const tc=document.getElementById('egyptTempleC');
+  if(!tc||tc.style.display==='none') return;
+  const CW=66, extra=10;
+  tc.width=slotC.width+CW*2; tc.height=slotC.height+extra*2;
+  tc.style.left=(-CW)+'px'; tc.style.top=(-extra)+'px';
+  tc.style.width=tc.width+'px'; tc.style.height=tc.height+'px';
+}
+
+function renderEgyptTemple(){
+  const tc=document.getElementById('egyptTempleC');
+  if(!tc) return;
+  const CW=66, extra=10;
+  if(tc.width!==slotC.width+CW*2||tc.height!==slotC.height+extra*2) resizeEgyptTemple();
+  const W=tc.width, H=tc.height;
+  const ctx=tc.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  drawEgyptColumn(ctx,0,0,CW,H,'left');
+  drawEgyptColumn(ctx,W-CW,0,CW,H,'right');
+}
+
+function drawEgyptColumn(ctx,x,y,CW,H,side){
+  const t=egyptTorchT;
+  const mx=x+CW/2; // column center x
+
+  // ── Stone body ──
+  const stoneG=ctx.createLinearGradient(x,0,x+CW,0);
+  if(side==='left'){stoneG.addColorStop(0,'#1a1006');stoneG.addColorStop(.45,'#2e1f08');stoneG.addColorStop(1,'#3a2810');}
+  else{stoneG.addColorStop(0,'#3a2810');stoneG.addColorStop(.55,'#2e1f08');stoneG.addColorStop(1,'#1a1006');}
+  ctx.fillStyle=stoneG; ctx.fillRect(x,y,CW,H);
+
+  // Stone texture lines
+  ctx.strokeStyle='rgba(255,200,80,.04)'; ctx.lineWidth=1;
+  for(let sy=8;sy<H;sy+=14){
+    ctx.beginPath(); ctx.moveTo(x,y+sy); ctx.lineTo(x+CW,y+sy); ctx.stroke();
+  }
+  // Vertical stone crack
+  ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(mx+5,y+H*.2); ctx.lineTo(mx+3,y+H*.45); ctx.lineTo(mx+6,y+H*.7); ctx.stroke();
+
+  // ── Capital (top) ──
+  const capH=22;
+  const capG=ctx.createLinearGradient(x,y,x,y+capH);
+  capG.addColorStop(0,'#7a5800'); capG.addColorStop(.4,'#FFD700'); capG.addColorStop(.7,'#CC9900'); capG.addColorStop(1,'#7a5800');
+  ctx.fillStyle=capG;
+  ctx.beginPath();
+  if(side==='left'){ctx.moveTo(x,y);ctx.lineTo(x+CW,y);ctx.lineTo(x+CW-6,y+capH);ctx.lineTo(x,y+capH);}
+  else{ctx.moveTo(x,y);ctx.lineTo(x+CW,y);ctx.lineTo(x+CW,y+capH);ctx.lineTo(x+6,y+capH);}
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(255,240,120,.4)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x,y+capH*.45); ctx.lineTo(x+CW,y+capH*.45); ctx.stroke();
+  // Capital engraving (scarab-like shape)
+  ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.ellipse(mx,y+capH*.5,CW*.28,capH*.28,0,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='rgba(255,180,0,.3)'; ctx.fill();
+
+  // ── Gold rings on column ──
+  const ringPositions=[H*.12,H*.22,H*.34,H*.46,H*.58];
+  const ringG=ctx.createLinearGradient(x,0,x+CW,0);
+  ringG.addColorStop(0,'#553300'); ringG.addColorStop(.25,'#CC8800'); ringG.addColorStop(.5,'#FFE566'); ringG.addColorStop(.75,'#CC8800'); ringG.addColorStop(1,'#553300');
+  ringPositions.forEach(ry=>{
+    if(ry<H*.68){
+      ctx.fillStyle=ringG; ctx.fillRect(x,y+ry,CW,6);
+      ctx.fillStyle='rgba(255,255,200,.3)'; ctx.fillRect(x,y+ry,CW,2);
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(x,y+ry+4,CW,2);
+    }
+  });
+
+  // ── Torch ──
+  const torchCX=side==='left'?x+CW-10:x+10;
+  const torchTopY=y+H*.1;
+
+  // Bracket
+  const bkG=ctx.createLinearGradient(torchCX-12,0,torchCX+12,0);
+  bkG.addColorStop(0,'#886600'); bkG.addColorStop(.5,'#FFD700'); bkG.addColorStop(1,'#886600');
+  ctx.fillStyle=bkG;
+  if(side==='left') ctx.fillRect(torchCX-12,torchTopY+24,22,8);
+  else ctx.fillRect(torchCX-10,torchTopY+24,22,8);
+  // Torch stick
+  const stickG=ctx.createLinearGradient(torchCX-2,0,torchCX+2,0);
+  stickG.addColorStop(0,'#5a2e00'); stickG.addColorStop(1,'#8a5200');
+  ctx.fillStyle=stickG; ctx.fillRect(torchCX-2,torchTopY+20,4,28);
+
+  // Torch bowl
+  ctx.fillStyle='#CC8800';
+  ctx.beginPath(); ctx.ellipse(torchCX,torchTopY+20,7,5,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=1; ctx.stroke();
+
+  // Animated flame (layers from wide/dim to narrow/bright)
+  const flameX=torchCX, flameY=torchTopY+18;
+  const layers=[
+    {w:9, h:28, a:0.25, c1:'rgba(255,60,0,.0)',  c2:'rgba(255,80,10,.55)'},
+    {w:7, h:22, a:0.5,  c1:'rgba(255,130,0,.0)', c2:'rgba(255,140,20,.7)'},
+    {w:5, h:16, a:0.8,  c1:'rgba(255,220,0,.0)', c2:'rgba(255,200,50,.85)'},
+    {w:3, h:10, a:1.0,  c1:'rgba(255,255,200,.0)',c2:'rgba(255,255,180,.95)'},
+  ];
+  layers.forEach((l,i)=>{
+    const sway=Math.sin(t*4.1+i*1.7)*2.5;
+    const flicker=0.85+Math.sin(t*7.3+i*2.1)*0.15;
+    const fy=flameY-l.h*0.5;
+    const fg=ctx.createRadialGradient(flameX+sway*.3,fy,0,flameX+sway*.2,fy+l.h*.3,l.h*flicker);
+    fg.addColorStop(0,l.c2); fg.addColorStop(1,l.c1);
+    ctx.fillStyle=fg;
+    ctx.beginPath(); ctx.ellipse(flameX+sway,fy,l.w*flicker,l.h*flicker,sway*.04,0,Math.PI*2); ctx.fill();
+  });
+  // Ember glow on column wall
+  const emberG=ctx.createRadialGradient(flameX,flameY,0,flameX,flameY,32);
+  emberG.addColorStop(0,'rgba(255,140,0,.22)'); emberG.addColorStop(1,'rgba(255,80,0,0)');
+  ctx.fillStyle=emberG; ctx.fillRect(x,y,CW,H*.35);
+
+  // ── Anubis figure (left) / Bastet cat (right) ──
+  const figY=y+H*.55, scale=CW*.42;
+  const figX=mx;
+
+  // Pedestal
+  const pedG=ctx.createLinearGradient(x,0,x+CW,0);
+  pedG.addColorStop(0,'#553300'); pedG.addColorStop(.5,'#CC9900'); pedG.addColorStop(1,'#553300');
+  ctx.fillStyle=pedG; ctx.fillRect(x+4,y+H*.83,CW-8,H*.12);
+  ctx.fillStyle='rgba(255,220,0,.2)'; ctx.fillRect(x+4,y+H*.83,CW-8,3);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(x+4,y+H*.83+H*.12-2,CW-8,2);
+  // Hieroglyph on pedestal
+  ctx.fillStyle='rgba(200,150,0,.4)'; ctx.font=`${CW*.28}px serif`;
+  ctx.textAlign='center'; ctx.fillText('𓂀',mx,y+H*.91);
+
+  if(side==='left'){
+    // ANUBIS - jackal-headed god
+    const asc=scale*.9;
+
+    // Body silhouette (dark)
+    ctx.fillStyle='#0d0a02'; ctx.strokeStyle='rgba(200,155,0,.6)'; ctx.lineWidth=1.2;
+    // Torso
+    ctx.beginPath();
+    ctx.moveTo(figX-asc*.38,figY+asc*.2);
+    ctx.lineTo(figX-asc*.28,figY-asc*.15);
+    ctx.lineTo(figX,figY-asc*.08);
+    ctx.lineTo(figX+asc*.28,figY-asc*.15);
+    ctx.lineTo(figX+asc*.38,figY+asc*.2);
+    ctx.lineTo(figX+asc*.25,figY+asc*.85);
+    ctx.lineTo(figX-asc*.25,figY+asc*.85);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Head (oval)
+    ctx.beginPath(); ctx.ellipse(figX,figY-asc*.28,asc*.26,asc*.3,0,0,Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    // Jackal ears (pointed)
+    ctx.beginPath();
+    ctx.moveTo(figX-asc*.15,figY-asc*.5); ctx.lineTo(figX-asc*.38,figY-asc*1.05);
+    ctx.lineTo(figX-asc*.06,figY-asc*.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(figX+asc*.15,figY-asc*.5); ctx.lineTo(figX+asc*.38,figY-asc*1.05);
+    ctx.lineTo(figX+asc*.06,figY-asc*.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Gold eyes
+    ctx.fillStyle='#FFD700'; ctx.shadowColor='rgba(255,200,0,.9)'; ctx.shadowBlur=4;
+    ctx.beginPath(); ctx.ellipse(figX-asc*.1,figY-asc*.32,asc*.06,asc*.05,-.3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(figX+asc*.1,figY-asc*.32,asc*.06,asc*.05,.3,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+
+    // Collar / usekh necklace
+    const colG=ctx.createLinearGradient(figX-asc*.4,0,figX+asc*.4,0);
+    colG.addColorStop(0,'#001488'); colG.addColorStop(.5,'#FFD700'); colG.addColorStop(1,'#001488');
+    ctx.fillStyle=colG; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.arc(figX,figY-asc*.06,asc*.38,Math.PI*-.1,Math.PI*1.1); ctx.fill(); ctx.stroke();
+    // Collar beads
+    ctx.fillStyle='#FF4400'; ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=.5;
+    for(let b=0;b<5;b++){
+      const ba=Math.PI*(-.05+b*.22);
+      ctx.beginPath(); ctx.arc(figX+Math.cos(ba)*asc*.36,figY-asc*.06+Math.sin(ba)*asc*.36,asc*.04,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+
+    // Crook & flail (staff held)
+    ctx.strokeStyle='rgba(200,155,0,.7)'; ctx.lineWidth=1.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(figX+asc*.25,figY-asc*.1); ctx.lineTo(figX+asc*.3,figY+asc*.5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(figX+asc*.27,figY-asc*.12,asc*.1,Math.PI,Math.PI*2); ctx.stroke();
+
+  } else {
+    // BASTET CAT - goddess of protection
+    const asc=scale*.88;
+
+    ctx.fillStyle='#12100a'; ctx.strokeStyle='rgba(200,155,0,.6)'; ctx.lineWidth=1.2;
+    // Cat body (seated)
+    ctx.beginPath();
+    ctx.moveTo(figX-asc*.32,figY+asc*.85);
+    ctx.lineTo(figX-asc*.36,figY+asc*.1);
+    ctx.quadraticCurveTo(figX-asc*.32,figY-asc*.18,figX,figY-asc*.12);
+    ctx.quadraticCurveTo(figX+asc*.32,figY-asc*.18,figX+asc*.36,figY+asc*.1);
+    ctx.lineTo(figX+asc*.32,figY+asc*.85);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Head
+    ctx.beginPath(); ctx.ellipse(figX,figY-asc*.38,asc*.28,asc*.26,0,0,Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    // Cat ears (rounded)
+    ctx.beginPath();
+    ctx.moveTo(figX-asc*.2,figY-asc*.58); ctx.lineTo(figX-asc*.32,figY-asc*.88); ctx.lineTo(figX-asc*.06,figY-asc*.62); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(figX+asc*.2,figY-asc*.58); ctx.lineTo(figX+asc*.32,figY-asc*.88); ctx.lineTo(figX+asc*.06,figY-asc*.62); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Inner ears
+    ctx.fillStyle='rgba(180,80,80,.5)';
+    ctx.beginPath(); ctx.moveTo(figX-asc*.18,figY-asc*.62); ctx.lineTo(figX-asc*.28,figY-asc*.84); ctx.lineTo(figX-asc*.09,figY-asc*.65); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(figX+asc*.18,figY-asc*.62); ctx.lineTo(figX+asc*.28,figY-asc*.84); ctx.lineTo(figX+asc*.09,figY-asc*.65); ctx.closePath(); ctx.fill();
+
+    // Gold eyes (almond shaped)
+    ctx.fillStyle='#44FF88'; ctx.shadowColor='rgba(0,255,100,.8)'; ctx.shadowBlur=4;
+    ctx.beginPath(); ctx.ellipse(figX-asc*.11,figY-asc*.42,asc*.08,asc*.05,-.2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(figX+asc*.11,figY-asc*.42,asc*.08,asc*.05,.2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(figX-asc*.11,figY-asc*.42,asc*.03,asc*.048,-.2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(figX+asc*.11,figY-asc*.42,asc*.03,asc*.048,.2,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+
+    // Collar
+    const colG=ctx.createLinearGradient(figX-asc*.4,0,figX+asc*.4,0);
+    colG.addColorStop(0,'#001488'); colG.addColorStop(.5,'#FFD700'); colG.addColorStop(1,'#001488');
+    ctx.fillStyle=colG; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.arc(figX,figY-asc*.16,asc*.32,Math.PI*-.08,Math.PI*1.08); ctx.fill(); ctx.stroke();
+
+    // Tail
+    ctx.strokeStyle='rgba(180,140,0,.55)'; ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(figX-asc*.32,figY+asc*.85); ctx.quadraticCurveTo(figX-asc*.62,figY+asc*.5,figX-asc*.4,figY+asc*.15); ctx.stroke();
+  }
+
+  // ── Gold coin pile at bottom ──
+  const coinAreaY=y+H*.92;
+  [.18,.38,.58,.78].forEach((cx2,i)=>{
+    const ccx=x+CW*cx2, ccy=coinAreaY+(i%2)*4, cr=CW*.1;
+    const coinG2=ctx.createRadialGradient(ccx-cr*.3,ccy-cr*.4,0,ccx,ccy,cr);
+    coinG2.addColorStop(0,'#FFFACC'); coinG2.addColorStop(.5,'#FFD700'); coinG2.addColorStop(1,'#886600');
+    ctx.fillStyle=coinG2; ctx.strokeStyle='rgba(100,70,0,.7)'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.ellipse(ccx,ccy,cr,cr*.38,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+
+  // ── Inner gold border (facing reels) ──
+  const edgeG=ctx.createLinearGradient(0,y,0,y+H);
+  edgeG.addColorStop(0,'rgba(180,130,0,0)'); edgeG.addColorStop(.1,'rgba(255,215,0,.75)');
+  edgeG.addColorStop(.5,'rgba(255,235,80,.9)'); edgeG.addColorStop(.9,'rgba(255,215,0,.75)'); edgeG.addColorStop(1,'rgba(180,130,0,0)');
+  ctx.fillStyle=edgeG;
+  if(side==='left') ctx.fillRect(x+CW-3,y,3,H);
+  else ctx.fillRect(x,y,3,H);
+
+  // Outer edge fade
+  const outerG=ctx.createLinearGradient(side==='left'?x:x+CW,0,side==='left'?x+12:x+CW-12,0);
+  outerG.addColorStop(0,'rgba(0,0,0,.85)'); outerG.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=outerG; ctx.fillRect(side==='left'?x:x+CW-12,y,12,H);
 }
 
 // ── Slot visual helpers ─────────────────────────
@@ -12815,6 +13072,7 @@ function closeSlot(){
   bookSpecialSym = null;
   holdPhase = false; lockedCells = {}; respinCount = 0; updateHoldBadge();
   document.getElementById('slotScreen').classList.remove('open');
+  stopEgyptTemple();
 }
 
 // ── Bet & Auto controls ────────────────────────
