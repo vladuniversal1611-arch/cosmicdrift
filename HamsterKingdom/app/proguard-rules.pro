@@ -1,0 +1,4 @@
+-keep class com.hamsterkingdom.data.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
