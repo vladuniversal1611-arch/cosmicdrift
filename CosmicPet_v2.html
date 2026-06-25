@@ -2643,20 +2643,17 @@ function gBall(cv){
         var prevY=ball.y+ball.r-ball.vy, curY=ball.y+ball.r;
 
         if(p.type==='slope'){
-          // Slope: high on left, slopes down to right (\ shape)
-          // Surface y at ball.x interpolated: top=p.y at left edge, p.y+PH+18 at right edge
+          // Slope: \ shape — high on left, low on right
+          // Surface y at ball.x: linearly from p.y-10 (left) to p.y+PH+18 (right)
           var slopeW=PW+24;
           var tx=(ball.x-p.x)/slopeW;
           if(tx>=0&&tx<=1.1){
             var surfY=p.y-10+tx*(PH+28);
             if(curY>=surfY&&prevY<surfY+16){
-              // Reflection off \ slope: deflect right and upward
-              var theta=0.42; // ~24 degrees
-              var nx=Math.sin(theta); // normal x (right for \ slope)
-              var ny=-Math.cos(theta); // normal y (up)
-              var dot=ball.vx*nx+ball.vy*ny;
-              ball.vx-=2*dot*nx; ball.vy-=2*dot*ny;
-              if(ball.vy>-JUMP*.65) ball.vy=-JUMP*.65;
+              // Full normal jump height, kick LEFT matching slope angle
+              var slopeAngle=Math.atan2(PH+28,slopeW);
+              ball.vy=JUMP;
+              ball.vx=-Math.abs(JUMP)*Math.tan(slopeAngle);
               ball.y=surfY-ball.r; ball.squish=0.6; break;
             }
           }
