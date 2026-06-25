@@ -2307,7 +2307,7 @@ function gFlappy(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
   const stars=makeStars(W,H,45);
   // Physics constants — always run at equivalent of 60 Hz via fixed timestep
-  const GRAV=0.42, FLAP=-10, GAP=150, PW=58, SPD=2.8;
+  const GRAV=0.42, FLAP=-10, GAP=155, PW=76, SPD=3.6;
   const HIT_R=11; // tight "mesh-collider" hitbox (visual emoji is ~bird.r*2.2 px)
   const PHYS_STEP=1000/60; // 16.67 ms per physics tick — FPS-independent
 
@@ -2353,27 +2353,41 @@ function gFlappy(cv){
     trail=trail.filter(function(tp){return tp.a>0;});
   }
 
-  // ── Draw one pipe (top or bottom) with sprite tiling ──
+  // ── Draw one pipe pair with seamless cap+body tiling ──
   function drawCosmic(p){
     const spr=SPRITES.cosmic_pipe;
-    const tileH=Math.round(PW*(spr.naturalHeight/spr.naturalWidth));
+    if(!spr||!spr.complete||!spr.naturalWidth){drawFallbackPipes(p);return;}
+    const SW=spr.naturalWidth, SH=spr.naturalHeight;
+    const scale=PW/SW;
+    // Top 28% = ornamental cap, remaining 72% = repeatable shaft
+    const CAP_SH=Math.round(SH*0.28);
+    const BODY_SY=CAP_SH, BODY_SH=SH-CAP_SH;
+    const capH=Math.round(CAP_SH*scale);
+    const bodyH=Math.round(BODY_SH*scale);
 
-    // BOTTOM pipe: sprite's top cap faces the gap, tiles downward
-    const botH=H-p.yb;
-    ctx.drawImage(spr, p.x, p.yb, PW, Math.min(tileH, botH));
-    if(botH>tileH){
-      ctx.drawImage(spr, p.x, p.yb+tileH, PW, Math.min(tileH, botH-tileH));
+    // BOTTOM pipe: cap at top (gap edge), shaft tiles down to H
+    ctx.drawImage(spr,0,0,SW,CAP_SH, p.x,p.yb,PW,Math.min(capH,H-p.yb));
+    let y=p.yb+capH;
+    while(y<H){
+      const dh=Math.min(bodyH,H-y);
+      ctx.drawImage(spr,0,BODY_SY,SW,Math.round(dh/scale), p.x,y,PW,dh);
+      y+=dh;
     }
 
-    // TOP pipe: sprite is flipped so its bottom cap faces the gap, tiles upward
-    ctx.save();
-    ctx.translate(p.x, p.yt); // origin at gap edge
-    ctx.scale(1,-1);           // flip: y=0→p.yt, y=tileH→p.yt-tileH
-    ctx.drawImage(spr, 0, 0, PW, Math.min(tileH, p.yt)); // first tile
-    if(p.yt>tileH){
-      ctx.drawImage(spr, 0, tileH, PW, Math.min(tileH, p.yt-tileH)); // second tile
+    // TOP pipe: flipped cap at bottom (gap edge), shaft tiles up to 0
+    if(p.yt>0){
+      ctx.save();
+      ctx.translate(p.x,p.yt); ctx.scale(1,-1);
+      ctx.drawImage(spr,0,0,SW,CAP_SH, 0,0,PW,Math.min(capH,p.yt));
+      ctx.restore();
+      y=Math.max(0,p.yt-capH);
+      while(y>0){
+        const startY=Math.max(0,y-bodyH);
+        const dh=y-startY;
+        ctx.drawImage(spr,0,BODY_SY,SW,Math.round(dh/scale), p.x,startY,PW,dh);
+        y=startY;
+      }
     }
-    ctx.restore();
   }
 
   function drawFallbackPipes(p){
