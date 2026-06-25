@@ -2306,21 +2306,96 @@ function drawPipeNineSlice(ctx,x,topY,bottomY,w,topImg,midImg,botImg,flipTop){
 function gFlappy(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
   const stars=makeStars(W,H,45);
-  const GRAV=0.42,FLAP=-10,GAP=150,PW=58,SPD=2.8;
+  // Physics constants — always run at equivalent of 60 Hz via fixed timestep
+  const GRAV=0.42, FLAP=-10, GAP=150, PW=58, SPD=2.8;
+  const HIT_R=11; // tight "mesh-collider" hitbox (visual emoji is ~bird.r*2.2 px)
+  const PHYS_STEP=1000/60; // 16.67 ms per physics tick — FPS-independent
+
   let bird={x:W*.22,y:H/2,vy:0,r:20,rot:0};
-  let pipes=[],score=0,coins=0,pT=0,fr=0,alive=false,started=false;
+  let pipes=[],score=0,coins=0,pT=0,fr=0,alive=false,started=false,dead=false;
   let trail=[];
-  const birdImg = SPRITES.bird;
-  const birdAR = (birdImg && birdImg.naturalHeight) ? birdImg.naturalWidth/birdImg.naturalHeight : 1.07;
-  const birdH = bird.r*2.6, birdW = birdH*birdAR;
-  const playerEvo = currentEvo();
-  function flap(){ if(!alive){ alive=true; started=true; } bird.vy=FLAP; }
-  cv.ontouchstart=function(e){e.preventDefault();if(!alive&&started){launchGame('flappy');return;}flap();};
-  cv.onmousedown=function(e){if(!alive&&started){launchGame('flappy');return;}flap();};
-  function loop(){
-    gRAF=requestAnimationFrame(loop); fr++;
+  let lastTime=performance.now(), accumulator=0;
+  const playerEvo=currentEvo();
+
+  function flap(){ if(!alive){alive=true;started=true;} bird.vy=FLAP; }
+  cv.ontouchstart=function(e){e.preventDefault();if(dead){launchGame('flappy');return;}flap();};
+  cv.onmousedown=function(e){if(dead){launchGame('flappy');return;}flap();};
+
+  // ── Fixed physics tick (always 60 Hz regardless of display refresh) ──
+  function physTick(){
+    if(!alive||dead) return;
+    fr++;
+    bird.vy+=GRAV; bird.y+=bird.vy;
+    bird.rot=Math.max(-0.5,Math.min(0.9,bird.vy*0.05));
+    trail.push({x:bird.x-bird.r+2,y:bird.y,a:1});
+    pT++;
+    const spd=SPD+score*0.08;
+    if(pT>Math.max(60,100-score*2)){
+      pT=0;
+      const gy=80+Math.random()*(H-GAP-160);
+      pipes.push({x:W,yt:gy,yb:gy+GAP});
+    }
+    pipes.forEach(function(p){p.x-=spd;});
+    pipes=pipes.filter(function(p){return p.x>-PW;});
+    pipes.forEach(function(p){
+      if(!p.passed&&p.x+PW<bird.x){p.passed=true;score++;coins++;updateHUD(score,coins);}
+    });
+    // Boundary (tight hitbox)
+    if(bird.y-HIT_R<0||bird.y+HIT_R>H){dead=true;alive=false;return;}
+    // Pipe collision — inner margin of 6px so sprite edge ≠ kill zone
+    for(let i=0;i<pipes.length;i++){
+      const p=pipes[i];
+      if(bird.x+HIT_R>p.x+6 && bird.x-HIT_R<p.x+PW-6){
+        if(bird.y-HIT_R<p.yt || bird.y+HIT_R>p.yb){dead=true;alive=false;return;}
+      }
+    }
+    trail.forEach(function(tp){tp.a-=0.05;});
+    trail=trail.filter(function(tp){return tp.a>0;});
+  }
+
+  // ── Draw one pipe (top or bottom) with sprite tiling ──
+  function drawCosmic(p){
+    const spr=SPRITES.cosmic_pipe;
+    const tileH=Math.round(PW*(spr.naturalHeight/spr.naturalWidth));
+
+    // BOTTOM pipe: sprite's top cap faces the gap, tiles downward
+    const botH=H-p.yb;
+    ctx.drawImage(spr, p.x, p.yb, PW, Math.min(tileH, botH));
+    if(botH>tileH){
+      ctx.drawImage(spr, p.x, p.yb+tileH, PW, Math.min(tileH, botH-tileH));
+    }
+
+    // TOP pipe: sprite is flipped so its bottom cap faces the gap, tiles upward
+    ctx.save();
+    ctx.translate(p.x, p.yt); // origin at gap edge
+    ctx.scale(1,-1);           // flip: y=0→p.yt, y=tileH→p.yt-tileH
+    ctx.drawImage(spr, 0, 0, PW, Math.min(tileH, p.yt)); // first tile
+    if(p.yt>tileH){
+      ctx.drawImage(spr, 0, tileH, PW, Math.min(tileH, p.yt-tileH)); // second tile
+    }
+    ctx.restore();
+  }
+
+  function drawFallbackPipes(p){
+    ctx.fillStyle='rgba(30,58,138,.85)';
+    ctx.shadowColor='#3b82f6'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.roundRect(p.x,0,PW,p.yt,6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(p.x,p.yb,PW,H-p.yb,6); ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  function loop(timestamp){
+    gRAF=requestAnimationFrame(loop);
+
+    // Accumulate delta time and run physics at fixed 60 Hz ticks
+    const rawDt=Math.min(timestamp-lastTime, 100); // cap at 100 ms (freeze protection)
+    lastTime=timestamp;
+    accumulator+=rawDt;
+    while(accumulator>=PHYS_STEP){ physTick(); accumulator-=PHYS_STEP; }
+
+    // ── Render ──
     resetCtx(ctx,W,H);
-    if(SPRITES.flappy_bg && SPRITES.flappy_bg.complete && spritesLoaded){
+    if(SPRITES.flappy_bg&&SPRITES.flappy_bg.complete&&spritesLoaded){
       ctx.drawImage(SPRITES.flappy_bg,0,0,W,H);
     } else {
       drawBgRadial(ctx,W,H,'#1a2a5c','#0d1640','#060d22');
@@ -2329,77 +2404,24 @@ function gFlappy(cv){
       ctx.fillStyle='#a855f7'; ctx.beginPath(); ctx.arc(W*0.82,H*0.18,26,0,Math.PI*2); ctx.fill();
       ctx.restore();
     }
-    if(alive){
-      bird.vy+=GRAV; bird.y+=bird.vy;
-      bird.rot = Math.max(-0.5,Math.min(0.9,bird.vy*0.05));
-      trail.push({x:bird.x-bird.r+2,y:bird.y,a:1});
-      pT++;
-      const spd=SPD+score*.08;
-      if(pT>Math.max(60,100-score*2)){
-        pT=0;
-        const gy=80+Math.random()*(H-GAP-160);
-        pipes.push({x:W,yt:gy,yb:gy+GAP});
-      }
-      pipes.forEach(function(p){p.x-=spd;});
-      pipes=pipes.filter(function(p){return p.x>-PW;});
-      pipes.forEach(function(p){
-        if(!p.passed&&p.x+PW<bird.x){ p.passed=true; score++; coins++; updateHUD(score,coins); }
-      });
-      if(bird.y-bird.r<0||bird.y+bird.r>H){ alive=false; endGame(score,coins); }
-      pipes.forEach(function(p){
-        if(bird.x+bird.r-6>p.x&&bird.x-bird.r+6<p.x+PW){
-          if(bird.y-bird.r<p.yt||bird.y+bird.r>p.yb){ alive=false; endGame(score,coins); }
-        }
-      });
-    }
-    trail.forEach(function(tp){tp.a-=.05;});
-    trail=trail.filter(function(tp){return tp.a>0;});
+
+    // Trail
     trail.forEach(function(tp){
       ctx.globalAlpha=tp.a*.4; ctx.fillStyle='#fef08a';
       ctx.beginPath(); ctx.arc(tp.x,tp.y,4*tp.a,0,Math.PI*2); ctx.fill();
     });
     ctx.globalAlpha=1;
-    // Pipes — cosmic pillars
+
+    // Pipes
     pipes.forEach(function(p){
-      if(SPRITES.cosmic_pipe && SPRITES.cosmic_pipe.complete && spritesLoaded){
-        ctx.save();
-        // Top pipe: flipped vertically, cap points toward gap
-        ctx.save();
-        ctx.translate(p.x+PW/2, 0);
-        ctx.scale(1,-1);
-        ctx.translate(-PW/2,-p.yt);
-        ctx.drawImage(SPRITES.cosmic_pipe,0,0,PW,p.yt);
-        ctx.restore();
-        // Bottom pipe: normal orientation, cap points toward gap
-        ctx.drawImage(SPRITES.cosmic_pipe,p.x,p.yb,PW,H-p.yb);
-        ctx.restore();
-      } else if(SPRITES.pipe_top && SPRITES.pipe_top.complete && spritesLoaded){
-        const capH = Math.max(16, PW*0.36);
-        ctx.save();
-        ctx.translate(p.x+PW/2, p.yt-capH/2);
-        ctx.scale(1,-1);
-        ctx.drawImage(SPRITES.pipe_top, -PW/2, -capH/2, PW, capH);
-        ctx.restore();
-        const topBodyH = Math.max(0,p.yt-capH);
-        if(topBodyH>0){
-          ctx.save();
-          ctx.translate(p.x, 0); ctx.scale(1,-1); ctx.translate(0,-topBodyH);
-          ctx.drawImage(SPRITES.pipe_middle, 0, 0, PW, topBodyH);
-          ctx.restore();
-        }
-        ctx.drawImage(SPRITES.pipe_top, p.x, p.yb, PW, capH);
-        const botBodyY = p.yb+capH;
-        const botBodyH = Math.max(0,H-botBodyY);
-        if(botBodyH>0) ctx.drawImage(SPRITES.pipe_middle, p.x, botBodyY, PW, botBodyH);
+      if(SPRITES.cosmic_pipe&&SPRITES.cosmic_pipe.complete&&spritesLoaded){
+        drawCosmic(p);
       } else {
-        ctx.fillStyle='rgba(30,58,138,.85)';
-        ctx.shadowColor='#3b82f6'; ctx.shadowBlur=8;
-        ctx.beginPath(); ctx.roundRect(p.x,0,PW,p.yt,6); ctx.fill();
-        ctx.beginPath(); ctx.roundRect(p.x,p.yb,PW,H-p.yb,6); ctx.fill();
-        ctx.shadowBlur=0;
+        drawFallbackPipes(p);
       }
     });
-    // player — uses active evolution emoji (changes with level)
+
+    // Player (evolution emoji)
     ctx.save();
     ctx.translate(bird.x,bird.y); ctx.rotate(bird.rot);
     ctx.shadowColor='#a855f7'; ctx.shadowBlur=18;
@@ -2408,19 +2430,22 @@ function gFlappy(cv){
     ctx.fillText(playerEvo.icon,0,0);
     ctx.shadowBlur=0;
     ctx.restore();
+
+    // Start screen
     if(!started){
-      roundedPanel(ctx,W/2-100,H/2-30,200,60,16,'rgba(0,0,0,.55)');
+      roundedPanel(ctx,W/2-100,H/2-30,200,60,16,'rgba(0,0,0,.65)');
       ctx.fillStyle='#fff'; ctx.font='bold 15px Nunito,sans-serif'; ctx.textAlign='center';
       ctx.fillText(playerEvo.icon+' Тапни щоб почати!',W/2,H/2-4);
       ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='11px Nunito,sans-serif';
       ctx.fillText('Тапай щоб летіти ⬆',W/2,H/2+16);
     }
     hudPill(ctx,W/2-26,14,String(score),'rgba(251,191,36,.4)');
-    if(!alive&&started) endGame(score,coins);
-  }
-  loop();
-}
 
+    // Trigger game over after physics set dead flag
+    if(dead&&started) endGame(score,coins);
+  }
+  loop(performance.now());
+}
 // ──────────── BALL JUMP ────────────
 function gBall(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
