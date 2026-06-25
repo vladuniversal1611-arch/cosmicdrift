@@ -2321,6 +2321,14 @@ function gFlappy(cv){
   let lastTime=performance.now(), accumulator=0;
   const playerEvo=currentEvo();
 
+  // Parallax star layers: [fast/close, medium, slow/far]
+  const pStars=[
+    Array.from({length:22},function(){return{x:Math.random()*W,y:Math.random()*H,r:.5+Math.random()*.7,ph:Math.random()*6.28,spd:.55};}),
+    Array.from({length:14},function(){return{x:Math.random()*W,y:Math.random()*H,r:.9+Math.random()*.4,ph:Math.random()*6.28,spd:.20};}),
+    Array.from({length:7}, function(){return{x:Math.random()*W,y:Math.random()*H,r:1.3+Math.random()*.4,ph:Math.random()*6.28,spd:.07};})
+  ];
+  let sstar=null, sstarCD=Math.floor(160+Math.random()*180);
+
   function flap(){ if(!alive){alive=true;started=true;} bird.vy=FLAP; }
   cv.ontouchstart=function(e){e.preventDefault();if(dead){launchGame('flappy');return;}flap();};
   cv.onmousedown=function(e){if(dead){launchGame('flappy');return;}flap();};
@@ -2423,6 +2431,39 @@ function gFlappy(cv){
       ctx.fillStyle='#a855f7'; ctx.beginPath(); ctx.arc(W*0.82,H*0.18,26,0,Math.PI*2); ctx.fill();
       ctx.restore();
     }
+
+    // ── Background animations ──
+    // Parallax stars (draw far→near so closer ones render on top)
+    [pStars[2],pStars[1],pStars[0]].forEach(function(layer){
+      layer.forEach(function(s){
+        if(alive&&!dead){s.x-=s.spd; if(s.x<-3)s.x=W+3;}
+        s.ph+=0.022;
+        ctx.globalAlpha=0.22+0.22*Math.sin(s.ph);
+        ctx.fillStyle='#c8d8ff';
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+      });
+    });
+    // Shooting star / meteor
+    if(alive&&!dead) sstarCD--;
+    if(sstarCD<=0&&!sstar){
+      sstar={x:W*.7+Math.random()*W*.5,y:4+Math.random()*H*.3,
+             dx:-8-Math.random()*4,dy:2+Math.random()*3,life:0,maxL:32};
+      sstarCD=Math.floor(180+Math.random()*220);
+    }
+    if(sstar){
+      sstar.life++; sstar.x+=sstar.dx; sstar.y+=sstar.dy;
+      const p=sstar.life/sstar.maxL;
+      const fade=p<.25?p/.25:p>.65?(1-p)/.35:1;
+      ctx.globalAlpha=fade*.8;
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.8; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(sstar.x,sstar.y);
+      ctx.lineTo(sstar.x-sstar.dx*5,sstar.y-sstar.dy*5);
+      ctx.stroke();
+      ctx.lineCap='butt';
+      if(sstar.life>=sstar.maxL) sstar=null;
+    }
+    ctx.globalAlpha=1;
 
     // Trail
     trail.forEach(function(tp){
