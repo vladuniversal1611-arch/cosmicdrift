@@ -2353,28 +2353,29 @@ function gFlappy(cv){
     trail=trail.filter(function(tp){return tp.a>0;});
   }
 
-  // ── Draw one pipe pair with seamless cap+body tiling ──
+  // ── Draw one pipe pair with seamless 3-section tiling ──
+  // Sprite split: cap=top 30% (ornament head) | shaft=mid 40% (plain column, tileable) | base=bot 30% (skipped at screen edge)
   function drawCosmic(p){
     const spr=SPRITES.cosmic_pipe;
     if(!spr||!spr.complete||!spr.naturalWidth){drawFallbackPipes(p);return;}
     const SW=spr.naturalWidth, SH=spr.naturalHeight;
     const scale=PW/SW;
-    // Top 28% = ornamental cap, remaining 72% = repeatable shaft
-    const CAP_SH=Math.round(SH*0.28);
-    const BODY_SY=CAP_SH, BODY_SH=SH-CAP_SH;
-    const capH=Math.round(CAP_SH*scale);
-    const bodyH=Math.round(BODY_SH*scale);
+    const CAP_SH  =Math.round(SH*0.30);
+    const SHAFT_SY=CAP_SH;
+    const SHAFT_SH=Math.round(SH*0.40); // only middle 40% — no ornaments at either end
+    const capH   =Math.round(CAP_SH  *scale);
+    const shaftH =Math.round(SHAFT_SH*scale);
 
-    // BOTTOM pipe: cap at top (gap edge), shaft tiles down to H
+    // BOTTOM pipe: cap (facing gap), then shaft tiled to H
     ctx.drawImage(spr,0,0,SW,CAP_SH, p.x,p.yb,PW,Math.min(capH,H-p.yb));
     let y=p.yb+capH;
     while(y<H){
-      const dh=Math.min(bodyH,H-y);
-      ctx.drawImage(spr,0,BODY_SY,SW,Math.round(dh/scale), p.x,y,PW,dh);
+      const dh=Math.min(shaftH,H-y);
+      ctx.drawImage(spr,0,SHAFT_SY,SW,Math.round(dh/scale), p.x,y,PW,dh);
       y+=dh;
     }
 
-    // TOP pipe: flipped cap at bottom (gap edge), shaft tiles up to 0
+    // TOP pipe: flipped cap (facing gap), then shaft tiled to 0
     if(p.yt>0){
       ctx.save();
       ctx.translate(p.x,p.yt); ctx.scale(1,-1);
@@ -2382,9 +2383,9 @@ function gFlappy(cv){
       ctx.restore();
       y=Math.max(0,p.yt-capH);
       while(y>0){
-        const startY=Math.max(0,y-bodyH);
+        const startY=Math.max(0,y-shaftH);
         const dh=y-startY;
-        ctx.drawImage(spr,0,BODY_SY,SW,Math.round(dh/scale), p.x,startY,PW,dh);
+        ctx.drawImage(spr,0,SHAFT_SY,SW,Math.round(dh/scale), p.x,startY,PW,dh);
         y=startY;
       }
     }
