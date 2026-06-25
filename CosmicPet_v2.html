@@ -2307,7 +2307,12 @@ function gFlappy(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
   const stars=makeStars(W,H,45);
   // Physics constants — always run at equivalent of 60 Hz via fixed timestep
-  const GRAV=0.42, FLAP=-10, GAP=155, PW=76, SPD=3.6;
+  // Physics normalized to original Flappy Bird (288×512 canvas, grav=0.25, flap=-8, spd=3)
+  // Scaling to our canvas size gives identical arc shape & feel on any screen
+  const GRAV=0.25*(H/512);          // → ~0.31 at 640px, bird rises 25% of screen per flap
+  const FLAP=-8*(H/512);            // → ~-10 at 640px
+  const GAP=Math.round(115*(H/512));// → ~144px at 640px (same ratio as original 100/512)
+  const PW=76, SPD=3.0*(W/288);    // → ~3.75 at 360px wide
   const HIT_R=11; // tight "mesh-collider" hitbox (visual emoji is ~bird.r*2.2 px)
   const PHYS_STEP=1000/60; // 16.67 ms per physics tick — FPS-independent
 
@@ -2329,7 +2334,7 @@ function gFlappy(cv){
     bird.rot=Math.max(-0.5,Math.min(0.9,bird.vy*0.05));
     trail.push({x:bird.x-bird.r+2,y:bird.y,a:1});
     pT++;
-    const spd=SPD+score*0.08;
+    const spd=SPD+score*(0.08*(W/288)); // difficulty scales with canvas width
     if(pT>Math.max(60,100-score*2)){
       pT=0;
       const gy=80+Math.random()*(H-GAP-160);
