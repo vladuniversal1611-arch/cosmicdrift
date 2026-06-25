@@ -2557,7 +2557,9 @@ function gBall(cv){
   function tap(tx){
     if(!alive){launchGame('ball');return;}
     if(!launched){launched=true;ball.vy=JUMP;}
-    ball.vx=tx<W/2?-4.5*(W/320):4.5*(W/320);
+    var newVx=tx<W/2?-6*(W/320):6*(W/320);
+    if(ball.vx*newVx<0) ball.squish=Math.min(ball.squish,0.82);
+    ball.vx=newVx;
   }
   cv.ontouchstart=function(e){e.preventDefault();tap(e.touches[0].clientX-cv.getBoundingClientRect().left);};
   cv.onmousedown=function(e){tap(e.offsetX);};
@@ -2696,14 +2698,18 @@ function gBall(cv){
   }
 
   function drawBall(){
-    ctx.save();ctx.translate(ball.x,ball.y);ctx.scale(2-ball.squish,ball.squish);ctx.rotate(ball.rot);
+    ctx.save();
+    ctx.translate(ball.x,ball.y);
+    ctx.rotate(ball.rot);
+    ctx.scale(2-ball.squish,ball.squish);
     var spr=SPRITES.ball_player;
+    var r=ball.r*1.5;
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.clip();
     if(spr&&spr.complete&&spr.naturalWidth){
-      var r=ball.r*1.5;ctx.drawImage(spr,-r,-r,r*2,r*2);
+      ctx.drawImage(spr,-r,-r,r*2,r*2);
     } else {
       var cols=['#ef4444','#ffffff','#3b82f6','#fbbf24'];
-      ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.clip();
-      cols.forEach(function(c,i){ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,ball.r,i*Math.PI/2,(i+1)*Math.PI/2);ctx.fill();});
+      cols.forEach(function(c,i){ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,i*Math.PI/2,(i+1)*Math.PI/2);ctx.fill();});
     }
     ctx.restore();
   }
