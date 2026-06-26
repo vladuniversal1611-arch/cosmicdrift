@@ -2758,104 +2758,169 @@ function gBall(cv){
 function gRunner(cv){
   var W=cv.width,H=cv.height,ctx=cv.getContext('2d');
   var PHYS_STEP=1000/60;
-  var SC=Math.min(H/512,1.5); // scale cap so hero/obs don't grow too large
+  var SC=Math.min(H/512,1.5);
   var GND=Math.round(H*.80);
   var GRAV=0.55*SC, JUMP=-13.5*SC;
   var HW=Math.round(52*SC), HH=Math.round(68*SC);
-  // hero.y = TOP of sprite
+  var LAND_PAD=Math.round(6*SC);
   var hero={x:Math.round(48*SC),y:GND-HH,vy:0,w:HW,h:HH,onGnd:true};
-  var obs=[],coinItems=[],score=0,coins=0,fr=0,pf=0;
-  var alive=true,hitTimer=0,spd=3.5*(W/320),gap=88,lastTs=0,accum=0;
+  var platforms=[], obs=[], coinItems=[];
+  var score=0,coins=0,fr=0;
+  var alive=true,hitTimer=0,gapDeath=false;
+  var spd=3.5*(W/320),lastTs=0,accum=0;
   var runFrame=0,runTimer=0;
+  var groundX=0,hillOff=0;
+  var platGenRight=W*3;
   var COIN_VALS=[1,1,1,2,2,2,5,5,10,10,25,50];
   var OBS_TYPES=['stump','rock','bush','crate'];
   var OBS_W={stump:Math.round(52*SC),rock:Math.round(60*SC),bush:Math.round(68*SC),crate:Math.round(50*SC)};
   var OBS_H={stump:Math.round(52*SC),rock:Math.round(48*SC),bush:Math.round(54*SC),crate:Math.round(50*SC)};
-  var groundX=0, hillOff=0;
   var cloudObjs=[{x:W*.15,y:H*.06,s:1.0},{x:W*.52,y:H*.03,s:0.85},{x:W*.82,y:H*.13,s:1.15}];
 
+  // Start with a long flat safe ground section
+  platforms=[{x:-W,y:GND,w:W*4,type:'gnd'}];
+
+  function ri(a,b){return Math.floor(a+Math.random()*(b-a));}
   function pickCoinVal(){return COIN_VALS[Math.floor(Math.random()*COIN_VALS.length)];}
+
+  function genChunk(){
+    var su=W/320;
+    var diff=Math.min(score/600,1);
+    var r=Math.random();
+    if(platGenRight<W*1.2||r<0.35-diff*0.12){
+      // Flat ground + optional obstacle
+      var w=Math.round(ri(85,155)*su);
+      platforms.push({x:platGenRight,y:GND,w:w,type:'gnd'});
+      if(Math.random()>0.42&&platGenRight>W*0.5){
+        var ot=OBS_TYPES[ri(0,4)];
+        var oh=OBS_H[ot],ow=OBS_W[ot];
+        obs.push({x:platGenRight+w*(0.25+Math.random()*0.5),y:GND-oh,w:ow,h:oh,type:ot});
+      }
+      platGenRight+=w;
+    } else if(r<0.52+diff*0.12){
+      // GAP — must jump over
+      var gapW=Math.round(ri(48,60+diff*28)*su);
+      platGenRight+=gapW;
+      var landW=Math.round(ri(90,140)*su);
+      platforms.push({x:platGenRight,y:GND,w:landW,type:'gnd'});
+      platGenRight+=landW;
+    } else if(r<0.76){
+      // ELEVATED platform (optional high path) with coins
+      var baseW=Math.round(ri(110,160)*su);
+      platforms.push({x:platGenRight,y:GND,w:baseW,type:'gnd'});
+      var platW=Math.round(ri(70,105)*su);
+      var platY=Math.round(GND-ri(82,128)*SC);
+      var platX=platGenRight+Math.round(ri(18,28)*su);
+      platforms.push({x:platX,y:platY,w:platW,type:'plat'});
+      var nc=ri(2,4);
+      for(var ci2=0;ci2<nc;ci2++)
+        coinItems.push({x:platX+platW*(0.15+ci2*0.28),y:platY-Math.round(36*SC),
+                        val:pickCoinVal(),collected:false,ph:Math.random()*6.28});
+      platGenRight+=baseW;
+    } else {
+      // GAP + mandatory floating platform bridging it
+      var bw=Math.round(ri(60,90)*su);
+      platforms.push({x:platGenRight,y:GND,w:bw,type:'gnd'});
+      platGenRight+=bw;
+      var gw=Math.round(ri(55,80)*su);
+      var pw=Math.round(ri(78,112)*su);
+      var py=Math.round(GND-ri(72,112)*SC);
+      platforms.push({x:platGenRight+Math.round(4*su),y:py,w:pw,type:'plat'});
+      coinItems.push({x:platGenRight+gw/2,y:py-Math.round(36*SC),
+                      val:pickCoinVal(),collected:false,ph:Math.random()*6.28});
+      platGenRight+=gw;
+      var aw=Math.round(ri(90,140)*su);
+      platforms.push({x:platGenRight,y:GND,w:aw,type:'gnd'});
+      platGenRight+=aw;
+    }
+  }
+
   function jump(){
     if(hero.onGnd){hero.vy=JUMP;hero.onGnd=false;}
-    else{hero.vy=Math.abs(JUMP)*.6;} // fast fall when already in air
+    else{hero.vy=Math.abs(JUMP)*.6;} // fast fall in air
   }
-  cv.ontouchstart=function(e){e.preventDefault();if(!alive){launchGame('runner');return;}jump();};
-  cv.onmousedown=function(e){if(!alive){launchGame('runner');return;}jump();};
-
-  function spawnObs(){
-    var t=OBS_TYPES[Math.floor(Math.random()*OBS_TYPES.length)];
-    var ow=OBS_W[t], oh=OBS_H[t];
-    // y = top of obstacle, bottom at GND
-    obs.push({x:W+20, y:GND-oh, w:ow, h:oh, type:t});
-    if(Math.random()>.42)
-      coinItems.push({x:W+30+Math.random()*60,
-                      y:GND-oh-Math.round(50*SC)-Math.random()*Math.round(40*SC),
-                      val:pickCoinVal(),collected:false,ph:Math.random()*6.28});
-  }
+  cv.ontouchstart=function(e){e.preventDefault();if(!alive&&hitTimer<=0){launchGame('runner');return;}jump();};
+  cv.onmousedown=function(e){if(!alive&&hitTimer<=0){launchGame('runner');return;}jump();};
 
   function physicsStep(){
-    // Death animation: flash + small bounce, then go to game-over
     if(!alive){
       if(hitTimer>0){
         hitTimer--;
-        if(!hero.onGnd) hero.vy+=GRAV;
-        hero.y+=hero.vy;
-        if(hero.y+hero.h>=GND){hero.y=GND-hero.h;hero.vy=0;hero.onGnd=true;}
+        hero.vy+=GRAV; hero.y+=hero.vy;
+        // For obstacle hit: let hero settle on ground; for gap: hero falls freely
+        if(!gapDeath&&hero.y+hero.h>=GND){hero.y=GND-hero.h;hero.vy=0;}
         if(hitTimer===0) endGame(Math.floor(score/10),coins);
       }
       return;
     }
 
-    pf++;
+    score++;
+    if(score%300===0) spd+=0.25*(W/320);
     groundX+=spd; hillOff=(hillOff+spd*.15)%(W*2);
     cloudObjs.forEach(function(c){c.x-=spd*.22;if(c.x<-220)c.x=W+220;});
-
-    // Hero physics — hero.y is TOP coordinate
-    if(!hero.onGnd) hero.vy+=GRAV;
-    hero.y+=hero.vy;
-    if(hero.y+hero.h>=GND){hero.y=GND-hero.h;hero.vy=0;hero.onGnd=true;}
-
-    score++;
-    if(score%240===0){spd+=0.28*(W/320);gap=Math.max(52,gap-3);}
     if(hero.onGnd){runTimer++;if(runTimer%7===0)runFrame=1-runFrame;}
-    if(pf%Math.floor(gap)===0)spawnObs();
+
+    // Scroll and regenerate platforms
+    platGenRight-=spd;
+    platforms.forEach(function(p){p.x-=spd;});
+    platforms=platforms.filter(function(p){return p.x+p.w>-80;});
+    while(platGenRight<W*2.5) genChunk();
 
     obs.forEach(function(o){o.x-=spd;});
     obs=obs.filter(function(o){return o.x>-130;});
+    coinItems.forEach(function(c){if(!c.collected)c.x-=spd;});
+    coinItems=coinItems.filter(function(c){return !c.collected&&c.x>-50;});
 
+    // Hero physics
+    var prevBottom=hero.y+hero.h;
+    if(!hero.onGnd) hero.vy+=GRAV;
+    hero.y+=hero.vy;
+    var curBottom=hero.y+hero.h;
+    hero.onGnd=false;
+
+    // Platform landing (only while falling or neutral)
+    if(hero.vy>=0){
+      for(var i=0;i<platforms.length;i++){
+        var p=platforms[i];
+        if(hero.x+hero.w-LAND_PAD>p.x+LAND_PAD&&hero.x+LAND_PAD<p.x+p.w-LAND_PAD){
+          if(prevBottom<=p.y+4&&curBottom>=p.y){
+            hero.y=p.y-hero.h; hero.vy=0; hero.onGnd=true; break;
+          }
+        }
+      }
+    }
+
+    // Fell into gap
+    if(hero.y>H+20){
+      alive=false; gapDeath=true; hitTimer=25; return;
+    }
+
+    // Coin collection
+    var hcx=hero.x+hero.w/2, hcy=hero.y+hero.h/2;
     coinItems.forEach(function(c){
       if(c.collected)return;
-      c.x-=spd;
-      var cx=hero.x+hero.w/2, cy=hero.y+hero.h/2;
-      if(Math.hypot(cx-c.x, cy-c.y)<hero.w/2+18){
+      if(Math.hypot(hcx-c.x,hcy-c.y)<hero.w/2+18){
         c.collected=true;coins+=c.val;updateHUD(Math.floor(score/10),coins);coinPop(c.val);
       }
     });
-    coinItems=coinItems.filter(function(c){return !c.collected&&c.x>-30;});
 
-    // Collision — tight inner boxes (shrink by SC-proportional pad)
+    // Obstacle collision
     var pad=Math.round(5*SC);
     for(var i=0;i<obs.length;i++){
       var o=obs[i];
-      if(hero.x+pad < o.x+o.w-pad &&
-         hero.x+hero.w-pad > o.x+pad &&
-         hero.y+pad < o.y+o.h &&
-         hero.y+hero.h-pad > o.y+pad){
-        // Hit! Trigger 40-frame death flash, small upward bounce
-        alive=false;
-        hitTimer=40;
-        hero.vy=-Math.round(5*SC);
-        hero.onGnd=false;
+      if(hero.x+pad<o.x+o.w-pad&&hero.x+hero.w-pad>o.x+pad&&
+         hero.y+pad<o.y+o.h&&hero.y+hero.h-pad>o.y+pad){
+        alive=false; gapDeath=false; hitTimer=40;
+        hero.vy=-Math.round(5*SC); hero.onGnd=false;
         return;
       }
     }
   }
 
   function drawHills(){
-    // Hills base at GND (connected to ground), peaks shorter than character
-    var peakH=Math.round(48*SC); // < HH so hero is always visible above hills
+    var peakH=Math.round(48*SC);
     var hillW=W*0.85;
-    var colors=['#8ed150','#6bc233']; // lighter than ground grass for depth
+    var colors=['#8ed150','#6bc233'];
     for(var layer=0;layer<2;layer++){
       ctx.fillStyle=colors[layer];
       var sp=layer===0?0.38:0.68;
@@ -2863,38 +2928,28 @@ function gRunner(cv){
       for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*0.75){
         ctx.beginPath();
         ctx.moveTo(hx,GND);
-        ctx.bezierCurveTo(hx+hillW*.2,GND-peakH*.9,
-                          hx+hillW*.4,GND-peakH,
-                          hx+hillW*.5,GND-peakH*.85);
-        ctx.bezierCurveTo(hx+hillW*.6,GND-peakH*.7,
-                          hx+hillW*.8,GND-peakH*.3,
-                          hx+hillW,GND);
-        ctx.lineTo(hx+hillW,H);
-        ctx.lineTo(hx,H);
-        ctx.closePath();
-        ctx.fill();
+        ctx.bezierCurveTo(hx+hillW*.2,GND-peakH*.9,hx+hillW*.4,GND-peakH,hx+hillW*.5,GND-peakH*.85);
+        ctx.bezierCurveTo(hx+hillW*.6,GND-peakH*.7,hx+hillW*.8,GND-peakH*.3,hx+hillW,GND);
+        ctx.lineTo(hx+hillW,GND); ctx.closePath(); ctx.fill();
       }
     }
   }
 
-  function drawGround(){
-    var gh=H-GND;
+  function drawPlatform(p){
     var grassH=Math.round(22*SC);
-    // Solid dirt base
-    ctx.fillStyle='#6b3a1f'; ctx.fillRect(0,GND,W,gh);
-    // Solid grass strip — top edge is EXACTLY at GND, guaranteed alignment
-    ctx.fillStyle='#5aad34'; ctx.fillRect(0,GND,W,grassH);
-    // Darker accent stripe
-    ctx.fillStyle='#489128'; ctx.fillRect(0,GND+Math.round(4*SC),W,Math.round(5*SC));
-    // Animated pebbles for dirt texture
-    ctx.fillStyle='#8a4a20';
-    var pebbleY=GND+grassH+Math.round(10*SC);
-    var pOff=Math.round(38*SC);
-    var pStart=Math.round(12*SC)-(Math.floor(groundX)%pOff);
-    for(var px=pStart;px<W+pOff;px+=pOff){
-      ctx.beginPath();
-      ctx.ellipse(px,pebbleY,Math.round(5*SC),Math.round(3*SC),0,0,Math.PI*2);
-      ctx.fill();
+    if(p.type==='gnd'){
+      ctx.fillStyle='#6b3a1f'; ctx.fillRect(p.x,p.y,p.w,H-p.y);
+      ctx.fillStyle='#5aad34'; ctx.fillRect(p.x,p.y,p.w,grassH);
+      ctx.fillStyle='#489128'; ctx.fillRect(p.x,p.y+Math.round(4*SC),p.w,Math.round(5*SC));
+    } else {
+      // Floating platform: grass top + brown block
+      var ph=Math.round(28*SC);
+      ctx.fillStyle='#7d5a2c'; ctx.fillRect(p.x,p.y,p.w,ph);
+      ctx.fillStyle='#5aad34'; ctx.fillRect(p.x,p.y,p.w,grassH);
+      ctx.fillStyle='#489128'; ctx.fillRect(p.x,p.y+Math.round(4*SC),p.w,Math.round(5*SC));
+      // Drop shadow beneath platform
+      ctx.fillStyle='rgba(0,0,0,0.18)';
+      ctx.fillRect(p.x+Math.round(4*SC),p.y+ph,p.w-Math.round(8*SC),Math.round(5*SC));
     }
   }
 
@@ -2905,8 +2960,8 @@ function gRunner(cv){
     } else {
       ctx.fillStyle='#3b82f6'; ctx.fillRect(hero.x,hero.y,hero.w,hero.h);
     }
-    // Red flash when hit — blinks every 5 frames
-    if(!alive&&hitTimer>0&&Math.floor(hitTimer/5)%2===0){
+    // Red flash on obstacle hit (not gap death)
+    if(!alive&&hitTimer>0&&!gapDeath&&Math.floor(hitTimer/5)%2===0){
       ctx.save();
       ctx.fillStyle='rgba(255,40,40,0.72)';
       ctx.fillRect(hero.x,hero.y,hero.w,hero.h);
@@ -2928,10 +2983,9 @@ function gRunner(cv){
     var sky=ctx.createLinearGradient(0,0,0,GND);
     sky.addColorStop(0,'#38bdf8'); sky.addColorStop(1,'#bae6fd');
     ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
-
     drawHills();
-
-    // Clouds
+    // Dark pit fill — gaps appear as dark voids
+    ctx.fillStyle='#120804'; ctx.fillRect(0,GND,W,H-GND);
     var cloudSpr=SPRITES.run_cloud;
     cloudObjs.forEach(function(c){
       if(cloudSpr&&cloudSpr.complete&&cloudSpr.naturalWidth){
@@ -2939,11 +2993,8 @@ function gRunner(cv){
         ctx.globalAlpha=.92; ctx.drawImage(cloudSpr,c.x,c.y,cw,ch); ctx.globalAlpha=1;
       }
     });
-
-    drawGround();
+    platforms.forEach(drawPlatform);
     obs.forEach(drawObs);
-
-    // Coins
     var coinSprs=['coin_1','coin_2','coin_5','coin_10','coin_25','coin_50'];
     var coinVals=[1,2,5,10,25,50];
     coinItems.forEach(function(c){
@@ -2955,9 +3006,7 @@ function gRunner(cv){
       if(spr&&spr.complete&&spr.naturalWidth)
         ctx.drawImage(spr,c.x-cs/2,c.y+bob-cs/2,cs,cs);
     });
-
     drawHero();
-    ctx.shadowBlur=0;
     hudPill(ctx,W/2-30,14,'🏃 '+Math.floor(score/10),'rgba(22,163,74,.5)');
     ctx.fillStyle='rgba(0,0,0,.35)';ctx.font='11px Nunito,sans-serif';ctx.textAlign='center';
     ctx.fillText('Тап — стрибок',W/2,H-10);
@@ -2967,12 +3016,12 @@ function gRunner(cv){
     gRAF=requestAnimationFrame(loop);
     if(!lastTs)lastTs=ts;
     accum+=Math.min(ts-lastTs,100);lastTs=ts;
-    // Keep running physicsStep while hitTimer>0 so death animation plays out
     while(accum>=PHYS_STEP){physicsStep();accum-=PHYS_STEP;if(!alive&&hitTimer<=0)break;}
     render();
   }
   loop(0);
 }
+
 // ──────────── SNAKE ────────────
 function gSnake(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
