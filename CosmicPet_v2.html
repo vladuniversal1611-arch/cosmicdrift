@@ -2758,86 +2758,121 @@ function gBall(cv){
 function gRunner(cv){
   var W=cv.width,H=cv.height,ctx=cv.getContext('2d');
   var PHYS_STEP=1000/60;
-  var GND=Math.round(H*.80),GRAV=0.55*(H/512),JUMP=-13.5*(H/512);
-  var HW=Math.round(52*(W/320)),HH=Math.round(70*(H/512));
-  var hero={x:Math.round(52*(W/320)),y:GND,vy:0,w:HW,h:HH,onGnd:true};
+  var SC=Math.min(H/512,1.5); // scale cap so hero/obs don't grow too large
+  var GND=Math.round(H*.80);
+  var GRAV=0.55*SC, JUMP=-13.5*SC;
+  var HW=Math.round(52*SC), HH=Math.round(68*SC);
+  // hero.y = TOP of sprite
+  var hero={x:Math.round(48*SC),y:GND-HH,vy:0,w:HW,h:HH,onGnd:true};
   var obs=[],coinItems=[],score=0,coins=0,fr=0,pf=0;
   var alive=true,spd=3.5*(W/320),gap=88,lastTs=0,accum=0;
   var runFrame=0,runTimer=0;
   var COIN_VALS=[1,1,1,2,2,2,5,5,10,10,25,50];
   var OBS_TYPES=['stump','rock','bush','crate'];
-  var OBS_SIZES={stump:{w:Math.round(52*(W/320)),h:Math.round(54*(H/512))},
-                 rock:{w:Math.round(62*(W/320)),h:Math.round(50*(H/512))},
-                 bush:{w:Math.round(70*(W/320)),h:Math.round(56*(H/512))},
-                 crate:{w:Math.round(52*(W/320)),h:Math.round(52*(H/512))}};
-  var hillX=0,groundX=0;
-  var cloudObjs=[
-    {x:W*.15,y:H*.06,s:1.0},{x:W*.5,y:H*.03,s:0.8},{x:W*.8,y:H*.12,s:1.2}
-  ];
+  var OBS_W={stump:Math.round(52*SC),rock:Math.round(60*SC),bush:Math.round(68*SC),crate:Math.round(50*SC)};
+  var OBS_H={stump:Math.round(52*SC),rock:Math.round(48*SC),bush:Math.round(54*SC),crate:Math.round(50*SC)};
+  var groundX=0, hillOff=0;
+  var cloudObjs=[{x:W*.15,y:H*.06,s:1.0},{x:W*.52,y:H*.03,s:0.85},{x:W*.82,y:H*.13,s:1.15}];
 
   function pickCoinVal(){return COIN_VALS[Math.floor(Math.random()*COIN_VALS.length)];}
-
   function jump(){if(hero.onGnd){hero.vy=JUMP;hero.onGnd=false;}}
   cv.ontouchstart=function(e){e.preventDefault();if(!alive){launchGame('runner');return;}jump();};
   cv.onmousedown=function(e){if(!alive){launchGame('runner');return;}jump();};
 
   function spawnObs(){
     var t=OBS_TYPES[Math.floor(Math.random()*OBS_TYPES.length)];
-    var s=OBS_SIZES[t];
-    obs.push({x:W+20,y:GND-s.h+2,w:s.w,h:s.h,type:t});
+    var ow=OBS_W[t], oh=OBS_H[t];
+    // y = top of obstacle, bottom at GND
+    obs.push({x:W+20, y:GND-oh, w:ow, h:oh, type:t});
     if(Math.random()>.42)
-      coinItems.push({x:W+30+Math.random()*60,y:GND-Math.round(90*(H/512))-Math.random()*Math.round(55*(H/512)),
+      coinItems.push({x:W+30+Math.random()*60,
+                      y:GND-oh-Math.round(50*SC)-Math.random()*Math.round(40*SC),
                       val:pickCoinVal(),collected:false,ph:Math.random()*6.28});
   }
 
   function physicsStep(){
     pf++;
-    groundX+=spd; hillX-=spd*.14;
-    cloudObjs.forEach(function(c){c.x-=spd*.25;if(c.x<-200)c.x=W+200;});
-    hero.vy+=GRAV; hero.y+=hero.vy;
-    if(hero.y>=GND){hero.y=GND;hero.vy=0;hero.onGnd=true;}
+    groundX+=spd; hillOff=(hillOff+spd*.15)%(W*2);
+    cloudObjs.forEach(function(c){c.x-=spd*.22;if(c.x<-220)c.x=W+220;});
+
+    // Hero physics — hero.y is TOP coordinate
+    if(!hero.onGnd) hero.vy+=GRAV;
+    hero.y+=hero.vy;
+    if(hero.y+hero.h>=GND){hero.y=GND-hero.h;hero.vy=0;hero.onGnd=true;}
+
     score++;
     if(score%240===0){spd+=0.28*(W/320);gap=Math.max(52,gap-3);}
     if(hero.onGnd){runTimer++;if(runTimer%7===0)runFrame=1-runFrame;}
     if(pf%Math.floor(gap)===0)spawnObs();
+
     obs.forEach(function(o){o.x-=spd;});
-    obs=obs.filter(function(o){return o.x>-120;});
+    obs=obs.filter(function(o){return o.x>-130;});
+
     coinItems.forEach(function(c){
       if(c.collected)return;
       c.x-=spd;
-      if(Math.hypot(hero.x+hero.w/2-c.x,hero.y+hero.h/2-c.y)<hero.w/2+16){
+      var cx=hero.x+hero.w/2, cy=hero.y+hero.h/2;
+      if(Math.hypot(cx-c.x, cy-c.y)<hero.w/2+18){
         c.collected=true;coins+=c.val;updateHUD(Math.floor(score/10),coins);coinPop(c.val);
       }
     });
     coinItems=coinItems.filter(function(c){return !c.collected&&c.x>-30;});
+
+    // Collision — both hero and obs use TOP coordinate
+    var pad=8;
     for(var i=0;i<obs.length;i++){
       var o=obs[i];
-      var pad=6;
-      if(hero.x+pad<o.x+o.w-pad&&hero.x+hero.w-pad>o.x+pad&&hero.y+pad<o.y+o.h&&hero.y+hero.h>o.y+pad){
+      if(hero.x+pad < o.x+o.w-pad &&
+         hero.x+hero.w-pad > o.x+pad &&
+         hero.y+pad < o.y+o.h &&
+         hero.y+hero.h-pad > o.y){
         alive=false;endGame(Math.floor(score/10),coins);return;
       }
     }
   }
 
+  function drawHills(){
+    // Cartoon hills drawn with bezier — avoids sprite transparency bugs
+    var colors=['#6ec244','#5aad34'];
+    var hillW=W*1.1;
+    for(var layer=0;layer<2;layer++){
+      ctx.fillStyle=colors[layer];
+      var ox=-((hillOff*(layer===0?.9:1.1))%hillW);
+      for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*.85){
+        ctx.beginPath();
+        ctx.moveTo(hx,GND+4);
+        ctx.bezierCurveTo(hx+hillW*.15,GND-Math.round(70*SC),
+                          hx+hillW*.35,GND-Math.round(95*SC),
+                          hx+hillW*.5,GND-Math.round(85*SC));
+        ctx.bezierCurveTo(hx+hillW*.65,GND-Math.round(75*SC),
+                          hx+hillW*.82,GND-Math.round(40*SC),
+                          hx+hillW,GND+4);
+        ctx.fill();
+      }
+    }
+  }
+
   function drawGround(){
-    var spr=SPRITES.run_ground;
-    var tw=Math.round(200*(W/320));
     var gh=H-GND;
+    // Solid base — fills any sub-pixel gaps between tiles
+    ctx.fillStyle='#7c4a1e'; ctx.fillRect(0,GND,W,gh);
+    ctx.fillStyle='#4a7a23'; ctx.fillRect(0,GND,W,Math.round(14*SC));
+    var spr=SPRITES.run_ground;
     if(spr&&spr.complete&&spr.naturalWidth){
-      var ox=-(groundX%tw);
-      for(var x=ox;x<W+tw;x+=tw) ctx.drawImage(spr,x,GND,tw,gh);
-    } else {
-      ctx.fillStyle='#4ade80';ctx.fillRect(0,GND,W,8);
-      ctx.fillStyle='#92400e';ctx.fillRect(0,GND+8,W,gh-8);
+      var tw=Math.round(160*(W/320));
+      var tileH=Math.min(gh,Math.round(80*SC));
+      var ox=-(Math.floor(groundX)%tw);
+      for(var x=ox-tw;x<=W+tw;x+=tw)
+        ctx.drawImage(spr,Math.floor(x),GND,tw+1,tileH);
     }
   }
 
   function drawHero(){
     var spr=hero.onGnd?(runFrame===0?SPRITES.run_1:SPRITES.run_2):SPRITES.run_jump;
     if(spr&&spr.complete&&spr.naturalWidth){
-      ctx.drawImage(spr,hero.x,hero.y-hero.h+4,hero.w,hero.h);
+      ctx.drawImage(spr,hero.x,hero.y,hero.w,hero.h);
     } else {
-      ctx.fillStyle='#3b82f6';ctx.fillRect(hero.x,hero.y-hero.h+4,hero.w,hero.h);
+      ctx.fillStyle='#3b82f6'; ctx.fillRect(hero.x,hero.y,hero.w,hero.h);
     }
   }
 
@@ -2846,36 +2881,28 @@ function gRunner(cv){
     if(spr&&spr.complete&&spr.naturalWidth){
       ctx.drawImage(spr,o.x,o.y,o.w,o.h);
     } else {
-      ctx.fillStyle='#92400e';ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle='#92400e'; ctx.fillRect(o.x,o.y,o.w,o.h);
     }
   }
 
   function render(){
     fr++;
-    var sky=ctx.createLinearGradient(0,0,0,H);
-    sky.addColorStop(0,'#38bdf8');sky.addColorStop(0.7,'#bae6fd');sky.addColorStop(1,'#d1fae5');
-    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    var sky=ctx.createLinearGradient(0,0,0,GND);
+    sky.addColorStop(0,'#38bdf8'); sky.addColorStop(1,'#bae6fd');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
 
-    // Hills (far parallax)
-    var hillSpr=SPRITES.run_hill;
-    if(hillSpr&&hillSpr.complete&&hillSpr.naturalWidth){
-      var hw=Math.round(240*(W/320)),hh=Math.round(96*(H/512));
-      var hox=((hillX%hw)+hw)%hw;
-      for(var x=-hw+hox;x<W+hw;x+=hw)
-        ctx.drawImage(hillSpr,x,GND-hh+10,hw,hh);
-    }
+    drawHills();
 
     // Clouds
     var cloudSpr=SPRITES.run_cloud;
     cloudObjs.forEach(function(c){
       if(cloudSpr&&cloudSpr.complete&&cloudSpr.naturalWidth){
-        var cw=Math.round(160*c.s*(W/320)),ch=Math.round(72*c.s*(H/512));
-        ctx.drawImage(cloudSpr,c.x,c.y,cw,ch);
+        var cw=Math.round(150*c.s*(W/320)),ch=Math.round(70*c.s*SC);
+        ctx.globalAlpha=.92; ctx.drawImage(cloudSpr,c.x,c.y,cw,ch); ctx.globalAlpha=1;
       }
     });
 
     drawGround();
-
     obs.forEach(drawObs);
 
     // Coins
@@ -2886,7 +2913,7 @@ function gRunner(cv){
       var bob=Math.sin(fr*.07+c.ph)*4;
       var ci=coinVals.indexOf(c.val);if(ci<0)ci=0;
       var spr=SPRITES[coinSprs[ci]];
-      var cs=Math.round(28*(H/512));
+      var cs=Math.round(28*SC);
       if(spr&&spr.complete&&spr.naturalWidth)
         ctx.drawImage(spr,c.x-cs/2,c.y+bob-cs/2,cs,cs);
     });
