@@ -2756,13 +2756,24 @@ function gBall(cv){
 
 // ──────────── RUNNER ────────────
 function gRunner(cv){
-  var W=cv.width,H=cv.height,ctx=cv.getContext('2d');
+  // HiDPI: render at device physical pixels so sprites are sharp
+  var W=cv.width, H=cv.height;
+  var dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  var ctx=cv.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
   var PHYS_STEP=1000/60;
   var SC=Math.min(H/512,1.5);
   var GND=Math.round(H*.80);
   var GRAV=0.55*SC, JUMP=-13.5*SC;
-  var HW=Math.round(52*SC), HH=Math.round(68*SC);
+  // Slightly smaller character (was 52/68)
+  var HW=Math.round(42*SC), HH=Math.round(55*SC);
   var LAND_PAD=Math.round(6*SC);
+  // Proportional hitbox insets matching body shape (arms/head excluded)
+  var HB_X=Math.round(HW*0.22);   // 22% inset each side (trim arms/margin)
+  var HB_TOP=Math.round(HH*0.12); // 12% from top (skip head top)
+  var HB_BOT=Math.round(HH*0.04); // 4% from bottom
   var hero={x:Math.round(48*SC),y:GND-HH,vy:0,w:HW,h:HH,onGnd:true};
   var platforms=[], obs=[], coinItems=[];
   var score=0,coins=0,fr=0;
@@ -2904,12 +2915,13 @@ function gRunner(cv){
       }
     });
 
-    // Obstacle collision
-    var pad=Math.round(5*SC);
+    // Obstacle collision — body-shaped hitbox (HB_X/HB_TOP/HB_BOT insets)
     for(var i=0;i<obs.length;i++){
       var o=obs[i];
-      if(hero.x+pad<o.x+o.w-pad&&hero.x+hero.w-pad>o.x+pad&&
-         hero.y+pad<o.y+o.h&&hero.y+hero.h-pad>o.y+pad){
+      if(hero.x+HB_X     < o.x+o.w &&
+         hero.x+HW-HB_X  > o.x     &&
+         hero.y+HB_TOP    < o.y+o.h &&
+         hero.y+HH-HB_BOT > o.y){
         alive=false; gapDeath=false; hitTimer=40;
         hero.vy=-Math.round(5*SC); hero.onGnd=false;
         return;
