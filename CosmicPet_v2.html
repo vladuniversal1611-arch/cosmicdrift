@@ -2775,7 +2775,10 @@ function gRunner(cv){
   var cloudObjs=[{x:W*.15,y:H*.06,s:1.0},{x:W*.52,y:H*.03,s:0.85},{x:W*.82,y:H*.13,s:1.15}];
 
   function pickCoinVal(){return COIN_VALS[Math.floor(Math.random()*COIN_VALS.length)];}
-  function jump(){if(hero.onGnd){hero.vy=JUMP;hero.onGnd=false;}}
+  function jump(){
+    if(hero.onGnd){hero.vy=JUMP;hero.onGnd=false;}
+    else{hero.vy=Math.abs(JUMP)*.6;} // fast fall when already in air
+  }
   cv.ontouchstart=function(e){e.preventDefault();if(!alive){launchGame('runner');return;}jump();};
   cv.onmousedown=function(e){if(!alive){launchGame('runner');return;}jump();};
 
@@ -2832,26 +2835,25 @@ function gRunner(cv){
   }
 
   function drawHills(){
-    // Hills float above character level — purely decorative background
-    var hillBaseY=GND-HH-Math.round(30*SC);
-    var peakH=Math.round(72*SC);
-    var hillW=W*0.95;
-    var colors=['#72c842','#5aad34'];
+    // Hills base at GND (connected to ground), peaks shorter than character
+    var peakH=Math.round(48*SC); // < HH so hero is always visible above hills
+    var hillW=W*0.85;
+    var colors=['#8ed150','#6bc233']; // lighter than ground grass for depth
     for(var layer=0;layer<2;layer++){
       ctx.fillStyle=colors[layer];
-      var sp=layer===0?0.5:0.82;
+      var sp=layer===0?0.38:0.68;
       var ox=-((hillOff*sp)%hillW);
-      for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*0.78){
+      for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*0.75){
         ctx.beginPath();
-        ctx.moveTo(hx,hillBaseY);
-        ctx.bezierCurveTo(hx+hillW*.2,hillBaseY-peakH*.85,
-                          hx+hillW*.4,hillBaseY-peakH,
-                          hx+hillW*.5,hillBaseY-peakH*.9);
-        ctx.bezierCurveTo(hx+hillW*.6,hillBaseY-peakH*.8,
-                          hx+hillW*.8,hillBaseY-peakH*.35,
-                          hx+hillW,hillBaseY);
-        ctx.lineTo(hx+hillW,hillBaseY+Math.round(28*SC));
-        ctx.lineTo(hx,hillBaseY+Math.round(28*SC));
+        ctx.moveTo(hx,GND);
+        ctx.bezierCurveTo(hx+hillW*.2,GND-peakH*.9,
+                          hx+hillW*.4,GND-peakH,
+                          hx+hillW*.5,GND-peakH*.85);
+        ctx.bezierCurveTo(hx+hillW*.6,GND-peakH*.7,
+                          hx+hillW*.8,GND-peakH*.3,
+                          hx+hillW,GND);
+        ctx.lineTo(hx+hillW,H);
+        ctx.lineTo(hx,H);
         ctx.closePath();
         ctx.fill();
       }
