@@ -3065,6 +3065,8 @@ function gSnake(cv){
   let snake=[{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)}];
   let dir={x:1,y:0},nextDir={x:1,y:0},food=null,score=0,coins=0,fr=0,alive=true;
   let foodIdx=0;
+  let prevSnake=[{x:Math.floor(COLS/2),y:Math.floor(ROWS/2)}];
+  let subStep=0;
   function placeFood(){
     let pos;
     do{pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};}
@@ -3126,32 +3128,36 @@ function gSnake(cv){
     var ready=sprOk('snake_head_right')&&sprOk('snake_body_h')&&sprOk('snake_corner_br');
     for(var i=snake.length-1;i>=0;i--){
       var s=snake[i];
-      var px=offX+s.x*CELL,py=offY+s.y*CELL;
+      var p=i<prevSnake.length?prevSnake[i]:s;
+      var vx=offX+(p.x+subStep*(s.x-p.x))*CELL;
+      var vy=offY+(p.y+subStep*(s.y-p.y))*CELL;
       if(!ready){
         var t=1-i/snake.length,cr=CELL*0.41;
         ctx.fillStyle=i===0?'#5fd93c':'hsl(128,66%,'+(28+t*20)+'%)';
         if(i<snake.length-1){
-          var nx=snake[i+1];
-          var ncx=offX+nx.x*CELL+CELL/2,ncy=offY+nx.y*CELL+CELL/2;
-          var cx=px+CELL/2,cy=py+CELL/2;
+          var np=i+1<prevSnake.length?prevSnake[i+1]:snake[i+1];
+          var ns=snake[i+1];
+          var nvx=offX+(np.x+subStep*(ns.x-np.x))*CELL;
+          var nvy=offY+(np.y+subStep*(ns.y-np.y))*CELL;
+          var cx=vx+CELL/2,cy=vy+CELL/2,ncx=nvx+CELL/2,ncy=nvy+CELL/2;
           ctx.fillRect(Math.min(cx,ncx)-cr*.9,Math.min(cy,ncy)-cr*.9,
                        Math.abs(ncx-cx)+cr*1.8,Math.abs(ncy-cy)+cr*1.8);
         }
-        ctx.beginPath();ctx.arc(px+CELL/2,py+CELL/2,cr,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(vx+CELL/2,vy+CELL/2,cr,0,Math.PI*2);ctx.fill();
         continue;
       }
       if(i===0){
-        drawAt(alive?headKey():'snake_head_dead',px,py,0);
+        drawAt(alive?headKey():'snake_head_dead',vx,vy,0);
       } else if(i===snake.length-1){
-        if(snake.length>1)drawAt(tailKey(s,snake[i-1]),px,py,0);
+        if(snake.length>1)drawAt(tailKey(s,snake[i-1]),vx,vy,0);
       } else {
         var prev=snake[i-1],nxt=snake[i+1];
         var fx=s.x-nxt.x,fy=s.y-nxt.y;
         var tx=prev.x-s.x,ty=prev.y-s.y;
         if(fx===tx&&fy===ty){
-          drawAt(fx!==0?'snake_body_h':'snake_body_v',px,py,0);
+          drawAt(fx!==0?'snake_body_h':'snake_body_v',vx,vy,0);
         } else {
-          drawAt(cornerKey(fx,fy,tx,ty),px,py,0);
+          drawAt(cornerKey(fx,fy,tx,ty),vx,vy,0);
         }
       }
     }
@@ -3176,23 +3182,30 @@ function gSnake(cv){
   }
   function loop(){
     gRAF=requestAnimationFrame(loop);fr++;
-    drawBoard();drawSnake();drawFood();
+    var mi=Math.max(5,16-Math.floor(score/4));
     if(!alive){
+      drawBoard();drawSnake();drawFood();
       ctx.fillStyle='rgba(0,0,0,.5)';
       ctx.fillRect(offX,offY,COLS*CELL,ROWS*CELL);
       return;
     }
-    if(fr%(Math.max(5,16-Math.floor(score/4)))===0){
+    if(fr%mi===0){
+      prevSnake=snake.map(function(s){return{x:s.x,y:s.y};});
+      subStep=0;
       if(!(nextDir.x===-dir.x&&dir.x!==0)&&!(nextDir.y===-dir.y&&dir.y!==0))dir={x:nextDir.x,y:nextDir.y};
       const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
       if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(function(s){return s.x===head.x&&s.y===head.y;})){
-        alive=false;endGame(score,coins);return;
+        alive=false;endGame(score,coins);
+        drawBoard();drawSnake();drawFood();return;
       }
       snake.unshift(head);
       if(food&&head.x===food.x&&head.y===food.y){
         score++;coins+=2;updateHUD(score,coins);foodIdx++;placeFood();
       } else snake.pop();
+    } else {
+      subStep=(fr%mi)/mi;
     }
+    drawBoard();drawSnake();drawFood();
     hudPill(ctx,W/2-26,12,String(score),'rgba(74,222,128,.4)');
     ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='11px sans-serif';ctx.textAlign='center';
     ctx.fillText('Свайп для керування',W/2,H-16);
