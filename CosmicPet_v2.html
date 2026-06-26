@@ -2765,7 +2765,7 @@ function gRunner(cv){
   // hero.y = TOP of sprite
   var hero={x:Math.round(48*SC),y:GND-HH,vy:0,w:HW,h:HH,onGnd:true};
   var obs=[],coinItems=[],score=0,coins=0,fr=0,pf=0;
-  var alive=true,spd=3.5*(W/320),gap=88,lastTs=0,accum=0;
+  var alive=true,hitTimer=0,spd=3.5*(W/320),gap=88,lastTs=0,accum=0;
   var runFrame=0,runTimer=0;
   var COIN_VALS=[1,1,1,2,2,2,5,5,10,10,25,50];
   var OBS_TYPES=['stump','rock','bush','crate'];
@@ -2794,6 +2794,18 @@ function gRunner(cv){
   }
 
   function physicsStep(){
+    // Death animation: flash + small bounce, then go to game-over
+    if(!alive){
+      if(hitTimer>0){
+        hitTimer--;
+        if(!hero.onGnd) hero.vy+=GRAV;
+        hero.y+=hero.vy;
+        if(hero.y+hero.h>=GND){hero.y=GND-hero.h;hero.vy=0;hero.onGnd=true;}
+        if(hitTimer===0) endGame(Math.floor(score/10),coins);
+      }
+      return;
+    }
+
     pf++;
     groundX+=spd; hillOff=(hillOff+spd*.15)%(W*2);
     cloudObjs.forEach(function(c){c.x-=spd*.22;if(c.x<-220)c.x=W+220;});
@@ -2821,15 +2833,20 @@ function gRunner(cv){
     });
     coinItems=coinItems.filter(function(c){return !c.collected&&c.x>-30;});
 
-    // Collision — both hero and obs use TOP coordinate
-    var pad=8;
+    // Collision — tight inner boxes (shrink by SC-proportional pad)
+    var pad=Math.round(5*SC);
     for(var i=0;i<obs.length;i++){
       var o=obs[i];
       if(hero.x+pad < o.x+o.w-pad &&
          hero.x+hero.w-pad > o.x+pad &&
          hero.y+pad < o.y+o.h &&
-         hero.y+hero.h-pad > o.y){
-        alive=false;endGame(Math.floor(score/10),coins);return;
+         hero.y+hero.h-pad > o.y+pad){
+        // Hit! Trigger 40-frame death flash, small upward bounce
+        alive=false;
+        hitTimer=40;
+        hero.vy=-Math.round(5*SC);
+        hero.onGnd=false;
+        return;
       }
     }
   }
@@ -2888,6 +2905,13 @@ function gRunner(cv){
     } else {
       ctx.fillStyle='#3b82f6'; ctx.fillRect(hero.x,hero.y,hero.w,hero.h);
     }
+    // Red flash when hit — blinks every 5 frames
+    if(!alive&&hitTimer>0&&Math.floor(hitTimer/5)%2===0){
+      ctx.save();
+      ctx.fillStyle='rgba(255,40,40,0.72)';
+      ctx.fillRect(hero.x,hero.y,hero.w,hero.h);
+      ctx.restore();
+    }
   }
 
   function drawObs(o){
@@ -2943,7 +2967,8 @@ function gRunner(cv){
     gRAF=requestAnimationFrame(loop);
     if(!lastTs)lastTs=ts;
     accum+=Math.min(ts-lastTs,100);lastTs=ts;
-    while(accum>=PHYS_STEP){physicsStep();accum-=PHYS_STEP;if(!alive)break;}
+    // Keep running physicsStep while hitTimer>0 so death animation plays out
+    while(accum>=PHYS_STEP){physicsStep();accum-=PHYS_STEP;if(!alive&&hitTimer<=0)break;}
     render();
   }
   loop(0);
