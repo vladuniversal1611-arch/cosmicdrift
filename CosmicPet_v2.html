@@ -2832,21 +2832,27 @@ function gRunner(cv){
   }
 
   function drawHills(){
-    // Cartoon hills drawn with bezier — avoids sprite transparency bugs
-    var colors=['#6ec244','#5aad34'];
-    var hillW=W*1.1;
+    // Hills float above character level — purely decorative background
+    var hillBaseY=GND-HH-Math.round(30*SC);
+    var peakH=Math.round(72*SC);
+    var hillW=W*0.95;
+    var colors=['#72c842','#5aad34'];
     for(var layer=0;layer<2;layer++){
       ctx.fillStyle=colors[layer];
-      var ox=-((hillOff*(layer===0?.9:1.1))%hillW);
-      for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*.85){
+      var sp=layer===0?0.5:0.82;
+      var ox=-((hillOff*sp)%hillW);
+      for(var hx=ox-hillW;hx<W+hillW;hx+=hillW*0.78){
         ctx.beginPath();
-        ctx.moveTo(hx,GND+4);
-        ctx.bezierCurveTo(hx+hillW*.15,GND-Math.round(70*SC),
-                          hx+hillW*.35,GND-Math.round(95*SC),
-                          hx+hillW*.5,GND-Math.round(85*SC));
-        ctx.bezierCurveTo(hx+hillW*.65,GND-Math.round(75*SC),
-                          hx+hillW*.82,GND-Math.round(40*SC),
-                          hx+hillW,GND+4);
+        ctx.moveTo(hx,hillBaseY);
+        ctx.bezierCurveTo(hx+hillW*.2,hillBaseY-peakH*.85,
+                          hx+hillW*.4,hillBaseY-peakH,
+                          hx+hillW*.5,hillBaseY-peakH*.9);
+        ctx.bezierCurveTo(hx+hillW*.6,hillBaseY-peakH*.8,
+                          hx+hillW*.8,hillBaseY-peakH*.35,
+                          hx+hillW,hillBaseY);
+        ctx.lineTo(hx+hillW,hillBaseY+Math.round(28*SC));
+        ctx.lineTo(hx,hillBaseY+Math.round(28*SC));
+        ctx.closePath();
         ctx.fill();
       }
     }
@@ -2854,16 +2860,22 @@ function gRunner(cv){
 
   function drawGround(){
     var gh=H-GND;
-    // Solid base — fills any sub-pixel gaps between tiles
-    ctx.fillStyle='#7c4a1e'; ctx.fillRect(0,GND,W,gh);
-    ctx.fillStyle='#4a7a23'; ctx.fillRect(0,GND,W,Math.round(14*SC));
-    var spr=SPRITES.run_ground;
-    if(spr&&spr.complete&&spr.naturalWidth){
-      var tw=Math.round(160*(W/320));
-      var tileH=Math.min(gh,Math.round(80*SC));
-      var ox=-(Math.floor(groundX)%tw);
-      for(var x=ox-tw;x<=W+tw;x+=tw)
-        ctx.drawImage(spr,Math.floor(x),GND,tw+1,tileH);
+    var grassH=Math.round(22*SC);
+    // Solid dirt base
+    ctx.fillStyle='#6b3a1f'; ctx.fillRect(0,GND,W,gh);
+    // Solid grass strip — top edge is EXACTLY at GND, guaranteed alignment
+    ctx.fillStyle='#5aad34'; ctx.fillRect(0,GND,W,grassH);
+    // Darker accent stripe
+    ctx.fillStyle='#489128'; ctx.fillRect(0,GND+Math.round(4*SC),W,Math.round(5*SC));
+    // Animated pebbles for dirt texture
+    ctx.fillStyle='#8a4a20';
+    var pebbleY=GND+grassH+Math.round(10*SC);
+    var pOff=Math.round(38*SC);
+    var pStart=Math.round(12*SC)-(Math.floor(groundX)%pOff);
+    for(var px=pStart;px<W+pOff;px+=pOff){
+      ctx.beginPath();
+      ctx.ellipse(px,pebbleY,Math.round(5*SC),Math.round(3*SC),0,0,Math.PI*2);
+      ctx.fill();
     }
   }
 
