@@ -3127,19 +3127,19 @@ function gSnake(cv){
   }
   function drawSnake(){
     var ready=sprOk('snake_head_right')&&sprOk('snake_body_h')&&sprOk('snake_corner_br');
+    // Precompute smooth visual positions for all segments
+    var vp=[];
+    for(var i=0;i<snake.length;i++){
+      var s=snake[i],p=i<prevSnake.length?prevSnake[i]:s;
+      vp.push({x:p.x+subStep*(s.x-p.x),y:p.y+subStep*(s.y-p.y)});
+    }
     for(var i=snake.length-1;i>=0;i--){
-      var s=snake[i];
-      var p=i<prevSnake.length?prevSnake[i]:s;
-      var vx=offX+(p.x+subStep*(s.x-p.x))*CELL;
-      var vy=offY+(p.y+subStep*(s.y-p.y))*CELL;
+      var vx=offX+vp[i].x*CELL,vy=offY+vp[i].y*CELL;
       if(!ready){
         var t=1-i/snake.length,cr=CELL*0.41;
         ctx.fillStyle=i===0?'#5fd93c':'hsl(128,66%,'+(28+t*20)+'%)';
         if(i<snake.length-1){
-          var np=i+1<prevSnake.length?prevSnake[i+1]:snake[i+1];
-          var ns=snake[i+1];
-          var nvx=offX+(np.x+subStep*(ns.x-np.x))*CELL;
-          var nvy=offY+(np.y+subStep*(ns.y-np.y))*CELL;
+          var nvx=offX+vp[i+1].x*CELL,nvy=offY+vp[i+1].y*CELL;
           var cx=vx+CELL/2,cy=vy+CELL/2,ncx=nvx+CELL/2,ncy=nvy+CELL/2;
           ctx.fillRect(Math.min(cx,ncx)-cr*.9,Math.min(cy,ncy)-cr*.9,
                        Math.abs(ncx-cx)+cr*1.8,Math.abs(ncy-cy)+cr*1.8);
@@ -3148,17 +3148,32 @@ function gSnake(cv){
         continue;
       }
       if(i===0){
-        drawAt(alive?headKey():'snake_head_dead',vx,vy,0);
+        if(!alive){drawAt('snake_head_dead',vx,vy,0);}
+        else if(snake.length===1){drawAt(headKey(),vx,vy,0);}
+        else {
+          // Head direction from visual positions (smooth turn)
+          var vhx=vp[0].x-vp[1].x,vhy=vp[0].y-vp[1].y,hk;
+          if(Math.abs(vhx)>=Math.abs(vhy))hk=vhx>0?'snake_head_right':'snake_head_left';
+          else hk=vhy>0?'snake_head_down':'snake_head_up';
+          drawAt(hk,vx,vy,0);
+        }
       } else if(i===snake.length-1){
-        if(snake.length>1)drawAt(tailKey(s,snake[i-1]),vx,vy,0);
+        if(snake.length>1){
+          // Tail direction from visual positions
+          var vtdx=vp[i-1].x-vp[i].x,vtdy=vp[i-1].y-vp[i].y,tk;
+          if(Math.abs(vtdx)>=Math.abs(vtdy))tk=vtdx>0?'snake_tail_right':'snake_tail_left';
+          else tk=vtdy>0?'snake_tail_down':'snake_tail_up';
+          drawAt(tk,vx,vy,0);
+        }
       } else {
-        var prev=snake[i-1],nxt=snake[i+1];
-        var fx=s.x-nxt.x,fy=s.y-nxt.y;
-        var tx=prev.x-s.x,ty=prev.y-s.y;
-        if(fx===tx&&fy===ty){
-          drawAt(fx!==0?'snake_body_h':'snake_body_v',vx,vy,0);
+        // Body/corner type from visual directions between neighbours
+        var vfx=vp[i].x-vp[i+1].x,vfy=vp[i].y-vp[i+1].y;
+        var vtx=vp[i-1].x-vp[i].x,vty=vp[i-1].y-vp[i].y;
+        var sfx=Math.round(vfx),sfy=Math.round(vfy),stx=Math.round(vtx),sty=Math.round(vty);
+        if(sfx===stx&&sfy===sty){
+          drawAt(sfx!==0?'snake_body_h':'snake_body_v',vx,vy,0);
         } else {
-          drawAt(cornerKey(fx,fy,tx,ty),vx,vy,0);
+          drawAt(cornerKey(sfx,sfy,stx,sty),vx,vy,0);
         }
       }
     }
