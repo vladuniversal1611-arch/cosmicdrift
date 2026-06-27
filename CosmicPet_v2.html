@@ -3243,7 +3243,12 @@ function gStack(cv){
   function bCol(n){
     var h=Math.max(0,210-n*14);
     var s=68,l=62;
-    return {top:'hsl('+h+','+s+'%,'+l+'%)',front:'hsl('+h+','+s+'%,'+Math.round(l*.68)+'%)',shine:'hsl('+h+','+s+'%,'+Math.round(l*1.18)+'%)'};
+    return {
+      top:  'hsl('+h+','+s+'%,'+l+'%)',
+      front:'hsl('+h+','+s+'%,'+Math.round(l*.68)+'%)',
+      dark: 'hsl('+h+','+s+'%,'+Math.round(l*.46)+'%)',
+      shine:'hsl('+h+','+s+'%,'+Math.round(l*1.22)+'%)'
+    };
   }
 
   const STEP=BH+GAP;
@@ -3333,23 +3338,34 @@ function gStack(cv){
     var c=bCol(n);
     var topH=Math.ceil(BH*.44),botH=BH-topH,r=4;
     // drop shadow
-    ctx.fillStyle='rgba(0,0,0,.14)';
-    ctx.beginPath(); ctx.roundRect(x+2,y+topH+3,w,botH+1,[0,0,r+1,r+1]); ctx.fill();
-    // front face
-    ctx.fillStyle=c.front;
+    ctx.fillStyle='rgba(0,0,0,.13)';
+    ctx.beginPath(); ctx.roundRect(x+3,y+topH+4,w,botH+2,[0,0,r+1,r+1]); ctx.fill();
+    // front face — smooth top-to-bottom gradient
+    var fg=ctx.createLinearGradient(x,y+topH,x,y+BH);
+    fg.addColorStop(0,c.top);
+    fg.addColorStop(.55,c.front);
+    fg.addColorStop(1,c.dark);
+    ctx.fillStyle=fg;
     ctx.beginPath(); ctx.roundRect(x,y+topH,w,botH,[0,0,r,r]); ctx.fill();
-    // top face gradient (left-to-right so it looks lit from upper-left)
+    // left-edge darkening strip (gives faux side-face depth)
+    var lg=ctx.createLinearGradient(x,0,x+w*.18,0);
+    lg.addColorStop(0,'rgba(0,0,0,.18)'); lg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lg;
+    ctx.beginPath(); ctx.roundRect(x,y+topH,w,botH,[0,0,r,r]); ctx.fill();
+    // top face — diagonal gradient lit from upper-left
     var tg=ctx.createLinearGradient(x,y,x+w,y+topH);
     tg.addColorStop(0,c.shine);
-    tg.addColorStop(.45,c.top);
+    tg.addColorStop(.38,c.top);
     tg.addColorStop(1,c.front);
     ctx.fillStyle=tg;
     ctx.beginPath(); ctx.roundRect(x,y,w,topH+1,[r,r,0,0]); ctx.fill();
-    // shine highlight (small oval top-left)
-    ctx.fillStyle='rgba(255,255,255,.3)';
-    ctx.beginPath(); ctx.ellipse(x+w*.22,y+topH*.3,w*.14,topH*.28,0,0,Math.PI*2); ctx.fill();
-    // subtle seam line
-    ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1;
+    // soft shine highlight (oval, upper-left)
+    var sg=ctx.createRadialGradient(x+w*.22,y+topH*.28,0,x+w*.22,y+topH*.28,w*.22);
+    sg.addColorStop(0,'rgba(255,255,255,.42)'); sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=sg;
+    ctx.beginPath(); ctx.roundRect(x,y,w,topH+1,[r,r,0,0]); ctx.fill();
+    // seam line
+    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x,y+topH); ctx.lineTo(x+w,y+topH); ctx.stroke();
   }
 
