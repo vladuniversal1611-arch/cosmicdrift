@@ -3369,9 +3369,8 @@ function gStack(cv){
     ctx.beginPath(); ctx.moveTo(x,y+topH); ctx.lineTo(x+w,y+topH); ctx.stroke();
   }
 
-  // stable cloud data
-  var CLD=[{x:W*.1,y:H*.08,r:W*.1},{x:W*.28,y:H*.055,r:W*.08},
-           {x:W*.62,y:H*.07,r:W*.09},{x:W*.85,y:H*.1,r:W*.11},{x:W*.48,y:H*.04,r:W*.065}];
+  // stable cloud data [cx, cy, scale]
+  var CLD=[{x:W*.13,y:H*.065,s:1},{x:W*.55,y:H*.05,s:.82},{x:W*.86,y:H*.08,s:1.05}];
   // stable city data
   var BLDS=[[0,.14,.08],[.08,.22,.05],[.13,.11,.07],[.20,.19,.06],[.26,.09,.07],
             [.33,.17,.05],[.38,.26,.07],[.45,.10,.06],[.51,.21,.08],[.59,.14,.06],
@@ -3385,15 +3384,18 @@ function gStack(cv){
     sky.addColorStop(1,'#FBE8C0');
     ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
 
-    // clouds
-    ctx.fillStyle='rgba(255,255,255,.86)';
-    CLD.forEach(function(cl){
+    // clouds — each drawn separately so they never overlap each other
+    function drawCloud(cx,cy,s){
       ctx.beginPath();
-      ctx.arc(cl.x,        cl.y,          cl.r,     0,Math.PI*2);
-      ctx.arc(cl.x+cl.r*.9,cl.y-cl.r*.18, cl.r*.72, 0,Math.PI*2);
-      ctx.arc(cl.x-cl.r*.8,cl.y-cl.r*.1,  cl.r*.62, 0,Math.PI*2);
+      ctx.arc(cx,       cy,       s*28, 0,Math.PI*2); // main body
+      ctx.arc(cx+s*26,  cy+s*7,   s*20, 0,Math.PI*2); // right puff
+      ctx.arc(cx-s*24,  cy+s*9,   s*18, 0,Math.PI*2); // left puff
+      ctx.arc(cx+s*8,   cy-s*18,  s*17, 0,Math.PI*2); // top-right peak
+      ctx.arc(cx-s*9,   cy-s*14,  s*15, 0,Math.PI*2); // top-left peak
       ctx.fill();
-    });
+    }
+    ctx.fillStyle='rgba(255,255,255,.88)';
+    CLD.forEach(function(cl){ drawCloud(cl.x,cl.y,cl.s); });
 
     // city silhouette
     ctx.fillStyle='rgba(140,175,215,.3)';
