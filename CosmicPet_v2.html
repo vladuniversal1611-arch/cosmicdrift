@@ -3243,19 +3243,20 @@ function gStack(cv){
   const NC=CTOP.length;
   const gTapLbl={uk:'Тапни щоб поставити',en:'Tap to place',pl:'Stuknij, aby postawić',es:'Toca para colocar'};
 
-  // Fixed play zone: moving platform ALWAYS spawns here
-  const PLAY_Y=Math.round(H*0.38);
-  const STEP=BH+GAP; // pixels tower shifts down per placement
+  const STEP=BH+GAP;            // pixels per layer
+  const LOCK_Y=Math.round(H*0.4); // once playY reaches here, lock and shift tower
 
-  let stack=[{x:(W-BASE_W)/2,w:BASE_W,y:PLAY_Y+STEP,ci:0}];
-  let moving={x:(W-BASE_W)/2,w:BASE_W,dir:1,spd:SPEED_BASE,y:PLAY_Y,ci:1};
+  // playY starts near the bottom and rises with each block until LOCK_Y
+  let playY=H-BH*2-GAP;
+  let stack=[{x:(W-BASE_W)/2,w:BASE_W,y:H-BH,ci:0}];
+  let moving={x:(W-BASE_W)/2,w:BASE_W,dir:1,spd:SPEED_BASE,y:playY,ci:1};
   let score=0,coins=0,alive=true,fr=0,combo=0;
   let particles=[],texts=[],falling=[],flashA=0,shX=0,shY=0;
 
   function spawnMoving(ow,ci){
     var spd=Math.min(7,SPEED_BASE+score*.13);
     var fromL=Math.random()>.5;
-    moving={x:fromL?-ow:W, w:ow, dir:fromL?1:-1, spd:spd, y:PLAY_Y, ci:ci};
+    moving={x:fromL?-ow:W, w:ow, dir:fromL?1:-1, spd:spd, y:playY, ci:ci};
   }
 
   function burst(x,y,col,n){
@@ -3303,9 +3304,16 @@ function gStack(cv){
       burst(placedX+placedW/2,PLAY_Y,CTOP[moving.ci],10);
     }
 
-    // shift entire tower DOWN by one step so new block takes PLAY_Y next round
-    stack.forEach(function(s){s.y+=STEP;});
-    // cull blocks that fell below the screen
+    // advance playY one step upward
+    playY-=STEP;
+    if(playY<=LOCK_Y){
+      // tower tall enough — lock playY and shift everything down instead
+      var sh=LOCK_Y-playY;
+      stack.forEach(function(s){s.y+=sh;});
+      falling.forEach(function(f){f.y+=sh;});
+      playY=LOCK_Y;
+    }
+    // cull blocks scrolled below screen
     stack=stack.filter(function(s){return s.y<H+BH;});
 
     score++; coins+=perfect?3:1; updateHUD(score,coins);
@@ -3381,7 +3389,7 @@ function gStack(cv){
       // guide: show top block outline at PLAY_Y
       var top=stack[stack.length-1];
       ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
-      ctx.beginPath(); ctx.roundRect(top.x,PLAY_Y,top.w,BH,3); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(top.x,playY,top.w,BH,3); ctx.stroke();
       ctx.setLineDash([]);
 
       ctx.shadowColor=CTOP[moving.ci]; ctx.shadowBlur=20;
