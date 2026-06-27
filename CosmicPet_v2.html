@@ -3234,23 +3234,28 @@ function gSnake(cv){
 // ──────────── STACK ────────────
 function gStack(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
-  const BH=30,BASE_W=W*.65,SPEED_BASE=2.5;
-  // top face colours, front face colours, side-edge colours
+  const BH=30, GAP=4, SPEED_BASE=2.5;
+  const BASE_W=Math.min(W*.65,220);
+  // top / front / side colours (8 palette entries)
   const CTOP =['#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#f87171','#fb923c','#fbbf24'];
   const CFRNT=['#15803d','#0e7490','#1d4ed8','#6d28d9','#be185d','#b91c1c','#c2410c','#b45309'];
   const CSIDE=['#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#ef4444','#f97316','#f59e0b'];
+  const NC=CTOP.length;
   const gTapLbl={uk:'Тапни щоб поставити',en:'Tap to place',pl:'Stuknij, aby postawić',es:'Toca para colocar'};
 
-  let stack=[{x:(W-BASE_W)/2,w:BASE_W,y:H-BH,ci:0}];
-  let moving={x:(W-BASE_W)/2,w:BASE_W,dir:1,spd:SPEED_BASE,y:H-BH*2-6,ci:1};
+  // Fixed play zone: moving platform ALWAYS spawns here
+  const PLAY_Y=Math.round(H*0.38);
+  const STEP=BH+GAP; // pixels tower shifts down per placement
+
+  let stack=[{x:(W-BASE_W)/2,w:BASE_W,y:PLAY_Y+STEP,ci:0}];
+  let moving={x:(W-BASE_W)/2,w:BASE_W,dir:1,spd:SPEED_BASE,y:PLAY_Y,ci:1};
   let score=0,coins=0,alive=true,fr=0,combo=0;
   let particles=[],texts=[],falling=[],flashA=0,shX=0,shY=0;
 
-  function spawnNext(ow,newY,ci){
-    const spd=Math.min(7,SPEED_BASE+score*.13);
-    const fromL=Math.random()>.5;
-    // dir is locked to the spawn side — no immediate boundary flip
-    moving={x:fromL?-ow:W,w:ow,dir:fromL?1:-1,spd:spd,y:newY,ci:ci};
+  function spawnMoving(ow,ci){
+    var spd=Math.min(7,SPEED_BASE+score*.13);
+    var fromL=Math.random()>.5;
+    moving={x:fromL?-ow:W, w:ow, dir:fromL?1:-1, spd:spd, y:PLAY_Y, ci:ci};
   }
 
   function burst(x,y,col,n){
@@ -3274,71 +3279,71 @@ function gStack(cv){
   function tap(){
     if(!alive){endGame(score,coins);return;}
     var top=stack[stack.length-1];
-    var lx=Math.max(moving.x,top.x),rx=Math.min(moving.x+moving.w,top.x+top.w);
+    var lx=Math.max(moving.x,top.x), rx=Math.min(moving.x+moving.w,top.x+top.w);
     var ow=rx-lx;
     if(ow<=2){alive=false;combo=0;shake(10);endGame(score,coins);return;}
 
     var perfect=Math.abs(moving.x-top.x)<8;
+    var placedW=perfect?top.w:ow;
+    var placedX=perfect?top.x:lx;
+
     if(perfect){
       combo++;
-      stack.push({x:top.x,w:top.w,y:moving.y,ci:moving.ci});
+      stack.push({x:placedX,w:placedW,y:PLAY_Y,ci:moving.ci});
       flashA=0.35; shake(5);
-      burst(top.x+top.w/2,moving.y,CTOP[moving.ci],22);
-      addText('PERFECT!',top.x+top.w/2,moving.y-10,'#FFD700',22);
-      if(combo>1) addText('COMBO ×'+combo,top.x+top.w/2,moving.y-38,'#f97316',17);
+      burst(placedX+placedW/2,PLAY_Y,CTOP[moving.ci],22);
+      addText('PERFECT!',placedX+placedW/2,PLAY_Y-8,'#FFD700',22);
+      if(combo>1) addText('COMBO ×'+combo,placedX+placedW/2,PLAY_Y-36,'#f97316',17);
     } else {
       combo=0;
       var trimW=moving.w-ow, trimX=moving.x<top.x?moving.x:top.x+top.w;
-      if(trimW>1) falling.push({x:trimX,y:moving.y,w:trimW,h:BH,ci:moving.ci,
+      if(trimW>1) falling.push({x:trimX,y:PLAY_Y,w:trimW,h:BH,ci:moving.ci,
         vx:moving.x<top.x?-2:2,vy:0,angle:0,va:(Math.random()-.5)*.1,alpha:1});
-      stack.push({x:lx,w:ow,y:moving.y,ci:moving.ci});
-      burst(lx+ow/2,moving.y,CTOP[moving.ci],10);
+      stack.push({x:placedX,w:placedW,y:PLAY_Y,ci:moving.ci});
+      burst(placedX+placedW/2,PLAY_Y,CTOP[moving.ci],10);
     }
 
+    // shift entire tower DOWN by one step so new block takes PLAY_Y next round
+    stack.forEach(function(s){s.y+=STEP;});
+    // cull blocks that fell below the screen
+    stack=stack.filter(function(s){return s.y<H+BH;});
+
     score++; coins+=perfect?3:1; updateHUD(score,coins);
-    var newY=moving.y-BH-4, nci=(moving.ci+1)%COLORS.length;
-    if(newY<H*.35){
-      var sh=H*.35-newY;
-      stack.forEach(function(s){s.y+=sh;});
-      falling.forEach(function(f){f.y+=sh;});
-      newY+=sh;
-    }
-    spawnNext(perfect?top.w:ow,newY,nci);
+    spawnMoving(placedW,(moving.ci+1)%NC);
   }
 
   cv.ontouchstart=function(e){e.preventDefault();tap();};
   cv.onmousedown=tap;
 
   function drawBlock(x,y,w,ci){
-    var topH=Math.ceil(BH*.4),botH=BH-topH;
+    var topH=Math.ceil(BH*.4),botH=BH-topH,r=5;
     var ct=CTOP[ci],cf=CFRNT[ci],cs=CSIDE[ci];
-    var r=5;
-    // drop shadow
-    ctx.fillStyle='rgba(0,0,0,.3)';
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,.28)';
     ctx.beginPath(); ctx.roundRect(x+3,y+topH+3,w,botH,3); ctx.fill();
-    // front face (dark)
+    // front face
     ctx.fillStyle=cf;
     ctx.beginPath(); ctx.roundRect(x,y+topH,w,botH,[0,0,r,r]); ctx.fill();
-    // side accent stripe on left edge
+    // side accent
     ctx.fillStyle=cs;
     ctx.beginPath(); ctx.roundRect(x,y+topH,6,botH,[0,0,0,r]); ctx.fill();
-    // top face gradient
+    // top face
     var tg=ctx.createLinearGradient(x,y,x,y+topH);
-    tg.addColorStop(0,'rgba(255,255,255,.18)');
+    tg.addColorStop(0,'rgba(255,255,255,.2)');
     tg.addColorStop(0.3,ct);
     tg.addColorStop(1,cs);
     ctx.fillStyle=tg;
     ctx.shadowColor=ct; ctx.shadowBlur=8;
     ctx.beginPath(); ctx.roundRect(x,y,w,topH,[r,r,0,0]); ctx.fill();
     ctx.shadowBlur=0;
-    // inner shine strip
-    ctx.fillStyle='rgba(255,255,255,.32)';
-    ctx.beginPath(); ctx.roundRect(x+6,y+2,w-12,Math.max(3,topH*.4),2); ctx.fill();
-    // top highlight line
+    // shine
+    ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.beginPath(); ctx.roundRect(x+6,y+2,w-12,Math.max(3,topH*.38),2); ctx.fill();
+    // top edge
     ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.2;
     ctx.beginPath(); ctx.moveTo(x+r,y+.6); ctx.lineTo(x+w-r,y+.6); ctx.stroke();
-    // seam between top and front
-    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1;
+    // seam
+    ctx.strokeStyle='rgba(0,0,0,.22)'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x,y+topH); ctx.lineTo(x+w,y+topH); ctx.stroke();
   }
 
@@ -3353,7 +3358,7 @@ function gStack(cv){
     }
     ctx.globalAlpha=1;
 
-    // update & draw falling pieces
+    // falling pieces
     for(var k=falling.length-1;k>=0;k--){
       var f=falling[k];
       f.vy+=.4; f.y+=f.vy; f.x+=f.vx; f.angle+=f.va; f.alpha-=.008;
@@ -3364,22 +3369,21 @@ function gStack(cv){
       ctx.restore();
     }
 
-    // stacked blocks
-    stack.forEach(function(s,i){ drawBlock(s.x,s.y,s.w,s.ci); });
+    // stacked tower
+    stack.forEach(function(s){ drawBlock(s.x,s.y,s.w,s.ci); });
 
     if(alive){
-      // move platform — directional bounce so spawn-off-screen never flips immediately
+      // directional bounce — never flips on the spawn side
       moving.x+=moving.spd*moving.dir;
       if(moving.dir>0 && moving.x+moving.w>W+8) moving.dir=-1;
       else if(moving.dir<0 && moving.x<-8)       moving.dir= 1;
 
-      // guide dashes
+      // guide: show top block outline at PLAY_Y
       var top=stack[stack.length-1];
       ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
-      ctx.beginPath(); ctx.roundRect(top.x,moving.y,top.w,BH,3); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(top.x,PLAY_Y,top.w,BH,3); ctx.stroke();
       ctx.setLineDash([]);
 
-      // moving block glow
       ctx.shadowColor=CTOP[moving.ci]; ctx.shadowBlur=20;
       drawBlock(moving.x,moving.y,moving.w,moving.ci);
       ctx.shadowBlur=0;
@@ -3416,15 +3420,9 @@ function gStack(cv){
 
     ctx.restore();
 
-    // HUD
     hudPill(ctx,W/2-26,18,String(score),'rgba(168,85,247,.5)');
-    if(!alive){
-      ctx.fillStyle='rgba(255,255,255,.35)'; ctx.font='13px Nunito,sans-serif'; ctx.textAlign='center';
-      ctx.fillText((gTapLbl[CUR_LANG]||gTapLbl.uk),W/2,H-16);
-    } else {
-      ctx.fillStyle='rgba(255,255,255,.35)'; ctx.font='12px Nunito,sans-serif'; ctx.textAlign='center';
-      ctx.fillText(gTapLbl[CUR_LANG]||gTapLbl.uk,W/2,H-16);
-    }
+    ctx.fillStyle='rgba(255,255,255,.35)'; ctx.font='12px Nunito,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(gTapLbl[CUR_LANG]||gTapLbl.uk,W/2,H-16);
   }
   loop();
 }
