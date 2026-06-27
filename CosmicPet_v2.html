@@ -3521,13 +3521,12 @@ function gColor(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
 
   const PALETTE=[
-    {n:{uk:'Зелений',  en:'Green', pl:'Zielony',      es:'Verde'},    hex:'#00ff44',glow:'#00cc33'},
-    {n:{uk:'Жовтий',   en:'Yellow',pl:'Żółty',         es:'Amarillo'}, hex:'#ffee00',glow:'#ccbb00'},
-    {n:{uk:'Синій',    en:'Blue',  pl:'Niebieski',     es:'Azul'},     hex:'#00aaff',glow:'#0077cc'},
-    {n:{uk:'Червоний', en:'Red',   pl:'Czerwony',      es:'Rojo'},     hex:'#ff3300',glow:'#cc2200'},
-    {n:{uk:'Рожевий',  en:'Pink',  pl:'Różowy',        es:'Rosa'},     hex:'#ff44cc',glow:'#cc33aa'},
-    {n:{uk:'Блакитний',en:'Cyan',  pl:'Błękitny',      es:'Cian'},     hex:'#00eeff',glow:'#00bbcc'},
-    {n:{uk:'Оранжевий',en:'Orange',pl:'Pomarańczowy',  es:'Naranja'},  hex:'#ff8800',glow:'#cc6600'},
+    {n:{uk:'Малиновий', en:'Crimson', pl:'Karmazynowy',  es:'Carmesí'},  hex:'#ff2d78'},
+    {n:{uk:'Блакитний', en:'Cyan',    pl:'Błękitny',     es:'Cian'},     hex:'#00f5ff'},
+    {n:{uk:'Жовтий',    en:'Yellow',  pl:'Żółty',        es:'Amarillo'}, hex:'#ffe600'},
+    {n:{uk:'Зелений',   en:'Green',   pl:'Zielony',      es:'Verde'},    hex:'#39ff14'},
+    {n:{uk:'Оранжевий', en:'Orange',  pl:'Pomarańczowy', es:'Naranja'},  hex:'#ff6a00'},
+    {n:{uk:'Фіолетовий',en:'Violet',  pl:'Fioletowy',    es:'Violeta'},  hex:'#bf5fff'},
   ];
 
   // layout
@@ -3535,7 +3534,6 @@ function gColor(cv){
   const BTN_W=Math.floor((W-PAD*2-GAP)/2);
   const BTN_H=Math.round(BTN_W*1.06);
   const GRID_Y=Math.round(H*.30);
-  const CIRCLE_R=Math.round(BTN_W*.26);
 
   let score=0,coins=0,lives=3,alive=true,combo=0;
   let timer=0,timeLeft=4,wrongFlash=0;
@@ -3584,52 +3582,53 @@ function gColor(cv){
   cv.onmousedown=function(e){tap(e.offsetX,e.offsetY);};
 
   function drawBtn(i){
-    var b=btnRect(i),col=opts[i],r=18;
+    var b=btnRect(i),col=opts[i],r=12;
     var cx=b.x+b.w/2,cy=b.y+b.h/2;
-    var RING=Math.round(CIRCLE_R*1.75);
+    var INNER_R=Math.min(b.w,b.h)/2-10;
+    var DOT_R=Math.min(b.w,b.h)*0.23;
 
-    // ── dark card ────────────────────────────────────────────
-    ctx.fillStyle='#060d1b';
+    // tile base: dark semi-transparent card
+    ctx.fillStyle='rgba(0,0,0,.5)';
     ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.fill();
 
-    // card border: 3-pass neon glow (wide→mid→thin)
-    ctx.lineJoin='round';
-    ctx.strokeStyle=col.hex+'28'; ctx.lineWidth=8;
-    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.stroke();
-    ctx.strokeStyle=col.hex+'60'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.stroke();
-    ctx.strokeStyle=col.hex; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.stroke();
-
-    // soft colour bloom inside card (clipped)
+    // tile bg: radial gradient (hex18 center → dark 70%)
     ctx.save();
     ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.clip();
-    var bloom=ctx.createRadialGradient(cx,cy,0,cx,cy,RING*1.2);
-    bloom.addColorStop(0,col.hex+'1a'); bloom.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=bloom; ctx.fillRect(b.x,b.y,b.w,b.h);
+    var bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.min(b.w,b.h)*.7);
+    bg.addColorStop(0,col.hex+'18'); bg.addColorStop(.7,'rgba(0,0,0,.7)');
+    ctx.fillStyle=bg; ctx.fillRect(b.x,b.y,b.w,b.h);
     ctx.restore();
 
-    // ── neon ring (3 passes for tube-light look) ─────────────
-    // pass 1 – wide soft halo
-    ctx.strokeStyle=col.hex+'20'; ctx.lineWidth=18;
-    ctx.beginPath(); ctx.arc(cx,cy,RING,0,Math.PI*2); ctx.stroke();
-    // pass 2 – mid glow
-    ctx.strokeStyle=col.hex+'55'; ctx.lineWidth=7;
-    ctx.beginPath(); ctx.arc(cx,cy,RING,0,Math.PI*2); ctx.stroke();
-    // pass 3 – bright core line
-    ctx.strokeStyle=col.hex+'ee'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(cx,cy,RING,0,Math.PI*2); ctx.stroke();
-    // pass 4 – white hot centre
-    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(cx,cy,RING,0,Math.PI*2); ctx.stroke();
+    // ::before — border 2px + box-shadow 12px, opacity .7
+    ctx.save(); ctx.globalAlpha=0.7;
+    ctx.shadowColor=col.hex; ctx.shadowBlur=12;
+    ctx.strokeStyle=col.hex; ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,r); ctx.stroke();
+    ctx.restore();
 
-    // ── 2D flat circle — centre bright, edge same colour ─────
-    var ball=ctx.createRadialGradient(cx,cy,0,cx,cy,CIRCLE_R);
-    ball.addColorStop(0,col.light);
-    ball.addColorStop(.6,col.hex);
-    ball.addColorStop(1,col.hex);
-    ctx.fillStyle=ball;
-    ctx.beginPath(); ctx.arc(cx,cy,CIRCLE_R,0,Math.PI*2); ctx.fill();
+    // ::after — inner ring inset 10px, 2px border, opacity .35
+    ctx.save(); ctx.globalAlpha=0.35;
+    ctx.strokeStyle=col.hex; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cx,cy,INNER_R,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    // dot: outer wide glow (0 0 48px hex88)
+    ctx.save(); ctx.globalAlpha=0.53;
+    ctx.shadowColor=col.hex; ctx.shadowBlur=48;
+    ctx.fillStyle=col.hex;
+    ctx.beginPath(); ctx.arc(cx,cy,DOT_R,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // dot: tight glow (0 0 24px hex)
+    ctx.shadowColor=col.hex; ctx.shadowBlur=24;
+    ctx.fillStyle=col.hex;
+    ctx.beginPath(); ctx.arc(cx,cy,DOT_R,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+    // dot: inset white rim (0 0 8px #fff inset)
+    var ig=ctx.createRadialGradient(cx,cy,DOT_R*.6,cx,cy,DOT_R);
+    ig.addColorStop(0,'rgba(255,255,255,0)');
+    ig.addColorStop(1,'rgba(255,255,255,.35)');
+    ctx.fillStyle=ig;
+    ctx.beginPath(); ctx.arc(cx,cy,DOT_R,0,Math.PI*2); ctx.fill();
   }
 
   function loop(){
