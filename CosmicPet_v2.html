@@ -3234,20 +3234,23 @@ function gSnake(cv){
 // ──────────── STACK ────────────
 function gStack(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
-  const BH=20,BASE_W=W*.65,SPEED_BASE=2.5;
-  const COLORS=['#7c3aed','#a855f7','#ec4899','#f97316','#22d3ee','#4ade80','#fbbf24','#f43f5e'];
-  const DARK  =['#4c1d95','#6b21a8','#9d174d','#9a3412','#164e63','#14532d','#92400e','#9f1239'];
+  const BH=30,BASE_W=W*.65,SPEED_BASE=2.5;
+  // top face colours, front face colours, side-edge colours
+  const CTOP =['#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#f87171','#fb923c','#fbbf24'];
+  const CFRNT=['#15803d','#0e7490','#1d4ed8','#6d28d9','#be185d','#b91c1c','#c2410c','#b45309'];
+  const CSIDE=['#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#ef4444','#f97316','#f59e0b'];
   const gTapLbl={uk:'Тапни щоб поставити',en:'Tap to place',pl:'Stuknij, aby postawić',es:'Toca para colocar'};
 
   let stack=[{x:(W-BASE_W)/2,w:BASE_W,y:H-BH,ci:0}];
-  let moving={x:0,w:BASE_W,dir:1,spd:SPEED_BASE,y:H-BH*2-4,ci:1};
+  let moving={x:(W-BASE_W)/2,w:BASE_W,dir:1,spd:SPEED_BASE,y:H-BH*2-6,ci:1};
   let score=0,coins=0,alive=true,fr=0,combo=0;
   let particles=[],texts=[],falling=[],flashA=0,shX=0,shY=0;
 
   function spawnNext(ow,newY,ci){
     const spd=Math.min(7,SPEED_BASE+score*.13);
     const fromL=Math.random()>.5;
-    moving={x:fromL?-ow-5:W+5,w:ow,dir:fromL?1:-1,spd:spd,y:newY,ci:ci};
+    // dir is locked to the spawn side — no immediate boundary flip
+    moving={x:fromL?-ow:W,w:ow,dir:fromL?1:-1,spd:spd,y:newY,ci:ci};
   }
 
   function burst(x,y,col,n){
@@ -3280,7 +3283,7 @@ function gStack(cv){
       combo++;
       stack.push({x:top.x,w:top.w,y:moving.y,ci:moving.ci});
       flashA=0.35; shake(5);
-      burst(top.x+top.w/2,moving.y,COLORS[moving.ci],22);
+      burst(top.x+top.w/2,moving.y,CTOP[moving.ci],22);
       addText('PERFECT!',top.x+top.w/2,moving.y-10,'#FFD700',22);
       if(combo>1) addText('COMBO ×'+combo,top.x+top.w/2,moving.y-38,'#f97316',17);
     } else {
@@ -3289,7 +3292,7 @@ function gStack(cv){
       if(trimW>1) falling.push({x:trimX,y:moving.y,w:trimW,h:BH,ci:moving.ci,
         vx:moving.x<top.x?-2:2,vy:0,angle:0,va:(Math.random()-.5)*.1,alpha:1});
       stack.push({x:lx,w:ow,y:moving.y,ci:moving.ci});
-      burst(lx+ow/2,moving.y,COLORS[moving.ci],10);
+      burst(lx+ow/2,moving.y,CTOP[moving.ci],10);
     }
 
     score++; coins+=perfect?3:1; updateHUD(score,coins);
@@ -3307,26 +3310,36 @@ function gStack(cv){
   cv.onmousedown=tap;
 
   function drawBlock(x,y,w,ci){
-    var topH=Math.ceil(BH*.45),botH=BH-topH,col=COLORS[ci],dk=DARK[ci];
-    // shadow
-    ctx.fillStyle='rgba(0,0,0,.25)';
-    ctx.beginPath(); ctx.roundRect(x+2,y+topH+2,w,botH,3); ctx.fill();
-    // front
-    ctx.fillStyle=dk;
-    ctx.beginPath(); ctx.roundRect(x,y+topH-1,w,botH+1,[0,0,4,4]); ctx.fill();
-    // top gradient
+    var topH=Math.ceil(BH*.4),botH=BH-topH;
+    var ct=CTOP[ci],cf=CFRNT[ci],cs=CSIDE[ci];
+    var r=5;
+    // drop shadow
+    ctx.fillStyle='rgba(0,0,0,.3)';
+    ctx.beginPath(); ctx.roundRect(x+3,y+topH+3,w,botH,3); ctx.fill();
+    // front face (dark)
+    ctx.fillStyle=cf;
+    ctx.beginPath(); ctx.roundRect(x,y+topH,w,botH,[0,0,r,r]); ctx.fill();
+    // side accent stripe on left edge
+    ctx.fillStyle=cs;
+    ctx.beginPath(); ctx.roundRect(x,y+topH,6,botH,[0,0,0,r]); ctx.fill();
+    // top face gradient
     var tg=ctx.createLinearGradient(x,y,x,y+topH);
-    tg.addColorStop(0,col+'ff'); tg.addColorStop(1,col+'cc');
+    tg.addColorStop(0,'rgba(255,255,255,.18)');
+    tg.addColorStop(0.3,ct);
+    tg.addColorStop(1,cs);
     ctx.fillStyle=tg;
-    ctx.shadowColor=col; ctx.shadowBlur=10;
-    ctx.beginPath(); ctx.roundRect(x,y,w,topH+1,[4,4,0,0]); ctx.fill();
+    ctx.shadowColor=ct; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.roundRect(x,y,w,topH,[r,r,0,0]); ctx.fill();
     ctx.shadowBlur=0;
-    // shine
-    ctx.fillStyle='rgba(255,255,255,.28)';
-    ctx.beginPath(); ctx.roundRect(x+3,y+2,w-6,Math.max(2,topH*.4),2); ctx.fill();
-    // top edge
-    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(x+4,y+.5); ctx.lineTo(x+w-4,y+.5); ctx.stroke();
+    // inner shine strip
+    ctx.fillStyle='rgba(255,255,255,.32)';
+    ctx.beginPath(); ctx.roundRect(x+6,y+2,w-12,Math.max(3,topH*.4),2); ctx.fill();
+    // top highlight line
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x+r,y+.6); ctx.lineTo(x+w-r,y+.6); ctx.stroke();
+    // seam between top and front
+    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,y+topH); ctx.lineTo(x+w,y+topH); ctx.stroke();
   }
 
   function loop(){
@@ -3355,9 +3368,10 @@ function gStack(cv){
     stack.forEach(function(s,i){ drawBlock(s.x,s.y,s.w,s.ci); });
 
     if(alive){
-      // move platform
+      // move platform — directional bounce so spawn-off-screen never flips immediately
       moving.x+=moving.spd*moving.dir;
-      if(moving.x+moving.w>W+8||moving.x<-8) moving.dir*=-1;
+      if(moving.dir>0 && moving.x+moving.w>W+8) moving.dir=-1;
+      else if(moving.dir<0 && moving.x<-8)       moving.dir= 1;
 
       // guide dashes
       var top=stack[stack.length-1];
@@ -3366,7 +3380,7 @@ function gStack(cv){
       ctx.setLineDash([]);
 
       // moving block glow
-      ctx.shadowColor=COLORS[moving.ci]; ctx.shadowBlur=20;
+      ctx.shadowColor=CTOP[moving.ci]; ctx.shadowBlur=20;
       drawBlock(moving.x,moving.y,moving.w,moving.ci);
       ctx.shadowBlur=0;
     }
