@@ -4075,17 +4075,44 @@ function gFruit(cv){
   var slashing=false,mx=0,my=0,prevMx=0,prevMy=0;
   var swipeCombo=0,shake=0,lastTime=0;
 
-  function spawnFruit(){
-    var bomb=Math.random()<Math.min(0.22,0.05+score*0.0025);
+  function spawnOne(x,vx,vy){
+    var bomb=Math.random()<Math.min(0.15,0.03+score*0.002);
     var ico=FRUITS[Math.floor(Math.random()*FRUITS.length)];
-    items.push({
-      x:W*.12+Math.random()*(W*.76), y:H+40,
-      vx:(Math.random()-.5)*1.4,
-      vy:-(H*(0.021+Math.random()*0.010)),
-      r:27, ico:ico, bomb:bomb,
-      rot:0, rotV:(Math.random()-.5)*.12,
-      sliced:false, alpha:1
-    });
+    if(x==null) x=W*.12+Math.random()*(W*.76);
+    if(vy==null) vy=-(H*(0.013+Math.random()*0.005));
+    if(vx==null) vx=(Math.random()-.5)*.7;
+    items.push({x:x,y:H+40,vx:vx,vy:vy,r:27,ico:ico,bomb:bomb,
+      rot:0,rotV:(Math.random()-.5)*.07,sliced:false,alpha:1});
+  }
+
+  function spawnPattern(){
+    var p=score<4?0:Math.floor(Math.random()*4);
+    if(p===0){
+      // single
+      spawnOne();
+    } else if(p===1){
+      // wave: 3-4 fruits evenly spread, same arc height
+      var n=3+Math.floor(Math.random()*2);
+      var vy=-(H*(0.013+Math.random()*0.003));
+      for(var i=0;i<n;i++){
+        spawnOne(W*(.1+i*(0.8/(n-1))),(Math.random()-.5)*.4,vy*(0.95+Math.random()*.1));
+      }
+    } else if(p===2){
+      // fan: same launch point, spread vx
+      var cx=W*(.2+Math.random()*.6), n=4;
+      var baseVy=-(H*(0.013+Math.random()*0.003));
+      for(var i=0;i<n;i++){
+        spawnOne(cx+(Math.random()-.5)*12,(i-(n-1)/2)*1.1,baseVy*(0.9+Math.random()*.2));
+      }
+    } else {
+      // converge (O): each fruit's vx aims it at center, all meet at peak
+      var n=5, baseVy=-(H*0.014), G=0.13;
+      var T=Math.abs(baseVy)/G; // frames to reach peak
+      for(var i=0;i<n;i++){
+        var x=W*(.08+i*(0.84/(n-1)));
+        spawnOne(x,(W/2-x)/T,baseVy*(0.93+Math.random()*.07));
+      }
+    }
   }
 
   function spawnHalves(item){
@@ -4226,24 +4253,19 @@ function gFruit(cv){
     if(alive){
       // Spawn (time-based)
       spawnT+=dt;
-      var si=Math.max(22,65-Math.floor(score/5));
-      if(spawnT>=si){
-        spawnT=0; spawnFruit();
-        if(score>10&&Math.random()<.35) spawnFruit();
-        if(score>25&&Math.random()<.25) spawnFruit();
-        if(score>50&&Math.random()<.15) spawnFruit();
-      }
+      var si=Math.max(55,100-Math.floor(score/3));
+      if(spawnT>=si){ spawnT=0; spawnPattern(); }
 
       // Physics — all multiplied by dt so speed is frame-rate independent
       items.forEach(function(item){
-        item.vy+=.22*dt; item.x+=item.vx*dt; item.y+=item.vy*dt; item.rot+=item.rotV*dt;
+        item.vy+=.13*dt; item.x+=item.vx*dt; item.y+=item.vy*dt; item.rot+=item.rotV*dt;
         // bounce off side walls to stay on screen
         if(item.x<item.r&&item.vx<0) item.vx*=-0.65;
         if(item.x>W-item.r&&item.vx>0) item.vx*=-0.65;
         if(item.sliced) item.alpha-=.04*dt;
       });
-      halves.forEach(function(h){h.vy+=.22*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.rot+=h.rotV*dt;h.alpha-=.018*dt;});
-      juices.forEach(function(j){j.x+=j.vx*dt;j.y+=j.vy*dt;j.vy+=.28*dt;j.a-=.03*dt;});
+      halves.forEach(function(h){h.vy+=.13*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.rot+=h.rotV*dt;h.alpha-=.015*dt;});
+      juices.forEach(function(j){j.x+=j.vx*dt;j.y+=j.vy*dt;j.vy+=.18*dt;j.a-=.025*dt;});
       floats.forEach(function(f){f.y+=f.vy*dt;f.a-=.022*dt;});
 
       // Missed fruit
