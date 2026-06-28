@@ -4073,15 +4073,15 @@ function gFruit(cv){
   var blade=[];
   var score=0,coins=0,lives=3,fr=0,alive=true,spawnT=0;
   var slashing=false,mx=0,my=0,prevMx=0,prevMy=0;
-  var swipeCombo=0,shake=0;
+  var swipeCombo=0,shake=0,lastTime=0;
 
   function spawnFruit(){
     var bomb=Math.random()<Math.min(0.22,0.05+score*0.0025);
     var ico=FRUITS[Math.floor(Math.random()*FRUITS.length)];
     items.push({
       x:W*.12+Math.random()*(W*.76), y:H+40,
-      vx:(Math.random()-.5)*2.8,
-      vy:-(H*(0.027+Math.random()*0.016)),
+      vx:(Math.random()-.5)*1.4,
+      vy:-(H*(0.021+Math.random()*0.010)),
       r:27, ico:ico, bomb:bomb,
       rot:0, rotV:(Math.random()-.5)*.12,
       sliced:false, alpha:1
@@ -4176,24 +4176,21 @@ function gFruit(cv){
   };
   cv.onmouseup=function(){ endSwipe(); };
 
-  function drawBlade(){
-    blade.forEach(function(p){p.age+=2;});
+  function drawBlade(dt){
+    blade.forEach(function(p){p.age+=2*dt;});
     blade=blade.filter(function(p){return p.age<30;});
     if(blade.length<2) return;
+    // single-pass blade — cheaper on old hardware
+    ctx.save(); ctx.lineCap='round';
     for(var i=1;i<blade.length;i++){
       var a=Math.max(0,1-blade[i].age/30);
-      // wide glow
-      ctx.globalAlpha=a*.3; ctx.strokeStyle='#88ccff'; ctx.lineWidth=20;
-      ctx.lineCap='round'; ctx.shadowColor='#3388ff'; ctx.shadowBlur=26;
+      ctx.globalAlpha=a*.5; ctx.strokeStyle='#88ccff'; ctx.lineWidth=10;
+      ctx.shadowColor='#3388ff'; ctx.shadowBlur=14;
       ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
-      // mid
-      ctx.globalAlpha=a*.65; ctx.strokeStyle='#cceeff'; ctx.lineWidth=6; ctx.shadowBlur=10;
-      ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
-      // core white
-      ctx.globalAlpha=a; ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.shadowBlur=4;
+      ctx.globalAlpha=a; ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.shadowBlur=0;
       ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
     }
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
+    ctx.restore();
   }
 
   function drawHalf(h){
@@ -4209,40 +4206,45 @@ function gFruit(cv){
     ctx.restore();
   }
 
-  function loop(){
+  function loop(now){
     gRAF=requestAnimationFrame(loop); fr++;
+    // delta-time: physics tied to real time, not frame rate
+    var dt=lastTime?Math.min((now-lastTime)/16.667,3):1; lastTime=now;
     resetCtx(ctx,W,H);
 
     // Screen shake wrapper
     ctx.save();
     if(shake>0){
       ctx.translate((Math.random()-.5)*shake*1.5,(Math.random()-.5)*shake*.8);
-      shake=Math.max(0,shake-1.5);
+      shake=Math.max(0,shake-1.5*dt);
     }
 
     drawBgRadial(ctx,W,H,'#1a0a2e','#0d0618','#060108');
     drawStars(ctx,stars,fr);
-    drawBlade();
+    drawBlade(dt);
 
     if(alive){
-      // Spawn
-      spawnT++;
-      var si=Math.max(18,55-Math.floor(score/4));
+      // Spawn (time-based)
+      spawnT+=dt;
+      var si=Math.max(22,65-Math.floor(score/5));
       if(spawnT>=si){
         spawnT=0; spawnFruit();
-        if(score>8&&Math.random()<.38) spawnFruit();
-        if(score>20&&Math.random()<.28) spawnFruit();
-        if(score>40&&Math.random()<.18) spawnFruit();
+        if(score>10&&Math.random()<.35) spawnFruit();
+        if(score>25&&Math.random()<.25) spawnFruit();
+        if(score>50&&Math.random()<.15) spawnFruit();
       }
 
-      // Physics
+      // Physics — all multiplied by dt so speed is frame-rate independent
       items.forEach(function(item){
-        item.vy+=.22; item.x+=item.vx; item.y+=item.vy; item.rot+=item.rotV;
-        if(item.sliced) item.alpha-=.04;
+        item.vy+=.22*dt; item.x+=item.vx*dt; item.y+=item.vy*dt; item.rot+=item.rotV*dt;
+        // bounce off side walls to stay on screen
+        if(item.x<item.r&&item.vx<0) item.vx*=-0.65;
+        if(item.x>W-item.r&&item.vx>0) item.vx*=-0.65;
+        if(item.sliced) item.alpha-=.04*dt;
       });
-      halves.forEach(function(h){h.vy+=.22;h.x+=h.vx;h.y+=h.vy;h.rot+=h.rotV;h.alpha-=.018;});
-      juices.forEach(function(j){j.x+=j.vx;j.y+=j.vy;j.vy+=.28;j.a-=.03;});
-      floats.forEach(function(f){f.y+=f.vy;f.a-=.022;});
+      halves.forEach(function(h){h.vy+=.22*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.rot+=h.rotV*dt;h.alpha-=.018*dt;});
+      juices.forEach(function(j){j.x+=j.vx*dt;j.y+=j.vy*dt;j.vy+=.28*dt;j.a-=.03*dt;});
+      floats.forEach(function(f){f.y+=f.vy*dt;f.a-=.022*dt;});
 
       // Missed fruit
       items=items.filter(function(item){
@@ -4301,7 +4303,7 @@ function gFruit(cv){
     }
     ctx.globalAlpha=1; ctx.textBaseline='alphabetic';
   }
-  loop();
+  loop(performance.now());
 }
 
 // ──────────── SHOOTER ────────────
