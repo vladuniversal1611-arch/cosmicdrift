@@ -4060,76 +4060,246 @@ function gMemory(cv){
 // ──────────── FRUIT SLICE ────────────
 function gFruit(cv){
   const W=cv.width,H=cv.height,ctx=cv.getContext('2d');
-  const stars=makeStars(W,H,25);
+  const stars=makeStars(W,H,30);
+
   const FRUITS=['🍉','🍊','🍋','🍇','🍓','🍑','🥝','🍍'];
-  let items=[],blades=[],score=0,coins=0,lives=3,fr=0,alive=true,spawnT=0;
+  const JUICE={
+    '🍉':'#ff4d6d','🍊':'#ff8c00','🍋':'#ffd700',
+    '🍇':'#9b5de5','🍓':'#ff1654','🍑':'#ff9a3c',
+    '🥝':'#7cb518','🍍':'#f7b731'
+  };
+
+  var items=[],halves=[],juices=[],floats=[];
+  var blade=[];
+  var score=0,coins=0,lives=3,fr=0,alive=true,spawnT=0;
+  var slashing=false,mx=0,my=0,prevMx=0,prevMy=0;
+  var swipeCombo=0,shake=0;
+
   function spawnFruit(){
-    const vx=(Math.random()-.5)*5,vy=-(8+Math.random()*6);
-    items.push({x:80+Math.random()*(W-160),y:H+30,vx:vx,vy:vy,r:23,ico:FRUITS[Math.floor(Math.random()*FRUITS.length)],bomb:Math.random()<.12,sliced:false,alpha:1,rot:0,rotV:(Math.random()-.5)*.15});
+    var bomb=Math.random()<Math.min(0.22,0.05+score*0.0025);
+    var ico=FRUITS[Math.floor(Math.random()*FRUITS.length)];
+    items.push({
+      x:W*.12+Math.random()*(W*.76), y:H+40,
+      vx:(Math.random()-.5)*4.5,
+      vy:-(H*(0.017+Math.random()*0.013)),
+      r:27, ico:ico, bomb:bomb,
+      rot:0, rotV:(Math.random()-.5)*.12,
+      sliced:false, alpha:1
+    });
   }
-  let mx=0,my=0,prevMx=0,prevMy=0,slashing=false;
-  cv.ontouchstart=function(e){e.preventDefault();slashing=true;const r=cv.getBoundingClientRect();mx=e.touches[0].clientX-r.left;my=e.touches[0].clientY-r.top;prevMx=mx;prevMy=my;};
-  cv.ontouchmove=function(e){e.preventDefault();prevMx=mx;prevMy=my;const r=cv.getBoundingClientRect();mx=e.touches[0].clientX-r.left;my=e.touches[0].clientY-r.top;trySlice();};
-  cv.ontouchend=function(e){slashing=false;};
-  cv.onmousedown=function(e){slashing=true;mx=e.offsetX;my=e.offsetY;prevMx=mx;prevMy=my;};
-  cv.onmousemove=function(e){if(!slashing)return;prevMx=mx;prevMy=my;mx=e.offsetX;my=e.offsetY;trySlice();};
-  cv.onmouseup=function(e){slashing=false;};
+
+  function spawnHalves(item){
+    var ang=Math.atan2(my-prevMy,mx-prevMx);
+    var px=Math.sin(ang)*2.5, py=-Math.cos(ang)*2.5;
+    ['L','R'].forEach(function(side){
+      var s=side==='L'?-1:1;
+      halves.push({x:item.x,y:item.y,
+        vx:item.vx+s*px, vy:item.vy+s*py-0.8,
+        rot:item.rot, rotV:item.rotV+s*0.09,
+        r:item.r, ico:item.ico, side:side, alpha:1});
+    });
+  }
+
+  function spawnJuice(x,y,col,n){
+    for(var i=0;i<n;i++){
+      var a=Math.random()*Math.PI*2, spd=1.2+Math.random()*5;
+      juices.push({x:x,y:y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-2.5,
+                   a:1, r:2+Math.random()*5, c:col});
+    }
+  }
+
+  function addFloat(x,y,txt,col){
+    floats.push({x:x, y:y, vy:-1.5, a:1.8, txt:txt, c:col||'#fff'});
+  }
+
+  // Line-segment × circle collision (accurate blade hit)
+  function lineHitsCircle(x1,y1,x2,y2,cx,cy,cr){
+    var dx=x2-x1, dy=y2-y1, len2=dx*dx+dy*dy;
+    if(len2<1) return Math.hypot(cx-x1,cy-y1)<cr;
+    var t=Math.max(0,Math.min(1,((cx-x1)*dx+(cy-y1)*dy)/len2));
+    return Math.hypot(x1+t*dx-cx,y1+t*dy-cy)<cr;
+  }
+
   function trySlice(){
     if(!alive||!slashing) return;
-    blades.push({x1:prevMx,y1:prevMy,x2:mx,y2:my,a:1});
     items.forEach(function(item){
       if(item.sliced) return;
-      if(Math.hypot(mx-item.x,my-item.y)<item.r||Math.hypot(prevMx-item.x,prevMy-item.y)<item.r){
-        item.sliced=true;
-        if(item.bomb){ lives--; if(lives<=0){alive=false;endGame(score,coins);} showToast('💣'); }
-        else{ score++; coins+=2; updateHUD(score,coins); }
+      if(!lineHitsCircle(prevMx,prevMy,mx,my,item.x,item.y,item.r)) return;
+      item.sliced=true;
+      if(item.bomb){
+        lives--; shake=12;
+        spawnJuice(item.x,item.y,'#ff3300',16);
+        spawnJuice(item.x,item.y,'#ff8800',10);
+        addFloat(item.x,item.y-item.r,'💣','#ff4444');
+        if(lives<=0){alive=false;endGame(score,coins);}
+      } else {
+        swipeCombo++;
+        score++; coins+=2; updateHUD(score,coins);
+        spawnHalves(item);
+        spawnJuice(item.x,item.y,JUICE[item.ico]||'#ffaa00',14);
+        addFloat(item.x,item.y-item.r*1.2,'+1','rgba(255,255,255,.9)');
+        if(swipeCombo>=2){
+          coins+=1; updateHUD(score,coins);
+          addFloat(W/2,H*.38,swipeCombo+' FRUIT COMBO!','#fbbf24');
+        }
       }
     });
   }
+
+  function endSwipe(){ slashing=false; swipeCombo=0; }
+
+  cv.ontouchstart=function(e){
+    e.preventDefault();
+    var r=cv.getBoundingClientRect();
+    mx=e.touches[0].clientX-r.left; my=e.touches[0].clientY-r.top;
+    prevMx=mx; prevMy=my; slashing=true; swipeCombo=0;
+    blade=[{x:mx,y:my,age:0}];
+  };
+  cv.ontouchmove=function(e){
+    e.preventDefault();
+    prevMx=mx; prevMy=my;
+    var r=cv.getBoundingClientRect();
+    mx=e.touches[0].clientX-r.left; my=e.touches[0].clientY-r.top;
+    blade.push({x:mx,y:my,age:0}); if(blade.length>32) blade.shift();
+    trySlice();
+  };
+  cv.ontouchend=function(){ endSwipe(); };
+  cv.onmousedown=function(e){
+    mx=e.offsetX; my=e.offsetY; prevMx=mx; prevMy=my;
+    slashing=true; swipeCombo=0; blade=[{x:mx,y:my,age:0}];
+  };
+  cv.onmousemove=function(e){
+    if(!slashing) return;
+    prevMx=mx; prevMy=my; mx=e.offsetX; my=e.offsetY;
+    blade.push({x:mx,y:my,age:0}); if(blade.length>32) blade.shift();
+    trySlice();
+  };
+  cv.onmouseup=function(){ endSwipe(); };
+
+  function drawBlade(){
+    blade.forEach(function(p){p.age+=2;});
+    blade=blade.filter(function(p){return p.age<30;});
+    if(blade.length<2) return;
+    for(var i=1;i<blade.length;i++){
+      var a=Math.max(0,1-blade[i].age/30);
+      // wide glow
+      ctx.globalAlpha=a*.3; ctx.strokeStyle='#88ccff'; ctx.lineWidth=20;
+      ctx.lineCap='round'; ctx.shadowColor='#3388ff'; ctx.shadowBlur=26;
+      ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
+      // mid
+      ctx.globalAlpha=a*.65; ctx.strokeStyle='#cceeff'; ctx.lineWidth=6; ctx.shadowBlur=10;
+      ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
+      // core white
+      ctx.globalAlpha=a; ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.shadowBlur=4;
+      ctx.beginPath(); ctx.moveTo(blade[i-1].x,blade[i-1].y); ctx.lineTo(blade[i].x,blade[i].y); ctx.stroke();
+    }
+    ctx.globalAlpha=1; ctx.shadowBlur=0;
+  }
+
+  function drawHalf(h){
+    ctx.save();
+    ctx.translate(h.x,h.y); ctx.rotate(h.rot);
+    ctx.globalAlpha=h.alpha;
+    ctx.beginPath();
+    if(h.side==='L') ctx.rect(-h.r*2.2,-h.r*2,h.r*2.2,h.r*4);
+    else             ctx.rect(0,-h.r*2,h.r*2.2,h.r*4);
+    ctx.clip();
+    ctx.font=h.r*1.8+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(h.ico,0,0);
+    ctx.restore();
+  }
+
   function loop(){
     gRAF=requestAnimationFrame(loop); fr++;
-    resetCtx(ctx,W,H); drawBgRadial(ctx,W,H,'#1a2e05','#0f1e02','#060118');
+    resetCtx(ctx,W,H);
+
+    // Screen shake wrapper
+    ctx.save();
+    if(shake>0){
+      ctx.translate((Math.random()-.5)*shake*1.5,(Math.random()-.5)*shake*.8);
+      shake=Math.max(0,shake-1.5);
+    }
+
+    drawBgRadial(ctx,W,H,'#1a0a2e','#0d0618','#060108');
     drawStars(ctx,stars,fr);
-    if(!alive) return;
-    spawnT++;
-    if(spawnT>Math.max(20,50-score*2)){ spawnT=0; spawnFruit(); if(Math.random()>.7) spawnFruit(); }
-    items.forEach(function(item){
-      item.vy+=.28; item.x+=item.vx; item.y+=item.vy; item.rot+=item.rotV;
-      if(item.sliced) item.alpha-=.05;
-    });
-    items=items.filter(function(item){
-      if(item.y>H+60&&!item.sliced&&!item.bomb){ lives--; if(lives<=0){alive=false;endGame(score,coins);} return false; }
-      return item.alpha>0;
-    });
-    blades.forEach(function(b){b.a-=.07;});
-    blades=blades.filter(function(b){return b.a>0;});
-    blades.forEach(function(b){
-      ctx.globalAlpha=b.a*.85;
-      ctx.strokeStyle='#fff';
-      ctx.lineWidth=4*b.a; ctx.lineCap='round';
-      ctx.shadowColor='#fff'; ctx.shadowBlur=12*b.a;
-      ctx.beginPath(); ctx.moveTo(b.x1,b.y1); ctx.lineTo(b.x2,b.y2); ctx.stroke();
-      ctx.shadowBlur=0;
-    });
-    ctx.globalAlpha=1;
-    items.forEach(function(item){
-      ctx.globalAlpha=item.alpha;
-      ctx.save(); ctx.translate(item.x,item.y); ctx.rotate(item.rot);
-      if(!item.sliced){
-        if(item.bomb){ ctx.shadowColor='#ef4444'; ctx.shadowBlur=16; }
-        else { ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=10; }
-        ctx.font=item.r*1.6+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(item.bomb?'💣':item.ico,0,0);
-        ctx.shadowBlur=0;
-      } else {
-        ctx.font=item.r+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(item.bomb?'💥':item.ico,-8,-8); ctx.fillText(item.bomb?'💥':item.ico,8,8);
+    drawBlade();
+
+    if(alive){
+      // Spawn
+      spawnT++;
+      var si=Math.max(18,55-Math.floor(score/4));
+      if(spawnT>=si){
+        spawnT=0; spawnFruit();
+        if(score>8&&Math.random()<.38) spawnFruit();
+        if(score>20&&Math.random()<.28) spawnFruit();
+        if(score>40&&Math.random()<.18) spawnFruit();
       }
-      ctx.restore(); ctx.globalAlpha=1;
-    });
-    ctx.font='22px sans-serif'; ctx.textAlign='right';
-    for(let i=0;i<3;i++) ctx.fillText(i<lives?'❤️':'🖤',W-10-i*30,34);
-    hudPill(ctx,12,16,String(score),'rgba(74,222,128,.4)');
+
+      // Physics
+      items.forEach(function(item){
+        item.vy+=.3; item.x+=item.vx; item.y+=item.vy; item.rot+=item.rotV;
+        if(item.sliced) item.alpha-=.04;
+      });
+      halves.forEach(function(h){h.vy+=.3;h.x+=h.vx;h.y+=h.vy;h.rot+=h.rotV;h.alpha-=.02;});
+      juices.forEach(function(j){j.x+=j.vx;j.y+=j.vy;j.vy+=.28;j.a-=.03;});
+      floats.forEach(function(f){f.y+=f.vy;f.a-=.022;});
+
+      // Missed fruit
+      items=items.filter(function(item){
+        if(item.sliced) return item.alpha>0;
+        if(item.y>H+60){
+          if(!item.bomb){lives--;if(lives<=0){alive=false;endGame(score,coins);}}
+          return false;
+        }
+        return true;
+      });
+      halves=halves.filter(function(h){return h.alpha>0&&h.y<H+100;});
+      juices=juices.filter(function(j){return j.a>0;});
+      floats=floats.filter(function(f){return f.a>0;});
+
+      // Draw juice
+      juices.forEach(function(j){
+        ctx.globalAlpha=Math.min(1,j.a);
+        ctx.fillStyle=j.c; ctx.shadowColor=j.c; ctx.shadowBlur=5;
+        ctx.beginPath(); ctx.arc(j.x,j.y,j.r,0,Math.PI*2); ctx.fill();
+      });
+      ctx.globalAlpha=1; ctx.shadowBlur=0;
+
+      // Draw halves (sliced)
+      halves.forEach(drawHalf);
+
+      // Draw whole fruits
+      items.forEach(function(item){
+        if(item.sliced) return;
+        ctx.save(); ctx.translate(item.x,item.y); ctx.rotate(item.rot);
+        if(item.bomb){ctx.shadowColor='#ff4444';ctx.shadowBlur=20;}
+        else{ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=12;}
+        ctx.font=item.r*1.7+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(item.bomb?'💣':item.ico,0,0);
+        ctx.shadowBlur=0; ctx.restore();
+      });
+
+      // Floating texts
+      floats.forEach(function(f){
+        ctx.globalAlpha=Math.min(1,f.a*.85);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.shadowColor=f.c; ctx.shadowBlur=12;
+        ctx.fillStyle=f.c; ctx.font='bold 18px Nunito,sans-serif';
+        ctx.fillText(f.txt,f.x,f.y);
+      });
+      ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textBaseline='alphabetic';
+    }
+
+    ctx.restore(); // end shake
+
+    // HUD (outside shake)
+    hudPill(ctx,12,14,score+' pts','rgba(74,222,128,.45)');
+    ctx.font='22px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+    for(var i=0;i<3;i++){
+      ctx.globalAlpha=i<lives?1:.2;
+      ctx.fillText('❤️',W-10-(2-i)*28,10);
+    }
+    ctx.globalAlpha=1; ctx.textBaseline='alphabetic';
   }
   loop();
 }
