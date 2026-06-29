@@ -47,6 +47,13 @@
     this.pendingDragons = [];
     this.dragonsActivatedThisMove = {};
 
+    // Boss setup
+    this.isBoss = level.objective === D.OBJ.BOSS;
+    this.bossMax = this.isBoss ? level.target : 0;
+    this.bossHP = this.bossMax;
+    this.movesSinceBossAttack = 0;
+    this.bossHitFlash = 0;
+
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
       const def = D.dragonById(id);
@@ -152,7 +159,7 @@
     this.animateSwap(a, b, function () {
       // Two specials swapped together → powerful combo.
       if (bothSpecial) {
-        self.movesLeft--;
+        self.movesLeft--; self.movesSinceBossAttack++;
         self.cb.onMoves && self.cb.onMoves(self.movesLeft);
         self.combo = 0;
         self.dragonsActivatedThisMove = {};
@@ -162,7 +169,7 @@
       const matches = self.findMatches();
       const isSpecialMove = ta.special !== SP.NONE || tb.special !== SP.NONE;
       if (matches.length || isSpecialMove) {
-        self.movesLeft--;
+        self.movesLeft--; self.movesSinceBossAttack++;
         self.cb.onMoves && self.cb.onMoves(self.movesLeft);
         self.combo = 0;
         self.dragonsActivatedThisMove = {}; // each dragon may fire once per move
@@ -258,6 +265,7 @@
     // dragon charge flash decay
     this.dragons.forEach(function (d) { if (d.flashing > 0) d.flashing -= dt; });
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+    if (this.bossHitFlash > 0) this.bossHitFlash = Math.max(0, this.bossHitFlash - dt * 2);
 
     // shockwave rings
     this.rings = this.rings || [];
@@ -432,6 +440,13 @@
     global.Save.addStat('energyEarned', energyGain);
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
+    // Boss takes damage equal to crystals cleared (combo amplified).
+    if (this.isBoss && cleared > 0 && this.bossHP > 0) {
+      const dmg = cleared + Math.max(0, this.combo - 1) * 2;
+      this.bossHP = Math.max(0, this.bossHP - dmg);
+      this.bossHitFlash = 0.5;
+      this.addFloater(this.viewport.x + this.viewport.size / 2, this.viewport.y - 6, '-' + dmg, '#ff7a6a');
+    }
     this.emitObjective();
 
     // After death animation completes → collapse.
@@ -502,10 +517,35 @@
       this.activateDragon(d);
       return;
     }
+    if (this.checkWin()) return; // boss may have just died
+    // Boss strikes back every 5 moves.
+    if (this.isBoss && !this.finished && this.bossHP > 0 && this.movesSinceBossAttack >= 5) {
+      this.movesSinceBossAttack = 0;
+      this.bossAttack();
+      return;
+    }
     this.state = 'idle';
-    if (this.checkWin()) return;
     if (this.movesLeft <= 0) { this.fail(); return; }
     if (!this.hasPossibleMove()) this.shuffleBoard();
+  };
+
+  Engine.prototype.bossAttack = function () {
+    this.shake = 0.7;
+    this.bossHitFlash = 0;
+    global.Audio2.play('dragon');
+    const n = 2 + (this.level.island || 0);
+    let placed = 0, guard = 0;
+    while (placed < n && guard++ < 300) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      const t = this.grid[r][c];
+      if (t && !t.ice && t.special === SP.NONE) {
+        t.ice = true; placed++;
+        this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fd0ff', 12);
+      }
+    }
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.7, (this.level.bossDef && this.level.bossDef.color) || '#ff6a3d');
+    this.cb.onBossAttack && this.cb.onBossAttack(placed);
+    this.endResolve();
   };
 
   // ---- Dragons ------------------------------------------------------------
@@ -599,6 +639,11 @@
 
   // ---- Objective / win / lose ---------------------------------------------
   Engine.prototype.emitObjective = function () {
+    if (this.isBoss) {
+      this.cb.onBoss && this.cb.onBoss(this.bossHP, this.bossMax, this.level.bossDef);
+      this.cb.onObjective && this.cb.onObjective(this.bossMax - this.bossHP, this.bossMax, '❤ Бос');
+      return;
+    }
     let cur, goal, label;
     if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = 'Очки'; }
     else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].name; }
@@ -608,7 +653,8 @@
 
   Engine.prototype.checkWin = function () {
     let done = false;
-    if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
+    if (this.isBoss) done = this.bossHP <= 0;
+    else if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
     else if (this.level.objective === D.OBJ.COLLECT) done = this.collected >= this.level.target;
     else done = this.iceLeft <= 0;
     if (done && !this.finished) { this.win(); return true; }

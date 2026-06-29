@@ -36,6 +36,7 @@
       daily: { lastClaim: '', streak: 0 },
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
+      lives: { count: 5, max: 5, lastRegen: Date.now() },
       settings: { sound: true, music: true, vibration: true },
       tutorialDone: false,
       firstRun: true
@@ -52,7 +53,7 @@
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});
@@ -73,6 +74,41 @@
 
   function reset() { profile = freshProfile(); save(); return profile; }
 
+  // ---- Lives / hearts ------------------------------------------------------
+  const REGEN_MS = 20 * 60 * 1000; // 20 minutes per heart
+
+  function syncLives() {
+    const p = get();
+    const lv = p.lives || (p.lives = { count: 5, max: 5, lastRegen: Date.now() });
+    if (lv.count >= lv.max) { lv.lastRegen = Date.now(); return lv; }
+    const elapsed = Date.now() - (lv.lastRegen || Date.now());
+    const gained = Math.floor(elapsed / REGEN_MS);
+    if (gained > 0) {
+      lv.count = Math.min(lv.max, lv.count + gained);
+      lv.lastRegen = (lv.count >= lv.max) ? Date.now() : (lv.lastRegen + gained * REGEN_MS);
+      save();
+    }
+    return lv;
+  }
+  function livesInfo() {
+    const lv = syncLives();
+    let msToNext = 0;
+    if (lv.count < lv.max) msToNext = REGEN_MS - (Date.now() - lv.lastRegen);
+    return { count: lv.count, max: lv.max, msToNext: Math.max(0, msToNext) };
+  }
+  function spendLife() {
+    const lv = syncLives();
+    if (lv.count <= 0) return false;
+    if (lv.count >= lv.max) lv.lastRegen = Date.now(); // start regen clock
+    lv.count -= 1; save();
+    return true;
+  }
+  function addLives(n) {
+    const lv = syncLives();
+    lv.count = Math.min(lv.max, lv.count + n); save();
+  }
+  function refillLives() { const lv = syncLives(); lv.count = lv.max; lv.lastRegen = Date.now(); save(); }
+
   function addStat(stat, value, isMax) {
     const s = get().stats;
     if (isMax) s[stat] = Math.max(s[stat] || 0, value);
@@ -80,5 +116,5 @@
     save();
   }
 
-  global.Save = { load, save, get, reset, addStat, KEY };
+  global.Save = { load, save, get, reset, addStat, KEY, livesInfo, spendLife, addLives, refillLives, syncLives };
 })(window);

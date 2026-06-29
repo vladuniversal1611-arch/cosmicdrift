@@ -77,7 +77,16 @@
 
   // ---- Level generator -----------------------------------------------------
   // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
-  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice' };
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', BOSS: 'boss' };
+
+  // Boss roster — one guardian per island, defeated by dealing damage (matches).
+  const BOSSES = [
+    { emoji: '👹', name: 'Лорд Попелу',   color: '#ff6a3d' },
+    { emoji: '🧊', name: 'Крижаний Тітан', color: '#5fd0ff' },
+    { emoji: '🌩️', name: 'Володар Бурі',  color: '#b48bff' },
+    { emoji: '🐗', name: 'Хащний Звір',    color: '#5fe39a' },
+    { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d' }
+  ];
 
   function buildLevels() {
     const levels = [];
@@ -105,14 +114,20 @@
         target = 1200 + i * 240 + (island * 600);
       }
       const isBoss = inIsland === 24;
+      if (isBoss) {
+        objective = OBJ.BOSS;
+        target = 90 + island * 70; // boss HP
+        iceCount = 0;
+      }
       levels.push({
-        n, island, cols, rows, colors, moves: isBoss ? moves + 6 : moves,
+        n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
         objective, target, color, iceCount,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
-        reward: { gold: 50 + i * 6, energy: 14 + Math.floor(i / 3) },
+        reward: { gold: isBoss ? 300 + i * 8 : 50 + i * 6, energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
-        name: isBoss ? 'Лігво Боса' : ('Рівень ' + n)
+        bossDef: isBoss ? BOSSES[island] : null,
+        name: isBoss ? (BOSSES[island].name) : ('Рівень ' + n)
       });
     }
     return levels;
@@ -183,8 +198,13 @@
     prism:   { color: '#ffd24d', glow: '#9fd0ff' }
   };
 
+  // Fake competitor names for the local leaderboard.
+  const LB_NAMES = ['DragonKing', 'Aurora', 'BlazeFury', 'IcyQueen', 'StormRider', 'PixelMage',
+    'NovaStar', 'EmberWolf', 'FrostByte', 'ThunderX', 'JadeViper', 'CrimsonAce', 'LunaCat',
+    'ShadowFox', 'GoldenEye', 'MysticOwl', 'RubyHeart', 'ZenMaster'];
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };

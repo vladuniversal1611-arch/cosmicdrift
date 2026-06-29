@@ -74,17 +74,70 @@
     // ---- top currency bar (shared) ----------------------------------------
     currencyBar: function () {
       const p = global.Save.get();
+      const li = global.Save.livesInfo();
       const bar = el('div', 'currency-bar');
       bar.innerHTML =
+        '<div class="cur cur-life" id="ui-life-pill"><span class="cur-ic">❤️</span><span id="ui-lives">' + li.count + '</span><span class="life-timer" id="ui-life-timer"></span></div>' +
         '<div class="cur"><span class="cur-ic">🪙</span><span id="ui-gold">' + p.gold + '</span></div>' +
         '<div class="cur"><span class="cur-ic">💎</span><span id="ui-gems">' + p.gems + '</span></div>' +
         '<div class="cur"><span class="cur-ic">⚡</span><span id="ui-energy">' + p.energy + '</span></div>';
+      // tapping the heart pill opens the lives panel
+      const pill = bar.querySelector('#ui-life-pill');
+      if (pill) click(pill, function () { UI.showNoLives(); });
+      // start the regen ticker
+      UI.startLifeTicker();
       return bar;
     },
     refreshCurrencies: function () {
       const p = global.Save.get();
+      const li = global.Save.livesInfo();
       const set = function (id, v) { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy);
+      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy); set('ui-lives', li.count);
+    },
+    startLifeTicker: function () {
+      if (this._lifeTick) clearInterval(this._lifeTick);
+      const update = function () {
+        const li = global.Save.livesInfo();
+        const lc = document.getElementById('ui-lives'); if (lc) lc.textContent = li.count;
+        const tm = document.getElementById('ui-life-timer');
+        if (!tm) { clearInterval(UI._lifeTick); UI._lifeTick = null; return; }
+        if (li.count >= li.max) { tm.textContent = 'MAX'; }
+        else {
+          const s = Math.ceil(li.msToNext / 1000);
+          const m = Math.floor(s / 60), ss = s % 60;
+          tm.textContent = m + ':' + (ss < 10 ? '0' : '') + ss;
+        }
+      };
+      update();
+      this._lifeTick = setInterval(update, 1000);
+    },
+
+    showNoLives: function (onReady) {
+      const li = global.Save.livesInfo();
+      const body = el('div', 'modal-body');
+      const refreshBody = function () {
+        const l = global.Save.livesInfo();
+        let t = '';
+        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = 'Наступне ❤ через ' + m + ' хв ' + (s % 60) + ' с'; }
+        body.innerHTML = '<div class="lives-big">' + '❤️'.repeat(l.count) + '🖤'.repeat(Math.max(0, l.max - l.count)) + '</div>' +
+          '<p>' + l.count + ' / ' + l.max + ' життів</p>' +
+          '<p class="muted small">' + t + '</p>' +
+          '<p class="muted small">Поповніть, переглянувши рекламу, або за 💎.</p>';
+      };
+      refreshBody();
+      const buttons = [
+        { label: 'Закрити' },
+        { label: '📺 +1 ❤ (реклама)', onClick: function () {
+            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast('+1 ❤'); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
+        { label: '💎 Поповнити (50)', primary: true, onClick: function () {
+            const p = global.Save.get();
+            if (p.gems < 50) { UI.toast('Недостатньо кристалів 💎'); return; }
+            p.gems -= 50; global.Save.refillLives(); global.Save.save();
+            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Життя поповнено!');
+            if (onReady) onReady();
+          } }
+      ];
+      this.modal('❤️ Життя', body, buttons);
     },
 
     navBar: function (active) {
@@ -118,16 +171,22 @@
       title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
       s.appendChild(title);
 
-      // Island scene with eggs incubating
+      // Animated island scene
       const scene = el('div', 'island-scene');
-      scene.innerHTML = '<div class="island-sun"></div>';
-      // owned dragons floating
+      scene.innerHTML =
+        '<div class="island-sun"></div>' +
+        '<div class="isle-cloud c1">☁️</div><div class="isle-cloud c2">☁️</div>' +
+        '<div class="isle-fly">🐉</div>' +
+        '<div class="isle-ground"></div>' +
+        '<div class="isle-spark s1">✨</div><div class="isle-spark s2">✨</div><div class="isle-spark s3">✨</div>';
+      // owned dragons bobbing & flapping
       p.ownedDragons.forEach(function (id, i) {
         const def = D.dragonById(id);
         const d = el('div', 'isle-dragon', def.emoji);
-        d.style.left = (12 + (i % 4) * 22) + '%';
-        d.style.top = (18 + Math.floor(i / 4) * 26) + '%';
+        d.style.left = (14 + (i % 4) * 21) + '%';
+        d.style.top = (30 + Math.floor(i / 4) * 24) + '%';
         d.style.filter = 'drop-shadow(0 0 12px ' + def.glow + ')';
+        d.style.animationDelay = (i * 0.3) + 's';
         scene.appendChild(d);
       });
       s.appendChild(scene);
@@ -158,12 +217,13 @@
       const acts = el('div', 'home-actions');
       const playBtn = click(el('button', 'btn btn-primary btn-big', '▶ Грати рівень ' + p.levelProgress), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
-      const grid2 = el('div', 'home-grid');
+      const grid2 = el('div', 'home-grid grid6');
       [
         { ic: '🎁', label: 'Щоденна', go: function () { UI.showDaily(); } },
         { ic: '📜', label: 'Квести', go: function () { UI.showQuests(); } },
+        { ic: '📊', label: 'Рейтинг', go: function () { UI.showLeaderboard(); } },
         { ic: '🏆', label: 'Досягнення', go: function () { UI.showAchievements(); } },
-        { ic: '⚙️', label: 'Налаштування', go: function () { UI.showSettings(); } }
+        { ic: '⚙️', label: 'Опції', go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
         const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
         grid2.appendChild(b);
@@ -448,8 +508,13 @@
       s.appendChild(this.navBar('shop'));
     },
 
-    watchAd: function () {
-      // Simulated rewarded ad. In the packaged app this calls the AdMob plugin.
+    // Generic simulated rewarded ad; calls onReward() on completion.
+    // In the packaged app this routes to the AdMob plugin if present.
+    watchAdGeneric: function (onReward) {
+      if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
+        global.AdMobBridge.showRewarded(function () { onReward && onReward(); });
+        return;
+      }
       const body = el('div', 'modal-body');
       body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>Реклама...</small></div>';
       this.modal('Реклама за винагороду', body, [{ label: 'Зачекайте...', primary: true, keepOpen: true }]);
@@ -457,22 +522,17 @@
       const cnt = body.querySelector('#ad-count');
       const iv = setInterval(function () {
         n--; if (cnt) cnt.textContent = n;
-        if (n <= 0) {
-          clearInterval(iv);
-          const p = global.Save.get();
-          p.gold += 100; p.energy += 20; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies();
-          UI.closeModal(); UI.toast('Нагорода: +100🪙 +20⚡');
-        }
+        if (n <= 0) { clearInterval(iv); UI.closeModal(); onReward && onReward(); }
       }, 700);
-      // If a real ad plugin exists, use it instead.
-      if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
-        clearInterval(iv); UI.closeModal();
-        global.AdMobBridge.showRewarded(function () {
-          const p = global.Save.get(); p.gold += 100; p.energy += 20; global.Save.save();
-          UI.refreshCurrencies(); UI.toast('Нагорода: +100🪙 +20⚡');
-        });
-      }
+    },
+
+    watchAd: function () {
+      this.watchAdGeneric(function () {
+        const p = global.Save.get();
+        p.gold += 100; p.energy += 20; global.Save.save();
+        global.Audio2.play('coin'); UI.refreshCurrencies();
+        UI.toast('Нагорода: +100🪙 +20⚡');
+      });
     },
 
     fakePurchase: function (gems) {
@@ -647,6 +707,32 @@
         body.appendChild(card);
       });
       this.modal('🏆 Досягнення', body, [{ label: 'Закрити', primary: true }]);
+    },
+
+    // ---- LEADERBOARD (local, with simulated rivals) -----------------------
+    showLeaderboard: function () {
+      const p = global.Save.get();
+      const mine = p.stats.totalStars || 0;
+      const rows = D.LB_NAMES.map(function (name, i) {
+        // deterministic spread of rival star totals
+        return { name: name, stars: 18 + ((i * 53 + 31) % 340), me: false };
+      });
+      rows.push({ name: 'Ви', stars: mine, me: true });
+      rows.sort(function (a, b) { return b.stars - a.stars; });
+      const myRank = rows.findIndex(function (r) { return r.me; }) + 1;
+      const body = el('div', 'modal-body scroll-body');
+      body.appendChild(el('div', 'lb-head', 'Ваше місце: <b>#' + myRank + '</b> з ' + rows.length + ' · ⭐ ' + mine));
+      const list = el('div', 'lb-list');
+      rows.slice(0, 20).forEach(function (r, idx) {
+        const row = el('div', 'lb-row' + (r.me ? ' me' : ''));
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : ('#' + (idx + 1));
+        row.innerHTML = '<span class="lb-rank">' + medal + '</span>' +
+          '<span class="lb-name">' + r.name + '</span>' +
+          '<span class="lb-stars">⭐ ' + r.stars + '</span>';
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      this.modal('📊 Таблиця рекордів', body, [{ label: 'Закрити', primary: true }]);
     },
 
     // ---- SETTINGS ---------------------------------------------------------

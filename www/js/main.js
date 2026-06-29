@@ -67,6 +67,10 @@
     // ---- Level lifecycle --------------------------------------------------
     startLevel: function (lvNum) {
       const p = global.Save.get();
+      if (global.Save.livesInfo().count <= 0) {
+        global.UI.showNoLives(function () { Game.startLevel(lvNum); });
+        return;
+      }
       global.UI.closeModal();
       const lv = D.LEVELS[lvNum - 1];
       this.currentLevel = lvNum;
@@ -90,6 +94,8 @@
         onDragonProc: function (d) { global.UI.toast(d.def.emoji + ' ' + d.def.name + ' активовано!'); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast('🔀 Поле перемішано!'); },
+        onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
+        onBossAttack: function (n) { global.UI.toast('💥 Бос атакує! +' + n + ' криги'); },
         onWin: function (res) { self.onWin(res); },
         onLose: function (res) { self.onLose(res); }
       });
@@ -141,6 +147,7 @@
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
+      const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
@@ -239,6 +246,29 @@
       if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
+    renderBossBar: function (hp, max, def) {
+      let panel = this.gameScreen.querySelector('.boss-panel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.className = 'boss-panel';
+        panel.innerHTML =
+          '<div class="boss-emoji"></div>' +
+          '<div class="boss-info"><div class="boss-name"></div>' +
+          '<div class="bar boss-hp"><div class="bar-fill boss-hp-fill"></div></div></div>';
+        // place just under the top bar
+        const top = this.gameScreen.querySelector('.game-top');
+        if (top && top.nextSibling) this.gameScreen.insertBefore(panel, top.nextSibling);
+        else this.gameScreen.appendChild(panel);
+      }
+      const pct = Math.max(0, Math.round(hp / max * 100));
+      panel.querySelector('.boss-emoji').textContent = (def && def.emoji) || '👹';
+      panel.querySelector('.boss-name').textContent = (def && def.name) || 'Бос';
+      const fill = panel.querySelector('.boss-hp-fill');
+      fill.style.width = pct + '%';
+      fill.style.background = (def && def.color) || '#ff5d6c';
+      if (this.engine && this.engine.bossHitFlash > 0.2) { panel.classList.remove('hit'); void panel.offsetWidth; panel.classList.add('hit'); }
+    },
+
     renderDragonBars: function (dragons) {
       if (!this.hud) return;
       const wrap = this.hud.dragonBars;
@@ -329,9 +359,13 @@
     onLose: function (res) {
       const self = this;
       const lvNum = this.currentLevel;
+      global.Save.spendLife(); // a failed attempt costs one heart
+      global.UI.refreshCurrencies();
+      const li = global.Save.livesInfo();
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.innerHTML = '<div class="big-emoji">😢</div><p>Цілі не досягнуто.</p><div class="win-score">Очки: ' + res.score + '</div>' +
+        '<p class="muted small">Залишилось життів: ' + '❤'.repeat(li.count) + (li.count === 0 ? ' (порожньо)' : '') + '</p>' +
         '<p class="muted small">Перегляньте рекламу, щоб отримати +5 ходів!</p>';
       global.UI.modal('Поразка', body, [
         { label: '🗺 Карта', onClick: function () { self.go('map'); } },

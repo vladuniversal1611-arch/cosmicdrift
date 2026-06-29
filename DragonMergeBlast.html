@@ -72,6 +72,37 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .cur-ic { font-size: 16px; }
+.cur-life { cursor: pointer; }
+.life-timer { font-size: 10px; color: var(--muted); font-weight: 700; margin-left: 2px; }
+.lives-big { font-size: 30px; letter-spacing: 4px; margin: 6px 0; }
+
+/* ---- Home grid (6 tiles) ---- */
+.home-grid.grid6 { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.home-grid.grid6 .btn-tile { font-size: 9px; padding: 9px 2px; }
+.home-grid.grid6 .btn-tile span { font-size: 20px; }
+
+/* ---- Boss panel ---- */
+.boss-panel {
+  position: absolute; top: 152px; left: 14px; right: 14px; z-index: 10;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel); border: 1px solid rgba(255,90,90,0.4); border-radius: 14px; padding: 8px 12px;
+}
+.boss-panel.hit { animation: bossHit 0.3s; }
+@keyframes bossHit { 0%,100%{ transform: translateX(0) } 25%{ transform: translateX(-5px) } 75%{ transform: translateX(5px) } }
+.boss-emoji { font-size: 30px; filter: drop-shadow(0 0 8px #ff6a3d); animation: flap 1.8s ease-in-out infinite; }
+.boss-info { flex: 1; }
+.boss-name { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+.boss-hp { height: 12px; background: rgba(0,0,0,0.4); }
+.boss-hp-fill { background: #ff5d6c; transition: width 0.3s; }
+
+/* ---- Leaderboard ---- */
+.lb-head { text-align: center; margin-bottom: 10px; font-size: 13px; }
+.lb-list { display: flex; flex-direction: column; gap: 6px; }
+.lb-row { display: flex; align-items: center; gap: 10px; background: var(--panel2); border-radius: 12px; padding: 9px 12px; }
+.lb-row.me { background: linear-gradient(90deg, rgba(255,210,77,0.25), rgba(255,210,77,0.08)); border: 1px solid rgba(255,210,77,0.5); }
+.lb-rank { width: 34px; font-weight: 900; font-size: 14px; text-align: center; }
+.lb-name { flex: 1; font-weight: 700; font-size: 14px; text-align: left; }
+.lb-stars { font-weight: 800; font-size: 13px; color: var(--gold); }
 
 /* ---- Titles ---- */
 .home-title { text-align: center; padding: 8px 16px; }
@@ -99,8 +130,25 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   background: radial-gradient(circle, #ffe6a0, #ff9d4d);
   filter: blur(2px); opacity: 0.7;
 }
-.isle-dragon { position: absolute; font-size: 34px; animation: float 3s ease-in-out infinite; }
+.isle-dragon { position: absolute; font-size: 34px; animation: flap 1.6s ease-in-out infinite; }
 @keyframes float { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-10px) } }
+@keyframes flap { 0%,100%{ transform: translateY(0) rotate(-4deg) scale(1) } 50%{ transform: translateY(-12px) rotate(4deg) scale(1.08) } }
+.isle-ground { position: absolute; bottom: 0; left: 0; right: 0; height: 36px; background: radial-gradient(ellipse at 50% 120%, #5a8a4a, transparent 70%); opacity: 0.7; }
+.isle-cloud { position: absolute; font-size: 26px; opacity: 0.5; }
+.isle-cloud.c1 { top: 14%; animation: drift 14s linear infinite; }
+.isle-cloud.c2 { top: 32%; font-size: 20px; animation: drift 20s linear infinite 3s; }
+@keyframes drift { from { left: -16%; } to { left: 110%; } }
+.isle-fly { position: absolute; top: 20%; font-size: 30px; filter: drop-shadow(0 0 10px #ff9d5c); animation: flyacross 9s ease-in-out infinite; }
+@keyframes flyacross {
+  0% { left: -14%; transform: scaleX(1) translateY(0); }
+  48% { transform: scaleX(1) translateY(-18px); }
+  50% { left: 108%; transform: scaleX(-1) translateY(-18px); }
+  98% { transform: scaleX(-1) translateY(0); }
+  100% { left: -14%; transform: scaleX(1); }
+}
+.isle-spark { position: absolute; font-size: 14px; animation: twinkle 2.4s ease-in-out infinite; }
+.isle-spark.s1 { left: 24%; top: 24%; } .isle-spark.s2 { left: 62%; top: 18%; animation-delay: .8s; } .isle-spark.s3 { left: 80%; top: 50%; animation-delay: 1.5s; }
+@keyframes twinkle { 0%,100%{ opacity: 0; transform: scale(0.5) } 50%{ opacity: 1; transform: scale(1.2) } }
 
 /* ---- Eggs ---- */
 .eggs-wrap { padding: 0 12px; }
@@ -460,7 +508,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   // ---- Level generator -----------------------------------------------------
   // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
-  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice' };
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', BOSS: 'boss' };
+
+  // Boss roster — one guardian per island, defeated by dealing damage (matches).
+  const BOSSES = [
+    { emoji: '👹', name: 'Лорд Попелу',   color: '#ff6a3d' },
+    { emoji: '🧊', name: 'Крижаний Тітан', color: '#5fd0ff' },
+    { emoji: '🌩️', name: 'Володар Бурі',  color: '#b48bff' },
+    { emoji: '🐗', name: 'Хащний Звір',    color: '#5fe39a' },
+    { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d' }
+  ];
 
   function buildLevels() {
     const levels = [];
@@ -488,14 +545,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         target = 1200 + i * 240 + (island * 600);
       }
       const isBoss = inIsland === 24;
+      if (isBoss) {
+        objective = OBJ.BOSS;
+        target = 90 + island * 70; // boss HP
+        iceCount = 0;
+      }
       levels.push({
-        n, island, cols, rows, colors, moves: isBoss ? moves + 6 : moves,
+        n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
         objective, target, color, iceCount,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
-        reward: { gold: 50 + i * 6, energy: 14 + Math.floor(i / 3) },
+        reward: { gold: isBoss ? 300 + i * 8 : 50 + i * 6, energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
-        name: isBoss ? 'Лігво Боса' : ('Рівень ' + n)
+        bossDef: isBoss ? BOSSES[island] : null,
+        name: isBoss ? (BOSSES[island].name) : ('Рівень ' + n)
       });
     }
     return levels;
@@ -566,8 +629,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     prism:   { color: '#ffd24d', glow: '#9fd0ff' }
   };
 
+  // Fake competitor names for the local leaderboard.
+  const LB_NAMES = ['DragonKing', 'Aurora', 'BlazeFury', 'IcyQueen', 'StormRider', 'PixelMage',
+    'NovaStar', 'EmberWolf', 'FrostByte', 'ThunderX', 'JadeViper', 'CrimsonAce', 'LunaCat',
+    'ShadowFox', 'GoldenEye', 'MysticOwl', 'RubyHeart', 'ZenMaster'];
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };
@@ -612,6 +680,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       daily: { lastClaim: '', streak: 0 },
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
+      lives: { count: 5, max: 5, lastRegen: Date.now() },
       settings: { sound: true, music: true, vibration: true },
       tutorialDone: false,
       firstRun: true
@@ -628,7 +697,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});
@@ -649,6 +718,41 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   function reset() { profile = freshProfile(); save(); return profile; }
 
+  // ---- Lives / hearts ------------------------------------------------------
+  const REGEN_MS = 20 * 60 * 1000; // 20 minutes per heart
+
+  function syncLives() {
+    const p = get();
+    const lv = p.lives || (p.lives = { count: 5, max: 5, lastRegen: Date.now() });
+    if (lv.count >= lv.max) { lv.lastRegen = Date.now(); return lv; }
+    const elapsed = Date.now() - (lv.lastRegen || Date.now());
+    const gained = Math.floor(elapsed / REGEN_MS);
+    if (gained > 0) {
+      lv.count = Math.min(lv.max, lv.count + gained);
+      lv.lastRegen = (lv.count >= lv.max) ? Date.now() : (lv.lastRegen + gained * REGEN_MS);
+      save();
+    }
+    return lv;
+  }
+  function livesInfo() {
+    const lv = syncLives();
+    let msToNext = 0;
+    if (lv.count < lv.max) msToNext = REGEN_MS - (Date.now() - lv.lastRegen);
+    return { count: lv.count, max: lv.max, msToNext: Math.max(0, msToNext) };
+  }
+  function spendLife() {
+    const lv = syncLives();
+    if (lv.count <= 0) return false;
+    if (lv.count >= lv.max) lv.lastRegen = Date.now(); // start regen clock
+    lv.count -= 1; save();
+    return true;
+  }
+  function addLives(n) {
+    const lv = syncLives();
+    lv.count = Math.min(lv.max, lv.count + n); save();
+  }
+  function refillLives() { const lv = syncLives(); lv.count = lv.max; lv.lastRegen = Date.now(); save(); }
+
   function addStat(stat, value, isMax) {
     const s = get().stats;
     if (isMax) s[stat] = Math.max(s[stat] || 0, value);
@@ -656,7 +760,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     save();
   }
 
-  global.Save = { load, save, get, reset, addStat, KEY };
+  global.Save = { load, save, get, reset, addStat, KEY, livesInfo, spendLife, addLives, refillLives, syncLives };
 })(window);
 
 //----
@@ -840,6 +944,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.pendingDragons = [];
     this.dragonsActivatedThisMove = {};
 
+    // Boss setup
+    this.isBoss = level.objective === D.OBJ.BOSS;
+    this.bossMax = this.isBoss ? level.target : 0;
+    this.bossHP = this.bossMax;
+    this.movesSinceBossAttack = 0;
+    this.bossHitFlash = 0;
+
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
       const def = D.dragonById(id);
@@ -945,7 +1056,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.animateSwap(a, b, function () {
       // Two specials swapped together → powerful combo.
       if (bothSpecial) {
-        self.movesLeft--;
+        self.movesLeft--; self.movesSinceBossAttack++;
         self.cb.onMoves && self.cb.onMoves(self.movesLeft);
         self.combo = 0;
         self.dragonsActivatedThisMove = {};
@@ -955,7 +1066,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const matches = self.findMatches();
       const isSpecialMove = ta.special !== SP.NONE || tb.special !== SP.NONE;
       if (matches.length || isSpecialMove) {
-        self.movesLeft--;
+        self.movesLeft--; self.movesSinceBossAttack++;
         self.cb.onMoves && self.cb.onMoves(self.movesLeft);
         self.combo = 0;
         self.dragonsActivatedThisMove = {}; // each dragon may fire once per move
@@ -1051,6 +1162,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     // dragon charge flash decay
     this.dragons.forEach(function (d) { if (d.flashing > 0) d.flashing -= dt; });
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+    if (this.bossHitFlash > 0) this.bossHitFlash = Math.max(0, this.bossHitFlash - dt * 2);
 
     // shockwave rings
     this.rings = this.rings || [];
@@ -1225,6 +1337,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     global.Save.addStat('energyEarned', energyGain);
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
+    // Boss takes damage equal to crystals cleared (combo amplified).
+    if (this.isBoss && cleared > 0 && this.bossHP > 0) {
+      const dmg = cleared + Math.max(0, this.combo - 1) * 2;
+      this.bossHP = Math.max(0, this.bossHP - dmg);
+      this.bossHitFlash = 0.5;
+      this.addFloater(this.viewport.x + this.viewport.size / 2, this.viewport.y - 6, '-' + dmg, '#ff7a6a');
+    }
     this.emitObjective();
 
     // After death animation completes → collapse.
@@ -1295,10 +1414,35 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.activateDragon(d);
       return;
     }
+    if (this.checkWin()) return; // boss may have just died
+    // Boss strikes back every 5 moves.
+    if (this.isBoss && !this.finished && this.bossHP > 0 && this.movesSinceBossAttack >= 5) {
+      this.movesSinceBossAttack = 0;
+      this.bossAttack();
+      return;
+    }
     this.state = 'idle';
-    if (this.checkWin()) return;
     if (this.movesLeft <= 0) { this.fail(); return; }
     if (!this.hasPossibleMove()) this.shuffleBoard();
+  };
+
+  Engine.prototype.bossAttack = function () {
+    this.shake = 0.7;
+    this.bossHitFlash = 0;
+    global.Audio2.play('dragon');
+    const n = 2 + (this.level.island || 0);
+    let placed = 0, guard = 0;
+    while (placed < n && guard++ < 300) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      const t = this.grid[r][c];
+      if (t && !t.ice && t.special === SP.NONE) {
+        t.ice = true; placed++;
+        this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fd0ff', 12);
+      }
+    }
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.7, (this.level.bossDef && this.level.bossDef.color) || '#ff6a3d');
+    this.cb.onBossAttack && this.cb.onBossAttack(placed);
+    this.endResolve();
   };
 
   // ---- Dragons ------------------------------------------------------------
@@ -1392,6 +1536,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   // ---- Objective / win / lose ---------------------------------------------
   Engine.prototype.emitObjective = function () {
+    if (this.isBoss) {
+      this.cb.onBoss && this.cb.onBoss(this.bossHP, this.bossMax, this.level.bossDef);
+      this.cb.onObjective && this.cb.onObjective(this.bossMax - this.bossHP, this.bossMax, '❤ Бос');
+      return;
+    }
     let cur, goal, label;
     if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = 'Очки'; }
     else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].name; }
@@ -1401,7 +1550,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   Engine.prototype.checkWin = function () {
     let done = false;
-    if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
+    if (this.isBoss) done = this.bossHP <= 0;
+    else if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
     else if (this.level.objective === D.OBJ.COLLECT) done = this.collected >= this.level.target;
     else done = this.iceLeft <= 0;
     if (done && !this.finished) { this.win(); return true; }
@@ -1780,17 +1930,70 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     // ---- top currency bar (shared) ----------------------------------------
     currencyBar: function () {
       const p = global.Save.get();
+      const li = global.Save.livesInfo();
       const bar = el('div', 'currency-bar');
       bar.innerHTML =
+        '<div class="cur cur-life" id="ui-life-pill"><span class="cur-ic">❤️</span><span id="ui-lives">' + li.count + '</span><span class="life-timer" id="ui-life-timer"></span></div>' +
         '<div class="cur"><span class="cur-ic">🪙</span><span id="ui-gold">' + p.gold + '</span></div>' +
         '<div class="cur"><span class="cur-ic">💎</span><span id="ui-gems">' + p.gems + '</span></div>' +
         '<div class="cur"><span class="cur-ic">⚡</span><span id="ui-energy">' + p.energy + '</span></div>';
+      // tapping the heart pill opens the lives panel
+      const pill = bar.querySelector('#ui-life-pill');
+      if (pill) click(pill, function () { UI.showNoLives(); });
+      // start the regen ticker
+      UI.startLifeTicker();
       return bar;
     },
     refreshCurrencies: function () {
       const p = global.Save.get();
+      const li = global.Save.livesInfo();
       const set = function (id, v) { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy);
+      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy); set('ui-lives', li.count);
+    },
+    startLifeTicker: function () {
+      if (this._lifeTick) clearInterval(this._lifeTick);
+      const update = function () {
+        const li = global.Save.livesInfo();
+        const lc = document.getElementById('ui-lives'); if (lc) lc.textContent = li.count;
+        const tm = document.getElementById('ui-life-timer');
+        if (!tm) { clearInterval(UI._lifeTick); UI._lifeTick = null; return; }
+        if (li.count >= li.max) { tm.textContent = 'MAX'; }
+        else {
+          const s = Math.ceil(li.msToNext / 1000);
+          const m = Math.floor(s / 60), ss = s % 60;
+          tm.textContent = m + ':' + (ss < 10 ? '0' : '') + ss;
+        }
+      };
+      update();
+      this._lifeTick = setInterval(update, 1000);
+    },
+
+    showNoLives: function (onReady) {
+      const li = global.Save.livesInfo();
+      const body = el('div', 'modal-body');
+      const refreshBody = function () {
+        const l = global.Save.livesInfo();
+        let t = '';
+        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = 'Наступне ❤ через ' + m + ' хв ' + (s % 60) + ' с'; }
+        body.innerHTML = '<div class="lives-big">' + '❤️'.repeat(l.count) + '🖤'.repeat(Math.max(0, l.max - l.count)) + '</div>' +
+          '<p>' + l.count + ' / ' + l.max + ' життів</p>' +
+          '<p class="muted small">' + t + '</p>' +
+          '<p class="muted small">Поповніть, переглянувши рекламу, або за 💎.</p>';
+      };
+      refreshBody();
+      const buttons = [
+        { label: 'Закрити' },
+        { label: '📺 +1 ❤ (реклама)', onClick: function () {
+            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast('+1 ❤'); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
+        { label: '💎 Поповнити (50)', primary: true, onClick: function () {
+            const p = global.Save.get();
+            if (p.gems < 50) { UI.toast('Недостатньо кристалів 💎'); return; }
+            p.gems -= 50; global.Save.refillLives(); global.Save.save();
+            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Життя поповнено!');
+            if (onReady) onReady();
+          } }
+      ];
+      this.modal('❤️ Життя', body, buttons);
     },
 
     navBar: function (active) {
@@ -1824,16 +2027,22 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
       s.appendChild(title);
 
-      // Island scene with eggs incubating
+      // Animated island scene
       const scene = el('div', 'island-scene');
-      scene.innerHTML = '<div class="island-sun"></div>';
-      // owned dragons floating
+      scene.innerHTML =
+        '<div class="island-sun"></div>' +
+        '<div class="isle-cloud c1">☁️</div><div class="isle-cloud c2">☁️</div>' +
+        '<div class="isle-fly">🐉</div>' +
+        '<div class="isle-ground"></div>' +
+        '<div class="isle-spark s1">✨</div><div class="isle-spark s2">✨</div><div class="isle-spark s3">✨</div>';
+      // owned dragons bobbing & flapping
       p.ownedDragons.forEach(function (id, i) {
         const def = D.dragonById(id);
         const d = el('div', 'isle-dragon', def.emoji);
-        d.style.left = (12 + (i % 4) * 22) + '%';
-        d.style.top = (18 + Math.floor(i / 4) * 26) + '%';
+        d.style.left = (14 + (i % 4) * 21) + '%';
+        d.style.top = (30 + Math.floor(i / 4) * 24) + '%';
         d.style.filter = 'drop-shadow(0 0 12px ' + def.glow + ')';
+        d.style.animationDelay = (i * 0.3) + 's';
         scene.appendChild(d);
       });
       s.appendChild(scene);
@@ -1864,12 +2073,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const acts = el('div', 'home-actions');
       const playBtn = click(el('button', 'btn btn-primary btn-big', '▶ Грати рівень ' + p.levelProgress), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
-      const grid2 = el('div', 'home-grid');
+      const grid2 = el('div', 'home-grid grid6');
       [
         { ic: '🎁', label: 'Щоденна', go: function () { UI.showDaily(); } },
         { ic: '📜', label: 'Квести', go: function () { UI.showQuests(); } },
+        { ic: '📊', label: 'Рейтинг', go: function () { UI.showLeaderboard(); } },
         { ic: '🏆', label: 'Досягнення', go: function () { UI.showAchievements(); } },
-        { ic: '⚙️', label: 'Налаштування', go: function () { UI.showSettings(); } }
+        { ic: '⚙️', label: 'Опції', go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
         const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
         grid2.appendChild(b);
@@ -2154,8 +2364,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       s.appendChild(this.navBar('shop'));
     },
 
-    watchAd: function () {
-      // Simulated rewarded ad. In the packaged app this calls the AdMob plugin.
+    // Generic simulated rewarded ad; calls onReward() on completion.
+    // In the packaged app this routes to the AdMob plugin if present.
+    watchAdGeneric: function (onReward) {
+      if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
+        global.AdMobBridge.showRewarded(function () { onReward && onReward(); });
+        return;
+      }
       const body = el('div', 'modal-body');
       body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>Реклама...</small></div>';
       this.modal('Реклама за винагороду', body, [{ label: 'Зачекайте...', primary: true, keepOpen: true }]);
@@ -2163,22 +2378,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const cnt = body.querySelector('#ad-count');
       const iv = setInterval(function () {
         n--; if (cnt) cnt.textContent = n;
-        if (n <= 0) {
-          clearInterval(iv);
-          const p = global.Save.get();
-          p.gold += 100; p.energy += 20; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies();
-          UI.closeModal(); UI.toast('Нагорода: +100🪙 +20⚡');
-        }
+        if (n <= 0) { clearInterval(iv); UI.closeModal(); onReward && onReward(); }
       }, 700);
-      // If a real ad plugin exists, use it instead.
-      if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
-        clearInterval(iv); UI.closeModal();
-        global.AdMobBridge.showRewarded(function () {
-          const p = global.Save.get(); p.gold += 100; p.energy += 20; global.Save.save();
-          UI.refreshCurrencies(); UI.toast('Нагорода: +100🪙 +20⚡');
-        });
-      }
+    },
+
+    watchAd: function () {
+      this.watchAdGeneric(function () {
+        const p = global.Save.get();
+        p.gold += 100; p.energy += 20; global.Save.save();
+        global.Audio2.play('coin'); UI.refreshCurrencies();
+        UI.toast('Нагорода: +100🪙 +20⚡');
+      });
     },
 
     fakePurchase: function (gems) {
@@ -2355,6 +2565,32 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.modal('🏆 Досягнення', body, [{ label: 'Закрити', primary: true }]);
     },
 
+    // ---- LEADERBOARD (local, with simulated rivals) -----------------------
+    showLeaderboard: function () {
+      const p = global.Save.get();
+      const mine = p.stats.totalStars || 0;
+      const rows = D.LB_NAMES.map(function (name, i) {
+        // deterministic spread of rival star totals
+        return { name: name, stars: 18 + ((i * 53 + 31) % 340), me: false };
+      });
+      rows.push({ name: 'Ви', stars: mine, me: true });
+      rows.sort(function (a, b) { return b.stars - a.stars; });
+      const myRank = rows.findIndex(function (r) { return r.me; }) + 1;
+      const body = el('div', 'modal-body scroll-body');
+      body.appendChild(el('div', 'lb-head', 'Ваше місце: <b>#' + myRank + '</b> з ' + rows.length + ' · ⭐ ' + mine));
+      const list = el('div', 'lb-list');
+      rows.slice(0, 20).forEach(function (r, idx) {
+        const row = el('div', 'lb-row' + (r.me ? ' me' : ''));
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : ('#' + (idx + 1));
+        row.innerHTML = '<span class="lb-rank">' + medal + '</span>' +
+          '<span class="lb-name">' + r.name + '</span>' +
+          '<span class="lb-stars">⭐ ' + r.stars + '</span>';
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      this.modal('📊 Таблиця рекордів', body, [{ label: 'Закрити', primary: true }]);
+    },
+
     // ---- SETTINGS ---------------------------------------------------------
     showSettings: function () {
       const p = global.Save.get();
@@ -2462,6 +2698,10 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     // ---- Level lifecycle --------------------------------------------------
     startLevel: function (lvNum) {
       const p = global.Save.get();
+      if (global.Save.livesInfo().count <= 0) {
+        global.UI.showNoLives(function () { Game.startLevel(lvNum); });
+        return;
+      }
       global.UI.closeModal();
       const lv = D.LEVELS[lvNum - 1];
       this.currentLevel = lvNum;
@@ -2485,6 +2725,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onDragonProc: function (d) { global.UI.toast(d.def.emoji + ' ' + d.def.name + ' активовано!'); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast('🔀 Поле перемішано!'); },
+        onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
+        onBossAttack: function (n) { global.UI.toast('💥 Бос атакує! +' + n + ' криги'); },
         onWin: function (res) { self.onWin(res); },
         onLose: function (res) { self.onLose(res); }
       });
@@ -2536,6 +2778,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
+      const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
@@ -2634,6 +2877,29 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
+    renderBossBar: function (hp, max, def) {
+      let panel = this.gameScreen.querySelector('.boss-panel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.className = 'boss-panel';
+        panel.innerHTML =
+          '<div class="boss-emoji"></div>' +
+          '<div class="boss-info"><div class="boss-name"></div>' +
+          '<div class="bar boss-hp"><div class="bar-fill boss-hp-fill"></div></div></div>';
+        // place just under the top bar
+        const top = this.gameScreen.querySelector('.game-top');
+        if (top && top.nextSibling) this.gameScreen.insertBefore(panel, top.nextSibling);
+        else this.gameScreen.appendChild(panel);
+      }
+      const pct = Math.max(0, Math.round(hp / max * 100));
+      panel.querySelector('.boss-emoji').textContent = (def && def.emoji) || '👹';
+      panel.querySelector('.boss-name').textContent = (def && def.name) || 'Бос';
+      const fill = panel.querySelector('.boss-hp-fill');
+      fill.style.width = pct + '%';
+      fill.style.background = (def && def.color) || '#ff5d6c';
+      if (this.engine && this.engine.bossHitFlash > 0.2) { panel.classList.remove('hit'); void panel.offsetWidth; panel.classList.add('hit'); }
+    },
+
     renderDragonBars: function (dragons) {
       if (!this.hud) return;
       const wrap = this.hud.dragonBars;
@@ -2724,9 +2990,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     onLose: function (res) {
       const self = this;
       const lvNum = this.currentLevel;
+      global.Save.spendLife(); // a failed attempt costs one heart
+      global.UI.refreshCurrencies();
+      const li = global.Save.livesInfo();
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.innerHTML = '<div class="big-emoji">😢</div><p>Цілі не досягнуто.</p><div class="win-score">Очки: ' + res.score + '</div>' +
+        '<p class="muted small">Залишилось життів: ' + '❤'.repeat(li.count) + (li.count === 0 ? ' (порожньо)' : '') + '</p>' +
         '<p class="muted small">Перегляньте рекламу, щоб отримати +5 ходів!</p>';
       global.UI.modal('Поразка', body, [
         { label: '🗺 Карта', onClick: function () { self.go('map'); } },
