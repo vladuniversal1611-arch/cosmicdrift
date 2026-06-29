@@ -87,6 +87,9 @@ canvas{display:block;border-radius:20px}
 .sh-zone{font-size:11px;letter-spacing:3px;margin-top:-4px}
 .sh-wave{font-size:28px;font-weight:900;color:#c8e4ff;letter-spacing:3px;text-shadow:0 0 20px #3366ff}
 .sh-coins{font-size:14px;color:#ffcc33;letter-spacing:2px;text-shadow:0 0 10px #ffaa00}
+#dblCoinsBtn{font-size:11px;font-weight:700;letter-spacing:2px;color:#1a0e00;background:linear-gradient(135deg,#2aa84a,#46dd6a);border:1px solid rgba(120,255,150,.6);border-radius:10px;padding:9px 16px;cursor:pointer;box-shadow:0 0 16px rgba(40,200,90,.35);transition:all .12s}
+#dblCoinsBtn:active{transform:scale(.96)}
+#dblCoinsBtn.used{display:none}
 .sh-hr{width:100%;height:1px;background:linear-gradient(90deg,transparent,#1a2d80,transparent)}
 .upgrades{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
 .upg{background:rgba(6,10,40,.8);border:1px solid rgba(30,50,140,.45);border-radius:12px;padding:11px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;transition:all .12s}
@@ -368,6 +371,7 @@ canvas{display:block;border-radius:20px}
     <div class="sh-zone" id="shZoneName"></div>
     <div class="sh-wave" id="shWaveNum">WAVE 3</div>
     <div class="sh-coins" id="shCoins">💎 0</div>
+    <div id="dblCoinsBtn">📺 WATCH AD · ×2 COINS</div>
     <div class="sh-hr"></div>
     <div class="upgrades" id="upgGrid"></div>
     <div class="sh-hr"></div>
@@ -409,6 +413,61 @@ DRIFT</div>
 <script>
 const C=document.getElementById('c'),ctx=C.getContext('2d');
 const W=400,H=700,FO=85;
+
+// ═══════════════════════════════════════════
+// ADMOB ADS  (via @capacitor-community/admob)
+// ═══════════════════════════════════════════
+// On the web / PWA (no native bridge) every call is a safe no-op, so the game
+// runs unchanged in a browser. Inside the Capacitor Android build the plugin
+// is auto-detected and used. See ADS_SETUP.md for the native steps.
+//
+// ⚠ BEFORE RELEASE: set useTestAds:false and paste your real AdMob unit IDs.
+const AD_CONFIG = {
+  useTestAds: true,
+  android: {
+    // Google's official TEST ad unit IDs (safe to ship while testing):
+    rewarded:     'ca-app-pub-3940256099942544/5224354917',
+    interstitial: 'ca-app-pub-3940256099942544/1033173712',
+    banner:       'ca-app-pub-3940256099942544/6300978111',
+  },
+};
+
+const cdAds = (function(){
+  let plugin=null, ready=false, interReady=false, rewardReady=false, bannerOn=false, rewardEarned=false;
+  function getPlugin(){ try{ return (window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob)||null; }catch(e){ return null; } }
+  function available(){ return !!plugin; }
+  async function init(){
+    plugin=getPlugin();
+    if(!plugin) return; // browser / no native bridge → ads disabled
+    try{
+      await plugin.initialize({ initializeForTesting: AD_CONFIG.useTestAds });
+      ready=true;
+      // listen for reward across plugin versions (harmless if an event never fires)
+      ['onRewardedVideoAdReward','rewardAdReward','onAdRewarded','rewarded'].forEach(ev=>{ try{ plugin.addListener(ev,()=>{rewardEarned=true;}); }catch(e){} });
+      prepInterstitial(); prepRewarded();
+    }catch(e){ console.warn('AdMob init failed',e); }
+  }
+  async function prepInterstitial(){ if(!ready) return; try{ await plugin.prepareInterstitial({ adId:AD_CONFIG.android.interstitial }); interReady=true; }catch(e){} }
+  async function prepRewarded(){ if(!ready) return; try{ await plugin.prepareRewardVideoAd({ adId:AD_CONFIG.android.rewarded }); rewardReady=true; }catch(e){} }
+  async function interstitial(){
+    if(!ready||!interReady) return false;
+    try{ await plugin.showInterstitial(); }catch(e){}
+    interReady=false; prepInterstitial(); // preload next
+    return true;
+  }
+  async function rewarded(onReward,onFail){
+    if(!ready){ onFail&&onFail(); return; }
+    if(!rewardReady){ await prepRewarded(); }
+    if(!rewardReady){ onFail&&onFail(); return; }
+    rewardEarned=false;
+    try{ const r=await plugin.showRewardVideoAd(); if(r) rewardEarned=true; }catch(e){}
+    rewardReady=false; prepRewarded();
+    if(rewardEarned) onReward&&onReward(); else onFail&&onFail();
+  }
+  async function showBanner(){ if(!ready||bannerOn) return; try{ await plugin.showBanner({ adId:AD_CONFIG.android.banner, adSize:'BANNER', position:'BOTTOM_CENTER', margin:0 }); bannerOn=true; }catch(e){} }
+  async function hideBanner(){ if(!ready||!bannerOn) return; try{ await plugin.hideBanner(); bannerOn=false; }catch(e){} }
+  return { init, available, interstitial, rewarded, showBanner, hideBanner };
+})();
 
 // ═══════════════════════════════════════════
 // WEB AUDIO ENGINE
@@ -1525,8 +1584,9 @@ document.getElementById('dailyBtn').addEventListener('touchend',e=>{e.preventDef
 // window.cdShowRewardedAd = (onReward, onSkip) => { /* AdMob */ }
 // and it will be used automatically. On the web we just grant the reward.
 function showRewardedAd(onReward,onSkip){
+  if(cdAds.available()){cdAds.rewarded(onReward,onSkip);return;}
   if(typeof window.cdShowRewardedAd==='function'){window.cdShowRewardedAd(onReward,onSkip);return;}
-  onReward&&onReward();
+  onReward&&onReward(); // web fallback (no native ads): grant directly
 }
 function showRevivePrompt(){
   st='revive';
@@ -1853,6 +1913,7 @@ function zoneComplete(){
       if(zoneIdx>=2)unlockWeapon('rocket');
       const nz=currentZone();
       saveGame();
+      cdAds.interstitial(); // full-screen ad on each new sector
       // warp transition
       startWarp(()=>{
         mkStars();applyZoneTheme();
@@ -1912,8 +1973,20 @@ function openShop(){
   // shop bg color
   document.getElementById('shopBg').style.background=`radial-gradient(ellipse at 50% 30%,hsla(${z.bgHue},40%,12%,.88) 0%,rgba(0,0,0,.97) 100%)`;
   renderUpgrades();renderAchs();
+  document.getElementById('dblCoinsBtn').className=''; // re-enable ×2 each shop visit
   document.getElementById('shopOv').className='on';
 }
+function watchDoubleCoins(){
+  if(coins<=0)return;
+  showRewardedAd(()=>{
+    coins*=2;
+    document.getElementById('shCoins').textContent='💎 '+coins;
+    document.getElementById('dblCoinsBtn').className='used';
+    renderUpgrades();sndLevelUp();
+  },()=>{ /* ad failed / skipped — no reward */ });
+}
+document.getElementById('dblCoinsBtn').addEventListener('click',watchDoubleCoins);
+document.getElementById('dblCoinsBtn').addEventListener('touchend',e=>{e.preventDefault();watchDoubleCoins();});
 function closeShop(){document.getElementById('shopOv').className='';st='playing';betweenWaves=false;saveGame();startWave();}
 function renderUpgrades(){
   const grid=document.getElementById('upgGrid');
@@ -2241,10 +2314,18 @@ function loop(now){
   let steps=0;
   while(_acc>=SIM_STEP&&steps<6){update();_acc-=SIM_STEP;steps++;}
   draw();
+  syncBanner();
   requestAnimationFrame(loop);
+}
+// Show a bottom banner only while the player is idle (menus/over), hide in play
+let _bannerWant=false;
+function syncBanner(){
+  const show=(st==='menu'||st==='dead');
+  if(show!==_bannerWant){_bannerWant=show;if(show)cdAds.showBanner();else cdAds.hideBanner();}
 }
 mkStars();updateHUD();renderAchs();showMainMenu();
 fitScreen();
+cdAds.init();
 requestAnimationFrame(loop);
 
 // ═══════════════════════════════════════════
