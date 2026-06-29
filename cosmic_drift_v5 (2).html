@@ -46,11 +46,13 @@ canvas{display:block;border-radius:20px}
 #lvlTag{font-size:9px;letter-spacing:2px;color:#1a2d70;white-space:nowrap}
 #cmbEl{position:absolute;top:94px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:11;opacity:0;transition:opacity .18s}
 #cmbIn{background:linear-gradient(90deg,#bb5500,#ffbb00);border-radius:24px;padding:3px 16px;font-size:12px;font-weight:800;letter-spacing:3px;color:#1a0800;box-shadow:0 0 18px #ffaa0055;white-space:nowrap}
-#pups{position:absolute;top:94px;right:14px;display:flex;flex-direction:column;gap:5px;z-index:11;pointer-events:none}
-.pu{display:none;background:rgba(4,6,28,.88);border:1px solid rgba(30,50,140,.5);border-radius:8px;padding:3px 9px;font-size:10px;align-items:center;gap:5px}
+#pups{position:absolute;top:118px;right:12px;display:flex;flex-direction:row;gap:6px;z-index:11;pointer-events:none}
+.pu{display:none;flex-direction:column;align-items:center;gap:3px;background:rgba(4,6,28,.55);border:1px solid rgba(40,70,150,.32);border-radius:9px;padding:5px 6px;font-size:15px;line-height:1;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .pu.on{display:flex}
-.pubar{width:36px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.pu span{display:none}
+.pubar{width:20px;height:2px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
 .pufill{height:100%;border-radius:2px}
+#puSh .pubar{display:none}
 #bossArea{position:absolute;bottom:18px;left:14px;right:14px;z-index:11;pointer-events:none;display:none}
 #bossLbl{font-size:9px;letter-spacing:4px;color:#ff2244;text-align:center;margin-bottom:5px;text-shadow:0 0 8px #ff002233}
 #bossTrack{height:7px;background:rgba(180,0,30,.1);border-radius:4px;border:1px solid rgba(220,20,50,.18);overflow:hidden}
@@ -1079,7 +1081,7 @@ function spawnBoss(){
 function spawnGem(x,y){
   const rnd=Math.random()*100;
   // 0 gem  1 star  2 shield  3 boost  4 bomb  5 freeze  6 rapid-fire
-  const t=rnd<38?0:rnd<60?1:rnd<71?2:rnd<82?3:rnd<90?4:rnd<95?5:6;
+  const t=rnd<42?0:rnd<70?1:rnd<78?2:rnd<85?3:rnd<89?4:rnd<95?5:6;
   const gx=(x!=null)?x:(20+Math.random()*(W-40));
   const gy=(y!=null)?y:-24;
   gems.push({x:gx,y:gy,vy:.7+Math.random()*.8,t,r:14,pulse:Math.random()*6.28,dead:false});
@@ -1643,7 +1645,7 @@ function doRevive(){
     reviveUsed=true;
     lives=Math.max(lives,2);
     bombAll();                 // clear the screen so the player isn't instantly hit
-    ship.inv=180;shT=420;shOn=true;
+    ship.inv=180;shT=0;shOn=true;
     ftxt(W/2,H/2-40,'REVIVED!','#ffcc44');ring(W/2,H/2,'#ffcc44',90);
     sndShield();updateHUD();updatePuHUD();
     st='playing';
@@ -1765,7 +1767,7 @@ function update(){
   ship.x+=dx*lp;ship.y+=dy*lp;
   ship.x=Math.max(18,Math.min(W-18,ship.x));ship.y=Math.max(70,Math.min(H-62,ship.y));
   ship.trail.unshift({x:ship.x,y:ship.y});if(ship.trail.length>18)ship.trail.pop();
-  if(ship.inv>0)ship.inv--;if(shT>0){shT--;shOn=shT>0;}if(boostT>0)boostT--;if(freezeT>0)freezeT--;if(rapidT>0)rapidT--;
+  if(ship.inv>0)ship.inv--;if(boostT>0)boostT--;if(freezeT>0)freezeT--;if(rapidT>0)rapidT--; // shield is a one-hit barrier, no timer
   if(keys.ArrowLeft||keys.a)ship.tx=Math.max(18,ship.tx-5.5);if(keys.ArrowRight||keys.d)ship.tx=Math.min(W-18,ship.tx+5.5);
   if(keys.ArrowUp||keys.w)ship.ty=Math.max(70,ship.ty-5.5);if(keys.ArrowDown||keys.s)ship.ty=Math.min(H-62,ship.ty+5.5);
 
@@ -1818,7 +1820,7 @@ function update(){
       waveSpawnT=0;
     }
   }
-  gemT++;if(gemT>=Math.max(75,170-zoneIdx*10)){spawnGem();gemT=0;}
+  gemT++;if(gemT>=Math.max(120,230-zoneIdx*12)){spawnGem();gemT=0;}
 
   // level
   const nl=1+Math.floor(score/600);
@@ -1854,12 +1856,12 @@ function update(){
     }
     if(!e.dead&&ship.inv<=0){
       const hit=e.type==='kamikaze'?Math.hypot(e.x-ship.x,e.y-ship.y)<e.r+16:circR(e.x,e.y,e.r,ship.x,ship.y,22,30);
-      if(hit){if(shOn){shOn=false;shT=0;burst(e.x,e.y,'#44ccff',14);ring(e.x,e.y,'#44ccff');ftxt(ship.x,ship.y-44,'SHIELD!','#44ccff');sndShield();e.dead=true;}else{burst(ship.x,ship.y,'#ff3311',26,5);sparks(ship.x,ship.y,'#ff8844');e.dead=true;lives--;updateHUD();ship.inv=100+getArmorFrames();combo=0;shake(12);sndDamage();hapticBigHit();if(lives<=0){gameOver();return;}}}
+      if(hit){if(shOn){shOn=false;shT=0;ship.inv=Math.max(ship.inv,28);burst(e.x,e.y,'#44ccff',14);ring(e.x,e.y,'#44ccff');ftxt(ship.x,ship.y-44,'BLOCKED','#44ccff');sndShield();e.dead=true;}else{burst(ship.x,ship.y,'#ff3311',26,5);sparks(ship.x,ship.y,'#ff8844');e.dead=true;lives--;updateHUD();ship.inv=100+getArmorFrames();combo=0;shake(12);sndDamage();hapticBigHit();if(lives<=0){gameOver();return;}}}
     }
   }
   enemies=enemies.filter(e=>!e.dead&&e.y<H+80&&e.x>-80&&e.x<W+80);
 
-  for(let bi=bullets.length-1;bi>=0;bi--){const b=bullets[bi];if(!(b.enemy||b.boss))continue;if(circR(b.x,b.y,5,ship.x,ship.y,22,30)){bullets.splice(bi,1);if(shOn){shOn=false;shT=0;ftxt(ship.x,ship.y-44,'SHIELD!','#44ccff');sndShield();}else{burst(ship.x,ship.y,'#ff3311',18,4);lives--;updateHUD();ship.inv=80+getArmorFrames();combo=0;shake(12);sndDamage();hapticBigHit();if(lives<=0){gameOver();return;}}}}
+  for(let bi=bullets.length-1;bi>=0;bi--){const b=bullets[bi];if(!(b.enemy||b.boss))continue;if(circR(b.x,b.y,5,ship.x,ship.y,22,30)){bullets.splice(bi,1);if(shOn){shOn=false;shT=0;ship.inv=Math.max(ship.inv,28);ftxt(ship.x,ship.y-44,'BLOCKED','#44ccff');sndShield();}else{burst(ship.x,ship.y,'#ff3311',18,4);lives--;updateHUD();ship.inv=80+getArmorFrames();combo=0;shake(12);sndDamage();hapticBigHit();if(lives<=0){gameOver();return;}}}}
 
   // boss
   if(boss){
@@ -1914,7 +1916,7 @@ function killEnemy(e){
     }
     ring(e.x,e.y,'#33cc77',40);
   }
-  if(Math.random()<.28+(e.type==='shielded'||e.type==='turret'?.2:0)+getLuckBonus())spawnGem(e.x,e.y);
+  if(Math.random()<.15+(e.type==='shielded'||e.type==='turret'?.12:0)+getLuckBonus())spawnGem(e.x,e.y);
   updateHUD();showCombo();
 }
 
@@ -1984,7 +1986,7 @@ function zoneComplete(){
 
 function collectGem(g){
   const pts=[50,25,0,0,0,0,0][g.t];const gcols=['#3399ff','#ffee44','#44ffaa','#ffaa00','#ff4444','#66ddff','#ff8822'];
-  if(g.t===2){shT=420;shOn=true;ftxt(g.x,g.y-28,'SHIELD!','#44ffaa');sndShield();}
+  if(g.t===2){shOn=true;shT=0;ftxt(g.x,g.y-28,'SHIELD!','#44ffaa');sndShield();}
   else if(g.t===3){boostT=360;ftxt(g.x,g.y-28,'BOOST!','#ffaa00');sndCollect();}
   else if(g.t===4){bombAll();ftxt(g.x,g.y-28,'BOMB!','#ff4444');shake(10);}
   else if(g.t===5){freezeT=360;ftxt(g.x,g.y-28,'FREEZE!','#66ddff');doFlash('#66ddff14',400);sndShield();}
@@ -2009,7 +2011,7 @@ function updateHUD(){
 function updatePuHUD(){
   document.getElementById('puSh').className='pu'+(shOn?' on':'');document.getElementById('puBo').className='pu'+(boostT>0?' on':'');
   document.getElementById('puFr').className='pu'+(freezeT>0?' on':'');document.getElementById('puRa').className='pu'+(rapidT>0?' on':'');
-  if(shOn)document.getElementById('shF').style.width=(shT/420*100)+'%';if(boostT>0)document.getElementById('boF').style.width=(boostT/360*100)+'%';
+  if(boostT>0)document.getElementById('boF').style.width=(boostT/360*100)+'%';
   if(freezeT>0)document.getElementById('frF').style.width=(freezeT/360*100)+'%';if(rapidT>0)document.getElementById('raF').style.width=(rapidT/420*100)+'%';
 }
 function showCombo(){const el=document.getElementById('cmbEl');if(combo>=2){document.getElementById('cmbIn').textContent=`✦ COMBO ×${combo} ✦`;el.style.opacity='1';}else el.style.opacity='0';}
@@ -2180,7 +2182,7 @@ function startGame(){
   waveQueue=[];waveSpawnIdx=0;waveSpawnT=0;
   Object.keys(UPG).forEach(k=>{if(UPG[k])UPG[k][0]=0;});
   mkShip();mkStars();applyZoneTheme();
-  if(META.startShield[0]){shT=420;shOn=true;}
+  if(META.startShield[0]){shOn=true;shT=0;}
   updateHUD();updatePuHUD();
   document.getElementById('lvlTag').textContent='LVL 1';
   document.getElementById('xpFill').style.width='0%';
