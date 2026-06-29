@@ -37,7 +37,7 @@
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
       lives: { count: 5, max: 5, lastRegen: Date.now() },
-      settings: { sound: true, music: true, vibration: true },
+      settings: { sound: true, music: true, vibration: true, language: 'uk' },
       tutorialDone: false,
       firstRun: true
     };

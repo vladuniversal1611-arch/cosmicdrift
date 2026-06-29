@@ -317,6 +317,23 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 .tut-bubble.pop { animation: modalIn 0.3s cubic-bezier(.2,1.4,.4,1); }
+
+/* ---- Level intro banner ---- */
+.level-intro { position: absolute; inset: 0; z-index: 13; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.li-card {
+  text-align: center; padding: 18px 28px; border-radius: 20px;
+  background: linear-gradient(180deg, rgba(42,28,82,0.96), rgba(26,16,56,0.96));
+  border: 1px solid rgba(255,210,77,0.5); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  animation: introIn 0.4s cubic-bezier(.2,1.4,.4,1);
+}
+.level-intro.out { animation: introOut 0.5s forwards; }
+.li-name { font-size: 24px; font-weight: 900; margin-bottom: 6px; }
+.li-goal { font-size: 14px; color: var(--muted); font-weight: 700; }
+@keyframes introIn { from { transform: scale(0.6) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+@keyframes introOut { to { transform: scale(1.1) translateY(-30px); opacity: 0; } }
+
+/* ---- Language rows ---- */
+.lang-row { display: block; width: 100%; margin-bottom: 8px; text-align: center; }
 .dragon-bar { display: flex; align-items: center; gap: 6px; background: var(--panel); border-radius: 20px; padding: 5px 10px 5px 6px; flex: 1; max-width: 130px; }
 .dragon-bar.flash { animation: dflash 0.6s; }
 @keyframes dflash { 0%,100%{ box-shadow: none } 50%{ box-shadow: 0 0 18px var(--gold) } }
@@ -508,7 +525,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   // ---- Level generator -----------------------------------------------------
   // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
-  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', BOSS: 'boss' };
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', JELLY: 'jelly', BOSS: 'boss' };
 
   // Boss roster — one guardian per island, defeated by dealing damage (matches).
   const BOSSES = [
@@ -530,29 +547,36 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const rows = 8;
       const colors = Math.min(6, 4 + Math.floor(i / 30)); // 4 → 6 colours
       const moves = 30 - Math.min(12, Math.floor(i / 12)); // 30 → 18 moves
-      let objective, target, color = 0, iceCount = 0;
+      let objective, target, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
       const cycle = inIsland % 5;
       if (cycle === 2) {
         objective = OBJ.COLLECT;
         color = (i % colors);
         target = 28 + Math.floor(i * 0.9);
+        chains = Math.min(8, 2 + Math.floor(i / 14)); // locked crystals as a twist
+      } else if (cycle === 3) {
+        objective = OBJ.JELLY;
+        jellyCount = 10 + Math.floor(i / 5) + island * 2;
+        target = jellyCount;
       } else if (cycle === 4) {
         objective = OBJ.ICE;
         iceCount = 8 + Math.floor(i / 6) + (island * 3);
+        crates = Math.min(6, 1 + Math.floor(i / 18)); // some blockers are 2-hit crates
         target = iceCount;
       } else {
         objective = OBJ.SCORE;
         target = 1200 + i * 240 + (island * 600);
+        if (cycle === 1) chains = Math.min(6, 1 + Math.floor(i / 20));
       }
       const isBoss = inIsland === 24;
       if (isBoss) {
         objective = OBJ.BOSS;
-        target = 90 + island * 70; // boss HP
-        iceCount = 0;
+        target = 80 + island * 45; // boss HP (kept beatable within the move budget)
+        iceCount = 0; jellyCount = 0; chains = Math.min(3, island); crates = Math.max(0, island - 1);
       }
       levels.push({
         n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
-        objective, target, color, iceCount,
+        objective, target, color, iceCount, jellyCount, crates, chains,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
         reward: { gold: isBoss ? 300 + i * 8 : 50 + i * 6, energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
@@ -643,6 +667,436 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
 //----
 /* ============================================================
+   i18n — localization for Dragon Merge Blast.
+   Languages: Ukrainian (uk), English (en), Spanish (es),
+   German (de), French (fr), Portuguese (pt).
+   Usage: T('key', { n: 5 })  → localized string with {n} filled.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const STR = {
+    uk: {
+      lang_name: 'Українська',
+      // nav
+      nav_map: 'Карта', nav_dragons: 'Дракони', nav_shop: 'Магазин', nav_pass: 'Пропуск', nav_island: 'Острів',
+      // home
+      play_level: '▶ Грати рівень {n}', incubator: '🥚 Інкубатор драконів',
+      t_daily: 'Щоденна', t_quests: 'Квести', t_leaderboard: 'Рейтинг', t_ach: 'Досягнення', t_options: 'Опції',
+      hatch: 'Вилупити!', charge10: 'Зарядити +10⚡', need_energy: 'Недостатньо енергії ⚡ (грайте рівні)',
+      new_dragon: '🎉 Новий дракон!', great: 'Чудово!',
+      // map
+      islands_title: '🗺️ Острови драконів', locked_at: '🔒 рівень {n}', level_n: 'Рівень {n}',
+      // preview
+      goal: '🎯 {text}', goal_score: 'Набрати {n} очок', goal_collect: 'Зібрати {n} × {g}',
+      goal_ice: 'Розбити всі блоки ({n})', goal_jelly: 'Очистити все желе ({n})', goal_boss: 'Перемогти боса',
+      moves_reward: 'Ходів: {m} · Нагорода: {gold}🪙 {energy}⚡', battle_team: 'Бойова команда драконів',
+      equip_empty: 'Порожньо', equip_hint: 'Торкніться слота, щоб змінити дракона', start: '▶ Старт',
+      // objectives (HUD)
+      obj_score: 'Очки', obj_ice: 'Блоки', obj_jelly: 'Желе',
+      // toasts
+      boss_attack: '💥 Бос атакує! +{n} криги', shuffled: '🔀 Поле перемішано!', dragon_active: '{e} {name} активовано!',
+      isle_unlocked: '🏝 Відкрито новий острів: {name}!', daily_available: '🎁 Доступна щоденна нагорода!',
+      // win / lose
+      victory: '🎉 Перемога!', score: 'Очки: {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Карта', btn_retry: '🔁 Ще раз', btn_next: '▶ Далі', btn_island: '🏝 Острів',
+      defeat: 'Поразка', goal_not_met: 'Цілі не досягнуто.', lives_left: 'Залишилось життів: {hearts}',
+      empty_suffix: ' (порожньо)', ad_hint_moves: 'Перегляньте рекламу, щоб отримати +5 ходів!', ad_plus_moves: '📺 +5 ходів',
+      // boosters
+      b_hammer: 'Молот', b_mix: 'Мікс', b_moves: 'Ходи',
+      hammer_hint: '🔨 Торкніться кристала, щоб розбити', hammer_cancel: 'Молот скасовано',
+      no_booster: 'Немає бустера — купіть у магазині 🛒', wait: 'Зачекайте…', plus5: '➕5 ходів!',
+      // collection / upgrade
+      collection_title: '🐲 Колекція драконів', not_unlocked: 'Не відкрито', dc_level: 'Рівень {n}',
+      rarity_common: 'звичайний', rarity_rare: 'рідкісний', rarity_epic: 'епічний',
+      upgrade_title: '⬆ Прокачка: {name}', cur_level: 'Поточний рівень', ability_power: 'Сила здатності',
+      charges_faster: 'Заряджається швидше з кожним рівнем', close: 'Закрити',
+      upgrade_btn: 'Покращити ({cost}🪙)', not_enough_gold: 'Недостатньо золота 🪙', now_level: '{name} тепер рівня {n}!',
+      // shop
+      shop_title: '🛒 Магазин', rewarded_ad: 'Реклама за винагороду', ad_desc: 'Перегляньте рекламу → +100🪙 та +20⚡',
+      watch: 'Дивитись', gems_section: '💎 Кристали', best_price: 'Найкраща ціна',
+      gold_section: '🪙 Золото', gold_pack: '{gold} золота', for_gems: 'за {gems}💎',
+      boosters_section: '🧪 Бустери', skins_section: '🎨 Косметичні скіни драконів',
+      hammer_pack: 'Молот ×3', mix_pack: 'Мікс ×3', moves_pack: 'Ходи ×3',
+      hammer_pdesc: 'Розбити будь-який кристал', mix_pdesc: 'Перемішати поле', moves_pdesc: '+5 ходів у грі',
+      you_have: 'маєте: {n}', bought: 'Куплено: {name}', not_enough_gems: 'Недостатньо кристалів 💎',
+      skin_for: 'Скін для {name}', wear: 'Вдягти', active: '✓ Активний', get_dragon_first: 'Спочатку отримайте дракона {name}',
+      skin_unlocked: 'Скін розблоковано!', purchase_ok: 'Покупка успішна: +{n}💎 (демо)', reward_got: 'Нагорода: +100🪙 +20⚡',
+      gold_added: '+{n} золота!',
+      // battle pass
+      pass_title: '🎖️ Бойовий пропуск — Сезон 1', pass_level: 'Рівень {n} / 50', xp_to_next: '{n} / 100 XP до наступного рівня',
+      premium_buy: '👑 Преміум 500💎', premium_on: 'Преміум-пропуск активовано! 👑', premium_badge: '👑 ПРЕМІУМ АКТИВНО', got: 'Отримано: {r}',
+      // daily
+      daily_title: '🎁 Щоденна нагорода', day_n: 'День {n}', claim: 'Забрати', already_claimed: 'Вже отримано', daily_got: 'Отримано щоденну нагороду!',
+      // quests / ach
+      quests_title: '📜 Щоденні квести', quest_reward: 'нагорода {n}🪙',
+      ach_title: '🏆 Досягнення',
+      // leaderboard
+      lb_title: '📊 Таблиця рекордів', your_place: 'Ваше місце: <b>#{rank}</b> з {total} · ⭐ {stars}', you: 'Ви',
+      // settings
+      settings_title: '⚙️ Налаштування', s_sound: '🔊 Звуки', s_music: '🎵 Музика', s_vibration: '📳 Вібрація', s_language: '🌐 Мова',
+      on: 'УВІМК', off: 'ВИМК', version: 'Версія 1.0.0', reset: '🗑️ Скинути прогрес',
+      reset_q: 'Скинути прогрес?', reset_warn: 'Весь прогрес буде втрачено назавжди.', yes_reset: 'Так, скинути', no: 'Ні', reset_done: 'Прогрес скинуто',
+      choose_lang: '🌐 Оберіть мову',
+      // lives
+      lives_title: '❤️ Життя', lives_count: '{n} / {max} життів', next_heart: 'Наступне ❤ через {m} хв {s} с',
+      lives_refill_hint: 'Поповніть, переглянувши рекламу, або за 💎.', ad_plus_life: '📺 +1 ❤ (реклама)', refill_gems: '💎 Поповнити (50)',
+      life_added: '+1 ❤', lives_refilled: 'Життя поповнено!',
+      // tutorial / welcome
+      tut1: '👆 Проведіть пальцем від кристала до сусіднього, щоб зібрати 3 однакові в ряд',
+      tut2: '💎 Чудово! Збіги заряджають драконів — дивіться смужки внизу.',
+      tut3: '🐉 Коли смужка дракона повна — він б’є по полю сам!',
+      welcome_title: '🐉 Ласкаво просимо!',
+      welcome_body: '<p>Поєднуйте 3+ кристали, щоб генерувати <b>енергію</b>.</p><p>Енергія заряджає <b>яйця драконів</b> на острові.</p><p>Дракони допомагають у бою: палять ряди, ламають кригу, б’ють блискавками та ростять бонуси!</p>',
+      start_adventure: 'Почати пригоду!',
+      // misc
+      combo: 'КОМБО ×{n}!', quit_q: 'Вийти з рівня?', resume: 'Продовжити', quit: 'Вийти',
+      pause: '⏸ Пауза', to_map: 'Вийти на карту', ad_waiting: 'Зачекайте...',
+      level_intro_goal: 'Ціль: {text}', sugar_bonus: 'БОНУС! +{n}'
+    },
+
+    en: {
+      lang_name: 'English',
+      nav_map: 'Map', nav_dragons: 'Dragons', nav_shop: 'Shop', nav_pass: 'Pass', nav_island: 'Island',
+      play_level: '▶ Play level {n}', incubator: '🥚 Dragon Incubator',
+      t_daily: 'Daily', t_quests: 'Quests', t_leaderboard: 'Ranks', t_ach: 'Awards', t_options: 'Options',
+      hatch: 'Hatch!', charge10: 'Charge +10⚡', need_energy: 'Not enough energy ⚡ (play levels)',
+      new_dragon: '🎉 New dragon!', great: 'Great!',
+      islands_title: '🗺️ Dragon Islands', locked_at: '🔒 level {n}', level_n: 'Level {n}',
+      goal: '🎯 {text}', goal_score: 'Reach {n} points', goal_collect: 'Collect {n} × {g}',
+      goal_ice: 'Break all blocks ({n})', goal_jelly: 'Clear all jelly ({n})', goal_boss: 'Defeat the boss',
+      moves_reward: 'Moves: {m} · Reward: {gold}🪙 {energy}⚡', battle_team: 'Dragon battle team',
+      equip_empty: 'Empty', equip_hint: 'Tap a slot to change the dragon', start: '▶ Start',
+      obj_score: 'Score', obj_ice: 'Blocks', obj_jelly: 'Jelly',
+      boss_attack: '💥 Boss attacks! +{n} ice', shuffled: '🔀 Board shuffled!', dragon_active: '{e} {name} activated!',
+      isle_unlocked: '🏝 New island unlocked: {name}!', daily_available: '🎁 Daily reward available!',
+      victory: '🎉 Victory!', score: 'Score: {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Map', btn_retry: '🔁 Retry', btn_next: '▶ Next', btn_island: '🏝 Island',
+      defeat: 'Defeat', goal_not_met: 'Goal not reached.', lives_left: 'Lives left: {hearts}',
+      empty_suffix: ' (empty)', ad_hint_moves: 'Watch an ad to get +5 moves!', ad_plus_moves: '📺 +5 moves',
+      b_hammer: 'Hammer', b_mix: 'Mix', b_moves: 'Moves',
+      hammer_hint: '🔨 Tap a crystal to smash it', hammer_cancel: 'Hammer cancelled',
+      no_booster: 'No booster — buy in the shop 🛒', wait: 'Please wait…', plus5: '➕5 moves!',
+      collection_title: '🐲 Dragon Collection', not_unlocked: 'Locked', dc_level: 'Level {n}',
+      rarity_common: 'common', rarity_rare: 'rare', rarity_epic: 'epic',
+      upgrade_title: '⬆ Upgrade: {name}', cur_level: 'Current level', ability_power: 'Ability power',
+      charges_faster: 'Charges faster each level', close: 'Close',
+      upgrade_btn: 'Upgrade ({cost}🪙)', not_enough_gold: 'Not enough gold 🪙', now_level: '{name} is now level {n}!',
+      shop_title: '🛒 Shop', rewarded_ad: 'Rewarded ad', ad_desc: 'Watch an ad → +100🪙 and +20⚡',
+      watch: 'Watch', gems_section: '💎 Gems', best_price: 'Best value',
+      gold_section: '🪙 Gold', gold_pack: '{gold} gold', for_gems: 'for {gems}💎',
+      boosters_section: '🧪 Boosters', skins_section: '🎨 Dragon cosmetic skins',
+      hammer_pack: 'Hammer ×3', mix_pack: 'Mix ×3', moves_pack: 'Moves ×3',
+      hammer_pdesc: 'Smash any crystal', mix_pdesc: 'Shuffle the board', moves_pdesc: '+5 moves in-game',
+      you_have: 'you have: {n}', bought: 'Bought: {name}', not_enough_gems: 'Not enough gems 💎',
+      skin_for: 'Skin for {name}', wear: 'Equip', active: '✓ Active', get_dragon_first: 'Get the {name} dragon first',
+      skin_unlocked: 'Skin unlocked!', purchase_ok: 'Purchase complete: +{n}💎 (demo)', reward_got: 'Reward: +100🪙 +20⚡',
+      gold_added: '+{n} gold!',
+      pass_title: '🎖️ Battle Pass — Season 1', pass_level: 'Tier {n} / 50', xp_to_next: '{n} / 100 XP to next tier',
+      premium_buy: '👑 Premium 500💎', premium_on: 'Premium pass activated! 👑', premium_badge: '👑 PREMIUM ACTIVE', got: 'Received: {r}',
+      daily_title: '🎁 Daily Reward', day_n: 'Day {n}', claim: 'Claim', already_claimed: 'Already claimed', daily_got: 'Daily reward claimed!',
+      quests_title: '📜 Daily Quests', quest_reward: 'reward {n}🪙',
+      ach_title: '🏆 Achievements',
+      lb_title: '📊 Leaderboard', your_place: 'Your rank: <b>#{rank}</b> of {total} · ⭐ {stars}', you: 'You',
+      settings_title: '⚙️ Settings', s_sound: '🔊 Sound', s_music: '🎵 Music', s_vibration: '📳 Vibration', s_language: '🌐 Language',
+      on: 'ON', off: 'OFF', version: 'Version 1.0.0', reset: '🗑️ Reset progress',
+      reset_q: 'Reset progress?', reset_warn: 'All progress will be lost forever.', yes_reset: 'Yes, reset', no: 'No', reset_done: 'Progress reset',
+      choose_lang: '🌐 Choose language',
+      lives_title: '❤️ Lives', lives_count: '{n} / {max} lives', next_heart: 'Next ❤ in {m}m {s}s',
+      lives_refill_hint: 'Refill by watching an ad, or with 💎.', ad_plus_life: '📺 +1 ❤ (ad)', refill_gems: '💎 Refill (50)',
+      life_added: '+1 ❤', lives_refilled: 'Lives refilled!',
+      tut1: '👆 Swipe one crystal onto a neighbor to match 3 of a kind',
+      tut2: '💎 Great! Matches charge your dragons — watch the bars below.',
+      tut3: '🐉 When a dragon bar is full, it strikes the board on its own!',
+      welcome_title: '🐉 Welcome!',
+      welcome_body: '<p>Match 3+ crystals to generate <b>energy</b>.</p><p>Energy charges the <b>dragon eggs</b> on your island.</p><p>Dragons help in battle: burn rows, smash ice, strike with lightning and grow bonuses!</p>',
+      start_adventure: 'Start the adventure!',
+      combo: 'COMBO ×{n}!', quit_q: 'Quit the level?', resume: 'Resume', quit: 'Quit',
+      pause: '⏸ Paused', to_map: 'Exit to map', ad_waiting: 'Please wait...',
+      level_intro_goal: 'Goal: {text}', sugar_bonus: 'BONUS! +{n}'
+    },
+
+    es: {
+      lang_name: 'Español',
+      nav_map: 'Mapa', nav_dragons: 'Dragones', nav_shop: 'Tienda', nav_pass: 'Pase', nav_island: 'Isla',
+      play_level: '▶ Jugar nivel {n}', incubator: '🥚 Incubadora de dragones',
+      t_daily: 'Diario', t_quests: 'Misiones', t_leaderboard: 'Ranking', t_ach: 'Logros', t_options: 'Opciones',
+      hatch: '¡Eclosionar!', charge10: 'Cargar +10⚡', need_energy: 'Falta energía ⚡ (juega niveles)',
+      new_dragon: '🎉 ¡Nuevo dragón!', great: '¡Genial!',
+      islands_title: '🗺️ Islas de dragones', locked_at: '🔒 nivel {n}', level_n: 'Nivel {n}',
+      goal: '🎯 {text}', goal_score: 'Consigue {n} puntos', goal_collect: 'Recoge {n} × {g}',
+      goal_ice: 'Rompe todos los bloques ({n})', goal_jelly: 'Limpia toda la gelatina ({n})', goal_boss: 'Derrota al jefe',
+      moves_reward: 'Movimientos: {m} · Premio: {gold}🪙 {energy}⚡', battle_team: 'Equipo de dragones',
+      equip_empty: 'Vacío', equip_hint: 'Toca una ranura para cambiar el dragón', start: '▶ Empezar',
+      obj_score: 'Puntos', obj_ice: 'Bloques', obj_jelly: 'Gelatina',
+      boss_attack: '💥 ¡El jefe ataca! +{n} hielo', shuffled: '🔀 ¡Tablero mezclado!', dragon_active: '¡{e} {name} activado!',
+      isle_unlocked: '🏝 ¡Nueva isla desbloqueada: {name}!', daily_available: '🎁 ¡Recompensa diaria disponible!',
+      victory: '🎉 ¡Victoria!', score: 'Puntos: {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Mapa', btn_retry: '🔁 Reintentar', btn_next: '▶ Siguiente', btn_island: '🏝 Isla',
+      defeat: 'Derrota', goal_not_met: 'Objetivo no alcanzado.', lives_left: 'Vidas restantes: {hearts}',
+      empty_suffix: ' (vacío)', ad_hint_moves: '¡Mira un anuncio para +5 movimientos!', ad_plus_moves: '📺 +5 mov.',
+      b_hammer: 'Martillo', b_mix: 'Mezcla', b_moves: 'Mov.',
+      hammer_hint: '🔨 Toca un cristal para romperlo', hammer_cancel: 'Martillo cancelado',
+      no_booster: 'Sin potenciador — compra en la tienda 🛒', wait: 'Espera…', plus5: '➕5 movimientos!',
+      collection_title: '🐲 Colección de dragones', not_unlocked: 'Bloqueado', dc_level: 'Nivel {n}',
+      rarity_common: 'común', rarity_rare: 'raro', rarity_epic: 'épico',
+      upgrade_title: '⬆ Mejora: {name}', cur_level: 'Nivel actual', ability_power: 'Poder de habilidad',
+      charges_faster: 'Se carga más rápido cada nivel', close: 'Cerrar',
+      upgrade_btn: 'Mejorar ({cost}🪙)', not_enough_gold: 'Falta oro 🪙', now_level: '¡{name} ahora es nivel {n}!',
+      shop_title: '🛒 Tienda', rewarded_ad: 'Anuncio con recompensa', ad_desc: 'Mira un anuncio → +100🪙 y +20⚡',
+      watch: 'Ver', gems_section: '💎 Gemas', best_price: 'Mejor precio',
+      gold_section: '🪙 Oro', gold_pack: '{gold} oro', for_gems: 'por {gems}💎',
+      boosters_section: '🧪 Potenciadores', skins_section: '🎨 Aspectos de dragones',
+      hammer_pack: 'Martillo ×3', mix_pack: 'Mezcla ×3', moves_pack: 'Mov. ×3',
+      hammer_pdesc: 'Rompe cualquier cristal', mix_pdesc: 'Mezcla el tablero', moves_pdesc: '+5 movimientos',
+      you_have: 'tienes: {n}', bought: 'Comprado: {name}', not_enough_gems: 'Faltan gemas 💎',
+      skin_for: 'Aspecto para {name}', wear: 'Equipar', active: '✓ Activo', get_dragon_first: 'Consigue primero el dragón {name}',
+      skin_unlocked: '¡Aspecto desbloqueado!', purchase_ok: 'Compra completa: +{n}💎 (demo)', reward_got: 'Premio: +100🪙 +20⚡',
+      gold_added: '¡+{n} oro!',
+      pass_title: '🎖️ Pase de batalla — Temporada 1', pass_level: 'Nivel {n} / 50', xp_to_next: '{n} / 100 XP al siguiente',
+      premium_buy: '👑 Premium 500💎', premium_on: '¡Pase premium activado! 👑', premium_badge: '👑 PREMIUM ACTIVO', got: 'Recibido: {r}',
+      daily_title: '🎁 Recompensa diaria', day_n: 'Día {n}', claim: 'Reclamar', already_claimed: 'Ya reclamado', daily_got: '¡Recompensa diaria reclamada!',
+      quests_title: '📜 Misiones diarias', quest_reward: 'premio {n}🪙',
+      ach_title: '🏆 Logros',
+      lb_title: '📊 Clasificación', your_place: 'Tu puesto: <b>#{rank}</b> de {total} · ⭐ {stars}', you: 'Tú',
+      settings_title: '⚙️ Ajustes', s_sound: '🔊 Sonido', s_music: '🎵 Música', s_vibration: '📳 Vibración', s_language: '🌐 Idioma',
+      on: 'SÍ', off: 'NO', version: 'Versión 1.0.0', reset: '🗑️ Reiniciar progreso',
+      reset_q: '¿Reiniciar progreso?', reset_warn: 'Todo el progreso se perderá para siempre.', yes_reset: 'Sí, reiniciar', no: 'No', reset_done: 'Progreso reiniciado',
+      choose_lang: '🌐 Elige idioma',
+      lives_title: '❤️ Vidas', lives_count: '{n} / {max} vidas', next_heart: 'Próximo ❤ en {m}m {s}s',
+      lives_refill_hint: 'Recarga viendo un anuncio o con 💎.', ad_plus_life: '📺 +1 ❤ (anuncio)', refill_gems: '💎 Recargar (50)',
+      life_added: '+1 ❤', lives_refilled: '¡Vidas recargadas!',
+      tut1: '👆 Desliza un cristal hacia uno vecino para juntar 3 iguales',
+      tut2: '💎 ¡Genial! Las combinaciones cargan a tus dragones — mira las barras abajo.',
+      tut3: '🐉 Cuando la barra de un dragón se llena, ¡ataca solo!',
+      welcome_title: '🐉 ¡Bienvenido!',
+      welcome_body: '<p>Combina 3+ cristales para generar <b>energía</b>.</p><p>La energía carga los <b>huevos de dragón</b> en tu isla.</p><p>Los dragones ayudan en batalla: queman filas, rompen hielo, lanzan rayos y crean bonos!</p>',
+      start_adventure: '¡Empezar la aventura!',
+      combo: '¡COMBO ×{n}!', quit_q: '¿Salir del nivel?', resume: 'Continuar', quit: 'Salir',
+      pause: '⏸ Pausa', to_map: 'Salir al mapa', ad_waiting: 'Espera...',
+      level_intro_goal: 'Objetivo: {text}', sugar_bonus: '¡BONO! +{n}'
+    },
+
+    de: {
+      lang_name: 'Deutsch',
+      nav_map: 'Karte', nav_dragons: 'Drachen', nav_shop: 'Shop', nav_pass: 'Pass', nav_island: 'Insel',
+      play_level: '▶ Level {n} spielen', incubator: '🥚 Drachen-Brutkasten',
+      t_daily: 'Täglich', t_quests: 'Aufträge', t_leaderboard: 'Rangliste', t_ach: 'Erfolge', t_options: 'Optionen',
+      hatch: 'Schlüpfen!', charge10: 'Laden +10⚡', need_energy: 'Zu wenig Energie ⚡ (spiele Level)',
+      new_dragon: '🎉 Neuer Drache!', great: 'Super!',
+      islands_title: '🗺️ Dracheninseln', locked_at: '🔒 Level {n}', level_n: 'Level {n}',
+      goal: '🎯 {text}', goal_score: 'Erreiche {n} Punkte', goal_collect: 'Sammle {n} × {g}',
+      goal_ice: 'Zerbrich alle Blöcke ({n})', goal_jelly: 'Entferne das Gelee ({n})', goal_boss: 'Besiege den Boss',
+      moves_reward: 'Züge: {m} · Belohnung: {gold}🪙 {energy}⚡', battle_team: 'Drachen-Kampfteam',
+      equip_empty: 'Leer', equip_hint: 'Tippe einen Slot, um den Drachen zu wechseln', start: '▶ Start',
+      obj_score: 'Punkte', obj_ice: 'Blöcke', obj_jelly: 'Gelee',
+      boss_attack: '💥 Boss greift an! +{n} Eis', shuffled: '🔀 Feld gemischt!', dragon_active: '{e} {name} aktiviert!',
+      isle_unlocked: '🏝 Neue Insel frei: {name}!', daily_available: '🎁 Tägliche Belohnung verfügbar!',
+      victory: '🎉 Sieg!', score: 'Punkte: {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Karte', btn_retry: '🔁 Nochmal', btn_next: '▶ Weiter', btn_island: '🏝 Insel',
+      defeat: 'Niederlage', goal_not_met: 'Ziel nicht erreicht.', lives_left: 'Leben übrig: {hearts}',
+      empty_suffix: ' (leer)', ad_hint_moves: 'Sieh eine Werbung für +5 Züge!', ad_plus_moves: '📺 +5 Züge',
+      b_hammer: 'Hammer', b_mix: 'Mix', b_moves: 'Züge',
+      hammer_hint: '🔨 Tippe einen Kristall zum Zerschlagen', hammer_cancel: 'Hammer abgebrochen',
+      no_booster: 'Kein Booster — im Shop kaufen 🛒', wait: 'Bitte warten…', plus5: '➕5 Züge!',
+      collection_title: '🐲 Drachensammlung', not_unlocked: 'Gesperrt', dc_level: 'Level {n}',
+      rarity_common: 'gewöhnlich', rarity_rare: 'selten', rarity_epic: 'episch',
+      upgrade_title: '⬆ Verbessern: {name}', cur_level: 'Aktuelles Level', ability_power: 'Fähigkeitsstärke',
+      charges_faster: 'Lädt mit jedem Level schneller', close: 'Schließen',
+      upgrade_btn: 'Verbessern ({cost}🪙)', not_enough_gold: 'Zu wenig Gold 🪙', now_level: '{name} ist jetzt Level {n}!',
+      shop_title: '🛒 Shop', rewarded_ad: 'Belohnte Werbung', ad_desc: 'Werbung ansehen → +100🪙 und +20⚡',
+      watch: 'Ansehen', gems_section: '💎 Edelsteine', best_price: 'Bester Wert',
+      gold_section: '🪙 Gold', gold_pack: '{gold} Gold', for_gems: 'für {gems}💎',
+      boosters_section: '🧪 Booster', skins_section: '🎨 Drachen-Skins',
+      hammer_pack: 'Hammer ×3', mix_pack: 'Mix ×3', moves_pack: 'Züge ×3',
+      hammer_pdesc: 'Zerschlage jeden Kristall', mix_pdesc: 'Mische das Feld', moves_pdesc: '+5 Züge im Spiel',
+      you_have: 'du hast: {n}', bought: 'Gekauft: {name}', not_enough_gems: 'Zu wenig Edelsteine 💎',
+      skin_for: 'Skin für {name}', wear: 'Anlegen', active: '✓ Aktiv', get_dragon_first: 'Hol dir zuerst den Drachen {name}',
+      skin_unlocked: 'Skin freigeschaltet!', purchase_ok: 'Kauf abgeschlossen: +{n}💎 (Demo)', reward_got: 'Belohnung: +100🪙 +20⚡',
+      gold_added: '+{n} Gold!',
+      pass_title: '🎖️ Battle Pass — Saison 1', pass_level: 'Stufe {n} / 50', xp_to_next: '{n} / 100 XP zur nächsten Stufe',
+      premium_buy: '👑 Premium 500💎', premium_on: 'Premium-Pass aktiviert! 👑', premium_badge: '👑 PREMIUM AKTIV', got: 'Erhalten: {r}',
+      daily_title: '🎁 Tägliche Belohnung', day_n: 'Tag {n}', claim: 'Abholen', already_claimed: 'Schon abgeholt', daily_got: 'Tägliche Belohnung erhalten!',
+      quests_title: '📜 Tägliche Aufträge', quest_reward: 'Belohnung {n}🪙',
+      ach_title: '🏆 Erfolge',
+      lb_title: '📊 Rangliste', your_place: 'Dein Platz: <b>#{rank}</b> von {total} · ⭐ {stars}', you: 'Du',
+      settings_title: '⚙️ Einstellungen', s_sound: '🔊 Ton', s_music: '🎵 Musik', s_vibration: '📳 Vibration', s_language: '🌐 Sprache',
+      on: 'AN', off: 'AUS', version: 'Version 1.0.0', reset: '🗑️ Fortschritt zurücksetzen',
+      reset_q: 'Fortschritt zurücksetzen?', reset_warn: 'Aller Fortschritt geht für immer verloren.', yes_reset: 'Ja, zurücksetzen', no: 'Nein', reset_done: 'Fortschritt zurückgesetzt',
+      choose_lang: '🌐 Sprache wählen',
+      lives_title: '❤️ Leben', lives_count: '{n} / {max} Leben', next_heart: 'Nächstes ❤ in {m}m {s}s',
+      lives_refill_hint: 'Fülle per Werbung oder mit 💎 auf.', ad_plus_life: '📺 +1 ❤ (Werbung)', refill_gems: '💎 Auffüllen (50)',
+      life_added: '+1 ❤', lives_refilled: 'Leben aufgefüllt!',
+      tut1: '👆 Ziehe einen Kristall auf einen Nachbarn für 3 gleiche',
+      tut2: '💎 Super! Kombinationen laden deine Drachen — sieh die Balken unten.',
+      tut3: '🐉 Ist ein Drachenbalken voll, schlägt er von selbst zu!',
+      welcome_title: '🐉 Willkommen!',
+      welcome_body: '<p>Kombiniere 3+ Kristalle, um <b>Energie</b> zu erzeugen.</p><p>Energie lädt die <b>Dracheneier</b> auf deiner Insel.</p><p>Drachen helfen im Kampf: brennen Reihen ab, zerschlagen Eis, schlagen mit Blitzen und züchten Boni!</p>',
+      start_adventure: 'Abenteuer starten!',
+      combo: 'COMBO ×{n}!', quit_q: 'Level verlassen?', resume: 'Weiter', quit: 'Verlassen',
+      pause: '⏸ Pause', to_map: 'Zur Karte', ad_waiting: 'Bitte warten...',
+      level_intro_goal: 'Ziel: {text}', sugar_bonus: 'BONUS! +{n}'
+    },
+
+    fr: {
+      lang_name: 'Français',
+      nav_map: 'Carte', nav_dragons: 'Dragons', nav_shop: 'Boutique', nav_pass: 'Passe', nav_island: 'Île',
+      play_level: '▶ Jouer niveau {n}', incubator: '🥚 Incubateur de dragons',
+      t_daily: 'Quotidien', t_quests: 'Quêtes', t_leaderboard: 'Classement', t_ach: 'Succès', t_options: 'Options',
+      hatch: 'Éclore !', charge10: 'Charger +10⚡', need_energy: 'Pas assez d’énergie ⚡ (jouez des niveaux)',
+      new_dragon: '🎉 Nouveau dragon !', great: 'Super !',
+      islands_title: '🗺️ Îles des dragons', locked_at: '🔒 niveau {n}', level_n: 'Niveau {n}',
+      goal: '🎯 {text}', goal_score: 'Atteins {n} points', goal_collect: 'Récolte {n} × {g}',
+      goal_ice: 'Brise tous les blocs ({n})', goal_jelly: 'Nettoie toute la gelée ({n})', goal_boss: 'Bats le boss',
+      moves_reward: 'Coups : {m} · Récompense : {gold}🪙 {energy}⚡', battle_team: 'Équipe de dragons',
+      equip_empty: 'Vide', equip_hint: 'Touchez un emplacement pour changer de dragon', start: '▶ Démarrer',
+      obj_score: 'Score', obj_ice: 'Blocs', obj_jelly: 'Gelée',
+      boss_attack: '💥 Le boss attaque ! +{n} glace', shuffled: '🔀 Plateau mélangé !', dragon_active: '{e} {name} activé !',
+      isle_unlocked: '🏝 Nouvelle île débloquée : {name} !', daily_available: '🎁 Récompense quotidienne disponible !',
+      victory: '🎉 Victoire !', score: 'Score : {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Carte', btn_retry: '🔁 Réessayer', btn_next: '▶ Suivant', btn_island: '🏝 Île',
+      defeat: 'Défaite', goal_not_met: 'Objectif non atteint.', lives_left: 'Vies restantes : {hearts}',
+      empty_suffix: ' (vide)', ad_hint_moves: 'Regardez une pub pour +5 coups !', ad_plus_moves: '📺 +5 coups',
+      b_hammer: 'Marteau', b_mix: 'Mix', b_moves: 'Coups',
+      hammer_hint: '🔨 Touchez un cristal pour le briser', hammer_cancel: 'Marteau annulé',
+      no_booster: 'Pas de booster — achetez en boutique 🛒', wait: 'Patientez…', plus5: '➕5 coups !',
+      collection_title: '🐲 Collection de dragons', not_unlocked: 'Verrouillé', dc_level: 'Niveau {n}',
+      rarity_common: 'commun', rarity_rare: 'rare', rarity_epic: 'épique',
+      upgrade_title: '⬆ Améliorer : {name}', cur_level: 'Niveau actuel', ability_power: 'Puissance',
+      charges_faster: 'Se charge plus vite à chaque niveau', close: 'Fermer',
+      upgrade_btn: 'Améliorer ({cost}🪙)', not_enough_gold: 'Pas assez d’or 🪙', now_level: '{name} est maintenant niveau {n} !',
+      shop_title: '🛒 Boutique', rewarded_ad: 'Pub récompensée', ad_desc: 'Regardez une pub → +100🪙 et +20⚡',
+      watch: 'Voir', gems_section: '💎 Gemmes', best_price: 'Meilleur prix',
+      gold_section: '🪙 Or', gold_pack: '{gold} or', for_gems: 'pour {gems}💎',
+      boosters_section: '🧪 Boosters', skins_section: '🎨 Skins de dragons',
+      hammer_pack: 'Marteau ×3', mix_pack: 'Mix ×3', moves_pack: 'Coups ×3',
+      hammer_pdesc: 'Brise n’importe quel cristal', mix_pdesc: 'Mélange le plateau', moves_pdesc: '+5 coups en jeu',
+      you_have: 'vous avez : {n}', bought: 'Acheté : {name}', not_enough_gems: 'Pas assez de gemmes 💎',
+      skin_for: 'Skin pour {name}', wear: 'Équiper', active: '✓ Actif', get_dragon_first: 'Obtenez d’abord le dragon {name}',
+      skin_unlocked: 'Skin débloqué !', purchase_ok: 'Achat effectué : +{n}💎 (démo)', reward_got: 'Récompense : +100🪙 +20⚡',
+      gold_added: '+{n} or !',
+      pass_title: '🎖️ Passe de combat — Saison 1', pass_level: 'Palier {n} / 50', xp_to_next: '{n} / 100 XP au palier suivant',
+      premium_buy: '👑 Premium 500💎', premium_on: 'Passe premium activé ! 👑', premium_badge: '👑 PREMIUM ACTIF', got: 'Reçu : {r}',
+      daily_title: '🎁 Récompense quotidienne', day_n: 'Jour {n}', claim: 'Réclamer', already_claimed: 'Déjà réclamé', daily_got: 'Récompense quotidienne réclamée !',
+      quests_title: '📜 Quêtes quotidiennes', quest_reward: 'récompense {n}🪙',
+      ach_title: '🏆 Succès',
+      lb_title: '📊 Classement', your_place: 'Votre rang : <b>#{rank}</b> sur {total} · ⭐ {stars}', you: 'Vous',
+      settings_title: '⚙️ Réglages', s_sound: '🔊 Sons', s_music: '🎵 Musique', s_vibration: '📳 Vibration', s_language: '🌐 Langue',
+      on: 'OUI', off: 'NON', version: 'Version 1.0.0', reset: '🗑️ Réinitialiser',
+      reset_q: 'Réinitialiser la progression ?', reset_warn: 'Toute la progression sera perdue.', yes_reset: 'Oui, réinitialiser', no: 'Non', reset_done: 'Progression réinitialisée',
+      choose_lang: '🌐 Choisir la langue',
+      lives_title: '❤️ Vies', lives_count: '{n} / {max} vies', next_heart: 'Prochain ❤ dans {m}m {s}s',
+      lives_refill_hint: 'Rechargez via une pub ou avec 💎.', ad_plus_life: '📺 +1 ❤ (pub)', refill_gems: '💎 Recharger (50)',
+      life_added: '+1 ❤', lives_refilled: 'Vies rechargées !',
+      tut1: '👆 Glissez un cristal vers un voisin pour aligner 3 identiques',
+      tut2: '💎 Super ! Les combos chargent vos dragons — voyez les barres en bas.',
+      tut3: '🐉 Quand la barre d’un dragon est pleine, il frappe tout seul !',
+      welcome_title: '🐉 Bienvenue !',
+      welcome_body: '<p>Alignez 3+ cristaux pour générer de l’<b>énergie</b>.</p><p>L’énergie charge les <b>œufs de dragon</b> sur votre île.</p><p>Les dragons aident au combat : brûlent des rangées, brisent la glace, foudroient et créent des bonus !</p>',
+      start_adventure: 'Commencer l’aventure !',
+      combo: 'COMBO ×{n} !', quit_q: 'Quitter le niveau ?', resume: 'Continuer', quit: 'Quitter',
+      pause: '⏸ Pause', to_map: 'Aller à la carte', ad_waiting: 'Patientez...',
+      level_intro_goal: 'Objectif : {text}', sugar_bonus: 'BONUS ! +{n}'
+    },
+
+    pt: {
+      lang_name: 'Português',
+      nav_map: 'Mapa', nav_dragons: 'Dragões', nav_shop: 'Loja', nav_pass: 'Passe', nav_island: 'Ilha',
+      play_level: '▶ Jogar nível {n}', incubator: '🥚 Incubadora de dragões',
+      t_daily: 'Diário', t_quests: 'Missões', t_leaderboard: 'Ranking', t_ach: 'Conquistas', t_options: 'Opções',
+      hatch: 'Chocar!', charge10: 'Carregar +10⚡', need_energy: 'Energia insuficiente ⚡ (jogue níveis)',
+      new_dragon: '🎉 Novo dragão!', great: 'Ótimo!',
+      islands_title: '🗺️ Ilhas dos dragões', locked_at: '🔒 nível {n}', level_n: 'Nível {n}',
+      goal: '🎯 {text}', goal_score: 'Alcance {n} pontos', goal_collect: 'Colete {n} × {g}',
+      goal_ice: 'Quebre todos os blocos ({n})', goal_jelly: 'Limpe toda a geleia ({n})', goal_boss: 'Derrote o chefe',
+      moves_reward: 'Jogadas: {m} · Prêmio: {gold}🪙 {energy}⚡', battle_team: 'Equipe de dragões',
+      equip_empty: 'Vazio', equip_hint: 'Toque num espaço para trocar o dragão', start: '▶ Começar',
+      obj_score: 'Pontos', obj_ice: 'Blocos', obj_jelly: 'Geleia',
+      boss_attack: '💥 O chefe ataca! +{n} gelo', shuffled: '🔀 Tabuleiro embaralhado!', dragon_active: '{e} {name} ativado!',
+      isle_unlocked: '🏝 Nova ilha desbloqueada: {name}!', daily_available: '🎁 Recompensa diária disponível!',
+      victory: '🎉 Vitória!', score: 'Pontos: {n}', win_rewards: '+{gold}🪙  +{energy}⚡',
+      btn_map: '🗺 Mapa', btn_retry: '🔁 De novo', btn_next: '▶ Próximo', btn_island: '🏝 Ilha',
+      defeat: 'Derrota', goal_not_met: 'Objetivo não alcançado.', lives_left: 'Vidas restantes: {hearts}',
+      empty_suffix: ' (vazio)', ad_hint_moves: 'Assista a um anúncio para +5 jogadas!', ad_plus_moves: '📺 +5 jogadas',
+      b_hammer: 'Martelo', b_mix: 'Mistura', b_moves: 'Jogadas',
+      hammer_hint: '🔨 Toque num cristal para quebrá-lo', hammer_cancel: 'Martelo cancelado',
+      no_booster: 'Sem booster — compre na loja 🛒', wait: 'Aguarde…', plus5: '➕5 jogadas!',
+      collection_title: '🐲 Coleção de dragões', not_unlocked: 'Bloqueado', dc_level: 'Nível {n}',
+      rarity_common: 'comum', rarity_rare: 'raro', rarity_epic: 'épico',
+      upgrade_title: '⬆ Melhorar: {name}', cur_level: 'Nível atual', ability_power: 'Poder da habilidade',
+      charges_faster: 'Carrega mais rápido a cada nível', close: 'Fechar',
+      upgrade_btn: 'Melhorar ({cost}🪙)', not_enough_gold: 'Ouro insuficiente 🪙', now_level: '{name} agora é nível {n}!',
+      shop_title: '🛒 Loja', rewarded_ad: 'Anúncio premiado', ad_desc: 'Assista a um anúncio → +100🪙 e +20⚡',
+      watch: 'Assistir', gems_section: '💎 Gemas', best_price: 'Melhor preço',
+      gold_section: '🪙 Ouro', gold_pack: '{gold} ouro', for_gems: 'por {gems}💎',
+      boosters_section: '🧪 Boosters', skins_section: '🎨 Visuais de dragões',
+      hammer_pack: 'Martelo ×3', mix_pack: 'Mistura ×3', moves_pack: 'Jogadas ×3',
+      hammer_pdesc: 'Quebre qualquer cristal', mix_pdesc: 'Embaralhe o tabuleiro', moves_pdesc: '+5 jogadas no jogo',
+      you_have: 'você tem: {n}', bought: 'Comprado: {name}', not_enough_gems: 'Gemas insuficientes 💎',
+      skin_for: 'Visual para {name}', wear: 'Equipar', active: '✓ Ativo', get_dragon_first: 'Consiga primeiro o dragão {name}',
+      skin_unlocked: 'Visual desbloqueado!', purchase_ok: 'Compra concluída: +{n}💎 (demo)', reward_got: 'Prêmio: +100🪙 +20⚡',
+      gold_added: '+{n} ouro!',
+      pass_title: '🎖️ Passe de batalha — Temporada 1', pass_level: 'Nível {n} / 50', xp_to_next: '{n} / 100 XP para o próximo',
+      premium_buy: '👑 Premium 500💎', premium_on: 'Passe premium ativado! 👑', premium_badge: '👑 PREMIUM ATIVO', got: 'Recebido: {r}',
+      daily_title: '🎁 Recompensa diária', day_n: 'Dia {n}', claim: 'Resgatar', already_claimed: 'Já resgatado', daily_got: 'Recompensa diária resgatada!',
+      quests_title: '📜 Missões diárias', quest_reward: 'prêmio {n}🪙',
+      ach_title: '🏆 Conquistas',
+      lb_title: '📊 Classificação', your_place: 'Sua posição: <b>#{rank}</b> de {total} · ⭐ {stars}', you: 'Você',
+      settings_title: '⚙️ Ajustes', s_sound: '🔊 Som', s_music: '🎵 Música', s_vibration: '📳 Vibração', s_language: '🌐 Idioma',
+      on: 'SIM', off: 'NÃO', version: 'Versão 1.0.0', reset: '🗑️ Reiniciar progresso',
+      reset_q: 'Reiniciar progresso?', reset_warn: 'Todo o progresso será perdido para sempre.', yes_reset: 'Sim, reiniciar', no: 'Não', reset_done: 'Progresso reiniciado',
+      choose_lang: '🌐 Escolha o idioma',
+      lives_title: '❤️ Vidas', lives_count: '{n} / {max} vidas', next_heart: 'Próximo ❤ em {m}m {s}s',
+      lives_refill_hint: 'Recarregue vendo um anúncio ou com 💎.', ad_plus_life: '📺 +1 ❤ (anúncio)', refill_gems: '💎 Recarregar (50)',
+      life_added: '+1 ❤', lives_refilled: 'Vidas recarregadas!',
+      tut1: '👆 Deslize um cristal até um vizinho para juntar 3 iguais',
+      tut2: '💎 Ótimo! As combinações carregam seus dragões — veja as barras abaixo.',
+      tut3: '🐉 Quando a barra de um dragão enche, ele ataca sozinho!',
+      welcome_title: '🐉 Bem-vindo!',
+      welcome_body: '<p>Combine 3+ cristais para gerar <b>energia</b>.</p><p>A energia carrega os <b>ovos de dragão</b> na sua ilha.</p><p>Os dragões ajudam na batalha: queimam fileiras, quebram gelo, atacam com raios e criam bônus!</p>',
+      start_adventure: 'Começar a aventura!',
+      combo: 'COMBO ×{n}!', quit_q: 'Sair do nível?', resume: 'Continuar', quit: 'Sair',
+      pause: '⏸ Pausa', to_map: 'Ir ao mapa', ad_waiting: 'Aguarde...',
+      level_intro_goal: 'Objetivo: {text}', sugar_bonus: 'BÔNUS! +{n}'
+    }
+  };
+
+  // Daily-quest texts (merged in by quest id).
+  const QSTR = {
+    uk: { q_win3: 'Виграйте 3 рівні', q_crush200: 'Знищіть 200 кристалів', q_combo4: 'Зробіть комбо x4', q_dragon: 'Активуйте драконів 8 разів', q_energy: 'Зберіть 200 енергії', q_special: 'Створіть 6 особливих кристалів' },
+    en: { q_win3: 'Win 3 levels', q_crush200: 'Crush 200 crystals', q_combo4: 'Make a x4 combo', q_dragon: 'Trigger dragons 8 times', q_energy: 'Gather 200 energy', q_special: 'Create 6 special crystals' },
+    es: { q_win3: 'Gana 3 niveles', q_crush200: 'Rompe 200 cristales', q_combo4: 'Haz un combo x4', q_dragon: 'Activa dragones 8 veces', q_energy: 'Reúne 200 de energía', q_special: 'Crea 6 cristales especiales' },
+    de: { q_win3: 'Gewinne 3 Level', q_crush200: 'Zerstöre 200 Kristalle', q_combo4: 'Mache ein x4-Combo', q_dragon: 'Löse Drachen 8-mal aus', q_energy: 'Sammle 200 Energie', q_special: 'Erzeuge 6 Spezialkristalle' },
+    fr: { q_win3: 'Gagne 3 niveaux', q_crush200: 'Détruis 200 cristaux', q_combo4: 'Fais un combo x4', q_dragon: 'Déclenche les dragons 8 fois', q_energy: 'Récolte 200 d’énergie', q_special: 'Crée 6 cristaux spéciaux' },
+    pt: { q_win3: 'Vença 3 níveis', q_crush200: 'Destrua 200 cristais', q_combo4: 'Faça um combo x4', q_dragon: 'Ative dragões 8 vezes', q_energy: 'Junte 200 de energia', q_special: 'Crie 6 cristais especiais' }
+  };
+  Object.keys(QSTR).forEach(function (l) { Object.assign(STR[l], QSTR[l]); });
+
+  const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
+
+  function currentLang() {
+    try {
+      const s = global.Save && global.Save.get && global.Save.get().settings;
+      if (s && s.language && STR[s.language]) return s.language;
+    } catch (e) {}
+    return 'uk';
+  }
+
+  function T(key, params) {
+    const lang = currentLang();
+    let s = (STR[lang] && STR[lang][key]);
+    if (s == null) s = (STR.en[key] != null ? STR.en[key] : STR.uk[key]);
+    if (s == null) return key;
+    if (params) s = s.replace(/\{(\w+)\}/g, function (m, k) { return params[k] != null ? params[k] : m; });
+    return s;
+  }
+
+  global.I18N = { STR: STR, ORDER: ORDER, currentLang: currentLang, langName: function (l) { return STR[l] && STR[l].lang_name; } };
+  global.T = T;
+})(window);
+
+//----
+/* ============================================================
    Save system — persistent player profile via localStorage.
    Robust to corrupted/old data; auto-creates defaults.
    ============================================================ */
@@ -681,7 +1135,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
       lives: { count: 5, max: 5, lastRegen: Date.now() },
-      settings: { sound: true, music: true, vibration: true },
+      settings: { sound: true, music: true, vibration: true, language: 'uk' },
       tutorialDone: false,
       firstRun: true
     };
@@ -978,15 +1432,41 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const cell = m[0];
       this.grid[cell.r][cell.c].type = (this.grid[cell.r][cell.c].type + 1) % this.colors;
     }
-    // Add ice obstacles for ICE objective levels.
-    if (this.level.objective === D.OBJ.ICE) {
-      let placed = 0;
-      let guard2 = 0;
-      while (placed < this.level.iceCount && guard2++ < 400) {
+    const lv = this.level;
+    // Ice blockers (ICE objective).
+    this.iceLeft = 0;
+    if (lv.objective === D.OBJ.ICE) {
+      let placed = 0, guard2 = 0;
+      while (placed < lv.iceCount && guard2++ < 400) {
         const r = rnd(this.rows), c = rnd(this.cols);
-        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; placed++; }
+        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].blockHp = 1; placed++; }
       }
       this.iceLeft = placed;
+    }
+    // Crates (2-hit blockers) — count toward the ice objective.
+    let crates = lv.crates || 0, cg = 0;
+    while (crates > 0 && cg++ < 400) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].crate = true; this.grid[r][c].blockHp = 2; crates--; if (lv.objective === D.OBJ.ICE) this.iceLeft++; }
+    }
+    // Chains (locked crystals).
+    let chains = lv.chains || 0, hg = 0;
+    while (chains > 0 && hg++ < 400) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      if (!this.grid[r][c].ice && !this.grid[r][c].chain) { this.grid[r][c].chain = true; chains--; }
+    }
+    // Jelly layers (JELLY objective) — tracked per cell, independent of crystals.
+    this.jellyGrid = [];
+    this.jellyLeft = 0;
+    for (let r = 0; r < this.rows; r++) { this.jellyGrid.push(new Array(this.cols).fill(0)); }
+    if (lv.objective === D.OBJ.JELLY) {
+      let placed = 0, jg = 0;
+      while (placed < lv.jellyCount && jg++ < 600) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        const layers = (rnd(3) === 0) ? 2 : 1;
+        if (this.jellyGrid[r][c] === 0 && !this.grid[r][c].ice) { this.jellyGrid[r][c] = layers; placed += layers; }
+      }
+      this.jellyLeft = placed;
     }
   };
 
@@ -994,7 +1474,10 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     return {
       type: rnd(this.colors),
       special: SP.NONE,
-      ice: false,
+      ice: false,       // solid blocker present (ice or crate)
+      blockHp: 0,       // hits remaining for the blocker (1 = ice, 2 = crate)
+      crate: false,     // render blocker as a wooden crate
+      chain: false,     // crystal locked by a chain (can't be swapped)
       r: r, c: c,
       scale: instant ? 1 : 0,
       offY: 0,
@@ -1047,7 +1530,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (this.state !== 'idle' || this.finished) return;
     this.idleTime = 0; this.hint = null;
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
-    if (ta.ice || tb.ice) { global.Audio2.play('invalid'); return; }
+    if (ta.ice || tb.ice || ta.chain || tb.chain) { global.Audio2.play('invalid'); return; }
     this.state = 'busy';
     global.Audio2.play('swap');
     const bothSpecial = ta.special !== SP.NONE && tb.special !== SP.NONE;
@@ -1174,6 +1657,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       if (ring.t >= ring.life) this.rings.splice(i, 1);
     }
 
+    // victory fireworks finale
+    if (this.victory) {
+      this.victory.t += dt;
+      if (Math.random() < 0.7) {
+        const x = this.viewport.x + Math.random() * this.viewport.size;
+        const y = this.viewport.y + Math.random() * this.viewport.size;
+        const cols = ['#ff5d6c', '#5db4ff', '#56e29a', '#ffd24d', '#c58bff', '#fff'];
+        const col = cols[(Math.random() * cols.length) | 0];
+        this.spawnBurst(x, y, col, 14);
+        this.spawnRing(x, y, this.tile * 2.2, col);
+      }
+      if (this.victory.t >= this.victory.dur && !this.victory.fired) {
+        this.victory.fired = true;
+        const v = this.victory; this.victory = null;
+        this.cb.onWin && this.cb.onWin({ score: this.score, stars: v.stars });
+      }
+    }
+
     // idle hint: pulse a valid move when the player hesitates
     if (this.state === 'idle' && !this.finished) {
       this.idleTime = (this.idleTime || 0) + dt;
@@ -1192,7 +1693,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       let run = 1;
       for (let c = 1; c <= this.cols; c++) {
         const same = c < this.cols && g[r][c] && g[r][c - 1] &&
-          !g[r][c].ice && !g[r][c - 1].ice && g[r][c].type === g[r][c - 1].type;
+          !g[r][c].ice && !g[r][c - 1].ice && !g[r][c].chain && !g[r][c - 1].chain &&
+          g[r][c].type === g[r][c - 1].type;
         if (same) run++;
         else {
           if (run >= 3) { const grp = []; for (let k = c - run; k < c; k++) grp.push({ r: r, c: k }); groups.push(grp); }
@@ -1205,7 +1707,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       let run = 1;
       for (let r = 1; r <= this.rows; r++) {
         const same = r < this.rows && g[r][c] && g[r - 1][c] &&
-          !g[r][c].ice && !g[r - 1][c].ice && g[r][c].type === g[r - 1][c].type;
+          !g[r][c].ice && !g[r - 1][c].ice && !g[r][c].chain && !g[r - 1][c].chain &&
+          g[r][c].type === g[r - 1][c].type;
         if (same) run++;
         else {
           if (run >= 3) { const grp = []; for (let k = r - run; k < r; k++) grp.push({ r: k, c: c }); groups.push(grp); }
@@ -1313,8 +1816,14 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       }
       cleared++;
       energyGain += 2;
-      // crack adjacent ice
+      // crack adjacent blockers (ice / crates / chains)
       self.crackAdjacentIce(cell.r, cell.c);
+      // reduce jelly under the cleared crystal
+      if (self.jellyGrid && self.jellyGrid[cell.r][cell.c] > 0) {
+        self.jellyGrid[cell.r][cell.c]--;
+        self.jellyLeft = Math.max(0, self.jellyLeft - 1);
+        self.spawnBurst(self.cellX(cell.c) + self.tile / 2, self.cellY(cell.r) + self.tile / 2, '#ff7ad0', 8);
+      }
       // collect objective colour
       if (self.level.objective === D.OBJ.COLLECT && t.type === self.level.color) {
         self.collected++;
@@ -1365,10 +1874,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const rr = r + dirs[i][0], cc = c + dirs[i][1];
       if (rr < 0 || rr >= this.rows || cc < 0 || cc >= this.cols) continue;
       const t = this.grid[rr][cc];
-      if (t && t.ice) {
-        t.ice = false;
-        this.iceLeft = Math.max(0, this.iceLeft - 1);
-        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#bff0ff', 8);
+      if (!t) continue;
+      if (t.ice) {
+        t.blockHp = Math.max(0, (t.blockHp || 1) - 1);
+        const col = t.crate ? '#c79a5c' : '#bff0ff';
+        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, col, 8);
+        if (t.blockHp <= 0) {
+          t.ice = false; t.crate = false;
+          this.iceLeft = Math.max(0, this.iceLeft - 1);
+        }
+      } else if (t.chain) {
+        t.chain = false; // adjacent match frees the locked crystal
+        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#ffd24d', 8);
       }
     }
   };
@@ -1437,8 +1954,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     while (placed < n && guard++ < 300) {
       const r = rnd(this.rows), c = rnd(this.cols);
       const t = this.grid[r][c];
-      if (t && !t.ice && t.special === SP.NONE) {
-        t.ice = true; placed++;
+      if (t && !t.ice && !t.chain && t.special === SP.NONE) {
+        t.ice = true; t.blockHp = 1; placed++;
         this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fd0ff', 12);
       }
     }
@@ -1498,13 +2015,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
       }
     } else if (d.def.ability === 'freeze') {
-      // shatter all ice on the board
+      // shatter all blockers and free all chains on the board
       for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-        if (this.grid[r][c].ice) {
-          this.grid[r][c].ice = false;
+        const t = this.grid[r][c];
+        if (t.ice) {
+          t.ice = false; t.crate = false; t.blockHp = 0;
           this.iceLeft = Math.max(0, this.iceLeft - 1);
           this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#bff0ff', 10);
         }
+        if (t.chain) { t.chain = false; this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#ffd24d', 8); }
       }
       this.emitObjective();
     } else if (d.def.ability === 'bonus') {
@@ -1544,9 +2063,10 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       return;
     }
     let cur, goal, label;
-    if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = 'Очки'; }
-    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].name; }
-    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = 'Крига'; }
+    if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = T('obj_score'); }
+    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].glyph; }
+    else if (this.level.objective === D.OBJ.JELLY) { cur = this.level.jellyCount - this.jellyLeft; goal = this.level.jellyCount; label = T('obj_jelly'); }
+    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = T('obj_ice'); }
     this.cb.onObjective && this.cb.onObjective(Math.min(cur, goal), goal, label);
   };
 
@@ -1555,6 +2075,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (this.isBoss) done = this.bossHP <= 0;
     else if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
     else if (this.level.objective === D.OBJ.COLLECT) done = this.collected >= this.level.target;
+    else if (this.level.objective === D.OBJ.JELLY) done = this.jellyLeft <= 0;
     else done = this.iceLeft <= 0;
     if (done && !this.finished) { this.win(); return true; }
     return false;
@@ -1575,7 +2096,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.state = 'done';
     const stars = this.computeStars();
     global.Audio2.play('win');
-    this.cb.onWin && this.cb.onWin({ score: this.score, stars: stars });
+    // "Sugar crush" finale: leftover moves explode into a bonus + fireworks.
+    const bonus = (!this.isBoss && this.movesLeft > 0) ? this.movesLeft * 50 : 0;
+    if (bonus > 0) {
+      this.score += bonus;
+      this.cb.onScore && this.cb.onScore(this.score);
+      this.addFloater(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2 - 30, T('sugar_bonus', { n: bonus }), '#ffd24d');
+      this.victory = { t: 0, dur: 1.4, stars: stars, fired: false };
+    } else {
+      this.cb.onWin && this.cb.onWin({ score: this.score, stars: stars });
+    }
   };
   Engine.prototype.fail = function () {
     if (this.finished) return;
@@ -1586,10 +2116,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
 
   // ---- Helpers: possible moves / shuffle ----------------------------------
+  Engine.prototype.movable = function (r, c) { const t = this.grid[r][c]; return t && !t.ice && !t.chain; };
   Engine.prototype.hasPossibleMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-      if (c + 1 < this.cols) { this.swapRaw(r, c, r, c + 1); const m = this.findMatches().length; this.swapRaw(r, c, r, c + 1); if (m) return true; }
-      if (r + 1 < this.rows) { this.swapRaw(r, c, r + 1, c); const m = this.findMatches().length; this.swapRaw(r, c, r + 1, c); if (m) return true; }
+      if (!this.movable(r, c)) continue;
+      if (c + 1 < this.cols && this.movable(r, c + 1)) { this.swapRaw(r, c, r, c + 1); const m = this.findMatches().length; this.swapRaw(r, c, r, c + 1); if (m) return true; }
+      if (r + 1 < this.rows && this.movable(r + 1, c)) { this.swapRaw(r, c, r + 1, c); const m = this.findMatches().length; this.swapRaw(r, c, r + 1, c); if (m) return true; }
     }
     return false;
   };
@@ -1615,11 +2147,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   Engine.prototype.findHintMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-      if (this.grid[r][c].ice) continue;
+      if (!this.movable(r, c)) continue;
       const tries = [[r, c, r, c + 1], [r, c, r + 1, c]];
       for (let k = 0; k < tries.length; k++) {
         const r2 = tries[k][2], c2 = tries[k][3];
-        if (r2 >= this.rows || c2 >= this.cols || this.grid[r2][c2].ice) continue;
+        if (r2 >= this.rows || c2 >= this.cols || !this.movable(r2, c2)) continue;
         this.swapRaw(r, c, r2, c2);
         const ok = this.findMatches().length > 0;
         this.swapRaw(r, c, r2, c2);
@@ -1656,7 +2188,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.dragonsActivatedThisMove = {};
     const set = {};
     const t = this.grid[cell.r][cell.c];
-    if (t && t.ice) { t.ice = false; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    if (t && t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    if (t && t.chain) { t.chain = false; }
     set[cell.r + ',' + cell.c] = { r: cell.r, c: cell.c };
     this.spawnRing(this.cellX(cell.c) + this.tile / 2, this.cellY(cell.r) + this.tile / 2, this.tile * 1.6, '#ffd24d');
     this.shake = 0.5;
@@ -1725,6 +2258,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       g.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)';
       g.fillRect(this.cellX(c), this.cellY(r), tile, tile);
+    }
+    // jelly layer (cell-based, drawn under crystals)
+    if (this.jellyGrid) for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const j = this.jellyGrid[r][c];
+      if (!j) continue;
+      const x = this.cellX(c), y = this.cellY(r);
+      this.roundRect(g, x + 2, y + 2, tile - 4, tile - 4, 10);
+      g.fillStyle = j >= 2 ? 'rgba(255,90,200,0.42)' : 'rgba(255,120,210,0.24)';
+      g.fill();
+      g.strokeStyle = 'rgba(255,150,220,0.5)'; g.lineWidth = 2; g.stroke();
     }
     // tiles
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
@@ -1804,12 +2347,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     g.translate(-cx, -cy);
 
     if (t.ice) {
-      // frozen obstacle block
       this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, 8);
       const ig = g.createLinearGradient(x, y, x, y + tile);
-      ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8');
+      if (t.crate) { ig.addColorStop(0, '#d8a866'); ig.addColorStop(1, '#a06a32'); }
+      else { ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8'); }
       g.fillStyle = ig; g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      g.strokeStyle = t.crate ? 'rgba(90,50,20,0.7)' : 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      if (t.crate) {
+        // plank lines + hit count
+        g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = 'bold ' + (tile * 0.3) + 'px system-ui';
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.blockHp, cx, cy);
+      }
       g.restore();
       return;
     }
@@ -1835,6 +2384,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     } else {
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();
+    }
+    // chain overlay (locked crystal)
+    if (t.chain) {
+      g.strokeStyle = 'rgba(40,30,20,0.85)'; g.lineWidth = tile * 0.09;
+      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
+      g.strokeStyle = 'rgba(220,200,140,0.9)'; g.lineWidth = tile * 0.04;
+      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
     }
     g.restore();
   };
@@ -1974,35 +2532,35 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const refreshBody = function () {
         const l = global.Save.livesInfo();
         let t = '';
-        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = 'Наступне ❤ через ' + m + ' хв ' + (s % 60) + ' с'; }
+        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = T('next_heart', { m: m, s: s % 60 }); }
         body.innerHTML = '<div class="lives-big">' + '❤️'.repeat(l.count) + '🖤'.repeat(Math.max(0, l.max - l.count)) + '</div>' +
-          '<p>' + l.count + ' / ' + l.max + ' життів</p>' +
+          '<p>' + T('lives_count', { n: l.count, max: l.max }) + '</p>' +
           '<p class="muted small">' + t + '</p>' +
-          '<p class="muted small">Поповніть, переглянувши рекламу, або за 💎.</p>';
+          '<p class="muted small">' + T('lives_refill_hint') + '</p>';
       };
       refreshBody();
       const buttons = [
-        { label: 'Закрити' },
-        { label: '📺 +1 ❤ (реклама)', onClick: function () {
-            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast('+1 ❤'); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
-        { label: '💎 Поповнити (50)', primary: true, onClick: function () {
+        { label: T('close') },
+        { label: T('ad_plus_life'), onClick: function () {
+            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast(T('life_added')); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
+        { label: T('refill_gems'), primary: true, onClick: function () {
             const p = global.Save.get();
-            if (p.gems < 50) { UI.toast('Недостатньо кристалів 💎'); return; }
+            if (p.gems < 50) { UI.toast(T('not_enough_gems')); return; }
             p.gems -= 50; global.Save.refillLives(); global.Save.save();
-            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Життя поповнено!');
+            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('lives_refilled'));
             if (onReady) onReady();
           } }
       ];
-      this.modal('❤️ Життя', body, buttons);
+      this.modal(T('lives_title'), body, buttons);
     },
 
     navBar: function (active) {
       const items = [
-        { id: 'map', ic: '🗺️', label: 'Карта' },
-        { id: 'collection', ic: '🐲', label: 'Дракони' },
-        { id: 'shop', ic: '🛒', label: 'Магазин' },
-        { id: 'pass', ic: '🎖️', label: 'Пропуск' },
-        { id: 'home', ic: '🏝️', label: 'Острів' }
+        { id: 'map', ic: '🗺️', label: T('nav_map') },
+        { id: 'collection', ic: '🐲', label: T('nav_dragons') },
+        { id: 'shop', ic: '🛒', label: T('nav_shop') },
+        { id: 'pass', ic: '🎖️', label: T('nav_pass') },
+        { id: 'home', ic: '🏝️', label: T('nav_island') }
       ];
       const bar = el('div', 'nav-bar');
       items.forEach(function (it) {
@@ -2049,7 +2607,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
       // Egg incubator row
       const eggsWrap = el('div', 'eggs-wrap');
-      eggsWrap.appendChild(el('div', 'section-h', '🥚 Інкубатор драконів'));
+      eggsWrap.appendChild(el('div', 'section-h', T('incubator')));
       const eggGrid = el('div', 'egg-grid');
       p.eggs.forEach(function (egg, idx) {
         const def = D.dragonById(egg.dragon);
@@ -2061,7 +2619,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
           '<div class="egg-pct">' + egg.charge + ' / ' + egg.need + ' ⚡</div>';
         const btn = el('button', 'btn btn-mini ' + (pct >= 100 ? 'btn-primary' : 'btn-ghost'),
-          pct >= 100 ? 'Вилупити!' : 'Зарядити +10⚡');
+          pct >= 100 ? T('hatch') : T('charge10'));
         click(btn, function () { UI.handleEgg(idx); });
         card.appendChild(btn);
         eggGrid.appendChild(card);
@@ -2071,15 +2629,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
       // Quick action buttons
       const acts = el('div', 'home-actions');
-      const playBtn = click(el('button', 'btn btn-primary btn-big', '▶ Грати рівень ' + p.levelProgress), function () { global.Game.go('map'); });
+      const playBtn = click(el('button', 'btn btn-primary btn-big', T('play_level', { n: p.levelProgress })), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
       const grid2 = el('div', 'home-grid grid6');
       [
-        { ic: '🎁', label: 'Щоденна', go: function () { UI.showDaily(); } },
-        { ic: '📜', label: 'Квести', go: function () { UI.showQuests(); } },
-        { ic: '📊', label: 'Рейтинг', go: function () { UI.showLeaderboard(); } },
-        { ic: '🏆', label: 'Досягнення', go: function () { UI.showAchievements(); } },
-        { ic: '⚙️', label: 'Опції', go: function () { UI.showSettings(); } }
+        { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
+        { ic: '📜', label: T('t_quests'), go: function () { UI.showQuests(); } },
+        { ic: '📊', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
+        { ic: '🏆', label: T('t_ach'), go: function () { UI.showAchievements(); } },
+        { ic: '⚙️', label: T('t_options'), go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
         const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
         grid2.appendChild(b);
@@ -2089,7 +2647,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
       s.appendChild(this.navBar('home'));
       // daily reminder badge
-      if (UI.dailyAvailable()) UI.toast('🎁 Доступна щоденна нагорода!');
+      if (UI.dailyAvailable()) UI.toast(T('daily_available'));
     },
 
     handleEgg: function (idx) {
@@ -2107,11 +2665,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         global.Save.save();
         global.Audio2.play('hatch');
         const def = D.dragonById(egg.dragon);
-        UI.modal('🎉 Новий дракон!', el('div', 'modal-body',
+        UI.modal(T('new_dragon'), el('div', 'modal-body',
           '<div class="big-emoji">' + def.emoji + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
-          [{ label: 'Чудово!', primary: true, onClick: function () { UI.renderHome(); } }]);
+          [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
       } else {
-        if (p.energy < 10) { UI.toast('Недостатньо енергії ⚡ (грайте рівні)'); return; }
+        if (p.energy < 10) { UI.toast(T('need_energy')); return; }
         p.energy -= 10; egg.charge = Math.min(egg.need, egg.charge + 10);
         global.Save.save();
         global.Audio2.play('coin');
@@ -2126,7 +2684,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const s = document.getElementById('screen-map');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🗺️ Острови драконів'));
+      s.appendChild(el('div', 'section-h center', T('islands_title')));
 
       const scroll = el('div', 'map-scroll');
       D.ISLANDS.forEach(function (island) {
@@ -2135,7 +2693,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
         const head = el('div', 'island-head');
         head.innerHTML = '<b style="color:' + island.theme + '">' + island.name + '</b>' +
-          (unlocked ? '' : '<span class="lock">🔒 рівень ' + (island.unlockLevel + 1) + '</span>');
+          (unlocked ? '' : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
         block.appendChild(head);
         const nodes = el('div', 'level-nodes');
         for (let i = 0; i < 25; i++) {
@@ -2169,17 +2727,19 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const lv = D.LEVELS[lvNum - 1];
       const p = global.Save.get();
       const body = el('div', 'modal-body');
-      let objText = lv.objective === D.OBJ.SCORE ? ('Набрати ' + lv.target + ' очок')
-        : lv.objective === D.OBJ.COLLECT ? ('Зібрати ' + lv.target + ' × ' + D.CRYSTALS[lv.color].glyph)
-        : ('Розбити всю кригу (' + lv.iceCount + ')');
+      let objText = lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
+        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
+        : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
+        : lv.objective === D.OBJ.BOSS ? T('goal_boss')
+        : T('goal_ice', { n: lv.iceCount + (lv.crates || 0) });
       body.innerHTML =
-        '<p class="obj">🎯 ' + objText + '</p>' +
-        '<p class="muted">Ходів: ' + lv.moves + ' · Нагорода: ' + lv.reward.gold + '🪙 ' + lv.reward.energy + '⚡</p>' +
-        '<div class="section-h">Бойова команда драконів</div>';
+        '<p class="obj">' + T('goal', { text: objText }) + '</p>' +
+        '<p class="muted">' + T('moves_reward', { m: lv.moves, gold: lv.reward.gold, energy: lv.reward.energy }) + '</p>' +
+        '<div class="section-h">' + T('battle_team') + '</div>';
       body.appendChild(UI.equipPicker());
-      this.modal((lv.boss ? '👑 ' : '') + lv.name, body, [
+      this.modal(global.Game.levelName(lv), body, [
         { label: '✖', onClick: function () {} },
-        { label: '▶ Старт', primary: true, onClick: function () { global.Game.startLevel(lvNum); } }
+        { label: T('start'), primary: true, onClick: function () { global.Game.startLevel(lvNum); } }
       ]);
     },
 
@@ -2193,12 +2753,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           const def = D.dragonById(id);
           cell.innerHTML = '<div class="eq-emoji" style="filter:drop-shadow(0 0 8px ' + def.glow + ')">' + def.emoji + '</div><div class="eq-name">' + def.name + '</div>';
         } else {
-          cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">Порожньо</div>';
+          cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">' + T('equip_empty') + '</div>';
         }
         (function (slot) { click(cell, function () { UI.cycleEquip(slot); }); })(slot);
         wrap.appendChild(cell);
       }
-      const hint = el('div', 'muted small', 'Торкніться слота, щоб змінити дракона');
+      const hint = el('div', 'muted small', T('equip_hint'));
       const container = el('div');
       container.appendChild(wrap); container.appendChild(hint);
       return container;
@@ -2233,7 +2793,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const s = document.getElementById('screen-collection');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🐲 Колекція драконів'));
+      s.appendChild(el('div', 'section-h center', T('collection_title')));
       const grid = el('div', 'dragon-grid');
       D.DRAGONS.forEach(function (def) {
         const owned = p.ownedDragons.indexOf(def.id) !== -1;
@@ -2241,11 +2801,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         const card = el('div', 'dragon-card' + (owned ? '' : ' locked'));
         const skinColor = (D.SKIN_COLORS[p.activeSkins[def.id]] || {}).color || def.color;
         card.innerHTML =
-          '<div class="rar rar-' + def.rarity + '">' + def.rarity + '</div>' +
+          '<div class="rar rar-' + def.rarity + '">' + T('rarity_' + def.rarity) + '</div>' +
           '<div class="dc-emoji" style="filter:drop-shadow(0 0 14px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
           '<div class="dc-title">' + def.title + '</div>' +
-          (owned ? '<div class="dc-lvl">Рівень ' + lvl + '</div>' : '<div class="dc-lvl muted">Не відкрито</div>') +
+          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
           '<div class="dc-desc">' + def.desc + '</div>';
         if (owned) click(card, function () { UI.showUpgrade(def.id); });
         grid.appendChild(card);
@@ -2264,16 +2824,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         '<div class="big-emoji" style="filter:drop-shadow(0 0 16px ' + def.glow + ')">' + def.emoji + '</div>' +
         '<p>' + def.desc + '</p>' +
         '<div class="up-stats">' +
-        '<div>Поточний рівень: <b>' + lvl + '</b></div>' +
-        '<div>Сила здатності: <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
-        '<div>Заряджається швидше з кожним рівнем</div>' +
+        '<div>' + T('cur_level') + ': <b>' + lvl + '</b></div>' +
+        '<div>' + T('ability_power') + ': <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
+        '<div>' + T('charges_faster') + '</div>' +
         '</div>';
-      this.modal('⬆ Прокачка: ' + def.name, body, [
-        { label: 'Закрити' },
-        { label: 'Покращити (' + cost + '🪙)', primary: true, onClick: function () {
-          if (p.gold < cost) { UI.toast('Недостатньо золота 🪙'); return; }
+      this.modal(T('upgrade_title', { name: def.name }), body, [
+        { label: T('close') },
+        { label: T('upgrade_btn', { cost: cost }), primary: true, onClick: function () {
+          if (p.gold < cost) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= cost; p.dragonLevels[id] = lvl + 1; global.Save.save();
-          global.Audio2.play('coin'); UI.toast(def.name + ' тепер рівня ' + (lvl + 1) + '!');
+          global.Audio2.play('coin'); UI.toast(T('now_level', { name: def.name, n: lvl + 1 }));
           UI.renderCollection();
         }}
       ]);
@@ -2285,74 +2845,74 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const s = document.getElementById('screen-shop');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🛒 Магазин'));
+      s.appendChild(el('div', 'section-h center', T('shop_title')));
 
       // Rewarded ad
       const adCard = el('div', 'shop-card highlight');
-      adCard.innerHTML = '<div class="shop-ic">📺</div><div class="shop-info"><b>Реклама за винагороду</b><span>Перегляньте рекламу → +100🪙 та +20⚡</span></div>';
-      const adBtn = click(el('button', 'btn btn-primary btn-mini', 'Дивитись'), function () { UI.watchAd(); });
+      adCard.innerHTML = '<div class="shop-ic">📺</div><div class="shop-info"><b>' + T('rewarded_ad') + '</b><span>' + T('ad_desc') + '</span></div>';
+      const adBtn = click(el('button', 'btn btn-primary btn-mini', T('watch')), function () { UI.watchAd(); });
       adCard.appendChild(adBtn);
       s.appendChild(adCard);
 
       // Gem packs (IAP placeholders)
-      s.appendChild(el('div', 'section-h', '💎 Кристали'));
+      s.appendChild(el('div', 'section-h', T('gems_section')));
       [
         { gems: 100, price: '$0.99' }, { gems: 550, price: '$4.99' }, { gems: 1200, price: '$9.99' }
       ].forEach(function (pack) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' кристалів</b><span>Найкраща ціна</span></div>';
+        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' 💎</b><span>' + T('best_price') + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
         c.appendChild(b); s.appendChild(c);
       });
 
       // Gold for gems
-      s.appendChild(el('div', 'section-h', '🪙 Золото'));
+      s.appendChild(el('div', 'section-h', T('gold_section')));
       [{ gold: 500, gems: 20 }, { gold: 1500, gems: 50 }].forEach(function (pack) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">🪙</div><div class="shop-info"><b>' + pack.gold + ' золота</b><span>за ' + pack.gems + '💎</span></div>';
+        c.innerHTML = '<div class="shop-ic">🪙</div><div class="shop-info"><b>' + T('gold_pack', { gold: pack.gold }) + '</b><span>' + T('for_gems', { gems: pack.gems }) + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.gems + '💎'), function () {
-          if (p.gems < pack.gems) { UI.toast('Недостатньо кристалів 💎'); return; }
+          if (p.gems < pack.gems) { UI.toast(T('not_enough_gems')); return; }
           p.gems -= pack.gems; p.gold += pack.gold; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + pack.gold + ' золота!');
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('gold_added', { n: pack.gold }));
         });
         c.appendChild(b); s.appendChild(c);
       });
 
       // Boosters
-      s.appendChild(el('div', 'section-h', '🧪 Бустери'));
+      s.appendChild(el('div', 'section-h', T('boosters_section')));
       [
-        { key: 'hammer', ic: '🔨', name: 'Молот ×3', desc: 'Розбити будь-який кристал', amount: 3, price: 200 },
-        { key: 'shuffle', ic: '🔀', name: 'Мікс ×3', desc: 'Перемішати поле', amount: 3, price: 150 },
-        { key: 'moves', ic: '➕5', name: 'Ходи ×3', desc: '+5 ходів у грі', amount: 3, price: 250 }
+        { key: 'hammer', ic: '🔨', name: T('hammer_pack'), desc: T('hammer_pdesc'), amount: 3, price: 200 },
+        { key: 'shuffle', ic: '🔀', name: T('mix_pack'), desc: T('mix_pdesc'), amount: 3, price: 150 },
+        { key: 'moves', ic: '➕5', name: T('moves_pack'), desc: T('moves_pdesc'), amount: 3, price: 250 }
       ].forEach(function (b) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · маєте: ' + (p.boosters[b.key] || 0) + '</span></div>';
+        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · ' + T('you_have', { n: (p.boosters[b.key] || 0) }) + '</span></div>';
         const btn = click(el('button', 'btn btn-buy btn-mini', b.price + '🪙'), function () {
-          if (p.gold < b.price) { UI.toast('Недостатньо золота 🪙'); return; }
+          if (p.gold < b.price) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= b.price; p.boosters[b.key] = (p.boosters[b.key] || 0) + b.amount; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Куплено: ' + b.name); UI.renderShop();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('bought', { name: b.name })); UI.renderShop();
         });
         c.appendChild(btn); s.appendChild(c);
       });
 
       // Cosmetic skins
-      s.appendChild(el('div', 'section-h', '🎨 Косметичні скіни драконів'));
+      s.appendChild(el('div', 'section-h', T('skins_section')));
       D.SKINS.forEach(function (sk) {
         const owned = p.ownedSkins.indexOf(sk.id) !== -1;
         const def = D.dragonById(sk.dragon);
         const sc = D.SKIN_COLORS[sk.skin] || def;
         const c = el('div', 'shop-card');
         c.innerHTML = '<div class="shop-ic" style="filter:drop-shadow(0 0 10px ' + sc.glow + ')">' + def.emoji + '</div>' +
-          '<div class="shop-info"><b style="color:' + sc.color + '">' + sk.name + '</b><span>Скін для ' + def.name + '</span></div>';
+          '<div class="shop-info"><b style="color:' + sc.color + '">' + sk.name + '</b><span>' + T('skin_for', { name: def.name }) + '</span></div>';
         const active = p.activeSkins[sk.dragon] === sk.skin;
         const b = click(el('button', 'btn btn-mini ' + (owned ? (active ? 'btn-ghost' : 'btn-primary') : 'btn-buy'),
-          owned ? (active ? '✓ Активний' : 'Вдягти') : (sk.price + '💎')), function () {
+          owned ? (active ? T('active') : T('wear')) : (sk.price + '💎')), function () {
           if (!owned) {
-            if (p.ownedDragons.indexOf(sk.dragon) === -1) { UI.toast('Спочатку отримайте дракона ' + def.name); return; }
-            if (p.gems < sk.price) { UI.toast('Недостатньо кристалів 💎'); return; }
+            if (p.ownedDragons.indexOf(sk.dragon) === -1) { UI.toast(T('get_dragon_first', { name: def.name })); return; }
+            if (p.gems < sk.price) { UI.toast(T('not_enough_gems')); return; }
             p.gems -= sk.price; p.ownedSkins.push(sk.id);
             p.activeSkins[sk.dragon] = sk.skin; global.Save.save();
-            global.Audio2.play('coin'); UI.toast('Скін розблоковано!');
+            global.Audio2.play('coin'); UI.toast(T('skin_unlocked'));
           } else {
             p.activeSkins[sk.dragon] = active ? null : sk.skin; global.Save.save();
           }
@@ -2372,8 +2932,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         return;
       }
       const body = el('div', 'modal-body');
-      body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>Реклама...</small></div>';
-      this.modal('Реклама за винагороду', body, [{ label: 'Зачекайте...', primary: true, keepOpen: true }]);
+      body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>' + T('rewarded_ad') + '</small></div>';
+      this.modal(T('rewarded_ad'), body, [{ label: T('ad_waiting'), primary: true, keepOpen: true }]);
       let n = 5;
       const cnt = body.querySelector('#ad-count');
       const iv = setInterval(function () {
@@ -2387,7 +2947,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         const p = global.Save.get();
         p.gold += 100; p.energy += 20; global.Save.save();
         global.Audio2.play('coin'); UI.refreshCurrencies();
-        UI.toast('Нагорода: +100🪙 +20⚡');
+        UI.toast(T('reward_got'));
       });
     },
 
@@ -2396,7 +2956,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const p = global.Save.get();
       p.gems += gems; global.Save.save();
       global.Audio2.play('coin'); UI.refreshCurrencies();
-      UI.toast('Покупка успішна: +' + gems + '💎 (демо)');
+      UI.toast(T('purchase_ok', { n: gems }));
       UI.renderShop();
     },
 
@@ -2406,24 +2966,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const s = document.getElementById('screen-pass');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🎖️ Бойовий пропуск — Сезон 1'));
+      s.appendChild(el('div', 'section-h center', T('pass_title')));
 
       const tier = Math.min(50, Math.floor(p.pass.xp / 100) + 1);
       const into = p.pass.xp % 100;
       const head = el('div', 'pass-head');
-      head.innerHTML = '<div>Рівень <b>' + tier + '</b> / 50</div>' +
+      head.innerHTML = '<div>' + T('pass_level', { n: tier }) + '</div>' +
         '<div class="bar"><div class="bar-fill" style="width:' + into + '%;background:#ffd24d"></div></div>' +
-        '<div class="muted small">' + into + ' / 100 XP до наступного рівня</div>';
+        '<div class="muted small">' + T('xp_to_next', { n: into }) + '</div>';
       if (!p.pass.premium) {
-        const buy = click(el('button', 'btn btn-buy btn-mini', '👑 Преміум 500💎'), function () {
-          if (p.gems < 500) { UI.toast('Недостатньо кристалів 💎'); return; }
+        const buy = click(el('button', 'btn btn-buy btn-mini', T('premium_buy')), function () {
+          if (p.gems < 500) { UI.toast(T('not_enough_gems')); return; }
           p.gems -= 500; p.pass.premium = true; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Преміум-пропуск активовано! 👑');
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('premium_on'));
           UI.renderPass();
         });
         head.appendChild(buy);
       } else {
-        head.appendChild(el('div', 'premium-badge', '👑 ПРЕМІУМ АКТИВНО'));
+        head.appendChild(el('div', 'premium-badge', T('premium_badge')));
       }
       s.appendChild(head);
 
@@ -2461,7 +3021,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       else if (r.type === 'gems') p.gems += r.amount;
       else if (r.type === 'dragon') p.gems += 50;
       global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-      UI.toast('Отримано: ' + UI.rewardLabel(r)); UI.renderPass();
+      UI.toast(T('got', { r: UI.rewardLabel(r) })); UI.renderPass();
     },
     addPassXp: function (xp) {
       const p = global.Save.get();
@@ -2482,21 +3042,21 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const dayIdx = p.daily.streak % 7;
       rewards.forEach(function (amt, i) {
         const cell = el('div', 'daily-cell' + (i < dayIdx ? ' done' : (i === dayIdx && UI.dailyAvailable() ? ' today' : '')));
-        cell.innerHTML = '<div class="dd">День ' + (i + 1) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
+        cell.innerHTML = '<div class="dd">' + T('day_n', { n: i + 1 }) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
         grid.appendChild(cell);
       });
       body.appendChild(grid);
-      this.modal('🎁 Щоденна нагорода', body, [
-        { label: 'Закрити' },
+      this.modal(T('daily_title'), body, [
+        { label: T('close') },
         UI.dailyAvailable()
-          ? { label: 'Забрати', primary: true, onClick: function () {
+          ? { label: T('claim'), primary: true, onClick: function () {
               const amt = rewards[dayIdx];
               if (dayIdx === 6) p.gems += amt; else p.gold += amt;
               p.daily.streak += 1; p.daily.lastClaim = today;
               global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-              UI.toast('Отримано щоденну нагороду!');
+              UI.toast(T('daily_got'));
             }}
-          : { label: 'Вже отримано', primary: true }
+          : { label: T('already_claimed'), primary: true }
       ]);
     },
 
@@ -2525,11 +3085,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         const pct = Math.round(prog / q.goal * 100);
         const done = prog >= q.goal;
         const card = el('div', 'quest-card');
-        card.innerHTML = '<div class="quest-text">' + q.text + '</div>' +
+        const qtext = (global.I18N.STR[global.I18N.currentLang()][q.id]) ? T(q.id) : q.text;
+        card.innerHTML = '<div class="quest-text">' + qtext + '</div>' +
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#5fe39a"></div></div>' +
-          '<div class="muted small">' + prog + ' / ' + q.goal + ' · нагорода ' + q.reward + '🪙</div>';
+          '<div class="muted small">' + prog + ' / ' + q.goal + ' · ' + T('quest_reward', { n: q.reward }) + '</div>';
         const btn = el('button', 'btn btn-mini ' + (entry.claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
-          entry.claimed ? '✓' : (done ? 'Забрати' : '...'));
+          entry.claimed ? '✓' : (done ? T('claim') : '...'));
         if (done && !entry.claimed) click(btn, function () {
           entry.claimed = true; p.gold += q.reward; UI.addPassXp(50); global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + q.reward + '🪙'); UI.showQuests();
@@ -2537,7 +3098,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         card.appendChild(btn);
         body.appendChild(card);
       });
-      this.modal('📜 Щоденні квести', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('quests_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- ACHIEVEMENTS -----------------------------------------------------
@@ -2554,15 +3115,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#ffd24d"></div></div>' +
           '<div class="muted small">' + Math.min(cur, a.goal) + ' / ' + a.goal + ' · ' + a.reward + '💎</div>';
         const btn = el('button', 'btn btn-mini ' + (claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
-          claimed ? '✓' : (done ? 'Забрати' : '🔒'));
+          claimed ? '✓' : (done ? T('claim') : '🔒'));
         if (done && !claimed) click(btn, function () {
           p.achievements[a.id] = true; p.gems += a.reward; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Досягнення! +' + a.reward + '💎'); UI.showAchievements();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('🏆 +' + a.reward + '💎'); UI.showAchievements();
         });
         card.appendChild(btn);
         body.appendChild(card);
       });
-      this.modal('🏆 Досягнення', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('ach_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- LEADERBOARD (local, with simulated rivals) -----------------------
@@ -2573,11 +3134,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         // deterministic spread of rival star totals
         return { name: name, stars: 18 + ((i * 53 + 31) % 340), me: false };
       });
-      rows.push({ name: 'Ви', stars: mine, me: true });
+      rows.push({ name: T('you'), stars: mine, me: true });
       rows.sort(function (a, b) { return b.stars - a.stars; });
       const myRank = rows.findIndex(function (r) { return r.me; }) + 1;
       const body = el('div', 'modal-body scroll-body');
-      body.appendChild(el('div', 'lb-head', 'Ваше місце: <b>#' + myRank + '</b> з ' + rows.length + ' · ⭐ ' + mine));
+      body.appendChild(el('div', 'lb-head', T('your_place', { rank: myRank, total: rows.length, stars: mine })));
       const list = el('div', 'lb-list');
       rows.slice(0, 20).forEach(function (r, idx) {
         const row = el('div', 'lb-row' + (r.me ? ' me' : ''));
@@ -2588,7 +3149,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         list.appendChild(row);
       });
       body.appendChild(list);
-      this.modal('📊 Таблиця рекордів', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('lb_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- SETTINGS ---------------------------------------------------------
@@ -2598,30 +3159,58 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const mkToggle = function (label, key, onChange) {
         const row = el('div', 'set-row');
         row.innerHTML = '<span>' + label + '</span>';
-        const tg = el('button', 'toggle ' + (p.settings[key] ? 'on' : 'off'), p.settings[key] ? 'УВІМК' : 'ВИМК');
+        const tg = el('button', 'toggle ' + (p.settings[key] ? 'on' : 'off'), p.settings[key] ? T('on') : T('off'));
         click(tg, function () {
           p.settings[key] = !p.settings[key]; global.Save.save();
           tg.className = 'toggle ' + (p.settings[key] ? 'on' : 'off');
-          tg.textContent = p.settings[key] ? 'УВІМК' : 'ВИМК';
+          tg.textContent = p.settings[key] ? T('on') : T('off');
           onChange && onChange(p.settings[key]);
         });
         row.appendChild(tg);
         return row;
       };
-      body.appendChild(mkToggle('🔊 Звуки', 'sound'));
-      body.appendChild(mkToggle('🎵 Музика', 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
-      body.appendChild(mkToggle('📳 Вібрація', 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
-      const reset = click(el('button', 'btn btn-ghost btn-mini', '🗑️ Скинути прогрес'), function () {
-        UI.modal('Скинути прогрес?', el('div', 'modal-body', '<p>Весь прогрес буде втрачено назавжди.</p>'), [
-          { label: 'Ні' },
-          { label: 'Так, скинути', primary: true, onClick: function () {
-            global.Save.reset(); UI.toast('Прогрес скинуто'); global.Game.go('home');
+      body.appendChild(mkToggle(T('s_sound'), 'sound'));
+      body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
+      body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
+      // Language selector
+      const langRow = el('div', 'set-row');
+      langRow.innerHTML = '<span>' + T('s_language') + '</span>';
+      const langBtn = el('button', 'toggle on', global.I18N.langName(global.I18N.currentLang()));
+      click(langBtn, function () { UI.showLanguagePicker(); });
+      langRow.appendChild(langBtn);
+      body.appendChild(langRow);
+      const reset = click(el('button', 'btn btn-ghost btn-mini', T('reset')), function () {
+        UI.modal(T('reset_q'), el('div', 'modal-body', '<p>' + T('reset_warn') + '</p>'), [
+          { label: T('no') },
+          { label: T('yes_reset'), primary: true, onClick: function () {
+            global.Save.reset(); UI.toast(T('reset_done')); global.Game.go('home');
           }}
         ]);
       });
-      body.appendChild(el('div', 'set-row', '<span>Версія 1.0.0</span>'));
+      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
       body.appendChild(reset);
-      this.modal('⚙️ Налаштування', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    showLanguagePicker: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      const list = el('div', 'lb-list');
+      global.I18N.ORDER.forEach(function (l) {
+        const active = global.I18N.currentLang() === l;
+        const row = el('button', 'btn btn-mini ' + (active ? 'btn-primary' : 'btn-ghost') + ' lang-row',
+          global.I18N.langName(l) + (active ? '  ✓' : ''));
+        click(row, function () {
+          p.settings.language = l; global.Save.save();
+          UI.closeModal();
+          // re-render whatever screen we're on
+          if (global.Game) global.Game.go(UI.current === 'game' ? 'home' : UI.current);
+          UI.showSettings();
+        });
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      this.modal(T('choose_lang'), body, [{ label: T('close'), primary: true }]);
     }
   };
 
@@ -2665,8 +3254,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.go('home');
       if (p.firstRun) {
         p.firstRun = false; global.Save.save();
-        global.UI.modal('🐉 Ласкаво просимо!', this.welcomeBody(), [
-          { label: 'Почати пригоду!', primary: true }
+        global.UI.modal(T('welcome_title'), this.welcomeBody(), [
+          { label: T('start_adventure'), primary: true }
         ]);
       }
       requestAnimationFrame(this.loop.bind(this));
@@ -2675,11 +3264,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     welcomeBody: function () {
       const b = document.createElement('div');
       b.className = 'modal-body';
-      b.innerHTML =
-        '<div class="big-emoji">🐉</div>' +
-        '<p>Поєднуйте 3+ кристали, щоб генерувати <b>енергію</b>.</p>' +
-        '<p>Енергія заряджає <b>яйця драконів</b> на острові.</p>' +
-        '<p>Дракони допомагають у бою: палять ряди, ламають кригу, б’ють блискавками та ростять бонуси!</p>';
+      b.innerHTML = '<div class="big-emoji">🐉</div>' + T('welcome_body');
       return b;
     },
 
@@ -2722,11 +3307,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
         },
         onDragons: function (dragons) { self.renderDragonBars(dragons); },
-        onDragonProc: function (d) { global.UI.toast(d.def.emoji + ' ' + d.def.name + ' активовано!'); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
-        onShuffle: function () { global.UI.toast('🔀 Поле перемішано!'); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
-        onBossAttack: function (n) { global.UI.toast('💥 Бос атакує! +' + n + ' криги'); },
+        onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
         onLose: function (res) { self.onLose(res); }
       });
@@ -2738,6 +3323,27 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
+      else this.showLevelIntro(lv);
+    },
+
+    levelName: function (lv) { return lv.boss ? ('👑 ' + lv.name) : T('level_n', { n: lv.n }); },
+    objectiveText: function (lv) {
+      return lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
+        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
+        : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
+        : lv.objective === D.OBJ.BOSS ? T('goal_boss')
+        : T('goal_ice', { n: lv.iceCount + (lv.crates || 0) });
+    },
+    showLevelIntro: function (lv) {
+      const s = this.gameScreen;
+      const old = s.querySelector('.level-intro'); if (old) old.remove();
+      const intro = document.createElement('div');
+      intro.className = 'level-intro';
+      intro.innerHTML = '<div class="li-card"><div class="li-name">' + this.levelName(lv) + '</div>' +
+        '<div class="li-goal">' + T('level_intro_goal', { text: this.objectiveText(lv) }) + '</div></div>';
+      s.appendChild(intro);
+      setTimeout(function () { intro.classList.add('out'); }, 1300);
+      setTimeout(function () { if (intro.parentNode) intro.remove(); }, 1900);
     },
 
     // ---- Interactive tutorial --------------------------------------------
@@ -2748,7 +3354,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       layer.innerHTML = '<div class="tut-bubble" id="tut-bubble"></div>';
       this.gameScreen.appendChild(layer);
       this.tutLayer = layer;
-      this.setTutorialText('👆 Проведіть пальцем від кристала до сусіднього, щоб зібрати 3 однакові в ряд');
+      this.setTutorialText(T('tut1'));
       // surface a hint move on the board
       if (this.engine) { this.engine.idleTime = 5; this.engine.hint = this.engine.findHintMove(); }
     },
@@ -2758,9 +3364,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     },
     tutorialAdvance: function () {
       const self = this;
-      this.setTutorialText('💎 Чудово! Збіги заряджають драконів — дивіться смужки внизу.');
+      this.setTutorialText(T('tut2'));
       setTimeout(function () {
-        self.setTutorialText('🐉 Коли смужка дракона повна — він б’є по полю сам!');
+        self.setTutorialText(T('tut3'));
         setTimeout(function () {
           if (self.tutLayer) { self.tutLayer.remove(); self.tutLayer = null; }
           self.tutorialActive = false;
@@ -2779,12 +3385,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
       const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
+      const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
       top.innerHTML =
         '<button class="btn-back">‹</button>' +
-        '<div class="lvl-name">' + (lv.boss ? '👑 ' : '') + lv.name + '</div>' +
+        '<div class="lvl-name">' + this.levelName(lv) + '</div>' +
         '<button class="btn-pause">⏸</button>';
       s.appendChild(top);
       const self = this;
@@ -2795,11 +3402,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       hud.className = 'hud';
       hud.innerHTML =
         '<div class="hud-stats">' +
-          '<div class="hud-pill"><div class="hp-l">ОЧКИ</div><div class="hp-v" id="hud-score">0</div></div>' +
-          '<div class="hud-pill"><div class="hp-l">ХОДИ</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
+          '<div class="hud-pill"><div class="hp-l">' + T('obj_score') + '</div><div class="hp-v" id="hud-score">0</div></div>' +
+          '<div class="hud-pill"><div class="hp-l">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
         '</div>' +
         '<div class="hud-obj">' +
-          '<div class="obj-top"><span id="hud-obj-label">Ціль</span><span id="hud-obj-val">0 / 0</span></div>' +
+          '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
         '</div>';
       s.appendChild(hud);
@@ -2822,7 +3429,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         boosterBar: boBar
       };
       // booster-use callbacks from the engine
-      this.engine.cb.onShuffle = function () { global.UI.toast('🔀 Поле перемішано!'); };
+      this.engine.cb.onShuffle = function () { global.UI.toast(T('shuffled')); };
       this.engine.cb.onHammerUsed = function () {
         const pr = global.Save.get();
         pr.boosters.hammer = Math.max(0, (pr.boosters.hammer || 0) - 1);
@@ -2839,9 +3446,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const p = global.Save.get();
       const self = this;
       const defs = [
-        { key: 'hammer', ic: '🔨', name: 'Молот' },
-        { key: 'shuffle', ic: '🔀', name: 'Мікс' },
-        { key: 'moves', ic: '➕5', name: 'Ходи' }
+        { key: 'hammer', ic: '🔨', name: T('b_hammer') },
+        { key: 'shuffle', ic: '🔀', name: T('b_mix') },
+        { key: 'moves', ic: '➕5', name: T('b_moves') }
       ];
       wrap.innerHTML = '';
       defs.forEach(function (b) {
@@ -2860,20 +3467,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const eng = this.engine;
       if (!eng || eng.finished) return;
       if ((p.boosters[key] || 0) <= 0) {
-        global.UI.toast('Немає бустера — купіть у магазині 🛒');
+        global.UI.toast(T('no_booster'));
         return;
       }
       if (key === 'hammer') {
         const armed = !eng.hammerArmed;
         eng.armHammer(armed);
-        global.UI.toast(armed ? '🔨 Торкніться кристала, щоб розбити' : 'Молот скасовано');
+        global.UI.toast(armed ? T('hammer_hint') : T('hammer_cancel'));
         this.renderBoosters();
         return; // count consumed when actually used (onHammerUsed)
       }
-      if (eng.state !== 'idle') { global.UI.toast('Зачекайте…'); return; }
+      if (eng.state !== 'idle') { global.UI.toast(T('wait')); return; }
       let ok = false;
       if (key === 'shuffle') ok = eng.boosterShuffle();
-      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast('➕5 ходів!'); }
+      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast(T('plus5')); }
       if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
@@ -2920,22 +3527,22 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     showCombo: function (n) {
       let c = this.gameScreen.querySelector('.combo-pop');
       if (!c) { c = document.createElement('div'); c.className = 'combo-pop'; this.gameScreen.appendChild(c); }
-      c.textContent = 'КОМБО ×' + n + '!';
+      c.textContent = T('combo', { n: n });
       c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
     },
 
     confirmQuit: function () {
       const self = this;
-      global.UI.modal('Вийти з рівня?', null, [
-        { label: 'Продовжити' },
-        { label: 'Вийти', primary: true, onClick: function () { self.go('map'); } }
+      global.UI.modal(T('quit_q'), null, [
+        { label: T('resume') },
+        { label: T('quit'), primary: true, onClick: function () { self.go('map'); } }
       ]);
     },
     pause: function () {
       const self = this;
-      global.UI.modal('⏸ Пауза', null, [
-        { label: 'Вийти на карту', onClick: function () { self.go('map'); } },
-        { label: 'Продовжити', primary: true }
+      global.UI.modal(T('pause'), null, [
+        { label: T('to_map'), onClick: function () { self.go('map'); } },
+        { label: T('resume'), primary: true }
       ]);
     },
 
@@ -2973,18 +3580,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
             return '<span class="big-star ' + (i < res.stars ? 'on' : '') + '" style="animation-delay:' + (i * 0.15) + 's">★</span>';
           }).join('') +
         '</div>' +
-        '<div class="win-score">Очки: ' + res.score + '</div>' +
-        '<div class="win-rewards">+' + gold + '🪙  +' + energy + '⚡</div>';
+        '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>';
       const self = this;
       const btns = [
-        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
-        { label: '🔁 Ще раз', onClick: function () { self.startLevel(lvNum); } }
+        { label: T('btn_map'), onClick: function () { self.go('map'); } },
+        { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
-      if (lvNum < D.LEVELS.length) btns.push({ label: '▶ Далі', primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
-      else btns.push({ label: '🏝 Острів', primary: true, onClick: function () { self.go('home'); } });
+      if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
+      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } });
       // staggered star sounds
       for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
-      global.UI.modal('🎉 Перемога!', body, btns);
+      global.UI.modal(T('victory'), body, btns);
     },
 
     onLose: function (res) {
@@ -2995,19 +3602,19 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const li = global.Save.livesInfo();
       const body = document.createElement('div');
       body.className = 'modal-body';
-      body.innerHTML = '<div class="big-emoji">😢</div><p>Цілі не досягнуто.</p><div class="win-score">Очки: ' + res.score + '</div>' +
-        '<p class="muted small">Залишилось життів: ' + '❤'.repeat(li.count) + (li.count === 0 ? ' (порожньо)' : '') + '</p>' +
-        '<p class="muted small">Перегляньте рекламу, щоб отримати +5 ходів!</p>';
-      global.UI.modal('Поразка', body, [
-        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
-        { label: '📺 +5 ходів', onClick: function () {
+      body.innerHTML = '<div class="big-emoji">😢</div><p>' + T('goal_not_met') + '</p><div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        '<p class="muted small">' + T('lives_left', { hearts: '❤'.repeat(li.count) }) + (li.count === 0 ? T('empty_suffix') : '') + '</p>' +
+        '<p class="muted small">' + T('ad_hint_moves') + '</p>';
+      global.UI.modal(T('defeat'), body, [
+        { label: T('btn_map'), onClick: function () { self.go('map'); } },
+        { label: T('ad_plus_moves'), onClick: function () {
             global.UI.watchAd();
             // grant extra moves and resume
             self.engine.movesLeft += 5; self.engine.finished = false; self.engine.state = 'idle';
             self.hud.moves.textContent = self.engine.movesLeft;
             setTimeout(function () { global.UI.closeModal(); }, 50);
           }},
-        { label: '🔁 Ще раз', primary: true, onClick: function () { self.startLevel(lvNum); } }
+        { label: T('btn_retry'), primary: true, onClick: function () { self.startLevel(lvNum); } }
       ]);
     },
 
@@ -3017,7 +3624,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       D.ISLANDS.forEach(function (isl) {
         if (isl.unlockLevel > 0 && p.levelProgress === isl.unlockLevel + 1 && !p['_isleNotified_' + isl.id]) {
           p['_isleNotified_' + isl.id] = true; global.Save.save();
-          setTimeout(function () { global.UI.toast('🏝 Відкрито новий острів: ' + isl.name + '!'); }, 1500);
+          setTimeout(function () { global.UI.toast(T('isle_unlocked', { name: isl.name })); }, 1500);
         }
       });
     },

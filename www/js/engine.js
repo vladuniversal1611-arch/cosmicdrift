@@ -81,15 +81,41 @@
       const cell = m[0];
       this.grid[cell.r][cell.c].type = (this.grid[cell.r][cell.c].type + 1) % this.colors;
     }
-    // Add ice obstacles for ICE objective levels.
-    if (this.level.objective === D.OBJ.ICE) {
-      let placed = 0;
-      let guard2 = 0;
-      while (placed < this.level.iceCount && guard2++ < 400) {
+    const lv = this.level;
+    // Ice blockers (ICE objective).
+    this.iceLeft = 0;
+    if (lv.objective === D.OBJ.ICE) {
+      let placed = 0, guard2 = 0;
+      while (placed < lv.iceCount && guard2++ < 400) {
         const r = rnd(this.rows), c = rnd(this.cols);
-        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; placed++; }
+        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].blockHp = 1; placed++; }
       }
       this.iceLeft = placed;
+    }
+    // Crates (2-hit blockers) — count toward the ice objective.
+    let crates = lv.crates || 0, cg = 0;
+    while (crates > 0 && cg++ < 400) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].crate = true; this.grid[r][c].blockHp = 2; crates--; if (lv.objective === D.OBJ.ICE) this.iceLeft++; }
+    }
+    // Chains (locked crystals).
+    let chains = lv.chains || 0, hg = 0;
+    while (chains > 0 && hg++ < 400) {
+      const r = rnd(this.rows), c = rnd(this.cols);
+      if (!this.grid[r][c].ice && !this.grid[r][c].chain) { this.grid[r][c].chain = true; chains--; }
+    }
+    // Jelly layers (JELLY objective) — tracked per cell, independent of crystals.
+    this.jellyGrid = [];
+    this.jellyLeft = 0;
+    for (let r = 0; r < this.rows; r++) { this.jellyGrid.push(new Array(this.cols).fill(0)); }
+    if (lv.objective === D.OBJ.JELLY) {
+      let placed = 0, jg = 0;
+      while (placed < lv.jellyCount && jg++ < 600) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        const layers = (rnd(3) === 0) ? 2 : 1;
+        if (this.jellyGrid[r][c] === 0 && !this.grid[r][c].ice) { this.jellyGrid[r][c] = layers; placed += layers; }
+      }
+      this.jellyLeft = placed;
     }
   };
 
@@ -97,7 +123,10 @@
     return {
       type: rnd(this.colors),
       special: SP.NONE,
-      ice: false,
+      ice: false,       // solid blocker present (ice or crate)
+      blockHp: 0,       // hits remaining for the blocker (1 = ice, 2 = crate)
+      crate: false,     // render blocker as a wooden crate
+      chain: false,     // crystal locked by a chain (can't be swapped)
       r: r, c: c,
       scale: instant ? 1 : 0,
       offY: 0,
@@ -150,7 +179,7 @@
     if (this.state !== 'idle' || this.finished) return;
     this.idleTime = 0; this.hint = null;
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
-    if (ta.ice || tb.ice) { global.Audio2.play('invalid'); return; }
+    if (ta.ice || tb.ice || ta.chain || tb.chain) { global.Audio2.play('invalid'); return; }
     this.state = 'busy';
     global.Audio2.play('swap');
     const bothSpecial = ta.special !== SP.NONE && tb.special !== SP.NONE;
@@ -277,6 +306,24 @@
       if (ring.t >= ring.life) this.rings.splice(i, 1);
     }
 
+    // victory fireworks finale
+    if (this.victory) {
+      this.victory.t += dt;
+      if (Math.random() < 0.7) {
+        const x = this.viewport.x + Math.random() * this.viewport.size;
+        const y = this.viewport.y + Math.random() * this.viewport.size;
+        const cols = ['#ff5d6c', '#5db4ff', '#56e29a', '#ffd24d', '#c58bff', '#fff'];
+        const col = cols[(Math.random() * cols.length) | 0];
+        this.spawnBurst(x, y, col, 14);
+        this.spawnRing(x, y, this.tile * 2.2, col);
+      }
+      if (this.victory.t >= this.victory.dur && !this.victory.fired) {
+        this.victory.fired = true;
+        const v = this.victory; this.victory = null;
+        this.cb.onWin && this.cb.onWin({ score: this.score, stars: v.stars });
+      }
+    }
+
     // idle hint: pulse a valid move when the player hesitates
     if (this.state === 'idle' && !this.finished) {
       this.idleTime = (this.idleTime || 0) + dt;
@@ -295,7 +342,8 @@
       let run = 1;
       for (let c = 1; c <= this.cols; c++) {
         const same = c < this.cols && g[r][c] && g[r][c - 1] &&
-          !g[r][c].ice && !g[r][c - 1].ice && g[r][c].type === g[r][c - 1].type;
+          !g[r][c].ice && !g[r][c - 1].ice && !g[r][c].chain && !g[r][c - 1].chain &&
+          g[r][c].type === g[r][c - 1].type;
         if (same) run++;
         else {
           if (run >= 3) { const grp = []; for (let k = c - run; k < c; k++) grp.push({ r: r, c: k }); groups.push(grp); }
@@ -308,7 +356,8 @@
       let run = 1;
       for (let r = 1; r <= this.rows; r++) {
         const same = r < this.rows && g[r][c] && g[r - 1][c] &&
-          !g[r][c].ice && !g[r - 1][c].ice && g[r][c].type === g[r - 1][c].type;
+          !g[r][c].ice && !g[r - 1][c].ice && !g[r][c].chain && !g[r - 1][c].chain &&
+          g[r][c].type === g[r - 1][c].type;
         if (same) run++;
         else {
           if (run >= 3) { const grp = []; for (let k = r - run; k < r; k++) grp.push({ r: k, c: c }); groups.push(grp); }
@@ -416,8 +465,14 @@
       }
       cleared++;
       energyGain += 2;
-      // crack adjacent ice
+      // crack adjacent blockers (ice / crates / chains)
       self.crackAdjacentIce(cell.r, cell.c);
+      // reduce jelly under the cleared crystal
+      if (self.jellyGrid && self.jellyGrid[cell.r][cell.c] > 0) {
+        self.jellyGrid[cell.r][cell.c]--;
+        self.jellyLeft = Math.max(0, self.jellyLeft - 1);
+        self.spawnBurst(self.cellX(cell.c) + self.tile / 2, self.cellY(cell.r) + self.tile / 2, '#ff7ad0', 8);
+      }
       // collect objective colour
       if (self.level.objective === D.OBJ.COLLECT && t.type === self.level.color) {
         self.collected++;
@@ -468,10 +523,18 @@
       const rr = r + dirs[i][0], cc = c + dirs[i][1];
       if (rr < 0 || rr >= this.rows || cc < 0 || cc >= this.cols) continue;
       const t = this.grid[rr][cc];
-      if (t && t.ice) {
-        t.ice = false;
-        this.iceLeft = Math.max(0, this.iceLeft - 1);
-        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#bff0ff', 8);
+      if (!t) continue;
+      if (t.ice) {
+        t.blockHp = Math.max(0, (t.blockHp || 1) - 1);
+        const col = t.crate ? '#c79a5c' : '#bff0ff';
+        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, col, 8);
+        if (t.blockHp <= 0) {
+          t.ice = false; t.crate = false;
+          this.iceLeft = Math.max(0, this.iceLeft - 1);
+        }
+      } else if (t.chain) {
+        t.chain = false; // adjacent match frees the locked crystal
+        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#ffd24d', 8);
       }
     }
   };
@@ -540,8 +603,8 @@
     while (placed < n && guard++ < 300) {
       const r = rnd(this.rows), c = rnd(this.cols);
       const t = this.grid[r][c];
-      if (t && !t.ice && t.special === SP.NONE) {
-        t.ice = true; placed++;
+      if (t && !t.ice && !t.chain && t.special === SP.NONE) {
+        t.ice = true; t.blockHp = 1; placed++;
         this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fd0ff', 12);
       }
     }
@@ -601,13 +664,15 @@
         if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
       }
     } else if (d.def.ability === 'freeze') {
-      // shatter all ice on the board
+      // shatter all blockers and free all chains on the board
       for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-        if (this.grid[r][c].ice) {
-          this.grid[r][c].ice = false;
+        const t = this.grid[r][c];
+        if (t.ice) {
+          t.ice = false; t.crate = false; t.blockHp = 0;
           this.iceLeft = Math.max(0, this.iceLeft - 1);
           this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#bff0ff', 10);
         }
+        if (t.chain) { t.chain = false; this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#ffd24d', 8); }
       }
       this.emitObjective();
     } else if (d.def.ability === 'bonus') {
@@ -647,9 +712,10 @@
       return;
     }
     let cur, goal, label;
-    if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = 'Очки'; }
-    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].name; }
-    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = 'Крига'; }
+    if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = T('obj_score'); }
+    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].glyph; }
+    else if (this.level.objective === D.OBJ.JELLY) { cur = this.level.jellyCount - this.jellyLeft; goal = this.level.jellyCount; label = T('obj_jelly'); }
+    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = T('obj_ice'); }
     this.cb.onObjective && this.cb.onObjective(Math.min(cur, goal), goal, label);
   };
 
@@ -658,6 +724,7 @@
     if (this.isBoss) done = this.bossHP <= 0;
     else if (this.level.objective === D.OBJ.SCORE) done = this.score >= this.level.target;
     else if (this.level.objective === D.OBJ.COLLECT) done = this.collected >= this.level.target;
+    else if (this.level.objective === D.OBJ.JELLY) done = this.jellyLeft <= 0;
     else done = this.iceLeft <= 0;
     if (done && !this.finished) { this.win(); return true; }
     return false;
@@ -678,7 +745,16 @@
     this.state = 'done';
     const stars = this.computeStars();
     global.Audio2.play('win');
-    this.cb.onWin && this.cb.onWin({ score: this.score, stars: stars });
+    // "Sugar crush" finale: leftover moves explode into a bonus + fireworks.
+    const bonus = (!this.isBoss && this.movesLeft > 0) ? this.movesLeft * 50 : 0;
+    if (bonus > 0) {
+      this.score += bonus;
+      this.cb.onScore && this.cb.onScore(this.score);
+      this.addFloater(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2 - 30, T('sugar_bonus', { n: bonus }), '#ffd24d');
+      this.victory = { t: 0, dur: 1.4, stars: stars, fired: false };
+    } else {
+      this.cb.onWin && this.cb.onWin({ score: this.score, stars: stars });
+    }
   };
   Engine.prototype.fail = function () {
     if (this.finished) return;
@@ -689,10 +765,12 @@
   };
 
   // ---- Helpers: possible moves / shuffle ----------------------------------
+  Engine.prototype.movable = function (r, c) { const t = this.grid[r][c]; return t && !t.ice && !t.chain; };
   Engine.prototype.hasPossibleMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-      if (c + 1 < this.cols) { this.swapRaw(r, c, r, c + 1); const m = this.findMatches().length; this.swapRaw(r, c, r, c + 1); if (m) return true; }
-      if (r + 1 < this.rows) { this.swapRaw(r, c, r + 1, c); const m = this.findMatches().length; this.swapRaw(r, c, r + 1, c); if (m) return true; }
+      if (!this.movable(r, c)) continue;
+      if (c + 1 < this.cols && this.movable(r, c + 1)) { this.swapRaw(r, c, r, c + 1); const m = this.findMatches().length; this.swapRaw(r, c, r, c + 1); if (m) return true; }
+      if (r + 1 < this.rows && this.movable(r + 1, c)) { this.swapRaw(r, c, r + 1, c); const m = this.findMatches().length; this.swapRaw(r, c, r + 1, c); if (m) return true; }
     }
     return false;
   };
@@ -718,11 +796,11 @@
 
   Engine.prototype.findHintMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
-      if (this.grid[r][c].ice) continue;
+      if (!this.movable(r, c)) continue;
       const tries = [[r, c, r, c + 1], [r, c, r + 1, c]];
       for (let k = 0; k < tries.length; k++) {
         const r2 = tries[k][2], c2 = tries[k][3];
-        if (r2 >= this.rows || c2 >= this.cols || this.grid[r2][c2].ice) continue;
+        if (r2 >= this.rows || c2 >= this.cols || !this.movable(r2, c2)) continue;
         this.swapRaw(r, c, r2, c2);
         const ok = this.findMatches().length > 0;
         this.swapRaw(r, c, r2, c2);
@@ -759,7 +837,8 @@
     this.dragonsActivatedThisMove = {};
     const set = {};
     const t = this.grid[cell.r][cell.c];
-    if (t && t.ice) { t.ice = false; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    if (t && t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    if (t && t.chain) { t.chain = false; }
     set[cell.r + ',' + cell.c] = { r: cell.r, c: cell.c };
     this.spawnRing(this.cellX(cell.c) + this.tile / 2, this.cellY(cell.r) + this.tile / 2, this.tile * 1.6, '#ffd24d');
     this.shake = 0.5;
@@ -828,6 +907,16 @@
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       g.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)';
       g.fillRect(this.cellX(c), this.cellY(r), tile, tile);
+    }
+    // jelly layer (cell-based, drawn under crystals)
+    if (this.jellyGrid) for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const j = this.jellyGrid[r][c];
+      if (!j) continue;
+      const x = this.cellX(c), y = this.cellY(r);
+      this.roundRect(g, x + 2, y + 2, tile - 4, tile - 4, 10);
+      g.fillStyle = j >= 2 ? 'rgba(255,90,200,0.42)' : 'rgba(255,120,210,0.24)';
+      g.fill();
+      g.strokeStyle = 'rgba(255,150,220,0.5)'; g.lineWidth = 2; g.stroke();
     }
     // tiles
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
@@ -907,12 +996,18 @@
     g.translate(-cx, -cy);
 
     if (t.ice) {
-      // frozen obstacle block
       this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, 8);
       const ig = g.createLinearGradient(x, y, x, y + tile);
-      ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8');
+      if (t.crate) { ig.addColorStop(0, '#d8a866'); ig.addColorStop(1, '#a06a32'); }
+      else { ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8'); }
       g.fillStyle = ig; g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      g.strokeStyle = t.crate ? 'rgba(90,50,20,0.7)' : 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      if (t.crate) {
+        // plank lines + hit count
+        g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = 'bold ' + (tile * 0.3) + 'px system-ui';
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.blockHp, cx, cy);
+      }
       g.restore();
       return;
     }
@@ -938,6 +1033,15 @@
     } else {
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();
+    }
+    // chain overlay (locked crystal)
+    if (t.chain) {
+      g.strokeStyle = 'rgba(40,30,20,0.85)'; g.lineWidth = tile * 0.09;
+      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
+      g.strokeStyle = 'rgba(220,200,140,0.9)'; g.lineWidth = tile * 0.04;
+      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
     }
     g.restore();
   };

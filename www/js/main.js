@@ -34,8 +34,8 @@
       this.go('home');
       if (p.firstRun) {
         p.firstRun = false; global.Save.save();
-        global.UI.modal('🐉 Ласкаво просимо!', this.welcomeBody(), [
-          { label: 'Почати пригоду!', primary: true }
+        global.UI.modal(T('welcome_title'), this.welcomeBody(), [
+          { label: T('start_adventure'), primary: true }
         ]);
       }
       requestAnimationFrame(this.loop.bind(this));
@@ -44,11 +44,7 @@
     welcomeBody: function () {
       const b = document.createElement('div');
       b.className = 'modal-body';
-      b.innerHTML =
-        '<div class="big-emoji">🐉</div>' +
-        '<p>Поєднуйте 3+ кристали, щоб генерувати <b>енергію</b>.</p>' +
-        '<p>Енергія заряджає <b>яйця драконів</b> на острові.</p>' +
-        '<p>Дракони допомагають у бою: палять ряди, ламають кригу, б’ють блискавками та ростять бонуси!</p>';
+      b.innerHTML = '<div class="big-emoji">🐉</div>' + T('welcome_body');
       return b;
     },
 
@@ -91,11 +87,11 @@
           self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
         },
         onDragons: function (dragons) { self.renderDragonBars(dragons); },
-        onDragonProc: function (d) { global.UI.toast(d.def.emoji + ' ' + d.def.name + ' активовано!'); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
-        onShuffle: function () { global.UI.toast('🔀 Поле перемішано!'); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
-        onBossAttack: function (n) { global.UI.toast('💥 Бос атакує! +' + n + ' криги'); },
+        onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
         onLose: function (res) { self.onLose(res); }
       });
@@ -107,6 +103,27 @@
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
+      else this.showLevelIntro(lv);
+    },
+
+    levelName: function (lv) { return lv.boss ? ('👑 ' + lv.name) : T('level_n', { n: lv.n }); },
+    objectiveText: function (lv) {
+      return lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
+        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
+        : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
+        : lv.objective === D.OBJ.BOSS ? T('goal_boss')
+        : T('goal_ice', { n: lv.iceCount + (lv.crates || 0) });
+    },
+    showLevelIntro: function (lv) {
+      const s = this.gameScreen;
+      const old = s.querySelector('.level-intro'); if (old) old.remove();
+      const intro = document.createElement('div');
+      intro.className = 'level-intro';
+      intro.innerHTML = '<div class="li-card"><div class="li-name">' + this.levelName(lv) + '</div>' +
+        '<div class="li-goal">' + T('level_intro_goal', { text: this.objectiveText(lv) }) + '</div></div>';
+      s.appendChild(intro);
+      setTimeout(function () { intro.classList.add('out'); }, 1300);
+      setTimeout(function () { if (intro.parentNode) intro.remove(); }, 1900);
     },
 
     // ---- Interactive tutorial --------------------------------------------
@@ -117,7 +134,7 @@
       layer.innerHTML = '<div class="tut-bubble" id="tut-bubble"></div>';
       this.gameScreen.appendChild(layer);
       this.tutLayer = layer;
-      this.setTutorialText('👆 Проведіть пальцем від кристала до сусіднього, щоб зібрати 3 однакові в ряд');
+      this.setTutorialText(T('tut1'));
       // surface a hint move on the board
       if (this.engine) { this.engine.idleTime = 5; this.engine.hint = this.engine.findHintMove(); }
     },
@@ -127,9 +144,9 @@
     },
     tutorialAdvance: function () {
       const self = this;
-      this.setTutorialText('💎 Чудово! Збіги заряджають драконів — дивіться смужки внизу.');
+      this.setTutorialText(T('tut2'));
       setTimeout(function () {
-        self.setTutorialText('🐉 Коли смужка дракона повна — він б’є по полю сам!');
+        self.setTutorialText(T('tut3'));
         setTimeout(function () {
           if (self.tutLayer) { self.tutLayer.remove(); self.tutLayer = null; }
           self.tutorialActive = false;
@@ -148,12 +165,13 @@
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
       const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
+      const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
       top.innerHTML =
         '<button class="btn-back">‹</button>' +
-        '<div class="lvl-name">' + (lv.boss ? '👑 ' : '') + lv.name + '</div>' +
+        '<div class="lvl-name">' + this.levelName(lv) + '</div>' +
         '<button class="btn-pause">⏸</button>';
       s.appendChild(top);
       const self = this;
@@ -164,11 +182,11 @@
       hud.className = 'hud';
       hud.innerHTML =
         '<div class="hud-stats">' +
-          '<div class="hud-pill"><div class="hp-l">ОЧКИ</div><div class="hp-v" id="hud-score">0</div></div>' +
-          '<div class="hud-pill"><div class="hp-l">ХОДИ</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
+          '<div class="hud-pill"><div class="hp-l">' + T('obj_score') + '</div><div class="hp-v" id="hud-score">0</div></div>' +
+          '<div class="hud-pill"><div class="hp-l">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
         '</div>' +
         '<div class="hud-obj">' +
-          '<div class="obj-top"><span id="hud-obj-label">Ціль</span><span id="hud-obj-val">0 / 0</span></div>' +
+          '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
         '</div>';
       s.appendChild(hud);
@@ -191,7 +209,7 @@
         boosterBar: boBar
       };
       // booster-use callbacks from the engine
-      this.engine.cb.onShuffle = function () { global.UI.toast('🔀 Поле перемішано!'); };
+      this.engine.cb.onShuffle = function () { global.UI.toast(T('shuffled')); };
       this.engine.cb.onHammerUsed = function () {
         const pr = global.Save.get();
         pr.boosters.hammer = Math.max(0, (pr.boosters.hammer || 0) - 1);
@@ -208,9 +226,9 @@
       const p = global.Save.get();
       const self = this;
       const defs = [
-        { key: 'hammer', ic: '🔨', name: 'Молот' },
-        { key: 'shuffle', ic: '🔀', name: 'Мікс' },
-        { key: 'moves', ic: '➕5', name: 'Ходи' }
+        { key: 'hammer', ic: '🔨', name: T('b_hammer') },
+        { key: 'shuffle', ic: '🔀', name: T('b_mix') },
+        { key: 'moves', ic: '➕5', name: T('b_moves') }
       ];
       wrap.innerHTML = '';
       defs.forEach(function (b) {
@@ -229,20 +247,20 @@
       const eng = this.engine;
       if (!eng || eng.finished) return;
       if ((p.boosters[key] || 0) <= 0) {
-        global.UI.toast('Немає бустера — купіть у магазині 🛒');
+        global.UI.toast(T('no_booster'));
         return;
       }
       if (key === 'hammer') {
         const armed = !eng.hammerArmed;
         eng.armHammer(armed);
-        global.UI.toast(armed ? '🔨 Торкніться кристала, щоб розбити' : 'Молот скасовано');
+        global.UI.toast(armed ? T('hammer_hint') : T('hammer_cancel'));
         this.renderBoosters();
         return; // count consumed when actually used (onHammerUsed)
       }
-      if (eng.state !== 'idle') { global.UI.toast('Зачекайте…'); return; }
+      if (eng.state !== 'idle') { global.UI.toast(T('wait')); return; }
       let ok = false;
       if (key === 'shuffle') ok = eng.boosterShuffle();
-      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast('➕5 ходів!'); }
+      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast(T('plus5')); }
       if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
@@ -289,22 +307,22 @@
     showCombo: function (n) {
       let c = this.gameScreen.querySelector('.combo-pop');
       if (!c) { c = document.createElement('div'); c.className = 'combo-pop'; this.gameScreen.appendChild(c); }
-      c.textContent = 'КОМБО ×' + n + '!';
+      c.textContent = T('combo', { n: n });
       c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
     },
 
     confirmQuit: function () {
       const self = this;
-      global.UI.modal('Вийти з рівня?', null, [
-        { label: 'Продовжити' },
-        { label: 'Вийти', primary: true, onClick: function () { self.go('map'); } }
+      global.UI.modal(T('quit_q'), null, [
+        { label: T('resume') },
+        { label: T('quit'), primary: true, onClick: function () { self.go('map'); } }
       ]);
     },
     pause: function () {
       const self = this;
-      global.UI.modal('⏸ Пауза', null, [
-        { label: 'Вийти на карту', onClick: function () { self.go('map'); } },
-        { label: 'Продовжити', primary: true }
+      global.UI.modal(T('pause'), null, [
+        { label: T('to_map'), onClick: function () { self.go('map'); } },
+        { label: T('resume'), primary: true }
       ]);
     },
 
@@ -342,18 +360,18 @@
             return '<span class="big-star ' + (i < res.stars ? 'on' : '') + '" style="animation-delay:' + (i * 0.15) + 's">★</span>';
           }).join('') +
         '</div>' +
-        '<div class="win-score">Очки: ' + res.score + '</div>' +
-        '<div class="win-rewards">+' + gold + '🪙  +' + energy + '⚡</div>';
+        '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>';
       const self = this;
       const btns = [
-        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
-        { label: '🔁 Ще раз', onClick: function () { self.startLevel(lvNum); } }
+        { label: T('btn_map'), onClick: function () { self.go('map'); } },
+        { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
-      if (lvNum < D.LEVELS.length) btns.push({ label: '▶ Далі', primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
-      else btns.push({ label: '🏝 Острів', primary: true, onClick: function () { self.go('home'); } });
+      if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
+      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } });
       // staggered star sounds
       for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
-      global.UI.modal('🎉 Перемога!', body, btns);
+      global.UI.modal(T('victory'), body, btns);
     },
 
     onLose: function (res) {
@@ -364,19 +382,19 @@
       const li = global.Save.livesInfo();
       const body = document.createElement('div');
       body.className = 'modal-body';
-      body.innerHTML = '<div class="big-emoji">😢</div><p>Цілі не досягнуто.</p><div class="win-score">Очки: ' + res.score + '</div>' +
-        '<p class="muted small">Залишилось життів: ' + '❤'.repeat(li.count) + (li.count === 0 ? ' (порожньо)' : '') + '</p>' +
-        '<p class="muted small">Перегляньте рекламу, щоб отримати +5 ходів!</p>';
-      global.UI.modal('Поразка', body, [
-        { label: '🗺 Карта', onClick: function () { self.go('map'); } },
-        { label: '📺 +5 ходів', onClick: function () {
+      body.innerHTML = '<div class="big-emoji">😢</div><p>' + T('goal_not_met') + '</p><div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        '<p class="muted small">' + T('lives_left', { hearts: '❤'.repeat(li.count) }) + (li.count === 0 ? T('empty_suffix') : '') + '</p>' +
+        '<p class="muted small">' + T('ad_hint_moves') + '</p>';
+      global.UI.modal(T('defeat'), body, [
+        { label: T('btn_map'), onClick: function () { self.go('map'); } },
+        { label: T('ad_plus_moves'), onClick: function () {
             global.UI.watchAd();
             // grant extra moves and resume
             self.engine.movesLeft += 5; self.engine.finished = false; self.engine.state = 'idle';
             self.hud.moves.textContent = self.engine.movesLeft;
             setTimeout(function () { global.UI.closeModal(); }, 50);
           }},
-        { label: '🔁 Ще раз', primary: true, onClick: function () { self.startLevel(lvNum); } }
+        { label: T('btn_retry'), primary: true, onClick: function () { self.startLevel(lvNum); } }
       ]);
     },
 
@@ -386,7 +404,7 @@
       D.ISLANDS.forEach(function (isl) {
         if (isl.unlockLevel > 0 && p.levelProgress === isl.unlockLevel + 1 && !p['_isleNotified_' + isl.id]) {
           p['_isleNotified_' + isl.id] = true; global.Save.save();
-          setTimeout(function () { global.UI.toast('🏝 Відкрито новий острів: ' + isl.name + '!'); }, 1500);
+          setTimeout(function () { global.UI.toast(T('isle_unlocked', { name: isl.name })); }, 1500);
         }
       });
     },

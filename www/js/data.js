@@ -77,7 +77,7 @@
 
   // ---- Level generator -----------------------------------------------------
   // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
-  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', BOSS: 'boss' };
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', JELLY: 'jelly', BOSS: 'boss' };
 
   // Boss roster — one guardian per island, defeated by dealing damage (matches).
   const BOSSES = [
@@ -99,29 +99,36 @@
       const rows = 8;
       const colors = Math.min(6, 4 + Math.floor(i / 30)); // 4 → 6 colours
       const moves = 30 - Math.min(12, Math.floor(i / 12)); // 30 → 18 moves
-      let objective, target, color = 0, iceCount = 0;
+      let objective, target, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
       const cycle = inIsland % 5;
       if (cycle === 2) {
         objective = OBJ.COLLECT;
         color = (i % colors);
         target = 28 + Math.floor(i * 0.9);
+        chains = Math.min(8, 2 + Math.floor(i / 14)); // locked crystals as a twist
+      } else if (cycle === 3) {
+        objective = OBJ.JELLY;
+        jellyCount = 10 + Math.floor(i / 5) + island * 2;
+        target = jellyCount;
       } else if (cycle === 4) {
         objective = OBJ.ICE;
         iceCount = 8 + Math.floor(i / 6) + (island * 3);
+        crates = Math.min(6, 1 + Math.floor(i / 18)); // some blockers are 2-hit crates
         target = iceCount;
       } else {
         objective = OBJ.SCORE;
         target = 1200 + i * 240 + (island * 600);
+        if (cycle === 1) chains = Math.min(6, 1 + Math.floor(i / 20));
       }
       const isBoss = inIsland === 24;
       if (isBoss) {
         objective = OBJ.BOSS;
-        target = 90 + island * 70; // boss HP
-        iceCount = 0;
+        target = 80 + island * 45; // boss HP (kept beatable within the move budget)
+        iceCount = 0; jellyCount = 0; chains = Math.min(3, island); crates = Math.max(0, island - 1);
       }
       levels.push({
         n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
-        objective, target, color, iceCount,
+        objective, target, color, iceCount, jellyCount, crates, chains,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
         reward: { gold: isBoss ? 300 + i * 8 : 50 + i * 6, energy: isBoss ? 40 : 14 + Math.floor(i / 3) },

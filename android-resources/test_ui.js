@@ -46,10 +46,10 @@ const sb = {
   addEventListener(){}
 };
 sb.window=sb; sb.global=sb; vm.createContext(sb);
-['data.js','save.js','engine.js','ui.js'].forEach(f=>vm.runInContext(fs.readFileSync('www/js/'+f,'utf8'),sb,{filename:f}));
+['data.js','i18n.js','save.js','engine.js','ui.js'].forEach(f=>vm.runInContext(fs.readFileSync('www/js/'+f,'utf8'),sb,{filename:f}));
 sb.Save.load();
 sb.Audio2 = { resume(){}, play(){}, startMusic(){}, stopMusic(){}, setMusicEnabled(){} };
-sb.Game = { go(){}, startLevel(){}, addPassXp:sb.UI?sb.UI.addPassXp:()=>{} };
+sb.Game = { go(){}, startLevel(){}, levelName:(lv)=> lv.boss ? lv.name : ('Level '+lv.n), addPassXp:sb.UI?sb.UI.addPassXp:()=>{} };
 
 let fails = 0;
 function tryRun(name, fn){ try{ fn(); console.log('OK  '+name); }catch(e){ fails++; console.error('ERR '+name+': '+e.message+'\n  '+(e.stack||'').split('\n')[1]); } }

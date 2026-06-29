@@ -29,7 +29,7 @@ function loadFile(rel) {
   const code = fs.readFileSync(path.join(__dirname, '..', 'www', 'js', rel), 'utf8');
   vm.runInContext(code, sandbox, { filename: rel });
 }
-['data.js', 'save.js', 'audio.js', 'engine.js'].forEach(loadFile);
+['data.js', 'i18n.js', 'save.js', 'audio.js', 'engine.js'].forEach(loadFile);
 
 sandbox.Save.load();
 
@@ -81,7 +81,7 @@ function playLevel(n) {
   eng.setViewport(0, 0, 400);
 
   let safety = 0;
-  while (!eng.finished && safety < 200) {
+  while (!eng.finished && safety < 300) {
     safety++;
     const mv = findAValidMove(eng);
     if (!mv) { eng.shuffleBoard(); pump(eng, 500); continue; }
@@ -89,6 +89,8 @@ function playLevel(n) {
     totalMoves++;
     pump(eng, 2000);
   }
+  // Flush the victory ("sugar crush") finale, which defers onWin ~1.4s.
+  for (let i = 0; i < 60 && !result; i++) eng.update(0.05);
   if (result) { if (result.win) wins++; else losses++; }
   return { finished: eng.finished, result };
 }

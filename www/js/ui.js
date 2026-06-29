@@ -118,35 +118,35 @@
       const refreshBody = function () {
         const l = global.Save.livesInfo();
         let t = '';
-        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = 'Наступне ❤ через ' + m + ' хв ' + (s % 60) + ' с'; }
+        if (l.count < l.max) { const s = Math.ceil(l.msToNext / 1000), m = Math.floor(s / 60); t = T('next_heart', { m: m, s: s % 60 }); }
         body.innerHTML = '<div class="lives-big">' + '❤️'.repeat(l.count) + '🖤'.repeat(Math.max(0, l.max - l.count)) + '</div>' +
-          '<p>' + l.count + ' / ' + l.max + ' життів</p>' +
+          '<p>' + T('lives_count', { n: l.count, max: l.max }) + '</p>' +
           '<p class="muted small">' + t + '</p>' +
-          '<p class="muted small">Поповніть, переглянувши рекламу, або за 💎.</p>';
+          '<p class="muted small">' + T('lives_refill_hint') + '</p>';
       };
       refreshBody();
       const buttons = [
-        { label: 'Закрити' },
-        { label: '📺 +1 ❤ (реклама)', onClick: function () {
-            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast('+1 ❤'); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
-        { label: '💎 Поповнити (50)', primary: true, onClick: function () {
+        { label: T('close') },
+        { label: T('ad_plus_life'), onClick: function () {
+            global.UI.watchAdGeneric(function () { global.Save.addLives(1); UI.refreshCurrencies(); UI.toast(T('life_added')); if (onReady && global.Save.livesInfo().count > 0) onReady(); }); } },
+        { label: T('refill_gems'), primary: true, onClick: function () {
             const p = global.Save.get();
-            if (p.gems < 50) { UI.toast('Недостатньо кристалів 💎'); return; }
+            if (p.gems < 50) { UI.toast(T('not_enough_gems')); return; }
             p.gems -= 50; global.Save.refillLives(); global.Save.save();
-            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Життя поповнено!');
+            global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('lives_refilled'));
             if (onReady) onReady();
           } }
       ];
-      this.modal('❤️ Життя', body, buttons);
+      this.modal(T('lives_title'), body, buttons);
     },
 
     navBar: function (active) {
       const items = [
-        { id: 'map', ic: '🗺️', label: 'Карта' },
-        { id: 'collection', ic: '🐲', label: 'Дракони' },
-        { id: 'shop', ic: '🛒', label: 'Магазин' },
-        { id: 'pass', ic: '🎖️', label: 'Пропуск' },
-        { id: 'home', ic: '🏝️', label: 'Острів' }
+        { id: 'map', ic: '🗺️', label: T('nav_map') },
+        { id: 'collection', ic: '🐲', label: T('nav_dragons') },
+        { id: 'shop', ic: '🛒', label: T('nav_shop') },
+        { id: 'pass', ic: '🎖️', label: T('nav_pass') },
+        { id: 'home', ic: '🏝️', label: T('nav_island') }
       ];
       const bar = el('div', 'nav-bar');
       items.forEach(function (it) {
@@ -193,7 +193,7 @@
 
       // Egg incubator row
       const eggsWrap = el('div', 'eggs-wrap');
-      eggsWrap.appendChild(el('div', 'section-h', '🥚 Інкубатор драконів'));
+      eggsWrap.appendChild(el('div', 'section-h', T('incubator')));
       const eggGrid = el('div', 'egg-grid');
       p.eggs.forEach(function (egg, idx) {
         const def = D.dragonById(egg.dragon);
@@ -205,7 +205,7 @@
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
           '<div class="egg-pct">' + egg.charge + ' / ' + egg.need + ' ⚡</div>';
         const btn = el('button', 'btn btn-mini ' + (pct >= 100 ? 'btn-primary' : 'btn-ghost'),
-          pct >= 100 ? 'Вилупити!' : 'Зарядити +10⚡');
+          pct >= 100 ? T('hatch') : T('charge10'));
         click(btn, function () { UI.handleEgg(idx); });
         card.appendChild(btn);
         eggGrid.appendChild(card);
@@ -215,15 +215,15 @@
 
       // Quick action buttons
       const acts = el('div', 'home-actions');
-      const playBtn = click(el('button', 'btn btn-primary btn-big', '▶ Грати рівень ' + p.levelProgress), function () { global.Game.go('map'); });
+      const playBtn = click(el('button', 'btn btn-primary btn-big', T('play_level', { n: p.levelProgress })), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
       const grid2 = el('div', 'home-grid grid6');
       [
-        { ic: '🎁', label: 'Щоденна', go: function () { UI.showDaily(); } },
-        { ic: '📜', label: 'Квести', go: function () { UI.showQuests(); } },
-        { ic: '📊', label: 'Рейтинг', go: function () { UI.showLeaderboard(); } },
-        { ic: '🏆', label: 'Досягнення', go: function () { UI.showAchievements(); } },
-        { ic: '⚙️', label: 'Опції', go: function () { UI.showSettings(); } }
+        { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
+        { ic: '📜', label: T('t_quests'), go: function () { UI.showQuests(); } },
+        { ic: '📊', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
+        { ic: '🏆', label: T('t_ach'), go: function () { UI.showAchievements(); } },
+        { ic: '⚙️', label: T('t_options'), go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
         const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
         grid2.appendChild(b);
@@ -233,7 +233,7 @@
 
       s.appendChild(this.navBar('home'));
       // daily reminder badge
-      if (UI.dailyAvailable()) UI.toast('🎁 Доступна щоденна нагорода!');
+      if (UI.dailyAvailable()) UI.toast(T('daily_available'));
     },
 
     handleEgg: function (idx) {
@@ -251,11 +251,11 @@
         global.Save.save();
         global.Audio2.play('hatch');
         const def = D.dragonById(egg.dragon);
-        UI.modal('🎉 Новий дракон!', el('div', 'modal-body',
+        UI.modal(T('new_dragon'), el('div', 'modal-body',
           '<div class="big-emoji">' + def.emoji + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
-          [{ label: 'Чудово!', primary: true, onClick: function () { UI.renderHome(); } }]);
+          [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
       } else {
-        if (p.energy < 10) { UI.toast('Недостатньо енергії ⚡ (грайте рівні)'); return; }
+        if (p.energy < 10) { UI.toast(T('need_energy')); return; }
         p.energy -= 10; egg.charge = Math.min(egg.need, egg.charge + 10);
         global.Save.save();
         global.Audio2.play('coin');
@@ -270,7 +270,7 @@
       const s = document.getElementById('screen-map');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🗺️ Острови драконів'));
+      s.appendChild(el('div', 'section-h center', T('islands_title')));
 
       const scroll = el('div', 'map-scroll');
       D.ISLANDS.forEach(function (island) {
@@ -279,7 +279,7 @@
         block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
         const head = el('div', 'island-head');
         head.innerHTML = '<b style="color:' + island.theme + '">' + island.name + '</b>' +
-          (unlocked ? '' : '<span class="lock">🔒 рівень ' + (island.unlockLevel + 1) + '</span>');
+          (unlocked ? '' : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
         block.appendChild(head);
         const nodes = el('div', 'level-nodes');
         for (let i = 0; i < 25; i++) {
@@ -313,17 +313,19 @@
       const lv = D.LEVELS[lvNum - 1];
       const p = global.Save.get();
       const body = el('div', 'modal-body');
-      let objText = lv.objective === D.OBJ.SCORE ? ('Набрати ' + lv.target + ' очок')
-        : lv.objective === D.OBJ.COLLECT ? ('Зібрати ' + lv.target + ' × ' + D.CRYSTALS[lv.color].glyph)
-        : ('Розбити всю кригу (' + lv.iceCount + ')');
+      let objText = lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
+        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
+        : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
+        : lv.objective === D.OBJ.BOSS ? T('goal_boss')
+        : T('goal_ice', { n: lv.iceCount + (lv.crates || 0) });
       body.innerHTML =
-        '<p class="obj">🎯 ' + objText + '</p>' +
-        '<p class="muted">Ходів: ' + lv.moves + ' · Нагорода: ' + lv.reward.gold + '🪙 ' + lv.reward.energy + '⚡</p>' +
-        '<div class="section-h">Бойова команда драконів</div>';
+        '<p class="obj">' + T('goal', { text: objText }) + '</p>' +
+        '<p class="muted">' + T('moves_reward', { m: lv.moves, gold: lv.reward.gold, energy: lv.reward.energy }) + '</p>' +
+        '<div class="section-h">' + T('battle_team') + '</div>';
       body.appendChild(UI.equipPicker());
-      this.modal((lv.boss ? '👑 ' : '') + lv.name, body, [
+      this.modal(global.Game.levelName(lv), body, [
         { label: '✖', onClick: function () {} },
-        { label: '▶ Старт', primary: true, onClick: function () { global.Game.startLevel(lvNum); } }
+        { label: T('start'), primary: true, onClick: function () { global.Game.startLevel(lvNum); } }
       ]);
     },
 
@@ -337,12 +339,12 @@
           const def = D.dragonById(id);
           cell.innerHTML = '<div class="eq-emoji" style="filter:drop-shadow(0 0 8px ' + def.glow + ')">' + def.emoji + '</div><div class="eq-name">' + def.name + '</div>';
         } else {
-          cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">Порожньо</div>';
+          cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">' + T('equip_empty') + '</div>';
         }
         (function (slot) { click(cell, function () { UI.cycleEquip(slot); }); })(slot);
         wrap.appendChild(cell);
       }
-      const hint = el('div', 'muted small', 'Торкніться слота, щоб змінити дракона');
+      const hint = el('div', 'muted small', T('equip_hint'));
       const container = el('div');
       container.appendChild(wrap); container.appendChild(hint);
       return container;
@@ -377,7 +379,7 @@
       const s = document.getElementById('screen-collection');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🐲 Колекція драконів'));
+      s.appendChild(el('div', 'section-h center', T('collection_title')));
       const grid = el('div', 'dragon-grid');
       D.DRAGONS.forEach(function (def) {
         const owned = p.ownedDragons.indexOf(def.id) !== -1;
@@ -385,11 +387,11 @@
         const card = el('div', 'dragon-card' + (owned ? '' : ' locked'));
         const skinColor = (D.SKIN_COLORS[p.activeSkins[def.id]] || {}).color || def.color;
         card.innerHTML =
-          '<div class="rar rar-' + def.rarity + '">' + def.rarity + '</div>' +
+          '<div class="rar rar-' + def.rarity + '">' + T('rarity_' + def.rarity) + '</div>' +
           '<div class="dc-emoji" style="filter:drop-shadow(0 0 14px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
           '<div class="dc-title">' + def.title + '</div>' +
-          (owned ? '<div class="dc-lvl">Рівень ' + lvl + '</div>' : '<div class="dc-lvl muted">Не відкрито</div>') +
+          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
           '<div class="dc-desc">' + def.desc + '</div>';
         if (owned) click(card, function () { UI.showUpgrade(def.id); });
         grid.appendChild(card);
@@ -408,16 +410,16 @@
         '<div class="big-emoji" style="filter:drop-shadow(0 0 16px ' + def.glow + ')">' + def.emoji + '</div>' +
         '<p>' + def.desc + '</p>' +
         '<div class="up-stats">' +
-        '<div>Поточний рівень: <b>' + lvl + '</b></div>' +
-        '<div>Сила здатності: <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
-        '<div>Заряджається швидше з кожним рівнем</div>' +
+        '<div>' + T('cur_level') + ': <b>' + lvl + '</b></div>' +
+        '<div>' + T('ability_power') + ': <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
+        '<div>' + T('charges_faster') + '</div>' +
         '</div>';
-      this.modal('⬆ Прокачка: ' + def.name, body, [
-        { label: 'Закрити' },
-        { label: 'Покращити (' + cost + '🪙)', primary: true, onClick: function () {
-          if (p.gold < cost) { UI.toast('Недостатньо золота 🪙'); return; }
+      this.modal(T('upgrade_title', { name: def.name }), body, [
+        { label: T('close') },
+        { label: T('upgrade_btn', { cost: cost }), primary: true, onClick: function () {
+          if (p.gold < cost) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= cost; p.dragonLevels[id] = lvl + 1; global.Save.save();
-          global.Audio2.play('coin'); UI.toast(def.name + ' тепер рівня ' + (lvl + 1) + '!');
+          global.Audio2.play('coin'); UI.toast(T('now_level', { name: def.name, n: lvl + 1 }));
           UI.renderCollection();
         }}
       ]);
@@ -429,74 +431,74 @@
       const s = document.getElementById('screen-shop');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🛒 Магазин'));
+      s.appendChild(el('div', 'section-h center', T('shop_title')));
 
       // Rewarded ad
       const adCard = el('div', 'shop-card highlight');
-      adCard.innerHTML = '<div class="shop-ic">📺</div><div class="shop-info"><b>Реклама за винагороду</b><span>Перегляньте рекламу → +100🪙 та +20⚡</span></div>';
-      const adBtn = click(el('button', 'btn btn-primary btn-mini', 'Дивитись'), function () { UI.watchAd(); });
+      adCard.innerHTML = '<div class="shop-ic">📺</div><div class="shop-info"><b>' + T('rewarded_ad') + '</b><span>' + T('ad_desc') + '</span></div>';
+      const adBtn = click(el('button', 'btn btn-primary btn-mini', T('watch')), function () { UI.watchAd(); });
       adCard.appendChild(adBtn);
       s.appendChild(adCard);
 
       // Gem packs (IAP placeholders)
-      s.appendChild(el('div', 'section-h', '💎 Кристали'));
+      s.appendChild(el('div', 'section-h', T('gems_section')));
       [
         { gems: 100, price: '$0.99' }, { gems: 550, price: '$4.99' }, { gems: 1200, price: '$9.99' }
       ].forEach(function (pack) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' кристалів</b><span>Найкраща ціна</span></div>';
+        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' 💎</b><span>' + T('best_price') + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
         c.appendChild(b); s.appendChild(c);
       });
 
       // Gold for gems
-      s.appendChild(el('div', 'section-h', '🪙 Золото'));
+      s.appendChild(el('div', 'section-h', T('gold_section')));
       [{ gold: 500, gems: 20 }, { gold: 1500, gems: 50 }].forEach(function (pack) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">🪙</div><div class="shop-info"><b>' + pack.gold + ' золота</b><span>за ' + pack.gems + '💎</span></div>';
+        c.innerHTML = '<div class="shop-ic">🪙</div><div class="shop-info"><b>' + T('gold_pack', { gold: pack.gold }) + '</b><span>' + T('for_gems', { gems: pack.gems }) + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.gems + '💎'), function () {
-          if (p.gems < pack.gems) { UI.toast('Недостатньо кристалів 💎'); return; }
+          if (p.gems < pack.gems) { UI.toast(T('not_enough_gems')); return; }
           p.gems -= pack.gems; p.gold += pack.gold; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + pack.gold + ' золота!');
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('gold_added', { n: pack.gold }));
         });
         c.appendChild(b); s.appendChild(c);
       });
 
       // Boosters
-      s.appendChild(el('div', 'section-h', '🧪 Бустери'));
+      s.appendChild(el('div', 'section-h', T('boosters_section')));
       [
-        { key: 'hammer', ic: '🔨', name: 'Молот ×3', desc: 'Розбити будь-який кристал', amount: 3, price: 200 },
-        { key: 'shuffle', ic: '🔀', name: 'Мікс ×3', desc: 'Перемішати поле', amount: 3, price: 150 },
-        { key: 'moves', ic: '➕5', name: 'Ходи ×3', desc: '+5 ходів у грі', amount: 3, price: 250 }
+        { key: 'hammer', ic: '🔨', name: T('hammer_pack'), desc: T('hammer_pdesc'), amount: 3, price: 200 },
+        { key: 'shuffle', ic: '🔀', name: T('mix_pack'), desc: T('mix_pdesc'), amount: 3, price: 150 },
+        { key: 'moves', ic: '➕5', name: T('moves_pack'), desc: T('moves_pdesc'), amount: 3, price: 250 }
       ].forEach(function (b) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · маєте: ' + (p.boosters[b.key] || 0) + '</span></div>';
+        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · ' + T('you_have', { n: (p.boosters[b.key] || 0) }) + '</span></div>';
         const btn = click(el('button', 'btn btn-buy btn-mini', b.price + '🪙'), function () {
-          if (p.gold < b.price) { UI.toast('Недостатньо золота 🪙'); return; }
+          if (p.gold < b.price) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= b.price; p.boosters[b.key] = (p.boosters[b.key] || 0) + b.amount; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Куплено: ' + b.name); UI.renderShop();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('bought', { name: b.name })); UI.renderShop();
         });
         c.appendChild(btn); s.appendChild(c);
       });
 
       // Cosmetic skins
-      s.appendChild(el('div', 'section-h', '🎨 Косметичні скіни драконів'));
+      s.appendChild(el('div', 'section-h', T('skins_section')));
       D.SKINS.forEach(function (sk) {
         const owned = p.ownedSkins.indexOf(sk.id) !== -1;
         const def = D.dragonById(sk.dragon);
         const sc = D.SKIN_COLORS[sk.skin] || def;
         const c = el('div', 'shop-card');
         c.innerHTML = '<div class="shop-ic" style="filter:drop-shadow(0 0 10px ' + sc.glow + ')">' + def.emoji + '</div>' +
-          '<div class="shop-info"><b style="color:' + sc.color + '">' + sk.name + '</b><span>Скін для ' + def.name + '</span></div>';
+          '<div class="shop-info"><b style="color:' + sc.color + '">' + sk.name + '</b><span>' + T('skin_for', { name: def.name }) + '</span></div>';
         const active = p.activeSkins[sk.dragon] === sk.skin;
         const b = click(el('button', 'btn btn-mini ' + (owned ? (active ? 'btn-ghost' : 'btn-primary') : 'btn-buy'),
-          owned ? (active ? '✓ Активний' : 'Вдягти') : (sk.price + '💎')), function () {
+          owned ? (active ? T('active') : T('wear')) : (sk.price + '💎')), function () {
           if (!owned) {
-            if (p.ownedDragons.indexOf(sk.dragon) === -1) { UI.toast('Спочатку отримайте дракона ' + def.name); return; }
-            if (p.gems < sk.price) { UI.toast('Недостатньо кристалів 💎'); return; }
+            if (p.ownedDragons.indexOf(sk.dragon) === -1) { UI.toast(T('get_dragon_first', { name: def.name })); return; }
+            if (p.gems < sk.price) { UI.toast(T('not_enough_gems')); return; }
             p.gems -= sk.price; p.ownedSkins.push(sk.id);
             p.activeSkins[sk.dragon] = sk.skin; global.Save.save();
-            global.Audio2.play('coin'); UI.toast('Скін розблоковано!');
+            global.Audio2.play('coin'); UI.toast(T('skin_unlocked'));
           } else {
             p.activeSkins[sk.dragon] = active ? null : sk.skin; global.Save.save();
           }
@@ -516,8 +518,8 @@
         return;
       }
       const body = el('div', 'modal-body');
-      body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>Реклама...</small></div>';
-      this.modal('Реклама за винагороду', body, [{ label: 'Зачекайте...', primary: true, keepOpen: true }]);
+      body.innerHTML = '<div class="ad-box">📺<br><span id="ad-count">5</span><br><small>' + T('rewarded_ad') + '</small></div>';
+      this.modal(T('rewarded_ad'), body, [{ label: T('ad_waiting'), primary: true, keepOpen: true }]);
       let n = 5;
       const cnt = body.querySelector('#ad-count');
       const iv = setInterval(function () {
@@ -531,7 +533,7 @@
         const p = global.Save.get();
         p.gold += 100; p.energy += 20; global.Save.save();
         global.Audio2.play('coin'); UI.refreshCurrencies();
-        UI.toast('Нагорода: +100🪙 +20⚡');
+        UI.toast(T('reward_got'));
       });
     },
 
@@ -540,7 +542,7 @@
       const p = global.Save.get();
       p.gems += gems; global.Save.save();
       global.Audio2.play('coin'); UI.refreshCurrencies();
-      UI.toast('Покупка успішна: +' + gems + '💎 (демо)');
+      UI.toast(T('purchase_ok', { n: gems }));
       UI.renderShop();
     },
 
@@ -550,24 +552,24 @@
       const s = document.getElementById('screen-pass');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', '🎖️ Бойовий пропуск — Сезон 1'));
+      s.appendChild(el('div', 'section-h center', T('pass_title')));
 
       const tier = Math.min(50, Math.floor(p.pass.xp / 100) + 1);
       const into = p.pass.xp % 100;
       const head = el('div', 'pass-head');
-      head.innerHTML = '<div>Рівень <b>' + tier + '</b> / 50</div>' +
+      head.innerHTML = '<div>' + T('pass_level', { n: tier }) + '</div>' +
         '<div class="bar"><div class="bar-fill" style="width:' + into + '%;background:#ffd24d"></div></div>' +
-        '<div class="muted small">' + into + ' / 100 XP до наступного рівня</div>';
+        '<div class="muted small">' + T('xp_to_next', { n: into }) + '</div>';
       if (!p.pass.premium) {
-        const buy = click(el('button', 'btn btn-buy btn-mini', '👑 Преміум 500💎'), function () {
-          if (p.gems < 500) { UI.toast('Недостатньо кристалів 💎'); return; }
+        const buy = click(el('button', 'btn btn-buy btn-mini', T('premium_buy')), function () {
+          if (p.gems < 500) { UI.toast(T('not_enough_gems')); return; }
           p.gems -= 500; p.pass.premium = true; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Преміум-пропуск активовано! 👑');
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('premium_on'));
           UI.renderPass();
         });
         head.appendChild(buy);
       } else {
-        head.appendChild(el('div', 'premium-badge', '👑 ПРЕМІУМ АКТИВНО'));
+        head.appendChild(el('div', 'premium-badge', T('premium_badge')));
       }
       s.appendChild(head);
 
@@ -605,7 +607,7 @@
       else if (r.type === 'gems') p.gems += r.amount;
       else if (r.type === 'dragon') p.gems += 50;
       global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-      UI.toast('Отримано: ' + UI.rewardLabel(r)); UI.renderPass();
+      UI.toast(T('got', { r: UI.rewardLabel(r) })); UI.renderPass();
     },
     addPassXp: function (xp) {
       const p = global.Save.get();
@@ -626,21 +628,21 @@
       const dayIdx = p.daily.streak % 7;
       rewards.forEach(function (amt, i) {
         const cell = el('div', 'daily-cell' + (i < dayIdx ? ' done' : (i === dayIdx && UI.dailyAvailable() ? ' today' : '')));
-        cell.innerHTML = '<div class="dd">День ' + (i + 1) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
+        cell.innerHTML = '<div class="dd">' + T('day_n', { n: i + 1 }) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
         grid.appendChild(cell);
       });
       body.appendChild(grid);
-      this.modal('🎁 Щоденна нагорода', body, [
-        { label: 'Закрити' },
+      this.modal(T('daily_title'), body, [
+        { label: T('close') },
         UI.dailyAvailable()
-          ? { label: 'Забрати', primary: true, onClick: function () {
+          ? { label: T('claim'), primary: true, onClick: function () {
               const amt = rewards[dayIdx];
               if (dayIdx === 6) p.gems += amt; else p.gold += amt;
               p.daily.streak += 1; p.daily.lastClaim = today;
               global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-              UI.toast('Отримано щоденну нагороду!');
+              UI.toast(T('daily_got'));
             }}
-          : { label: 'Вже отримано', primary: true }
+          : { label: T('already_claimed'), primary: true }
       ]);
     },
 
@@ -669,11 +671,12 @@
         const pct = Math.round(prog / q.goal * 100);
         const done = prog >= q.goal;
         const card = el('div', 'quest-card');
-        card.innerHTML = '<div class="quest-text">' + q.text + '</div>' +
+        const qtext = (global.I18N.STR[global.I18N.currentLang()][q.id]) ? T(q.id) : q.text;
+        card.innerHTML = '<div class="quest-text">' + qtext + '</div>' +
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#5fe39a"></div></div>' +
-          '<div class="muted small">' + prog + ' / ' + q.goal + ' · нагорода ' + q.reward + '🪙</div>';
+          '<div class="muted small">' + prog + ' / ' + q.goal + ' · ' + T('quest_reward', { n: q.reward }) + '</div>';
         const btn = el('button', 'btn btn-mini ' + (entry.claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
-          entry.claimed ? '✓' : (done ? 'Забрати' : '...'));
+          entry.claimed ? '✓' : (done ? T('claim') : '...'));
         if (done && !entry.claimed) click(btn, function () {
           entry.claimed = true; p.gold += q.reward; UI.addPassXp(50); global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + q.reward + '🪙'); UI.showQuests();
@@ -681,7 +684,7 @@
         card.appendChild(btn);
         body.appendChild(card);
       });
-      this.modal('📜 Щоденні квести', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('quests_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- ACHIEVEMENTS -----------------------------------------------------
@@ -698,15 +701,15 @@
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:#ffd24d"></div></div>' +
           '<div class="muted small">' + Math.min(cur, a.goal) + ' / ' + a.goal + ' · ' + a.reward + '💎</div>';
         const btn = el('button', 'btn btn-mini ' + (claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
-          claimed ? '✓' : (done ? 'Забрати' : '🔒'));
+          claimed ? '✓' : (done ? T('claim') : '🔒'));
         if (done && !claimed) click(btn, function () {
           p.achievements[a.id] = true; p.gems += a.reward; global.Save.save();
-          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Досягнення! +' + a.reward + '💎'); UI.showAchievements();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('🏆 +' + a.reward + '💎'); UI.showAchievements();
         });
         card.appendChild(btn);
         body.appendChild(card);
       });
-      this.modal('🏆 Досягнення', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('ach_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- LEADERBOARD (local, with simulated rivals) -----------------------
@@ -717,11 +720,11 @@
         // deterministic spread of rival star totals
         return { name: name, stars: 18 + ((i * 53 + 31) % 340), me: false };
       });
-      rows.push({ name: 'Ви', stars: mine, me: true });
+      rows.push({ name: T('you'), stars: mine, me: true });
       rows.sort(function (a, b) { return b.stars - a.stars; });
       const myRank = rows.findIndex(function (r) { return r.me; }) + 1;
       const body = el('div', 'modal-body scroll-body');
-      body.appendChild(el('div', 'lb-head', 'Ваше місце: <b>#' + myRank + '</b> з ' + rows.length + ' · ⭐ ' + mine));
+      body.appendChild(el('div', 'lb-head', T('your_place', { rank: myRank, total: rows.length, stars: mine })));
       const list = el('div', 'lb-list');
       rows.slice(0, 20).forEach(function (r, idx) {
         const row = el('div', 'lb-row' + (r.me ? ' me' : ''));
@@ -732,7 +735,7 @@
         list.appendChild(row);
       });
       body.appendChild(list);
-      this.modal('📊 Таблиця рекордів', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('lb_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- SETTINGS ---------------------------------------------------------
@@ -742,30 +745,58 @@
       const mkToggle = function (label, key, onChange) {
         const row = el('div', 'set-row');
         row.innerHTML = '<span>' + label + '</span>';
-        const tg = el('button', 'toggle ' + (p.settings[key] ? 'on' : 'off'), p.settings[key] ? 'УВІМК' : 'ВИМК');
+        const tg = el('button', 'toggle ' + (p.settings[key] ? 'on' : 'off'), p.settings[key] ? T('on') : T('off'));
         click(tg, function () {
           p.settings[key] = !p.settings[key]; global.Save.save();
           tg.className = 'toggle ' + (p.settings[key] ? 'on' : 'off');
-          tg.textContent = p.settings[key] ? 'УВІМК' : 'ВИМК';
+          tg.textContent = p.settings[key] ? T('on') : T('off');
           onChange && onChange(p.settings[key]);
         });
         row.appendChild(tg);
         return row;
       };
-      body.appendChild(mkToggle('🔊 Звуки', 'sound'));
-      body.appendChild(mkToggle('🎵 Музика', 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
-      body.appendChild(mkToggle('📳 Вібрація', 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
-      const reset = click(el('button', 'btn btn-ghost btn-mini', '🗑️ Скинути прогрес'), function () {
-        UI.modal('Скинути прогрес?', el('div', 'modal-body', '<p>Весь прогрес буде втрачено назавжди.</p>'), [
-          { label: 'Ні' },
-          { label: 'Так, скинути', primary: true, onClick: function () {
-            global.Save.reset(); UI.toast('Прогрес скинуто'); global.Game.go('home');
+      body.appendChild(mkToggle(T('s_sound'), 'sound'));
+      body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
+      body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
+      // Language selector
+      const langRow = el('div', 'set-row');
+      langRow.innerHTML = '<span>' + T('s_language') + '</span>';
+      const langBtn = el('button', 'toggle on', global.I18N.langName(global.I18N.currentLang()));
+      click(langBtn, function () { UI.showLanguagePicker(); });
+      langRow.appendChild(langBtn);
+      body.appendChild(langRow);
+      const reset = click(el('button', 'btn btn-ghost btn-mini', T('reset')), function () {
+        UI.modal(T('reset_q'), el('div', 'modal-body', '<p>' + T('reset_warn') + '</p>'), [
+          { label: T('no') },
+          { label: T('yes_reset'), primary: true, onClick: function () {
+            global.Save.reset(); UI.toast(T('reset_done')); global.Game.go('home');
           }}
         ]);
       });
-      body.appendChild(el('div', 'set-row', '<span>Версія 1.0.0</span>'));
+      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
       body.appendChild(reset);
-      this.modal('⚙️ Налаштування', body, [{ label: 'Закрити', primary: true }]);
+      this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    showLanguagePicker: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      const list = el('div', 'lb-list');
+      global.I18N.ORDER.forEach(function (l) {
+        const active = global.I18N.currentLang() === l;
+        const row = el('button', 'btn btn-mini ' + (active ? 'btn-primary' : 'btn-ghost') + ' lang-row',
+          global.I18N.langName(l) + (active ? '  ✓' : ''));
+        click(row, function () {
+          p.settings.language = l; global.Save.save();
+          UI.closeModal();
+          // re-render whatever screen we're on
+          if (global.Game) global.Game.go(UI.current === 'game' ? 'home' : UI.current);
+          UI.showSettings();
+        });
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      this.modal(T('choose_lang'), body, [{ label: T('close'), primary: true }]);
     }
   };
 
