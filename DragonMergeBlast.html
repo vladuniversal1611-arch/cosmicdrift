@@ -2257,10 +2257,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.currentLevel = lvNum;
       this.engine = new global.Engine();
       const self = this;
+      // Callbacks guard against a not-yet-built HUD (init() fires emitObjective);
+      // buildHud() re-emits the objective once the HUD elements exist.
       this.engine.init(lv, p.equipped, {
-        onScore: function (s) { self.hud.score.textContent = s; },
-        onMoves: function (m) { self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
+        onScore: function (s) { if (!self.hud) return; self.hud.score.textContent = s; },
+        onMoves: function (m) { if (!self.hud) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
         onObjective: function (cur, goal, label) {
+          if (!self.hud) return;
           self.hud.objLabel.textContent = label;
           self.hud.objVal.textContent = cur + ' / ' + goal;
           self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
