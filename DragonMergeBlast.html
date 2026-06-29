@@ -56,7 +56,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 /* The game screen is just a transparent HUD overlay; let taps fall through
    to the board canvas underneath, but keep its buttons/bars interactive. */
 #screen-game { background: transparent; z-index: 6; padding: 0; overflow: hidden; pointer-events: none; }
-#screen-game .btn-back, #screen-game .btn-pause { pointer-events: auto; }
+#screen-game .btn-back, #screen-game .btn-pause, #screen-game .booster { pointer-events: auto; }
 
 /* ---- Currency bar ---- */
 .currency-bar {
@@ -237,7 +237,38 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .hud-obj { margin-top: 8px; background: var(--panel); border-radius: 14px; padding: 8px 12px; }
 .obj-top { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
 
-.dragon-bars { position: absolute; bottom: 14px; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; padding: 0 14px; }
+.dragon-bars { position: absolute; bottom: 78px; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; padding: 0 14px; }
+
+/* ---- Booster bar ---- */
+.booster-bar { position: absolute; bottom: 16px; left: 0; right: 0; z-index: 11; display: flex; gap: 12px; justify-content: center; padding: 0 14px; }
+.booster {
+  position: relative; width: 56px; height: 56px; border-radius: 16px; border: none; cursor: pointer;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.12); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.08s;
+}
+.booster:active { transform: scale(0.9); }
+.booster .bo-ic { font-size: 24px; }
+.booster .bo-n {
+  position: absolute; bottom: -4px; right: -4px; min-width: 20px; height: 20px; border-radius: 10px;
+  background: var(--gold); color: #3a1e00; font-size: 11px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center; padding: 0 5px;
+}
+.booster.armed { box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(255,210,77,0.5); animation: pulse 1s infinite; }
+.booster.empty { opacity: 0.5; }
+.booster.empty .bo-n { background: rgba(255,255,255,0.2); color: var(--muted); }
+
+/* ---- Tutorial ---- */
+.tutorial-layer { position: absolute; inset: 0; z-index: 14; pointer-events: none; }
+.tut-bubble {
+  position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+  width: 84%; max-width: 340px; text-align: center;
+  background: linear-gradient(180deg, rgba(42,28,82,0.97), rgba(26,16,56,0.97));
+  border: 1px solid rgba(255,210,77,0.5); border-radius: 18px; padding: 14px 16px;
+  font-weight: 700; font-size: 15px; line-height: 1.45;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.tut-bubble.pop { animation: modalIn 0.3s cubic-bezier(.2,1.4,.4,1); }
 .dragon-bar { display: flex; align-items: center; gap: 6px; background: var(--panel); border-radius: 20px; padding: 5px 10px 5px 6px; flex: 1; max-width: 130px; }
 .dragon-bar.flash { animation: dflash 0.6s; }
 @keyframes dflash { 0%,100%{ box-shadow: none } 50%{ box-shadow: 0 0 18px var(--gold) } }
@@ -580,7 +611,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       quests: { date: today, list: [], progressBase: {} },
       daily: { lastClaim: '', streak: 0 },
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
-      settings: { sound: true, music: true },
+      boosters: { hammer: 3, shuffle: 2, moves: 2 },
+      settings: { sound: true, music: true, vibration: true },
+      tutorialDone: false,
       firstRun: true
     };
   }
@@ -595,7 +628,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});
@@ -703,7 +736,22 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     star:    function (i) { tone(660 + (i||0)*220, 0.2, 'triangle', 0.3); }
   };
 
+  // Haptic feedback patterns (ms) per event — respects the vibration setting.
+  const BUZZ = {
+    swap: 8, match: 14, invalid: [10, 30, 10], special: 28, dragon: [0, 40, 30, 60],
+    hatch: [0, 30, 40, 30], win: [0, 60, 40, 60, 40, 80], lose: [0, 80, 60, 80],
+    coin: 8, star: 20, click: 5
+  };
+  function buzz(name, combo) {
+    if (!global.navigator || typeof global.navigator.vibrate !== 'function') return;
+    if (!global.Save || global.Save.get().settings.vibration === false) return;
+    let pat = BUZZ[name];
+    if (name === 'match') pat = Math.min(40, 10 + (combo || 0) * 6); // stronger on big combos
+    if (pat != null) { try { global.navigator.vibrate(pat); } catch (e) {} }
+  }
+
   function play(name, arg) {
+    buzz(name, arg);
     if (!ctx) return;
     if (!global.Save || global.Save.get().settings.sound === false) return;
     if (SFX[name]) SFX[name](arg);
@@ -754,6 +802,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   const SP = D.SPECIAL;
   const rnd = function (n) { return Math.floor(Math.random() * n); };
   const ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // easeOutCubic
+  const easeBack = function (t) { const c1 = 2.2, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }; // overshoot pop
 
   function Engine() {
     this.cb = {};
@@ -860,6 +909,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   // ---- Input --------------------------------------------------------------
   Engine.prototype.onDown = function (px, py) {
     if (this.state !== 'idle' || this.finished) return;
+    this.idleTime = 0; this.hint = null;
+    if (this.hammerArmed) {
+      const used = this.hammerAt(px, py);
+      if (used && this.cb.onHammerUsed) this.cb.onHammerUsed();
+      return;
+    }
     this.selected = this.pickCell(px, py);
     this.downPx = { x: px, y: py };
   };
@@ -879,13 +934,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   // ---- Swap ---------------------------------------------------------------
   Engine.prototype.trySwap = function (a, b) {
     if (this.state !== 'idle' || this.finished) return;
+    this.idleTime = 0; this.hint = null;
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
     if (ta.ice || tb.ice) { global.Audio2.play('invalid'); return; }
     this.state = 'busy';
     global.Audio2.play('swap');
+    const bothSpecial = ta.special !== SP.NONE && tb.special !== SP.NONE;
     this.swapTiles(a, b);
     const self = this;
     this.animateSwap(a, b, function () {
+      // Two specials swapped together → powerful combo.
+      if (bothSpecial) {
+        self.movesLeft--;
+        self.cb.onMoves && self.cb.onMoves(self.movesLeft);
+        self.combo = 0;
+        self.dragonsActivatedThisMove = {};
+        self.comboSpecials(a, b, self.grid[b.r][b.c], self.grid[a.r][a.c]);
+        return;
+      }
       const matches = self.findMatches();
       const isSpecialMove = ta.special !== SP.NONE || tb.special !== SP.NONE;
       if (matches.length || isSpecialMove) {
@@ -985,6 +1051,23 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     // dragon charge flash decay
     this.dragons.forEach(function (d) { if (d.flashing > 0) d.flashing -= dt; });
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+
+    // shockwave rings
+    this.rings = this.rings || [];
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const ring = this.rings[i];
+      ring.t += dt;
+      if (ring.t >= ring.life) this.rings.splice(i, 1);
+    }
+
+    // idle hint: pulse a valid move when the player hesitates
+    if (this.state === 'idle' && !this.finished) {
+      this.idleTime = (this.idleTime || 0) + dt;
+      if (this.idleTime > 4 && !this.hint) this.hint = this.findHintMove();
+    } else {
+      this.idleTime = 0; this.hint = null;
+    }
+    this.hintPulse = (this.hintPulse || 0) + dt;
   };
 
   // ---- Match detection ----------------------------------------------------
@@ -1063,6 +1146,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (!t) return;
     const sp = t.special;
     set[r + ',' + c] = { r: r, c: c };
+    if (sp !== SP.NONE) this.spawnRing(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, this.tile * (sp === SP.RAINBOW ? 4 : 2.2), '#ffffff');
     const self = this;
     const recurse = function (rr, cc) {
       const key = rr + ',' + cc;
@@ -1251,6 +1335,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       vx: (this.viewport.size + 120) / 0.7, t: 0, life: 0.7, emoji: d.def.emoji, color: color
     });
     this.shake = 0.5;
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.6, color);
 
     const set = {};
     const self = this;
@@ -1378,7 +1463,94 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (silent) { this.afterAnims(function () { self.resolveStep(); }); }
   };
 
+  Engine.prototype.findHintMove = function () {
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      if (this.grid[r][c].ice) continue;
+      const tries = [[r, c, r, c + 1], [r, c, r + 1, c]];
+      for (let k = 0; k < tries.length; k++) {
+        const r2 = tries[k][2], c2 = tries[k][3];
+        if (r2 >= this.rows || c2 >= this.cols || this.grid[r2][c2].ice) continue;
+        this.swapRaw(r, c, r2, c2);
+        const ok = this.findMatches().length > 0;
+        this.swapRaw(r, c, r2, c2);
+        if (ok) return { a: { r: r, c: c }, b: { r: r2, c: c2 } };
+      }
+    }
+    return null;
+  };
+
+  // ---- Booster actions (called from the HUD) ------------------------------
+  Engine.prototype.boosterShuffle = function () {
+    if (this.state !== 'idle' || this.finished) return false;
+    this.state = 'busy';
+    this.shuffleBoard(true);
+    if (this.cb.onShuffle) this.cb.onShuffle();
+    return true;
+  };
+  Engine.prototype.boosterAddMoves = function (n) {
+    if (this.finished) return false;
+    this.movesLeft += (n || 5);
+    this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+    return true;
+  };
+  Engine.prototype.armHammer = function (on) {
+    if (this.state !== 'idle' || this.finished) { this.hammerArmed = false; return false; }
+    this.hammerArmed = on;
+    return on;
+  };
+  Engine.prototype.hammerAt = function (px, py) {
+    const cell = this.pickCell(px, py);
+    if (!cell || this.state !== 'idle' || this.finished) return false;
+    this.hammerArmed = false;
+    this.state = 'busy';
+    this.dragonsActivatedThisMove = {};
+    const set = {};
+    const t = this.grid[cell.r][cell.c];
+    if (t && t.ice) { t.ice = false; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    set[cell.r + ',' + cell.c] = { r: cell.r, c: cell.c };
+    this.spawnRing(this.cellX(cell.c) + this.tile / 2, this.cellY(cell.r) + this.tile / 2, this.tile * 1.6, '#ffd24d');
+    this.shake = 0.5;
+    global.Audio2.play('special');
+    this.clearSet(set);
+    return true;
+  };
+
+  // ---- Special-crystal combos (special swapped onto special) ---------------
+  Engine.prototype.comboSpecials = function (a, b, ta, tb) {
+    const set = {};
+    const self = this;
+    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
+    const hasR = ta.special === SP.RAINBOW || tb.special === SP.RAINBOW;
+    const bombs = (ta.special === SP.BOMB ? 1 : 0) + (tb.special === SP.BOMB ? 1 : 0);
+    const lines = (ta.special === SP.LINE_H || ta.special === SP.LINE_V ? 1 : 0) + (tb.special === SP.LINE_H || tb.special === SP.LINE_V ? 1 : 0);
+    if (ta.special === SP.RAINBOW && tb.special === SP.RAINBOW) {
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) add(r, c); // clear board
+    } else if (hasR && bombs) {
+      const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+        if (this.grid[r][c].type === col) { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc); }
+    } else if (hasR && lines) {
+      const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+        if (this.grid[r][c].type === col) { for (let cc = 0; cc < this.cols; cc++) add(r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, c); }
+    } else if (bombs === 2) {
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(b.r + dr, b.c + dc); // 5x5
+    } else if (bombs && lines) {
+      for (let d = -1; d <= 1; d++) { for (let cc = 0; cc < this.cols; cc++) add(b.r + d, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, b.c + d); } // thick cross
+    } else {
+      for (let cc = 0; cc < this.cols; cc++) add(b.r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, b.c); // cross
+    }
+    this.spawnRing(this.cellX(b.c) + this.tile / 2, this.cellY(b.r) + this.tile / 2, this.tile * 4, '#ffffff');
+    this.shake = 0.8;
+    global.Audio2.play('special');
+    this.clearSet(set);
+  };
+
   // ---- Particles / floaters -----------------------------------------------
+  Engine.prototype.spawnRing = function (x, y, maxR, color) {
+    this.rings = this.rings || [];
+    this.rings.push({ x: x, y: y, maxR: maxR, color: color || '#fff', t: 0, life: 0.5 });
+  };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
     for (let i = 0; i < (n || 6); i++) {
       const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 180;
@@ -1422,6 +1594,25 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.roundRect(g, this.cellX(this.selected.c) + 3, this.cellY(this.selected.r) + 3, tile - 6, tile - 6, 10);
       g.stroke();
     }
+    // idle hint pulse
+    if (this.hint) {
+      const pulse = 0.5 + 0.5 * Math.sin((this.hintPulse || 0) * 6);
+      g.strokeStyle = 'rgba(255,255,255,' + (0.35 + pulse * 0.55) + ')';
+      g.lineWidth = 2 + pulse * 3;
+      [this.hint.a, this.hint.b].forEach((cell) => {
+        this.roundRect(g, this.cellX(cell.c) + 4, this.cellY(cell.r) + 4, tile - 8, tile - 8, 10);
+        g.stroke();
+      });
+    }
+    // shockwave rings
+    if (this.rings) for (let i = 0; i < this.rings.length; i++) {
+      const ring = this.rings[i];
+      const p = ring.t / ring.life;
+      g.globalAlpha = Math.max(0, 1 - p);
+      g.strokeStyle = ring.color; g.lineWidth = 4 * (1 - p) + 1;
+      g.beginPath(); g.arc(ring.x, ring.y, ring.maxR * ease(p), 0, Math.PI * 2); g.stroke();
+    }
+    g.globalAlpha = 1;
     // particles
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
@@ -1454,11 +1645,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
   Engine.prototype.drawTile = function (g, t, x, y, tile) {
     const pad = tile * 0.1;
-    const s = tile * t.scale;
+    // Springy overshoot when a tile pops in; plain scale when dying.
+    const vis = (t.dying || t.scale >= 1) ? t.scale : Math.max(0, easeBack(t.scale));
     const cx = x + tile / 2, cy = y + tile / 2;
     g.save();
     g.translate(cx, cy);
-    g.scale(t.scale, t.scale);
+    g.scale(vis, vis);
     g.translate(-cx, -cy);
 
     if (t.ice) {
@@ -1916,6 +2108,23 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         c.appendChild(b); s.appendChild(c);
       });
 
+      // Boosters
+      s.appendChild(el('div', 'section-h', '🧪 Бустери'));
+      [
+        { key: 'hammer', ic: '🔨', name: 'Молот ×3', desc: 'Розбити будь-який кристал', amount: 3, price: 200 },
+        { key: 'shuffle', ic: '🔀', name: 'Мікс ×3', desc: 'Перемішати поле', amount: 3, price: 150 },
+        { key: 'moves', ic: '➕5', name: 'Ходи ×3', desc: '+5 ходів у грі', amount: 3, price: 250 }
+      ].forEach(function (b) {
+        const c = el('div', 'shop-card');
+        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · маєте: ' + (p.boosters[b.key] || 0) + '</span></div>';
+        const btn = click(el('button', 'btn btn-buy btn-mini', b.price + '🪙'), function () {
+          if (p.gold < b.price) { UI.toast('Недостатньо золота 🪙'); return; }
+          p.gold -= b.price; p.boosters[b.key] = (p.boosters[b.key] || 0) + b.amount; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Куплено: ' + b.name); UI.renderShop();
+        });
+        c.appendChild(btn); s.appendChild(c);
+      });
+
       // Cosmetic skins
       s.appendChild(el('div', 'section-h', '🎨 Косметичні скіни драконів'));
       D.SKINS.forEach(function (sk) {
@@ -2165,6 +2374,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       };
       body.appendChild(mkToggle('🔊 Звуки', 'sound'));
       body.appendChild(mkToggle('🎵 Музика', 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
+      body.appendChild(mkToggle('📳 Вібрація', 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       const reset = click(el('button', 'btn btn-ghost btn-mini', '🗑️ Скинути прогрес'), function () {
         UI.modal('Скинути прогрес?', el('div', 'modal-body', '<p>Весь прогрес буде втрачено назавжди.</p>'), [
           { label: 'Ні' },
@@ -2260,7 +2470,10 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       // Callbacks guard against a not-yet-built HUD (init() fires emitObjective);
       // buildHud() re-emits the objective once the HUD elements exist.
       this.engine.init(lv, p.equipped, {
-        onScore: function (s) { if (!self.hud) return; self.hud.score.textContent = s; },
+        onScore: function (s) {
+          if (self.tutorialActive && !self._tutScored && s > 0) { self._tutScored = true; self.tutorialAdvance(); }
+          if (!self.hud) return; self.hud.score.textContent = s;
+        },
         onMoves: function (m) { if (!self.hud) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
         onObjective: function (cur, goal, label) {
           if (!self.hud) return;
@@ -2281,6 +2494,37 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.gameScreen.classList.remove('hidden');
       this.resize();
       global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
+    },
+
+    // ---- Interactive tutorial --------------------------------------------
+    startTutorial: function () {
+      this.tutorialActive = true;
+      const layer = document.createElement('div');
+      layer.className = 'tutorial-layer';
+      layer.innerHTML = '<div class="tut-bubble" id="tut-bubble"></div>';
+      this.gameScreen.appendChild(layer);
+      this.tutLayer = layer;
+      this.setTutorialText('👆 Проведіть пальцем від кристала до сусіднього, щоб зібрати 3 однакові в ряд');
+      // surface a hint move on the board
+      if (this.engine) { this.engine.idleTime = 5; this.engine.hint = this.engine.findHintMove(); }
+    },
+    setTutorialText: function (html) {
+      const b = this.tutLayer && this.tutLayer.querySelector('#tut-bubble');
+      if (b) { b.innerHTML = html; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    },
+    tutorialAdvance: function () {
+      const self = this;
+      this.setTutorialText('💎 Чудово! Збіги заряджають драконів — дивіться смужки внизу.');
+      setTimeout(function () {
+        self.setTutorialText('🐉 Коли смужка дракона повна — він б’є по полю сам!');
+        setTimeout(function () {
+          if (self.tutLayer) { self.tutLayer.remove(); self.tutLayer = null; }
+          self.tutorialActive = false;
+          const p = global.Save.get(); p.tutorialDone = true; global.Save.save();
+        }, 2800);
+      }, 2800);
     },
 
     buildHud: function (lv) {
@@ -2290,6 +2534,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       if (old) old.remove();
       const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
+      const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
+      const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
@@ -2319,16 +2565,73 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       drBars.className = 'dragon-bars';
       s.appendChild(drBars);
 
+      const boBar = document.createElement('div');
+      boBar.className = 'booster-bar';
+      s.appendChild(boBar);
+
       this.hud = {
         score: hud.querySelector('#hud-score'),
         moves: hud.querySelector('#hud-moves'),
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
-        dragonBars: drBars
+        dragonBars: drBars,
+        boosterBar: boBar
+      };
+      // booster-use callbacks from the engine
+      this.engine.cb.onShuffle = function () { global.UI.toast('🔀 Поле перемішано!'); };
+      this.engine.cb.onHammerUsed = function () {
+        const pr = global.Save.get();
+        pr.boosters.hammer = Math.max(0, (pr.boosters.hammer || 0) - 1);
+        global.Save.save(); self.renderBoosters();
       };
       this.renderDragonBars(this.engine.dragons);
+      this.renderBoosters();
       this.engine.emitObjective();
+    },
+
+    renderBoosters: function () {
+      if (!this.hud) return;
+      const wrap = this.hud.boosterBar;
+      const p = global.Save.get();
+      const self = this;
+      const defs = [
+        { key: 'hammer', ic: '🔨', name: 'Молот' },
+        { key: 'shuffle', ic: '🔀', name: 'Мікс' },
+        { key: 'moves', ic: '➕5', name: 'Ходи' }
+      ];
+      wrap.innerHTML = '';
+      defs.forEach(function (b) {
+        const n = p.boosters[b.key] || 0;
+        const armed = self.engine && self.engine.hammerArmed && b.key === 'hammer';
+        const cell = document.createElement('button');
+        cell.className = 'booster' + (armed ? ' armed' : '') + (n <= 0 ? ' empty' : '');
+        cell.innerHTML = '<span class="bo-ic">' + b.ic + '</span><span class="bo-n">' + n + '</span>';
+        cell.addEventListener('click', function (ev) { ev.stopPropagation(); global.Audio2.play('click'); self.useBooster(b.key); });
+        wrap.appendChild(cell);
+      });
+    },
+
+    useBooster: function (key) {
+      const p = global.Save.get();
+      const eng = this.engine;
+      if (!eng || eng.finished) return;
+      if ((p.boosters[key] || 0) <= 0) {
+        global.UI.toast('Немає бустера — купіть у магазині 🛒');
+        return;
+      }
+      if (key === 'hammer') {
+        const armed = !eng.hammerArmed;
+        eng.armHammer(armed);
+        global.UI.toast(armed ? '🔨 Торкніться кристала, щоб розбити' : 'Молот скасовано');
+        this.renderBoosters();
+        return; // count consumed when actually used (onHammerUsed)
+      }
+      if (eng.state !== 'idle') { global.UI.toast('Зачекайте…'); return; }
+      let ok = false;
+      if (key === 'shuffle') ok = eng.boosterShuffle();
+      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast('➕5 ходів!'); }
+      if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
     renderDragonBars: function (dragons) {

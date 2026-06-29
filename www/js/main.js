@@ -75,7 +75,10 @@
       // Callbacks guard against a not-yet-built HUD (init() fires emitObjective);
       // buildHud() re-emits the objective once the HUD elements exist.
       this.engine.init(lv, p.equipped, {
-        onScore: function (s) { if (!self.hud) return; self.hud.score.textContent = s; },
+        onScore: function (s) {
+          if (self.tutorialActive && !self._tutScored && s > 0) { self._tutScored = true; self.tutorialAdvance(); }
+          if (!self.hud) return; self.hud.score.textContent = s;
+        },
         onMoves: function (m) { if (!self.hud) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
         onObjective: function (cur, goal, label) {
           if (!self.hud) return;
@@ -96,6 +99,37 @@
       this.gameScreen.classList.remove('hidden');
       this.resize();
       global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
+    },
+
+    // ---- Interactive tutorial --------------------------------------------
+    startTutorial: function () {
+      this.tutorialActive = true;
+      const layer = document.createElement('div');
+      layer.className = 'tutorial-layer';
+      layer.innerHTML = '<div class="tut-bubble" id="tut-bubble"></div>';
+      this.gameScreen.appendChild(layer);
+      this.tutLayer = layer;
+      this.setTutorialText('👆 Проведіть пальцем від кристала до сусіднього, щоб зібрати 3 однакові в ряд');
+      // surface a hint move on the board
+      if (this.engine) { this.engine.idleTime = 5; this.engine.hint = this.engine.findHintMove(); }
+    },
+    setTutorialText: function (html) {
+      const b = this.tutLayer && this.tutLayer.querySelector('#tut-bubble');
+      if (b) { b.innerHTML = html; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    },
+    tutorialAdvance: function () {
+      const self = this;
+      this.setTutorialText('💎 Чудово! Збіги заряджають драконів — дивіться смужки внизу.');
+      setTimeout(function () {
+        self.setTutorialText('🐉 Коли смужка дракона повна — він б’є по полю сам!');
+        setTimeout(function () {
+          if (self.tutLayer) { self.tutLayer.remove(); self.tutLayer = null; }
+          self.tutorialActive = false;
+          const p = global.Save.get(); p.tutorialDone = true; global.Save.save();
+        }, 2800);
+      }, 2800);
     },
 
     buildHud: function (lv) {
@@ -105,6 +139,8 @@
       if (old) old.remove();
       const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
+      const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
+      const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
 
       const top = document.createElement('div');
       top.className = 'game-top';
@@ -134,16 +170,73 @@
       drBars.className = 'dragon-bars';
       s.appendChild(drBars);
 
+      const boBar = document.createElement('div');
+      boBar.className = 'booster-bar';
+      s.appendChild(boBar);
+
       this.hud = {
         score: hud.querySelector('#hud-score'),
         moves: hud.querySelector('#hud-moves'),
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
-        dragonBars: drBars
+        dragonBars: drBars,
+        boosterBar: boBar
+      };
+      // booster-use callbacks from the engine
+      this.engine.cb.onShuffle = function () { global.UI.toast('🔀 Поле перемішано!'); };
+      this.engine.cb.onHammerUsed = function () {
+        const pr = global.Save.get();
+        pr.boosters.hammer = Math.max(0, (pr.boosters.hammer || 0) - 1);
+        global.Save.save(); self.renderBoosters();
       };
       this.renderDragonBars(this.engine.dragons);
+      this.renderBoosters();
       this.engine.emitObjective();
+    },
+
+    renderBoosters: function () {
+      if (!this.hud) return;
+      const wrap = this.hud.boosterBar;
+      const p = global.Save.get();
+      const self = this;
+      const defs = [
+        { key: 'hammer', ic: '🔨', name: 'Молот' },
+        { key: 'shuffle', ic: '🔀', name: 'Мікс' },
+        { key: 'moves', ic: '➕5', name: 'Ходи' }
+      ];
+      wrap.innerHTML = '';
+      defs.forEach(function (b) {
+        const n = p.boosters[b.key] || 0;
+        const armed = self.engine && self.engine.hammerArmed && b.key === 'hammer';
+        const cell = document.createElement('button');
+        cell.className = 'booster' + (armed ? ' armed' : '') + (n <= 0 ? ' empty' : '');
+        cell.innerHTML = '<span class="bo-ic">' + b.ic + '</span><span class="bo-n">' + n + '</span>';
+        cell.addEventListener('click', function (ev) { ev.stopPropagation(); global.Audio2.play('click'); self.useBooster(b.key); });
+        wrap.appendChild(cell);
+      });
+    },
+
+    useBooster: function (key) {
+      const p = global.Save.get();
+      const eng = this.engine;
+      if (!eng || eng.finished) return;
+      if ((p.boosters[key] || 0) <= 0) {
+        global.UI.toast('Немає бустера — купіть у магазині 🛒');
+        return;
+      }
+      if (key === 'hammer') {
+        const armed = !eng.hammerArmed;
+        eng.armHammer(armed);
+        global.UI.toast(armed ? '🔨 Торкніться кристала, щоб розбити' : 'Молот скасовано');
+        this.renderBoosters();
+        return; // count consumed when actually used (onHammerUsed)
+      }
+      if (eng.state !== 'idle') { global.UI.toast('Зачекайте…'); return; }
+      let ok = false;
+      if (key === 'shuffle') ok = eng.boosterShuffle();
+      else if (key === 'moves') { ok = eng.boosterAddMoves(5); if (ok) global.UI.toast('➕5 ходів!'); }
+      if (ok) { p.boosters[key] = (p.boosters[key] || 0) - 1; global.Save.save(); global.Audio2.play('coin'); this.renderBoosters(); }
     },
 
     renderDragonBars: function (dragons) {

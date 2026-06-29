@@ -35,7 +35,9 @@
       quests: { date: today, list: [], progressBase: {} },
       daily: { lastClaim: '', streak: 0 },
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
-      settings: { sound: true, music: true },
+      boosters: { hammer: 3, shuffle: 2, moves: 2 },
+      settings: { sound: true, music: true, vibration: true },
+      tutorialDone: false,
       firstRun: true
     };
   }
@@ -50,7 +52,7 @@
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});

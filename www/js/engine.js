@@ -9,6 +9,7 @@
   const SP = D.SPECIAL;
   const rnd = function (n) { return Math.floor(Math.random() * n); };
   const ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // easeOutCubic
+  const easeBack = function (t) { const c1 = 2.2, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }; // overshoot pop
 
   function Engine() {
     this.cb = {};
@@ -115,6 +116,12 @@
   // ---- Input --------------------------------------------------------------
   Engine.prototype.onDown = function (px, py) {
     if (this.state !== 'idle' || this.finished) return;
+    this.idleTime = 0; this.hint = null;
+    if (this.hammerArmed) {
+      const used = this.hammerAt(px, py);
+      if (used && this.cb.onHammerUsed) this.cb.onHammerUsed();
+      return;
+    }
     this.selected = this.pickCell(px, py);
     this.downPx = { x: px, y: py };
   };
@@ -134,13 +141,24 @@
   // ---- Swap ---------------------------------------------------------------
   Engine.prototype.trySwap = function (a, b) {
     if (this.state !== 'idle' || this.finished) return;
+    this.idleTime = 0; this.hint = null;
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
     if (ta.ice || tb.ice) { global.Audio2.play('invalid'); return; }
     this.state = 'busy';
     global.Audio2.play('swap');
+    const bothSpecial = ta.special !== SP.NONE && tb.special !== SP.NONE;
     this.swapTiles(a, b);
     const self = this;
     this.animateSwap(a, b, function () {
+      // Two specials swapped together → powerful combo.
+      if (bothSpecial) {
+        self.movesLeft--;
+        self.cb.onMoves && self.cb.onMoves(self.movesLeft);
+        self.combo = 0;
+        self.dragonsActivatedThisMove = {};
+        self.comboSpecials(a, b, self.grid[b.r][b.c], self.grid[a.r][a.c]);
+        return;
+      }
       const matches = self.findMatches();
       const isSpecialMove = ta.special !== SP.NONE || tb.special !== SP.NONE;
       if (matches.length || isSpecialMove) {
@@ -240,6 +258,23 @@
     // dragon charge flash decay
     this.dragons.forEach(function (d) { if (d.flashing > 0) d.flashing -= dt; });
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+
+    // shockwave rings
+    this.rings = this.rings || [];
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const ring = this.rings[i];
+      ring.t += dt;
+      if (ring.t >= ring.life) this.rings.splice(i, 1);
+    }
+
+    // idle hint: pulse a valid move when the player hesitates
+    if (this.state === 'idle' && !this.finished) {
+      this.idleTime = (this.idleTime || 0) + dt;
+      if (this.idleTime > 4 && !this.hint) this.hint = this.findHintMove();
+    } else {
+      this.idleTime = 0; this.hint = null;
+    }
+    this.hintPulse = (this.hintPulse || 0) + dt;
   };
 
   // ---- Match detection ----------------------------------------------------
@@ -318,6 +353,7 @@
     if (!t) return;
     const sp = t.special;
     set[r + ',' + c] = { r: r, c: c };
+    if (sp !== SP.NONE) this.spawnRing(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, this.tile * (sp === SP.RAINBOW ? 4 : 2.2), '#ffffff');
     const self = this;
     const recurse = function (rr, cc) {
       const key = rr + ',' + cc;
@@ -506,6 +542,7 @@
       vx: (this.viewport.size + 120) / 0.7, t: 0, life: 0.7, emoji: d.def.emoji, color: color
     });
     this.shake = 0.5;
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.6, color);
 
     const set = {};
     const self = this;
@@ -633,7 +670,94 @@
     if (silent) { this.afterAnims(function () { self.resolveStep(); }); }
   };
 
+  Engine.prototype.findHintMove = function () {
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      if (this.grid[r][c].ice) continue;
+      const tries = [[r, c, r, c + 1], [r, c, r + 1, c]];
+      for (let k = 0; k < tries.length; k++) {
+        const r2 = tries[k][2], c2 = tries[k][3];
+        if (r2 >= this.rows || c2 >= this.cols || this.grid[r2][c2].ice) continue;
+        this.swapRaw(r, c, r2, c2);
+        const ok = this.findMatches().length > 0;
+        this.swapRaw(r, c, r2, c2);
+        if (ok) return { a: { r: r, c: c }, b: { r: r2, c: c2 } };
+      }
+    }
+    return null;
+  };
+
+  // ---- Booster actions (called from the HUD) ------------------------------
+  Engine.prototype.boosterShuffle = function () {
+    if (this.state !== 'idle' || this.finished) return false;
+    this.state = 'busy';
+    this.shuffleBoard(true);
+    if (this.cb.onShuffle) this.cb.onShuffle();
+    return true;
+  };
+  Engine.prototype.boosterAddMoves = function (n) {
+    if (this.finished) return false;
+    this.movesLeft += (n || 5);
+    this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+    return true;
+  };
+  Engine.prototype.armHammer = function (on) {
+    if (this.state !== 'idle' || this.finished) { this.hammerArmed = false; return false; }
+    this.hammerArmed = on;
+    return on;
+  };
+  Engine.prototype.hammerAt = function (px, py) {
+    const cell = this.pickCell(px, py);
+    if (!cell || this.state !== 'idle' || this.finished) return false;
+    this.hammerArmed = false;
+    this.state = 'busy';
+    this.dragonsActivatedThisMove = {};
+    const set = {};
+    const t = this.grid[cell.r][cell.c];
+    if (t && t.ice) { t.ice = false; this.iceLeft = Math.max(0, this.iceLeft - 1); }
+    set[cell.r + ',' + cell.c] = { r: cell.r, c: cell.c };
+    this.spawnRing(this.cellX(cell.c) + this.tile / 2, this.cellY(cell.r) + this.tile / 2, this.tile * 1.6, '#ffd24d');
+    this.shake = 0.5;
+    global.Audio2.play('special');
+    this.clearSet(set);
+    return true;
+  };
+
+  // ---- Special-crystal combos (special swapped onto special) ---------------
+  Engine.prototype.comboSpecials = function (a, b, ta, tb) {
+    const set = {};
+    const self = this;
+    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
+    const hasR = ta.special === SP.RAINBOW || tb.special === SP.RAINBOW;
+    const bombs = (ta.special === SP.BOMB ? 1 : 0) + (tb.special === SP.BOMB ? 1 : 0);
+    const lines = (ta.special === SP.LINE_H || ta.special === SP.LINE_V ? 1 : 0) + (tb.special === SP.LINE_H || tb.special === SP.LINE_V ? 1 : 0);
+    if (ta.special === SP.RAINBOW && tb.special === SP.RAINBOW) {
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) add(r, c); // clear board
+    } else if (hasR && bombs) {
+      const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+        if (this.grid[r][c].type === col) { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc); }
+    } else if (hasR && lines) {
+      const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
+        if (this.grid[r][c].type === col) { for (let cc = 0; cc < this.cols; cc++) add(r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, c); }
+    } else if (bombs === 2) {
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(b.r + dr, b.c + dc); // 5x5
+    } else if (bombs && lines) {
+      for (let d = -1; d <= 1; d++) { for (let cc = 0; cc < this.cols; cc++) add(b.r + d, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, b.c + d); } // thick cross
+    } else {
+      for (let cc = 0; cc < this.cols; cc++) add(b.r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, b.c); // cross
+    }
+    this.spawnRing(this.cellX(b.c) + this.tile / 2, this.cellY(b.r) + this.tile / 2, this.tile * 4, '#ffffff');
+    this.shake = 0.8;
+    global.Audio2.play('special');
+    this.clearSet(set);
+  };
+
   // ---- Particles / floaters -----------------------------------------------
+  Engine.prototype.spawnRing = function (x, y, maxR, color) {
+    this.rings = this.rings || [];
+    this.rings.push({ x: x, y: y, maxR: maxR, color: color || '#fff', t: 0, life: 0.5 });
+  };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
     for (let i = 0; i < (n || 6); i++) {
       const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 180;
@@ -677,6 +801,25 @@
       this.roundRect(g, this.cellX(this.selected.c) + 3, this.cellY(this.selected.r) + 3, tile - 6, tile - 6, 10);
       g.stroke();
     }
+    // idle hint pulse
+    if (this.hint) {
+      const pulse = 0.5 + 0.5 * Math.sin((this.hintPulse || 0) * 6);
+      g.strokeStyle = 'rgba(255,255,255,' + (0.35 + pulse * 0.55) + ')';
+      g.lineWidth = 2 + pulse * 3;
+      [this.hint.a, this.hint.b].forEach((cell) => {
+        this.roundRect(g, this.cellX(cell.c) + 4, this.cellY(cell.r) + 4, tile - 8, tile - 8, 10);
+        g.stroke();
+      });
+    }
+    // shockwave rings
+    if (this.rings) for (let i = 0; i < this.rings.length; i++) {
+      const ring = this.rings[i];
+      const p = ring.t / ring.life;
+      g.globalAlpha = Math.max(0, 1 - p);
+      g.strokeStyle = ring.color; g.lineWidth = 4 * (1 - p) + 1;
+      g.beginPath(); g.arc(ring.x, ring.y, ring.maxR * ease(p), 0, Math.PI * 2); g.stroke();
+    }
+    g.globalAlpha = 1;
     // particles
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
@@ -709,11 +852,12 @@
 
   Engine.prototype.drawTile = function (g, t, x, y, tile) {
     const pad = tile * 0.1;
-    const s = tile * t.scale;
+    // Springy overshoot when a tile pops in; plain scale when dying.
+    const vis = (t.dying || t.scale >= 1) ? t.scale : Math.max(0, easeBack(t.scale));
     const cx = x + tile / 2, cy = y + tile / 2;
     g.save();
     g.translate(cx, cy);
-    g.scale(t.scale, t.scale);
+    g.scale(vis, vis);
     g.translate(-cx, -cy);
 
     if (t.ice) {

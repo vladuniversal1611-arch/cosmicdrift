@@ -74,7 +74,22 @@
     star:    function (i) { tone(660 + (i||0)*220, 0.2, 'triangle', 0.3); }
   };
 
+  // Haptic feedback patterns (ms) per event — respects the vibration setting.
+  const BUZZ = {
+    swap: 8, match: 14, invalid: [10, 30, 10], special: 28, dragon: [0, 40, 30, 60],
+    hatch: [0, 30, 40, 30], win: [0, 60, 40, 60, 40, 80], lose: [0, 80, 60, 80],
+    coin: 8, star: 20, click: 5
+  };
+  function buzz(name, combo) {
+    if (!global.navigator || typeof global.navigator.vibrate !== 'function') return;
+    if (!global.Save || global.Save.get().settings.vibration === false) return;
+    let pat = BUZZ[name];
+    if (name === 'match') pat = Math.min(40, 10 + (combo || 0) * 6); // stronger on big combos
+    if (pat != null) { try { global.navigator.vibrate(pat); } catch (e) {} }
+  }
+
   function play(name, arg) {
+    buzz(name, arg);
     if (!ctx) return;
     if (!global.Save || global.Save.get().settings.sound === false) return;
     if (SFX[name]) SFX[name](arg);

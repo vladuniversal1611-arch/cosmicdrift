@@ -402,6 +402,23 @@
         c.appendChild(b); s.appendChild(c);
       });
 
+      // Boosters
+      s.appendChild(el('div', 'section-h', '🧪 Бустери'));
+      [
+        { key: 'hammer', ic: '🔨', name: 'Молот ×3', desc: 'Розбити будь-який кристал', amount: 3, price: 200 },
+        { key: 'shuffle', ic: '🔀', name: 'Мікс ×3', desc: 'Перемішати поле', amount: 3, price: 150 },
+        { key: 'moves', ic: '➕5', name: 'Ходи ×3', desc: '+5 ходів у грі', amount: 3, price: 250 }
+      ].forEach(function (b) {
+        const c = el('div', 'shop-card');
+        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · маєте: ' + (p.boosters[b.key] || 0) + '</span></div>';
+        const btn = click(el('button', 'btn btn-buy btn-mini', b.price + '🪙'), function () {
+          if (p.gold < b.price) { UI.toast('Недостатньо золота 🪙'); return; }
+          p.gold -= b.price; p.boosters[b.key] = (p.boosters[b.key] || 0) + b.amount; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('Куплено: ' + b.name); UI.renderShop();
+        });
+        c.appendChild(btn); s.appendChild(c);
+      });
+
       // Cosmetic skins
       s.appendChild(el('div', 'section-h', '🎨 Косметичні скіни драконів'));
       D.SKINS.forEach(function (sk) {
@@ -651,6 +668,7 @@
       };
       body.appendChild(mkToggle('🔊 Звуки', 'sound'));
       body.appendChild(mkToggle('🎵 Музика', 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
+      body.appendChild(mkToggle('📳 Вібрація', 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       const reset = click(el('button', 'btn btn-ghost btn-mini', '🗑️ Скинути прогрес'), function () {
         UI.modal('Скинути прогрес?', el('div', 'modal-body', '<p>Весь прогрес буде втрачено назавжди.</p>'), [
           { label: 'Ні' },
