@@ -662,15 +662,13 @@
   };
 
   Engine.prototype.computeStars = function () {
-    let stars = 1;
-    const sc = this.score;
-    if (this.level.objective === D.OBJ.SCORE) {
-      if (sc >= this.level.star3) stars = 3; else if (sc >= this.level.star2) stars = 2;
-    } else {
-      // bonus stars from leftover moves
-      if (this.movesLeft >= 8) stars = 3; else if (this.movesLeft >= 3) stars = 2;
-    }
-    return stars;
+    // Stars reward efficiency: the more moves left when the goal is met,
+    // the higher the rating (works for every objective type).
+    const total = this.level.moves || 1;
+    const ratio = Math.max(0, this.movesLeft) / total;
+    if (ratio >= 0.4) return 3;   // finished with ≥40% of moves to spare
+    if (ratio >= 0.15) return 2;  // ≥15% to spare
+    return 1;
   };
 
   Engine.prototype.win = function () {
