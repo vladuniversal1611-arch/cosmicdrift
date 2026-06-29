@@ -1010,7 +1010,7 @@ function spawnEnemy(type){
 function getWaveComposition(){
   // globalWave = загальний номер хвилі через всю гру
   const globalWave = zoneIdx*5 + waveInZone + 1;
-  const count = 12 + globalWave*4 + zoneIdx*6;
+  const count = 16 + globalWave*5 + zoneIdx*8;
   const types=[];
   for(let i=0;i<count;i++){
     const r=Math.random();
@@ -1792,20 +1792,33 @@ function update(){
   bullets=bullets.filter(b=>b.y>-25&&b.y<H+25&&b.x>-25&&b.x<W+25);
   bullets.forEach(b=>{b.x+=(b.vx||0);b.y+=b.vy;});
 
-  // spawn — значно частіший спавн + пачки на пізніх зонах
+  // spawn — щільніші хвилі + формації між босами
   if(waveInProgress&&!bossWave){
     waveSpawnT++;
-    const si=Math.max(8,28-zoneIdx*3-(wave>3?4:0));
-    const MAX_ON_SCREEN=18; // ліміт одночасних ворогів
+    const si=Math.max(5,22-zoneIdx*3-waveInZone*2); // спавн прискорюється всередині зони
+    const MAX_ON_SCREEN=24;
     if(waveSpawnT>=si&&waveSpawnIdx<waveQueue.length&&enemies.length<MAX_ON_SCREEN){
-      const batchSize=zoneIdx>=3?3:zoneIdx>=2?2:1;
-      for(let b=0;b<batchSize&&waveSpawnIdx<waveQueue.length&&enemies.length<MAX_ON_SCREEN;b++){
-        enemies.push(spawnEnemy(waveQueue[waveSpawnIdx++]));
+      if(Math.random()<.3&&waveQueue.length-waveSpawnIdx>=4&&enemies.length<MAX_ON_SCREEN-3){
+        // SQUADRON: a V-shaped wing of one type sweeps in together
+        const n=4+Math.floor(Math.random()*2);
+        const t=waveQueue[waveSpawnIdx];
+        for(let k=0;k<n&&waveSpawnIdx<waveQueue.length&&enemies.length<MAX_ON_SCREEN;k++){
+          const e=spawnEnemy(t);waveSpawnIdx++;
+          e.x=30+(k+.5)*((W-60)/n);
+          e.y=-40-Math.abs(k-(n-1)/2)*16;
+          if(e.type==='rock'||e.type==='splitter')e.vx=0;
+          enemies.push(e);
+        }
+      } else {
+        const batchSize=2+zoneIdx;
+        for(let b=0;b<batchSize&&waveSpawnIdx<waveQueue.length&&enemies.length<MAX_ON_SCREEN;b++){
+          enemies.push(spawnEnemy(waveQueue[waveSpawnIdx++]));
+        }
       }
       waveSpawnT=0;
     }
   }
-  gemT++;if(gemT>=Math.max(55,150-zoneIdx*10)){spawnGem();gemT=0;}
+  gemT++;if(gemT>=Math.max(75,170-zoneIdx*10)){spawnGem();gemT=0;}
 
   // level
   const nl=1+Math.floor(score/600);
