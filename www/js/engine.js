@@ -200,9 +200,11 @@
   };
 
   Engine.prototype.animateSwap = function (a, b, done) {
+    // Tiles are already swapped in the grid: the tile now at cell A came
+    // from cell B (and vice-versa), so animate from its OLD cell to its new one.
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
-    this.startAnim(ta, 'swap', a.r, a.c, b.r, b.c, 0.14);
-    this.startAnim(tb, 'swap', b.r, b.c, a.r, a.c, 0.14);
+    this.startAnim(ta, 'swap', b.r, b.c, a.r, a.c, 0.14);
+    this.startAnim(tb, 'swap', a.r, a.c, b.r, b.c, 0.14);
     this.afterAnims(done);
   };
 
