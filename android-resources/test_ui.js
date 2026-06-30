@@ -28,7 +28,7 @@ function node(tag) {
 const ctx2d = new Proxy({}, { get: () => (()=>{}) , set: ()=>true });
 
 const screens = {};
-['home','map','collection','shop','pass','game'].forEach(id => screens['screen-'+id]=node('div'));
+['home','map','collection','shop','pass','modes','game'].forEach(id => screens['screen-'+id]=node('div'));
 const appNode = node('div');
 
 const store = {};
@@ -71,7 +71,7 @@ tryRun('showQuests', ()=> UI.showQuests());
 tryRun('showAchievements', ()=> UI.showAchievements());
 tryRun('showSettings', ()=> UI.showSettings());
 tryRun('showLeaderboard', ()=> UI.showLeaderboard());
-tryRun('showModes', ()=> UI.showModes());
+tryRun('renderModes', ()=> UI.renderModes());
 tryRun('showNoLives', ()=> UI.showNoLives());
 tryRun('livesInfo', ()=> { sb.Save.livesInfo(); sb.Save.spendLife(); sb.Save.addLives(1); });
 tryRun('handleEgg', ()=> { sb.Save.get().energy = 50; UI.handleEgg(0); });

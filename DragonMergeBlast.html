@@ -56,7 +56,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 /* The game screen is just a transparent HUD overlay; let taps fall through
    to the board canvas underneath, but keep its buttons/bars interactive. */
 #screen-game { background: transparent; z-index: 6; padding: 0; overflow: hidden; pointer-events: none; }
-#screen-game .btn-back, #screen-game .btn-pause, #screen-game .booster { pointer-events: auto; }
+#screen-game .btn-back, #screen-game .btn-pause, #screen-game .booster, #screen-game .dragon-bar.ready { pointer-events: auto; }
 
 /* ---- Currency bar ---- */
 .currency-bar {
@@ -81,6 +81,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .home-grid.grid6 .btn-tile { font-size: 8px; padding: 9px 1px; }
 .home-grid.grid6 .btn-tile span { font-size: 19px; }
 
+/* ---- Modes screen ---- */
+.modes-wrap { padding: 0 12px; }
+.nav-btn { padding: 4px 6px; }
+.nav-ic { font-size: 20px; }
+.nav-lb { font-size: 9px; }
 /* ---- Mode cards ---- */
 .mode-card { display: flex; align-items: center; gap: 12px; background: var(--panel2); border-radius: 16px; padding: 12px; margin-bottom: 10px; text-align: left; }
 .mode-ic { font-size: 32px; }
@@ -366,6 +371,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .db-emoji { font-size: 24px; }
 .db-track { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
 .db-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.dragon-bar.ready { cursor: pointer; box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(255,210,77,0.6); animation: pulse 1s infinite; }
+.db-ready { flex: 1; text-align: center; font-size: 11px; font-weight: 900; color: var(--gold); letter-spacing: 1px; }
 
 .combo-pop {
   position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
@@ -512,6 +519,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     <div id="screen-collection" class="screen hidden"></div>
     <div id="screen-shop" class="screen hidden"></div>
     <div id="screen-pass" class="screen hidden"></div>
+    <div id="screen-modes" class="screen hidden"></div>
 
     <!-- In-level screen (HUD injected by main.js) -->
     <div id="screen-game" class="screen hidden"></div>
@@ -1166,6 +1174,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Object.keys(MSTR).forEach(function (l) { Object.assign(STR[l], MSTR[l]); });
 
+  // Active dragons.
+  const DSTR = {
+    uk: { dragon_ready: 'ГОТОВО', aim_row: '🐉 Торкніться ряду для удару', aim_cell: '🐉 Торкніться клітинки', s_autodragons: '🐉 Авто-дракони' },
+    en: { dragon_ready: 'READY', aim_row: '🐉 Tap a row to strike', aim_cell: '🐉 Tap a cell', s_autodragons: '🐉 Auto dragons' },
+    es: { dragon_ready: 'LISTO', aim_row: '🐉 Toca una fila para atacar', aim_cell: '🐉 Toca una casilla', s_autodragons: '🐉 Dragones auto' },
+    de: { dragon_ready: 'BEREIT', aim_row: '🐉 Tippe eine Reihe an', aim_cell: '🐉 Tippe ein Feld an', s_autodragons: '🐉 Auto-Drachen' },
+    fr: { dragon_ready: 'PRÊT', aim_row: '🐉 Touchez une rangée', aim_cell: '🐉 Touchez une case', s_autodragons: '🐉 Dragons auto' },
+    pt: { dragon_ready: 'PRONTO', aim_row: '🐉 Toque numa linha', aim_cell: '🐉 Toque numa célula', s_autodragons: '🐉 Dragões auto' }
+  };
+  Object.keys(DSTR).forEach(function (l) { Object.assign(STR[l], DSTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
@@ -1234,7 +1253,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       chests: {},
       modeBest: { blitz: 0, endless: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk' },
+      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false },
       tutorialDone: false,
       firstRun: true
     };
@@ -1635,6 +1654,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   Engine.prototype.onDown = function (px, py) {
     if (this.state !== 'idle' || this.finished) return;
     this.idleTime = 0; this.hint = null;
+    // Aiming a ready dragon's ability at a cell/row.
+    if (this.castAim) {
+      const cell = this.pickCell(px, py);
+      const d = this.castAim; this.castAim = null;
+      if (cell) { this.castReady(d, cell); if (this.cb.onDragons) this.cb.onDragons(this.dragons); }
+      return;
+    }
     if (this.hammerArmed) {
       const used = this.hammerAt(px, py);
       if (used && this.cb.onHammerUsed) this.cb.onHammerUsed();
@@ -2119,7 +2145,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       if (self.finished) return;
       d.charge += amount;
       if (d.charge >= d.need) {
-        if (self.dragonsActivatedThisMove[d.id]) {
+        const auto = global.Save.get().settings.autoDragons === true;
+        if (!auto) {
+          // Active mode: hold charged and wait for the player to tap & aim.
+          d.charge = d.need; d.ready = true;
+        } else if (self.dragonsActivatedThisMove[d.id]) {
           d.charge = d.need; // already fired this move — hold full until next move
         } else {
           d.charge = 0;
@@ -2133,7 +2163,21 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.cb.onDragons && this.cb.onDragons(this.dragons);
   };
 
-  Engine.prototype.activateDragon = function (d) {
+  // Whether an ability benefits from manual aiming.
+  Engine.prototype.abilityNeedsAim = function (d) { return d.def.ability === 'row' || d.def.ability === 'bonus'; };
+
+  // Player taps a ready dragon (active mode). target = {r,c} when aimed.
+  Engine.prototype.castReady = function (d, target) {
+    if (this.state !== 'idle' || this.finished || !d.ready) return false;
+    d.ready = false; d.charge = 0; d.flashing = 0.8;
+    this.dragonsActivatedThisMove = this.dragonsActivatedThisMove || {};
+    this.state = 'busy';
+    this.activateDragon(d, target);
+    this.cb.onDragons && this.cb.onDragons(this.dragons);
+    return true;
+  };
+
+  Engine.prototype.activateDragon = function (d, target) {
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
@@ -2151,11 +2195,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     const set = {};
     const self = this;
     if (d.def.ability === 'row') {
-      const count = Math.min(this.rows, 1 + Math.floor(power / 2));
-      for (let k = 0; k < count; k++) {
-        const r = rnd(this.rows);
-        for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      const rows = [];
+      if (target) {
+        rows.push(target.r);
+        if (power >= 4 && target.r + 1 < this.rows) rows.push(target.r + 1); // upgraded burns extra row
+      } else {
+        const count = Math.min(this.rows, 1 + Math.floor(power / 2));
+        for (let k = 0; k < count; k++) rows.push(rnd(this.rows));
       }
+      rows.forEach(function (r) { for (let c = 0; c < self.cols; c++) if (!self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; });
     } else if (d.def.ability === 'random') {
       const count = d.def.basePower + power * 2;
       for (let k = 0; k < count; k++) {
@@ -2175,16 +2223,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       }
       this.emitObjective();
     } else if (d.def.ability === 'bonus') {
-      // turn random crystals into special bonus crystals
+      // turn crystals into special bonus crystals (aimed cell or random)
+      const cells = [];
+      if (target) { cells.push(target); }
       const count = 1 + power;
-      for (let k = 0; k < count; k++) {
-        const r = rnd(this.rows), c = rnd(this.cols);
-        const t = this.grid[r][c];
+      for (let k = cells.length; k < count; k++) cells.push({ r: rnd(this.rows), c: rnd(this.cols) });
+      cells.forEach(function (cell) {
+        const t = self.grid[cell.r][cell.c];
         if (t && !t.ice && t.special === SP.NONE) {
           t.special = (rnd(2) === 0) ? SP.LINE_H : SP.BOMB;
-          this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fe39a', 12);
+          self.spawnBurst(self.cellX(cell.c) + self.tile / 2, self.cellY(cell.r) + self.tile / 2, '#5fe39a', 12);
         }
-      }
+      });
     } else if (d.def.ability === 'shuffle') {
       this.movesLeft += 2 + power;
       this.cb.onMoves && this.cb.onMoves(this.movesLeft);
@@ -2763,6 +2813,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     navBar: function (active) {
       const items = [
         { id: 'map', ic: '🗺️', label: T('nav_map') },
+        { id: 'modes', ic: '🎮', label: T('t_modes') },
         { id: 'collection', ic: '🐲', label: T('nav_dragons') },
         { id: 'shop', ic: '🛒', label: T('nav_shop') },
         { id: 'pass', ic: '🎖️', label: T('nav_pass') },
@@ -3372,16 +3423,21 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.modal(T('ach_title'), body, [{ label: T('close'), primary: true }]);
     },
 
-    // ---- GAME MODES -------------------------------------------------------
-    showModes: function () {
+    // ---- GAME MODES (screen) ---------------------------------------------
+    renderModes: function () {
       const p = global.Save.get();
+      const s = document.getElementById('screen-modes');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', T('modes_title')));
       const today = new Date().toISOString().slice(0, 10);
       const dailyDone = p.daily2.done && p.daily2.date === today;
-      const body = el('div', 'modal-body');
+      const wrap = el('div', 'modes-wrap');
       const modes = [
         { id: 'blitz', ic: '⏱️', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
         { id: 'endless', ic: '♾️', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
-        { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true }
+        { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true },
+        { id: 'adventure', ic: '🗺️', name: T('nav_map'), desc: T('play_level', { n: p.levelProgress }), adventure: true }
       ];
       modes.forEach(function (m) {
         const card = el('div', 'mode-card');
@@ -3390,12 +3446,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
-        if (!disabled) click(btn, function () { UI.closeModal(); global.Game.startMode(m.id); });
+        if (!disabled) click(btn, function () {
+          if (m.adventure) global.Game.go('map');
+          else global.Game.startMode(m.id);
+        });
         card.appendChild(btn);
-        body.appendChild(card);
+        wrap.appendChild(card);
       });
-      this.modal(T('modes_title'), body, [{ label: T('close'), primary: true }]);
+      s.appendChild(wrap);
+      s.appendChild(this.navBar('modes'));
     },
+    showModes: function () { global.Game.go('modes'); },
 
     // ---- LEADERBOARD (local, with simulated rivals) -----------------------
     showLeaderboard: function () {
@@ -3443,6 +3504,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       body.appendChild(mkToggle(T('s_sound'), 'sound'));
       body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
+      body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';
@@ -3550,6 +3612,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       else if (id === 'collection') global.UI.renderCollection();
       else if (id === 'shop') global.UI.renderShop();
       else if (id === 'pass') global.UI.renderPass();
+      else if (id === 'modes') global.UI.renderModes();
       global.UI.show(id);
     },
 
@@ -3894,16 +3957,33 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const wrap = this.hud.dragonBars;
       wrap.innerHTML = '';
       const p = global.Save.get();
+      const self = this;
       dragons.forEach(function (d) {
         const pct = Math.min(100, Math.round(d.charge / d.need * 100));
         const sc = D.SKIN_COLORS[p.activeSkins[d.id]] || d.def;
         const cell = document.createElement('div');
-        cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '');
+        cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '') + (d.ready ? ' ready' : '');
         cell.innerHTML =
           '<div class="db-emoji" style="filter:drop-shadow(0 0 8px ' + (sc.glow || d.def.glow) + ')">' + d.def.emoji + '</div>' +
-          '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>';
+          (d.ready
+            ? '<div class="db-ready">' + T('dragon_ready') + '</div>'
+            : '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>');
+        if (d.ready) cell.addEventListener('click', function (ev) { ev.stopPropagation(); self.castDragon(d); });
         wrap.appendChild(cell);
       });
+    },
+
+    castDragon: function (d) {
+      const eng = this.engine;
+      if (!eng || !d.ready || eng.state !== 'idle') return;
+      global.Audio2.play('click');
+      if (eng.abilityNeedsAim(d)) {
+        eng.castAim = d;
+        global.UI.toast(d.def.ability === 'row' ? T('aim_row') : T('aim_cell'));
+      } else {
+        eng.castReady(d, null);
+        this.renderDragonBars(eng.dragons);
+      }
     },
 
     showCombo: function (n) {

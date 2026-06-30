@@ -143,6 +143,7 @@
     navBar: function (active) {
       const items = [
         { id: 'map', ic: '🗺️', label: T('nav_map') },
+        { id: 'modes', ic: '🎮', label: T('t_modes') },
         { id: 'collection', ic: '🐲', label: T('nav_dragons') },
         { id: 'shop', ic: '🛒', label: T('nav_shop') },
         { id: 'pass', ic: '🎖️', label: T('nav_pass') },
@@ -752,16 +753,21 @@
       this.modal(T('ach_title'), body, [{ label: T('close'), primary: true }]);
     },
 
-    // ---- GAME MODES -------------------------------------------------------
-    showModes: function () {
+    // ---- GAME MODES (screen) ---------------------------------------------
+    renderModes: function () {
       const p = global.Save.get();
+      const s = document.getElementById('screen-modes');
+      clear(s);
+      s.appendChild(this.currencyBar());
+      s.appendChild(el('div', 'section-h center', T('modes_title')));
       const today = new Date().toISOString().slice(0, 10);
       const dailyDone = p.daily2.done && p.daily2.date === today;
-      const body = el('div', 'modal-body');
+      const wrap = el('div', 'modes-wrap');
       const modes = [
         { id: 'blitz', ic: '⏱️', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
         { id: 'endless', ic: '♾️', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
-        { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true }
+        { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true },
+        { id: 'adventure', ic: '🗺️', name: T('nav_map'), desc: T('play_level', { n: p.levelProgress }), adventure: true }
       ];
       modes.forEach(function (m) {
         const card = el('div', 'mode-card');
@@ -770,12 +776,17 @@
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
-        if (!disabled) click(btn, function () { UI.closeModal(); global.Game.startMode(m.id); });
+        if (!disabled) click(btn, function () {
+          if (m.adventure) global.Game.go('map');
+          else global.Game.startMode(m.id);
+        });
         card.appendChild(btn);
-        body.appendChild(card);
+        wrap.appendChild(card);
       });
-      this.modal(T('modes_title'), body, [{ label: T('close'), primary: true }]);
+      s.appendChild(wrap);
+      s.appendChild(this.navBar('modes'));
     },
+    showModes: function () { global.Game.go('modes'); },
 
     // ---- LEADERBOARD (local, with simulated rivals) -----------------------
     showLeaderboard: function () {
@@ -823,6 +834,7 @@
       body.appendChild(mkToggle(T('s_sound'), 'sound'));
       body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
+      body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';

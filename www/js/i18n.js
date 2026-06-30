@@ -426,6 +426,17 @@
   };
   Object.keys(MSTR).forEach(function (l) { Object.assign(STR[l], MSTR[l]); });
 
+  // Active dragons.
+  const DSTR = {
+    uk: { dragon_ready: 'ГОТОВО', aim_row: '🐉 Торкніться ряду для удару', aim_cell: '🐉 Торкніться клітинки', s_autodragons: '🐉 Авто-дракони' },
+    en: { dragon_ready: 'READY', aim_row: '🐉 Tap a row to strike', aim_cell: '🐉 Tap a cell', s_autodragons: '🐉 Auto dragons' },
+    es: { dragon_ready: 'LISTO', aim_row: '🐉 Toca una fila para atacar', aim_cell: '🐉 Toca una casilla', s_autodragons: '🐉 Dragones auto' },
+    de: { dragon_ready: 'BEREIT', aim_row: '🐉 Tippe eine Reihe an', aim_cell: '🐉 Tippe ein Feld an', s_autodragons: '🐉 Auto-Drachen' },
+    fr: { dragon_ready: 'PRÊT', aim_row: '🐉 Touchez une rangée', aim_cell: '🐉 Touchez une case', s_autodragons: '🐉 Dragons auto' },
+    pt: { dragon_ready: 'PRONTO', aim_row: '🐉 Toque numa linha', aim_cell: '🐉 Toque numa célula', s_autodragons: '🐉 Dragões auto' }
+  };
+  Object.keys(DSTR).forEach(function (l) { Object.assign(STR[l], DSTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

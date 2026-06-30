@@ -59,6 +59,7 @@
       else if (id === 'collection') global.UI.renderCollection();
       else if (id === 'shop') global.UI.renderShop();
       else if (id === 'pass') global.UI.renderPass();
+      else if (id === 'modes') global.UI.renderModes();
       global.UI.show(id);
     },
 
@@ -403,16 +404,33 @@
       const wrap = this.hud.dragonBars;
       wrap.innerHTML = '';
       const p = global.Save.get();
+      const self = this;
       dragons.forEach(function (d) {
         const pct = Math.min(100, Math.round(d.charge / d.need * 100));
         const sc = D.SKIN_COLORS[p.activeSkins[d.id]] || d.def;
         const cell = document.createElement('div');
-        cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '');
+        cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '') + (d.ready ? ' ready' : '');
         cell.innerHTML =
           '<div class="db-emoji" style="filter:drop-shadow(0 0 8px ' + (sc.glow || d.def.glow) + ')">' + d.def.emoji + '</div>' +
-          '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>';
+          (d.ready
+            ? '<div class="db-ready">' + T('dragon_ready') + '</div>'
+            : '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>');
+        if (d.ready) cell.addEventListener('click', function (ev) { ev.stopPropagation(); self.castDragon(d); });
         wrap.appendChild(cell);
       });
+    },
+
+    castDragon: function (d) {
+      const eng = this.engine;
+      if (!eng || !d.ready || eng.state !== 'idle') return;
+      global.Audio2.play('click');
+      if (eng.abilityNeedsAim(d)) {
+        eng.castAim = d;
+        global.UI.toast(d.def.ability === 'row' ? T('aim_row') : T('aim_cell'));
+      } else {
+        eng.castReady(d, null);
+        this.renderDragonBars(eng.dragons);
+      }
     },
 
     showCombo: function (n) {

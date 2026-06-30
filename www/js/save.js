@@ -42,7 +42,7 @@
       chests: {},
       modeBest: { blitz: 0, endless: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk' },
+      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false },
       tutorialDone: false,
       firstRun: true
     };

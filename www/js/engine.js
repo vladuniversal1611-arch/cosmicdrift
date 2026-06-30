@@ -160,6 +160,13 @@
   Engine.prototype.onDown = function (px, py) {
     if (this.state !== 'idle' || this.finished) return;
     this.idleTime = 0; this.hint = null;
+    // Aiming a ready dragon's ability at a cell/row.
+    if (this.castAim) {
+      const cell = this.pickCell(px, py);
+      const d = this.castAim; this.castAim = null;
+      if (cell) { this.castReady(d, cell); if (this.cb.onDragons) this.cb.onDragons(this.dragons); }
+      return;
+    }
     if (this.hammerArmed) {
       const used = this.hammerAt(px, py);
       if (used && this.cb.onHammerUsed) this.cb.onHammerUsed();
@@ -644,7 +651,11 @@
       if (self.finished) return;
       d.charge += amount;
       if (d.charge >= d.need) {
-        if (self.dragonsActivatedThisMove[d.id]) {
+        const auto = global.Save.get().settings.autoDragons === true;
+        if (!auto) {
+          // Active mode: hold charged and wait for the player to tap & aim.
+          d.charge = d.need; d.ready = true;
+        } else if (self.dragonsActivatedThisMove[d.id]) {
           d.charge = d.need; // already fired this move — hold full until next move
         } else {
           d.charge = 0;
@@ -658,7 +669,21 @@
     this.cb.onDragons && this.cb.onDragons(this.dragons);
   };
 
-  Engine.prototype.activateDragon = function (d) {
+  // Whether an ability benefits from manual aiming.
+  Engine.prototype.abilityNeedsAim = function (d) { return d.def.ability === 'row' || d.def.ability === 'bonus'; };
+
+  // Player taps a ready dragon (active mode). target = {r,c} when aimed.
+  Engine.prototype.castReady = function (d, target) {
+    if (this.state !== 'idle' || this.finished || !d.ready) return false;
+    d.ready = false; d.charge = 0; d.flashing = 0.8;
+    this.dragonsActivatedThisMove = this.dragonsActivatedThisMove || {};
+    this.state = 'busy';
+    this.activateDragon(d, target);
+    this.cb.onDragons && this.cb.onDragons(this.dragons);
+    return true;
+  };
+
+  Engine.prototype.activateDragon = function (d, target) {
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
@@ -676,11 +701,15 @@
     const set = {};
     const self = this;
     if (d.def.ability === 'row') {
-      const count = Math.min(this.rows, 1 + Math.floor(power / 2));
-      for (let k = 0; k < count; k++) {
-        const r = rnd(this.rows);
-        for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      const rows = [];
+      if (target) {
+        rows.push(target.r);
+        if (power >= 4 && target.r + 1 < this.rows) rows.push(target.r + 1); // upgraded burns extra row
+      } else {
+        const count = Math.min(this.rows, 1 + Math.floor(power / 2));
+        for (let k = 0; k < count; k++) rows.push(rnd(this.rows));
       }
+      rows.forEach(function (r) { for (let c = 0; c < self.cols; c++) if (!self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; });
     } else if (d.def.ability === 'random') {
       const count = d.def.basePower + power * 2;
       for (let k = 0; k < count; k++) {
@@ -700,16 +729,18 @@
       }
       this.emitObjective();
     } else if (d.def.ability === 'bonus') {
-      // turn random crystals into special bonus crystals
+      // turn crystals into special bonus crystals (aimed cell or random)
+      const cells = [];
+      if (target) { cells.push(target); }
       const count = 1 + power;
-      for (let k = 0; k < count; k++) {
-        const r = rnd(this.rows), c = rnd(this.cols);
-        const t = this.grid[r][c];
+      for (let k = cells.length; k < count; k++) cells.push({ r: rnd(this.rows), c: rnd(this.cols) });
+      cells.forEach(function (cell) {
+        const t = self.grid[cell.r][cell.c];
         if (t && !t.ice && t.special === SP.NONE) {
           t.special = (rnd(2) === 0) ? SP.LINE_H : SP.BOMB;
-          this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#5fe39a', 12);
+          self.spawnBurst(self.cellX(cell.c) + self.tile / 2, self.cellY(cell.r) + self.tile / 2, '#5fe39a', 12);
         }
-      }
+      });
     } else if (d.def.ability === 'shuffle') {
       this.movesLeft += 2 + power;
       this.cb.onMoves && this.cb.onMoves(this.movesLeft);

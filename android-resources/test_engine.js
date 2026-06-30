@@ -32,6 +32,7 @@ function loadFile(rel) {
 ['data.js', 'i18n.js', 'save.js', 'audio.js', 'engine.js'].forEach(loadFile);
 
 sandbox.Save.load();
+sandbox.Save.get().settings.autoDragons = true; // bot relies on auto-firing dragons
 
 // stub Audio2 (no AudioContext in node)
 sandbox.Audio2 = { resume(){}, play(){}, startMusic(){}, stopMusic(){}, setMusicEnabled(){} };
