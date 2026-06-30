@@ -59,6 +59,7 @@
     this.timeLeft = level.timeLimit || 0;
     this.danger = 0;
     this.elapsed = 0;
+    this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
     this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1);
 
     // Equipped dragons → charge bars.
@@ -66,7 +67,7 @@
       const def = D.dragonById(id);
       const lvl = (global.Save.get().dragonLevels[id]) || 1;
       const tier = (global.Save.get().dragonTiers && global.Save.get().dragonTiers[id]) || 1;
-      return { id: id, def: def, charge: 0, need: Math.max(6, def.chargeNeed - lvl - (tier - 1) * 3), level: lvl, tier: tier, flashing: 0 };
+      return { id: id, def: def, charge: 0, need: Math.max(12, def.chargeNeed - lvl - (tier - 1) * 2), level: lvl, tier: tier, flashing: 0 };
     });
 
     this.buildBoard();
@@ -620,6 +621,7 @@
       this.bossAttack();
       return;
     }
+    this.castingResolve = false; // resolution finished — dragons can recharge again
     this.state = 'idle';
     if (this.movesLeft <= 0) { this.fail(); return; }
     if (!this.hasPossibleMove()) this.shuffleBoard();
@@ -646,6 +648,9 @@
 
   // ---- Dragons ------------------------------------------------------------
   Engine.prototype.chargeDragons = function (amount) {
+    // Dragons do NOT recharge from their own ability clears — only from the
+    // player's matches — otherwise abilities could be chained for free.
+    if (this.castingResolve) return;
     amount = amount * (this.chargeMult || 1);
     const self = this;
     this.dragons.forEach(function (d) {
@@ -654,8 +659,8 @@
       if (d.charge >= d.need) {
         const auto = global.Save.get().settings.autoDragons === true;
         if (!auto) {
-          // Active mode: hold charged and wait for the player to tap & aim.
-          d.charge = d.need; d.ready = true;
+          // Active mode: ready only if it hasn't already fired this move.
+          d.charge = d.need; d.ready = !self.dragonsActivatedThisMove[d.id];
         } else if (self.dragonsActivatedThisMove[d.id]) {
           d.charge = d.need; // already fired this move — hold full until next move
         } else {
@@ -678,6 +683,7 @@
     if (this.state !== 'idle' || this.finished || !d.ready) return false;
     d.ready = false; d.charge = 0; d.flashing = 0.8;
     this.dragonsActivatedThisMove = this.dragonsActivatedThisMove || {};
+    this.dragonsActivatedThisMove[d.id] = true; // one cast per move
     this.state = 'busy';
     this.activateDragon(d, target);
     this.cb.onDragons && this.cb.onDragons(this.dragons);
@@ -685,6 +691,7 @@
   };
 
   Engine.prototype.activateDragon = function (d, target) {
+    this.castingResolve = true; // suppress self-recharge for the whole resolution
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
