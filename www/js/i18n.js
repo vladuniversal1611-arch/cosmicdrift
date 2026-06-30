@@ -602,6 +602,29 @@
   };
   Object.keys(ST).forEach(function (l) { Object.assign(STR[l], ST[l]); });
 
+  // Island farm (idle income).
+  const FM = {
+    uk: { farm_title: '🏝️ Ферма острова', collect_all: 'Зібрати все', farm_empty: 'Поки нічого збирати', hour: 'год', not_built: 'Не збудовано', production: 'Виробництво', stored: 'Накопичено', build: 'Збудувати', built: '{name} збудовано!', collect: 'Зібрати', welcome_back_title: '🏝️ З поверненням!', welcome_back: 'Поки тебе не було, острів працював на тебе:',
+      build_volcano: 'Вулкан', build_garden: 'Сад', build_forge: 'Кузня', build_mine: 'Шахта',
+      build_desc_volcano: 'Виплавляє золото з лави щогодини.', build_desc_garden: 'Вирощує енергію для драконів.', build_desc_forge: 'Кує багато золота на годину.', build_desc_mine: 'Видобуває рідкісні кристали 💎.' },
+    en: { farm_title: '🏝️ Island Farm', collect_all: 'Collect all', farm_empty: 'Nothing to collect yet', hour: 'hr', not_built: 'Not built', production: 'Production', stored: 'Stored', build: 'Build', built: '{name} built!', collect: 'Collect', welcome_back_title: '🏝️ Welcome back!', welcome_back: 'While you were away, your island worked for you:',
+      build_volcano: 'Volcano', build_garden: 'Garden', build_forge: 'Forge', build_mine: 'Mine',
+      build_desc_volcano: 'Smelts gold from lava every hour.', build_desc_garden: 'Grows energy for your dragons.', build_desc_forge: 'Forges lots of gold per hour.', build_desc_mine: 'Mines rare gems 💎.' },
+    es: { farm_title: '🏝️ Granja de la isla', collect_all: 'Recoger todo', farm_empty: 'Nada que recoger aún', hour: 'h', not_built: 'No construido', production: 'Producción', stored: 'Almacenado', build: 'Construir', built: '¡{name} construido!', collect: 'Recoger', welcome_back_title: '🏝️ ¡Bienvenido!', welcome_back: 'Mientras no estabas, tu isla trabajó para ti:',
+      build_volcano: 'Volcán', build_garden: 'Jardín', build_forge: 'Forja', build_mine: 'Mina',
+      build_desc_volcano: 'Funde oro de la lava cada hora.', build_desc_garden: 'Cultiva energía para tus dragones.', build_desc_forge: 'Forja mucho oro por hora.', build_desc_mine: 'Extrae gemas raras 💎.' },
+    de: { farm_title: '🏝️ Inselfarm', collect_all: 'Alles einsammeln', farm_empty: 'Noch nichts zu holen', hour: 'Std', not_built: 'Nicht gebaut', production: 'Produktion', stored: 'Gespeichert', build: 'Bauen', built: '{name} gebaut!', collect: 'Einsammeln', welcome_back_title: '🏝️ Willkommen zurück!', welcome_back: 'Während du weg warst, hat deine Insel gearbeitet:',
+      build_volcano: 'Vulkan', build_garden: 'Garten', build_forge: 'Schmiede', build_mine: 'Mine',
+      build_desc_volcano: 'Schmilzt stündlich Gold aus Lava.', build_desc_garden: 'Züchtet Energie für deine Drachen.', build_desc_forge: 'Schmiedet viel Gold pro Stunde.', build_desc_mine: 'Baut seltene Edelsteine 💎 ab.' },
+    fr: { farm_title: '🏝️ Ferme de l’île', collect_all: 'Tout récolter', farm_empty: 'Rien à récolter encore', hour: 'h', not_built: 'Non construit', production: 'Production', stored: 'Stocké', build: 'Construire', built: '{name} construit !', collect: 'Récolter', welcome_back_title: '🏝️ Bon retour !', welcome_back: 'Pendant ton absence, ton île a travaillé :',
+      build_volcano: 'Volcan', build_garden: 'Jardin', build_forge: 'Forge', build_mine: 'Mine',
+      build_desc_volcano: 'Fond de l’or à partir de lave chaque heure.', build_desc_garden: 'Cultive de l’énergie pour tes dragons.', build_desc_forge: 'Forge beaucoup d’or par heure.', build_desc_mine: 'Extrait des gemmes rares 💎.' },
+    pt: { farm_title: '🏝️ Fazenda da ilha', collect_all: 'Coletar tudo', farm_empty: 'Nada para coletar ainda', hour: 'h', not_built: 'Não construído', production: 'Produção', stored: 'Armazenado', build: 'Construir', built: '{name} construído!', collect: 'Coletar', welcome_back_title: '🏝️ Bem-vindo de volta!', welcome_back: 'Enquanto esteve fora, sua ilha trabalhou:',
+      build_volcano: 'Vulcão', build_garden: 'Jardim', build_forge: 'Forja', build_mine: 'Mina',
+      build_desc_volcano: 'Funde ouro da lava a cada hora.', build_desc_garden: 'Cultiva energia para seus dragões.', build_desc_forge: 'Forja muito ouro por hora.', build_desc_mine: 'Minera gemas raras 💎.' }
+  };
+  Object.keys(FM).forEach(function (l) { Object.assign(STR[l], FM[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

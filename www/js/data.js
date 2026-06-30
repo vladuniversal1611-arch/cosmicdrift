@@ -242,6 +242,16 @@
     return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
   }
 
+  // ---- Island farm buildings (idle / offline income) ----------------------
+  // rate = production per HOUR at level 1 (scales with level); cap = 8h storage.
+  const FARM = [
+    { id: 'volcano', ic: '🌋', res: 'gold',   rate: 70,  build: 0,    buildCur: 'gold', up: 450 },
+    { id: 'garden',  ic: '🌳', res: 'energy', rate: 9,   build: 600,  buildCur: 'gold', up: 500 },
+    { id: 'forge',   ic: '🔨', res: 'gold',   rate: 180, build: 2500, buildCur: 'gold', up: 1300 },
+    { id: 'mine',    ic: '💎', res: 'gems',   rate: 2,   build: 250,  buildCur: 'gems', up: 60 }
+  ];
+  function farmById(id) { return FARM.find(function (b) { return b.id === id; }); }
+
   // ---- Roguelite relics (Dragon Trials) ----------------------------------
   const RELICS = [
     { id: 'moves',    ic: '➕' },  // +3 moves each level
@@ -253,7 +263,7 @@
   ];
 
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };

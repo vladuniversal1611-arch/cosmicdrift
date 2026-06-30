@@ -256,6 +256,9 @@
       eggsWrap.appendChild(eggGrid);
       s.appendChild(eggsWrap);
 
+      // Island farm (idle income)
+      s.appendChild(this.renderFarm());
+
       // Quick action buttons
       const acts = el('div', 'home-actions');
       const playBtn = click(el('button', 'btn btn-primary btn-big', T('play_level', { n: p.levelProgress })), function () { global.Game.go('map'); });
@@ -292,6 +295,85 @@
       s.appendChild(this.navBar('home'));
       // daily reminder badge
       if (UI.dailyAvailable()) UI.toast(T('daily_available'));
+    },
+
+    // ---- Island farm (idle income) ---------------------------------------
+    renderFarm: function () {
+      const p = global.Save.get();
+      global.Save.farmTick(); // accrue production (incl. offline) on view
+      const wrap = el('div', 'farm-wrap');
+      const head = el('div', 'farm-head');
+      head.innerHTML = '<span>' + T('farm_title') + '</span>';
+      const collectAll = click(el('button', 'btn btn-mini btn-primary', '🎁 ' + T('collect_all')), function () {
+        const t = global.Save.farmCollectAll();
+        if (t.gold + t.energy + t.gems <= 0) { UI.toast(T('farm_empty')); return; }
+        global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(UI.farmRewardStr(t)); UI.renderHome();
+      });
+      head.appendChild(collectAll);
+      wrap.appendChild(head);
+      const grid = el('div', 'farm-grid');
+      D.FARM.forEach(function (b) {
+        const lvl = p.farm.buildings[b.id] || 0;
+        const built = lvl > 0;
+        const stored = Math.floor(p.farm.stored[b.id] || 0);
+        const cap = global.Save.farmCap(b.id);
+        const pct = cap > 0 ? Math.min(100, Math.round(stored / cap * 100)) : 0;
+        const resIc = b.res === 'gold' ? '🪙' : b.res === 'energy' ? '⚡' : '💎';
+        const card = el('div', 'farm-card' + (built ? '' : ' unbuilt') + (stored > 0 ? ' ready' : ''));
+        card.innerHTML =
+          '<div class="farm-ic">' + b.ic + '</div>' +
+          '<div class="farm-name">' + T('build_' + b.id) + '</div>' +
+          (built
+            ? '<div class="farm-lvl">' + T('dc_level', { n: lvl }) + ' · ' + (b.rate * lvl) + resIc + '/' + T('hour') + '</div>' +
+              '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + (b.res === 'gems' ? '#79e0ff' : b.res === 'energy' ? '#b48bff' : '#ffd24d') + '"></div></div>' +
+              '<div class="farm-stored">' + stored + ' / ' + cap + ' ' + resIc + '</div>'
+            : '<div class="farm-lvl muted">' + T('not_built') + '</div>');
+        click(card, function () { UI.showBuilding(b.id); });
+        grid.appendChild(card);
+      });
+      wrap.appendChild(grid);
+      return wrap;
+    },
+    farmRewardStr: function (t) {
+      const parts = [];
+      if (t.gold) parts.push('+' + Math.floor(t.gold) + '🪙');
+      if (t.energy) parts.push('+' + Math.floor(t.energy) + '⚡');
+      if (t.gems) parts.push('+' + Math.floor(t.gems) + '💎');
+      return parts.join('  ');
+    },
+    showBuilding: function (id) {
+      const p = global.Save.get();
+      const b = D.farmById(id);
+      const lvl = p.farm.buildings[id] || 0;
+      const built = lvl > 0;
+      const resIc = b.res === 'gold' ? '🪙' : b.res === 'energy' ? '⚡' : '💎';
+      const stored = Math.floor(p.farm.stored[id] || 0);
+      const body = el('div', 'modal-body');
+      body.innerHTML = '<div class="big-emoji">' + b.ic + '</div>' +
+        (built
+          ? '<div class="up-stats"><div>' + T('dc_level', { n: lvl }) + '</div><div>' + T('production') + ': <b>' + (b.rate * lvl) + resIc + '/' + T('hour') + '</b></div><div>' + T('stored') + ': <b>' + stored + ' / ' + global.Save.farmCap(id) + resIc + '</b></div></div>'
+          : '<p class="muted">' + T('build_desc_' + b.id) + '</p>');
+      const buttons = [{ label: T('close') }];
+      if (built) {
+        if (stored > 0) buttons.push({ label: '🎁 ' + T('collect') + ' (' + stored + resIc + ')', onClick: function () {
+          global.Save.farmCollect(id); global.Audio2.play('coin'); UI.refreshCurrencies(); UI.renderHome();
+        } });
+        const upCost = b.up * (lvl + 1);
+        buttons.push({ label: '⬆ ' + T('upgrade_btn', { cost: upCost }) , primary: true, onClick: function () {
+          if (p.gold < upCost) { UI.toast(T('not_enough_gold')); return; }
+          p.gold -= upCost; p.farm.buildings[id] = lvl + 1; global.Save.save();
+          global.Audio2.play('coin'); UI.refreshCurrencies(); UI.renderHome();
+        } });
+      } else {
+        const cur = b.buildCur === 'gems' ? '💎' : '🪙';
+        buttons.push({ label: '🏗 ' + T('build') + ' (' + b.build + cur + ')', primary: true, onClick: function () {
+          if (b.buildCur === 'gems' ? p.gems < b.build : p.gold < b.build) { UI.toast(b.buildCur === 'gems' ? T('not_enough_gems') : T('not_enough_gold')); return; }
+          if (b.buildCur === 'gems') p.gems -= b.build; else p.gold -= b.build;
+          p.farm.buildings[id] = 1; p.farm.stored[id] = 0; global.Save.save();
+          global.Audio2.play('hatch'); UI.refreshCurrencies(); UI.toast(T('built', { name: T('build_' + id) })); UI.renderHome();
+        } });
+      }
+      this.modal(b.ic + ' ' + T('build_' + id), body, buttons);
     },
 
     handleEgg: function (idx) {

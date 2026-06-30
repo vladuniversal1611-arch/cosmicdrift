@@ -42,6 +42,7 @@
       piggy: { coins: 0, cap: 500 },
       chests: {},
       modeBest: { blitz: 0, endless: 0, trials: 0 },
+      farm: { lastTick: Date.now(), buildings: { volcano: 1, garden: 0, forge: 0, mine: 0 }, stored: { volcano: 0, garden: 0, forge: 0, mine: 0 } },
       daily2: { date: '', done: false },
       settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
@@ -61,7 +62,7 @@
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy', 'modeBest', 'daily2'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy', 'modeBest', 'daily2', 'farm'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});
@@ -117,6 +118,43 @@
   }
   function refillLives() { const lv = syncLives(); lv.count = lv.max; lv.lastRegen = Date.now(); save(); }
 
+  // ---- Island farm (idle income) ------------------------------------------
+  function farmRate(id) { const p = get(); const lvl = (p.farm.buildings[id] || 0); const b = global.GameData.farmById(id); return b ? b.rate * lvl : 0; }
+  function farmCap(id) { return farmRate(id) * 8; } // 8 hours of storage
+  // Accrue production for elapsed real time (also runs for offline). Returns delta earned.
+  function farmTick() {
+    const p = get();
+    const f = p.farm; if (!f) return { gold: 0, energy: 0, gems: 0 };
+    const now = Date.now();
+    const hours = Math.max(0, (now - (f.lastTick || now)) / 3600000);
+    f.lastTick = now;
+    const delta = { gold: 0, energy: 0, gems: 0 };
+    global.GameData.FARM.forEach(function (b) {
+      const lvl = f.buildings[b.id] || 0; if (lvl <= 0) return;
+      const rate = b.rate * lvl, cap = rate * 8;
+      const before = f.stored[b.id] || 0;
+      const after = Math.min(cap, before + rate * hours);
+      f.stored[b.id] = after;
+      delta[b.res] += (after - before);
+    });
+    save();
+    return delta;
+  }
+  function farmCollect(id) {
+    const p = get(); const b = global.GameData.farmById(id);
+    const amt = Math.floor(p.farm.stored[id] || 0);
+    if (amt <= 0) return 0;
+    p.farm.stored[id] = 0;
+    if (b.res === 'gold') p.gold += amt; else if (b.res === 'energy') p.energy += amt; else if (b.res === 'gems') p.gems += amt;
+    save();
+    return amt;
+  }
+  function farmCollectAll() {
+    const total = { gold: 0, energy: 0, gems: 0 };
+    global.GameData.FARM.forEach(function (b) { const a = farmCollect(b.id); total[b.res] += a; });
+    return total;
+  }
+
   function addStat(stat, value, isMax) {
     const s = get().stats;
     if (isMax) s[stat] = Math.max(s[stat] || 0, value);
@@ -124,5 +162,5 @@
     save();
   }
 
-  global.Save = { load, save, get, reset, addStat, KEY, livesInfo, spendLife, addLives, refillLives, syncLives };
+  global.Save = { load, save, get, reset, addStat, KEY, livesInfo, spendLife, addLives, refillLives, syncLives, farmTick, farmCollect, farmCollectAll, farmRate, farmCap };
 })(window);

@@ -31,7 +31,19 @@
 
       // Welcome
       const p = global.Save.get();
+      const offline = global.Save.farmTick(); // accrue idle income (incl. offline)
       this.go('home');
+      if (!p.firstRun && (offline.gold + offline.energy + offline.gems) >= 1) {
+        const self = this;
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        body.innerHTML = '<div class="big-emoji">🏝️</div><p>' + T('welcome_back') + '</p><div class="win-rewards">' + global.UI.farmRewardStr(offline) + '</div>';
+        setTimeout(function () {
+          global.UI.modal(T('welcome_back_title'), body, [{ label: '🎁 ' + T('collect_all'), primary: true, onClick: function () {
+            const t = global.Save.farmCollectAll(); global.Audio2.play('coin'); global.UI.refreshCurrencies(); global.UI.toast(global.UI.farmRewardStr(t)); self.go('home');
+          } }]);
+        }, 600);
+      }
       if (p.firstRun) {
         p.firstRun = false; global.Save.save();
         this.showStoryIntro();
