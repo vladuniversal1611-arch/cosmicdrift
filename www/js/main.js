@@ -426,7 +426,7 @@
         const cell = document.createElement('div');
         cell.className = 'dragon-bar' + (d.flashing > 0 ? ' flash' : '') + (d.ready ? ' ready' : '');
         cell.innerHTML =
-          '<div class="db-emoji" style="filter:drop-shadow(0 0 8px ' + (sc.glow || d.def.glow) + ')">' + d.def.emoji + '</div>' +
+          '<div class="db-emoji">' + global.UI.dragonGlyph(d.def, 'db-sprite', sc.glow || d.def.glow) + '</div>' +
           (d.ready
             ? '<div class="db-ready">' + T('dragon_ready') + '</div>'
             : '<div class="db-track"><div class="db-fill" style="width:' + pct + '%;background:' + (sc.color || d.def.color) + '"></div></div>');

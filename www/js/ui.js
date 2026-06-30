@@ -22,9 +22,19 @@
     return node;
   }
 
+  // Dragon glyph: <img> sprite when available, otherwise the emoji.
+  function dragonGlyph(def, cls, glow) {
+    if (global.DragonSprites && global.DragonSprites.url(def.id)) {
+      return '<img class="dsprite ' + (cls || '') + '" src="' + global.DragonSprites.url(def.id) +
+        '" alt="" style="filter:drop-shadow(0 0 10px ' + (glow || def.glow) + ')">';
+    }
+    return '<span class="demoji ' + (cls || '') + '">' + def.emoji + '</span>';
+  }
+
   const UI = {
     screens: {},
     current: 'home',
+    dragonGlyph: dragonGlyph,
 
     init: function (root) {
       this.root = root;
@@ -199,7 +209,7 @@
       // owned dragons bobbing & flapping
       p.ownedDragons.forEach(function (id, i) {
         const def = D.dragonById(id);
-        const d = el('div', 'isle-dragon', def.emoji);
+        const d = el('div', 'isle-dragon', dragonGlyph(def, 'isle-sprite', def.glow));
         d.style.left = (14 + (i % 4) * 21) + '%';
         d.style.top = (30 + Math.floor(i / 4) * 24) + '%';
         d.style.filter = 'drop-shadow(0 0 12px ' + def.glow + ')';
@@ -285,7 +295,7 @@
         global.Audio2.play('hatch');
         const def = D.dragonById(egg.dragon);
         UI.modal(T('new_dragon'), el('div', 'modal-body',
-          '<div class="big-emoji">' + def.emoji + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
+          '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
           [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
       } else {
         if (p.energy < 10) { UI.toast(T('need_energy')); return; }
@@ -395,7 +405,7 @@
         const id = p.equipped[slot];
         if (id) {
           const def = D.dragonById(id);
-          cell.innerHTML = '<div class="eq-emoji" style="filter:drop-shadow(0 0 8px ' + def.glow + ')">' + def.emoji + '</div><div class="eq-name">' + def.name + '</div>';
+          cell.innerHTML = '<div class="eq-emoji">' + dragonGlyph(def, 'eq-sprite', def.glow) + '</div><div class="eq-name">' + def.name + '</div>';
         } else {
           cell.innerHTML = '<div class="eq-emoji empty">＋</div><div class="eq-name">' + T('equip_empty') + '</div>';
         }
@@ -449,7 +459,7 @@
         card.innerHTML =
           '<div class="rar rar-' + def.rarity + '">' + T('rarity_' + def.rarity) + '</div>' +
           (owned ? '<div class="dc-tier">' + '⭐'.repeat(tier) + '</div>' : '') +
-          '<div class="dc-emoji" style="filter:drop-shadow(0 0 ' + glowMul + 'px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
+          '<div class="dc-emoji">' + (owned ? dragonGlyph(def, '', (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow) : '<span class="demoji" style="filter:drop-shadow(0 0 ' + glowMul + 'px #444)">❔</span>') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
           '<div class="dc-title">' + def.title + '</div>' +
           (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + ' · ' + T('tier', { n: tier }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
@@ -473,7 +483,7 @@
       const evo = EVO[nextTier];
       const body = el('div', 'modal-body');
       body.innerHTML =
-        '<div class="big-emoji" style="filter:drop-shadow(0 0 ' + (16 + tier * 6) + 'px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div>' +
         '<div class="dc-tier" style="position:static;margin:4px 0">' + '⭐'.repeat(tier) + '</div>' +
         '<p>' + def.desc + '</p>' +
         '<div class="up-stats">' +
@@ -497,7 +507,7 @@
           if (p.gold < evo.gold || p.gems < evo.gems) { UI.toast(T('not_enough_gems')); return; }
           p.gold -= evo.gold; p.gems -= evo.gems; p.dragonTiers[id] = nextTier; global.Save.save();
           global.Audio2.play('hatch'); UI.refreshCurrencies();
-          UI.modal('✨ ' + T('evolved'), el('div', 'modal-body', '<div class="big-emoji" style="filter:drop-shadow(0 0 24px ' + def.glow + ')">' + def.emoji + '</div><div class="dc-tier" style="position:static">' + '⭐'.repeat(nextTier) + '</div><p><b>' + def.name + '</b> → ' + T('tier', { n: nextTier }) + '</p>'),
+          UI.modal('✨ ' + T('evolved'), el('div', 'modal-body', '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><div class="dc-tier" style="position:static">' + '⭐'.repeat(nextTier) + '</div><p><b>' + def.name + '</b> → ' + T('tier', { n: nextTier }) + '</p>'),
             [{ label: T('great'), primary: true, onClick: function () { UI.renderCollection(); } }]);
         }});
       }

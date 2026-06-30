@@ -694,7 +694,7 @@
     // visual flyover
     this.dragonFx.push({
       x: this.viewport.x - 60, y: this.viewport.y + rnd(this.viewport.size),
-      vx: (this.viewport.size + 120) / 0.7, t: 0, life: 0.7, emoji: d.def.emoji, color: color
+      vx: (this.viewport.size + 120) / 0.7, t: 0, life: 0.7, emoji: d.def.emoji, id: d.id, color: color
     });
     this.shake = 0.5;
     this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.6, color);
@@ -1051,8 +1051,14 @@
       const fx = this.dragonFx[i];
       g.globalAlpha = Math.min(1, fx.t * 4) * Math.max(0, 1 - fx.t / fx.life);
       g.shadowColor = fx.color; g.shadowBlur = 30;
-      g.font = (tile * 1.6) + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(fx.emoji, fx.x, fx.y);
+      const sp = global.DragonSprites && fx.id && global.DragonSprites.ready(fx.id) ? global.DragonSprites.img(fx.id) : null;
+      if (sp) {
+        const sz = tile * 2.4;
+        g.drawImage(sp, fx.x - sz / 2, fx.y - sz / 2, sz, sz);
+      } else {
+        g.font = (tile * 1.6) + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(fx.emoji, fx.x, fx.y);
+      }
       g.shadowBlur = 0;
     }
     g.globalAlpha = 1;
