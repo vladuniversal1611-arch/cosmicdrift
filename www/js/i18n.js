@@ -500,6 +500,17 @@
   };
   Object.keys(TR).forEach(function (l) { Object.assign(STR[l], TR[l]); });
 
+  // On-board merge.
+  const MG = {
+    uk: { merge_toast: 'Злиття! Сильніший кристал', tip_merge: '🔮 Поміняй місцями два однакові особливі кристали, щоб злити їх у потужніший!' },
+    en: { merge_toast: 'Merge! Stronger crystal', tip_merge: '🔮 Swap two matching special crystals to merge them into a stronger one!' },
+    es: { merge_toast: '¡Fusión! Cristal más fuerte', tip_merge: '🔮 ¡Intercambia dos cristales especiales iguales para fusionarlos!' },
+    de: { merge_toast: 'Verschmelzung! Stärkerer Kristall', tip_merge: '🔮 Tausche zwei gleiche Spezialkristalle, um sie zu verschmelzen!' },
+    fr: { merge_toast: 'Fusion ! Cristal plus fort', tip_merge: '🔮 Échange deux cristaux spéciaux identiques pour les fusionner !' },
+    pt: { merge_toast: 'Fusão! Cristal mais forte', tip_merge: '🔮 Troque dois cristais especiais iguais para fundi-los num mais forte!' }
+  };
+  Object.keys(MG).forEach(function (l) { Object.assign(STR[l], MG[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

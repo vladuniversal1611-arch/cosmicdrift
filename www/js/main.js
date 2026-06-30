@@ -475,6 +475,7 @@
       };
       // booster-use callbacks from the engine
       this.engine.cb.onShuffle = function () { global.UI.toast(T('shuffled')); };
+      this.engine.cb.onMerge = function () { global.UI.toast('🔮 ' + T('merge_toast')); self.tip('merge', 200); };
       this.engine.cb.onHammerUsed = function () {
         const pr = global.Save.get();
         pr.boosters.hammer = Math.max(0, (pr.boosters.hammer || 0) - 1);

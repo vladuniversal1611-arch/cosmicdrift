@@ -212,13 +212,19 @@
     this.swapTiles(a, b);
     const self = this;
     this.animateSwap(a, b, function () {
-      // Two specials swapped together → powerful combo.
+      // Two specials swapped together.
       if (bothSpecial) {
         self.movesLeft--; self.movesSinceBossAttack++;
         self.cb.onMoves && self.cb.onMoves(self.movesLeft);
         self.combo = 0;
         self.dragonsActivatedThisMove = {};
-        self.comboSpecials(a, b, self.grid[b.r][b.c], self.grid[a.r][a.c]);
+        const sa = self.grid[a.r][a.c], sb = self.grid[b.r][b.c];
+        // Same tier (and not max) → MERGE into a stronger special; otherwise combo.
+        if (specialTier(sa.special) === specialTier(sb.special) && specialTier(sb.special) < 3) {
+          self.mergeSpecials(a, b);
+        } else {
+          self.comboSpecials(a, b, sb, sa);
+        }
         return;
       }
       const matches = self.findMatches();
@@ -972,6 +978,34 @@
     global.Audio2.play('special');
     this.clearSet(set);
     return true;
+  };
+
+  // Special tier: line=1, bomb=2, rainbow=3 (for on-board merging).
+  function specialTier(sp) {
+    if (sp === SP.LINE_H || sp === SP.LINE_V) return 1;
+    if (sp === SP.BOMB) return 2;
+    if (sp === SP.RAINBOW) return 3;
+    return 0;
+  }
+
+  // ---- On-board MERGE: same-tier specials fuse into a stronger one ----------
+  Engine.prototype.mergeSpecials = function (a, b) {
+    const tgt = this.grid[b.r][b.c];   // keeps the upgraded special
+    const src = this.grid[a.r][a.c];   // becomes a normal crystal
+    const tier = specialTier(tgt.special);
+    tgt.special = (tier === 1) ? SP.BOMB : SP.RAINBOW;
+    tgt.scale = 0.35; // pop-in
+    src.special = SP.NONE;
+    src.type = rnd(this.colors);
+    const cx = this.cellX(b.c) + this.tile / 2, cy = this.cellY(b.r) + this.tile / 2;
+    this.spawnRing(cx, cy, this.tile * 2.4, '#ffffff');
+    this.spawnBurst(cx, cy, '#ffffff', 16);
+    this.shake = 0.5;
+    global.Audio2.play('special');
+    global.Save.addStat('specialsMade', 1);
+    this.cb.onMerge && this.cb.onMerge();
+    this.state = 'busy';
+    this.resolveStep(); // settle (and clear any match the freed crystal forms)
   };
 
   // ---- Special-crystal combos (special swapped onto special) ---------------
