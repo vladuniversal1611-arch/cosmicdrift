@@ -65,7 +65,8 @@
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
       const def = D.dragonById(id);
       const lvl = (global.Save.get().dragonLevels[id]) || 1;
-      return { id: id, def: def, charge: 0, need: Math.max(8, def.chargeNeed - lvl), level: lvl, flashing: 0 };
+      const tier = (global.Save.get().dragonTiers && global.Save.get().dragonTiers[id]) || 1;
+      return { id: id, def: def, charge: 0, need: Math.max(6, def.chargeNeed - lvl - (tier - 1) * 3), level: lvl, tier: tier, flashing: 0 };
     });
 
     this.buildBoard();
@@ -687,7 +688,7 @@
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
-    const power = d.level;
+    const power = d.level + (((d.tier || 1) - 1) * 2); // evolution boosts ability power
     const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || null;
     const color = sc ? sc.color : d.def.color;
     // visual flyover
@@ -948,9 +949,11 @@
   };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
     n = n || 6;
+    const perf = global.Save.get().settings.perf;
+    if (perf) n = Math.min(n, 4);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 200;
-      const shard = i % 2 === 0;
+      const shard = !perf && i % 2 === 0;
       this.particles.push({
         x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80,
         t: 0, life: 0.45 + Math.random() * 0.45, color: color,

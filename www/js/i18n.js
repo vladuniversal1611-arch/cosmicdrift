@@ -437,6 +437,17 @@
   };
   Object.keys(DSTR).forEach(function (l) { Object.assign(STR[l], DSTR[l]); });
 
+  // Evolution + performance.
+  const ESTR = {
+    uk: { tier: 'Ранг {n}', evolve: 'Еволюція', evolve_need: 'Потрібен рівень {n}', evolved: 'Дракон еволюціонував!', s_perf: '⚡ Режим продуктивності' },
+    en: { tier: 'Tier {n}', evolve: 'Evolve', evolve_need: 'Requires level {n}', evolved: 'Dragon evolved!', s_perf: '⚡ Performance mode' },
+    es: { tier: 'Nivel {n}', evolve: 'Evolucionar', evolve_need: 'Requiere nivel {n}', evolved: '¡Dragón evolucionado!', s_perf: '⚡ Modo rendimiento' },
+    de: { tier: 'Stufe {n}', evolve: 'Entwickeln', evolve_need: 'Benötigt Level {n}', evolved: 'Drache entwickelt!', s_perf: '⚡ Leistungsmodus' },
+    fr: { tier: 'Rang {n}', evolve: 'Évoluer', evolve_need: 'Niveau {n} requis', evolved: 'Dragon évolué !', s_perf: '⚡ Mode performance' },
+    pt: { tier: 'Nível {n}', evolve: 'Evoluir', evolve_need: 'Requer nível {n}', evolved: 'Dragão evoluído!', s_perf: '⚡ Modo desempenho' }
+  };
+  Object.keys(ESTR).forEach(function (l) { Object.assign(STR[l], ESTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

@@ -616,6 +616,7 @@
       const grd = g.createLinearGradient(0, 0, 0, H);
       grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
       g.fillStyle = grd; g.fillRect(0, 0, W, H);
+      if (global.Save.get().settings.perf) return; // skip heavy effects on low-end devices
       // god-ray glow at the top
       const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
       glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
@@ -634,6 +635,7 @@
     },
 
     drawVignette: function (g) {
+      if (global.Save.get().settings.perf) return;
       const W = this.viewW, H = this.viewH;
       const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
       v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');

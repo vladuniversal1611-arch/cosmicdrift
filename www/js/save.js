@@ -18,6 +18,7 @@
       stars: {},                   // { levelNumber: starCount }
       ownedDragons: ['flare'],     // start with the fire dragon
       dragonLevels: { flare: 1 },  // upgrade level per dragon
+      dragonTiers: { flare: 1 },   // evolution tier per dragon (1..3)
       equipped: ['flare', null, null],
       eggs: [                      // incubating eggs on the island
         { dragon: 'frost',   charge: 0, need: 120 },
@@ -42,7 +43,7 @@
       chests: {},
       modeBest: { blitz: 0, endless: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false },
+      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false },
       tutorialDone: false,
       firstRun: true
     };

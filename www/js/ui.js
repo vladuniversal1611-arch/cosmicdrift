@@ -261,6 +261,7 @@
         if (p.ownedDragons.indexOf(egg.dragon) === -1) {
           p.ownedDragons.push(egg.dragon);
           p.dragonLevels[egg.dragon] = 1;
+          p.dragonTiers[egg.dragon] = 1;
         }
         global.Save.addStat('dragonsHatched', 1);
         p.eggs.splice(idx, 1);
@@ -425,14 +426,17 @@
       D.DRAGONS.forEach(function (def) {
         const owned = p.ownedDragons.indexOf(def.id) !== -1;
         const lvl = p.dragonLevels[def.id] || 0;
+        const tier = (p.dragonTiers && p.dragonTiers[def.id]) || 1;
         const card = el('div', 'dragon-card' + (owned ? '' : ' locked'));
         const skinColor = (D.SKIN_COLORS[p.activeSkins[def.id]] || {}).color || def.color;
+        const glowMul = owned ? (10 + tier * 6) : 14;
         card.innerHTML =
           '<div class="rar rar-' + def.rarity + '">' + T('rarity_' + def.rarity) + '</div>' +
-          '<div class="dc-emoji" style="filter:drop-shadow(0 0 14px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
+          (owned ? '<div class="dc-tier">' + '⭐'.repeat(tier) + '</div>' : '') +
+          '<div class="dc-emoji" style="filter:drop-shadow(0 0 ' + glowMul + 'px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
           '<div class="dc-title">' + def.title + '</div>' +
-          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
+          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + ' · ' + T('tier', { n: tier }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
           '<div class="dc-desc">' + def.desc + '</div>';
         if (owned) click(card, function () { UI.showUpgrade(def.id); });
         grid.appendChild(card);
@@ -445,25 +449,43 @@
       const p = global.Save.get();
       const def = D.dragonById(id);
       const lvl = p.dragonLevels[id] || 1;
+      const tier = (p.dragonTiers && p.dragonTiers[id]) || 1;
       const cost = lvl * 150;
+      // Evolution: tier 1→2 needs lvl≥3, 2→3 needs lvl≥6.
+      const EVO = { 2: { lvl: 3, gold: 600, gems: 30 }, 3: { lvl: 6, gold: 1800, gems: 90 } };
+      const nextTier = tier + 1;
+      const evo = EVO[nextTier];
       const body = el('div', 'modal-body');
       body.innerHTML =
-        '<div class="big-emoji" style="filter:drop-shadow(0 0 16px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<div class="big-emoji" style="filter:drop-shadow(0 0 ' + (16 + tier * 6) + 'px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<div class="dc-tier" style="position:static;margin:4px 0">' + '⭐'.repeat(tier) + '</div>' +
         '<p>' + def.desc + '</p>' +
         '<div class="up-stats">' +
-        '<div>' + T('cur_level') + ': <b>' + lvl + '</b></div>' +
-        '<div>' + T('ability_power') + ': <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
+        '<div>' + T('cur_level') + ': <b>' + lvl + '</b> · ' + T('tier', { n: tier }) + '</div>' +
+        '<div>' + T('ability_power') + ': <b>' + (lvl + (tier - 1) * 2) + '</b> → <b>' + (lvl + 1 + (tier - 1) * 2) + '</b></div>' +
         '<div>' + T('charges_faster') + '</div>' +
         '</div>';
-      this.modal(T('upgrade_title', { name: def.name }), body, [
+      const buttons = [
         { label: T('close') },
         { label: T('upgrade_btn', { cost: cost }), primary: true, onClick: function () {
           if (p.gold < cost) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= cost; p.dragonLevels[id] = lvl + 1; global.Save.save();
           global.Audio2.play('coin'); UI.toast(T('now_level', { name: def.name, n: lvl + 1 }));
-          UI.renderCollection();
+          UI.refreshCurrencies(); UI.renderCollection(); UI.showUpgrade(id);
         }}
-      ]);
+      ];
+      if (evo) {
+        const ready = lvl >= evo.lvl;
+        buttons.splice(1, 0, { label: '✨ ' + T('evolve') + ' (' + evo.gold + '🪙 ' + evo.gems + '💎)', onClick: function () {
+          if (!ready) { UI.toast(T('evolve_need', { n: evo.lvl })); return; }
+          if (p.gold < evo.gold || p.gems < evo.gems) { UI.toast(T('not_enough_gems')); return; }
+          p.gold -= evo.gold; p.gems -= evo.gems; p.dragonTiers[id] = nextTier; global.Save.save();
+          global.Audio2.play('hatch'); UI.refreshCurrencies();
+          UI.modal('✨ ' + T('evolved'), el('div', 'modal-body', '<div class="big-emoji" style="filter:drop-shadow(0 0 24px ' + def.glow + ')">' + def.emoji + '</div><div class="dc-tier" style="position:static">' + '⭐'.repeat(nextTier) + '</div><p><b>' + def.name + '</b> → ' + T('tier', { n: nextTier }) + '</p>'),
+            [{ label: T('great'), primary: true, onClick: function () { UI.renderCollection(); } }]);
+        }});
+      }
+      this.modal(T('upgrade_title', { name: def.name }), body, buttons);
     },
 
     // ---- SHOP -------------------------------------------------------------
@@ -835,6 +857,7 @@
       body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
+      body.appendChild(mkToggle(T('s_perf'), 'perf'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';

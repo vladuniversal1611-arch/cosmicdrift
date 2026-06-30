@@ -249,6 +249,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .dc-title { font-size: 11px; color: var(--muted); }
 .dc-lvl { font-size: 12px; font-weight: 700; color: var(--gold); margin: 4px 0; }
 .dc-desc { font-size: 10px; color: var(--muted); line-height: 1.3; }
+.dc-tier { position: absolute; top: 8px; left: 8px; font-size: 10px; letter-spacing: -1px; filter: drop-shadow(0 0 4px rgba(255,210,77,0.8)); }
 .rar { position: absolute; top: 8px; right: 8px; font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; }
 .rar-common { background: #4a6; color: #032; }
 .rar-rare { background: #4af; color: #024; }
@@ -1185,6 +1186,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Object.keys(DSTR).forEach(function (l) { Object.assign(STR[l], DSTR[l]); });
 
+  // Evolution + performance.
+  const ESTR = {
+    uk: { tier: 'Ранг {n}', evolve: 'Еволюція', evolve_need: 'Потрібен рівень {n}', evolved: 'Дракон еволюціонував!', s_perf: '⚡ Режим продуктивності' },
+    en: { tier: 'Tier {n}', evolve: 'Evolve', evolve_need: 'Requires level {n}', evolved: 'Dragon evolved!', s_perf: '⚡ Performance mode' },
+    es: { tier: 'Nivel {n}', evolve: 'Evolucionar', evolve_need: 'Requiere nivel {n}', evolved: '¡Dragón evolucionado!', s_perf: '⚡ Modo rendimiento' },
+    de: { tier: 'Stufe {n}', evolve: 'Entwickeln', evolve_need: 'Benötigt Level {n}', evolved: 'Drache entwickelt!', s_perf: '⚡ Leistungsmodus' },
+    fr: { tier: 'Rang {n}', evolve: 'Évoluer', evolve_need: 'Niveau {n} requis', evolved: 'Dragon évolué !', s_perf: '⚡ Mode performance' },
+    pt: { tier: 'Nível {n}', evolve: 'Evoluir', evolve_need: 'Requer nível {n}', evolved: 'Dragão evoluído!', s_perf: '⚡ Modo desempenho' }
+  };
+  Object.keys(ESTR).forEach(function (l) { Object.assign(STR[l], ESTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
@@ -1229,6 +1241,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       stars: {},                   // { levelNumber: starCount }
       ownedDragons: ['flare'],     // start with the fire dragon
       dragonLevels: { flare: 1 },  // upgrade level per dragon
+      dragonTiers: { flare: 1 },   // evolution tier per dragon (1..3)
       equipped: ['flare', null, null],
       eggs: [                      // incubating eggs on the island
         { dragon: 'frost',   charge: 0, need: 120 },
@@ -1253,7 +1266,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       chests: {},
       modeBest: { blitz: 0, endless: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false },
+      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false },
       tutorialDone: false,
       firstRun: true
     };
@@ -1559,7 +1572,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
       const def = D.dragonById(id);
       const lvl = (global.Save.get().dragonLevels[id]) || 1;
-      return { id: id, def: def, charge: 0, need: Math.max(8, def.chargeNeed - lvl), level: lvl, flashing: 0 };
+      const tier = (global.Save.get().dragonTiers && global.Save.get().dragonTiers[id]) || 1;
+      return { id: id, def: def, charge: 0, need: Math.max(6, def.chargeNeed - lvl - (tier - 1) * 3), level: lvl, tier: tier, flashing: 0 };
     });
 
     this.buildBoard();
@@ -2181,7 +2195,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
-    const power = d.level;
+    const power = d.level + (((d.tier || 1) - 1) * 2); // evolution boosts ability power
     const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || null;
     const color = sc ? sc.color : d.def.color;
     // visual flyover
@@ -2442,9 +2456,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
     n = n || 6;
+    const perf = global.Save.get().settings.perf;
+    if (perf) n = Math.min(n, 4);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 200;
-      const shard = i % 2 === 0;
+      const shard = !perf && i % 2 === 0;
       this.particles.push({
         x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80,
         t: 0, life: 0.45 + Math.random() * 0.45, color: color,
@@ -2931,6 +2947,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         if (p.ownedDragons.indexOf(egg.dragon) === -1) {
           p.ownedDragons.push(egg.dragon);
           p.dragonLevels[egg.dragon] = 1;
+          p.dragonTiers[egg.dragon] = 1;
         }
         global.Save.addStat('dragonsHatched', 1);
         p.eggs.splice(idx, 1);
@@ -3095,14 +3112,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       D.DRAGONS.forEach(function (def) {
         const owned = p.ownedDragons.indexOf(def.id) !== -1;
         const lvl = p.dragonLevels[def.id] || 0;
+        const tier = (p.dragonTiers && p.dragonTiers[def.id]) || 1;
         const card = el('div', 'dragon-card' + (owned ? '' : ' locked'));
         const skinColor = (D.SKIN_COLORS[p.activeSkins[def.id]] || {}).color || def.color;
+        const glowMul = owned ? (10 + tier * 6) : 14;
         card.innerHTML =
           '<div class="rar rar-' + def.rarity + '">' + T('rarity_' + def.rarity) + '</div>' +
-          '<div class="dc-emoji" style="filter:drop-shadow(0 0 14px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
+          (owned ? '<div class="dc-tier">' + '⭐'.repeat(tier) + '</div>' : '') +
+          '<div class="dc-emoji" style="filter:drop-shadow(0 0 ' + glowMul + 'px ' + (owned ? (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow : '#444') + ')">' + (owned ? def.emoji : '❔') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
           '<div class="dc-title">' + def.title + '</div>' +
-          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
+          (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + ' · ' + T('tier', { n: tier }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
           '<div class="dc-desc">' + def.desc + '</div>';
         if (owned) click(card, function () { UI.showUpgrade(def.id); });
         grid.appendChild(card);
@@ -3115,25 +3135,43 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const p = global.Save.get();
       const def = D.dragonById(id);
       const lvl = p.dragonLevels[id] || 1;
+      const tier = (p.dragonTiers && p.dragonTiers[id]) || 1;
       const cost = lvl * 150;
+      // Evolution: tier 1→2 needs lvl≥3, 2→3 needs lvl≥6.
+      const EVO = { 2: { lvl: 3, gold: 600, gems: 30 }, 3: { lvl: 6, gold: 1800, gems: 90 } };
+      const nextTier = tier + 1;
+      const evo = EVO[nextTier];
       const body = el('div', 'modal-body');
       body.innerHTML =
-        '<div class="big-emoji" style="filter:drop-shadow(0 0 16px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<div class="big-emoji" style="filter:drop-shadow(0 0 ' + (16 + tier * 6) + 'px ' + def.glow + ')">' + def.emoji + '</div>' +
+        '<div class="dc-tier" style="position:static;margin:4px 0">' + '⭐'.repeat(tier) + '</div>' +
         '<p>' + def.desc + '</p>' +
         '<div class="up-stats">' +
-        '<div>' + T('cur_level') + ': <b>' + lvl + '</b></div>' +
-        '<div>' + T('ability_power') + ': <b>' + lvl + '</b> → <b>' + (lvl + 1) + '</b></div>' +
+        '<div>' + T('cur_level') + ': <b>' + lvl + '</b> · ' + T('tier', { n: tier }) + '</div>' +
+        '<div>' + T('ability_power') + ': <b>' + (lvl + (tier - 1) * 2) + '</b> → <b>' + (lvl + 1 + (tier - 1) * 2) + '</b></div>' +
         '<div>' + T('charges_faster') + '</div>' +
         '</div>';
-      this.modal(T('upgrade_title', { name: def.name }), body, [
+      const buttons = [
         { label: T('close') },
         { label: T('upgrade_btn', { cost: cost }), primary: true, onClick: function () {
           if (p.gold < cost) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= cost; p.dragonLevels[id] = lvl + 1; global.Save.save();
           global.Audio2.play('coin'); UI.toast(T('now_level', { name: def.name, n: lvl + 1 }));
-          UI.renderCollection();
+          UI.refreshCurrencies(); UI.renderCollection(); UI.showUpgrade(id);
         }}
-      ]);
+      ];
+      if (evo) {
+        const ready = lvl >= evo.lvl;
+        buttons.splice(1, 0, { label: '✨ ' + T('evolve') + ' (' + evo.gold + '🪙 ' + evo.gems + '💎)', onClick: function () {
+          if (!ready) { UI.toast(T('evolve_need', { n: evo.lvl })); return; }
+          if (p.gold < evo.gold || p.gems < evo.gems) { UI.toast(T('not_enough_gems')); return; }
+          p.gold -= evo.gold; p.gems -= evo.gems; p.dragonTiers[id] = nextTier; global.Save.save();
+          global.Audio2.play('hatch'); UI.refreshCurrencies();
+          UI.modal('✨ ' + T('evolved'), el('div', 'modal-body', '<div class="big-emoji" style="filter:drop-shadow(0 0 24px ' + def.glow + ')">' + def.emoji + '</div><div class="dc-tier" style="position:static">' + '⭐'.repeat(nextTier) + '</div><p><b>' + def.name + '</b> → ' + T('tier', { n: nextTier }) + '</p>'),
+            [{ label: T('great'), primary: true, onClick: function () { UI.renderCollection(); } }]);
+        }});
+      }
+      this.modal(T('upgrade_title', { name: def.name }), body, buttons);
     },
 
     // ---- SHOP -------------------------------------------------------------
@@ -3505,6 +3543,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       body.appendChild(mkToggle(T('s_music'), 'music', function (on) { global.Audio2.setMusicEnabled(on); }));
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
+      body.appendChild(mkToggle(T('s_perf'), 'perf'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';
@@ -4169,6 +4208,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const grd = g.createLinearGradient(0, 0, 0, H);
       grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
       g.fillStyle = grd; g.fillRect(0, 0, W, H);
+      if (global.Save.get().settings.perf) return; // skip heavy effects on low-end devices
       // god-ray glow at the top
       const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
       glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
@@ -4187,6 +4227,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     },
 
     drawVignette: function (g) {
+      if (global.Save.get().settings.perf) return;
       const W = this.viewW, H = this.viewH;
       const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
       v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
