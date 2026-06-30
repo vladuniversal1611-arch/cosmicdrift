@@ -409,13 +409,21 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 /* ---- Synergy button ---- */
 .synergy-btn {
   position: absolute; bottom: 116px; left: 50%; transform: translateX(-50%); z-index: 12;
-  border: none; border-radius: 22px; padding: 10px 22px; cursor: pointer; font-family: inherit;
-  font-weight: 900; font-size: 15px; letter-spacing: 1px; color: #2a0e3a;
+  border: none; border-radius: 22px; padding: 8px 20px 10px; cursor: pointer; font-family: inherit;
+  font-weight: 900; font-size: 14px; letter-spacing: 1px; color: #2a0e3a;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 150px;
   background: linear-gradient(90deg, #ff7a59, #ffd24d, #7be0ff, #c58bff);
-  background-size: 300% 100%; box-shadow: 0 0 22px rgba(255,200,120,0.7), 0 6px 16px rgba(0,0,0,0.4);
+  background-size: 300% 100%; opacity: 0.55; filter: grayscale(0.4);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+.synergy-btn.full {
+  opacity: 1; filter: none;
+  box-shadow: 0 0 22px rgba(255,200,120,0.8), 0 6px 16px rgba(0,0,0,0.4);
   animation: synGlow 2s linear infinite, pulse 1s infinite;
 }
-.synergy-btn span { font-size: 18px; }
+.syn-lbl { font-size: 14px; }
+.syn-bar { width: 100%; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.35); overflow: hidden; }
+.syn-fill { display: block; height: 100%; width: 0%; background: #2a0e3a; border-radius: 3px; transition: width 0.3s; }
 @keyframes synGlow { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
 .db-ready { flex: 1; text-align: center; font-size: 11px; font-weight: 900; color: var(--gold); letter-spacing: 1px; }
 
@@ -1317,6 +1325,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     pt: { synergy: 'SINERGIA', tip_synergy: '⚡ Dois dragões prontos! Toque em SINERGIA para combiná-los.' }
   };
   Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
+  const SYNC = { uk: 'Синергія заряджається…', en: 'Synergy charging…', es: 'Sinergia cargando…', de: 'Synergie lädt…', fr: 'Synergie en charge…', pt: 'Sinergia carregando…' };
+  Object.keys(SYNC).forEach(function (l) { STR[l].synergy_charging = SYNC[l]; });
 
   // Roguelite Dragon Trials.
   const TR = {
@@ -1741,6 +1751,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.danger = 0;
     this.elapsed = 0;
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
+    this.synergyCharge = 0;      // synergy meter, fills from player matches
+    this.synergyNeed = 90;
     // Roguelite relic modifiers (Dragon Trials mode)
     const mods = level.mods || {};
     this.scoreMult = mods.scoreMult || 1;
@@ -2224,6 +2236,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     global.Save.addStat('crystalsCrushed', cleared);
     global.Save.addStat('energyEarned', energyGain);
     if (this.mode === 'endless' && cleared > 0) this.danger = Math.max(0, this.danger - cleared * 2.2);
+    // synergy meter fills only from the player's own matches (not dragon clears)
+    if (!this.castingResolve && cleared > 0) this.synergyCharge = Math.min(this.synergyNeed, this.synergyCharge + cleared);
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
     // Boss takes damage equal to crystals cleared (combo amplified).
@@ -2388,11 +2402,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
 
   Engine.prototype.readyDragons = function () { return this.dragons.filter(function (d) { return d.ready; }); };
+  // Synergy is available only when 2+ dragons are ready AND the synergy meter is full.
+  Engine.prototype.synergyReady = function () { return this.readyDragons().length >= 2 && this.synergyCharge >= this.synergyNeed; };
 
   // Dragon Synergy: combine 2+ ready dragons into one spectacular ultimate.
   Engine.prototype.castSynergy = function () {
     const ready = this.readyDragons();
     if (this.state !== 'idle' || this.finished || ready.length < 2) return false;
+    if (this.synergyCharge < this.synergyNeed) return false; // meter not full yet
+    this.synergyCharge = 0; // spent
     const self = this;
     const used = ready.slice(0, 3);
     this.state = 'busy';
@@ -2405,17 +2423,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
     used.forEach(function (d) {
       const ab = d.def.ability;
-      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); const r2 = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r2, c); }
-      else if (ab === 'random') { for (let k = 0; k < 6 + power; k++) add(rnd(self.rows), rnd(self.cols)); }
+      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); }
+      else if (ab === 'random') { for (let k = 0; k < 5 + (power / 2 | 0); k++) add(rnd(self.rows), rnd(self.cols)); }
       else if (ab === 'freeze') { for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; self.iceLeft = Math.max(0, self.iceLeft - 1); } if (t.chain) t.chain = false; } }
       else if (ab === 'bonus') { for (let k = 0; k < 2 + (power / 3 | 0); k++) { const r = rnd(self.rows), c = rnd(self.cols), t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H); } }
       else if (ab === 'shuffle') { self.movesLeft += 2; }
     });
-    // central mega-blast scaled by combined power
-    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(3, power / 3 | 0);
+    // central blast scaled by combined power (kept modest — not a full wipe)
+    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(1, power / 6 | 0);
     for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) add(cr + dr, cc + dc);
-    // bonus: synergy grants a couple of moves
-    this.movesLeft += 2; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+    // bonus: synergy grants an extra move
+    this.movesLeft += 1; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
 
     // spectacle
     this.shake = 1;
@@ -4371,7 +4389,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
       const synBtn = document.createElement('button');
       synBtn.className = 'synergy-btn hidden';
-      synBtn.innerHTML = '<span>⚡</span> ' + T('synergy');
+      synBtn.innerHTML = '<span class="syn-lbl">⚡ ' + T('synergy') + '</span><span class="syn-bar"><span class="syn-fill"></span></span>';
       const selfG = this;
       synBtn.addEventListener('click', function (ev) { ev.stopPropagation(); selfG.useSynergy(); });
       s.appendChild(synBtn);
@@ -4487,17 +4505,25 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         wrap.appendChild(cell);
       });
       if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
-      // synergy button appears when 2+ dragons are ready
+      // synergy button: appears when 2+ dragons ready; charges via the synergy meter
       if (this.synBtn) {
+        const eng = this.engine;
         const ready = dragons.filter(function (d) { return d.ready; }).length;
-        if (ready >= 2) { this.synBtn.classList.remove('hidden'); this.tip('synergy', 200); }
-        else this.synBtn.classList.add('hidden');
+        if (ready >= 2 && eng) {
+          this.synBtn.classList.remove('hidden');
+          const pct = Math.min(100, Math.round(eng.synergyCharge / eng.synergyNeed * 100));
+          const fill = this.synBtn.querySelector('.syn-fill'); if (fill) fill.style.width = pct + '%';
+          const full = eng.synergyReady();
+          this.synBtn.classList.toggle('full', full);
+          if (full) this.tip('synergy', 200);
+        } else this.synBtn.classList.add('hidden');
       }
     },
 
     useSynergy: function () {
       const eng = this.engine;
       if (!eng || eng.finished) return;
+      if (!eng.synergyReady()) { global.UI.toast(T('synergy_charging')); return; }
       if (eng.castSynergy()) { this.synBtn.classList.add('hidden'); this.renderDragonBars(eng.dragons); }
     },
 

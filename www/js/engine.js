@@ -60,6 +60,8 @@
     this.danger = 0;
     this.elapsed = 0;
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
+    this.synergyCharge = 0;      // synergy meter, fills from player matches
+    this.synergyNeed = 90;
     // Roguelite relic modifiers (Dragon Trials mode)
     const mods = level.mods || {};
     this.scoreMult = mods.scoreMult || 1;
@@ -543,6 +545,8 @@
     global.Save.addStat('crystalsCrushed', cleared);
     global.Save.addStat('energyEarned', energyGain);
     if (this.mode === 'endless' && cleared > 0) this.danger = Math.max(0, this.danger - cleared * 2.2);
+    // synergy meter fills only from the player's own matches (not dragon clears)
+    if (!this.castingResolve && cleared > 0) this.synergyCharge = Math.min(this.synergyNeed, this.synergyCharge + cleared);
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
     // Boss takes damage equal to crystals cleared (combo amplified).
@@ -707,11 +711,15 @@
   };
 
   Engine.prototype.readyDragons = function () { return this.dragons.filter(function (d) { return d.ready; }); };
+  // Synergy is available only when 2+ dragons are ready AND the synergy meter is full.
+  Engine.prototype.synergyReady = function () { return this.readyDragons().length >= 2 && this.synergyCharge >= this.synergyNeed; };
 
   // Dragon Synergy: combine 2+ ready dragons into one spectacular ultimate.
   Engine.prototype.castSynergy = function () {
     const ready = this.readyDragons();
     if (this.state !== 'idle' || this.finished || ready.length < 2) return false;
+    if (this.synergyCharge < this.synergyNeed) return false; // meter not full yet
+    this.synergyCharge = 0; // spent
     const self = this;
     const used = ready.slice(0, 3);
     this.state = 'busy';
@@ -724,17 +732,17 @@
     const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
     used.forEach(function (d) {
       const ab = d.def.ability;
-      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); const r2 = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r2, c); }
-      else if (ab === 'random') { for (let k = 0; k < 6 + power; k++) add(rnd(self.rows), rnd(self.cols)); }
+      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); }
+      else if (ab === 'random') { for (let k = 0; k < 5 + (power / 2 | 0); k++) add(rnd(self.rows), rnd(self.cols)); }
       else if (ab === 'freeze') { for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; self.iceLeft = Math.max(0, self.iceLeft - 1); } if (t.chain) t.chain = false; } }
       else if (ab === 'bonus') { for (let k = 0; k < 2 + (power / 3 | 0); k++) { const r = rnd(self.rows), c = rnd(self.cols), t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H); } }
       else if (ab === 'shuffle') { self.movesLeft += 2; }
     });
-    // central mega-blast scaled by combined power
-    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(3, power / 3 | 0);
+    // central blast scaled by combined power (kept modest — not a full wipe)
+    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(1, power / 6 | 0);
     for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) add(cr + dr, cc + dc);
-    // bonus: synergy grants a couple of moves
-    this.movesLeft += 2; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+    // bonus: synergy grants an extra move
+    this.movesLeft += 1; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
 
     // spectacle
     this.shake = 1;

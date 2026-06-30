@@ -457,7 +457,7 @@
 
       const synBtn = document.createElement('button');
       synBtn.className = 'synergy-btn hidden';
-      synBtn.innerHTML = '<span>⚡</span> ' + T('synergy');
+      synBtn.innerHTML = '<span class="syn-lbl">⚡ ' + T('synergy') + '</span><span class="syn-bar"><span class="syn-fill"></span></span>';
       const selfG = this;
       synBtn.addEventListener('click', function (ev) { ev.stopPropagation(); selfG.useSynergy(); });
       s.appendChild(synBtn);
@@ -573,17 +573,25 @@
         wrap.appendChild(cell);
       });
       if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
-      // synergy button appears when 2+ dragons are ready
+      // synergy button: appears when 2+ dragons ready; charges via the synergy meter
       if (this.synBtn) {
+        const eng = this.engine;
         const ready = dragons.filter(function (d) { return d.ready; }).length;
-        if (ready >= 2) { this.synBtn.classList.remove('hidden'); this.tip('synergy', 200); }
-        else this.synBtn.classList.add('hidden');
+        if (ready >= 2 && eng) {
+          this.synBtn.classList.remove('hidden');
+          const pct = Math.min(100, Math.round(eng.synergyCharge / eng.synergyNeed * 100));
+          const fill = this.synBtn.querySelector('.syn-fill'); if (fill) fill.style.width = pct + '%';
+          const full = eng.synergyReady();
+          this.synBtn.classList.toggle('full', full);
+          if (full) this.tip('synergy', 200);
+        } else this.synBtn.classList.add('hidden');
       }
     },
 
     useSynergy: function () {
       const eng = this.engine;
       if (!eng || eng.finished) return;
+      if (!eng.synergyReady()) { global.UI.toast(T('synergy_charging')); return; }
       if (eng.castSynergy()) { this.synBtn.classList.add('hidden'); this.renderDragonBars(eng.dragons); }
     },
 

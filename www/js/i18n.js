@@ -482,6 +482,8 @@
     pt: { synergy: 'SINERGIA', tip_synergy: '⚡ Dois dragões prontos! Toque em SINERGIA para combiná-los.' }
   };
   Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
+  const SYNC = { uk: 'Синергія заряджається…', en: 'Synergy charging…', es: 'Sinergia cargando…', de: 'Synergie lädt…', fr: 'Synergie en charge…', pt: 'Sinergia carregando…' };
+  Object.keys(SYNC).forEach(function (l) { STR[l].synergy_charging = SYNC[l]; });
 
   // Roguelite Dragon Trials.
   const TR = {
