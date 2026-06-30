@@ -406,7 +406,7 @@
         else this.gameScreen.appendChild(panel);
       }
       const pct = Math.max(0, Math.round(hp / max * 100));
-      panel.querySelector('.boss-emoji').textContent = (def && def.emoji) || '👹';
+      panel.querySelector('.boss-emoji').innerHTML = global.UI.spriteGlyph(def && def.sprite, (def && def.emoji) || '👹', 'boss-sprite', def && def.color);
       panel.querySelector('.boss-name').textContent = (def && def.name) || 'Бос';
       const fill = panel.querySelector('.boss-hp-fill');
       fill.style.width = pct + '%';

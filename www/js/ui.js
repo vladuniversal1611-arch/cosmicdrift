@@ -22,19 +22,22 @@
     return node;
   }
 
-  // Dragon glyph: <img> sprite when available, otherwise the emoji.
-  function dragonGlyph(def, cls, glow) {
-    if (global.DragonSprites && global.DragonSprites.url(def.id)) {
-      return '<img class="dsprite ' + (cls || '') + '" src="' + global.DragonSprites.url(def.id) +
-        '" alt="" style="filter:drop-shadow(0 0 10px ' + (glow || def.glow) + ')">';
+  // Sprite glyph: <img> when a sprite id is available, otherwise emoji.
+  function spriteGlyph(spriteId, emoji, cls, glow) {
+    if (global.DragonSprites && spriteId && global.DragonSprites.url(spriteId)) {
+      return '<img class="dsprite ' + (cls || '') + '" src="' + global.DragonSprites.url(spriteId) +
+        '" alt="" style="filter:drop-shadow(0 0 10px ' + (glow || '#fff') + ')">';
     }
-    return '<span class="demoji ' + (cls || '') + '">' + def.emoji + '</span>';
+    return '<span class="demoji ' + (cls || '') + '">' + (emoji || '') + '</span>';
   }
+  // Dragon glyph convenience.
+  function dragonGlyph(def, cls, glow) { return spriteGlyph(def.id, def.emoji, cls, glow || def.glow); }
 
   const UI = {
     screens: {},
     current: 'home',
     dragonGlyph: dragonGlyph,
+    spriteGlyph: spriteGlyph,
 
     init: function (root) {
       this.root = root;
@@ -227,7 +230,7 @@
         const pct = Math.min(100, Math.round(egg.charge / egg.need * 100));
         const card = el('div', 'egg-card');
         card.innerHTML =
-          '<div class="egg-emoji">🥚</div>' +
+          '<div class="egg-emoji">' + spriteGlyph('egg', '🥚', 'egg-sprite', def.glow) + '</div>' +
           '<div class="egg-name">' + def.title + '</div>' +
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
           '<div class="egg-pct">' + egg.charge + ' / ' + egg.need + ' ⚡</div>';

@@ -81,11 +81,11 @@
 
   // Boss roster — one guardian per island, defeated by dealing damage (matches).
   const BOSSES = [
-    { emoji: '👹', name: 'Лорд Попелу',   color: '#ff6a3d' },
-    { emoji: '🧊', name: 'Крижаний Тітан', color: '#5fd0ff' },
-    { emoji: '🌩️', name: 'Володар Бурі',  color: '#b48bff' },
-    { emoji: '🐗', name: 'Хащний Звір',    color: '#5fe39a' },
-    { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d' }
+    { emoji: '👹', name: 'Лорд Попелу',   color: '#ff6a3d', sprite: 'boss_ash' },
+    { emoji: '🧊', name: 'Крижаний Тітан', color: '#5fd0ff', sprite: 'boss_titan' },
+    { emoji: '🌩️', name: 'Володар Бурі',  color: '#b48bff', sprite: 'boss_storm' },
+    { emoji: '🐗', name: 'Хащний Звір',    color: '#5fe39a', sprite: 'boss_beast' },
+    { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d', sprite: 'boss_phoenix' }
   ];
 
   function buildLevels() {
