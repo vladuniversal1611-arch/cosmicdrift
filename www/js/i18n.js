@@ -513,6 +513,95 @@
   };
   Object.keys(MG).forEach(function (l) { Object.assign(STR[l], MG[l]); });
 
+  // Story & characters.
+  const ST = {
+    uk: {
+      story_title: 'Легенда островів',
+      story_intro: '<p>Колись Драконові острови сяяли магією кристалів. Та <b>П’ять Володарів Тіні</b> зруйнували гармонію, замкнувши драконів у яйцях.</p><p>Ти — останній <b>Хранитель</b>. Поєднуй кристали, пробуджуй драконів і поверни світло островам!</p>',
+      dragon_q_flare: 'Нарешті вільний! Покажемо їм справжній вогонь!',
+      dragon_q_frost: 'Спокій… і холод. Я заморожу будь-яку загрозу.',
+      dragon_q_storm: 'Відчуваєш у повітрі? Це буря — і вона на нашому боці!',
+      dragon_q_verdant: 'Життя повертається. Разом ми виростимо нову надію.',
+      dragon_q_aether: 'Зорі шепочуть про перемогу. Ходімо, Хранителю.',
+      boss_l_boss_ash: 'Ці острови — попіл під моєю п’ятою. Тікай, поки можеш!',
+      boss_l_boss_titan: 'Холод вічності поглине тебе. Жоден дракон не врятує.',
+      boss_l_boss_storm: 'Я — сама буря! Твої кристали стануть прахом.',
+      boss_l_boss_beast: 'Хащі чують чужинця. Ти не вийдеш звідси живим.',
+      boss_l_boss_phoenix: 'З попелу я повставав тисячі разів. Ти впадеш лише раз.'
+    },
+    en: {
+      story_title: 'Legend of the Isles',
+      story_intro: '<p>Once the Dragon Isles shone with crystal magic. But the <b>Five Shadow Lords</b> shattered the harmony and sealed the dragons inside eggs.</p><p>You are the last <b>Keeper</b>. Match crystals, awaken the dragons, and bring the light back to the isles!</p>',
+      dragon_q_flare: 'Free at last! Let’s show them real fire!',
+      dragon_q_frost: 'Calm… and cold. I’ll freeze any threat.',
+      dragon_q_storm: 'Feel it in the air? The storm is on our side!',
+      dragon_q_verdant: 'Life returns. Together we’ll grow new hope.',
+      dragon_q_aether: 'The stars whisper of victory. Lead on, Keeper.',
+      boss_l_boss_ash: 'These isles are ash beneath my heel. Flee while you can!',
+      boss_l_boss_titan: 'The cold of eternity will swallow you. No dragon can save you.',
+      boss_l_boss_storm: 'I am the storm itself! Your crystals will be dust.',
+      boss_l_boss_beast: 'The thicket smells a stranger. You won’t leave alive.',
+      boss_l_boss_phoenix: 'From ash I’ve risen a thousand times. You fall only once.'
+    },
+    es: {
+      story_title: 'Leyenda de las Islas',
+      story_intro: '<p>Las Islas Dragón brillaban con magia de cristal. Pero los <b>Cinco Señores de la Sombra</b> rompieron la armonía y sellaron a los dragones en huevos.</p><p>Eres el último <b>Guardián</b>. ¡Combina cristales, despierta a los dragones y devuelve la luz!</p>',
+      dragon_q_flare: '¡Libre al fin! ¡Mostrémosles fuego de verdad!',
+      dragon_q_frost: 'Calma… y frío. Congelaré cualquier amenaza.',
+      dragon_q_storm: '¿Lo sientes? ¡La tormenta está de nuestro lado!',
+      dragon_q_verdant: 'La vida vuelve. Juntos cultivaremos esperanza.',
+      dragon_q_aether: 'Las estrellas susurran victoria. Guía, Guardián.',
+      boss_l_boss_ash: 'Estas islas son ceniza bajo mi talón. ¡Huye!',
+      boss_l_boss_titan: 'El frío eterno te tragará. Ningún dragón te salvará.',
+      boss_l_boss_storm: '¡Soy la tormenta! Tus cristales serán polvo.',
+      boss_l_boss_beast: 'La espesura huele a intruso. No saldrás vivo.',
+      boss_l_boss_phoenix: 'De las cenizas resurgí mil veces. Tú caes una.'
+    },
+    de: {
+      story_title: 'Legende der Inseln',
+      story_intro: '<p>Einst leuchteten die Dracheninseln vor Kristallmagie. Doch die <b>Fünf Schattenlords</b> zerstörten die Harmonie und sperrten die Drachen in Eier.</p><p>Du bist der letzte <b>Hüter</b>. Kombiniere Kristalle, erwecke die Drachen und bring das Licht zurück!</p>',
+      dragon_q_flare: 'Endlich frei! Zeigen wir echtes Feuer!',
+      dragon_q_frost: 'Ruhe… und Kälte. Ich friere jede Gefahr ein.',
+      dragon_q_storm: 'Spürst du es? Der Sturm ist auf unserer Seite!',
+      dragon_q_verdant: 'Das Leben kehrt zurück. Gemeinsam säen wir Hoffnung.',
+      dragon_q_aether: 'Die Sterne flüstern vom Sieg. Führe, Hüter.',
+      boss_l_boss_ash: 'Diese Inseln sind Asche unter meiner Ferse. Flieh!',
+      boss_l_boss_titan: 'Die Kälte der Ewigkeit verschlingt dich. Kein Drache hilft dir.',
+      boss_l_boss_storm: 'Ich bin der Sturm! Deine Kristalle werden Staub.',
+      boss_l_boss_beast: 'Das Dickicht wittert einen Fremden. Du entkommst nicht.',
+      boss_l_boss_phoenix: 'Aus Asche erhob ich mich tausendfach. Du fällst nur einmal.'
+    },
+    fr: {
+      story_title: 'Légende des Îles',
+      story_intro: '<p>Jadis, les Îles Dragon brillaient de magie cristalline. Mais les <b>Cinq Seigneurs de l’Ombre</b> ont brisé l’harmonie et scellé les dragons dans des œufs.</p><p>Tu es le dernier <b>Gardien</b>. Associe les cristaux, réveille les dragons et ramène la lumière !</p>',
+      dragon_q_flare: 'Enfin libre ! Montrons-leur le vrai feu !',
+      dragon_q_frost: 'Le calme… et le froid. Je gèlerai toute menace.',
+      dragon_q_storm: 'Tu le sens ? La tempête est de notre côté !',
+      dragon_q_verdant: 'La vie revient. Ensemble, semons l’espoir.',
+      dragon_q_aether: 'Les étoiles murmurent la victoire. Guide-nous, Gardien.',
+      boss_l_boss_ash: 'Ces îles sont cendres sous mon talon. Fuis !',
+      boss_l_boss_titan: 'Le froid éternel t’engloutira. Aucun dragon ne te sauvera.',
+      boss_l_boss_storm: 'Je suis la tempête ! Tes cristaux seront poussière.',
+      boss_l_boss_beast: 'Le fourré sent un intrus. Tu ne sortiras pas vivant.',
+      boss_l_boss_phoenix: 'Des cendres je suis revenu mille fois. Tu ne tombes qu’une.'
+    },
+    pt: {
+      story_title: 'Lenda das Ilhas',
+      story_intro: '<p>As Ilhas Dragão brilhavam com magia de cristal. Mas os <b>Cinco Senhores das Sombras</b> quebraram a harmonia e selaram os dragões em ovos.</p><p>Você é o último <b>Guardião</b>. Combine cristais, desperte os dragões e traga a luz de volta!</p>',
+      dragon_q_flare: 'Livre enfim! Vamos mostrar fogo de verdade!',
+      dragon_q_frost: 'Calma… e frio. Vou congelar qualquer ameaça.',
+      dragon_q_storm: 'Sente no ar? A tempestade está do nosso lado!',
+      dragon_q_verdant: 'A vida retorna. Juntos cultivaremos esperança.',
+      dragon_q_aether: 'As estrelas sussurram vitória. Guie, Guardião.',
+      boss_l_boss_ash: 'Estas ilhas são cinzas sob meu calcanhar. Fuja!',
+      boss_l_boss_titan: 'O frio eterno vai te engolir. Nenhum dragão te salva.',
+      boss_l_boss_storm: 'Eu sou a tempestade! Seus cristais virarão pó.',
+      boss_l_boss_beast: 'A mata sente um intruso. Você não sai vivo.',
+      boss_l_boss_phoenix: 'Das cinzas ressurgi mil vezes. Você cai só uma.'
+    }
+  };
+  Object.keys(ST).forEach(function (l) { Object.assign(STR[l], ST[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

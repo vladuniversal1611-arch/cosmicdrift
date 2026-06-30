@@ -46,6 +46,7 @@
       settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
       tips: {},
+      story: { bossSeen: {} },
       firstRun: true
     };
   }

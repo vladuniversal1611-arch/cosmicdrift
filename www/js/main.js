@@ -34,11 +34,34 @@
       this.go('home');
       if (p.firstRun) {
         p.firstRun = false; global.Save.save();
-        global.UI.modal(T('welcome_title'), this.welcomeBody(), [
-          { label: T('start_adventure'), primary: true }
-        ]);
+        this.showStoryIntro();
       }
       requestAnimationFrame(this.loop.bind(this));
+    },
+
+    // ---- Story / narrative ------------------------------------------------
+    showStoryIntro: function () {
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body story-body';
+      body.innerHTML = '<div class="big-emoji">' + global.UI.dragonGlyph(D.dragonById('flare'), 'big-sprite', '#ff9d5c') + '</div>' + T('story_intro');
+      global.UI.modal('📖 ' + T('story_title'), body, [
+        { label: T('start_adventure'), primary: true, onClick: function () {
+          global.UI.modal(T('welcome_title'), self.welcomeBody(), [{ label: T('start_adventure'), primary: true }]);
+        } }
+      ]);
+    },
+    // One-time character/boss dialogue bubble.
+    bossDialogue: function (lv) {
+      if (!lv.boss || !lv.bossDef) return;
+      const p = global.Save.get();
+      const key = lv.bossDef.sprite;
+      if (!p.story) p.story = { bossSeen: {} };
+      if (!p.story.bossSeen) p.story.bossSeen = {};
+      if (p.story.bossSeen[key]) return;
+      p.story.bossSeen[key] = true; global.Save.save();
+      const self = this;
+      setTimeout(function () { global.UI.dialogue(global.UI.spriteGlyph(lv.bossDef.sprite, lv.bossDef.emoji, '', lv.bossDef.color), lv.bossDef.name, T('boss_l_' + key)); }, 900);
     },
 
     welcomeBody: function () {
@@ -109,7 +132,7 @@
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
-      else { this.showLevelIntro(lv); this.levelTips(lv); }
+      else { this.showLevelIntro(lv); this.levelTips(lv); this.bossDialogue(lv); }
     },
 
     // ---- Game modes (Blitz / Endless / Daily) ----------------------------

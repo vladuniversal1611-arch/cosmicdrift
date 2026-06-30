@@ -54,6 +54,19 @@
       this.current = id;
     },
 
+    // Character dialogue bubble (portrait + name + line).
+    dialogue: function (glyphHtml, name, line) {
+      const old = this.root.querySelector('.dialogue-pop'); if (old) old.remove();
+      const b = el('div', 'dialogue-pop');
+      b.innerHTML = '<div class="dlg-portrait">' + glyphHtml + '</div>' +
+        '<div class="dlg-text"><b>' + name + '</b><span>' + line + '</span></div>';
+      this.root.appendChild(b);
+      const remove = function () { if (b.parentNode) b.remove(); };
+      b.addEventListener('click', remove);
+      setTimeout(function () { b.classList.add('out'); }, 4200);
+      setTimeout(remove, 4800);
+    },
+
     tipBubble: function (msg) {
       const old = this.root.querySelector('.tip-pop'); if (old) old.remove();
       const b = el('div', 'tip-pop', msg);
@@ -298,7 +311,8 @@
         global.Audio2.play('hatch');
         const def = D.dragonById(egg.dragon);
         UI.modal(T('new_dragon'), el('div', 'modal-body',
-          '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b><p>' + def.desc + '</p>'),
+          '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b>' +
+          '<p class="dragon-quote">“' + T('dragon_q_' + def.id) + '”</p><p>' + def.desc + '</p>'),
           [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
       } else {
         if (p.energy < 10) { UI.toast(T('need_energy')); return; }
