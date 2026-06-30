@@ -474,16 +474,50 @@
       const g = this.ctx;
       g.clearRect(0, 0, this.viewW, this.viewH);
       if (this.inLevel && this.engine) {
-        // animated gradient backdrop for the board area
         const lv = D.LEVELS[this.currentLevel - 1];
         const isl = D.ISLANDS[lv.island];
-        const grd = g.createLinearGradient(0, 0, 0, this.viewH);
-        grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
-        g.fillStyle = grd; g.fillRect(0, 0, this.viewW, this.viewH);
+        this.drawBackground(g, isl, dt);
         this.engine.update(dt);
         this.engine.draw(g);
+        this.drawVignette(g);
       }
       requestAnimationFrame(this.loop.bind(this));
+    },
+
+    drawBackground: function (g, isl, dt) {
+      const W = this.viewW, H = this.viewH;
+      // base gradient
+      const grd = g.createLinearGradient(0, 0, 0, H);
+      grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
+      g.fillStyle = grd; g.fillRect(0, 0, W, H);
+      // god-ray glow at the top
+      const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
+      glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
+      g.fillStyle = glow; g.fillRect(0, 0, W, H);
+      // drifting bokeh
+      if (!this.bokeh) {
+        this.bokeh = [];
+        for (let i = 0; i < 18; i++) this.bokeh.push({ x: Math.random() * W, y: Math.random() * H, r: 6 + Math.random() * 22, sp: 8 + Math.random() * 22, a: 0.04 + Math.random() * 0.08 });
+      }
+      for (let i = 0; i < this.bokeh.length; i++) {
+        const b = this.bokeh[i];
+        b.y -= b.sp * dt; if (b.y < -30) { b.y = H + 30; b.x = Math.random() * W; }
+        g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        g.fillStyle = this.hexA(isl.theme, b.a); g.fill();
+      }
+    },
+
+    drawVignette: function (g) {
+      const W = this.viewW, H = this.viewH;
+      const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+      g.fillStyle = v; g.fillRect(0, 0, W, H);
+    },
+
+    hexA: function (hex, a) {
+      const h = hex.replace('#', '');
+      const r = parseInt(h.substring(0, 2), 16), gg = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+      return 'rgba(' + r + ',' + gg + ',' + b + ',' + a + ')';
     }
   };
 

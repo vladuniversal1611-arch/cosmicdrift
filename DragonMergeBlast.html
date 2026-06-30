@@ -446,6 +446,52 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ============================================================
+   Premium polish pass — glassmorphism, depth, sheen
+   ============================================================ */
+.cur, .hud-pill, .hud-obj, .booster, .dragon-bar {
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02)), rgba(14,9,32,0.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 16px rgba(0,0,0,0.35);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.egg-card, .shop-card, .quest-card, .dragon-card, .island-block, .pass-head, .piggy-widget, .lb-row, .set-row, .daily-cell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)), rgba(18,12,40,0.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 5px 14px rgba(0,0,0,0.3);
+}
+.modal-card {
+  background: linear-gradient(180deg, #34256a, #170f33);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 24px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,210,120,0.18);
+}
+/* section headers get an accent bar */
+.section-h:not(.center) { position: relative; padding-left: 22px; }
+.section-h:not(.center)::before {
+  content: ''; position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 16px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--gold)); box-shadow: 0 0 8px rgba(255,160,80,0.6);
+}
+/* buttons: glossy sheen + crisper bevel */
+.btn-primary, .btn-buy { position: relative; overflow: hidden; }
+.btn-primary::after, .btn-buy::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 45%);
+  pointer-events: none;
+}
+.btn-tile, .btn-ghost {
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)), rgba(18,12,40,0.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 10px rgba(0,0,0,0.25);
+}
+/* level nodes: glossy */
+.lv-node { box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 3px 0 rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.25); }
+.lv-node::after {
+  content: ''; position: absolute; inset: 0; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 50%); pointer-events: none;
+}
+/* currency bar floats with a subtle glass strip */
+.currency-bar { background: linear-gradient(180deg, rgba(8,5,20,0.7), rgba(8,5,20,0)); }
+/* title glow pulse */
+.home-title h1 { animation: titleGlow 4s ease-in-out infinite; }
+@keyframes titleGlow { 0%,100% { filter: drop-shadow(0 0 8px rgba(255,140,60,0.25)); } 50% { filter: drop-shadow(0 0 18px rgba(255,180,90,0.5)); } }
+
 </style>
 </head>
 <body>
@@ -1687,6 +1733,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt;
+      if (p.shard) { p.rot += p.spin * dt; p.vx *= 0.96; }
       if (p.t >= p.life) this.particles.splice(i, 1);
     }
     // floating score text
@@ -2292,9 +2339,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.rings.push({ x: x, y: y, maxR: maxR, color: color || '#fff', t: 0, life: 0.5 });
   };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
-    for (let i = 0; i < (n || 6); i++) {
-      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 180;
-      this.particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, t: 0, life: 0.4 + Math.random() * 0.4, color: color, size: 2 + Math.random() * 4 });
+    n = n || 6;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 200;
+      const shard = i % 2 === 0;
+      this.particles.push({
+        x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80,
+        t: 0, life: 0.45 + Math.random() * 0.45, color: color,
+        size: shard ? (this.tile * (0.1 + Math.random() * 0.12)) : (2 + Math.random() * 4),
+        shard: shard, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 18
+      });
     }
   };
   Engine.prototype.addFloater = function (x, y, text, color) {
@@ -2363,14 +2417,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       g.beginPath(); g.arc(ring.x, ring.y, ring.maxR * ease(p), 0, Math.PI * 2); g.stroke();
     }
     g.globalAlpha = 1;
-    // particles
+    // particles (glowing dots + spinning shards)
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       g.globalAlpha = Math.max(0, 1 - p.t / p.life);
       g.fillStyle = p.color;
-      g.beginPath(); g.arc(p.x, p.y, p.size, 0, Math.PI * 2); g.fill();
+      if (p.shard) {
+        g.save();
+        g.translate(p.x, p.y); g.rotate(p.rot);
+        const s = p.size;
+        g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.7, s * 0.6); g.lineTo(-s * 0.7, s * 0.6); g.closePath();
+        g.shadowColor = p.color; g.shadowBlur = 8; g.fill();
+        g.restore();
+      } else {
+        g.shadowColor = p.color; g.shadowBlur = 8;
+        g.beginPath(); g.arc(p.x, p.y, p.size, 0, Math.PI * 2); g.fill();
+      }
     }
-    g.globalAlpha = 1;
+    g.shadowBlur = 0; g.globalAlpha = 1;
     // dragon flyover
     for (let i = 0; i < this.dragonFx.length; i++) {
       const fx = this.dragonFx[i];
@@ -2421,24 +2485,48 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     }
 
     const cr = D.CRYSTALS[t.type];
-    // Per-island gem shape: corner radius varies so each island's board looks distinct.
     const RADII = [0.22, 0.5, 0.1, 0.36, 0.26];
     const island = (this.level && this.level.island) || 0;
     const rad = tile * (RADII[island] != null ? RADII[island] : 0.22);
-    // gem body — rounded gradient
-    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad);
+    const bx = x + pad, by = y + pad, bw = tile - pad * 2, bh = tile - pad * 2;
+
+    // soft drop shadow
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,0.38)'; g.shadowBlur = tile * 0.12; g.shadowOffsetY = tile * 0.05;
+    this.roundRect(g, bx, by, bw, bh, rad);
     const grd = g.createLinearGradient(x, y, x, y + tile);
     grd.addColorStop(0, cr.c1); grd.addColorStop(1, cr.c2);
     g.fillStyle = grd; g.fill();
-    // island-tinted rim
-    const theme = (D.ISLANDS[island] && D.ISLANDS[island].theme) || '#ffffff';
-    g.strokeStyle = theme; g.globalAlpha = 0.35; g.lineWidth = Math.max(1, tile * 0.04);
-    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad); g.stroke();
-    g.globalAlpha = 1;
-    // glossy highlight
+    g.restore();
+
+    // clip to the gem for interior shading
+    g.save();
+    this.roundRect(g, bx, by, bw, bh, rad); g.clip();
+    // radial sheen from top-left
+    const rg = g.createRadialGradient(cx - tile * 0.14, cy - tile * 0.18, tile * 0.04, cx, cy, tile * 0.62);
+    rg.addColorStop(0, 'rgba(255,255,255,0.6)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.12)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = rg; g.fillRect(bx, by, bw, bh);
+    // faceted cut lines
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = Math.max(1, tile * 0.02);
+    g.beginPath(); g.moveTo(cx, by); g.lineTo(bx + bw, cy); g.lineTo(cx, by + bh); g.lineTo(bx, cy); g.closePath(); g.stroke();
+    // bottom inner shadow for depth
+    const sg = g.createLinearGradient(x, cy, x, y + tile);
+    sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.28)');
+    g.fillStyle = sg; g.fillRect(bx, cy, bw, bh / 2);
+    g.restore();
+
+    // beveled rim (light top → dark bottom)
+    const rim = g.createLinearGradient(x, y, x, y + tile);
+    rim.addColorStop(0, 'rgba(255,255,255,0.65)'); rim.addColorStop(0.5, 'rgba(255,255,255,0.08)'); rim.addColorStop(1, 'rgba(0,0,0,0.3)');
+    g.strokeStyle = rim; g.lineWidth = Math.max(1.2, tile * 0.05);
+    this.roundRect(g, bx, by, bw, bh, rad); g.stroke();
+
+    // specular highlight
     g.beginPath();
-    g.ellipse(cx - tile * 0.12, cy - tile * 0.14, tile * 0.18, tile * 0.1, -0.5, 0, Math.PI * 2);
-    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fill();
+    g.ellipse(cx - tile * 0.13, cy - tile * 0.16, tile * 0.16, tile * 0.09, -0.5, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(255,255,255,0.7)'; g.fill();
+    g.beginPath(); g.arc(cx + tile * 0.12, cy + tile * 0.12, tile * 0.025, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(255,255,255,0.5)'; g.fill();
     // core sparkle / glyph
     if (t.special !== SP.NONE) {
       g.shadowColor = '#fff'; g.shadowBlur = 14;
@@ -3799,16 +3887,50 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const g = this.ctx;
       g.clearRect(0, 0, this.viewW, this.viewH);
       if (this.inLevel && this.engine) {
-        // animated gradient backdrop for the board area
         const lv = D.LEVELS[this.currentLevel - 1];
         const isl = D.ISLANDS[lv.island];
-        const grd = g.createLinearGradient(0, 0, 0, this.viewH);
-        grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
-        g.fillStyle = grd; g.fillRect(0, 0, this.viewW, this.viewH);
+        this.drawBackground(g, isl, dt);
         this.engine.update(dt);
         this.engine.draw(g);
+        this.drawVignette(g);
       }
       requestAnimationFrame(this.loop.bind(this));
+    },
+
+    drawBackground: function (g, isl, dt) {
+      const W = this.viewW, H = this.viewH;
+      // base gradient
+      const grd = g.createLinearGradient(0, 0, 0, H);
+      grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
+      g.fillStyle = grd; g.fillRect(0, 0, W, H);
+      // god-ray glow at the top
+      const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
+      glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
+      g.fillStyle = glow; g.fillRect(0, 0, W, H);
+      // drifting bokeh
+      if (!this.bokeh) {
+        this.bokeh = [];
+        for (let i = 0; i < 18; i++) this.bokeh.push({ x: Math.random() * W, y: Math.random() * H, r: 6 + Math.random() * 22, sp: 8 + Math.random() * 22, a: 0.04 + Math.random() * 0.08 });
+      }
+      for (let i = 0; i < this.bokeh.length; i++) {
+        const b = this.bokeh[i];
+        b.y -= b.sp * dt; if (b.y < -30) { b.y = H + 30; b.x = Math.random() * W; }
+        g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        g.fillStyle = this.hexA(isl.theme, b.a); g.fill();
+      }
+    },
+
+    drawVignette: function (g) {
+      const W = this.viewW, H = this.viewH;
+      const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+      g.fillStyle = v; g.fillRect(0, 0, W, H);
+    },
+
+    hexA: function (hex, a) {
+      const h = hex.replace('#', '');
+      const r = parseInt(h.substring(0, 2), 16), gg = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+      return 'rgba(' + r + ',' + gg + ',' + b + ',' + a + ')';
     }
   };
 
