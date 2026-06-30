@@ -483,6 +483,23 @@
   };
   Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
 
+  // Roguelite Dragon Trials.
+  const TR = {
+    uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',
+      relic_moves: 'Сувій ходів', relic_moves_d: '+3 ходи на кожному рівні', relic_charge: 'Кристал заряду', relic_charge_d: 'Дракони заряджаються швидше', relic_score: 'Амулет очок', relic_score_d: '+15% до очок', relic_specials: 'Зерно сили', relic_specials_d: 'Починай з особливим кристалом', relic_power: 'Ікло дракона', relic_power_d: '+1 до сили драконів', relic_shield: 'Щит фенікса', relic_shield_d: 'Переживи одну поразку' },
+    en: { mode_trials: 'Trials', mode_trials_desc: 'Roguelite run: pick a relic between levels. How deep can you go?', depth: 'Depth {n}', choose_relic: 'Choose a relic', run_over: '🐉 Run over', revived: 'Shield saved your run!',
+      relic_moves: 'Scroll of Moves', relic_moves_d: '+3 moves every level', relic_charge: 'Charge Crystal', relic_charge_d: 'Dragons charge faster', relic_score: 'Score Amulet', relic_score_d: '+15% score', relic_specials: 'Seed of Power', relic_specials_d: 'Start with a special crystal', relic_power: 'Dragon Fang', relic_power_d: '+1 dragon ability power', relic_shield: 'Phoenix Shield', relic_shield_d: 'Survive one defeat' },
+    es: { mode_trials: 'Pruebas', mode_trials_desc: 'Roguelite: elige una reliquia entre niveles. ¿Hasta dónde llegas?', depth: 'Profundidad {n}', choose_relic: 'Elige una reliquia', run_over: '🐉 Fin de la partida', revived: '¡El escudo te salvó!',
+      relic_moves: 'Pergamino de movimientos', relic_moves_d: '+3 movimientos por nivel', relic_charge: 'Cristal de carga', relic_charge_d: 'Dragones cargan más rápido', relic_score: 'Amuleto de puntos', relic_score_d: '+15% puntos', relic_specials: 'Semilla de poder', relic_specials_d: 'Empieza con un cristal especial', relic_power: 'Colmillo de dragón', relic_power_d: '+1 poder de dragón', relic_shield: 'Escudo de fénix', relic_shield_d: 'Sobrevive una derrota' },
+    de: { mode_trials: 'Prüfungen', mode_trials_desc: 'Roguelite: wähle zwischen Levels ein Relikt. Wie tief kommst du?', depth: 'Tiefe {n}', choose_relic: 'Wähle ein Relikt', run_over: '🐉 Lauf vorbei', revived: 'Schild rettete den Lauf!',
+      relic_moves: 'Zugrolle', relic_moves_d: '+3 Züge pro Level', relic_charge: 'Ladekristall', relic_charge_d: 'Drachen laden schneller', relic_score: 'Punkteamulett', relic_score_d: '+15% Punkte', relic_specials: 'Saat der Macht', relic_specials_d: 'Starte mit Spezialkristall', relic_power: 'Drachenzahn', relic_power_d: '+1 Drachenstärke', relic_shield: 'Phönixschild', relic_shield_d: 'Überlebe eine Niederlage' },
+    fr: { mode_trials: 'Épreuves', mode_trials_desc: 'Roguelite : choisis une relique entre les niveaux. Jusqu’où iras-tu ?', depth: 'Profondeur {n}', choose_relic: 'Choisis une relique', run_over: '🐉 Partie terminée', revived: 'Le bouclier vous a sauvé !',
+      relic_moves: 'Parchemin de coups', relic_moves_d: '+3 coups par niveau', relic_charge: 'Cristal de charge', relic_charge_d: 'Dragons chargent plus vite', relic_score: 'Amulette de score', relic_score_d: '+15% de score', relic_specials: 'Graine de pouvoir', relic_specials_d: 'Commence avec un cristal spécial', relic_power: 'Croc de dragon', relic_power_d: '+1 puissance des dragons', relic_shield: 'Bouclier du phénix', relic_shield_d: 'Survis à une défaite' },
+    pt: { mode_trials: 'Provações', mode_trials_desc: 'Roguelite: escolha uma relíquia entre níveis. Até onde vai?', depth: 'Profundidade {n}', choose_relic: 'Escolha uma relíquia', run_over: '🐉 Fim da jornada', revived: 'O escudo salvou sua jornada!',
+      relic_moves: 'Pergaminho de jogadas', relic_moves_d: '+3 jogadas por nível', relic_charge: 'Cristal de carga', relic_charge_d: 'Dragões carregam mais rápido', relic_score: 'Amuleto de pontos', relic_score_d: '+15% de pontos', relic_specials: 'Semente de poder', relic_specials_d: 'Começa com um cristal especial', relic_power: 'Presa de dragão', relic_power_d: '+1 poder dos dragões', relic_shield: 'Escudo da fênix', relic_shield_d: 'Sobreviva a uma derrota' }
+  };
+  Object.keys(TR).forEach(function (l) { Object.assign(STR[l], TR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

@@ -222,8 +222,18 @@
     return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
   }
 
+  // ---- Roguelite relics (Dragon Trials) ----------------------------------
+  const RELICS = [
+    { id: 'moves',    ic: '➕' },  // +3 moves each level
+    { id: 'charge',   ic: '⚡' },  // dragons charge faster
+    { id: 'score',    ic: '✖️' },  // +15% score
+    { id: 'specials', ic: '💠' },  // start with a special crystal
+    { id: 'power',    ic: '🔥' },  // +1 dragon ability power
+    { id: 'shield',   ic: '🛡️' }   // survive one defeat (revive)
+  ];
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };

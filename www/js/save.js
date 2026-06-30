@@ -41,7 +41,7 @@
       streak: { wins: 0, best: 0 },
       piggy: { coins: 0, cap: 500 },
       chests: {},
-      modeBest: { blitz: 0, endless: 0 },
+      modeBest: { blitz: 0, endless: 0, trials: 0 },
       daily2: { date: '', done: false },
       settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,

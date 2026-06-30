@@ -189,6 +189,133 @@
       ]);
     },
 
+    // ---- Roguelite: Dragon Trials ----------------------------------------
+    computeMods: function (relics) {
+      const m = { moves: 0, chargeMult: 1, scoreMult: 1, startSpecials: 0, powerBonus: 0 };
+      relics.forEach(function (id) {
+        if (id === 'moves') m.moves += 3;
+        else if (id === 'charge') m.chargeMult += 0.2;
+        else if (id === 'score') m.scoreMult += 0.15;
+        else if (id === 'specials') m.startSpecials += 1;
+        else if (id === 'power') m.powerBonus += 1;
+      });
+      return m;
+    },
+    buildTrialsLevel: function (depth, mods) {
+      const island = (depth - 1) % 5;
+      const isBoss = depth % 5 === 0;
+      const cyc = depth % 4;
+      let objective = D.OBJ.SCORE, target = 1500 + depth * 500, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
+      if (isBoss) { objective = D.OBJ.BOSS; target = 70 + depth * 9; }
+      else if (cyc === 1) { objective = D.OBJ.COLLECT; color = depth % 6; target = 18 + depth * 3; }
+      else if (cyc === 2) { objective = D.OBJ.ICE; iceCount = 8 + depth; crates = 1 + (depth / 6 | 0); target = iceCount; }
+      else if (cyc === 3) { objective = D.OBJ.JELLY; jellyCount = 8 + depth; target = jellyCount; }
+      else { chains = (depth / 5 | 0); }
+      const moves = Math.max(12, 22 - (depth / 3 | 0)) + (mods.moves || 0);
+      return {
+        mode: 'trials', cols: 8, rows: 8, colors: Math.min(6, 5 + (depth / 8 | 0)),
+        objective: objective, target: target, color: color, iceCount: iceCount, jellyCount: jellyCount,
+        crates: crates, chains: chains, moves: moves, island: island, n: 0, mods: mods,
+        name: T('mode_trials') + ' · ' + T('depth', { n: depth }),
+        boss: isBoss, bossDef: isBoss ? D.BOSSES[island] : null, reward: { gold: 0, energy: 0 }, star2: 1, star3: 1
+      };
+    },
+    startTrials: function () {
+      this.run = { depth: 1, relics: [], score: 0, revive: false };
+      this.startTrialLevel();
+    },
+    startTrialLevel: function () {
+      const p = global.Save.get();
+      const self = this;
+      const mods = this.computeMods(this.run.relics);
+      const lv = this.buildTrialsLevel(this.run.depth, mods);
+      this.currentMode = 'trials'; this.currentLevel = null; this.currentLevelObj = lv;
+      this.engine = new global.Engine();
+      this.engine.init(lv, p.equipped, {
+        onScore: function (s) { if (self.hud) self.hud.score.textContent = s; },
+        onMoves: function (m) { if (self.hud) { self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); } },
+        onObjective: function (cur, goal, label) { if (!self.hud) return; self.hud.objLabel.textContent = label; self.hud.objVal.textContent = cur + ' / ' + goal; self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%'; },
+        onDragons: function (d) { self.renderDragonBars(d); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
+        onCombo: function (n) { self.showCombo(n); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
+        onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
+        onWin: function (res) { self.trialWin(res); },
+        onLose: function (res) { self.trialLose(res); }
+      });
+      this.buildHud(lv);
+      this.inLevel = true;
+      global.UI.show('game');
+      this.gameScreen.classList.remove('hidden');
+      this.resize();
+      global.Audio2.setIsland(lv.island);
+      global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      this.showLevelIntro(lv);
+      this.levelTips(lv);
+    },
+    trialWin: function (res) {
+      this.run.depth += 1; this.run.score += res.score;
+      const p = global.Save.get(); p.gold += 40; global.Save.save(); global.UI.refreshCurrencies();
+      this.showRelicPick();
+    },
+    trialLose: function (res) {
+      if (this.run.revive) { // shield relic saves the run once
+        this.run.revive = false;
+        this.engine.movesLeft += 5; this.engine.finished = false; this.engine.state = 'idle';
+        if (this.hud) this.hud.moves.textContent = this.engine.movesLeft;
+        global.UI.toast('🛡️ ' + T('revived'));
+        return;
+      }
+      this.trialsRunOver(res);
+    },
+    showRelicPick: function () {
+      const self = this;
+      // pick 3 distinct random relics
+      const pool = D.RELICS.slice();
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      const choices = pool.slice(0, 3);
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<p class="muted">' + T('depth', { n: this.run.depth }) + ' · ' + T('score', { n: this.run.score }) + '</p>';
+      choices.forEach(function (rel) {
+        const card = document.createElement('div');
+        card.className = 'relic-card';
+        card.innerHTML = '<div class="relic-ic">' + rel.ic + '</div><div class="relic-info"><b>' + T('relic_' + rel.id) + '</b><span>' + T('relic_' + rel.id + '_d') + '</span></div>';
+        card.addEventListener('click', function () {
+          global.Audio2.play('coin');
+          if (rel.id === 'shield') self.run.revive = true; else self.run.relics.push(rel.id);
+          global.UI.closeModal();
+          self.startTrialLevel();
+        });
+        body.appendChild(card);
+      });
+      global.UI.modal('🎁 ' + T('choose_relic'), body, []); // no buttons; must pick
+    },
+    trialsRunOver: function (res) {
+      const p = global.Save.get();
+      const depth = this.run.depth;
+      const reward = depth * 50;
+      p.gold += reward;
+      const best = p.modeBest.trials || 0;
+      const isBest = depth > best;
+      if (isBest) p.modeBest.trials = depth;
+      global.Save.save(); global.UI.refreshCurrencies();
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">🐉</div>' +
+        '<div class="win-score">' + T('depth', { n: depth }) + '</div>' +
+        (isBest ? '<div class="streak-line">🏆 ' + T('new_best') + '</div>' : '<div class="muted small">' + T('best') + ': ' + best + '</div>') +
+        '<div class="win-rewards">+' + reward + '🪙</div>';
+      global.UI.modal(T('run_over'), body, [
+        { label: T('btn_island'), onClick: function () { self.go('home'); } },
+        { label: T('btn_retry'), primary: true, onClick: function () { self.startTrials(); } }
+      ]);
+    },
+
     onModeEnd: function (res) {
       const p = global.Save.get();
       const mode = this.currentMode;

@@ -815,6 +815,7 @@
       const dailyDone = p.daily2.done && p.daily2.date === today;
       const wrap = el('div', 'modes-wrap');
       const modes = [
+        { id: 'trials', ic: '🎲', name: T('mode_trials'), desc: T('mode_trials_desc'), best: p.modeBest.trials, bestLabel: T('depth', { n: p.modeBest.trials || 0 }) },
         { id: 'blitz', ic: '⏱️', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
         { id: 'endless', ic: '♾️', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
         { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true },
@@ -822,13 +823,14 @@
       ];
       modes.forEach(function (m) {
         const card = el('div', 'mode-card');
-        const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + m.best) : '');
+        const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + (m.bestLabel || m.best)) : '');
         card.innerHTML = '<div class="mode-ic">' + m.ic + '</div>' +
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
         if (!disabled) click(btn, function () {
           if (m.adventure) global.Game.go('map');
+          else if (m.id === 'trials') global.Game.startTrials();
           else global.Game.startMode(m.id);
         });
         card.appendChild(btn);

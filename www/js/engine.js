@@ -60,7 +60,11 @@
     this.danger = 0;
     this.elapsed = 0;
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
-    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1);
+    // Roguelite relic modifiers (Dragon Trials mode)
+    const mods = level.mods || {};
+    this.scoreMult = mods.scoreMult || 1;
+    this.powerBonus = mods.powerBonus || 0;
+    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1) * (mods.chargeMult || 1);
 
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
@@ -71,6 +75,12 @@
     });
 
     this.buildBoard();
+    // relic: start the board with a few special crystals
+    const ss = mods.startSpecials || 0;
+    for (let k = 0; k < ss; k++) {
+      const r = rnd(this.rows), c = rnd(this.cols), t = this.grid[r][c];
+      if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H);
+    }
     this.emitObjective();
   };
 
@@ -518,7 +528,7 @@
     });
 
     // scoring
-    const gained = cleared * 30 * Math.max(1, this.combo);
+    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1));
     this.score += gained;
     if (gained > 0) {
       this.addFloater(this.viewport.x + this.viewport.size / 2,
@@ -741,7 +751,7 @@
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
-    const power = d.level + (((d.tier || 1) - 1) * 2); // evolution boosts ability power
+    const power = d.level + (((d.tier || 1) - 1) * 2) + (this.powerBonus || 0); // evolution + relics
     const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || null;
     const color = sc ? sc.color : d.def.color;
     // visual flyover

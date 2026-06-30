@@ -94,6 +94,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .mode-info span { font-size: 11px; color: var(--muted); line-height: 1.3; }
 .mode-best { color: var(--gold) !important; font-weight: 800; }
 
+/* ---- Relic pick cards ---- */
+.relic-card { display: flex; align-items: center; gap: 12px; background: var(--panel2); border: 1px solid rgba(255,210,120,0.3); border-radius: 14px; padding: 12px; margin-top: 10px; text-align: left; cursor: pointer; transition: transform 0.08s, border-color 0.15s; }
+.relic-card:active { transform: scale(0.97); }
+.relic-card:hover { border-color: rgba(255,210,120,0.7); }
+.relic-ic { font-size: 30px; }
+.relic-info { flex: 1; display: flex; flex-direction: column; }
+.relic-info b { font-size: 14px; color: var(--gold); }
+.relic-info span { font-size: 11px; color: var(--muted); }
+
 /* ---- Boss panel ---- */
 .boss-panel {
   position: absolute; top: 152px; left: 14px; right: 14px; z-index: 10;
@@ -806,8 +815,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
   }
 
+  // ---- Roguelite relics (Dragon Trials) ----------------------------------
+  const RELICS = [
+    { id: 'moves',    ic: '➕' },  // +3 moves each level
+    { id: 'charge',   ic: '⚡' },  // dragons charge faster
+    { id: 'score',    ic: '✖️' },  // +15% score
+    { id: 'specials', ic: '💠' },  // start with a special crystal
+    { id: 'power',    ic: '🔥' },  // +1 dragon ability power
+    { id: 'shield',   ic: '🛡️' }   // survive one defeat (revive)
+  ];
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };
@@ -1299,6 +1318,23 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
 
+  // Roguelite Dragon Trials.
+  const TR = {
+    uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',
+      relic_moves: 'Сувій ходів', relic_moves_d: '+3 ходи на кожному рівні', relic_charge: 'Кристал заряду', relic_charge_d: 'Дракони заряджаються швидше', relic_score: 'Амулет очок', relic_score_d: '+15% до очок', relic_specials: 'Зерно сили', relic_specials_d: 'Починай з особливим кристалом', relic_power: 'Ікло дракона', relic_power_d: '+1 до сили драконів', relic_shield: 'Щит фенікса', relic_shield_d: 'Переживи одну поразку' },
+    en: { mode_trials: 'Trials', mode_trials_desc: 'Roguelite run: pick a relic between levels. How deep can you go?', depth: 'Depth {n}', choose_relic: 'Choose a relic', run_over: '🐉 Run over', revived: 'Shield saved your run!',
+      relic_moves: 'Scroll of Moves', relic_moves_d: '+3 moves every level', relic_charge: 'Charge Crystal', relic_charge_d: 'Dragons charge faster', relic_score: 'Score Amulet', relic_score_d: '+15% score', relic_specials: 'Seed of Power', relic_specials_d: 'Start with a special crystal', relic_power: 'Dragon Fang', relic_power_d: '+1 dragon ability power', relic_shield: 'Phoenix Shield', relic_shield_d: 'Survive one defeat' },
+    es: { mode_trials: 'Pruebas', mode_trials_desc: 'Roguelite: elige una reliquia entre niveles. ¿Hasta dónde llegas?', depth: 'Profundidad {n}', choose_relic: 'Elige una reliquia', run_over: '🐉 Fin de la partida', revived: '¡El escudo te salvó!',
+      relic_moves: 'Pergamino de movimientos', relic_moves_d: '+3 movimientos por nivel', relic_charge: 'Cristal de carga', relic_charge_d: 'Dragones cargan más rápido', relic_score: 'Amuleto de puntos', relic_score_d: '+15% puntos', relic_specials: 'Semilla de poder', relic_specials_d: 'Empieza con un cristal especial', relic_power: 'Colmillo de dragón', relic_power_d: '+1 poder de dragón', relic_shield: 'Escudo de fénix', relic_shield_d: 'Sobrevive una derrota' },
+    de: { mode_trials: 'Prüfungen', mode_trials_desc: 'Roguelite: wähle zwischen Levels ein Relikt. Wie tief kommst du?', depth: 'Tiefe {n}', choose_relic: 'Wähle ein Relikt', run_over: '🐉 Lauf vorbei', revived: 'Schild rettete den Lauf!',
+      relic_moves: 'Zugrolle', relic_moves_d: '+3 Züge pro Level', relic_charge: 'Ladekristall', relic_charge_d: 'Drachen laden schneller', relic_score: 'Punkteamulett', relic_score_d: '+15% Punkte', relic_specials: 'Saat der Macht', relic_specials_d: 'Starte mit Spezialkristall', relic_power: 'Drachenzahn', relic_power_d: '+1 Drachenstärke', relic_shield: 'Phönixschild', relic_shield_d: 'Überlebe eine Niederlage' },
+    fr: { mode_trials: 'Épreuves', mode_trials_desc: 'Roguelite : choisis une relique entre les niveaux. Jusqu’où iras-tu ?', depth: 'Profondeur {n}', choose_relic: 'Choisis une relique', run_over: '🐉 Partie terminée', revived: 'Le bouclier vous a sauvé !',
+      relic_moves: 'Parchemin de coups', relic_moves_d: '+3 coups par niveau', relic_charge: 'Cristal de charge', relic_charge_d: 'Dragons chargent plus vite', relic_score: 'Amulette de score', relic_score_d: '+15% de score', relic_specials: 'Graine de pouvoir', relic_specials_d: 'Commence avec un cristal spécial', relic_power: 'Croc de dragon', relic_power_d: '+1 puissance des dragons', relic_shield: 'Bouclier du phénix', relic_shield_d: 'Survis à une défaite' },
+    pt: { mode_trials: 'Provações', mode_trials_desc: 'Roguelite: escolha uma relíquia entre níveis. Até onde vai?', depth: 'Profundidade {n}', choose_relic: 'Escolha uma relíquia', run_over: '🐉 Fim da jornada', revived: 'O escudo salvou sua jornada!',
+      relic_moves: 'Pergaminho de jogadas', relic_moves_d: '+3 jogadas por nível', relic_charge: 'Cristal de carga', relic_charge_d: 'Dragões carregam mais rápido', relic_score: 'Amuleto de pontos', relic_score_d: '+15% de pontos', relic_specials: 'Semente de poder', relic_specials_d: 'Começa com um cristal especial', relic_power: 'Presa de dragão', relic_power_d: '+1 poder dos dragões', relic_shield: 'Escudo da fênix', relic_shield_d: 'Sobreviva a uma derrota' }
+  };
+  Object.keys(TR).forEach(function (l) { Object.assign(STR[l], TR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
@@ -1390,7 +1426,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       streak: { wins: 0, best: 0 },
       piggy: { coins: 0, cap: 500 },
       chests: {},
-      modeBest: { blitz: 0, endless: 0 },
+      modeBest: { blitz: 0, endless: 0, trials: 0 },
       daily2: { date: '', done: false },
       settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
@@ -1694,7 +1730,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.danger = 0;
     this.elapsed = 0;
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
-    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1);
+    // Roguelite relic modifiers (Dragon Trials mode)
+    const mods = level.mods || {};
+    this.scoreMult = mods.scoreMult || 1;
+    this.powerBonus = mods.powerBonus || 0;
+    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1) * (mods.chargeMult || 1);
 
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
@@ -1705,6 +1745,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     });
 
     this.buildBoard();
+    // relic: start the board with a few special crystals
+    const ss = mods.startSpecials || 0;
+    for (let k = 0; k < ss; k++) {
+      const r = rnd(this.rows), c = rnd(this.cols), t = this.grid[r][c];
+      if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H);
+    }
     this.emitObjective();
   };
 
@@ -2152,7 +2198,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     });
 
     // scoring
-    const gained = cleared * 30 * Math.max(1, this.combo);
+    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1));
     this.score += gained;
     if (gained > 0) {
       this.addFloater(this.viewport.x + this.viewport.size / 2,
@@ -2375,7 +2421,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     global.Audio2.play('dragon');
     global.Save.addStat('dragonProcs', 1);
     this.cb.onDragonProc && this.cb.onDragonProc(d);
-    const power = d.level + (((d.tier || 1) - 1) * 2); // evolution boosts ability power
+    const power = d.level + (((d.tier || 1) - 1) * 2) + (this.powerBonus || 0); // evolution + relics
     const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || null;
     const color = sc ? sc.color : d.def.color;
     // visual flyover
@@ -3693,6 +3739,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const dailyDone = p.daily2.done && p.daily2.date === today;
       const wrap = el('div', 'modes-wrap');
       const modes = [
+        { id: 'trials', ic: '🎲', name: T('mode_trials'), desc: T('mode_trials_desc'), best: p.modeBest.trials, bestLabel: T('depth', { n: p.modeBest.trials || 0 }) },
         { id: 'blitz', ic: '⏱️', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
         { id: 'endless', ic: '♾️', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
         { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true },
@@ -3700,13 +3747,14 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       ];
       modes.forEach(function (m) {
         const card = el('div', 'mode-card');
-        const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + m.best) : '');
+        const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + (m.bestLabel || m.best)) : '');
         card.innerHTML = '<div class="mode-ic">' + m.ic + '</div>' +
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
         if (!disabled) click(btn, function () {
           if (m.adventure) global.Game.go('map');
+          else if (m.id === 'trials') global.Game.startTrials();
           else global.Game.startMode(m.id);
         });
         card.appendChild(btn);
@@ -4007,6 +4055,133 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '<p class="muted small">' + T('daily_done') + '</p>');
       global.UI.modal(win ? T('victory') : T('defeat'), body, [
         { label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } }
+      ]);
+    },
+
+    // ---- Roguelite: Dragon Trials ----------------------------------------
+    computeMods: function (relics) {
+      const m = { moves: 0, chargeMult: 1, scoreMult: 1, startSpecials: 0, powerBonus: 0 };
+      relics.forEach(function (id) {
+        if (id === 'moves') m.moves += 3;
+        else if (id === 'charge') m.chargeMult += 0.2;
+        else if (id === 'score') m.scoreMult += 0.15;
+        else if (id === 'specials') m.startSpecials += 1;
+        else if (id === 'power') m.powerBonus += 1;
+      });
+      return m;
+    },
+    buildTrialsLevel: function (depth, mods) {
+      const island = (depth - 1) % 5;
+      const isBoss = depth % 5 === 0;
+      const cyc = depth % 4;
+      let objective = D.OBJ.SCORE, target = 1500 + depth * 500, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
+      if (isBoss) { objective = D.OBJ.BOSS; target = 70 + depth * 9; }
+      else if (cyc === 1) { objective = D.OBJ.COLLECT; color = depth % 6; target = 18 + depth * 3; }
+      else if (cyc === 2) { objective = D.OBJ.ICE; iceCount = 8 + depth; crates = 1 + (depth / 6 | 0); target = iceCount; }
+      else if (cyc === 3) { objective = D.OBJ.JELLY; jellyCount = 8 + depth; target = jellyCount; }
+      else { chains = (depth / 5 | 0); }
+      const moves = Math.max(12, 22 - (depth / 3 | 0)) + (mods.moves || 0);
+      return {
+        mode: 'trials', cols: 8, rows: 8, colors: Math.min(6, 5 + (depth / 8 | 0)),
+        objective: objective, target: target, color: color, iceCount: iceCount, jellyCount: jellyCount,
+        crates: crates, chains: chains, moves: moves, island: island, n: 0, mods: mods,
+        name: T('mode_trials') + ' · ' + T('depth', { n: depth }),
+        boss: isBoss, bossDef: isBoss ? D.BOSSES[island] : null, reward: { gold: 0, energy: 0 }, star2: 1, star3: 1
+      };
+    },
+    startTrials: function () {
+      this.run = { depth: 1, relics: [], score: 0, revive: false };
+      this.startTrialLevel();
+    },
+    startTrialLevel: function () {
+      const p = global.Save.get();
+      const self = this;
+      const mods = this.computeMods(this.run.relics);
+      const lv = this.buildTrialsLevel(this.run.depth, mods);
+      this.currentMode = 'trials'; this.currentLevel = null; this.currentLevelObj = lv;
+      this.engine = new global.Engine();
+      this.engine.init(lv, p.equipped, {
+        onScore: function (s) { if (self.hud) self.hud.score.textContent = s; },
+        onMoves: function (m) { if (self.hud) { self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); } },
+        onObjective: function (cur, goal, label) { if (!self.hud) return; self.hud.objLabel.textContent = label; self.hud.objVal.textContent = cur + ' / ' + goal; self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%'; },
+        onDragons: function (d) { self.renderDragonBars(d); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
+        onCombo: function (n) { self.showCombo(n); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
+        onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
+        onWin: function (res) { self.trialWin(res); },
+        onLose: function (res) { self.trialLose(res); }
+      });
+      this.buildHud(lv);
+      this.inLevel = true;
+      global.UI.show('game');
+      this.gameScreen.classList.remove('hidden');
+      this.resize();
+      global.Audio2.setIsland(lv.island);
+      global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      this.showLevelIntro(lv);
+      this.levelTips(lv);
+    },
+    trialWin: function (res) {
+      this.run.depth += 1; this.run.score += res.score;
+      const p = global.Save.get(); p.gold += 40; global.Save.save(); global.UI.refreshCurrencies();
+      this.showRelicPick();
+    },
+    trialLose: function (res) {
+      if (this.run.revive) { // shield relic saves the run once
+        this.run.revive = false;
+        this.engine.movesLeft += 5; this.engine.finished = false; this.engine.state = 'idle';
+        if (this.hud) this.hud.moves.textContent = this.engine.movesLeft;
+        global.UI.toast('🛡️ ' + T('revived'));
+        return;
+      }
+      this.trialsRunOver(res);
+    },
+    showRelicPick: function () {
+      const self = this;
+      // pick 3 distinct random relics
+      const pool = D.RELICS.slice();
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      const choices = pool.slice(0, 3);
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<p class="muted">' + T('depth', { n: this.run.depth }) + ' · ' + T('score', { n: this.run.score }) + '</p>';
+      choices.forEach(function (rel) {
+        const card = document.createElement('div');
+        card.className = 'relic-card';
+        card.innerHTML = '<div class="relic-ic">' + rel.ic + '</div><div class="relic-info"><b>' + T('relic_' + rel.id) + '</b><span>' + T('relic_' + rel.id + '_d') + '</span></div>';
+        card.addEventListener('click', function () {
+          global.Audio2.play('coin');
+          if (rel.id === 'shield') self.run.revive = true; else self.run.relics.push(rel.id);
+          global.UI.closeModal();
+          self.startTrialLevel();
+        });
+        body.appendChild(card);
+      });
+      global.UI.modal('🎁 ' + T('choose_relic'), body, []); // no buttons; must pick
+    },
+    trialsRunOver: function (res) {
+      const p = global.Save.get();
+      const depth = this.run.depth;
+      const reward = depth * 50;
+      p.gold += reward;
+      const best = p.modeBest.trials || 0;
+      const isBest = depth > best;
+      if (isBest) p.modeBest.trials = depth;
+      global.Save.save(); global.UI.refreshCurrencies();
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">🐉</div>' +
+        '<div class="win-score">' + T('depth', { n: depth }) + '</div>' +
+        (isBest ? '<div class="streak-line">🏆 ' + T('new_best') + '</div>' : '<div class="muted small">' + T('best') + ': ' + best + '</div>') +
+        '<div class="win-rewards">+' + reward + '🪙</div>';
+      global.UI.modal(T('run_over'), body, [
+        { label: T('btn_island'), onClick: function () { self.go('home'); } },
+        { label: T('btn_retry'), primary: true, onClick: function () { self.startTrials(); } }
       ]);
     },
 
