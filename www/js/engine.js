@@ -59,7 +59,7 @@
     this.timeLeft = level.timeLimit || 0;
     this.danger = 0;
     this.elapsed = 0;
-    this.chargeMult = (this.mode === 'blitz') ? 2 : 1;
+    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1);
 
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
@@ -1146,6 +1146,12 @@
       const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : '↔');
       g.fillText(sym, cx, cy);
       g.shadowBlur = 0;
+    } else if (global.Save.get().settings.colorblind) {
+      // colorblind aid: a unique symbol per crystal type
+      const SYM = ['●', '▲', '■', '◆', '★', '✚'];
+      g.fillStyle = 'rgba(255,255,255,0.92)'; g.font = 'bold ' + (tile * 0.34) + 'px system-ui';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(SYM[t.type % SYM.length], cx, cy);
     } else {
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();

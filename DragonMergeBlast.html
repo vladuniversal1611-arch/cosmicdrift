@@ -129,6 +129,19 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .section-h { font-size: 16px; font-weight: 800; padding: 14px 18px 6px; color: var(--ink); }
 .section-h.center { text-align: center; }
 
+/* ---- Event banner ---- */
+.event-banner {
+  display: flex; align-items: center; gap: 10px; margin: 4px 14px 0;
+  padding: 8px 12px; border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255,160,60,0.22), rgba(255,210,77,0.08));
+  border: 1px solid rgba(255,200,90,0.45); box-shadow: 0 0 16px rgba(255,180,80,0.18);
+}
+.ev-ic { font-size: 26px; }
+.ev-info { flex: 1; display: flex; flex-direction: column; }
+.ev-info b { font-size: 13px; color: var(--gold); }
+.ev-info span { font-size: 11px; color: var(--muted); }
+.ev-live { font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #1a0e2e; background: var(--gold); padding: 3px 8px; border-radius: 10px; }
+
 /* ---- Island scene ---- */
 .island-scene {
   position: relative; height: 150px; margin: 6px 14px;
@@ -462,6 +475,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ---- Contextual tip bubble ---- */
+.tip-pop {
+  position: absolute; top: 38%; left: 50%; transform: translateX(-50%);
+  width: 84%; max-width: 320px; z-index: 55; text-align: center;
+  background: linear-gradient(180deg, rgba(42,28,82,0.98), rgba(26,16,56,0.98));
+  border: 1px solid rgba(120,180,255,0.5); border-radius: 16px; padding: 14px 16px;
+  font-weight: 700; font-size: 14px; line-height: 1.45; color: var(--ink);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.5); animation: modalIn 0.3s cubic-bezier(.2,1.4,.4,1);
+}
+.tip-pop.out { animation: introOut 0.5s forwards; }
+
 /* ============================================================
    Premium polish pass — glassmorphism, depth, sheen
    ============================================================ */
@@ -526,6 +550,14 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     <div id="screen-game" class="screen hidden"></div>
   </div>
 
+  <script>
+    // Register the service worker for offline play (web/PWA builds only).
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    }
+    // Capture the install prompt so the game can offer "Install app".
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__installPrompt = e; });
+  </script>
   <script>
 /* ============================================================
    Dragon Merge Blast — Game Data
@@ -739,8 +771,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     'NovaStar', 'EmberWolf', 'FrostByte', 'ThunderX', 'JadeViper', 'CrimsonAce', 'LunaCat',
     'ShadowFox', 'GoldenEye', 'MysticOwl', 'RubyHeart', 'ZenMaster'];
 
+  // ---- Live-ops events (rotate daily, deterministic by date) --------------
+  const EVENTS = [
+    { id: 'gold',   ic: '🪙', mult: 'gold' },
+    { id: 'energy', ic: '⚡', mult: 'energy' },
+    { id: 'dragon', ic: '🐉', mult: 'dragon' }
+  ];
+  function activeEvent() {
+    const d = new Date();
+    const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+    return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
+  }
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };
@@ -1197,6 +1241,30 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Object.keys(ESTR).forEach(function (l) { Object.assign(STR[l], ESTR[l]); });
 
+  // Live-ops events.
+  const EVSTR = {
+    uk: { event_live: 'СЬОГОДНІ', ev_gold: 'Золота лихоманка', ev_gold_desc: '×2 золота за рівні', ev_energy: 'Сплеск енергії', ev_energy_desc: '×2 енергії за рівні', ev_dragon: 'Драконяча лють', ev_dragon_desc: 'Дракони заряджаються +50%' },
+    en: { event_live: 'TODAY', ev_gold: 'Gold Rush', ev_gold_desc: '×2 gold from levels', ev_energy: 'Energy Surge', ev_energy_desc: '×2 energy from levels', ev_dragon: 'Dragon Fury', ev_dragon_desc: 'Dragons charge +50%' },
+    es: { event_live: 'HOY', ev_gold: 'Fiebre del oro', ev_gold_desc: '×2 oro en niveles', ev_energy: 'Oleada de energía', ev_energy_desc: '×2 energía en niveles', ev_dragon: 'Furia dragón', ev_dragon_desc: 'Dragones cargan +50%' },
+    de: { event_live: 'HEUTE', ev_gold: 'Goldrausch', ev_gold_desc: '×2 Gold in Levels', ev_energy: 'Energieschub', ev_energy_desc: '×2 Energie in Levels', ev_dragon: 'Drachenwut', ev_dragon_desc: 'Drachen laden +50%' },
+    fr: { event_live: 'AUJOURD’HUI', ev_gold: 'Ruée vers l’or', ev_gold_desc: '×2 or dans les niveaux', ev_energy: 'Vague d’énergie', ev_energy_desc: '×2 énergie dans les niveaux', ev_dragon: 'Furie du dragon', ev_dragon_desc: 'Dragons chargent +50%' },
+    pt: { event_live: 'HOJE', ev_gold: 'Corrida do ouro', ev_gold_desc: '×2 ouro nos níveis', ev_energy: 'Surto de energia', ev_energy_desc: '×2 energia nos níveis', ev_dragon: 'Fúria do dragão', ev_dragon_desc: 'Dragões carregam +50%' }
+  };
+  Object.keys(EVSTR).forEach(function (l) { Object.assign(STR[l], EVSTR[l]); });
+
+  // Colorblind toggle + contextual tips.
+  const TSTR = {
+    uk: { s_colorblind: '♿ Для дальтоніків', tip_boss: '👑 Бос! Завдавай шкоди збігами. Кожні 5 ходів він контратакує кригою.', tip_jelly: '🟪 Очисти все желе — роби збіги на рожевих клітинках.', tip_chain: '🔒 Закуті кристали не рухаються. Зроби збіг поруч, щоб звільнити.', tip_crate: '📦 Ящики потребують 2 удари збігами поруч.', tip_dragon: '🐉 Дракон готовий! Торкнись його, щоб застосувати здатність.' },
+    en: { s_colorblind: '♿ Colorblind', tip_boss: '👑 Boss! Deal damage with matches. Every 5 moves it strikes back with ice.', tip_jelly: '🟪 Clear all jelly — match on the pink cells.', tip_chain: '🔒 Chained crystals can’t move. Match next to them to free them.', tip_crate: '📦 Crates need 2 adjacent matches to break.', tip_dragon: '🐉 Dragon ready! Tap it to use its ability.' },
+    es: { s_colorblind: '♿ Daltónicos', tip_boss: '👑 ¡Jefe! Daña con combinaciones. Cada 5 jugadas contraataca con hielo.', tip_jelly: '🟪 Limpia la gelatina: combina en las casillas rosas.', tip_chain: '🔒 Los cristales encadenados no se mueven. Combina al lado para liberarlos.', tip_crate: '📦 Las cajas necesitan 2 combinaciones adyacentes.', tip_dragon: '🐉 ¡Dragón listo! Tócalo para usar su habilidad.' },
+    de: { s_colorblind: '♿ Farbenblind', tip_boss: '👑 Boss! Mache Schaden mit Matches. Alle 5 Züge kontert er mit Eis.', tip_jelly: '🟪 Entferne das Gelee – matche auf den rosa Feldern.', tip_chain: '🔒 Verkettete Kristalle bewegen sich nicht. Matche daneben, um sie zu befreien.', tip_crate: '📦 Kisten brauchen 2 Matches daneben.', tip_dragon: '🐉 Drache bereit! Tippe ihn an, um die Fähigkeit zu nutzen.' },
+    fr: { s_colorblind: '♿ Daltoniens', tip_boss: '👑 Boss ! Infligez des dégâts avec des combos. Tous les 5 coups, il riposte avec de la glace.', tip_jelly: '🟪 Nettoyez la gelée : combinez sur les cases roses.', tip_chain: '🔒 Les cristaux enchaînés ne bougent pas. Combinez à côté pour les libérer.', tip_crate: '📦 Les caisses demandent 2 combos adjacents.', tip_dragon: '🐉 Dragon prêt ! Touchez-le pour utiliser sa capacité.' },
+    pt: { s_colorblind: '♿ Daltônicos', tip_boss: '👑 Chefe! Cause dano com combinações. A cada 5 jogadas ele contra-ataca com gelo.', tip_jelly: '🟪 Limpe a geleia: combine nas células rosa.', tip_chain: '🔒 Cristais acorrentados não se movem. Combine ao lado para libertá-los.', tip_crate: '📦 Caixas precisam de 2 combinações ao lado.', tip_dragon: '🐉 Dragão pronto! Toque nele para usar a habilidade.' }
+  };
+  Object.keys(TSTR).forEach(function (l) { Object.assign(STR[l], TSTR[l]); });
+  const ISTR = { uk: '📲 Встановити застосунок', en: '📲 Install app', es: '📲 Instalar app', de: '📲 App installieren', fr: '📲 Installer l’app', pt: '📲 Instalar app' };
+  Object.keys(ISTR).forEach(function (l) { STR[l].s_install = ISTR[l]; });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
@@ -1266,8 +1334,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       chests: {},
       modeBest: { blitz: 0, endless: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false },
+      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
+      tips: {},
       firstRun: true
     };
   }
@@ -1566,7 +1635,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.timeLeft = level.timeLimit || 0;
     this.danger = 0;
     this.elapsed = 0;
-    this.chargeMult = (this.mode === 'blitz') ? 2 : 1;
+    this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1);
 
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
@@ -2653,6 +2722,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : '↔');
       g.fillText(sym, cx, cy);
       g.shadowBlur = 0;
+    } else if (global.Save.get().settings.colorblind) {
+      // colorblind aid: a unique symbol per crystal type
+      const SYM = ['●', '▲', '■', '◆', '★', '✚'];
+      g.fillStyle = 'rgba(255,255,255,0.92)'; g.font = 'bold ' + (tile * 0.34) + 'px system-ui';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(SYM[t.type % SYM.length], cx, cy);
     } else {
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();
@@ -2725,6 +2800,16 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const s = document.getElementById('screen-' + id);
       if (s) { s.classList.remove('hidden'); s.scrollTop = 0; }
       this.current = id;
+    },
+
+    tipBubble: function (msg) {
+      const old = this.root.querySelector('.tip-pop'); if (old) old.remove();
+      const b = el('div', 'tip-pop', msg);
+      this.root.appendChild(b);
+      const remove = function () { if (b.parentNode) b.remove(); };
+      b.addEventListener('click', remove);
+      setTimeout(function () { b.classList.add('out'); }, 3600);
+      setTimeout(remove, 4200);
     },
 
     toast: function (msg) {
@@ -2857,6 +2942,12 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const title = el('div', 'home-title');
       title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
       s.appendChild(title);
+
+      // Live-ops event banner
+      const ev = D.activeEvent();
+      const evBanner = el('div', 'event-banner');
+      evBanner.innerHTML = '<div class="ev-ic">' + ev.ic + '</div><div class="ev-info"><b>' + T('ev_' + ev.id) + '</b><span>' + T('ev_' + ev.id + '_desc') + '</span></div><div class="ev-live">' + T('event_live') + '</div>';
+      s.appendChild(evBanner);
 
       // Animated island scene
       const scene = el('div', 'island-scene');
@@ -3544,6 +3635,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
       body.appendChild(mkToggle(T('s_perf'), 'perf'));
+      body.appendChild(mkToggle(T('s_colorblind'), 'colorblind'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';
@@ -3559,6 +3651,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           }}
         ]);
       });
+      if (global.__installPrompt) {
+        const inst = click(el('button', 'btn btn-buy btn-mini', T('s_install')), function () {
+          const ev = global.__installPrompt; if (!ev) return;
+          ev.prompt(); global.__installPrompt = null; UI.closeModal();
+        });
+        body.appendChild(inst);
+      }
       body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
       body.appendChild(reset);
       this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
@@ -3700,7 +3799,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
-      else this.showLevelIntro(lv);
+      else { this.showLevelIntro(lv); this.levelTips(lv); }
     },
 
     // ---- Game modes (Blitz / Endless / Daily) ----------------------------
@@ -3801,6 +3900,21 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         { label: T('btn_island'), onClick: function () { self.go('home'); } },
         { label: T('btn_retry'), primary: true, onClick: function () { self.startMode(mode); } }
       ]);
+    },
+
+    // One-time contextual tip (shown once ever per id).
+    tip: function (id, delay) {
+      const p = global.Save.get();
+      if (p.tips[id]) return;
+      p.tips[id] = true; global.Save.save();
+      const self = this;
+      setTimeout(function () { global.UI.tipBubble(T('tip_' + id)); }, delay || 700);
+    },
+    levelTips: function (lv) {
+      if (lv.boss) this.tip('boss');
+      else if (lv.objective === D.OBJ.JELLY) this.tip('jelly');
+      else if (lv.crates > 0) this.tip('crate');
+      else if (lv.chains > 0) this.tip('chain');
     },
 
     levelName: function (lv) {
@@ -4010,6 +4124,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         if (d.ready) cell.addEventListener('click', function (ev) { ev.stopPropagation(); self.castDragon(d); });
         wrap.appendChild(cell);
       });
+      if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
     },
 
     castDragon: function (d) {
@@ -4059,8 +4174,11 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       p.stars[lvNum] = newStars;
       // rewards (full reward first time, half on replay)
       const firstTime = lvNum >= p.levelProgress;
-      const gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
-      const energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
+      const ev = D.activeEvent();
+      let gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
+      let energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
+      if (ev.mult === 'gold') gold *= 2;
+      if (ev.mult === 'energy') energy *= 2;
       p.gold += gold; p.energy += energy;
       global.Save.addStat('levelsWon', firstTime ? 1 : 0);
       if (lvNum >= p.levelProgress) p.levelProgress = Math.min(D.LEVELS.length, lvNum + 1);

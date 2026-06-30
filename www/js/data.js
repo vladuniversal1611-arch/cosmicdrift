@@ -210,8 +210,20 @@
     'NovaStar', 'EmberWolf', 'FrostByte', 'ThunderX', 'JadeViper', 'CrimsonAce', 'LunaCat',
     'ShadowFox', 'GoldenEye', 'MysticOwl', 'RubyHeart', 'ZenMaster'];
 
+  // ---- Live-ops events (rotate daily, deterministic by date) --------------
+  const EVENTS = [
+    { id: 'gold',   ic: '🪙', mult: 'gold' },
+    { id: 'energy', ic: '⚡', mult: 'energy' },
+    { id: 'dragon', ic: '🐉', mult: 'dragon' }
+  ];
+  function activeEvent() {
+    const d = new Date();
+    const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+    return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
+  }
+
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };

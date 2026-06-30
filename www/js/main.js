@@ -108,7 +108,7 @@
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
-      else this.showLevelIntro(lv);
+      else { this.showLevelIntro(lv); this.levelTips(lv); }
     },
 
     // ---- Game modes (Blitz / Endless / Daily) ----------------------------
@@ -209,6 +209,21 @@
         { label: T('btn_island'), onClick: function () { self.go('home'); } },
         { label: T('btn_retry'), primary: true, onClick: function () { self.startMode(mode); } }
       ]);
+    },
+
+    // One-time contextual tip (shown once ever per id).
+    tip: function (id, delay) {
+      const p = global.Save.get();
+      if (p.tips[id]) return;
+      p.tips[id] = true; global.Save.save();
+      const self = this;
+      setTimeout(function () { global.UI.tipBubble(T('tip_' + id)); }, delay || 700);
+    },
+    levelTips: function (lv) {
+      if (lv.boss) this.tip('boss');
+      else if (lv.objective === D.OBJ.JELLY) this.tip('jelly');
+      else if (lv.crates > 0) this.tip('crate');
+      else if (lv.chains > 0) this.tip('chain');
     },
 
     levelName: function (lv) {
@@ -418,6 +433,7 @@
         if (d.ready) cell.addEventListener('click', function (ev) { ev.stopPropagation(); self.castDragon(d); });
         wrap.appendChild(cell);
       });
+      if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
     },
 
     castDragon: function (d) {
@@ -467,8 +483,11 @@
       p.stars[lvNum] = newStars;
       // rewards (full reward first time, half on replay)
       const firstTime = lvNum >= p.levelProgress;
-      const gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
-      const energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
+      const ev = D.activeEvent();
+      let gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
+      let energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
+      if (ev.mult === 'gold') gold *= 2;
+      if (ev.mult === 'energy') energy *= 2;
       p.gold += gold; p.energy += energy;
       global.Save.addStat('levelsWon', firstTime ? 1 : 0);
       if (lvNum >= p.levelProgress) p.levelProgress = Math.min(D.LEVELS.length, lvNum + 1);

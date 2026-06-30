@@ -448,6 +448,30 @@
   };
   Object.keys(ESTR).forEach(function (l) { Object.assign(STR[l], ESTR[l]); });
 
+  // Live-ops events.
+  const EVSTR = {
+    uk: { event_live: 'СЬОГОДНІ', ev_gold: 'Золота лихоманка', ev_gold_desc: '×2 золота за рівні', ev_energy: 'Сплеск енергії', ev_energy_desc: '×2 енергії за рівні', ev_dragon: 'Драконяча лють', ev_dragon_desc: 'Дракони заряджаються +50%' },
+    en: { event_live: 'TODAY', ev_gold: 'Gold Rush', ev_gold_desc: '×2 gold from levels', ev_energy: 'Energy Surge', ev_energy_desc: '×2 energy from levels', ev_dragon: 'Dragon Fury', ev_dragon_desc: 'Dragons charge +50%' },
+    es: { event_live: 'HOY', ev_gold: 'Fiebre del oro', ev_gold_desc: '×2 oro en niveles', ev_energy: 'Oleada de energía', ev_energy_desc: '×2 energía en niveles', ev_dragon: 'Furia dragón', ev_dragon_desc: 'Dragones cargan +50%' },
+    de: { event_live: 'HEUTE', ev_gold: 'Goldrausch', ev_gold_desc: '×2 Gold in Levels', ev_energy: 'Energieschub', ev_energy_desc: '×2 Energie in Levels', ev_dragon: 'Drachenwut', ev_dragon_desc: 'Drachen laden +50%' },
+    fr: { event_live: 'AUJOURD’HUI', ev_gold: 'Ruée vers l’or', ev_gold_desc: '×2 or dans les niveaux', ev_energy: 'Vague d’énergie', ev_energy_desc: '×2 énergie dans les niveaux', ev_dragon: 'Furie du dragon', ev_dragon_desc: 'Dragons chargent +50%' },
+    pt: { event_live: 'HOJE', ev_gold: 'Corrida do ouro', ev_gold_desc: '×2 ouro nos níveis', ev_energy: 'Surto de energia', ev_energy_desc: '×2 energia nos níveis', ev_dragon: 'Fúria do dragão', ev_dragon_desc: 'Dragões carregam +50%' }
+  };
+  Object.keys(EVSTR).forEach(function (l) { Object.assign(STR[l], EVSTR[l]); });
+
+  // Colorblind toggle + contextual tips.
+  const TSTR = {
+    uk: { s_colorblind: '♿ Для дальтоніків', tip_boss: '👑 Бос! Завдавай шкоди збігами. Кожні 5 ходів він контратакує кригою.', tip_jelly: '🟪 Очисти все желе — роби збіги на рожевих клітинках.', tip_chain: '🔒 Закуті кристали не рухаються. Зроби збіг поруч, щоб звільнити.', tip_crate: '📦 Ящики потребують 2 удари збігами поруч.', tip_dragon: '🐉 Дракон готовий! Торкнись його, щоб застосувати здатність.' },
+    en: { s_colorblind: '♿ Colorblind', tip_boss: '👑 Boss! Deal damage with matches. Every 5 moves it strikes back with ice.', tip_jelly: '🟪 Clear all jelly — match on the pink cells.', tip_chain: '🔒 Chained crystals can’t move. Match next to them to free them.', tip_crate: '📦 Crates need 2 adjacent matches to break.', tip_dragon: '🐉 Dragon ready! Tap it to use its ability.' },
+    es: { s_colorblind: '♿ Daltónicos', tip_boss: '👑 ¡Jefe! Daña con combinaciones. Cada 5 jugadas contraataca con hielo.', tip_jelly: '🟪 Limpia la gelatina: combina en las casillas rosas.', tip_chain: '🔒 Los cristales encadenados no se mueven. Combina al lado para liberarlos.', tip_crate: '📦 Las cajas necesitan 2 combinaciones adyacentes.', tip_dragon: '🐉 ¡Dragón listo! Tócalo para usar su habilidad.' },
+    de: { s_colorblind: '♿ Farbenblind', tip_boss: '👑 Boss! Mache Schaden mit Matches. Alle 5 Züge kontert er mit Eis.', tip_jelly: '🟪 Entferne das Gelee – matche auf den rosa Feldern.', tip_chain: '🔒 Verkettete Kristalle bewegen sich nicht. Matche daneben, um sie zu befreien.', tip_crate: '📦 Kisten brauchen 2 Matches daneben.', tip_dragon: '🐉 Drache bereit! Tippe ihn an, um die Fähigkeit zu nutzen.' },
+    fr: { s_colorblind: '♿ Daltoniens', tip_boss: '👑 Boss ! Infligez des dégâts avec des combos. Tous les 5 coups, il riposte avec de la glace.', tip_jelly: '🟪 Nettoyez la gelée : combinez sur les cases roses.', tip_chain: '🔒 Les cristaux enchaînés ne bougent pas. Combinez à côté pour les libérer.', tip_crate: '📦 Les caisses demandent 2 combos adjacents.', tip_dragon: '🐉 Dragon prêt ! Touchez-le pour utiliser sa capacité.' },
+    pt: { s_colorblind: '♿ Daltônicos', tip_boss: '👑 Chefe! Cause dano com combinações. A cada 5 jogadas ele contra-ataca com gelo.', tip_jelly: '🟪 Limpe a geleia: combine nas células rosa.', tip_chain: '🔒 Cristais acorrentados não se movem. Combine ao lado para libertá-los.', tip_crate: '📦 Caixas precisam de 2 combinações ao lado.', tip_dragon: '🐉 Dragão pronto! Toque nele para usar a habilidade.' }
+  };
+  Object.keys(TSTR).forEach(function (l) { Object.assign(STR[l], TSTR[l]); });
+  const ISTR = { uk: '📲 Встановити застосунок', en: '📲 Install app', es: '📲 Instalar app', de: '📲 App installieren', fr: '📲 Installer l’app', pt: '📲 Instalar app' };
+  Object.keys(ISTR).forEach(function (l) { STR[l].s_install = ISTR[l]; });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

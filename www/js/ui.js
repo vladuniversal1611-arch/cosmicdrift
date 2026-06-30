@@ -41,6 +41,16 @@
       this.current = id;
     },
 
+    tipBubble: function (msg) {
+      const old = this.root.querySelector('.tip-pop'); if (old) old.remove();
+      const b = el('div', 'tip-pop', msg);
+      this.root.appendChild(b);
+      const remove = function () { if (b.parentNode) b.remove(); };
+      b.addEventListener('click', remove);
+      setTimeout(function () { b.classList.add('out'); }, 3600);
+      setTimeout(remove, 4200);
+    },
+
     toast: function (msg) {
       this.toastEl.textContent = msg;
       this.toastEl.classList.add('show');
@@ -171,6 +181,12 @@
       const title = el('div', 'home-title');
       title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
       s.appendChild(title);
+
+      // Live-ops event banner
+      const ev = D.activeEvent();
+      const evBanner = el('div', 'event-banner');
+      evBanner.innerHTML = '<div class="ev-ic">' + ev.ic + '</div><div class="ev-info"><b>' + T('ev_' + ev.id) + '</b><span>' + T('ev_' + ev.id + '_desc') + '</span></div><div class="ev-live">' + T('event_live') + '</div>';
+      s.appendChild(evBanner);
 
       // Animated island scene
       const scene = el('div', 'island-scene');
@@ -858,6 +874,7 @@
       body.appendChild(mkToggle(T('s_vibration'), 'vibration', function (on) { if (on && global.navigator && global.navigator.vibrate) global.navigator.vibrate(20); }));
       body.appendChild(mkToggle(T('s_autodragons'), 'autoDragons'));
       body.appendChild(mkToggle(T('s_perf'), 'perf'));
+      body.appendChild(mkToggle(T('s_colorblind'), 'colorblind'));
       // Language selector
       const langRow = el('div', 'set-row');
       langRow.innerHTML = '<span>' + T('s_language') + '</span>';
@@ -873,6 +890,13 @@
           }}
         ]);
       });
+      if (global.__installPrompt) {
+        const inst = click(el('button', 'btn btn-buy btn-mini', T('s_install')), function () {
+          const ev = global.__installPrompt; if (!ev) return;
+          ev.prompt(); global.__installPrompt = null; UI.closeModal();
+        });
+        body.appendChild(inst);
+      }
       body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
       body.appendChild(reset);
       this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
