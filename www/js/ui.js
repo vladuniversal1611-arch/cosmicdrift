@@ -311,15 +311,31 @@
     },
 
     // ---- LEVEL MAP --------------------------------------------------------
-    renderMap: function () {
+    renderMap: function (keepAnchor) {
       const p = global.Save.get();
+      const count = D.ISLANDS.length;
+      const WIN = 8; // islands rendered per page
+      const cur = Math.floor((p.levelProgress - 1) / 25);
+      if (!keepAnchor || this.mapAnchor == null) this.mapAnchor = Math.max(0, Math.min(count - WIN, cur - 1));
+      const start = Math.max(0, Math.min(count - WIN, this.mapAnchor));
+      const end = Math.min(count, start + WIN);
       const s = document.getElementById('screen-map');
       clear(s);
       s.appendChild(this.currencyBar());
-      s.appendChild(el('div', 'section-h center', T('islands_title')));
+      s.appendChild(el('div', 'section-h center', T('islands_title') + ' (' + (start + 1) + '–' + end + '/' + count + ')'));
+
+      // pager
+      const pager = el('div', 'map-pager');
+      const prev = el('button', 'btn btn-ghost btn-mini' + (start <= 0 ? ' dis' : ''), '◀');
+      const next = el('button', 'btn btn-ghost btn-mini' + (end >= count ? ' dis' : ''), '▶');
+      if (start > 0) click(prev, function () { UI.mapAnchor = Math.max(0, start - WIN); UI.renderMap(true); });
+      if (end < count) click(next, function () { UI.mapAnchor = start + WIN; UI.renderMap(true); });
+      const jump = click(el('button', 'btn btn-primary btn-mini', '🎯'), function () { UI.mapAnchor = null; UI.renderMap(false); });
+      pager.appendChild(prev); pager.appendChild(jump); pager.appendChild(next);
+      s.appendChild(pager);
 
       const scroll = el('div', 'map-scroll');
-      D.ISLANDS.forEach(function (island) {
+      D.ISLANDS.slice(start, end).forEach(function (island) {
         const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
         const block = el('div', 'island-block');
         block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';

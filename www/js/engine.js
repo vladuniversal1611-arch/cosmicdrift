@@ -651,7 +651,7 @@
     this.shake = 0.7;
     this.bossHitFlash = 0;
     global.Audio2.play('dragon');
-    const n = 2 + (this.level.island || 0);
+    const n = Math.min(8, 2 + ((this.level.island || 0) % 5));
     let placed = 0, guard = 0;
     while (placed < n && guard++ < 300) {
       const r = rnd(this.rows), c = rnd(this.cols);

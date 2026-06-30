@@ -67,13 +67,32 @@
   ];
 
   // ---- Islands -------------------------------------------------------------
-  const ISLANDS = [
-    { id: 0, name: 'Острів Світанку',   theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a', unlockLevel: 0  },
-    { id: 1, name: 'Крижані Вершини',   theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63', unlockLevel: 25 },
-    { id: 2, name: 'Грозове Плато',     theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470', unlockLevel: 50 },
-    { id: 3, name: 'Смарагдові Хащі',   theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236', unlockLevel: 75 },
-    { id: 4, name: 'Небесна Цитадель',  theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18', unlockLevel: 100 }
+  // Five base biomes, cycled to generate a long world of islands.
+  const BASE_ISLANDS = [
+    { name: 'Острів Світанку',  theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a' },
+    { name: 'Крижані Вершини',  theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63' },
+    { name: 'Грозове Плато',    theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470' },
+    { name: 'Смарагдові Хащі',  theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236' },
+    { name: 'Небесна Цитадель', theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18' }
   ];
+  const TOTAL_LEVELS = 5000;
+  const LEVELS_PER_ISLAND = 25;
+  const ISLAND_COUNT = Math.ceil(TOTAL_LEVELS / LEVELS_PER_ISLAND);
+  const ISLANDS = [];
+  for (let k = 0; k < ISLAND_COUNT; k++) {
+    const base = BASE_ISLANDS[k % BASE_ISLANDS.length];
+    const cycleNum = Math.floor(k / BASE_ISLANDS.length); // 0,1,2... how many times biome repeated
+    ISLANDS.push({
+      id: k, name: base.name + (cycleNum > 0 ? ' ' + romanNumeral(cycleNum + 1) : ''),
+      theme: base.theme, bg1: base.bg1, bg2: base.bg2, unlockLevel: k * LEVELS_PER_ISLAND
+    });
+  }
+  function romanNumeral(n) {
+    const map = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+    let r = '';
+    for (let i = 0; i < map.length; i++) { while (n >= map[i][0]) { r += map[i][1]; n -= map[i][0]; } }
+    return r;
+  }
 
   // ---- Level generator -----------------------------------------------------
   // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
@@ -90,51 +109,52 @@
 
   function buildLevels() {
     const levels = [];
-    const total = 125; // > 100 levels
+    const total = TOTAL_LEVELS;
     for (let i = 0; i < total; i++) {
       const n = i + 1;
-      const island = Math.min(ISLANDS.length - 1, Math.floor(i / 25));
-      const inIsland = i % 25;
-      const cols = 8;
-      const rows = 8;
-      const colors = Math.min(6, 4 + Math.floor(i / 30)); // 4 → 6 colours
-      const moves = 30 - Math.min(12, Math.floor(i / 12)); // 30 → 18 moves
+      const island = Math.floor(i / LEVELS_PER_ISLAND);
+      const inIsland = i % LEVELS_PER_ISLAND;
+      const biome = island % BASE_ISLANDS.length;
+      const cols = 8, rows = 8;
+      // Difficulty ramps with depth but is capped so objectives stay board-feasible.
+      const colors = Math.min(6, 4 + Math.floor(i / 30));        // 4 → 6 colours
+      const moves = Math.max(16, 30 - Math.floor(i / 12));        // 30 → 16 moves
       let objective, target, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
       const cycle = inIsland % 5;
       if (cycle === 2) {
         objective = OBJ.COLLECT;
         color = (i % colors);
-        target = 28 + Math.floor(i * 0.9);
-        chains = Math.min(8, 2 + Math.floor(i / 14)); // locked crystals as a twist
+        target = Math.min(140, 28 + Math.floor(i * 0.9));
+        chains = Math.min(8, 2 + Math.floor(i / 14));
       } else if (cycle === 3) {
         objective = OBJ.JELLY;
-        jellyCount = 10 + Math.floor(i / 5) + island * 2;
+        jellyCount = Math.min(46, 10 + Math.floor(i / 5));
         target = jellyCount;
       } else if (cycle === 4) {
         objective = OBJ.ICE;
-        iceCount = 8 + Math.floor(i / 6) + (island * 3);
-        crates = Math.min(6, 1 + Math.floor(i / 18)); // some blockers are 2-hit crates
+        iceCount = Math.min(44, 8 + Math.floor(i / 6));
+        crates = Math.min(8, 1 + Math.floor(i / 18));
         target = iceCount;
       } else {
         objective = OBJ.SCORE;
-        target = 1200 + i * 240 + (island * 600);
-        if (cycle === 1) chains = Math.min(6, 1 + Math.floor(i / 20));
+        target = 1200 + i * 220;
+        if (cycle === 1) chains = Math.min(8, 1 + Math.floor(i / 20));
       }
-      const isBoss = inIsland === 24;
+      const isBoss = inIsland === (LEVELS_PER_ISLAND - 1);
       if (isBoss) {
         objective = OBJ.BOSS;
-        target = 80 + island * 45; // boss HP (kept beatable within the move budget)
-        iceCount = 0; jellyCount = 0; chains = Math.min(3, island); crates = Math.max(0, island - 1);
+        target = 80 + Math.min(420, i); // boss HP, capped so it stays beatable
+        iceCount = 0; jellyCount = 0; chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
       }
       levels.push({
         n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
         objective, target, color, iceCount, jellyCount, crates, chains,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
-        reward: { gold: isBoss ? 300 + i * 8 : 50 + i * 6, energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
+        reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.5), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
-        bossDef: isBoss ? BOSSES[island] : null,
-        name: isBoss ? (BOSSES[island].name) : ('Рівень ' + n)
+        bossDef: isBoss ? BOSSES[biome] : null,
+        name: isBoss ? (BOSSES[biome].name) : ('Рівень ' + n)
       });
     }
     return levels;
