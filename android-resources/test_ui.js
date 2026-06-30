@@ -49,7 +49,7 @@ sb.window=sb; sb.global=sb; vm.createContext(sb);
 ['data.js','i18n.js','save.js','engine.js','ui.js'].forEach(f=>vm.runInContext(fs.readFileSync('www/js/'+f,'utf8'),sb,{filename:f}));
 sb.Save.load();
 sb.Audio2 = { resume(){}, play(){}, startMusic(){}, stopMusic(){}, setMusicEnabled(){} };
-sb.Game = { go(){}, startLevel(){}, levelName:(lv)=> lv.boss ? lv.name : ('Level '+lv.n), addPassXp:sb.UI?sb.UI.addPassXp:()=>{} };
+sb.Game = { go(){}, startLevel(){}, startMode(){}, levelName:(lv)=> lv.boss ? lv.name : ('Level '+lv.n), addPassXp:sb.UI?sb.UI.addPassXp:()=>{} };
 
 let fails = 0;
 function tryRun(name, fn){ try{ fn(); console.log('OK  '+name); }catch(e){ fails++; console.error('ERR '+name+': '+e.message+'\n  '+(e.stack||'').split('\n')[1]); } }
@@ -71,6 +71,7 @@ tryRun('showQuests', ()=> UI.showQuests());
 tryRun('showAchievements', ()=> UI.showAchievements());
 tryRun('showSettings', ()=> UI.showSettings());
 tryRun('showLeaderboard', ()=> UI.showLeaderboard());
+tryRun('showModes', ()=> UI.showModes());
 tryRun('showNoLives', ()=> UI.showNoLives());
 tryRun('livesInfo', ()=> { sb.Save.livesInfo(); sb.Save.spendLife(); sb.Save.addLives(1); });
 tryRun('handleEgg', ()=> { sb.Save.get().energy = 50; UI.handleEgg(0); });

@@ -72,6 +72,7 @@
       global.UI.closeModal();
       const lv = D.LEVELS[lvNum - 1];
       this.currentLevel = lvNum;
+      this.currentLevelObj = lv;
       this.engine = new global.Engine();
       const self = this;
       // Callbacks guard against a not-yet-built HUD (init() fires emitObjective);
@@ -109,8 +110,114 @@
       else this.showLevelIntro(lv);
     },
 
-    levelName: function (lv) { return lv.boss ? ('👑 ' + lv.name) : T('level_n', { n: lv.n }); },
+    // ---- Game modes (Blitz / Endless / Daily) ----------------------------
+    startMode: function (mode) {
+      const p = global.Save.get();
+      global.UI.closeModal();
+      const self = this;
+      const island = mode === 'endless' ? 2 : mode === 'blitz' ? 0 : (new Date().getDate() % 5);
+      let lv;
+      if (mode === 'blitz') {
+        lv = { mode: 'blitz', cols: 8, rows: 8, colors: 6, objective: D.OBJ.SCORE, target: 1e9, moves: 99999, timeLimit: 60, island: island, name: T('mode_blitz'), n: 0 };
+      } else if (mode === 'endless') {
+        lv = { mode: 'endless', cols: 8, rows: 8, colors: 6, objective: D.OBJ.SCORE, target: 1e9, moves: 99999, island: island, name: T('mode_endless'), n: 0 };
+      } else { // daily
+        const d = new Date();
+        const seed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+        lv = { mode: 'daily', cols: 8, rows: 8, colors: 6, objective: D.OBJ.SCORE, target: 4000 + (seed % 9) * 800, moves: 22 + (seed % 7), island: island, name: T('mode_daily'), n: 0,
+          reward: { gold: 300, energy: 40 }, star2: 1, star3: 1 };
+      }
+      this.currentMode = mode;
+      this.currentLevel = null;
+      this.currentLevelObj = lv;
+      this.engine = new global.Engine();
+      this.engine.init(lv, p.equipped, {
+        onScore: function (s) { if (self.hud) self.hud.score.textContent = s; },
+        onMoves: function (m) { if (self.hud && lv.mode === 'daily') self.hud.moves.textContent = m; },
+        onObjective: function (cur, goal, label) {
+          if (!self.hud || lv.mode !== 'daily') return;
+          self.hud.objLabel.textContent = label; self.hud.objVal.textContent = cur + ' / ' + goal;
+          self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
+        },
+        onTime: function (t) { if (self.hud) { self.hud.moves.textContent = Math.ceil(t) + 's'; if (t <= 10) self.hud.moves.classList.add('low'); } },
+        onDanger: function (dg) {
+          if (!self.hud) return;
+          self.hud.objVal.textContent = Math.floor(dg) + '%';
+          self.hud.objBar.style.width = dg + '%';
+          self.hud.objBar.style.background = dg > 70 ? '#ff5d6c' : dg > 40 ? '#ffd24d' : '#5fe39a';
+        },
+        onDragons: function (dragons) { self.renderDragonBars(dragons); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
+        onCombo: function (n) { self.showCombo(n); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onModeEnd: function (res) { self.onModeEnd(res); },
+        onWin: function (res) { self.onDailyEnd(true, res); },
+        onLose: function (res) { self.onDailyEnd(false, res); }
+      });
+      this.buildHud(lv);
+      // adapt HUD for timed/survival modes
+      if (mode === 'blitz') { this.hud.movesLabel.textContent = '⏱'; this.hud.moves.textContent = lv.timeLimit + 's'; this.hud.objLabel.textContent = T('obj_score'); this.hud.objVal.textContent = '0'; }
+      else if (mode === 'endless') { this.hud.movesLabel.textContent = '∞'; this.hud.moves.textContent = '∞'; this.hud.objLabel.textContent = '⚠ ' + T('mode_endless_danger'); this.hud.objVal.textContent = '0%'; }
+      this.inLevel = true;
+      global.UI.show('game');
+      this.gameScreen.classList.remove('hidden');
+      this.resize();
+      global.Audio2.setIsland(lv.island);
+      global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      this.showLevelIntro(lv);
+    },
+
+    onDailyEnd: function (win, res) {
+      const p = global.Save.get();
+      const today = new Date().toISOString().slice(0, 10);
+      p.daily2.date = today; p.daily2.done = true;
+      let reward = 0, gems = 0;
+      if (win) { reward = 300; gems = 15; p.gold += reward; p.gems += gems; }
+      global.Save.save(); global.UI.refreshCurrencies();
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">' + (win ? '📅' : '😢') + '</div>' +
+        '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '<p class="muted small">' + T('daily_done') + '</p>');
+      global.UI.modal(win ? T('victory') : T('defeat'), body, [
+        { label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } }
+      ]);
+    },
+
+    onModeEnd: function (res) {
+      const p = global.Save.get();
+      const mode = this.currentMode;
+      const reward = Math.floor(res.score / 20);
+      p.gold += reward;
+      const best = p.modeBest[mode] || 0;
+      const isBest = res.score > best;
+      if (isBest) p.modeBest[mode] = res.score;
+      global.Save.addStat('energyEarned', 0);
+      global.Save.save();
+      global.UI.refreshCurrencies();
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">' + (mode === 'blitz' ? '⏱️' : '♾️') + '</div>' +
+        '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+        (isBest ? '<div class="streak-line">🏆 ' + T('new_best') + '</div>' : '<div class="muted small">' + T('best') + ': ' + best + '</div>') +
+        '<div class="win-rewards">+' + reward + '🪙</div>';
+      global.UI.modal(mode === 'blitz' ? T('time_up') : T('mode_over'), body, [
+        { label: T('btn_island'), onClick: function () { self.go('home'); } },
+        { label: T('btn_retry'), primary: true, onClick: function () { self.startMode(mode); } }
+      ]);
+    },
+
+    levelName: function (lv) {
+      if (lv.boss) return '👑 ' + lv.name;
+      if (lv.mode && lv.mode !== 'adventure') return lv.name;
+      return T('level_n', { n: lv.n });
+    },
     objectiveText: function (lv) {
+      if (lv.mode === 'blitz') return T('mode_blitz_desc');
+      if (lv.mode === 'endless') return T('mode_endless_desc');
       return lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
         : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
         : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
@@ -186,7 +293,7 @@
       hud.innerHTML =
         '<div class="hud-stats">' +
           '<div class="hud-pill"><div class="hp-l">' + T('obj_score') + '</div><div class="hp-v" id="hud-score">0</div></div>' +
-          '<div class="hud-pill"><div class="hp-l">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
+          '<div class="hud-pill"><div class="hp-l" id="hud-moves-label">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
         '</div>' +
         '<div class="hud-obj">' +
           '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
@@ -205,6 +312,7 @@
       this.hud = {
         score: hud.querySelector('#hud-score'),
         moves: hud.querySelector('#hud-moves'),
+        movesLabel: hud.querySelector('#hud-moves-label'),
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
@@ -474,8 +582,8 @@
       const g = this.ctx;
       g.clearRect(0, 0, this.viewW, this.viewH);
       if (this.inLevel && this.engine) {
-        const lv = D.LEVELS[this.currentLevel - 1];
-        const isl = D.ISLANDS[lv.island];
+        const lv = this.currentLevelObj || D.LEVELS[0];
+        const isl = D.ISLANDS[lv.island] || D.ISLANDS[0];
         this.drawBackground(g, isl, dt);
         this.engine.update(dt);
         this.engine.draw(g);

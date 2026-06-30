@@ -233,6 +233,7 @@
       acts.appendChild(piggy);
       const grid2 = el('div', 'home-grid grid6');
       [
+        { ic: '🎮', label: T('t_modes'), go: function () { UI.showModes(); } },
         { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
         { ic: '📜', label: T('t_quests'), go: function () { UI.showQuests(); } },
         { ic: '📊', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
@@ -749,6 +750,31 @@
         body.appendChild(card);
       });
       this.modal(T('ach_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- GAME MODES -------------------------------------------------------
+    showModes: function () {
+      const p = global.Save.get();
+      const today = new Date().toISOString().slice(0, 10);
+      const dailyDone = p.daily2.done && p.daily2.date === today;
+      const body = el('div', 'modal-body');
+      const modes = [
+        { id: 'blitz', ic: '⏱️', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
+        { id: 'endless', ic: '♾️', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
+        { id: 'daily', ic: '📅', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true }
+      ];
+      modes.forEach(function (m) {
+        const card = el('div', 'mode-card');
+        const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + m.best) : '');
+        card.innerHTML = '<div class="mode-ic">' + m.ic + '</div>' +
+          '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
+        const disabled = m.daily && dailyDone;
+        const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
+        if (!disabled) click(btn, function () { UI.closeModal(); global.Game.startMode(m.id); });
+        card.appendChild(btn);
+        body.appendChild(card);
+      });
+      this.modal(T('modes_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- LEADERBOARD (local, with simulated rivals) -----------------------

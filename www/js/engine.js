@@ -54,6 +54,13 @@
     this.movesSinceBossAttack = 0;
     this.bossHitFlash = 0;
 
+    // Game mode ('adventure' | 'blitz' | 'endless' | 'daily')
+    this.mode = level.mode || 'adventure';
+    this.timeLeft = level.timeLimit || 0;
+    this.danger = 0;
+    this.elapsed = 0;
+    this.chargeMult = (this.mode === 'blitz') ? 2 : 1;
+
     // Equipped dragons → charge bars.
     this.dragons = (equipped || []).filter(Boolean).map(function (id) {
       const def = D.dragonById(id);
@@ -249,6 +256,20 @@
   Engine.prototype.afterAnims = function (fn) { this._afterFn = fn; };
 
   Engine.prototype.update = function (dt) {
+    // ---- game-mode clocks ----
+    if (!this.finished && this.tile) {
+      this.elapsed += dt;
+      if (this.mode === 'blitz') {
+        this.timeLeft -= dt;
+        this.cb.onTime && this.cb.onTime(Math.max(0, this.timeLeft));
+        if (this.timeLeft <= 0) this.modeEnd();
+      } else if (this.mode === 'endless') {
+        const rate = 3.5 + this.elapsed * 0.05; // threat grows over time
+        this.danger = Math.min(100, this.danger + dt * rate);
+        this.cb.onDanger && this.cb.onDanger(this.danger);
+        if (this.danger >= 100) this.modeEnd();
+      }
+    }
     // advance tile animations
     let stillActive = 0;
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
@@ -496,6 +517,7 @@
     }
     global.Save.addStat('crystalsCrushed', cleared);
     global.Save.addStat('energyEarned', energyGain);
+    if (this.mode === 'endless' && cleared > 0) this.danger = Math.max(0, this.danger - cleared * 2.2);
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
     // Boss takes damage equal to crystals cleared (combo amplified).
@@ -616,6 +638,7 @@
 
   // ---- Dragons ------------------------------------------------------------
   Engine.prototype.chargeDragons = function (amount) {
+    amount = amount * (this.chargeMult || 1);
     const self = this;
     this.dragons.forEach(function (d) {
       if (self.finished) return;
@@ -763,6 +786,14 @@
     this.state = 'done';
     global.Audio2.play('lose');
     this.cb.onLose && this.cb.onLose({ score: this.score });
+  };
+  // Endless/Blitz finish: no win/lose, just a final score.
+  Engine.prototype.modeEnd = function () {
+    if (this.finished) return;
+    this.finished = true;
+    this.state = 'done';
+    global.Audio2.play('win');
+    this.cb.onModeEnd && this.cb.onModeEnd({ score: this.score });
   };
 
   // ---- Helpers: possible moves / shuffle ----------------------------------
