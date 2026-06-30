@@ -690,6 +690,52 @@
     return true;
   };
 
+  Engine.prototype.readyDragons = function () { return this.dragons.filter(function (d) { return d.ready; }); };
+
+  // Dragon Synergy: combine 2+ ready dragons into one spectacular ultimate.
+  Engine.prototype.castSynergy = function () {
+    const ready = this.readyDragons();
+    if (this.state !== 'idle' || this.finished || ready.length < 2) return false;
+    const self = this;
+    const used = ready.slice(0, 3);
+    this.state = 'busy';
+    this.castingResolve = true;
+    this.dragonsActivatedThisMove = this.dragonsActivatedThisMove || {};
+    let power = 0;
+    used.forEach(function (d) { d.ready = false; d.charge = 0; d.flashing = 1.2; self.dragonsActivatedThisMove[d.id] = true; power += d.level + (((d.tier || 1) - 1) * 2); });
+
+    const set = {};
+    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
+    used.forEach(function (d) {
+      const ab = d.def.ability;
+      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); const r2 = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r2, c); }
+      else if (ab === 'random') { for (let k = 0; k < 6 + power; k++) add(rnd(self.rows), rnd(self.cols)); }
+      else if (ab === 'freeze') { for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; self.iceLeft = Math.max(0, self.iceLeft - 1); } if (t.chain) t.chain = false; } }
+      else if (ab === 'bonus') { for (let k = 0; k < 2 + (power / 3 | 0); k++) { const r = rnd(self.rows), c = rnd(self.cols), t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H); } }
+      else if (ab === 'shuffle') { self.movesLeft += 2; }
+    });
+    // central mega-blast scaled by combined power
+    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(3, power / 3 | 0);
+    for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) add(cr + dr, cc + dc);
+    // bonus: synergy grants a couple of moves
+    this.movesLeft += 2; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+
+    // spectacle
+    this.shake = 1;
+    used.forEach(function (d, i) {
+      const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || d.def;
+      self.dragonFx.push({ x: self.viewport.x - 60, y: self.viewport.y + self.viewport.size * (0.3 + i * 0.2), vx: (self.viewport.size + 160) / 0.8, t: 0, life: 0.8, emoji: d.def.emoji, id: d.id, color: sc.color || d.def.color });
+      self.spawnRing(self.viewport.x + self.viewport.size / 2, self.viewport.y + self.viewport.size / 2, self.viewport.size * (0.6 + i * 0.15), sc.color || d.def.color);
+    });
+    global.Audio2.play('dragon');
+    this.cb.onDragons && this.cb.onDragons(this.dragons);
+    this.cb.onSynergy && this.cb.onSynergy(used);
+    this.combo = Math.max(this.combo, 2);
+    if (Object.keys(set).length) this.clearSet(set);
+    else this.endResolve();
+    return true;
+  };
+
   Engine.prototype.activateDragon = function (d, target) {
     this.castingResolve = true; // suppress self-recharge for the whole resolution
     global.Audio2.play('dragon');

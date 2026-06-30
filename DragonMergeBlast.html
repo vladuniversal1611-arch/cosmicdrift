@@ -56,7 +56,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 /* The game screen is just a transparent HUD overlay; let taps fall through
    to the board canvas underneath, but keep its buttons/bars interactive. */
 #screen-game { background: transparent; z-index: 6; padding: 0; overflow: hidden; pointer-events: none; }
-#screen-game .btn-back, #screen-game .btn-pause, #screen-game .booster, #screen-game .dragon-bar.ready { pointer-events: auto; }
+#screen-game .btn-back, #screen-game .btn-pause, #screen-game .booster, #screen-game .dragon-bar.ready, #screen-game .synergy-btn { pointer-events: auto; }
 
 /* ---- Currency bar ---- */
 .currency-bar {
@@ -397,6 +397,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .db-track { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
 .db-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .dragon-bar.ready { cursor: pointer; box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(255,210,77,0.6); animation: pulse 1s infinite; }
+/* ---- Synergy button ---- */
+.synergy-btn {
+  position: absolute; bottom: 116px; left: 50%; transform: translateX(-50%); z-index: 12;
+  border: none; border-radius: 22px; padding: 10px 22px; cursor: pointer; font-family: inherit;
+  font-weight: 900; font-size: 15px; letter-spacing: 1px; color: #2a0e3a;
+  background: linear-gradient(90deg, #ff7a59, #ffd24d, #7be0ff, #c58bff);
+  background-size: 300% 100%; box-shadow: 0 0 22px rgba(255,200,120,0.7), 0 6px 16px rgba(0,0,0,0.4);
+  animation: synGlow 2s linear infinite, pulse 1s infinite;
+}
+.synergy-btn span { font-size: 18px; }
+@keyframes synGlow { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
 .db-ready { flex: 1; text-align: center; font-size: 11px; font-weight: 900; color: var(--gold); letter-spacing: 1px; }
 
 .combo-pop {
@@ -1276,6 +1287,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   Object.keys(TSTR).forEach(function (l) { Object.assign(STR[l], TSTR[l]); });
   const ISTR = { uk: '📲 Встановити застосунок', en: '📲 Install app', es: '📲 Instalar app', de: '📲 App installieren', fr: '📲 Installer l’app', pt: '📲 Instalar app' };
   Object.keys(ISTR).forEach(function (l) { STR[l].s_install = ISTR[l]; });
+
+  // Dragon synergy.
+  const SYN = {
+    uk: { synergy: 'СИНЕРГІЯ', tip_synergy: '⚡ Двоє драконів готові! Натисни СИНЕРГІЯ, щоб об’єднати їх у спільний удар.' },
+    en: { synergy: 'SYNERGY', tip_synergy: '⚡ Two dragons ready! Tap SYNERGY to combine them into one ultimate.' },
+    es: { synergy: 'SINERGIA', tip_synergy: '⚡ ¡Dos dragones listos! Pulsa SINERGIA para combinarlos.' },
+    de: { synergy: 'SYNERGIE', tip_synergy: '⚡ Zwei Drachen bereit! Tippe SYNERGIE, um sie zu vereinen.' },
+    fr: { synergy: 'SYNERGIE', tip_synergy: '⚡ Deux dragons prêts ! Touchez SYNERGIE pour les combiner.' },
+    pt: { synergy: 'SINERGIA', tip_synergy: '⚡ Dois dragões prontos! Toque em SINERGIA para combiná-los.' }
+  };
+  Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
 
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
@@ -2299,6 +2321,52 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.state = 'busy';
     this.activateDragon(d, target);
     this.cb.onDragons && this.cb.onDragons(this.dragons);
+    return true;
+  };
+
+  Engine.prototype.readyDragons = function () { return this.dragons.filter(function (d) { return d.ready; }); };
+
+  // Dragon Synergy: combine 2+ ready dragons into one spectacular ultimate.
+  Engine.prototype.castSynergy = function () {
+    const ready = this.readyDragons();
+    if (this.state !== 'idle' || this.finished || ready.length < 2) return false;
+    const self = this;
+    const used = ready.slice(0, 3);
+    this.state = 'busy';
+    this.castingResolve = true;
+    this.dragonsActivatedThisMove = this.dragonsActivatedThisMove || {};
+    let power = 0;
+    used.forEach(function (d) { d.ready = false; d.charge = 0; d.flashing = 1.2; self.dragonsActivatedThisMove[d.id] = true; power += d.level + (((d.tier || 1) - 1) * 2); });
+
+    const set = {};
+    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
+    used.forEach(function (d) {
+      const ab = d.def.ability;
+      if (ab === 'row') { const r = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r, c); const r2 = rnd(self.rows); for (let c = 0; c < self.cols; c++) add(r2, c); }
+      else if (ab === 'random') { for (let k = 0; k < 6 + power; k++) add(rnd(self.rows), rnd(self.cols)); }
+      else if (ab === 'freeze') { for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; self.iceLeft = Math.max(0, self.iceLeft - 1); } if (t.chain) t.chain = false; } }
+      else if (ab === 'bonus') { for (let k = 0; k < 2 + (power / 3 | 0); k++) { const r = rnd(self.rows), c = rnd(self.cols), t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H); } }
+      else if (ab === 'shuffle') { self.movesLeft += 2; }
+    });
+    // central mega-blast scaled by combined power
+    const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(3, power / 3 | 0);
+    for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) add(cr + dr, cc + dc);
+    // bonus: synergy grants a couple of moves
+    this.movesLeft += 2; this.cb.onMoves && this.cb.onMoves(this.movesLeft);
+
+    // spectacle
+    this.shake = 1;
+    used.forEach(function (d, i) {
+      const sc = D.SKIN_COLORS[(global.Save.get().activeSkins[d.id])] || d.def;
+      self.dragonFx.push({ x: self.viewport.x - 60, y: self.viewport.y + self.viewport.size * (0.3 + i * 0.2), vx: (self.viewport.size + 160) / 0.8, t: 0, life: 0.8, emoji: d.def.emoji, id: d.id, color: sc.color || d.def.color });
+      self.spawnRing(self.viewport.x + self.viewport.size / 2, self.viewport.y + self.viewport.size / 2, self.viewport.size * (0.6 + i * 0.15), sc.color || d.def.color);
+    });
+    global.Audio2.play('dragon');
+    this.cb.onDragons && this.cb.onDragons(this.dragons);
+    this.cb.onSynergy && this.cb.onSynergy(used);
+    this.combo = Math.max(this.combo, 2);
+    if (Object.keys(set).length) this.clearSet(set);
+    else this.endResolve();
     return true;
   };
 
@@ -3847,6 +3915,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
@@ -3904,6 +3973,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
         onModeEnd: function (res) { self.onModeEnd(res); },
         onWin: function (res) { self.onDailyEnd(true, res); },
         onLose: function (res) { self.onDailyEnd(false, res); }
@@ -4042,6 +4112,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
+      const oldSyn = s.querySelector('.synergy-btn'); if (oldSyn) oldSyn.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
       const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
       const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
@@ -4077,6 +4148,14 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const boBar = document.createElement('div');
       boBar.className = 'booster-bar';
       s.appendChild(boBar);
+
+      const synBtn = document.createElement('button');
+      synBtn.className = 'synergy-btn hidden';
+      synBtn.innerHTML = '<span>⚡</span> ' + T('synergy');
+      const selfG = this;
+      synBtn.addEventListener('click', function (ev) { ev.stopPropagation(); selfG.useSynergy(); });
+      s.appendChild(synBtn);
+      this.synBtn = synBtn;
 
       this.hud = {
         score: hud.querySelector('#hud-score'),
@@ -4187,6 +4266,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         wrap.appendChild(cell);
       });
       if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
+      // synergy button appears when 2+ dragons are ready
+      if (this.synBtn) {
+        const ready = dragons.filter(function (d) { return d.ready; }).length;
+        if (ready >= 2) { this.synBtn.classList.remove('hidden'); this.tip('synergy', 200); }
+        else this.synBtn.classList.add('hidden');
+      }
+    },
+
+    useSynergy: function () {
+      const eng = this.engine;
+      if (!eng || eng.finished) return;
+      if (eng.castSynergy()) { this.synBtn.classList.add('hidden'); this.renderDragonBars(eng.dragons); }
     },
 
     castDragon: function (d) {

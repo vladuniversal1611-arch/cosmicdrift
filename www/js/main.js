@@ -94,6 +94,7 @@
         onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
@@ -151,6 +152,7 @@
         onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
         onModeEnd: function (res) { self.onModeEnd(res); },
         onWin: function (res) { self.onDailyEnd(true, res); },
         onLose: function (res) { self.onDailyEnd(false, res); }
@@ -289,6 +291,7 @@
       const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
       const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
+      const oldSyn = s.querySelector('.synergy-btn'); if (oldSyn) oldSyn.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
       const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
       const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
@@ -324,6 +327,14 @@
       const boBar = document.createElement('div');
       boBar.className = 'booster-bar';
       s.appendChild(boBar);
+
+      const synBtn = document.createElement('button');
+      synBtn.className = 'synergy-btn hidden';
+      synBtn.innerHTML = '<span>⚡</span> ' + T('synergy');
+      const selfG = this;
+      synBtn.addEventListener('click', function (ev) { ev.stopPropagation(); selfG.useSynergy(); });
+      s.appendChild(synBtn);
+      this.synBtn = synBtn;
 
       this.hud = {
         score: hud.querySelector('#hud-score'),
@@ -434,6 +445,18 @@
         wrap.appendChild(cell);
       });
       if (dragons.some(function (d) { return d.ready; })) this.tip('dragon', 200);
+      // synergy button appears when 2+ dragons are ready
+      if (this.synBtn) {
+        const ready = dragons.filter(function (d) { return d.ready; }).length;
+        if (ready >= 2) { this.synBtn.classList.remove('hidden'); this.tip('synergy', 200); }
+        else this.synBtn.classList.add('hidden');
+      }
+    },
+
+    useSynergy: function () {
+      const eng = this.engine;
+      if (!eng || eng.finished) return;
+      if (eng.castSynergy()) { this.synBtn.classList.add('hidden'); this.renderDragonBars(eng.dragons); }
     },
 
     castDragon: function (d) {

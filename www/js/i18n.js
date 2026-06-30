@@ -472,6 +472,17 @@
   const ISTR = { uk: '📲 Встановити застосунок', en: '📲 Install app', es: '📲 Instalar app', de: '📲 App installieren', fr: '📲 Installer l’app', pt: '📲 Instalar app' };
   Object.keys(ISTR).forEach(function (l) { STR[l].s_install = ISTR[l]; });
 
+  // Dragon synergy.
+  const SYN = {
+    uk: { synergy: 'СИНЕРГІЯ', tip_synergy: '⚡ Двоє драконів готові! Натисни СИНЕРГІЯ, щоб об’єднати їх у спільний удар.' },
+    en: { synergy: 'SYNERGY', tip_synergy: '⚡ Two dragons ready! Tap SYNERGY to combine them into one ultimate.' },
+    es: { synergy: 'SINERGIA', tip_synergy: '⚡ ¡Dos dragones listos! Pulsa SINERGIA para combinarlos.' },
+    de: { synergy: 'SYNERGIE', tip_synergy: '⚡ Zwei Drachen bereit! Tippe SYNERGIE, um sie zu vereinen.' },
+    fr: { synergy: 'SYNERGIE', tip_synergy: '⚡ Deux dragons prêts ! Touchez SYNERGIE pour les combiner.' },
+    pt: { synergy: 'SINERGIA', tip_synergy: '⚡ Dois dragões prontos! Toque em SINERGIA para combiná-los.' }
+  };
+  Object.keys(SYN).forEach(function (l) { Object.assign(STR[l], SYN[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
