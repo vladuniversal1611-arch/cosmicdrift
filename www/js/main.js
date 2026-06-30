@@ -52,6 +52,8 @@
       this.inLevel = false;
       this.gameScreen.classList.add('hidden');
       global.UI.closeModal();
+      const prog = global.Save.get().levelProgress;
+      global.Audio2.setIsland(Math.floor((prog - 1) / 25)); // hub music matches current island
       if (id === 'home') global.UI.renderHome();
       else if (id === 'map') global.UI.renderMap();
       else if (id === 'collection') global.UI.renderCollection();
@@ -100,6 +102,7 @@
       global.UI.show('game');
       this.gameScreen.classList.remove('hidden');
       this.resize();
+      global.Audio2.setIsland(lv.island);
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
@@ -349,6 +352,20 @@
         egg.charge = Math.min(egg.need, egg.charge + energy + 10);
       }
       global.UI.addPassXp(50 + res.stars * 20);
+      // Win streak: every 3 in a row grants a bonus.
+      p.streak.wins = (p.streak.wins || 0) + 1;
+      p.streak.best = Math.max(p.streak.best || 0, p.streak.wins);
+      let streakHtml = '';
+      if (p.streak.wins % 3 === 0) {
+        const sb = 50 + p.streak.wins * 20;
+        p.gold += sb;
+        global.Audio2.play('streak');
+        streakHtml = '<div class="streak-line">' + T('streak_bonus', { n: p.streak.wins, r: sb + '🪙' }) + '</div>';
+      }
+      // Piggy bank: stash half of the gold earned, up to the cap.
+      const before = p.piggy.coins;
+      p.piggy.coins = Math.min(p.piggy.cap, p.piggy.coins + Math.round(gold * 0.5));
+      const piggyHtml = (p.piggy.coins > before) ? '<div class="muted small">🐷 ' + T('piggy_info', { n: p.piggy.coins, cap: p.piggy.cap }) + '</div>' : '';
       global.Save.save();
       this.checkUnlocks();
 
@@ -361,7 +378,8 @@
           }).join('') +
         '</div>' +
         '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>';
+        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>' +
+        streakHtml + piggyHtml;
       const self = this;
       const btns = [
         { label: T('btn_map'), onClick: function () { self.go('map'); } },
@@ -378,6 +396,7 @@
       const self = this;
       const lvNum = this.currentLevel;
       global.Save.spendLife(); // a failed attempt costs one heart
+      global.Save.get().streak.wins = 0; global.Save.save(); // streak broken
       global.UI.refreshCurrencies();
       const li = global.Save.livesInfo();
       const body = document.createElement('div');

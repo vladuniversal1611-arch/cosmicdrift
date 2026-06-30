@@ -334,6 +334,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
 /* ---- Language rows ---- */
 .lang-row { display: block; width: 100%; margin-bottom: 8px; text-align: center; }
+
+/* ---- Piggy bank widget ---- */
+.piggy-widget { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 10px 12px; }
+.piggy-widget.full { border-color: #ff9ec4; box-shadow: 0 0 16px rgba(255,158,196,0.35); }
+.piggy-ic { font-size: 30px; }
+.piggy-body { flex: 1; }
+.piggy-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.piggy-top span { color: var(--muted); }
+
+/* ---- Map chests ---- */
+.chest-row { display: flex; justify-content: space-around; margin-top: 10px; }
+.chest-node { width: 40px; height: 40px; border-radius: 12px; border: none; cursor: default; font-size: 20px; background: rgba(255,255,255,0.06); }
+.chest-node.ready { background: linear-gradient(180deg,#ffd56b,#ff9d3d); cursor: pointer; animation: pulse 1.2s infinite; box-shadow: 0 0 12px rgba(255,200,80,0.5); }
+.chest-node.opened { opacity: 0.5; }
+.chest-node.locked { opacity: 0.35; }
+
+/* ---- Win streak line ---- */
+.streak-line { margin-top: 8px; font-weight: 900; color: #ff8a5c; font-size: 16px; }
 .dragon-bar { display: flex; align-items: center; gap: 6px; background: var(--panel); border-radius: 20px; padding: 5px 10px 5px 6px; flex: 1; max-width: 130px; }
 .dragon-bar.flash { animation: dflash 0.6s; }
 @keyframes dflash { 0%,100%{ box-shadow: none } 50%{ box-shadow: 0 0 18px var(--gold) } }
@@ -1072,6 +1090,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   };
   Object.keys(QSTR).forEach(function (l) { Object.assign(STR[l], QSTR[l]); });
 
+  // Retention features (win streak, piggy bank, map chests).
+  const RSTR = {
+    uk: { streak_bonus: '🔥 Серія ×{n}! +{r}', piggy_title: '🐷 Скарбничка', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Розбити (+{n}🪙)', piggy_not_full: 'Ще не повна — грайте далі!', piggy_cracked: 'Скарбничку розбито: +{n}🪙', chest_title: '🎁 Скриня', chest_open: 'Відкрити', chest_reward: 'Скриня: +{gold}🪙 +{gems}💎' },
+    en: { streak_bonus: '🔥 Streak ×{n}! +{r}', piggy_title: '🐷 Piggy bank', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Crack (+{n}🪙)', piggy_not_full: 'Not full yet — keep playing!', piggy_cracked: 'Piggy cracked: +{n}🪙', chest_title: '🎁 Chest', chest_open: 'Open', chest_reward: 'Chest: +{gold}🪙 +{gems}💎' },
+    es: { streak_bonus: '🔥 ¡Racha ×{n}! +{r}', piggy_title: '🐷 Hucha', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Romper (+{n}🪙)', piggy_not_full: 'Aún no está llena — ¡sigue jugando!', piggy_cracked: 'Hucha rota: +{n}🪙', chest_title: '🎁 Cofre', chest_open: 'Abrir', chest_reward: 'Cofre: +{gold}🪙 +{gems}💎' },
+    de: { streak_bonus: '🔥 Serie ×{n}! +{r}', piggy_title: '🐷 Sparschwein', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Knacken (+{n}🪙)', piggy_not_full: 'Noch nicht voll — weiterspielen!', piggy_cracked: 'Sparschwein geknackt: +{n}🪙', chest_title: '🎁 Truhe', chest_open: 'Öffnen', chest_reward: 'Truhe: +{gold}🪙 +{gems}💎' },
+    fr: { streak_bonus: '🔥 Série ×{n} ! +{r}', piggy_title: '🐷 Tirelire', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Casser (+{n}🪙)', piggy_not_full: 'Pas encore pleine — continuez !', piggy_cracked: 'Tirelire cassée : +{n}🪙', chest_title: '🎁 Coffre', chest_open: 'Ouvrir', chest_reward: 'Coffre : +{gold}🪙 +{gems}💎' },
+    pt: { streak_bonus: '🔥 Sequência ×{n}! +{r}', piggy_title: '🐷 Cofrinho', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Quebrar (+{n}🪙)', piggy_not_full: 'Ainda não está cheio — continue!', piggy_cracked: 'Cofrinho quebrado: +{n}🪙', chest_title: '🎁 Baú', chest_open: 'Abrir', chest_reward: 'Baú: +{gold}🪙 +{gems}💎' }
+  };
+  Object.keys(RSTR).forEach(function (l) { Object.assign(STR[l], RSTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {
@@ -1135,6 +1164,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
       lives: { count: 5, max: 5, lastRegen: Date.now() },
+      streak: { wins: 0, best: 0 },
+      piggy: { coins: 0, cap: 500 },
+      chests: {},
       settings: { sound: true, music: true, vibration: true, language: 'uk' },
       tutorialDone: false,
       firstRun: true
@@ -1151,7 +1183,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});
@@ -1287,10 +1319,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       tone(330, 0.4, 'triangle', 0.2, null, 660);
     },
     hatch:   function () { tone(523, 0.15, 'sine', 0.3, null, 784); setTimeout(function(){tone(784,0.25,'sine',0.3,null,1046);},120); },
-    win:     function () { [523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.3,'triangle',0.3);},i*120);}); },
+    win:     function () { // triumphant arpeggio + sparkle
+      [523, 659, 784, 1046, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.32, 'triangle', 0.3); tone(f * 2, 0.18, 'sine', 0.1); }, i * 120); });
+      setTimeout(function () { tone(1568, 0.5, 'sine', 0.22); }, 640);
+    },
     lose:    function () { [392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.35,'sawtooth',0.25);},i*150);}); },
     click:   function () { tone(600, 0.05, 'square', 0.18); },
     coin:    function () { tone(880, 0.07, 'square', 0.2, null, 1320); setTimeout(function(){tone(1320,0.08,'square',0.18);},60); },
+    chest:   function () { [659, 784, 988, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.25, 'triangle', 0.28); }, i * 90); }); noise(0.2, 0.12); },
+    streak:  function () { [784, 988, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.18, 'square', 0.22); }, i * 70); }); },
     star:    function (i) { tone(660 + (i||0)*220, 0.2, 'triangle', 0.3); }
   };
 
@@ -1316,15 +1353,35 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   }
 
   // ---- Procedural background music ----------------------------------------
-  // A gentle, looping arpeggio in a pentatonic scale — pleasant, royalty free.
-  const SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+  // One distinct, royalty-free theme per island: scale, tempo and timbre.
+  const THEMES = [
+    // 0 Dawn — warm major pentatonic, gentle
+    { scale: [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25], beat: 340, wave: 'sine', bass: 'triangle', vol: 0.22 },
+    // 1 Ice — airy lydian-ish, slower, glassy
+    { scale: [293.66, 329.63, 369.99, 440.0, 493.88, 587.33, 659.25, 739.99], beat: 400, wave: 'sine', bass: 'sine', vol: 0.2 },
+    // 2 Storm — minor pentatonic, faster, edgier
+    { scale: [246.94, 293.66, 329.63, 392.0, 440.0, 493.88, 587.33, 659.25], beat: 290, wave: 'triangle', bass: 'sawtooth', vol: 0.18 },
+    // 3 Forest — bright major, bouncy
+    { scale: [329.63, 369.99, 415.30, 493.88, 554.37, 659.25, 739.99, 830.61], beat: 320, wave: 'sine', bass: 'triangle', vol: 0.2 },
+    // 4 Sky — grand, wide intervals
+    { scale: [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.5, 1318.5], beat: 360, wave: 'sine', bass: 'triangle', vol: 0.22 }
+  ];
+  let theme = THEMES[0];
   let step = 0;
+  function setIsland(id) {
+    const t = THEMES[Math.max(0, Math.min(THEMES.length - 1, id | 0))];
+    if (t === theme) return;
+    theme = t;
+    if (musicOn) { stopMusic(); startMusic(); } // restart loop at new tempo
+  }
   function musicTick() {
     if (!musicOn || !ctx) return;
-    const root = SCALE[step % SCALE.length];
-    tone(root, 0.5, 'sine', 0.22, musicGain, root * 1.001);
-    if (step % 2 === 0) tone(root / 2, 0.9, 'triangle', 0.12, musicGain);
-    if (step % 4 === 0) tone(SCALE[(step / 4) % SCALE.length] * 2, 0.4, 'sine', 0.1, musicGain);
+    const S = theme.scale;
+    const root = S[step % S.length];
+    tone(root, 0.5, theme.wave, theme.vol, musicGain, root * 1.001);
+    if (step % 2 === 0) tone(root / 2, 0.9, theme.bass, 0.12, musicGain);
+    if (step % 4 === 0) tone(S[(step / 4) % S.length] * 2, 0.4, 'sine', 0.1, musicGain);
+    if (step % 8 === 3) tone(S[(step + 2) % S.length] * 1.5, 0.3, 'sine', 0.07, musicGain);
     step++;
   }
 
@@ -1334,7 +1391,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (global.Save && global.Save.get().settings.music === false) return;
     if (musicOn) return;
     musicOn = true;
-    musicTimer = setInterval(musicTick, 340);
+    musicTimer = setInterval(musicTick, theme.beat);
   }
 
   function stopMusic() {
@@ -1345,7 +1402,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
   function setSoundEnabled() { /* checked at play time */ }
 
-  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled };
+  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled, setIsland };
 })(window);
 
 //----
@@ -2364,11 +2421,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     }
 
     const cr = D.CRYSTALS[t.type];
+    // Per-island gem shape: corner radius varies so each island's board looks distinct.
+    const RADII = [0.22, 0.5, 0.1, 0.36, 0.26];
+    const island = (this.level && this.level.island) || 0;
+    const rad = tile * (RADII[island] != null ? RADII[island] : 0.22);
     // gem body — rounded gradient
-    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, tile * 0.22);
+    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad);
     const grd = g.createLinearGradient(x, y, x, y + tile);
     grd.addColorStop(0, cr.c1); grd.addColorStop(1, cr.c2);
     g.fillStyle = grd; g.fill();
+    // island-tinted rim
+    const theme = (D.ISLANDS[island] && D.ISLANDS[island].theme) || '#ffffff';
+    g.strokeStyle = theme; g.globalAlpha = 0.35; g.lineWidth = Math.max(1, tile * 0.04);
+    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad); g.stroke();
+    g.globalAlpha = 1;
     // glossy highlight
     g.beginPath();
     g.ellipse(cx - tile * 0.12, cy - tile * 0.14, tile * 0.18, tile * 0.1, -0.5, 0, Math.PI * 2);
@@ -2631,6 +2697,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const acts = el('div', 'home-actions');
       const playBtn = click(el('button', 'btn btn-primary btn-big', T('play_level', { n: p.levelProgress })), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
+      // Piggy bank widget
+      const full = p.piggy.coins >= p.piggy.cap;
+      const piggy = el('div', 'piggy-widget' + (full ? ' full' : ''));
+      piggy.innerHTML = '<div class="piggy-ic">🐷</div>' +
+        '<div class="piggy-body"><div class="piggy-top"><b>' + T('piggy_title') + '</b><span>' + T('piggy_info', { n: p.piggy.coins, cap: p.piggy.cap }) + '</span></div>' +
+        '<div class="bar"><div class="bar-fill" style="width:' + Math.round(p.piggy.coins / p.piggy.cap * 100) + '%;background:#ff9ec4"></div></div></div>';
+      const crackBtn = el('button', 'btn btn-mini ' + (full ? 'btn-primary' : 'btn-ghost'), full ? T('piggy_crack', { n: p.piggy.coins }) : '🔒');
+      click(crackBtn, function () {
+        if (p.piggy.coins < p.piggy.cap) { UI.toast(T('piggy_not_full')); return; }
+        const got = p.piggy.coins; p.gold += got; p.piggy.coins = 0; global.Save.save();
+        global.Audio2.play('chest'); UI.refreshCurrencies(); UI.toast(T('piggy_cracked', { n: got })); UI.renderHome();
+      });
+      piggy.appendChild(crackBtn);
+      acts.appendChild(piggy);
       const grid2 = el('div', 'home-grid grid6');
       [
         { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
@@ -2712,6 +2792,19 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           nodes.appendChild(node);
         }
         block.appendChild(nodes);
+        // Reward chests at every 5th level of the island
+        const chestRow = el('div', 'chest-row');
+        [5, 10, 15, 20, 25].forEach(function (m) {
+          const milestone = island.id * 25 + m;
+          if (milestone > D.LEVELS.length) return;
+          const opened = !!p.chests[milestone];
+          const ready = p.levelProgress > milestone && !opened;
+          const chest = el('button', 'chest-node' + (opened ? ' opened' : ready ? ' ready' : ' locked'),
+            opened ? '✅' : '🎁');
+          if (ready) click(chest, function () { UI.openChest(milestone); });
+          chestRow.appendChild(chest);
+        });
+        block.appendChild(chestRow);
         scroll.appendChild(block);
       });
       s.appendChild(scroll);
@@ -2721,6 +2814,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         const cur = s.querySelector('.lv-node.current');
         if (cur) cur.scrollIntoView({ block: 'center' });
       }, 30);
+    },
+
+    openChest: function (milestone) {
+      const p = global.Save.get();
+      if (p.chests[milestone]) return;
+      const gold = milestone * 8;
+      const gems = 5 + Math.floor(milestone / 25) * 5;
+      p.chests[milestone] = true; p.gold += gold; p.gems += gems; global.Save.save();
+      global.Audio2.play('chest');
+      const body = el('div', 'modal-body');
+      body.innerHTML = '<div class="big-emoji">🎁</div><div class="win-rewards">' + T('chest_reward', { gold: gold, gems: gems }) + '</div>';
+      this.modal(T('chest_title'), body, [{ label: T('great'), primary: true, onClick: function () { UI.refreshCurrencies(); UI.renderMap(); } }]);
     },
 
     showLevelPreview: function (lvNum) {
@@ -3272,6 +3377,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       this.inLevel = false;
       this.gameScreen.classList.add('hidden');
       global.UI.closeModal();
+      const prog = global.Save.get().levelProgress;
+      global.Audio2.setIsland(Math.floor((prog - 1) / 25)); // hub music matches current island
       if (id === 'home') global.UI.renderHome();
       else if (id === 'map') global.UI.renderMap();
       else if (id === 'collection') global.UI.renderCollection();
@@ -3320,6 +3427,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       global.UI.show('game');
       this.gameScreen.classList.remove('hidden');
       this.resize();
+      global.Audio2.setIsland(lv.island);
       global.Audio2.startMusic();
       this.tutorialActive = false; this._tutScored = false;
       if (lvNum === 1 && !p.tutorialDone) this.startTutorial();
@@ -3569,6 +3677,20 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         egg.charge = Math.min(egg.need, egg.charge + energy + 10);
       }
       global.UI.addPassXp(50 + res.stars * 20);
+      // Win streak: every 3 in a row grants a bonus.
+      p.streak.wins = (p.streak.wins || 0) + 1;
+      p.streak.best = Math.max(p.streak.best || 0, p.streak.wins);
+      let streakHtml = '';
+      if (p.streak.wins % 3 === 0) {
+        const sb = 50 + p.streak.wins * 20;
+        p.gold += sb;
+        global.Audio2.play('streak');
+        streakHtml = '<div class="streak-line">' + T('streak_bonus', { n: p.streak.wins, r: sb + '🪙' }) + '</div>';
+      }
+      // Piggy bank: stash half of the gold earned, up to the cap.
+      const before = p.piggy.coins;
+      p.piggy.coins = Math.min(p.piggy.cap, p.piggy.coins + Math.round(gold * 0.5));
+      const piggyHtml = (p.piggy.coins > before) ? '<div class="muted small">🐷 ' + T('piggy_info', { n: p.piggy.coins, cap: p.piggy.cap }) + '</div>' : '';
       global.Save.save();
       this.checkUnlocks();
 
@@ -3581,7 +3703,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
           }).join('') +
         '</div>' +
         '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>';
+        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>' +
+        streakHtml + piggyHtml;
       const self = this;
       const btns = [
         { label: T('btn_map'), onClick: function () { self.go('map'); } },
@@ -3598,6 +3721,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       const self = this;
       const lvNum = this.currentLevel;
       global.Save.spendLife(); // a failed attempt costs one heart
+      global.Save.get().streak.wins = 0; global.Save.save(); // streak broken
       global.UI.refreshCurrencies();
       const li = global.Save.livesInfo();
       const body = document.createElement('div');

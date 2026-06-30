@@ -37,6 +37,9 @@
       pass: { xp: 0, premium: false, claimedFree: [], claimedPremium: [] },
       boosters: { hammer: 3, shuffle: 2, moves: 2 },
       lives: { count: 5, max: 5, lastRegen: Date.now() },
+      streak: { wins: 0, best: 0 },
+      piggy: { coins: 0, cap: 500 },
+      chests: {},
       settings: { sound: true, music: true, vibration: true, language: 'uk' },
       tutorialDone: false,
       firstRun: true
@@ -53,7 +56,7 @@
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});

@@ -1013,11 +1013,20 @@
     }
 
     const cr = D.CRYSTALS[t.type];
+    // Per-island gem shape: corner radius varies so each island's board looks distinct.
+    const RADII = [0.22, 0.5, 0.1, 0.36, 0.26];
+    const island = (this.level && this.level.island) || 0;
+    const rad = tile * (RADII[island] != null ? RADII[island] : 0.22);
     // gem body — rounded gradient
-    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, tile * 0.22);
+    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad);
     const grd = g.createLinearGradient(x, y, x, y + tile);
     grd.addColorStop(0, cr.c1); grd.addColorStop(1, cr.c2);
     g.fillStyle = grd; g.fill();
+    // island-tinted rim
+    const theme = (D.ISLANDS[island] && D.ISLANDS[island].theme) || '#ffffff';
+    g.strokeStyle = theme; g.globalAlpha = 0.35; g.lineWidth = Math.max(1, tile * 0.04);
+    this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, rad); g.stroke();
+    g.globalAlpha = 1;
     // glossy highlight
     g.beginPath();
     g.ellipse(cx - tile * 0.12, cy - tile * 0.14, tile * 0.18, tile * 0.1, -0.5, 0, Math.PI * 2);

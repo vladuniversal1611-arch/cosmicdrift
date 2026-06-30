@@ -404,6 +404,17 @@
   };
   Object.keys(QSTR).forEach(function (l) { Object.assign(STR[l], QSTR[l]); });
 
+  // Retention features (win streak, piggy bank, map chests).
+  const RSTR = {
+    uk: { streak_bonus: '🔥 Серія ×{n}! +{r}', piggy_title: '🐷 Скарбничка', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Розбити (+{n}🪙)', piggy_not_full: 'Ще не повна — грайте далі!', piggy_cracked: 'Скарбничку розбито: +{n}🪙', chest_title: '🎁 Скриня', chest_open: 'Відкрити', chest_reward: 'Скриня: +{gold}🪙 +{gems}💎' },
+    en: { streak_bonus: '🔥 Streak ×{n}! +{r}', piggy_title: '🐷 Piggy bank', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Crack (+{n}🪙)', piggy_not_full: 'Not full yet — keep playing!', piggy_cracked: 'Piggy cracked: +{n}🪙', chest_title: '🎁 Chest', chest_open: 'Open', chest_reward: 'Chest: +{gold}🪙 +{gems}💎' },
+    es: { streak_bonus: '🔥 ¡Racha ×{n}! +{r}', piggy_title: '🐷 Hucha', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Romper (+{n}🪙)', piggy_not_full: 'Aún no está llena — ¡sigue jugando!', piggy_cracked: 'Hucha rota: +{n}🪙', chest_title: '🎁 Cofre', chest_open: 'Abrir', chest_reward: 'Cofre: +{gold}🪙 +{gems}💎' },
+    de: { streak_bonus: '🔥 Serie ×{n}! +{r}', piggy_title: '🐷 Sparschwein', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Knacken (+{n}🪙)', piggy_not_full: 'Noch nicht voll — weiterspielen!', piggy_cracked: 'Sparschwein geknackt: +{n}🪙', chest_title: '🎁 Truhe', chest_open: 'Öffnen', chest_reward: 'Truhe: +{gold}🪙 +{gems}💎' },
+    fr: { streak_bonus: '🔥 Série ×{n} ! +{r}', piggy_title: '🐷 Tirelire', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Casser (+{n}🪙)', piggy_not_full: 'Pas encore pleine — continuez !', piggy_cracked: 'Tirelire cassée : +{n}🪙', chest_title: '🎁 Coffre', chest_open: 'Ouvrir', chest_reward: 'Coffre : +{gold}🪙 +{gems}💎' },
+    pt: { streak_bonus: '🔥 Sequência ×{n}! +{r}', piggy_title: '🐷 Cofrinho', piggy_info: '{n} / {cap} 🪙', piggy_crack: 'Quebrar (+{n}🪙)', piggy_not_full: 'Ainda não está cheio — continue!', piggy_cracked: 'Cofrinho quebrado: +{n}🪙', chest_title: '🎁 Baú', chest_open: 'Abrir', chest_reward: 'Baú: +{gold}🪙 +{gems}💎' }
+  };
+  Object.keys(RSTR).forEach(function (l) { Object.assign(STR[l], RSTR[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt'];
 
   function currentLang() {

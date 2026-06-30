@@ -217,6 +217,20 @@
       const acts = el('div', 'home-actions');
       const playBtn = click(el('button', 'btn btn-primary btn-big', T('play_level', { n: p.levelProgress })), function () { global.Game.go('map'); });
       acts.appendChild(playBtn);
+      // Piggy bank widget
+      const full = p.piggy.coins >= p.piggy.cap;
+      const piggy = el('div', 'piggy-widget' + (full ? ' full' : ''));
+      piggy.innerHTML = '<div class="piggy-ic">🐷</div>' +
+        '<div class="piggy-body"><div class="piggy-top"><b>' + T('piggy_title') + '</b><span>' + T('piggy_info', { n: p.piggy.coins, cap: p.piggy.cap }) + '</span></div>' +
+        '<div class="bar"><div class="bar-fill" style="width:' + Math.round(p.piggy.coins / p.piggy.cap * 100) + '%;background:#ff9ec4"></div></div></div>';
+      const crackBtn = el('button', 'btn btn-mini ' + (full ? 'btn-primary' : 'btn-ghost'), full ? T('piggy_crack', { n: p.piggy.coins }) : '🔒');
+      click(crackBtn, function () {
+        if (p.piggy.coins < p.piggy.cap) { UI.toast(T('piggy_not_full')); return; }
+        const got = p.piggy.coins; p.gold += got; p.piggy.coins = 0; global.Save.save();
+        global.Audio2.play('chest'); UI.refreshCurrencies(); UI.toast(T('piggy_cracked', { n: got })); UI.renderHome();
+      });
+      piggy.appendChild(crackBtn);
+      acts.appendChild(piggy);
       const grid2 = el('div', 'home-grid grid6');
       [
         { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
@@ -298,6 +312,19 @@
           nodes.appendChild(node);
         }
         block.appendChild(nodes);
+        // Reward chests at every 5th level of the island
+        const chestRow = el('div', 'chest-row');
+        [5, 10, 15, 20, 25].forEach(function (m) {
+          const milestone = island.id * 25 + m;
+          if (milestone > D.LEVELS.length) return;
+          const opened = !!p.chests[milestone];
+          const ready = p.levelProgress > milestone && !opened;
+          const chest = el('button', 'chest-node' + (opened ? ' opened' : ready ? ' ready' : ' locked'),
+            opened ? '✅' : '🎁');
+          if (ready) click(chest, function () { UI.openChest(milestone); });
+          chestRow.appendChild(chest);
+        });
+        block.appendChild(chestRow);
         scroll.appendChild(block);
       });
       s.appendChild(scroll);
@@ -307,6 +334,18 @@
         const cur = s.querySelector('.lv-node.current');
         if (cur) cur.scrollIntoView({ block: 'center' });
       }, 30);
+    },
+
+    openChest: function (milestone) {
+      const p = global.Save.get();
+      if (p.chests[milestone]) return;
+      const gold = milestone * 8;
+      const gems = 5 + Math.floor(milestone / 25) * 5;
+      p.chests[milestone] = true; p.gold += gold; p.gems += gems; global.Save.save();
+      global.Audio2.play('chest');
+      const body = el('div', 'modal-body');
+      body.innerHTML = '<div class="big-emoji">🎁</div><div class="win-rewards">' + T('chest_reward', { gold: gold, gems: gems }) + '</div>';
+      this.modal(T('chest_title'), body, [{ label: T('great'), primary: true, onClick: function () { UI.refreshCurrencies(); UI.renderMap(); } }]);
     },
 
     showLevelPreview: function (lvNum) {

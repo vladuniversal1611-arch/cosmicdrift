@@ -67,10 +67,15 @@
       tone(330, 0.4, 'triangle', 0.2, null, 660);
     },
     hatch:   function () { tone(523, 0.15, 'sine', 0.3, null, 784); setTimeout(function(){tone(784,0.25,'sine',0.3,null,1046);},120); },
-    win:     function () { [523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.3,'triangle',0.3);},i*120);}); },
+    win:     function () { // triumphant arpeggio + sparkle
+      [523, 659, 784, 1046, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.32, 'triangle', 0.3); tone(f * 2, 0.18, 'sine', 0.1); }, i * 120); });
+      setTimeout(function () { tone(1568, 0.5, 'sine', 0.22); }, 640);
+    },
     lose:    function () { [392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.35,'sawtooth',0.25);},i*150);}); },
     click:   function () { tone(600, 0.05, 'square', 0.18); },
     coin:    function () { tone(880, 0.07, 'square', 0.2, null, 1320); setTimeout(function(){tone(1320,0.08,'square',0.18);},60); },
+    chest:   function () { [659, 784, 988, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.25, 'triangle', 0.28); }, i * 90); }); noise(0.2, 0.12); },
+    streak:  function () { [784, 988, 1318].forEach(function (f, i) { setTimeout(function () { tone(f, 0.18, 'square', 0.22); }, i * 70); }); },
     star:    function (i) { tone(660 + (i||0)*220, 0.2, 'triangle', 0.3); }
   };
 
@@ -96,15 +101,35 @@
   }
 
   // ---- Procedural background music ----------------------------------------
-  // A gentle, looping arpeggio in a pentatonic scale — pleasant, royalty free.
-  const SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+  // One distinct, royalty-free theme per island: scale, tempo and timbre.
+  const THEMES = [
+    // 0 Dawn — warm major pentatonic, gentle
+    { scale: [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25], beat: 340, wave: 'sine', bass: 'triangle', vol: 0.22 },
+    // 1 Ice — airy lydian-ish, slower, glassy
+    { scale: [293.66, 329.63, 369.99, 440.0, 493.88, 587.33, 659.25, 739.99], beat: 400, wave: 'sine', bass: 'sine', vol: 0.2 },
+    // 2 Storm — minor pentatonic, faster, edgier
+    { scale: [246.94, 293.66, 329.63, 392.0, 440.0, 493.88, 587.33, 659.25], beat: 290, wave: 'triangle', bass: 'sawtooth', vol: 0.18 },
+    // 3 Forest — bright major, bouncy
+    { scale: [329.63, 369.99, 415.30, 493.88, 554.37, 659.25, 739.99, 830.61], beat: 320, wave: 'sine', bass: 'triangle', vol: 0.2 },
+    // 4 Sky — grand, wide intervals
+    { scale: [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.5, 1318.5], beat: 360, wave: 'sine', bass: 'triangle', vol: 0.22 }
+  ];
+  let theme = THEMES[0];
   let step = 0;
+  function setIsland(id) {
+    const t = THEMES[Math.max(0, Math.min(THEMES.length - 1, id | 0))];
+    if (t === theme) return;
+    theme = t;
+    if (musicOn) { stopMusic(); startMusic(); } // restart loop at new tempo
+  }
   function musicTick() {
     if (!musicOn || !ctx) return;
-    const root = SCALE[step % SCALE.length];
-    tone(root, 0.5, 'sine', 0.22, musicGain, root * 1.001);
-    if (step % 2 === 0) tone(root / 2, 0.9, 'triangle', 0.12, musicGain);
-    if (step % 4 === 0) tone(SCALE[(step / 4) % SCALE.length] * 2, 0.4, 'sine', 0.1, musicGain);
+    const S = theme.scale;
+    const root = S[step % S.length];
+    tone(root, 0.5, theme.wave, theme.vol, musicGain, root * 1.001);
+    if (step % 2 === 0) tone(root / 2, 0.9, theme.bass, 0.12, musicGain);
+    if (step % 4 === 0) tone(S[(step / 4) % S.length] * 2, 0.4, 'sine', 0.1, musicGain);
+    if (step % 8 === 3) tone(S[(step + 2) % S.length] * 1.5, 0.3, 'sine', 0.07, musicGain);
     step++;
   }
 
@@ -114,7 +139,7 @@
     if (global.Save && global.Save.get().settings.music === false) return;
     if (musicOn) return;
     musicOn = true;
-    musicTimer = setInterval(musicTick, 340);
+    musicTimer = setInterval(musicTick, theme.beat);
   }
 
   function stopMusic() {
@@ -125,5 +150,5 @@
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
   function setSoundEnabled() { /* checked at play time */ }
 
-  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled };
+  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled, setIsland };
 })(window);
