@@ -52,4 +52,19 @@
     img: function (sp) { return sImgs[sp] || null; },
     ready: function (sp) { const im = sImgs[sp]; return !!(im && im.complete && im.naturalWidth); }
   };
+
+  // ---- Blocker sprites (ice block / wooden crate / chain-lock overlay) --------
+  const BK_IDS = ['ice', 'crate', 'chain'];
+  const bkInline = global.BLOCKER_SPRITES || null;
+  const bkUrls = {}, bkImgs = {};
+  BK_IDS.forEach(function (id) {
+    bkUrls[id] = (bkInline && bkInline[id]) ? bkInline[id] : ('assets/blockers/' + id + '.png');
+    if (typeof global.Image === 'function') {
+      try { const im = new global.Image(); im.src = bkUrls[id]; bkImgs[id] = im; } catch (e) {}
+    }
+  });
+  global.BlockerSprites = {
+    img: function (id) { return bkImgs[id] || null; },
+    ready: function (id) { const im = bkImgs[id]; return !!(im && im.complete && im.naturalWidth); }
+  };
 })(window);

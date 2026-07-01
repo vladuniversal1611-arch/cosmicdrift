@@ -29,7 +29,13 @@ const specials = {};
   const p = path.join(ROOT, 'www/assets/specials/' + nm + '.png');
   if (fs.existsSync(p)) specials[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';</script>\n';
+// Inline blocker sprites (ice / crate / chain).
+const blockers = {};
+['ice', 'crate', 'chain'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/blockers/' + nm + '.png');
+  if (fs.existsSync(p)) blockers[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+});
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');

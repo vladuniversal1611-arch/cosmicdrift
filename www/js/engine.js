@@ -1274,17 +1274,25 @@
     g.translate(-cx, -cy);
 
     if (t.ice) {
-      this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, 8);
-      const ig = g.createLinearGradient(x, y, x, y + tile);
-      if (t.crate) { ig.addColorStop(0, '#d8a866'); ig.addColorStop(1, '#a06a32'); }
-      else { ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8'); }
-      g.fillStyle = ig; g.fill();
-      g.strokeStyle = t.crate ? 'rgba(90,50,20,0.7)' : 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+      const bkId = t.crate ? 'crate' : 'ice';
+      const bkSprite = (global.BlockerSprites && global.BlockerSprites.ready(bkId)) ? global.BlockerSprites.img(bkId) : null;
+      if (bkSprite) {
+        g.drawImage(bkSprite, x, y, tile, tile);
+      } else {
+        this.roundRect(g, x + pad, y + pad, tile - pad * 2, tile - pad * 2, 8);
+        const ig = g.createLinearGradient(x, y, x, y + tile);
+        if (t.crate) { ig.addColorStop(0, '#d8a866'); ig.addColorStop(1, '#a06a32'); }
+        else { ig.addColorStop(0, '#dff6ff'); ig.addColorStop(1, '#9cc8e8'); }
+        g.fillStyle = ig; g.fill();
+        g.strokeStyle = t.crate ? 'rgba(90,50,20,0.7)' : 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.stroke();
+        if (t.crate) { g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke(); }
+      }
+      // crate hit-count is always overlaid so the player sees hits remaining
       if (t.crate) {
-        // plank lines + hit count
-        g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
-        g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = 'bold ' + (tile * 0.3) + 'px system-ui';
-        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.blockHp, cx, cy);
+        g.fillStyle = '#fff'; g.font = 'bold ' + (tile * 0.3) + 'px system-ui';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 4;
+        g.fillText(t.blockHp, cx, cy); g.shadowBlur = 0;
       }
       g.restore();
       return;
@@ -1410,14 +1418,19 @@
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();
     }
-    // chain overlay (locked crystal)
+    // chain overlay (locked crystal) — painted chain+lock sprite over the gem
     if (t.chain) {
-      g.strokeStyle = 'rgba(40,30,20,0.85)'; g.lineWidth = tile * 0.09;
-      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
-      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
-      g.strokeStyle = 'rgba(220,200,140,0.9)'; g.lineWidth = tile * 0.04;
-      g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
-      g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
+      const chSprite = (global.BlockerSprites && global.BlockerSprites.ready('chain')) ? global.BlockerSprites.img('chain') : null;
+      if (chSprite) {
+        g.drawImage(chSprite, x, y, tile, tile);
+      } else {
+        g.strokeStyle = 'rgba(40,30,20,0.85)'; g.lineWidth = tile * 0.09;
+        g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+        g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
+        g.strokeStyle = 'rgba(220,200,140,0.9)'; g.lineWidth = tile * 0.04;
+        g.beginPath(); g.moveTo(x + pad, cy); g.lineTo(x + tile - pad, cy); g.stroke();
+        g.beginPath(); g.moveTo(cx, y + pad); g.lineTo(cx, y + tile - pad); g.stroke();
+      }
     }
     g.restore();
   };
