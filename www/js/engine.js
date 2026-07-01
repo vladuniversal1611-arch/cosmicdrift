@@ -1158,15 +1158,20 @@
       g.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)';
       g.fillRect(this.cellX(c), this.cellY(r), tile, tile);
     }
-    // jelly layer (cell-based, drawn under crystals)
+    // jelly layer (cell-based, drawn under crystals) — painted sprite or code fill
     if (this.jellyGrid) for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       const j = this.jellyGrid[r][c];
       if (!j) continue;
       const x = this.cellX(c), y = this.cellY(r);
-      this.roundRect(g, x + 2, y + 2, tile - 4, tile - 4, 10);
-      g.fillStyle = j >= 2 ? 'rgba(255,90,200,0.42)' : 'rgba(255,120,210,0.24)';
-      g.fill();
-      g.strokeStyle = 'rgba(255,150,220,0.5)'; g.lineWidth = 2; g.stroke();
+      const jSprite = (global.JellySprites && global.JellySprites.ready(j)) ? global.JellySprites.img(j) : null;
+      if (jSprite) {
+        g.drawImage(jSprite, x, y, tile, tile);
+      } else {
+        this.roundRect(g, x + 2, y + 2, tile - 4, tile - 4, 10);
+        g.fillStyle = j >= 2 ? 'rgba(255,90,200,0.42)' : 'rgba(255,120,210,0.24)';
+        g.fill();
+        g.strokeStyle = 'rgba(255,150,220,0.5)'; g.lineWidth = 2; g.stroke();
+      }
     }
     // tiles
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {

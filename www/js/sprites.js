@@ -67,4 +67,19 @@
     img: function (id) { return bkImgs[id] || null; },
     ready: function (id) { const im = bkImgs[id]; return !!(im && im.complete && im.naturalWidth); }
   };
+
+  // ---- Jelly sprites (1 = single layer, 2 = double layer) --------------------
+  const jInline = global.JELLY_SPRITES || null;
+  const jUrls = {}, jImgs = {};
+  ['jelly1', 'jelly2'].forEach(function (nm, i) {
+    const k = i + 1;
+    jUrls[k] = (jInline && jInline[nm]) ? jInline[nm] : ('assets/jelly/' + nm + '.png');
+    if (typeof global.Image === 'function') {
+      try { const im = new global.Image(); im.src = jUrls[k]; jImgs[k] = im; } catch (e) {}
+    }
+  });
+  global.JellySprites = {
+    img: function (n) { return jImgs[n >= 2 ? 2 : 1] || null; },
+    ready: function (n) { const im = jImgs[n >= 2 ? 2 : 1]; return !!(im && im.complete && im.naturalWidth); }
+  };
 })(window);
