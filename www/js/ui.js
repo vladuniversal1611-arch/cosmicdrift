@@ -436,13 +436,19 @@
       s.appendChild(pager);
 
       const scroll = el('div', 'map-scroll');
+      const curIslandId = Math.floor((p.levelProgress - 1) / 25);
       D.ISLANDS.slice(start, end).forEach(function (island) {
         const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
-        const block = el('div', 'island-block');
+        const isCurIsland = island.id === curIslandId;
+        // stars earned across this island's 25 levels (max 75)
+        let islandStars = 0;
+        for (let k = 0; k < 25; k++) islandStars += (p.stars[island.id * 25 + k + 1] || 0);
+        const block = el('div', 'island-block' + (isCurIsland ? ' cur-island' : ''));
         block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
         const head = el('div', 'island-head');
         head.innerHTML = '<b style="color:' + island.theme + '">' + island.name + '</b>' +
-          (unlocked ? '' : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
+          (unlocked ? '<span class="isle-stars">⭐ ' + islandStars + '/75</span>'
+                    : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
         block.appendChild(head);
         const nodes = el('div', 'level-nodes');
         for (let i = 0; i < 25; i++) {
@@ -451,10 +457,15 @@
           if (!lv) continue;
           const stars = p.stars[lvNum] || 0;
           const isUnlocked = lvNum <= p.levelProgress;
+          const done = lvNum < p.levelProgress;
           const node = el('button', 'lv-node' +
             (lvNum === p.levelProgress ? ' current' : '') +
+            (done ? ' done' : '') +
+            (stars === 3 ? ' mastered' : '') +
+            (lv.hard ? ' hard' : '') +
             (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
           node.innerHTML = (lv.boss ? '👑' : lvNum) +
+            (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
             (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
           if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
           else node.disabled = true;
