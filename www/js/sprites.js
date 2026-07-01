@@ -82,4 +82,17 @@
     img: function (n) { return jImgs[n >= 2 ? 2 : 1] || null; },
     ready: function (n) { const im = jImgs[n >= 2 ? 2 : 1]; return !!(im && im.complete && im.naturalWidth); }
   };
+
+  // ---- UI icons (DOM <img>): currency, boosters, star -----------------------
+  const UI_IDS = ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star'];
+  const uiInline = global.UI_ICONS || null;
+  const uiUrls = {};
+  UI_IDS.forEach(function (id) {
+    uiUrls[id] = (uiInline && uiInline[id]) ? uiInline[id] : ('assets/ui/' + id + '.png');
+  });
+  global.UiIcons = {
+    url: function (id) { return uiUrls[id] || null; },
+    // Returns an <img> tag (or empty string) for inlining into DOM innerHTML.
+    tag: function (id, cls) { return uiUrls[id] ? '<img class="uicon ' + (cls || '') + '" src="' + uiUrls[id] + '" alt="">' : ''; }
+  };
 })(window);

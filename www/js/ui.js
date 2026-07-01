@@ -111,12 +111,13 @@
     currencyBar: function () {
       const p = global.Save.get();
       const li = global.Save.livesInfo();
+      const ic = function (id, emoji) { const t = global.UiIcons && global.UiIcons.tag(id, 'cur-ic'); return t || ('<span class="cur-ic">' + emoji + '</span>'); };
       const bar = el('div', 'currency-bar');
       bar.innerHTML =
-        '<div class="cur cur-life" id="ui-life-pill"><span class="cur-ic">❤️</span><span id="ui-lives">' + li.count + '</span><span class="life-timer" id="ui-life-timer"></span></div>' +
-        '<div class="cur"><span class="cur-ic">🪙</span><span id="ui-gold">' + p.gold + '</span></div>' +
-        '<div class="cur"><span class="cur-ic">💎</span><span id="ui-gems">' + p.gems + '</span></div>' +
-        '<div class="cur"><span class="cur-ic">⚡</span><span id="ui-energy">' + p.energy + '</span></div>';
+        '<div class="cur cur-life" id="ui-life-pill">' + ic('heart', '❤️') + '<span id="ui-lives">' + li.count + '</span><span class="life-timer" id="ui-life-timer"></span></div>' +
+        '<div class="cur">' + ic('coin', '🪙') + '<span id="ui-gold">' + p.gold + '</span></div>' +
+        '<div class="cur">' + ic('gem', '💎') + '<span id="ui-gems">' + p.gems + '</span></div>' +
+        '<div class="cur">' + ic('energy', '⚡') + '<span id="ui-energy">' + p.energy + '</span></div>';
       // tapping the heart pill opens the lives panel
       const pill = bar.querySelector('#ui-life-pill');
       if (pill) click(pill, function () { UI.showNoLives(); });

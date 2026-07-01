@@ -41,7 +41,13 @@ const jelly = {};
   const p = path.join(ROOT, 'www/assets/jelly/' + nm + '.png');
   if (fs.existsSync(p)) jelly[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';</script>\n';
+// Inline UI icons (currency / boosters / star).
+const uiIcons = {};
+['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/ui/' + nm + '.png');
+  if (fs.existsSync(p)) uiIcons[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+});
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');

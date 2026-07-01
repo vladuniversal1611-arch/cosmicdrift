@@ -618,10 +618,11 @@
       const wrap = this.hud.boosterBar;
       const p = global.Save.get();
       const self = this;
+      const bIc = function (id, emoji) { const t = global.UiIcons && global.UiIcons.tag(id, 'bo-ic'); return t || ('<span class="bo-ic">' + emoji + '</span>'); };
       const defs = [
-        { key: 'hammer', ic: '🔨', name: T('b_hammer') },
-        { key: 'shuffle', ic: '🔀', name: T('b_mix') },
-        { key: 'moves', ic: '➕5', name: T('b_moves') }
+        { key: 'hammer', ic: bIc('hammer', '🔨'), name: T('b_hammer') },
+        { key: 'shuffle', ic: bIc('shuffle', '🔀'), name: T('b_mix') },
+        { key: 'moves', ic: bIc('moves', '➕5'), name: T('b_moves') }
       ];
       wrap.innerHTML = '';
       defs.forEach(function (b) {
@@ -629,7 +630,7 @@
         const armed = self.engine && self.engine.hammerArmed && b.key === 'hammer';
         const cell = document.createElement('button');
         cell.className = 'booster' + (armed ? ' armed' : '') + (n <= 0 ? ' empty' : '');
-        cell.innerHTML = '<span class="bo-ic">' + b.ic + '</span><span class="bo-n">' + n + '</span>';
+        cell.innerHTML = b.ic + '<span class="bo-n">' + n + '</span>';
         cell.addEventListener('click', function (ev) { ev.stopPropagation(); global.Audio2.play('click'); self.useBooster(b.key); });
         wrap.appendChild(cell);
       });
