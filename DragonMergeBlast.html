@@ -3536,10 +3536,41 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     g.fillStyle = 'rgba(255,255,255,0.5)'; g.fill();
     // core sparkle / glyph
     if (t.special !== SP.NONE) {
-      g.shadowColor = '#fff'; g.shadowBlur = 14;
-      g.fillStyle = '#fff'; g.font = 'bold ' + (tile * 0.42) + 'px system-ui';
+      const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 6 + (t.r + t.c) * 0.7);
+      // Decoration overlay makes each special unmistakable at a glance.
+      g.save();
+      this.roundRect(g, bx, by, bw, bh, rad); g.clip();
+      if (t.special === SP.RAINBOW) {
+        // shimmering rainbow wash so it reads as "clears a whole colour"
+        let rain = null;
+        try { rain = g.createConicGradient((this.elapsed || 0) * 0.6, cx, cy); } catch (e) { rain = null; }
+        if (rain) {
+          ['#ff5d6c', '#ffd24d', '#5fe39a', '#5db4ff', '#c58bff', '#ff5d6c'].forEach(function (c, i, a) { rain.addColorStop(i / (a.length - 1), c); });
+          g.globalAlpha = 0.6; g.fillStyle = rain; g.fillRect(bx, by, bw, bh); g.globalAlpha = 1;
+        }
+      } else if (t.special === SP.BOMB) {
+        // concentric warning rings that breathe
+        g.globalAlpha = 0.35 + pulse * 0.4; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, tile * 0.045);
+        for (let k = 1; k <= 2; k++) { g.beginPath(); g.arc(cx, cy, tile * 0.15 * k * (0.9 + pulse * 0.18), 0, Math.PI * 2); g.stroke(); }
+        g.globalAlpha = 1;
+      } else {
+        // directional stripes: horizontal for LINE_H, vertical for LINE_V
+        const horiz = t.special === SP.LINE_H;
+        g.globalAlpha = 0.3 + pulse * 0.3; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, tile * 0.055);
+        for (let k = -1; k <= 1; k++) {
+          g.beginPath();
+          if (horiz) { g.moveTo(bx, cy + k * tile * 0.15); g.lineTo(bx + bw, cy + k * tile * 0.15); }
+          else { g.moveTo(cx + k * tile * 0.15, by); g.lineTo(cx + k * tile * 0.15, by + bh); }
+          g.stroke();
+        }
+        g.globalAlpha = 1;
+      }
+      g.restore();
+      // centre glyph (↔ / ↕ / bomb / rainbow) with a glow so it pops
+      g.shadowColor = '#fff'; g.shadowBlur = 12 + pulse * 8;
+      g.fillStyle = '#fff'; g.font = 'bold ' + (tile * 0.4) + 'px system-ui';
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : '↔');
+      const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : (t.special === SP.LINE_H ? '↔' : '↕'));
       g.fillText(sym, cx, cy);
       g.shadowBlur = 0;
     } else if (global.Save.get().settings.colorblind) {
