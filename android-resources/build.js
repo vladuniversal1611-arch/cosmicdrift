@@ -17,7 +17,13 @@ DRAGONS.forEach(function (id) {
   const p = path.join(ROOT, 'www/assets/dragons/' + id + '.png');
   if (fs.existsSync(p)) sprites[id] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';</script>\n';
+// Inline crystal gem sprites (gem0..gem5) the same way.
+const gems = {};
+for (let i = 0; i < 6; i++) {
+  const p = path.join(ROOT, 'www/assets/gems/gem' + i + '.png');
+  if (fs.existsSync(p)) gems['gem' + i] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+}
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');

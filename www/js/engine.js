@@ -1297,6 +1297,12 @@
     const bx = x + pad, by = y + pad, bw = tile - pad * 2, bh = tile - pad * 2;
     const perf = global.Save.get().settings.perf || global.__perf;
 
+    // Prefer the painted gem sprite; fall back to the fully code-drawn gem.
+    const gemSprite = (global.GemSprites && global.GemSprites.ready(t.type)) ? global.GemSprites.img(t.type) : null;
+    if (gemSprite) {
+      g.drawImage(gemSprite, x, y, tile, tile);
+    } else {
+
     // soft drop shadow + base gem fill (kept in every quality level)
     g.save();
     if (!perf) { g.shadowColor = 'rgba(0,0,0,0.38)'; g.shadowBlur = tile * 0.12; g.shadowOffsetY = tile * 0.05; }
@@ -1342,7 +1348,8 @@
       g.beginPath(); g.arc(cx + tile * 0.12, cy + tile * 0.12, tile * 0.025, 0, Math.PI * 2);
       g.fillStyle = 'rgba(255,255,255,0.5)'; g.fill();
     }
-    // core sparkle / glyph
+    } // end fallback code-drawn gem
+    // core sparkle / glyph (overlays drawn on top of either the sprite or the code gem)
     if (t.special !== SP.NONE) {
       const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 6 + (t.r + t.c) * 0.7);
       // Decoration overlay makes each special unmistakable at a glance.
@@ -1387,7 +1394,8 @@
       g.fillStyle = 'rgba(255,255,255,0.92)'; g.font = 'bold ' + (tile * 0.34) + 'px system-ui';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(SYM[t.type % SYM.length], cx, cy);
-    } else {
+    } else if (!gemSprite) {
+      // code-drawn gems get a core dot; sprite gems already have their own sparkle
       g.beginPath(); g.arc(cx, cy, tile * 0.07, 0, Math.PI * 2);
       g.fillStyle = cr.core; g.fill();
     }
