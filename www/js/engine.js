@@ -1352,6 +1352,16 @@
     // core sparkle / glyph (overlays drawn on top of either the sprite or the code gem)
     if (t.special !== SP.NONE) {
       const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 6 + (t.r + t.c) * 0.7);
+      const spSprite = (global.SpecialSprites && global.SpecialSprites.ready(t.special)) ? global.SpecialSprites.img(t.special) : null;
+      if (spSprite) {
+        // Painted marker sprite, gently pulsing, drawn over the gem.
+        const s = tile * (0.9 + pulse * 0.06);
+        g.save();
+        g.shadowColor = t.special === SP.RAINBOW ? '#ffffff' : 'rgba(255,255,255,0.65)';
+        g.shadowBlur = 5 + pulse * 7;
+        g.drawImage(spSprite, cx - s / 2, cy - s / 2, s, s);
+        g.restore();
+      } else {
       // Decoration overlay makes each special unmistakable at a glance.
       g.save();
       this.roundRect(g, bx, by, bw, bh, rad); g.clip();
@@ -1388,6 +1398,7 @@
       const sym = t.special === SP.RAINBOW ? '✦' : (t.special === SP.BOMB ? '✸' : (t.special === SP.LINE_H ? '↔' : '↕'));
       g.fillText(sym, cx, cy);
       g.shadowBlur = 0;
+      } // end fallback code overlay
     } else if (global.Save.get().settings.colorblind) {
       // colorblind aid: a unique symbol per crystal type
       const SYM = ['●', '▲', '■', '◆', '★', '✚'];

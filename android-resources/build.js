@@ -23,7 +23,13 @@ for (let i = 0; i < 6; i++) {
   const p = path.join(ROOT, 'www/assets/gems/gem' + i + '.png');
   if (fs.existsSync(p)) gems['gem' + i] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 }
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';</script>\n';
+// Inline special-crystal marker sprites (line_h/line_v/bomb/rainbow).
+const specials = {};
+['line_h', 'line_v', 'bomb', 'rainbow'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/specials/' + nm + '.png');
+  if (fs.existsSync(p)) specials[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+});
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');
