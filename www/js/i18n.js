@@ -613,6 +613,17 @@
   const HARD = { uk: 'Складний рівень', en: 'Hard level', es: 'Nivel difícil', de: 'Schweres Level', fr: 'Niveau difficile', pt: 'Nível difícil' };
   Object.keys(HARD).forEach(function (l) { STR[l].hard_level = HARD[l]; });
 
+  // Win/lose screen polish.
+  const WL = {
+    uk: { so_close: 'Так близько!', short_by: 'Не вистачило: {n}', perfect: 'ПЕРФЕКТ!', first_clear: 'Перше проходження!', boss: 'Бос' },
+    en: { so_close: 'So close!', short_by: 'Short by {n}', perfect: 'PERFECT!', first_clear: 'First clear!', boss: 'Boss' },
+    es: { so_close: '¡Tan cerca!', short_by: 'Faltaron {n}', perfect: '¡PERFECTO!', first_clear: '¡Primera vez!', boss: 'Jefe' },
+    de: { so_close: 'So knapp!', short_by: 'Es fehlten {n}', perfect: 'PERFEKT!', first_clear: 'Erstmals geschafft!', boss: 'Boss' },
+    fr: { so_close: 'Si près !', short_by: 'Il manquait {n}', perfect: 'PARFAIT !', first_clear: 'Première fois !', boss: 'Boss' },
+    pt: { so_close: 'Tão perto!', short_by: 'Faltaram {n}', perfect: 'PERFEITO!', first_clear: 'Primeira vez!', boss: 'Chefe' }
+  };
+  Object.keys(WL).forEach(function (l) { Object.assign(STR[l], WL[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',

@@ -808,7 +808,10 @@
 
       const body = document.createElement('div');
       body.className = 'modal-body win-body';
+      const badge = res.stars === 3 ? '<div class="win-badge perfect">🌟 ' + T('perfect') + '</div>'
+        : (firstTime ? '<div class="win-badge">✨ ' + T('first_clear') + '</div>' : '');
       body.innerHTML =
+        badge +
         '<div class="stars-row">' +
           ['s1','s2','s3'].map(function (id, i) {
             return '<span class="big-star ' + (i < res.stars ? 'on' : '') + '" style="animation-delay:' + (i * 0.15) + 's">★</span>';
@@ -829,6 +832,17 @@
       global.UI.modal(T('victory'), body, btns);
     },
 
+    // Current objective progress {cur, goal, label} from live engine state.
+    objectiveProgress: function () {
+      const eng = this.engine, lv = this.currentLevelObj || {};
+      if (!eng) return { cur: 0, goal: 1, label: '' };
+      if (eng.isBoss) return { cur: eng.bossMax - eng.bossHP, goal: eng.bossMax, label: '❤ ' + T('boss') };
+      if (lv.objective === D.OBJ.COLLECT) return { cur: eng.collected, goal: lv.target, label: D.CRYSTALS[lv.color].glyph };
+      if (lv.objective === D.OBJ.JELLY) return { cur: lv.jellyCount - eng.jellyLeft, goal: lv.jellyCount, label: T('obj_jelly') };
+      if (lv.objective === D.OBJ.ICE) return { cur: lv.iceCount - eng.iceLeft, goal: lv.iceCount, label: T('obj_ice') };
+      return { cur: eng.score, goal: lv.target, label: T('obj_score') };
+    },
+
     onLose: function (res) {
       const self = this;
       const lvNum = this.currentLevel;
@@ -836,9 +850,20 @@
       global.Save.get().streak.wins = 0; global.Save.save(); // streak broken
       global.UI.refreshCurrencies();
       const li = global.Save.livesInfo();
+      // How close were they? Show progress toward the objective — a near miss
+      // encourages a retry far more than a bare "goal not met".
+      const prog = this.objectiveProgress();
+      const pct = prog.goal > 0 ? Math.min(100, Math.round(prog.cur / prog.goal * 100)) : 0;
+      const short = Math.max(0, prog.goal - prog.cur);
+      const soClose = pct >= 80;
+      const barCol = soClose ? '#5fe39a' : (pct >= 50 ? '#ffd24d' : '#ff7a6a');
       const body = document.createElement('div');
       body.className = 'modal-body';
-      body.innerHTML = '<div class="big-emoji">😢</div><p>' + T('goal_not_met') + '</p><div class="win-score">' + T('score', { n: res.score }) + '</div>' +
+      body.innerHTML = '<div class="big-emoji">' + (soClose ? '😮' : '😢') + '</div>' +
+        (soClose ? '<p class="so-close">' + T('so_close') + '</p>' : '<p>' + T('goal_not_met') + '</p>') +
+        '<div class="lose-goal"><div class="lose-goal-top"><span>' + prog.label + '</span><span>' + prog.cur + ' / ' + prog.goal + '</span></div>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + barCol + '"></div></div>' +
+          (short > 0 ? '<div class="lose-short">' + T('short_by', { n: short }) + '</div>' : '') + '</div>' +
         '<p class="muted small">' + T('lives_left', { hearts: '❤'.repeat(li.count) }) + (li.count === 0 ? T('empty_suffix') : '') + '</p>' +
         '<p class="muted small">' + T('ad_hint_moves') + '</p>';
       global.UI.modal(T('defeat'), body, [
