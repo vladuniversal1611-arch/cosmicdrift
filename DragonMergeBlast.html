@@ -701,6 +701,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .lose-goal .bar { height: 12px; }
 .lose-short { text-align: center; font-size: 13px; font-weight: 800; color: #ffb36a; margin-top: 6px; }
 
+/* ---- Statistics screen ---- */
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.stat-cell { background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 10px 8px; text-align: center; }
+.st-ic { font-size: 22px; }
+.st-v { font-size: 18px; font-weight: 900; color: var(--gold); margin: 2px 0; }
+.st-l { font-size: 10px; color: var(--muted); font-weight: 700; }
+
 </style>
 </head>
 <body>
@@ -1713,6 +1720,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     pt: { so_close: 'Tão perto!', short_by: 'Faltaram {n}', perfect: 'PERFEITO!', first_clear: 'Primeira vez!', boss: 'Chefe' }
   };
   Object.keys(WL).forEach(function (l) { Object.assign(STR[l], WL[l]); });
+
+  // Player statistics screen.
+  const STT = {
+    uk: { stats_title: 'Статистика', credits: 'Зроблено з ❤', st_progress: 'Прогрес', st_stars: 'Зірок зібрано', st_levels_won: 'Рівнів пройдено', st_max_combo: 'Макс. комбо', st_crushed: 'Кристалів знищено', st_specials: 'Спец-кристалів', st_dragons: 'Драконів', st_procs: 'Здібностей драконів', st_energy: 'Енергії зібрано', st_streak: 'Найкраща серія', st_blitz: 'Бліц рекорд', st_endless: 'Безмежжя рекорд', st_trials: 'Випробування', st_pvp: 'Дуелі' },
+    en: { stats_title: 'Statistics', credits: 'Made with ❤', st_progress: 'Progress', st_stars: 'Stars earned', st_levels_won: 'Levels won', st_max_combo: 'Max combo', st_crushed: 'Crystals crushed', st_specials: 'Specials made', st_dragons: 'Dragons', st_procs: 'Dragon abilities', st_energy: 'Energy collected', st_streak: 'Best streak', st_blitz: 'Blitz best', st_endless: 'Endless best', st_trials: 'Trials depth', st_pvp: 'Duels' },
+    es: { stats_title: 'Estadísticas', credits: 'Hecho con ❤', st_progress: 'Progreso', st_stars: 'Estrellas', st_levels_won: 'Niveles ganados', st_max_combo: 'Combo máx.', st_crushed: 'Cristales rotos', st_specials: 'Especiales', st_dragons: 'Dragones', st_procs: 'Habilidades', st_energy: 'Energía', st_streak: 'Mejor racha', st_blitz: 'Récord Blitz', st_endless: 'Récord Infinito', st_trials: 'Pruebas', st_pvp: 'Duelos' },
+    de: { stats_title: 'Statistik', credits: 'Mit ❤ gemacht', st_progress: 'Fortschritt', st_stars: 'Sterne', st_levels_won: 'Level gewonnen', st_max_combo: 'Max. Combo', st_crushed: 'Kristalle zerstört', st_specials: 'Spezialsteine', st_dragons: 'Drachen', st_procs: 'Drachenfähigkeiten', st_energy: 'Energie', st_streak: 'Beste Serie', st_blitz: 'Blitz-Rekord', st_endless: 'Endlos-Rekord', st_trials: 'Prüfungen', st_pvp: 'Duelle' },
+    fr: { stats_title: 'Statistiques', credits: 'Fait avec ❤', st_progress: 'Progression', st_stars: 'Étoiles', st_levels_won: 'Niveaux gagnés', st_max_combo: 'Combo max', st_crushed: 'Cristaux brisés', st_specials: 'Spéciaux', st_dragons: 'Dragons', st_procs: 'Capacités', st_energy: 'Énergie', st_streak: 'Meilleure série', st_blitz: 'Record Blitz', st_endless: 'Record Infini', st_trials: 'Épreuves', st_pvp: 'Duels' },
+    pt: { stats_title: 'Estatísticas', credits: 'Feito com ❤', st_progress: 'Progresso', st_stars: 'Estrelas', st_levels_won: 'Níveis vencidos', st_max_combo: 'Combo máx.', st_crushed: 'Cristais quebrados', st_specials: 'Especiais', st_dragons: 'Dragões', st_procs: 'Habilidades', st_energy: 'Energia', st_streak: 'Melhor sequência', st_blitz: 'Recorde Blitz', st_endless: 'Recorde Infinito', st_trials: 'Provas', st_pvp: 'Duelos' }
+  };
+  Object.keys(STT).forEach(function (l) { Object.assign(STR[l], STT[l]); });
 
   // Roguelite Dragon Trials.
   const TR = {
@@ -4868,9 +4886,45 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         });
         body.appendChild(inst);
       }
-      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
+      const stats = click(el('button', 'btn btn-primary btn-mini', '📊 ' + T('stats_title')), function () { UI.showStats(); });
+      body.appendChild(stats);
+      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span><span class="muted small">' + T('credits') + '</span>'));
       body.appendChild(reset);
       this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- PLAYER STATISTICS (surfaces already-tracked data) ----------------
+    showStats: function () {
+      const p = global.Save.get();
+      const s = p.stats || {};
+      let starsSum = 0; for (const k in p.stars) starsSum += (p.stars[k] || 0);
+      const pvp = p.pvp || { wins: 0, losses: 0, trophies: 0 };
+      const mb = p.modeBest || {};
+      const rows = [
+        ['🗺️', T('st_progress'), p.levelProgress + ' / ' + D.LEVELS.length],
+        ['⭐', T('st_stars'), starsSum],
+        ['🏆', T('st_levels_won'), s.levelsWon || 0],
+        ['🔥', T('st_max_combo'), s.maxCombo || 0],
+        ['💎', T('st_crushed'), s.crystalsCrushed || 0],
+        ['💠', T('st_specials'), s.specialsMade || 0],
+        ['🐉', T('st_dragons'), (p.ownedDragons || []).length + ' / ' + D.DRAGONS.length],
+        ['✨', T('st_procs'), s.dragonProcs || 0],
+        ['⚡', T('st_energy'), s.energyEarned || 0],
+        ['🥇', T('st_streak'), (p.streak && p.streak.best) || 0],
+        ['⏱️', T('st_blitz'), mb.blitz || 0],
+        ['♾️', T('st_endless'), mb.endless || 0],
+        ['🎲', T('st_trials'), mb.trials || 0],
+        ['⚔️', T('st_pvp'), (pvp.wins || 0) + 'W/' + (pvp.losses || 0) + 'L · 🏆' + (pvp.trophies || 0)]
+      ];
+      const body = el('div', 'modal-body scroll-body');
+      const grid = el('div', 'stat-grid');
+      rows.forEach(function (r) {
+        const c = el('div', 'stat-cell');
+        c.innerHTML = '<div class="st-ic">' + r[0] + '</div><div class="st-v">' + r[2] + '</div><div class="st-l">' + r[1] + '</div>';
+        grid.appendChild(c);
+      });
+      body.appendChild(grid);
+      this.modal('📊 ' + T('stats_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     showLanguagePicker: function () {

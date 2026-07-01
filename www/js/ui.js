@@ -1256,9 +1256,45 @@
         });
         body.appendChild(inst);
       }
-      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span>'));
+      const stats = click(el('button', 'btn btn-primary btn-mini', '📊 ' + T('stats_title')), function () { UI.showStats(); });
+      body.appendChild(stats);
+      body.appendChild(el('div', 'set-row', '<span>' + T('version') + '</span><span class="muted small">' + T('credits') + '</span>'));
       body.appendChild(reset);
       this.modal(T('settings_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- PLAYER STATISTICS (surfaces already-tracked data) ----------------
+    showStats: function () {
+      const p = global.Save.get();
+      const s = p.stats || {};
+      let starsSum = 0; for (const k in p.stars) starsSum += (p.stars[k] || 0);
+      const pvp = p.pvp || { wins: 0, losses: 0, trophies: 0 };
+      const mb = p.modeBest || {};
+      const rows = [
+        ['🗺️', T('st_progress'), p.levelProgress + ' / ' + D.LEVELS.length],
+        ['⭐', T('st_stars'), starsSum],
+        ['🏆', T('st_levels_won'), s.levelsWon || 0],
+        ['🔥', T('st_max_combo'), s.maxCombo || 0],
+        ['💎', T('st_crushed'), s.crystalsCrushed || 0],
+        ['💠', T('st_specials'), s.specialsMade || 0],
+        ['🐉', T('st_dragons'), (p.ownedDragons || []).length + ' / ' + D.DRAGONS.length],
+        ['✨', T('st_procs'), s.dragonProcs || 0],
+        ['⚡', T('st_energy'), s.energyEarned || 0],
+        ['🥇', T('st_streak'), (p.streak && p.streak.best) || 0],
+        ['⏱️', T('st_blitz'), mb.blitz || 0],
+        ['♾️', T('st_endless'), mb.endless || 0],
+        ['🎲', T('st_trials'), mb.trials || 0],
+        ['⚔️', T('st_pvp'), (pvp.wins || 0) + 'W/' + (pvp.losses || 0) + 'L · 🏆' + (pvp.trophies || 0)]
+      ];
+      const body = el('div', 'modal-body scroll-body');
+      const grid = el('div', 'stat-grid');
+      rows.forEach(function (r) {
+        const c = el('div', 'stat-cell');
+        c.innerHTML = '<div class="st-ic">' + r[0] + '</div><div class="st-v">' + r[2] + '</div><div class="st-l">' + r[1] + '</div>';
+        grid.appendChild(c);
+      });
+      body.appendChild(grid);
+      this.modal('📊 ' + T('stats_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     showLanguagePicker: function () {

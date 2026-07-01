@@ -624,6 +624,17 @@
   };
   Object.keys(WL).forEach(function (l) { Object.assign(STR[l], WL[l]); });
 
+  // Player statistics screen.
+  const STT = {
+    uk: { stats_title: 'Статистика', credits: 'Зроблено з ❤', st_progress: 'Прогрес', st_stars: 'Зірок зібрано', st_levels_won: 'Рівнів пройдено', st_max_combo: 'Макс. комбо', st_crushed: 'Кристалів знищено', st_specials: 'Спец-кристалів', st_dragons: 'Драконів', st_procs: 'Здібностей драконів', st_energy: 'Енергії зібрано', st_streak: 'Найкраща серія', st_blitz: 'Бліц рекорд', st_endless: 'Безмежжя рекорд', st_trials: 'Випробування', st_pvp: 'Дуелі' },
+    en: { stats_title: 'Statistics', credits: 'Made with ❤', st_progress: 'Progress', st_stars: 'Stars earned', st_levels_won: 'Levels won', st_max_combo: 'Max combo', st_crushed: 'Crystals crushed', st_specials: 'Specials made', st_dragons: 'Dragons', st_procs: 'Dragon abilities', st_energy: 'Energy collected', st_streak: 'Best streak', st_blitz: 'Blitz best', st_endless: 'Endless best', st_trials: 'Trials depth', st_pvp: 'Duels' },
+    es: { stats_title: 'Estadísticas', credits: 'Hecho con ❤', st_progress: 'Progreso', st_stars: 'Estrellas', st_levels_won: 'Niveles ganados', st_max_combo: 'Combo máx.', st_crushed: 'Cristales rotos', st_specials: 'Especiales', st_dragons: 'Dragones', st_procs: 'Habilidades', st_energy: 'Energía', st_streak: 'Mejor racha', st_blitz: 'Récord Blitz', st_endless: 'Récord Infinito', st_trials: 'Pruebas', st_pvp: 'Duelos' },
+    de: { stats_title: 'Statistik', credits: 'Mit ❤ gemacht', st_progress: 'Fortschritt', st_stars: 'Sterne', st_levels_won: 'Level gewonnen', st_max_combo: 'Max. Combo', st_crushed: 'Kristalle zerstört', st_specials: 'Spezialsteine', st_dragons: 'Drachen', st_procs: 'Drachenfähigkeiten', st_energy: 'Energie', st_streak: 'Beste Serie', st_blitz: 'Blitz-Rekord', st_endless: 'Endlos-Rekord', st_trials: 'Prüfungen', st_pvp: 'Duelle' },
+    fr: { stats_title: 'Statistiques', credits: 'Fait avec ❤', st_progress: 'Progression', st_stars: 'Étoiles', st_levels_won: 'Niveaux gagnés', st_max_combo: 'Combo max', st_crushed: 'Cristaux brisés', st_specials: 'Spéciaux', st_dragons: 'Dragons', st_procs: 'Capacités', st_energy: 'Énergie', st_streak: 'Meilleure série', st_blitz: 'Record Blitz', st_endless: 'Record Infini', st_trials: 'Épreuves', st_pvp: 'Duels' },
+    pt: { stats_title: 'Estatísticas', credits: 'Feito com ❤', st_progress: 'Progresso', st_stars: 'Estrelas', st_levels_won: 'Níveis vencidos', st_max_combo: 'Combo máx.', st_crushed: 'Cristais quebrados', st_specials: 'Especiais', st_dragons: 'Dragões', st_procs: 'Habilidades', st_energy: 'Energia', st_streak: 'Melhor sequência', st_blitz: 'Recorde Blitz', st_endless: 'Recorde Infinito', st_trials: 'Provas', st_pvp: 'Duelos' }
+  };
+  Object.keys(STT).forEach(function (l) { Object.assign(STR[l], STT[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',
