@@ -283,19 +283,20 @@
       acts.appendChild(piggy);
       const grid2 = el('div', 'home-grid grid6');
       [
-        { ic: '🎮', label: T('t_modes'), go: function () { UI.showModes(); } },
-        { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
-        { ic: '🎡', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
-        { ic: '🎰', label: T('t_summon'), go: function () { UI.showSummon(); } },
-        { ic: '🌳', label: T('t_skills'), go: function () { UI.showSkills(); } },
-        { ic: '⚔️', label: T('t_pvp'), go: function () { UI.showPvp(); } },
-        { ic: '📖', label: T('t_story'), go: function () { UI.showStory(); }, badge: UI.storyAvailable() },
-        { ic: '📜', label: T('t_quests'), go: function () { UI.showQuests(); } },
-        { ic: '📊', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
-        { ic: '🏆', label: T('t_ach'), go: function () { UI.showAchievements(); } },
-        { ic: '⚙️', label: T('t_options'), go: function () { UI.showSettings(); } }
+        { ic: '🎮', icon: 'tile_modes', label: T('t_modes'), go: function () { UI.showModes(); } },
+        { ic: '🎁', icon: 'tile_daily', label: T('t_daily'), go: function () { UI.showDaily(); } },
+        { ic: '🎡', icon: 'tile_wheel', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
+        { ic: '🎰', icon: 'tile_summon', label: T('t_summon'), go: function () { UI.showSummon(); } },
+        { ic: '🌳', icon: 'tile_skills', label: T('t_skills'), go: function () { UI.showSkills(); } },
+        { ic: '⚔️', icon: 'tile_pvp', label: T('t_pvp'), go: function () { UI.showPvp(); } },
+        { ic: '📖', icon: 'tile_story', label: T('t_story'), go: function () { UI.showStory(); }, badge: UI.storyAvailable() },
+        { ic: '📜', icon: 'tile_quests', label: T('t_quests'), go: function () { UI.showQuests(); } },
+        { ic: '📊', icon: 'tile_leaderboard', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
+        { ic: '🏆', icon: 'tile_ach', label: T('t_ach'), go: function () { UI.showAchievements(); } },
+        { ic: '⚙️', icon: 'tile_settings', label: T('t_options'), go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
-        const b = click(el('button', 'btn btn-tile' + (a.badge ? ' has-badge' : ''), '<span>' + a.ic + '</span>' + a.label), a.go);
+        const glyph = (global.UiIcons && global.UiIcons.tag(a.icon, 'tile-ic')) || ('<span>' + a.ic + '</span>');
+        const b = click(el('button', 'btn btn-tile' + (a.badge ? ' has-badge' : ''), glyph + a.label), a.go);
         grid2.appendChild(b);
       });
       acts.appendChild(grid2);

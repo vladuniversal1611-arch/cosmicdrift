@@ -85,7 +85,9 @@
 
   // ---- UI icons (DOM <img>): currency, boosters, star -----------------------
   const UI_IDS = ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star',
-    'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home'];
+    'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home',
+    'tile_modes', 'tile_daily', 'tile_wheel', 'tile_summon', 'tile_skills', 'tile_pvp',
+    'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings'];
   const uiInline = global.UI_ICONS || null;
   const uiUrls = {};
   UI_IDS.forEach(function (id) {
