@@ -14,6 +14,8 @@ function node(tag) {
     replaceChild(nw,old){ const i=this.children.indexOf(old); if(i>=0)this.children[i]=nw; nw.parentNode=this; },
     insertBefore(nw){ this.children.push(nw); nw.parentNode=this; return nw; },
     addEventListener(ev,fn){ (this._ev=this._ev||{})[ev]=fn; },
+    setAttribute(k,v){ (this._attr=this._attr||{})[k]=v; },
+    getAttribute(k){ return (this._attr||{})[k]; },
     querySelector(){ return null; },
     querySelectorAll(){ return []; },
     scrollIntoView(){}, getBoundingClientRect(){ return {left:0,top:0,width:400,height:800}; },
@@ -41,7 +43,7 @@ const sb = {
   document: {
     getElementById:(id)=>screens[id]||(id==='app'?appNode:null),
     createElement:(t)=>node(t),
-    addEventListener(){}, querySelectorAll(){return [];}
+    addEventListener(){}, querySelector(){return null;}, querySelectorAll(){return [];}
   },
   addEventListener(){}
 };

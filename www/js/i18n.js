@@ -635,6 +635,17 @@
   };
   Object.keys(STT).forEach(function (l) { Object.assign(STR[l], STT[l]); });
 
+  // Egg incubator clarity.
+  const EGG = {
+    uk: { egg_ready: 'Готове до вилуплення!', egg_remaining: '{n} ⚡ до вилуплення' },
+    en: { egg_ready: 'Ready to hatch!', egg_remaining: '{n} ⚡ to hatch' },
+    es: { egg_ready: '¡Listo para eclosionar!', egg_remaining: '{n} ⚡ para eclosionar' },
+    de: { egg_ready: 'Bereit zum Schlüpfen!', egg_remaining: '{n} ⚡ bis zum Schlüpfen' },
+    fr: { egg_ready: 'Prêt à éclore !', egg_remaining: '{n} ⚡ pour éclore' },
+    pt: { egg_ready: 'Pronto para chocar!', egg_remaining: '{n} ⚡ para chocar' }
+  };
+  Object.keys(EGG).forEach(function (l) { Object.assign(STR[l], EGG[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',

@@ -241,14 +241,16 @@
       p.eggs.forEach(function (egg, idx) {
         const def = D.dragonById(egg.dragon);
         const pct = Math.min(100, Math.round(egg.charge / egg.need * 100));
-        const card = el('div', 'egg-card');
+        const ready = egg.charge >= egg.need;
+        const card = el('div', 'egg-card' + (ready ? ' ready' : ''));
+        card.setAttribute('data-egg', idx);
         card.innerHTML =
           '<div class="egg-emoji">' + spriteGlyph('egg', '🥚', 'egg-sprite', def.glow) + '</div>' +
           '<div class="egg-name">' + def.title + '</div>' +
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
-          '<div class="egg-pct">' + egg.charge + ' / ' + egg.need + ' ⚡</div>';
-        const btn = el('button', 'btn btn-mini ' + (pct >= 100 ? 'btn-primary' : 'btn-ghost'),
-          pct >= 100 ? T('hatch') : T('charge10'));
+          '<div class="egg-pct">' + (ready ? '✨ ' + T('egg_ready') : T('egg_remaining', { n: egg.need - egg.charge })) + '</div>';
+        const btn = el('button', 'btn btn-mini ' + (ready ? 'btn-primary' : 'btn-ghost'),
+          ready ? ('🐣 ' + T('hatch')) : '+10 ⚡');
         click(btn, function () { UI.handleEgg(idx); });
         card.appendChild(btn);
         eggGrid.appendChild(card);
@@ -395,20 +397,57 @@
         global.Save.addStat('dragonsHatched', 1);
         p.eggs.splice(idx, 1);
         global.Save.save();
-        global.Audio2.play('hatch');
         const def = D.dragonById(egg.dragon);
-        UI.modal(T('new_dragon'), el('div', 'modal-body',
-          '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b>' +
-          '<p class="dragon-quote">“' + T('dragon_q_' + def.id) + '”</p><p>' + def.desc + '</p>'),
-          [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
+        UI.hatchAnim(def, function () {
+          UI.modal(T('new_dragon'), el('div', 'modal-body',
+            '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b>' +
+            '<p class="dragon-quote">“' + T('dragon_q_' + def.id) + '”</p><p>' + def.desc + '</p>'),
+            [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
+        });
       } else {
         if (p.energy < 10) { UI.toast(T('need_energy')); return; }
         p.energy -= 10; egg.charge = Math.min(egg.need, egg.charge + 10);
         global.Save.save();
         global.Audio2.play('coin');
         UI.refreshCurrencies();
-        UI.renderHome();
+        UI.updateEggCard(idx); // update just this card (no full-screen flash)
       }
+    },
+
+    // Refresh a single egg card in place after a +10 charge.
+    updateEggCard: function (idx) {
+      const p = global.Save.get();
+      const egg = p.eggs[idx];
+      const card = document.querySelector('.egg-card[data-egg="' + idx + '"]');
+      if (!egg || !card) { UI.renderHome(); return; }
+      const pct = Math.min(100, Math.round(egg.charge / egg.need * 100));
+      const ready = egg.charge >= egg.need;
+      const fill = card.querySelector('.bar-fill'); if (fill) fill.style.width = pct + '%';
+      const pctEl = card.querySelector('.egg-pct');
+      if (pctEl) pctEl.innerHTML = ready ? '✨ ' + T('egg_ready') : T('egg_remaining', { n: egg.need - egg.charge });
+      if (ready) {
+        card.classList.add('ready');
+        const btn = card.querySelector('button');
+        if (btn) { btn.className = 'btn btn-mini btn-primary'; btn.textContent = '🐣 ' + T('hatch'); }
+      }
+      const sp = card.querySelector('.egg-emoji');
+      if (sp) { sp.classList.remove('pop'); void sp.offsetWidth; sp.classList.add('pop'); }
+    },
+
+    // Celebratory hatch sequence: the egg shakes, cracks, then bursts into the dragon.
+    hatchAnim: function (def, done) {
+      const layer = el('div', 'hatch-anim');
+      layer.innerHTML = '<div class="hatch-egg">' + spriteGlyph('egg', '🥚', '', def.glow) + '</div>';
+      this.root.appendChild(layer);
+      global.Audio2.play('hatch');
+      const eggEl = layer.querySelector('.hatch-egg');
+      setTimeout(function () { layer.classList.add('crack'); }, 700);
+      setTimeout(function () {
+        eggEl.innerHTML = dragonGlyph(def, '', def.glow);
+        layer.classList.add('reveal');
+        global.Audio2.play('win');
+      }, 1150);
+      setTimeout(function () { if (layer.parentNode) layer.remove(); done && done(); }, 2000);
     },
 
     // ---- LEVEL MAP --------------------------------------------------------
