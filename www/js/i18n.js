@@ -610,6 +610,8 @@
     }
   };
   Object.keys(MX).forEach(function (l) { Object.assign(STR[l], MX[l]); });
+  const HARD = { uk: 'Складний рівень', en: 'Hard level', es: 'Nivel difícil', de: 'Schweres Level', fr: 'Niveau difficile', pt: 'Nível difícil' };
+  Object.keys(HARD).forEach(function (l) { STR[l].hard_level = HARD[l]; });
 
   // Roguelite Dragon Trials.
   const TR = {

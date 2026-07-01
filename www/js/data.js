@@ -107,6 +107,17 @@
     { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d', sprite: 'boss_phoenix' }
   ];
 
+  // Per-island objective orders (each row is one biome's 5-slot cycle) so that
+  // no two neighbouring islands play the identical sequence. Slot 4 of the last
+  // block always becomes the boss regardless.
+  const OBJ_CYCLES = [
+    [OBJ.SCORE,   OBJ.SCORE,   OBJ.COLLECT, OBJ.JELLY,   OBJ.ICE],
+    [OBJ.SCORE,   OBJ.COLLECT, OBJ.ICE,     OBJ.SCORE,   OBJ.JELLY],
+    [OBJ.ICE,     OBJ.SCORE,   OBJ.JELLY,   OBJ.COLLECT, OBJ.SCORE],
+    [OBJ.JELLY,   OBJ.ICE,     OBJ.SCORE,   OBJ.COLLECT, OBJ.SCORE],
+    [OBJ.COLLECT, OBJ.SCORE,   OBJ.JELLY,   OBJ.ICE,     OBJ.SCORE]
+  ];
+
   function buildLevels() {
     const levels = [];
     const total = TOTAL_LEVELS;
@@ -116,42 +127,53 @@
       const inIsland = i % LEVELS_PER_ISLAND;
       const biome = island % BASE_ISLANDS.length;
       const cols = 8, rows = 8;
-      // Difficulty ramps with depth but is capped so objectives stay board-feasible.
-      const colors = Math.min(6, 4 + Math.floor(i / 30));        // 4 → 6 colours
-      const moves = Math.max(16, 30 - Math.floor(i / 12));        // 30 → 16 moves
-      let objective, target, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
-      const cycle = inIsland % 5;
-      if (cycle === 2) {
-        objective = OBJ.COLLECT;
-        color = (i % colors);
-        target = Math.min(140, 28 + Math.floor(i * 0.9));
-        chains = Math.min(8, 2 + Math.floor(i / 14));
-      } else if (cycle === 3) {
-        objective = OBJ.JELLY;
-        jellyCount = Math.min(46, 10 + Math.floor(i / 5));
-        target = jellyCount;
-      } else if (cycle === 4) {
-        objective = OBJ.ICE;
-        iceCount = Math.min(44, 8 + Math.floor(i / 6));
-        crates = Math.min(8, 1 + Math.floor(i / 18));
-        target = iceCount;
-      } else {
-        objective = OBJ.SCORE;
-        target = 1200 + i * 220;
-        if (cycle === 1) chains = Math.min(8, 1 + Math.floor(i / 20));
-      }
+      // Difficulty tier ramps over the first ~500 levels, then holds; a gentle
+      // wave keeps consecutive levels from feeling identical. All targets are
+      // bounded to the moves budget so every level stays board-feasible.
+      const d = Math.min(1, i / 500);                       // 0 → 1 difficulty tier
+      const wave = 0.5 + 0.5 * Math.sin(i * 0.7);           // 0..1 per-level variation
+      const colors = Math.min(6, 4 + Math.floor(i / 25));   // 4 → 6 colours
       const isBoss = inIsland === (LEVELS_PER_ISLAND - 1);
+      // Moves oscillate around a slowly tightening baseline (never frozen flat).
+      let moves = Math.max(16, Math.round(26 - d * 7 + wave * 2));
+      const hard = !isBoss && inIsland >= LEVELS_PER_ISLAND - 3; // tense run-up to the boss
+      if (hard) moves = Math.max(15, moves - 2);
+
+      const pattern = OBJ_CYCLES[island % OBJ_CYCLES.length];
+      let objective = pattern[inIsland % 5];
+      let target = 0, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
+
+      if (objective === OBJ.COLLECT) {
+        color = i % colors;
+        target = Math.round(18 + d * 92 + wave * 12);       // ~18 → ~122
+        chains = Math.min(8, Math.floor(d * 6) + (hard ? 2 : 0));
+      } else if (objective === OBJ.JELLY) {
+        jellyCount = Math.round(10 + d * 34 + wave * 4);     // ~10 → ~48
+        target = jellyCount;
+      } else if (objective === OBJ.ICE) {
+        iceCount = Math.round(8 + d * 34 + wave * 4);        // ~8 → ~46
+        crates = Math.min(10, 1 + Math.floor(d * 7) + (hard ? 1 : 0));
+        target = iceCount;
+      } else { // SCORE — target tied to the moves budget so it is always reachable
+        const perMove = 100 + Math.min(320, island * 7);    // 100 → 420 per move
+        target = Math.round(moves * perMove * (0.85 + 0.3 * wave));
+        chains = (inIsland % 5 === 1) ? Math.min(8, 1 + Math.floor(d * 6)) : 0;
+      }
+
       if (isBoss) {
         objective = OBJ.BOSS;
-        target = 80 + Math.min(420, i); // boss HP, capped so it stays beatable
-        iceCount = 0; jellyCount = 0; chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
+        moves += 8;
+        target = Math.min(600, Math.round(100 + d * 380 + island)); // boss HP, capped
+        color = 0; iceCount = 0; jellyCount = 0;
+        chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
       }
+
       levels.push({
-        n, island, cols, rows, colors, moves: isBoss ? moves + 10 : moves,
-        objective, target, color, iceCount, jellyCount, crates, chains,
+        n, island, cols, rows, colors, moves,
+        objective, target, color, iceCount, jellyCount, crates, chains, hard: hard,
         star2: Math.round(target * 1.4),
         star3: Math.round(target * 1.9),
-        reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.5), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
+        reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.2), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
         bossDef: isBoss ? BOSSES[biome] : null,
         name: isBoss ? (BOSSES[biome].name) : ('Рівень ' + n)

@@ -479,7 +479,8 @@
       const intro = document.createElement('div');
       intro.className = 'level-intro';
       intro.innerHTML = '<div class="li-card"><div class="li-name">' + this.levelName(lv) + '</div>' +
-        '<div class="li-goal">' + T('level_intro_goal', { text: this.objectiveText(lv) }) + '</div></div>';
+        '<div class="li-goal">' + T('level_intro_goal', { text: this.objectiveText(lv) }) + '</div>' +
+        (lv.hard ? '<div class="li-hard">🔥 ' + T('hard_level') + '</div>' : '') + '</div>';
       s.appendChild(intro);
       setTimeout(function () { intro.classList.add('out'); }, 1300);
       setTimeout(function () { if (intro.parentNode) intro.remove(); }, 1900);
