@@ -997,7 +997,7 @@
           orb.querySelector('.orb-core').textContent = loot.ic;
           UI.grantReward(loot.rw);
           global.Audio2.play(loot.rarity === 'epic' ? 'win' : 'coin'); UI.refreshCurrencies();
-          result.innerHTML = '<b class="rarity-' + loot.rarity + '">' + T('rarity_' + loot.rarity) + '</b><div class="summon-loot">' + UI.rewardStr(loot.rw) + '</div>';
+          result.innerHTML = '<b class="rarity-' + loot.rarity + '">' + T('sr_' + loot.rarity) + '</b><div class="summon-loot">' + UI.rewardStr(loot.rw) + '</div>';
           busy = false; btn.disabled = false;
         }, 900);
       });
