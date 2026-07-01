@@ -62,6 +62,13 @@
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
     this.synergyCharge = 0;      // synergy meter, fills from player matches
     this.synergyNeed = 90;
+    // Fever / frenzy: cascades fill a meter; when full the board ignites for a
+    // few real-time seconds with x3 score and faster dragon charge.
+    this.feverCharge = 0;
+    this.feverNeed = 110;
+    this.feverActive = false;
+    this.feverTime = 0;
+    this.feverMax = 8;
     // Roguelite relic modifiers (Dragon Trials mode)
     const mods = level.mods || {};
     this.scoreMult = mods.scoreMult || 1;
@@ -295,6 +302,15 @@
         this.danger = Math.min(100, this.danger + dt * rate);
         this.cb.onDanger && this.cb.onDanger(this.danger);
         if (this.danger >= 100) this.modeEnd();
+      }
+    }
+    // ---- fever / frenzy countdown (real-time) ----
+    if (this.feverActive && !this.finished) {
+      this.feverTime -= dt;
+      this.cb.onFever && this.cb.onFever(true, Math.max(0, this.feverTime / (this.feverMax || 8)));
+      if (this.feverTime <= 0) {
+        this.feverActive = false; this.feverTime = 0;
+        this.cb.onFever && this.cb.onFever(false, 0);
       }
     }
     // advance tile animations
@@ -535,8 +551,9 @@
       t._remove = true;
     });
 
-    // scoring
-    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1));
+    // scoring (fever triples the payout)
+    const feverMult = this.feverActive ? 3 : 1;
+    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1) * feverMult);
     this.score += gained;
     if (gained > 0) {
       this.addFloater(this.viewport.x + this.viewport.size / 2,
@@ -547,6 +564,17 @@
     if (this.mode === 'endless' && cleared > 0) this.danger = Math.max(0, this.danger - cleared * 2.2);
     // synergy meter fills only from the player's own matches (not dragon clears)
     if (!this.castingResolve && cleared > 0) this.synergyCharge = Math.min(this.synergyNeed, this.synergyCharge + cleared);
+    // fever meter: cascades charge it; big combos charge it much faster. Once
+    // it ignites, matches made during fever extend the burn instead of refilling.
+    if (!this.castingResolve && cleared > 0) {
+      if (this.feverActive) {
+        this.feverTime = Math.min(this.feverMax + 2, this.feverTime + 0.6);
+      } else {
+        this.feverCharge += cleared * Math.max(1, this.combo);
+        if (this.feverCharge >= this.feverNeed) this.startFever();
+        else if (this.cb.onFever) this.cb.onFever(false, this.feverCharge / this.feverNeed);
+      }
+    }
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
     // Boss takes damage equal to crystals cleared (combo amplified).
@@ -666,12 +694,24 @@
     this.endResolve();
   };
 
+  // ---- Fever / frenzy -----------------------------------------------------
+  Engine.prototype.startFever = function () {
+    this.feverCharge = 0;
+    this.feverActive = true;
+    this.feverTime = this.feverMax;
+    this.shake = Math.max(this.shake, 0.9);
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.95, '#ff8a3d');
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.7, '#ffd24d');
+    global.Audio2.play('special');
+    this.cb.onFever && this.cb.onFever(true, 1);
+  };
+
   // ---- Dragons ------------------------------------------------------------
   Engine.prototype.chargeDragons = function (amount) {
     // Dragons do NOT recharge from their own ability clears — only from the
     // player's matches — otherwise abilities could be chained for free.
     if (this.castingResolve) return;
-    amount = amount * (this.chargeMult || 1);
+    amount = amount * (this.chargeMult || 1) * (this.feverActive ? 1.5 : 1);
     const self = this;
     this.dragons.forEach(function (d) {
       if (self.finished) return;
@@ -1176,6 +1216,18 @@
       g.fillText(f.text, f.x, f.y);
     }
     g.globalAlpha = 1;
+    // fever frenzy: pulsing ember border around the board
+    if (this.feverActive) {
+      const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 12);
+      g.save();
+      g.globalAlpha = 0.3 + pulse * 0.35;
+      g.strokeStyle = pulse > 0.5 ? '#ffb347' : '#ff5d2d';
+      g.lineWidth = 5 + pulse * 5;
+      g.shadowColor = '#ff5d2d'; g.shadowBlur = 22 + pulse * 14;
+      this.roundRect(g, v.x - 6, v.y - 6, v.size + 12, v.size + 12, 20);
+      g.stroke();
+      g.restore();
+    }
     g.restore();
   };
 

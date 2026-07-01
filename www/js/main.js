@@ -130,6 +130,7 @@
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
@@ -188,6 +189,7 @@
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onModeEnd: function (res) { self.onModeEnd(res); },
         onWin: function (res) { self.onDailyEnd(true, res); },
         onLose: function (res) { self.onDailyEnd(false, res); }
@@ -275,6 +277,7 @@
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.trialWin(res); },
@@ -479,6 +482,10 @@
         '<div class="hud-obj">' +
           '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
+        '</div>' +
+        '<div class="fever-meter" id="hud-fever">' +
+          '<div class="fv-label">🔥 <span>' + T('fever') + '</span> ×3</div>' +
+          '<div class="fv-track"><div class="fv-fill" id="hud-fever-fill"></div></div>' +
         '</div>';
       s.appendChild(hud);
 
@@ -505,6 +512,8 @@
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
+        fever: hud.querySelector('#hud-fever'),
+        feverFill: hud.querySelector('#hud-fever-fill'),
         dragonBars: drBars,
         boosterBar: boBar
       };
@@ -586,6 +595,26 @@
       fill.style.width = pct + '%';
       fill.style.background = (def && def.color) || '#ff5d6c';
       if (this.engine && this.engine.bossHitFlash > 0.2) { panel.classList.remove('hit'); void panel.offsetWidth; panel.classList.add('hit'); }
+    },
+
+    renderFever: function (active, ratio) {
+      if (!this.hud || !this.hud.fever) return;
+      const fv = this.hud.fever, fill = this.hud.feverFill;
+      if (active) {
+        fv.classList.add('active');
+        if (fill) fill.style.width = Math.max(0, Math.round((ratio || 0) * 100)) + '%';
+        if (!fv._on) {
+          fv._on = true;
+          if (this.gameScreen) this.gameScreen.classList.add('fever-mode');
+          global.UI.toast('🔥 ' + T('fever_on'));
+          global.Audio2.play('win');
+          try { navigator.vibrate && navigator.vibrate([15, 30, 15, 30, 40]); } catch (e) {}
+        }
+      } else {
+        if (fv._on) { fv._on = false; if (this.gameScreen) this.gameScreen.classList.remove('fever-mode'); }
+        fv.classList.remove('active');
+        if (fill) fill.style.width = Math.round((ratio || 0) * 100) + '%';
+      }
     },
 
     renderDragonBars: function (dragons) {

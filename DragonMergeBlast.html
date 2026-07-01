@@ -348,6 +348,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .hud-obj { margin-top: 8px; background: var(--panel); border-radius: 14px; padding: 8px 12px; }
 .obj-top { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
 
+/* ---- Fever / frenzy meter ---- */
+.fever-meter { margin-top: 8px; background: var(--panel); border-radius: 12px; padding: 5px 12px 7px; transition: box-shadow 0.2s, border-color 0.2s; border: 1px solid rgba(255,255,255,0.06); }
+.fv-label { font-size: 9px; letter-spacing: 2px; font-weight: 900; color: #ff9a52; display: flex; align-items: center; gap: 5px; }
+.fv-track { margin-top: 4px; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.fv-fill { height: 100%; width: 0%; border-radius: 4px; background: linear-gradient(90deg, #ffcf4d, #ff7a2d, #ff3d5d); transition: width 0.18s ease; }
+.fever-meter.active { border-color: rgba(255,138,61,0.9); box-shadow: 0 0 0 1px rgba(255,138,61,0.6), 0 0 22px rgba(255,93,45,0.6); animation: feverPulse 0.5s ease-in-out infinite alternate; }
+.fever-meter.active .fv-label { color: #ffd24d; }
+.fever-meter.active .fv-fill { background: linear-gradient(90deg, #fff2a0, #ff8a3d); }
+@keyframes feverPulse { from { transform: scale(1); } to { transform: scale(1.02); } }
+
+/* full-screen ember tint while fever is burning */
+#screen-game.fever-mode::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 100%, rgba(255,93,45,0.22), rgba(255,93,45,0) 60%);
+  animation: feverGlow 0.6s ease-in-out infinite alternate;
+}
+@keyframes feverGlow { from { opacity: 0.55; } to { opacity: 1; } }
+
 .dragon-bars { position: absolute; bottom: 78px; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; padding: 0 14px; }
 
 /* ---- Booster bar ---- */
@@ -1391,6 +1409,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
   const SYNC = { uk: 'Синергія заряджається…', en: 'Synergy charging…', es: 'Sinergia cargando…', de: 'Synergie lädt…', fr: 'Synergie en charge…', pt: 'Sinergia carregando…' };
   Object.keys(SYNC).forEach(function (l) { STR[l].synergy_charging = SYNC[l]; });
 
+  // Fever / frenzy mode.
+  const FV = {
+    uk: { fever: 'ФЕВЕР', fever_on: 'ФЕВЕР! Потрійні очки — рубай швидше!' },
+    en: { fever: 'FEVER', fever_on: 'FEVER! Triple score — match fast!' },
+    es: { fever: 'FRENESÍ', fever_on: '¡FRENESÍ! Puntos triples — ¡rápido!' },
+    de: { fever: 'FIEBER', fever_on: 'FIEBER! Dreifache Punkte — schnell!' },
+    fr: { fever: 'FIÈVRE', fever_on: 'FIÈVRE ! Score triple — vite !' },
+    pt: { fever: 'FEBRE', fever_on: 'FEBRE! Pontos triplos — rápido!' }
+  };
+  Object.keys(FV).forEach(function (l) { Object.assign(STR[l], FV[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',
@@ -1967,6 +1996,13 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.castingResolve = false; // true while a dragon ability is resolving (no self-recharge)
     this.synergyCharge = 0;      // synergy meter, fills from player matches
     this.synergyNeed = 90;
+    // Fever / frenzy: cascades fill a meter; when full the board ignites for a
+    // few real-time seconds with x3 score and faster dragon charge.
+    this.feverCharge = 0;
+    this.feverNeed = 110;
+    this.feverActive = false;
+    this.feverTime = 0;
+    this.feverMax = 8;
     // Roguelite relic modifiers (Dragon Trials mode)
     const mods = level.mods || {};
     this.scoreMult = mods.scoreMult || 1;
@@ -2200,6 +2236,15 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         this.danger = Math.min(100, this.danger + dt * rate);
         this.cb.onDanger && this.cb.onDanger(this.danger);
         if (this.danger >= 100) this.modeEnd();
+      }
+    }
+    // ---- fever / frenzy countdown (real-time) ----
+    if (this.feverActive && !this.finished) {
+      this.feverTime -= dt;
+      this.cb.onFever && this.cb.onFever(true, Math.max(0, this.feverTime / (this.feverMax || 8)));
+      if (this.feverTime <= 0) {
+        this.feverActive = false; this.feverTime = 0;
+        this.cb.onFever && this.cb.onFever(false, 0);
       }
     }
     // advance tile animations
@@ -2440,8 +2485,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       t._remove = true;
     });
 
-    // scoring
-    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1));
+    // scoring (fever triples the payout)
+    const feverMult = this.feverActive ? 3 : 1;
+    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1) * feverMult);
     this.score += gained;
     if (gained > 0) {
       this.addFloater(this.viewport.x + this.viewport.size / 2,
@@ -2452,6 +2498,17 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     if (this.mode === 'endless' && cleared > 0) this.danger = Math.max(0, this.danger - cleared * 2.2);
     // synergy meter fills only from the player's own matches (not dragon clears)
     if (!this.castingResolve && cleared > 0) this.synergyCharge = Math.min(this.synergyNeed, this.synergyCharge + cleared);
+    // fever meter: cascades charge it; big combos charge it much faster. Once
+    // it ignites, matches made during fever extend the burn instead of refilling.
+    if (!this.castingResolve && cleared > 0) {
+      if (this.feverActive) {
+        this.feverTime = Math.min(this.feverMax + 2, this.feverTime + 0.6);
+      } else {
+        this.feverCharge += cleared * Math.max(1, this.combo);
+        if (this.feverCharge >= this.feverNeed) this.startFever();
+        else if (this.cb.onFever) this.cb.onFever(false, this.feverCharge / this.feverNeed);
+      }
+    }
     this.chargeDragons(energyGain);
     this.cb.onScore && this.cb.onScore(this.score);
     // Boss takes damage equal to crystals cleared (combo amplified).
@@ -2571,12 +2628,24 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
     this.endResolve();
   };
 
+  // ---- Fever / frenzy -----------------------------------------------------
+  Engine.prototype.startFever = function () {
+    this.feverCharge = 0;
+    this.feverActive = true;
+    this.feverTime = this.feverMax;
+    this.shake = Math.max(this.shake, 0.9);
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.95, '#ff8a3d');
+    this.spawnRing(this.viewport.x + this.viewport.size / 2, this.viewport.y + this.viewport.size / 2, this.viewport.size * 0.7, '#ffd24d');
+    global.Audio2.play('special');
+    this.cb.onFever && this.cb.onFever(true, 1);
+  };
+
   // ---- Dragons ------------------------------------------------------------
   Engine.prototype.chargeDragons = function (amount) {
     // Dragons do NOT recharge from their own ability clears — only from the
     // player's matches — otherwise abilities could be chained for free.
     if (this.castingResolve) return;
-    amount = amount * (this.chargeMult || 1);
+    amount = amount * (this.chargeMult || 1) * (this.feverActive ? 1.5 : 1);
     const self = this;
     this.dragons.forEach(function (d) {
       if (self.finished) return;
@@ -3081,6 +3150,18 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       g.fillText(f.text, f.x, f.y);
     }
     g.globalAlpha = 1;
+    // fever frenzy: pulsing ember border around the board
+    if (this.feverActive) {
+      const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 12);
+      g.save();
+      g.globalAlpha = 0.3 + pulse * 0.35;
+      g.strokeStyle = pulse > 0.5 ? '#ffb347' : '#ff5d2d';
+      g.lineWidth = 5 + pulse * 5;
+      g.shadowColor = '#ff5d2d'; g.shadowBlur = 22 + pulse * 14;
+      this.roundRect(g, v.x - 6, v.y - 6, v.size + 12, v.size + 12, 20);
+      g.stroke();
+      g.restore();
+    }
     g.restore();
   };
 
@@ -4388,6 +4469,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.onWin(res); },
@@ -4446,6 +4528,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onModeEnd: function (res) { self.onModeEnd(res); },
         onWin: function (res) { self.onDailyEnd(true, res); },
         onLose: function (res) { self.onDailyEnd(false, res); }
@@ -4533,6 +4616,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         onCombo: function (n) { self.showCombo(n); },
         onShuffle: function () { global.UI.toast(T('shuffled')); },
         onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
         onBoss: function (hp, max, def) { self.renderBossBar(hp, max, def); },
         onBossAttack: function (n) { global.UI.toast(T('boss_attack', { n: n })); },
         onWin: function (res) { self.trialWin(res); },
@@ -4737,6 +4821,10 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         '<div class="hud-obj">' +
           '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
+        '</div>' +
+        '<div class="fever-meter" id="hud-fever">' +
+          '<div class="fv-label">🔥 <span>' + T('fever') + '</span> ×3</div>' +
+          '<div class="fv-track"><div class="fv-fill" id="hud-fever-fill"></div></div>' +
         '</div>';
       s.appendChild(hud);
 
@@ -4763,6 +4851,8 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
+        fever: hud.querySelector('#hud-fever'),
+        feverFill: hud.querySelector('#hud-fever-fill'),
         dragonBars: drBars,
         boosterBar: boBar
       };
@@ -4844,6 +4934,26 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
       fill.style.width = pct + '%';
       fill.style.background = (def && def.color) || '#ff5d6c';
       if (this.engine && this.engine.bossHitFlash > 0.2) { panel.classList.remove('hit'); void panel.offsetWidth; panel.classList.add('hit'); }
+    },
+
+    renderFever: function (active, ratio) {
+      if (!this.hud || !this.hud.fever) return;
+      const fv = this.hud.fever, fill = this.hud.feverFill;
+      if (active) {
+        fv.classList.add('active');
+        if (fill) fill.style.width = Math.max(0, Math.round((ratio || 0) * 100)) + '%';
+        if (!fv._on) {
+          fv._on = true;
+          if (this.gameScreen) this.gameScreen.classList.add('fever-mode');
+          global.UI.toast('🔥 ' + T('fever_on'));
+          global.Audio2.play('win');
+          try { navigator.vibrate && navigator.vibrate([15, 30, 15, 30, 40]); } catch (e) {}
+        }
+      } else {
+        if (fv._on) { fv._on = false; if (this.gameScreen) this.gameScreen.classList.remove('fever-mode'); }
+        fv.classList.remove('active');
+        if (fill) fill.style.width = Math.round((ratio || 0) * 100) + '%';
+      }
     },
 
     renderDragonBars: function (dragons) {

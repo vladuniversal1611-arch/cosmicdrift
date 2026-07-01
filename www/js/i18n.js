@@ -485,6 +485,17 @@
   const SYNC = { uk: 'Синергія заряджається…', en: 'Synergy charging…', es: 'Sinergia cargando…', de: 'Synergie lädt…', fr: 'Synergie en charge…', pt: 'Sinergia carregando…' };
   Object.keys(SYNC).forEach(function (l) { STR[l].synergy_charging = SYNC[l]; });
 
+  // Fever / frenzy mode.
+  const FV = {
+    uk: { fever: 'ФЕВЕР', fever_on: 'ФЕВЕР! Потрійні очки — рубай швидше!' },
+    en: { fever: 'FEVER', fever_on: 'FEVER! Triple score — match fast!' },
+    es: { fever: 'FRENESÍ', fever_on: '¡FRENESÍ! Puntos triples — ¡rápido!' },
+    de: { fever: 'FIEBER', fever_on: 'FIEBER! Dreifache Punkte — schnell!' },
+    fr: { fever: 'FIÈVRE', fever_on: 'FIÈVRE ! Score triple — vite !' },
+    pt: { fever: 'FEBRE', fever_on: 'FEBRE! Pontos triplos — rápido!' }
+  };
+  Object.keys(FV).forEach(function (l) { Object.assign(STR[l], FV[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',
