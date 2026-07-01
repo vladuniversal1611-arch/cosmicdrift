@@ -1126,7 +1126,7 @@
   };
   Engine.prototype.spawnBurst = function (x, y, color, n) {
     n = n || 6;
-    const perf = global.Save.get().settings.perf;
+    const perf = global.Save.get().settings.perf || global.__perf;
     if (perf) n = Math.min(n, 4);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 200;
@@ -1295,44 +1295,53 @@
     const island = (this.level && this.level.island) || 0;
     const rad = tile * (RADII[island] != null ? RADII[island] : 0.22);
     const bx = x + pad, by = y + pad, bw = tile - pad * 2, bh = tile - pad * 2;
+    const perf = global.Save.get().settings.perf || global.__perf;
 
-    // soft drop shadow
+    // soft drop shadow + base gem fill (kept in every quality level)
     g.save();
-    g.shadowColor = 'rgba(0,0,0,0.38)'; g.shadowBlur = tile * 0.12; g.shadowOffsetY = tile * 0.05;
+    if (!perf) { g.shadowColor = 'rgba(0,0,0,0.38)'; g.shadowBlur = tile * 0.12; g.shadowOffsetY = tile * 0.05; }
     this.roundRect(g, bx, by, bw, bh, rad);
     const grd = g.createLinearGradient(x, y, x, y + tile);
     grd.addColorStop(0, cr.c1); grd.addColorStop(1, cr.c2);
     g.fillStyle = grd; g.fill();
     g.restore();
 
-    // clip to the gem for interior shading
-    g.save();
-    this.roundRect(g, bx, by, bw, bh, rad); g.clip();
-    // radial sheen from top-left
-    const rg = g.createRadialGradient(cx - tile * 0.14, cy - tile * 0.18, tile * 0.04, cx, cy, tile * 0.62);
-    rg.addColorStop(0, 'rgba(255,255,255,0.6)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.12)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = rg; g.fillRect(bx, by, bw, bh);
-    // faceted cut lines
-    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = Math.max(1, tile * 0.02);
-    g.beginPath(); g.moveTo(cx, by); g.lineTo(bx + bw, cy); g.lineTo(cx, by + bh); g.lineTo(bx, cy); g.closePath(); g.stroke();
-    // bottom inner shadow for depth
-    const sg = g.createLinearGradient(x, cy, x, y + tile);
-    sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.28)');
-    g.fillStyle = sg; g.fillRect(bx, cy, bw, bh / 2);
-    g.restore();
+    if (!perf) {
+      // clip to the gem for interior shading (skipped on the lightweight path)
+      g.save();
+      this.roundRect(g, bx, by, bw, bh, rad); g.clip();
+      // radial sheen from top-left
+      const rg = g.createRadialGradient(cx - tile * 0.14, cy - tile * 0.18, tile * 0.04, cx, cy, tile * 0.62);
+      rg.addColorStop(0, 'rgba(255,255,255,0.6)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.12)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg; g.fillRect(bx, by, bw, bh);
+      // faceted cut lines
+      g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = Math.max(1, tile * 0.02);
+      g.beginPath(); g.moveTo(cx, by); g.lineTo(bx + bw, cy); g.lineTo(cx, by + bh); g.lineTo(bx, cy); g.closePath(); g.stroke();
+      // bottom inner shadow for depth
+      const sg = g.createLinearGradient(x, cy, x, y + tile);
+      sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.28)');
+      g.fillStyle = sg; g.fillRect(bx, cy, bw, bh / 2);
+      g.restore();
+    }
 
-    // beveled rim (light top → dark bottom)
-    const rim = g.createLinearGradient(x, y, x, y + tile);
-    rim.addColorStop(0, 'rgba(255,255,255,0.65)'); rim.addColorStop(0.5, 'rgba(255,255,255,0.08)'); rim.addColorStop(1, 'rgba(0,0,0,0.3)');
-    g.strokeStyle = rim; g.lineWidth = Math.max(1.2, tile * 0.05);
+    // beveled rim — gradient when full quality, a cheap solid stroke in perf mode
+    if (perf) {
+      g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = Math.max(1, tile * 0.04);
+    } else {
+      const rim = g.createLinearGradient(x, y, x, y + tile);
+      rim.addColorStop(0, 'rgba(255,255,255,0.65)'); rim.addColorStop(0.5, 'rgba(255,255,255,0.08)'); rim.addColorStop(1, 'rgba(0,0,0,0.3)');
+      g.strokeStyle = rim; g.lineWidth = Math.max(1.2, tile * 0.05);
+    }
     this.roundRect(g, bx, by, bw, bh, rad); g.stroke();
 
-    // specular highlight
-    g.beginPath();
-    g.ellipse(cx - tile * 0.13, cy - tile * 0.16, tile * 0.16, tile * 0.09, -0.5, 0, Math.PI * 2);
-    g.fillStyle = 'rgba(255,255,255,0.7)'; g.fill();
-    g.beginPath(); g.arc(cx + tile * 0.12, cy + tile * 0.12, tile * 0.025, 0, Math.PI * 2);
-    g.fillStyle = 'rgba(255,255,255,0.5)'; g.fill();
+    // specular highlight (full quality only)
+    if (!perf) {
+      g.beginPath();
+      g.ellipse(cx - tile * 0.13, cy - tile * 0.16, tile * 0.16, tile * 0.09, -0.5, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.7)'; g.fill();
+      g.beginPath(); g.arc(cx + tile * 0.12, cy + tile * 0.12, tile * 0.025, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.5)'; g.fill();
+    }
     // core sparkle / glyph
     if (t.special !== SP.NONE) {
       const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 6 + (t.r + t.c) * 0.7);

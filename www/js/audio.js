@@ -150,5 +150,23 @@
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
   function setSoundEnabled() { /* checked at play time */ }
 
-  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled, setIsland };
+  // ---- Background suspend/resume (app minimised, tab hidden) ----------------
+  // Silences everything immediately (music loop + any ringing tones) instead of
+  // letting audio keep playing while the game is in the background.
+  let wasMusicOn = false, suspended = false;
+  function suspendAll() {
+    if (suspended) return;
+    suspended = true;
+    wasMusicOn = musicOn;
+    stopMusic();
+    if (ctx && ctx.state === 'running' && ctx.suspend) { try { ctx.suspend(); } catch (e) {} }
+  }
+  function resumeAll() {
+    if (!suspended) return;
+    suspended = false;
+    if (ctx && ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) {} }
+    if (wasMusicOn) startMusic();
+  }
+
+  global.Audio2 = { resume, play, startMusic, stopMusic, setMusicEnabled, setSoundEnabled, setIsland, suspendAll, resumeAll };
 })(window);

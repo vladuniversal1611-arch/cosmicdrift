@@ -23,11 +23,23 @@
 
       this.bindInput();
       this.resize();
-      global.addEventListener('resize', this.resize.bind(this));
+      const onResize = this.resize.bind(this);
+      global.addEventListener('resize', onResize);
+      global.addEventListener('orientationchange', function () { setTimeout(onResize, 120); });
 
       // Resume audio on first interaction.
       const kick = function () { global.Audio2.resume(); global.Audio2.startMusic(); document.removeEventListener('pointerdown', kick); };
       document.addEventListener('pointerdown', kick);
+
+      // Silence audio when the app is backgrounded / the tab is hidden; restore
+      // on return. Fixes music continuing to play in the background. (The render
+      // loop is paused automatically by the browser for hidden tabs.)
+      const self0 = this;
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) { global.Audio2.suspendAll(); }
+        else { global.Audio2.resumeAll(); self0.last = 0; if (!self0._rafOn) { self0._rafOn = true; requestAnimationFrame(self0._loop); } }
+      });
+      global.addEventListener('pagehide', function () { global.Audio2.suspendAll(); });
 
       // Welcome
       const p = global.Save.get();
@@ -48,7 +60,10 @@
         p.firstRun = false; global.Save.save();
         this.showStoryIntro();
       }
-      requestAnimationFrame(this.loop.bind(this));
+      this._loop = this.loop.bind(this); // bound once — no per-frame closure allocation
+      this._rafOn = true;
+      this._ftSum = 0; this._ftCount = 0; this._perfLocked = false;
+      requestAnimationFrame(this._loop);
     },
 
     // ---- Story / narrative ------------------------------------------------
@@ -896,19 +911,34 @@
     // ---- Canvas / input ---------------------------------------------------
     resize: function () {
       const rect = this.root.getBoundingClientRect();
-      const dpr = Math.min(2, global.devicePixelRatio || 1);
+      // Cap the backing-store DPR (2 normally, 1.5 in perf mode) so high-density
+      // screens don't render 3x the pixels and tank the framerate.
+      const dpr = Math.min(this.perfOn() ? 1.5 : 2, global.devicePixelRatio || 1);
       const w = rect.width, h = rect.height;
-      this.canvas.width = w * dpr;
-      this.canvas.height = h * dpr;
+      this.canvas.width = Math.round(w * dpr);
+      this.canvas.height = Math.round(h * dpr);
       this.canvas.style.width = w + 'px';
       this.canvas.style.height = h + 'px';
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.viewW = w; this.viewH = h;
+      this._bgCache = null; this._vigCache = null; // gradients are size-dependent
       if (this.engine) {
-        const margin = w * 0.04;
-        const size = w - margin * 2;
-        const top = h * 0.30; // leave room for HUD
-        this.engine.setViewport(margin, top, size);
+        // Fit the square board into the free zone between the HUD (top) and the
+        // dragon/booster bars (bottom), then centre it. Works for every aspect
+        // ratio — tall phones are width-limited, short/wide ones height-limited.
+        const margin = Math.max(10, w * 0.04);
+        const bossExtra = this.engine.isBoss ? 44 : 0;
+        // Fold in device safe-area insets (notch / home indicator) so the board
+        // clears the chrome on every phone.
+        let sat = 0, sab = 0;
+        try { const cs = getComputedStyle(document.documentElement); sat = parseFloat(cs.getPropertyValue('--sat')) || 0; sab = parseFloat(cs.getPropertyValue('--sab')) || 0; } catch (e) {}
+        const topReserve = Math.max(176 + bossExtra + sat, h * 0.24);
+        const bottomReserve = 150 + sab;                 // dragon bars + boosters
+        const zoneH = Math.max(120, h - topReserve - bottomReserve);
+        const size = Math.max(120, Math.min(w - margin * 2, zoneH));
+        const left = Math.round((w - size) / 2);
+        const top = Math.round(topReserve + Math.max(0, (zoneH - size) / 2));
+        this.engine.setViewport(left, top, size);
       }
     },
 
@@ -937,29 +967,51 @@
       const dt = Math.min(0.05, (ts - this.last) / 1000) || 0;
       this.last = ts;
       const g = this.ctx;
-      g.clearRect(0, 0, this.viewW, this.viewH);
       if (this.inLevel && this.engine) {
+        g.clearRect(0, 0, this.viewW, this.viewH);
         const lv = this.currentLevelObj || D.LEVELS[0];
         const isl = D.ISLANDS[lv.island] || D.ISLANDS[0];
         this.drawBackground(g, isl, dt);
         this.engine.update(dt);
         this.engine.draw(g);
         this.drawVignette(g);
+        // Adaptive quality: if we run slow for a sustained window on a real
+        // device, permanently drop to the lightweight render path this session.
+        if (!this._perfLocked && dt > 0) {
+          this._ftSum += dt; this._ftCount++;
+          if (this._ftCount >= 120) {
+            const avg = this._ftSum / this._ftCount; // seconds/frame
+            if (avg > 0.026 && !global.__perf) { global.__perf = true; this.resize(); } // < ~38fps → simplify
+            this._perfLocked = global.__perf; // lock once downgraded (avoid oscillation)
+            this._ftSum = 0; this._ftCount = 0;
+          }
+        }
+      } else {
+        // On menus the canvas is idle — clear once, then let DOM/CSS drive visuals.
+        if (!this._cleared) { g.clearRect(0, 0, this.viewW, this.viewH); this._cleared = true; }
       }
-      requestAnimationFrame(this.loop.bind(this));
+      if (this.inLevel) this._cleared = false;
+      requestAnimationFrame(this._loop);
     },
+
+    perfOn: function () { return global.Save.get().settings.perf || global.__perf; },
 
     drawBackground: function (g, isl, dt) {
       const W = this.viewW, H = this.viewH;
-      // base gradient
-      const grd = g.createLinearGradient(0, 0, 0, H);
-      grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
-      g.fillStyle = grd; g.fillRect(0, 0, W, H);
-      if (global.Save.get().settings.perf) return; // skip heavy effects on low-end devices
-      // god-ray glow at the top
-      const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
-      glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
-      g.fillStyle = glow; g.fillRect(0, 0, W, H);
+      // Cache the gradients — they only change when the size or island changes,
+      // so we avoid rebuilding two gradient objects every single frame.
+      const key = W + 'x' + H + '|' + isl.bg1 + isl.bg2 + isl.theme;
+      if (!this._bgCache || this._bgCache.key !== key) {
+        const grd = g.createLinearGradient(0, 0, 0, H);
+        grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
+        const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
+        glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
+        this._bgCache = { key: key, grd: grd, glow: glow };
+      }
+      g.fillStyle = this._bgCache.grd; g.fillRect(0, 0, W, H);
+      if (this.perfOn()) return; // skip heavy effects on low-end devices
+      // god-ray glow at the top (cached)
+      g.fillStyle = this._bgCache.glow; g.fillRect(0, 0, W, H);
       // drifting bokeh
       if (!this.bokeh) {
         this.bokeh = [];
@@ -974,11 +1026,15 @@
     },
 
     drawVignette: function (g) {
-      if (global.Save.get().settings.perf) return;
+      if (this.perfOn()) return;
       const W = this.viewW, H = this.viewH;
-      const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
-      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
-      g.fillStyle = v; g.fillRect(0, 0, W, H);
+      const key = W + 'x' + H;
+      if (!this._vigCache || this._vigCache.key !== key) {
+        const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.72);
+        v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+        this._vigCache = { key: key, grad: v };
+      }
+      g.fillStyle = this._vigCache.grad; g.fillRect(0, 0, W, H);
     },
 
     hexA: function (hex, a) {
