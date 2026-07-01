@@ -84,7 +84,8 @@
   };
 
   // ---- UI icons (DOM <img>): currency, boosters, star -----------------------
-  const UI_IDS = ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star'];
+  const UI_IDS = ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star',
+    'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home'];
   const uiInline = global.UI_ICONS || null;
   const uiUrls = {};
   UI_IDS.forEach(function (id) {

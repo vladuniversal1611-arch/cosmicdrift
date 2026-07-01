@@ -178,18 +178,19 @@
     },
 
     navBar: function (active) {
+      const nIc = function (icon, emoji) { const t = global.UiIcons && global.UiIcons.tag(icon, 'nav-ic'); return t || ('<span class="nav-ic">' + emoji + '</span>'); };
       const items = [
-        { id: 'map', ic: '🗺️', label: T('nav_map') },
-        { id: 'modes', ic: '🎮', label: T('t_modes') },
-        { id: 'collection', ic: '🐲', label: T('nav_dragons') },
-        { id: 'shop', ic: '🛒', label: T('nav_shop') },
-        { id: 'pass', ic: '🎖️', label: T('nav_pass') },
-        { id: 'home', ic: '🏝️', label: T('nav_island') }
+        { id: 'map', icon: 'nav_map', ic: '🗺️', label: T('nav_map') },
+        { id: 'modes', icon: 'nav_modes', ic: '🎮', label: T('t_modes') },
+        { id: 'collection', icon: 'nav_dragons', ic: '🐲', label: T('nav_dragons') },
+        { id: 'shop', icon: 'nav_shop', ic: '🛒', label: T('nav_shop') },
+        { id: 'pass', icon: 'nav_pass', ic: '🎖️', label: T('nav_pass') },
+        { id: 'home', icon: 'nav_home', ic: '🏝️', label: T('nav_island') }
       ];
       const bar = el('div', 'nav-bar');
       items.forEach(function (it) {
         const b = el('button', 'nav-btn' + (it.id === active ? ' active' : ''),
-          '<span class="nav-ic">' + it.ic + '</span><span class="nav-lb">' + it.label + '</span>');
+          nIc(it.icon, it.ic) + '<span class="nav-lb">' + it.label + '</span>');
         click(b, function () { global.Game.go(it.id); });
         bar.appendChild(b);
       });

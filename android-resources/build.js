@@ -43,7 +43,8 @@ const jelly = {};
 });
 // Inline UI icons (currency / boosters / star).
 const uiIcons = {};
-['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star'].forEach(function (nm) {
+['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star',
+ 'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home'].forEach(function (nm) {
   const p = path.join(ROOT, 'www/assets/ui/' + nm + '.png');
   if (fs.existsSync(p)) uiIcons[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
