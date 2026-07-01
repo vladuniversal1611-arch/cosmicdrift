@@ -625,14 +625,22 @@
   Engine.prototype.collapse = function () {
     const self = this;
     for (let c = 0; c < this.cols; c++) {
+      // Walk bottom-up. `write` is the next slot to fill within the current
+      // segment. Ice/crate blockers are ANCHORED walls: gems never fall past
+      // them, and the empty pocket sealed just under a wall is refilled in place.
       let write = this.rows - 1;
       for (let r = this.rows - 1; r >= 0; r--) {
         const t = this.grid[r][c];
         if (t && t.ice) {
-          // ice blocks stay in place; reset write pointer above it
-          if (write !== r) {
-            // move floating gems above the ice down to just above it (handled per segment)
+          // Fill the empty slots of the segment below this wall (from just under
+          // the wall down to the gems already packed) with fresh crystals.
+          for (let k = write; k > r; k--) {
+            const nt = this.makeTile(k, c, false);
+            nt.scale = 0.2; // pops in — cannot fall through the wall above
+            this.grid[k][c] = nt;
           }
+          write = r - 1; // the wall stays put; next segment starts above it
+          continue;
         }
         if (t && !t._remove && !t.dying) {
           if (write !== r) {
@@ -644,7 +652,7 @@
           write--;
         }
       }
-      // spawn new tiles to fill the gaps from the top
+      // spawn new tiles to fill the topmost segment (above the highest wall) from the top
       for (let r = write; r >= 0; r--) {
         const t = this.makeTile(r, c, false);
         t.scale = 1;
@@ -674,7 +682,29 @@
     this.castingResolve = false; // resolution finished — dragons can recharge again
     this.state = 'idle';
     if (this.movesLeft <= 0) { this.fail(); return; }
-    if (!this.hasPossibleMove()) this.shuffleBoard();
+    if (!this.hasPossibleMove()) {
+      this.shuffleBoard();
+      // Safety net: if a board is so packed with blockers that no shuffle yields
+      // a legal move, free blockers until it is playable again (prevents a soft-lock).
+      let guard = 0;
+      while (!this.hasPossibleMove() && guard++ < 64) {
+        if (!this.freeOneBlocker()) break;
+      }
+    }
+  };
+
+  // Free a single ice/crate blocker (used only by the anti-soft-lock safety net).
+  Engine.prototype.freeOneBlocker = function () {
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const t = this.grid[r][c];
+      if (t && t.ice) {
+        t.ice = false; t.crate = false; t.blockHp = 0;
+        this.iceLeft = Math.max(0, this.iceLeft - 1);
+        this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#bff0ff', 8);
+        return true;
+      }
+    }
+    return false;
   };
 
   Engine.prototype.bossAttack = function () {
@@ -890,7 +920,7 @@
     if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = T('obj_score'); }
     else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].glyph; }
     else if (this.level.objective === D.OBJ.JELLY) { cur = this.level.jellyCount - this.jellyLeft; goal = this.level.jellyCount; label = T('obj_jelly'); }
-    else { cur = this.level.iceCount - this.iceLeft; goal = this.level.iceCount; label = T('obj_ice'); }
+    else { goal = this.level.iceCount + (this.level.crates || 0); cur = goal - this.iceLeft; label = T('obj_ice'); }
     this.cb.onObjective && this.cb.onObjective(Math.min(cur, goal), goal, label);
   };
 
@@ -1062,7 +1092,7 @@
   Engine.prototype.comboSpecials = function (a, b, ta, tb) {
     const set = {};
     const self = this;
-    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
+    const add = function (r, c) { if (r >= 0 && r < self.rows && c >= 0 && c < self.cols && self.grid[r][c] && !self.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c }; };
     const hasR = ta.special === SP.RAINBOW || tb.special === SP.RAINBOW;
     const bombs = (ta.special === SP.BOMB ? 1 : 0) + (tb.special === SP.BOMB ? 1 : 0);
     const lines = (ta.special === SP.LINE_H || ta.special === SP.LINE_V ? 1 : 0) + (tb.special === SP.LINE_H || tb.special === SP.LINE_V ? 1 : 0);
@@ -1071,11 +1101,11 @@
     } else if (hasR && bombs) {
       const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
       for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
-        if (this.grid[r][c].type === col) { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc); }
+        if (this.grid[r][c] && this.grid[r][c].type === col) { for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc); }
     } else if (hasR && lines) {
       const col = (ta.special === SP.RAINBOW ? tb.type : ta.type);
       for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
-        if (this.grid[r][c].type === col) { for (let cc = 0; cc < this.cols; cc++) add(r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, c); }
+        if (this.grid[r][c] && this.grid[r][c].type === col) { for (let cc = 0; cc < this.cols; cc++) add(r, cc); for (let rr = 0; rr < this.rows; rr++) add(rr, c); }
     } else if (bombs === 2) {
       for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(b.r + dr, b.c + dc); // 5x5
     } else if (bombs && lines) {

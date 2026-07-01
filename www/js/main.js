@@ -223,7 +223,7 @@
       body.className = 'modal-body';
       body.innerHTML = '<div class="big-emoji">' + (win ? '📅' : '😢') + '</div>' +
         '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '<p class="muted small">' + T('daily_done') + '</p>');
+        (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '<p class="muted small">' + T('daily_done_today') + '</p>');
       global.UI.modal(win ? T('victory') : T('defeat'), body, [
         { label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } }
       ]);
@@ -772,8 +772,10 @@
         global.Save.addStat('totalStars', newStars - prevStars);
       }
       p.stars[lvNum] = newStars;
-      // rewards (full reward first time, half on replay)
-      const firstTime = lvNum >= p.levelProgress;
+      // rewards (full reward the first time the level is cleared, half on replay).
+      // Keyed on "never earned a star here" so replaying the capped final level
+      // can't farm full first-clear rewards indefinitely.
+      const firstTime = prevStars === 0;
       const ev = D.activeEvent();
       let gold = firstTime ? lv.reward.gold : Math.floor(lv.reward.gold / 2);
       let energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);

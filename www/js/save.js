@@ -93,7 +93,10 @@
     const p = get();
     const lv = p.lives || (p.lives = { count: 5, max: 5, lastRegen: Date.now() });
     if (lv.count >= lv.max) { lv.lastRegen = Date.now(); return lv; }
-    const elapsed = Date.now() - (lv.lastRegen || Date.now());
+    // Guard against a backward device clock: never let lastRegen sit in the
+    // future (otherwise the regen countdown freezes / grows past REGEN_MS).
+    if (!lv.lastRegen || lv.lastRegen > Date.now()) lv.lastRegen = Date.now();
+    const elapsed = Date.now() - lv.lastRegen;
     const gained = Math.floor(elapsed / REGEN_MS);
     if (gained > 0) {
       lv.count = Math.min(lv.max, lv.count + gained);
