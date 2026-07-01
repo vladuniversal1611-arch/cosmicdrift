@@ -281,12 +281,17 @@
       [
         { ic: '🎮', label: T('t_modes'), go: function () { UI.showModes(); } },
         { ic: '🎁', label: T('t_daily'), go: function () { UI.showDaily(); } },
+        { ic: '🎡', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
+        { ic: '🎰', label: T('t_summon'), go: function () { UI.showSummon(); } },
+        { ic: '🌳', label: T('t_skills'), go: function () { UI.showSkills(); } },
+        { ic: '⚔️', label: T('t_pvp'), go: function () { UI.showPvp(); } },
+        { ic: '📖', label: T('t_story'), go: function () { UI.showStory(); }, badge: UI.storyAvailable() },
         { ic: '📜', label: T('t_quests'), go: function () { UI.showQuests(); } },
         { ic: '📊', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
         { ic: '🏆', label: T('t_ach'), go: function () { UI.showAchievements(); } },
         { ic: '⚙️', label: T('t_options'), go: function () { UI.showSettings(); } }
       ].forEach(function (a) {
-        const b = click(el('button', 'btn btn-tile', '<span>' + a.ic + '</span>' + a.label), a.go);
+        const b = click(el('button', 'btn btn-tile' + (a.badge ? ' has-badge' : ''), '<span>' + a.ic + '</span>' + a.label), a.go);
         grid2.appendChild(b);
       });
       acts.appendChild(grid2);
@@ -816,6 +821,222 @@
     addPassXp: function (xp) {
       const p = global.Save.get();
       p.pass.xp += xp; global.Save.save();
+    },
+
+    // ---- Shared reward helpers (Wheel / Summon) ---------------------------
+    grantReward: function (rw) {
+      const p = global.Save.get();
+      if (rw.gold) p.gold += rw.gold;
+      if (rw.gems) p.gems += rw.gems;
+      if (rw.energy) p.energy += rw.energy;
+      if (rw.booster) p.boosters[rw.booster] = (p.boosters[rw.booster] || 0) + (rw.boosterN || 1);
+      if (rw.life) global.Save.addLives(rw.life);
+      if (rw.eggCharge) { // pour into the first egg still incubating
+        for (let i = 0; i < p.eggs.length; i++) { const e = p.eggs[i]; if (e.charge < e.need) { e.charge = Math.min(e.need, e.charge + rw.eggCharge); break; } }
+      }
+      global.Save.save();
+    },
+    rewardStr: function (rw) {
+      const BEM = { hammer: '🔨', shuffle: '🔀', moves: '➕' };
+      const parts = [];
+      if (rw.gold) parts.push(rw.gold + '🪙');
+      if (rw.gems) parts.push(rw.gems + '💎');
+      if (rw.energy) parts.push(rw.energy + '⚡');
+      if (rw.booster) parts.push((rw.boosterN || 1) + '× ' + (BEM[rw.booster] || rw.booster));
+      if (rw.eggCharge) parts.push(rw.eggCharge + '⚡🥚');
+      if (rw.life) parts.push(rw.life + '❤️');
+      return parts.join('   ');
+    },
+    weightedPick: function (list) {
+      let total = 0; for (let i = 0; i < list.length; i++) total += list[i].w;
+      let r = Math.random() * total;
+      for (let i = 0; i < list.length; i++) { r -= list[i].w; if (r <= 0) return i; }
+      return list.length - 1;
+    },
+
+    // ---- WHEEL OF FORTUNE -------------------------------------------------
+    wheelAvailable: function () {
+      return global.Save.get().wheel.lastFree !== new Date().toISOString().slice(0, 10);
+    },
+    showWheel: function () {
+      const p = global.Save.get();
+      const today = new Date().toISOString().slice(0, 10);
+      const seg = 360 / D.WHEEL.length;
+      const COLS = ['#5db4ff', '#56e29a', '#ffd24d', '#ff8a3d', '#c58bff', '#ff6a9d', '#4de0d0', '#ffe14d'];
+      const body = el('div', 'modal-body wheel-body');
+      const stops = D.WHEEL.map(function (s, i) { return COLS[i % COLS.length] + ' ' + (i * seg) + 'deg ' + ((i + 1) * seg) + 'deg'; });
+      const wheel = el('div', 'wheel');
+      wheel.innerHTML = '<div class="wheel-ptr">▼</div><div class="wheel-face" style="background:conic-gradient(' + stops.join(',') + ')"></div><div class="wheel-hub">🎡</div>';
+      const face = wheel.querySelector('.wheel-face');
+      D.WHEEL.forEach(function (s, i) {
+        const lab = el('div', 'wheel-seg', '<b>' + s.ic + '</b><i>' + s.label + '</i>');
+        const ang = i * seg + seg / 2;
+        lab.style.transform = 'rotate(' + ang + 'deg) translateY(-72px)';
+        face.appendChild(lab);
+      });
+      body.appendChild(wheel);
+      const info = el('div', 'wheel-info', '');
+      body.appendChild(info);
+      const spinBtn = el('button', 'btn btn-primary btn-big', '');
+      body.appendChild(spinBtn);
+      let spinning = false;
+      const refresh = function () {
+        const free = UI.wheelAvailable();
+        info.innerHTML = free ? '<b class="wheel-free">🎁 ' + T('wheel_free') + '</b>' : T('wheel_cost', { n: D.WHEEL_SPIN_COST }) + ' · 💎 ' + p.gems;
+        spinBtn.textContent = free ? T('wheel_spin_free') : T('wheel_spin_gems', { n: D.WHEEL_SPIN_COST });
+        spinBtn.disabled = false; spinBtn.classList.toggle('btn-ghost', !free && p.gems < D.WHEEL_SPIN_COST);
+      };
+      refresh();
+      click(spinBtn, function () {
+        if (spinning) return;
+        const free = UI.wheelAvailable();
+        if (!free) {
+          if (p.gems < D.WHEEL_SPIN_COST) { UI.toast(T('need_gems')); return; }
+          p.gems -= D.WHEEL_SPIN_COST;
+        }
+        if (free) p.wheel.lastFree = today;
+        global.Save.save(); UI.refreshCurrencies();
+        spinning = true; spinBtn.disabled = true;
+        const idx = UI.weightedPick(D.WHEEL);
+        const target = 360 * 6 + (360 - (idx * seg + seg / 2));
+        face.style.transition = 'transform 3.6s cubic-bezier(.12,.82,.2,1)';
+        face.style.transform = 'rotate(' + target + 'deg)';
+        global.Audio2.play('special');
+        setTimeout(function () {
+          const rest = target % 360;
+          face.style.transition = 'none'; face.style.transform = 'rotate(' + rest + 'deg)';
+          const prize = D.WHEEL[idx];
+          UI.grantReward(prize.rw);
+          global.Audio2.play(prize.id === 'j1' ? 'win' : 'coin'); UI.refreshCurrencies();
+          UI.toast('🎡 ' + UI.rewardStr(prize.rw));
+          spinning = false; refresh();
+        }, 3700);
+      });
+      this.modal(T('wheel_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- DRAGON SUMMON (gacha) -------------------------------------------
+    showSummon: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body summon-body');
+      const orb = el('div', 'summon-orb', '<div class="orb-core">🥚</div>');
+      body.appendChild(orb);
+      const result = el('div', 'summon-result', '<span class="muted small">' + T('summon_hint') + '</span>');
+      body.appendChild(result);
+      const cost = el('div', 'summon-cost', '💎 ' + D.SUMMON_COST + '  ·  ' + T('you_have', { n: p.gems }));
+      body.appendChild(cost);
+      const btn = el('button', 'btn btn-primary btn-big', T('summon_do', { n: D.SUMMON_COST }));
+      body.appendChild(btn);
+      let busy = false;
+      click(btn, function () {
+        if (busy) return;
+        if (p.gems < D.SUMMON_COST) { UI.toast(T('need_gems')); return; }
+        p.gems -= D.SUMMON_COST; global.Save.save(); UI.refreshCurrencies();
+        busy = true; btn.disabled = true;
+        cost.innerHTML = '💎 ' + D.SUMMON_COST + '  ·  ' + T('you_have', { n: p.gems });
+        const idx = UI.weightedPick(D.SUMMON_POOL);
+        const loot = D.SUMMON_POOL[idx];
+        orb.classList.remove('reveal', 'r-common', 'r-rare', 'r-epic'); void orb.offsetWidth;
+        orb.classList.add('charging');
+        result.innerHTML = '<span class="muted small">✨✨✨</span>';
+        global.Audio2.play('dragon');
+        setTimeout(function () {
+          orb.classList.remove('charging'); orb.classList.add('reveal', 'r-' + loot.rarity);
+          orb.querySelector('.orb-core').textContent = loot.ic;
+          UI.grantReward(loot.rw);
+          global.Audio2.play(loot.rarity === 'epic' ? 'win' : 'coin'); UI.refreshCurrencies();
+          result.innerHTML = '<b class="rarity-' + loot.rarity + '">' + T('rarity_' + loot.rarity) + '</b><div class="summon-loot">' + UI.rewardStr(loot.rw) + '</div>';
+          busy = false; btn.disabled = false;
+        }, 900);
+      });
+      this.modal('🎰 ' + T('summon_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- DRAGON SKILL TREE -----------------------------------------------
+    showSkills: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body scroll-body');
+      const sub = el('div', 'muted small center', T('skills_sub'));
+      body.appendChild(sub);
+      D.SKILLS.forEach(function (sk) {
+        const lvl = p.skills[sk.id] || 0;
+        const maxed = lvl >= sk.max;
+        const cost = maxed ? 0 : sk.cost[lvl];
+        const card = el('div', 'skill-card');
+        const pips = Array.from({ length: sk.max }, function (_, i) { return '<i class="pip' + (i < lvl ? ' on' : '') + '"></i>'; }).join('');
+        card.innerHTML = '<div class="skill-ic">' + sk.ic + '</div>' +
+          '<div class="skill-info"><b>' + T(sk.id) + '</b><span>' + T(sk.id + '_d') + '</span><div class="skill-pips">' + pips + '</div></div>';
+        const btn = el('button', 'btn btn-mini ' + (maxed ? 'btn-ghost' : 'btn-primary'), maxed ? T('maxed') : ('💎 ' + cost));
+        if (!maxed) click(btn, function () {
+          if (p.gems < cost) { UI.toast(T('need_gems')); return; }
+          p.gems -= cost; p.skills[sk.id] = lvl + 1; global.Save.save();
+          global.Audio2.play('hatch'); UI.refreshCurrencies(); UI.toast('🌳 ' + T(sk.id) + ' +1'); UI.showSkills();
+        });
+        card.appendChild(btn);
+        body.appendChild(card);
+      });
+      this.modal('🌳 ' + T('skills_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- ASYNC PvP DUELS -------------------------------------------------
+    // Opponents are deterministic "ghosts" seeded from the day + player progress.
+    pvpOpponents: function () {
+      const p = global.Save.get();
+      const day = Math.floor(Date.now() / 86400000);
+      const prog = p.levelProgress;
+      const list = [];
+      for (let i = 0; i < 3; i++) {
+        const seed = (day * 7 + prog * 13 + i * 101) % D.LB_NAMES.length;
+        const tier = i; // easy / even / hard
+        const base = 2600 + prog * 12;
+        const score = Math.round(base * (0.75 + tier * 0.35) + ((day + i * 37) % 900));
+        list.push({ name: D.LB_NAMES[seed], score: score, tier: tier,
+          dragon: D.DRAGONS[(seed + i) % D.DRAGONS.length].id,
+          reward: 20 + tier * 25, trophies: 8 + tier * 8 });
+      }
+      return list;
+    },
+    showPvp: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body');
+      body.appendChild(el('div', 'pvp-head', '🏆 ' + T('pvp_trophies', { n: p.pvp.trophies }) + '  ·  ' + T('pvp_record', { w: p.pvp.wins, l: p.pvp.losses })));
+      body.appendChild(el('div', 'muted small center', T('pvp_sub')));
+      const TIER = [T('pvp_easy'), T('pvp_even'), T('pvp_hard')];
+      UI.pvpOpponents().forEach(function (op) {
+        const def = D.dragonById(op.dragon);
+        const card = el('div', 'pvp-card');
+        card.innerHTML = '<div class="pvp-av">' + spriteGlyph(def.id, def.emoji, 'pvp-sprite', def.glow) + '</div>' +
+          '<div class="pvp-info"><b>' + op.name + '</b>' +
+          '<span class="pvp-tier t' + op.tier + '">' + TIER[op.tier] + '</span>' +
+          '<span class="muted small">' + T('pvp_target', { n: op.score }) + '  ·  🏆' + op.trophies + '</span></div>';
+        const btn = el('button', 'btn btn-mini btn-primary', T('pvp_fight'));
+        click(btn, function () { UI.closeModal(); global.Game.startPvp(op); });
+        card.appendChild(btn);
+        body.appendChild(card);
+      });
+      this.modal('⚔️ ' + T('pvp_title'), body, [{ label: T('close'), primary: true }]);
+    },
+
+    // ---- STORY CHAPTERS ---------------------------------------------------
+    storyAvailable: function () {
+      const p = global.Save.get();
+      return D.STORY_CHAPTERS.some(function (c) { return p.levelProgress >= c.at && !p.story.read[c.id]; });
+    },
+    showStory: function () {
+      const p = global.Save.get();
+      const body = el('div', 'modal-body scroll-body');
+      D.STORY_CHAPTERS.forEach(function (c, i) {
+        const unlocked = p.levelProgress >= c.at;
+        const card = el('div', 'story-card' + (unlocked ? '' : ' locked') + (unlocked && !p.story.read[c.id] ? ' fresh' : ''));
+        card.innerHTML = '<div class="story-ic">' + (unlocked ? c.ic : '🔒') + '</div>' +
+          '<div class="story-info"><b>' + T('chapter_n', { n: i + 1 }) + ' · ' + (unlocked ? T(c.id + '_t') : '???') + '</b>' +
+          '<span>' + (unlocked ? T(c.id) : T('story_locked', { n: c.at })) + '</span></div>';
+        if (unlocked) click(card, function () {
+          if (!p.story.read[c.id]) { p.story.read[c.id] = true; global.Save.save(); card.classList.remove('fresh'); }
+        });
+        body.appendChild(card);
+      });
+      this.modal('📖 ' + T('story_title'), body, [{ label: T('close'), primary: true }]);
     },
 
     // ---- DAILY REWARDS ----------------------------------------------------

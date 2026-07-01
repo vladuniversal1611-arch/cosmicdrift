@@ -262,9 +262,74 @@
     { id: 'shield',   ic: '🛡️' }   // survive one defeat (revive)
   ];
 
+  // ---- Wheel of Fortune (daily free spin) --------------------------------
+  // w = weight (higher = more common). rw = reward payload for UI.grantReward.
+  const WHEEL = [
+    { id: 'g1', ic: '🪙', label: '150',  w: 22, rw: { gold: 150 } },
+    { id: 'e1', ic: '⚡', label: '35',   w: 18, rw: { energy: 35 } },
+    { id: 'b1', ic: '🔨', label: '×1',   w: 14, rw: { booster: 'hammer' } },
+    { id: 'g2', ic: '🪙', label: '400',  w: 13, rw: { gold: 400 } },
+    { id: 'm1', ic: '💎', label: '12',   w: 11, rw: { gems: 12 } },
+    { id: 'b2', ic: '➕', label: '×1',   w: 10, rw: { booster: 'moves' } },
+    { id: 'g3', ic: '🪙', label: '1000', w: 8,  rw: { gold: 1000 } },
+    { id: 'j1', ic: '💎', label: 'JACKPOT', w: 4, rw: { gems: 50 } }
+  ];
+  const WHEEL_SPIN_COST = 30; // gems for an extra spin
+
+  // ---- Dragon Summon (gacha) --------------------------------------------
+  // Weighted loot pool. rarity drives the reveal flourish. Cost in gems.
+  const SUMMON_COST = 60;
+  const SUMMON_POOL = [
+    { id: 's_gold',  rarity: 'common', ic: '🪙', w: 26, rw: { gold: 500 } },
+    { id: 's_energy',rarity: 'common', ic: '⚡', w: 22, rw: { energy: 60 } },
+    { id: 's_ham',   rarity: 'common', ic: '🔨', w: 14, rw: { booster: 'hammer', boosterN: 2 } },
+    { id: 's_egg',   rarity: 'rare',   ic: '🥚', w: 16, rw: { eggCharge: 120 } },
+    { id: 's_mix',   rarity: 'rare',   ic: '🔀', w: 10, rw: { booster: 'shuffle', boosterN: 2 } },
+    { id: 's_gems',  rarity: 'rare',   ic: '💎', w: 8,  rw: { gems: 60 } },
+    { id: 's_life',  rarity: 'epic',   ic: '❤️', w: 6,  rw: { life: 3 } },
+    { id: 's_jack',  rarity: 'epic',   ic: '🌟', w: 4,  rw: { gems: 150, gold: 800 } }
+  ];
+
+  // ---- Dragon skill tree (permanent passives) ----------------------------
+  // Each node: max levels, gem cost per level (index), and the mod it grants.
+  const SKILLS = [
+    { id: 'sk_moves',  ic: '➕', max: 3, cost: [40, 90, 160],  eff: 'extraMoves' },   // +1 start move / lvl
+    { id: 'sk_charge', ic: '⚡', max: 3, cost: [40, 90, 160],  eff: 'chargeMult' },   // +8% dragon charge / lvl
+    { id: 'sk_score',  ic: '✖️', max: 3, cost: [50, 110, 200], eff: 'scoreMult' },    // +6% score / lvl
+    { id: 'sk_power',  ic: '🔥', max: 2, cost: [80, 180],      eff: 'powerBonus' },   // +1 dragon power / lvl
+    { id: 'sk_gold',   ic: '🪙', max: 3, cost: [40, 90, 160],  eff: 'goldMult' },     // +8% level gold / lvl
+    { id: 'sk_start',  ic: '💠', max: 2, cost: [90, 200],      eff: 'startSpecials' } // +1 starting special / lvl
+  ];
+  function skillById(id) { return SKILLS.find(function (s) { return s.id === id; }); }
+  // Aggregate a player's skill levels into engine `mods` + meta multipliers.
+  function skillMods(levels) {
+    levels = levels || {};
+    const lv = function (id) { return levels[id] || 0; };
+    return {
+      extraMoves: lv('sk_moves'),
+      chargeMult: 1 + lv('sk_charge') * 0.08,
+      scoreMult: 1 + lv('sk_score') * 0.06,
+      powerBonus: lv('sk_power'),
+      goldMult: 1 + lv('sk_gold') * 0.08,
+      startSpecials: lv('sk_start')
+    };
+  }
+
+  // ---- Story chapters (narrative log, unlocked by level progress) --------
+  const STORY_CHAPTERS = [
+    { id: 'ch1', ic: '🥚', at: 1 },
+    { id: 'ch2', ic: '🔥', at: 26 },
+    { id: 'ch3', ic: '❄️', at: 51 },
+    { id: 'ch4', ic: '🌩️', at: 76 },
+    { id: 'ch5', ic: '🌳', at: 101 },
+    { id: 'ch6', ic: '✨', at: 126 },
+    { id: 'ch7', ic: '🐉', at: 151 }
+  ];
+
   global.GameData = {
     CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
+    WHEEL, WHEEL_SPIN_COST, SUMMON_COST, SUMMON_POOL, SKILLS, skillById, skillMods, STORY_CHAPTERS,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };
 })(window);

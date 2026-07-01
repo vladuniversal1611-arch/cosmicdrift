@@ -73,6 +73,8 @@
     const mods = level.mods || {};
     this.scoreMult = mods.scoreMult || 1;
     this.powerBonus = mods.powerBonus || 0;
+    this.goldMult = mods.goldMult || 1;                 // skill-tree bonus applied to level rewards
+    this.movesLeft += (mods.extraMoves || 0);           // skill-tree extra starting moves
     this.chargeMult = ((this.mode === 'blitz') ? 2 : 1) * (D.activeEvent().mult === 'dragon' ? 1.5 : 1) * (mods.chargeMult || 1);
 
     // Equipped dragons → charge bars.

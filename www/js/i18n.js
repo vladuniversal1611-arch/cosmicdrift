@@ -496,6 +496,121 @@
   };
   Object.keys(FV).forEach(function (l) { Object.assign(STR[l], FV[l]); });
 
+  // Meta-feature batch: Wheel, Summon, Skills, PvP, Story.
+  const MX = {
+    uk: {
+      t_wheel: 'Колесо', t_summon: 'Призов', t_skills: 'Навички', t_pvp: 'Дуель', t_story: 'Історія',
+      wheel_title: '🎡 Колесо фортуни', wheel_free: 'Безкоштовне обертання готове!', wheel_cost: 'Ще обертання: {n}💎',
+      wheel_spin_free: '🎡 Крутити безкоштовно', wheel_spin_gems: '🎡 Крутити ({n}💎)', need_gems: 'Недостатньо кристалів 💎', you_have: 'у тебе {n}💎',
+      summon_title: 'Призов дракона', summon_hint: 'Виклич скарб зі стародавнього яйця', summon_do: 'Призвати ({n}💎)',
+      rarity_common: 'Звичайне', rarity_rare: 'Рідкісне', rarity_epic: 'ЕПІЧНЕ',
+      skills_title: 'Дерево навичок', skills_sub: 'Постійні бонуси за кристали 💎', maxed: 'МАКС',
+      sk_moves: 'Спритність', sk_moves_d: '+1 хід на старті рівня',
+      sk_charge: 'Лють драконів', sk_charge_d: '+8% швидкість заряду драконів',
+      sk_score: 'Мудрість', sk_score_d: '+6% до очок',
+      sk_power: 'Міць', sk_power_d: '+1 до сили здібностей драконів',
+      sk_gold: 'Багатство', sk_gold_d: '+8% золота за рівень',
+      sk_start: 'Провидіння', sk_start_d: '+1 спец-кристал на старті',
+      pvp_title: 'Дуелі драконів', pvp_trophies: '{n} трофеїв', pvp_record: '{w}П / {l}Пр',
+      pvp_sub: 'Обери суперника і побий його результат за 45 сек!', pvp_easy: 'Легкий', pvp_even: 'Рівний', pvp_hard: 'Важкий',
+      pvp_target: 'ціль {n}', pvp_fight: 'Бій ⚔️', pvp_win: 'Перемога!', pvp_lose: 'Поразка', pvp_again: 'Ще бій',
+      story_title: 'Історія', chapter_n: 'Розділ {n}', story_locked: 'Відкриється на рівні {n}',
+      ch1_t: 'Пробудження', ch1: 'Серед попелу згаслого вулкана ти знаходиш тепле яйце. Крізь шкаралупу пробивається вогник — народжується твій перший дракон.',
+      ch2_t: 'Вогняні острови', ch2: 'Лава тече ріками, а в небі кружляють вогняні дракони. Тут ти вчишся приборкувати полум’я й запалювати кристали.',
+      ch3_t: 'Крижаний трон', ch3: 'Морозний вітер сковує острови льодом. Крижаний дракон визнає тебе гідним і приєднується до зграї.',
+      ch4_t: 'Буря пробуджується', ch4: 'Грім розколює небо. Штормовий дракон випробовує твою вправність блискавками, що б’ють по дошці.',
+      ch5_t: 'Ліс шепоче', ch5: 'Стародавні дерева ховають смарагдового дракона. Природа дарує тобі силу росту й достатку.',
+      ch6_t: 'Ефірні висоти', ch6: 'Між зірок ширяє ефірний дракон — найзагадковіший із усіх. Реальність згинається під його крилами.',
+      ch7_t: 'Володар драконів', ch7: 'Усі стихії скорилися тобі. Ти більше не мандрівник — ти легенда, чиє ім’я драконі шепочуть крізь віки.'
+    },
+    en: {
+      t_wheel: 'Wheel', t_summon: 'Summon', t_skills: 'Skills', t_pvp: 'Duel', t_story: 'Story',
+      wheel_title: '🎡 Wheel of Fortune', wheel_free: 'Free spin ready!', wheel_cost: 'Extra spin: {n}💎',
+      wheel_spin_free: '🎡 Spin for free', wheel_spin_gems: '🎡 Spin ({n}💎)', need_gems: 'Not enough gems 💎', you_have: 'you have {n}💎',
+      summon_title: 'Dragon Summon', summon_hint: 'Summon a treasure from the ancient egg', summon_do: 'Summon ({n}💎)',
+      rarity_common: 'Common', rarity_rare: 'Rare', rarity_epic: 'EPIC',
+      skills_title: 'Skill Tree', skills_sub: 'Permanent bonuses for gems 💎', maxed: 'MAX',
+      sk_moves: 'Agility', sk_moves_d: '+1 move at level start',
+      sk_charge: 'Dragon Fury', sk_charge_d: '+8% dragon charge speed',
+      sk_score: 'Wisdom', sk_score_d: '+6% score',
+      sk_power: 'Might', sk_power_d: '+1 dragon ability power',
+      sk_gold: 'Fortune', sk_gold_d: '+8% level gold',
+      sk_start: 'Foresight', sk_start_d: '+1 special crystal at start',
+      pvp_title: 'Dragon Duels', pvp_trophies: '{n} trophies', pvp_record: '{w}W / {l}L',
+      pvp_sub: 'Pick a rival and beat their score in 45s!', pvp_easy: 'Easy', pvp_even: 'Even', pvp_hard: 'Hard',
+      pvp_target: 'target {n}', pvp_fight: 'Fight ⚔️', pvp_win: 'Victory!', pvp_lose: 'Defeat', pvp_again: 'Fight again',
+      story_title: 'Story', chapter_n: 'Chapter {n}', story_locked: 'Unlocks at level {n}',
+      ch1_t: 'The Awakening', ch1: 'Among the ashes of a dead volcano you find a warm egg. A spark breaks through the shell — your first dragon is born.',
+      ch2_t: 'The Ember Isles', ch2: 'Lava flows in rivers and fire dragons wheel overhead. Here you learn to tame flame and ignite crystals.',
+      ch3_t: 'The Frozen Throne', ch3: 'A biting wind locks the isles in ice. The frost dragon deems you worthy and joins your flight.',
+      ch4_t: 'The Storm Wakes', ch4: 'Thunder splits the sky. The storm dragon tests your skill with lightning that strikes across the board.',
+      ch5_t: 'The Forest Whispers', ch5: 'Ancient trees hide an emerald dragon. Nature grants you the power of growth and plenty.',
+      ch6_t: 'The Aether Heights', ch6: 'Among the stars soars the aether dragon, most mysterious of all. Reality bends beneath its wings.',
+      ch7_t: 'Dragon Lord', ch7: 'Every element has bowed to you. No longer a traveler — you are a legend whose name dragons whisper through the ages.'
+    },
+    es: {
+      t_wheel: 'Ruleta', t_summon: 'Invocar', t_skills: 'Talentos', t_pvp: 'Duelo', t_story: 'Historia',
+      wheel_title: '🎡 Ruleta de la Fortuna', wheel_free: '¡Giro gratis listo!', wheel_cost: 'Giro extra: {n}💎',
+      wheel_spin_free: '🎡 Girar gratis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎', you_have: 'tienes {n}💎',
+      summon_title: 'Invocar dragón', summon_hint: 'Invoca un tesoro del huevo antiguo', summon_do: 'Invocar ({n}💎)',
+      rarity_common: 'Común', rarity_rare: 'Raro', rarity_epic: 'ÉPICO',
+      skills_title: 'Árbol de talentos', skills_sub: 'Bonos permanentes por gemas 💎', maxed: 'MÁX',
+      sk_moves: 'Agilidad', sk_moves_d: '+1 movimiento al inicio', sk_charge: 'Furia', sk_charge_d: '+8% carga de dragones',
+      sk_score: 'Sabiduría', sk_score_d: '+6% puntuación', sk_power: 'Poder', sk_power_d: '+1 poder de dragón',
+      sk_gold: 'Fortuna', sk_gold_d: '+8% oro por nivel', sk_start: 'Visión', sk_start_d: '+1 cristal especial al inicio',
+      pvp_title: 'Duelos', pvp_trophies: '{n} trofeos', pvp_record: '{w}V / {l}D',
+      pvp_sub: '¡Elige rival y supera su puntuación en 45s!', pvp_easy: 'Fácil', pvp_even: 'Igual', pvp_hard: 'Difícil',
+      pvp_target: 'meta {n}', pvp_fight: 'Luchar ⚔️', pvp_win: '¡Victoria!', pvp_lose: 'Derrota', pvp_again: 'Otra vez',
+      story_title: 'Historia', chapter_n: 'Capítulo {n}', story_locked: 'Se abre en el nivel {n}'
+    },
+    de: {
+      t_wheel: 'Rad', t_summon: 'Rufen', t_skills: 'Talente', t_pvp: 'Duell', t_story: 'Story',
+      wheel_title: '🎡 Glücksrad', wheel_free: 'Gratis-Dreh bereit!', wheel_cost: 'Extra-Dreh: {n}💎',
+      wheel_spin_free: '🎡 Gratis drehen', wheel_spin_gems: '🎡 Drehen ({n}💎)', need_gems: 'Zu wenig Edelsteine 💎', you_have: 'du hast {n}💎',
+      summon_title: 'Drachen rufen', summon_hint: 'Rufe einen Schatz aus dem alten Ei', summon_do: 'Rufen ({n}💎)',
+      rarity_common: 'Gewöhnlich', rarity_rare: 'Selten', rarity_epic: 'EPISCH',
+      skills_title: 'Talentbaum', skills_sub: 'Dauerhafte Boni für Edelsteine 💎', maxed: 'MAX',
+      sk_moves: 'Agilität', sk_moves_d: '+1 Zug zu Beginn', sk_charge: 'Zorn', sk_charge_d: '+8% Drachenladung',
+      sk_score: 'Weisheit', sk_score_d: '+6% Punkte', sk_power: 'Macht', sk_power_d: '+1 Drachenkraft',
+      sk_gold: 'Reichtum', sk_gold_d: '+8% Gold pro Level', sk_start: 'Weitsicht', sk_start_d: '+1 Spezialkristall zu Beginn',
+      pvp_title: 'Duelle', pvp_trophies: '{n} Trophäen', pvp_record: '{w}S / {l}N',
+      pvp_sub: 'Wähle einen Rivalen und schlage seinen Score in 45s!', pvp_easy: 'Leicht', pvp_even: 'Gleich', pvp_hard: 'Schwer',
+      pvp_target: 'Ziel {n}', pvp_fight: 'Kämpfen ⚔️', pvp_win: 'Sieg!', pvp_lose: 'Niederlage', pvp_again: 'Nochmal',
+      story_title: 'Story', chapter_n: 'Kapitel {n}', story_locked: 'Ab Level {n}'
+    },
+    fr: {
+      t_wheel: 'Roue', t_summon: 'Invoquer', t_skills: 'Talents', t_pvp: 'Duel', t_story: 'Histoire',
+      wheel_title: '🎡 Roue de la Fortune', wheel_free: 'Tour gratuit prêt !', wheel_cost: 'Tour extra : {n}💎',
+      wheel_spin_free: '🎡 Tourner gratis', wheel_spin_gems: '🎡 Tourner ({n}💎)', need_gems: 'Pas assez de gemmes 💎', you_have: 'tu as {n}💎',
+      summon_title: 'Invoquer un dragon', summon_hint: 'Invoque un trésor de l’œuf ancien', summon_do: 'Invoquer ({n}💎)',
+      rarity_common: 'Commun', rarity_rare: 'Rare', rarity_epic: 'ÉPIQUE',
+      skills_title: 'Arbre de talents', skills_sub: 'Bonus permanents contre gemmes 💎', maxed: 'MAX',
+      sk_moves: 'Agilité', sk_moves_d: '+1 coup au départ', sk_charge: 'Furie', sk_charge_d: '+8% charge des dragons',
+      sk_score: 'Sagesse', sk_score_d: '+6% score', sk_power: 'Puissance', sk_power_d: '+1 puissance de dragon',
+      sk_gold: 'Fortune', sk_gold_d: '+8% or par niveau', sk_start: 'Clairvoyance', sk_start_d: '+1 cristal spécial au départ',
+      pvp_title: 'Duels', pvp_trophies: '{n} trophées', pvp_record: '{w}V / {l}D',
+      pvp_sub: 'Choisis un rival et bats son score en 45s !', pvp_easy: 'Facile', pvp_even: 'Égal', pvp_hard: 'Difficile',
+      pvp_target: 'cible {n}', pvp_fight: 'Combattre ⚔️', pvp_win: 'Victoire !', pvp_lose: 'Défaite', pvp_again: 'Rejouer',
+      story_title: 'Histoire', chapter_n: 'Chapitre {n}', story_locked: 'Débloqué au niveau {n}'
+    },
+    pt: {
+      t_wheel: 'Roleta', t_summon: 'Invocar', t_skills: 'Talentos', t_pvp: 'Duelo', t_story: 'História',
+      wheel_title: '🎡 Roda da Fortuna', wheel_free: 'Giro grátis pronto!', wheel_cost: 'Giro extra: {n}💎',
+      wheel_spin_free: '🎡 Girar grátis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎', you_have: 'você tem {n}💎',
+      summon_title: 'Invocar dragão', summon_hint: 'Invoque um tesouro do ovo antigo', summon_do: 'Invocar ({n}💎)',
+      rarity_common: 'Comum', rarity_rare: 'Raro', rarity_epic: 'ÉPICO',
+      skills_title: 'Árvore de talentos', skills_sub: 'Bônus permanentes por gemas 💎', maxed: 'MÁX',
+      sk_moves: 'Agilidade', sk_moves_d: '+1 jogada no início', sk_charge: 'Fúria', sk_charge_d: '+8% carga dos dragões',
+      sk_score: 'Sabedoria', sk_score_d: '+6% pontos', sk_power: 'Poder', sk_power_d: '+1 poder de dragão',
+      sk_gold: 'Fortuna', sk_gold_d: '+8% ouro por nível', sk_start: 'Visão', sk_start_d: '+1 cristal especial no início',
+      pvp_title: 'Duelos', pvp_trophies: '{n} troféus', pvp_record: '{w}V / {l}D',
+      pvp_sub: 'Escolha um rival e supere a pontuação em 45s!', pvp_easy: 'Fácil', pvp_even: 'Igual', pvp_hard: 'Difícil',
+      pvp_target: 'meta {n}', pvp_fight: 'Lutar ⚔️', pvp_win: 'Vitória!', pvp_lose: 'Derrota', pvp_again: 'De novo',
+      story_title: 'História', chapter_n: 'Capítulo {n}', story_locked: 'Abre no nível {n}'
+    }
+  };
+  Object.keys(MX).forEach(function (l) { Object.assign(STR[l], MX[l]); });
+
   // Roguelite Dragon Trials.
   const TR = {
     uk: { mode_trials: 'Випробування', mode_trials_desc: 'Роуґлайт-забіг: між рівнями обирай реліквію. Як глибоко зайдеш?', depth: 'Глибина {n}', choose_relic: 'Обери реліквію', run_over: '🐉 Забіг завершено', revived: 'Щит врятував забіг!',

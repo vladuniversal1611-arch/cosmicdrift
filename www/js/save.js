@@ -43,11 +43,14 @@
       chests: {},
       modeBest: { blitz: 0, endless: 0, trials: 0 },
       farm: { lastTick: Date.now(), buildings: { volcano: 1, garden: 0, forge: 0, mine: 0 }, stored: { volcano: 0, garden: 0, forge: 0, mine: 0 } },
+      wheel: { lastFree: '' },          // Wheel of Fortune: date of last free spin
+      skills: {},                       // dragon skill tree: { skillId: level }
+      pvp: { trophies: 0, wins: 0, losses: 0, lastDate: '', played: 0 },
       daily2: { date: '', done: false },
       settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
       tips: {},
-      story: { bossSeen: {} },
+      story: { bossSeen: {}, read: {} }, // read: story chapters the player opened
       firstRun: true
     };
   }
@@ -62,7 +65,7 @@
         profile = Object.assign(freshProfile(), data);
         // Deep-merge nested objects that may be missing in old saves.
         const def = freshProfile();
-        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy', 'modeBest', 'daily2', 'farm'].forEach(function (k) {
+        ['stats', 'daily', 'pass', 'settings', 'quests', 'boosters', 'lives', 'streak', 'piggy', 'modeBest', 'daily2', 'farm', 'wheel', 'skills', 'pvp', 'story'].forEach(function (k) {
           profile[k] = Object.assign(def[k], profile[k] || {});
         });
         profile.stats = Object.assign(def.stats, profile.stats || {});

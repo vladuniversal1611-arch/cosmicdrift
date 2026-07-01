@@ -106,7 +106,9 @@
         return;
       }
       global.UI.closeModal();
-      const lv = D.LEVELS[lvNum - 1];
+      // Shallow copy so per-run skill mods never mutate the shared level object.
+      const lv = Object.assign({}, D.LEVELS[lvNum - 1]);
+      lv.mods = D.skillMods(p.skills);
       this.currentLevel = lvNum;
       this.currentLevelObj = lv;
       this.engine = new global.Engine();
@@ -165,6 +167,7 @@
         lv = { mode: 'daily', cols: 8, rows: 8, colors: 6, objective: D.OBJ.SCORE, target: 4000 + (seed % 9) * 800, moves: 22 + (seed % 7), island: island, name: T('mode_daily'), n: 0,
           reward: { gold: 300, energy: 40 }, star2: 1, star3: 1 };
       }
+      lv.mods = D.skillMods(p.skills);
       this.currentMode = mode;
       this.currentLevel = null;
       this.currentLevelObj = lv;
@@ -228,7 +231,9 @@
 
     // ---- Roguelite: Dragon Trials ----------------------------------------
     computeMods: function (relics) {
-      const m = { moves: 0, chargeMult: 1, scoreMult: 1, startSpecials: 0, powerBonus: 0 };
+      // Start from the permanent dragon skill-tree bonuses, then layer relics on top.
+      const sk = D.skillMods(global.Save.get().skills);
+      const m = { moves: sk.extraMoves, chargeMult: sk.chargeMult, scoreMult: sk.scoreMult, startSpecials: sk.startSpecials, powerBonus: sk.powerBonus, goldMult: sk.goldMult };
       relics.forEach(function (id) {
         if (id === 'moves') m.moves += 3;
         else if (id === 'charge') m.chargeMult += 0.2;
@@ -375,6 +380,67 @@
       global.UI.modal(mode === 'blitz' ? T('time_up') : T('mode_over'), body, [
         { label: T('btn_island'), onClick: function () { self.go('home'); } },
         { label: T('btn_retry'), primary: true, onClick: function () { self.startMode(mode); } }
+      ]);
+    },
+
+    // ---- Async PvP duel: a 45s score sprint against an opponent's ghost ---
+    startPvp: function (opp) {
+      const p = global.Save.get();
+      global.UI.closeModal();
+      const self = this;
+      const island = p.levelProgress % 5;
+      const lv = { mode: 'blitz', cols: 8, rows: 8, colors: 6, objective: D.OBJ.SCORE, target: 1e9,
+        moves: 99999, timeLimit: 45, island: island, name: '⚔️ ' + T('pvp_title'), n: 0 };
+      lv.mods = D.skillMods(p.skills);
+      this.pvpOpp = opp;
+      this.currentMode = 'pvp';
+      this.currentLevel = null;
+      this.currentLevelObj = lv;
+      this.engine = new global.Engine();
+      this.engine.init(lv, p.equipped, {
+        onScore: function (s) { if (self.hud) self.hud.score.textContent = s; if (self.hud) self.hud.objVal.textContent = s + ' / ' + opp.score; },
+        onTime: function (t) { if (self.hud) { self.hud.moves.textContent = Math.ceil(t) + 's'; if (t <= 10) self.hud.moves.classList.add('low'); } },
+        onDragons: function (dragons) { self.renderDragonBars(dragons); },
+        onDragonProc: function (d) { global.UI.toast(T('dragon_active', { e: d.def.emoji, name: d.def.name })); },
+        onCombo: function (n) { self.showCombo(n); },
+        onShuffle: function () { global.UI.toast(T('shuffled')); },
+        onSynergy: function (used) { global.UI.toast('⚡ ' + T('synergy') + '! ' + used.map(function (d) { return d.def.emoji; }).join('')); },
+        onFever: function (active, ratio) { self.renderFever(active, ratio); },
+        onModeEnd: function (res) { self.resolvePvp(res); }
+      });
+      this.buildHud(lv);
+      this.hud.movesLabel.textContent = '⏱';
+      this.hud.moves.textContent = lv.timeLimit + 's';
+      this.hud.objLabel.textContent = '⚔️ ' + opp.name;
+      this.hud.objVal.textContent = '0 / ' + opp.score;
+      this.inLevel = true;
+      global.UI.show('game');
+      this.gameScreen.classList.remove('hidden');
+      this.resize();
+      global.Audio2.setIsland(lv.island);
+      global.Audio2.startMusic();
+      this.tutorialActive = false; this._tutScored = false;
+      this.showLevelIntro(lv);
+    },
+    resolvePvp: function (res) {
+      const p = global.Save.get();
+      const opp = this.pvpOpp || { name: '?', score: 0, trophies: 8, reward: 20 };
+      const today = new Date().toISOString().slice(0, 10);
+      const win = res.score >= opp.score;
+      if (win) { p.pvp.wins = (p.pvp.wins || 0) + 1; p.pvp.trophies += opp.trophies; p.gold += opp.reward * 10; }
+      else { p.pvp.losses = (p.pvp.losses || 0) + 1; p.pvp.trophies = Math.max(0, p.pvp.trophies - Math.floor(opp.trophies / 2)); }
+      p.pvp.lastDate = today; p.pvp.played = (p.pvp.played || 0) + 1;
+      global.Save.save(); global.UI.refreshCurrencies();
+      const self = this;
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">' + (win ? '🏆' : '💔') + '</div>' +
+        '<div class="pvp-vs"><span>' + T('score', { n: res.score }) + '</span><b>VS</b><span>' + opp.name + ': ' + opp.score + '</span></div>' +
+        (win ? '<div class="win-rewards">🏆 +' + opp.trophies + '   +' + (opp.reward * 10) + '🪙</div>'
+             : '<div class="muted small">🏆 -' + Math.floor(opp.trophies / 2) + '</div>');
+      global.UI.modal(win ? '⚔️ ' + T('pvp_win') : T('pvp_lose'), body, [
+        { label: T('btn_island'), onClick: function () { self.go('home'); } },
+        { label: T('pvp_again'), primary: true, onClick: function () { global.UI.showPvp(); } }
       ]);
     },
 
@@ -711,6 +777,8 @@
       let energy = firstTime ? lv.reward.energy : Math.floor(lv.reward.energy / 2);
       if (ev.mult === 'gold') gold *= 2;
       if (ev.mult === 'energy') energy *= 2;
+      // skill-tree gold bonus
+      if (this.engine && this.engine.goldMult) gold = Math.round(gold * this.engine.goldMult);
       p.gold += gold; p.energy += energy;
       global.Save.addStat('levelsWon', firstTime ? 1 : 0);
       if (lvNum >= p.levelProgress) p.levelProgress = Math.min(D.LEVELS.length, lvNum + 1);
