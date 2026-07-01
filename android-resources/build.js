@@ -8,7 +8,16 @@ const DRAGONS = ['flare', 'frost', 'storm', 'verdant', 'aether',
   'boss_ash', 'boss_titan', 'boss_storm', 'boss_beast', 'boss_phoenix', 'egg'];
 
 let html = fs.readFileSync(path.join(ROOT, 'www/index.html'), 'utf8');
-const css = fs.readFileSync(path.join(ROOT, 'www/css/style.css'), 'utf8');
+let css = fs.readFileSync(path.join(ROOT, 'www/css/style.css'), 'utf8');
+// Inline any CSS-referenced panel backgrounds as data URIs so url() resolves
+// inside the single-file build (which has no asset files served).
+['panel_gold', 'panel_green', 'panel_ghost', 'panel_dark', 'panel_blue', 'panel_red'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/panels/' + nm + '.png');
+  if (fs.existsSync(p)) {
+    const uri = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+    css = css.split('assets/panels/' + nm + '.png').join(uri);
+  }
+});
 const js = ORDER.map(f => fs.readFileSync(path.join(ROOT, 'www/js/' + f + '.js'), 'utf8')).join('\n//----\n');
 
 // Inline dragon sprites as data URIs so the single file works offline.
