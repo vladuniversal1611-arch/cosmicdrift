@@ -501,7 +501,7 @@
     uk: {
       t_wheel: 'Колесо', t_summon: 'Призов', t_skills: 'Навички', t_pvp: 'Дуель', t_story: 'Історія',
       wheel_title: '🎡 Колесо фортуни', wheel_free: 'Безкоштовне обертання готове!', wheel_cost: 'Ще обертання: {n}💎',
-      wheel_spin_free: '🎡 Крутити безкоштовно', wheel_spin_gems: '🎡 Крутити ({n}💎)', need_gems: 'Недостатньо кристалів 💎', you_have: 'у тебе {n}💎',
+      wheel_spin_free: '🎡 Крутити безкоштовно', wheel_spin_gems: '🎡 Крутити ({n}💎)', need_gems: 'Недостатньо кристалів 💎',
       summon_title: 'Призов дракона', summon_hint: 'Виклич скарб зі стародавнього яйця', summon_do: 'Призвати ({n}💎)',
       rarity_common: 'Звичайне', rarity_rare: 'Рідкісне', rarity_epic: 'ЕПІЧНЕ',
       skills_title: 'Дерево навичок', skills_sub: 'Постійні бонуси за кристали 💎', maxed: 'МАКС',
@@ -526,7 +526,7 @@
     en: {
       t_wheel: 'Wheel', t_summon: 'Summon', t_skills: 'Skills', t_pvp: 'Duel', t_story: 'Story',
       wheel_title: '🎡 Wheel of Fortune', wheel_free: 'Free spin ready!', wheel_cost: 'Extra spin: {n}💎',
-      wheel_spin_free: '🎡 Spin for free', wheel_spin_gems: '🎡 Spin ({n}💎)', need_gems: 'Not enough gems 💎', you_have: 'you have {n}💎',
+      wheel_spin_free: '🎡 Spin for free', wheel_spin_gems: '🎡 Spin ({n}💎)', need_gems: 'Not enough gems 💎',
       summon_title: 'Dragon Summon', summon_hint: 'Summon a treasure from the ancient egg', summon_do: 'Summon ({n}💎)',
       rarity_common: 'Common', rarity_rare: 'Rare', rarity_epic: 'EPIC',
       skills_title: 'Skill Tree', skills_sub: 'Permanent bonuses for gems 💎', maxed: 'MAX',
@@ -551,7 +551,7 @@
     es: {
       t_wheel: 'Ruleta', t_summon: 'Invocar', t_skills: 'Talentos', t_pvp: 'Duelo', t_story: 'Historia',
       wheel_title: '🎡 Ruleta de la Fortuna', wheel_free: '¡Giro gratis listo!', wheel_cost: 'Giro extra: {n}💎',
-      wheel_spin_free: '🎡 Girar gratis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎', you_have: 'tienes {n}💎',
+      wheel_spin_free: '🎡 Girar gratis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎',
       summon_title: 'Invocar dragón', summon_hint: 'Invoca un tesoro del huevo antiguo', summon_do: 'Invocar ({n}💎)',
       rarity_common: 'Común', rarity_rare: 'Raro', rarity_epic: 'ÉPICO',
       skills_title: 'Árbol de talentos', skills_sub: 'Bonos permanentes por gemas 💎', maxed: 'MÁX',
@@ -566,7 +566,7 @@
     de: {
       t_wheel: 'Rad', t_summon: 'Rufen', t_skills: 'Talente', t_pvp: 'Duell', t_story: 'Story',
       wheel_title: '🎡 Glücksrad', wheel_free: 'Gratis-Dreh bereit!', wheel_cost: 'Extra-Dreh: {n}💎',
-      wheel_spin_free: '🎡 Gratis drehen', wheel_spin_gems: '🎡 Drehen ({n}💎)', need_gems: 'Zu wenig Edelsteine 💎', you_have: 'du hast {n}💎',
+      wheel_spin_free: '🎡 Gratis drehen', wheel_spin_gems: '🎡 Drehen ({n}💎)', need_gems: 'Zu wenig Edelsteine 💎',
       summon_title: 'Drachen rufen', summon_hint: 'Rufe einen Schatz aus dem alten Ei', summon_do: 'Rufen ({n}💎)',
       rarity_common: 'Gewöhnlich', rarity_rare: 'Selten', rarity_epic: 'EPISCH',
       skills_title: 'Talentbaum', skills_sub: 'Dauerhafte Boni für Edelsteine 💎', maxed: 'MAX',
@@ -581,7 +581,7 @@
     fr: {
       t_wheel: 'Roue', t_summon: 'Invoquer', t_skills: 'Talents', t_pvp: 'Duel', t_story: 'Histoire',
       wheel_title: '🎡 Roue de la Fortune', wheel_free: 'Tour gratuit prêt !', wheel_cost: 'Tour extra : {n}💎',
-      wheel_spin_free: '🎡 Tourner gratis', wheel_spin_gems: '🎡 Tourner ({n}💎)', need_gems: 'Pas assez de gemmes 💎', you_have: 'tu as {n}💎',
+      wheel_spin_free: '🎡 Tourner gratis', wheel_spin_gems: '🎡 Tourner ({n}💎)', need_gems: 'Pas assez de gemmes 💎',
       summon_title: 'Invoquer un dragon', summon_hint: 'Invoque un trésor de l’œuf ancien', summon_do: 'Invoquer ({n}💎)',
       rarity_common: 'Commun', rarity_rare: 'Rare', rarity_epic: 'ÉPIQUE',
       skills_title: 'Arbre de talents', skills_sub: 'Bonus permanents contre gemmes 💎', maxed: 'MAX',
@@ -596,7 +596,7 @@
     pt: {
       t_wheel: 'Roleta', t_summon: 'Invocar', t_skills: 'Talentos', t_pvp: 'Duelo', t_story: 'História',
       wheel_title: '🎡 Roda da Fortuna', wheel_free: 'Giro grátis pronto!', wheel_cost: 'Giro extra: {n}💎',
-      wheel_spin_free: '🎡 Girar grátis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎', you_have: 'você tem {n}💎',
+      wheel_spin_free: '🎡 Girar grátis', wheel_spin_gems: '🎡 Girar ({n}💎)', need_gems: 'Gemas insuficientes 💎',
       summon_title: 'Invocar dragão', summon_hint: 'Invoque um tesouro do ovo antigo', summon_do: 'Invocar ({n}💎)',
       rarity_common: 'Comum', rarity_rare: 'Raro', rarity_epic: 'ÉPICO',
       skills_title: 'Árvore de talentos', skills_sub: 'Bônus permanentes por gemas 💎', maxed: 'MÁX',

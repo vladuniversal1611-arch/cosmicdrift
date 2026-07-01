@@ -882,7 +882,9 @@
       if (rw.booster) p.boosters[rw.booster] = (p.boosters[rw.booster] || 0) + (rw.boosterN || 1);
       if (rw.life) global.Save.addLives(rw.life);
       if (rw.eggCharge) { // pour into the first egg still incubating
-        for (let i = 0; i < p.eggs.length; i++) { const e = p.eggs[i]; if (e.charge < e.need) { e.charge = Math.min(e.need, e.charge + rw.eggCharge); break; } }
+        let poured = false;
+        for (let i = 0; i < p.eggs.length; i++) { const e = p.eggs[i]; if (e.charge < e.need) { e.charge = Math.min(e.need, e.charge + rw.eggCharge); poured = true; break; } }
+        if (!poured) p.energy += rw.eggCharge; // no egg left to charge → give the energy instead
       }
       global.Save.save();
     },
