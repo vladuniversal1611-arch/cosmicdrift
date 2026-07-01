@@ -527,6 +527,7 @@
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
       const oldBoss = s.querySelector('.boss-panel'); if (oldBoss) oldBoss.remove();
       const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
+      s.classList.remove('fever-mode'); // clear any ember tint left from a prior level's fever
 
       const top = document.createElement('div');
       top.className = 'game-top';
