@@ -49,7 +49,7 @@
         const self = this;
         const body = document.createElement('div');
         body.className = 'modal-body';
-        body.innerHTML = '<div class="big-emoji">🏝️</div><p>' + T('welcome_back') + '</p><div class="win-rewards">' + global.UI.farmRewardStr(offline) + '</div>';
+        body.innerHTML = '<div class="big-emoji">🏝️</div><p>' + T('welcome_back') + '</p><div class="win-rewards">' + global.UI.rich(global.UI.farmRewardStr(offline)) + '</div>';
         setTimeout(function () {
           global.UI.modal(T('welcome_back_title'), body, [{ label: '🎁 ' + T('collect_all'), primary: true, onClick: function () {
             const t = global.Save.farmCollectAll(); global.Audio2.play('coin'); global.UI.refreshCurrencies(); global.UI.toast(global.UI.farmRewardStr(t)); self.go('home');
@@ -837,8 +837,8 @@
           }).join('') +
         '</div>' +
         '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        '<div class="win-rewards">' + T('win_rewards', { gold: gold, energy: energy }) + '</div>' +
-        streakHtml + piggyHtml;
+        '<div class="win-rewards">' + global.UI.rich(T('win_rewards', { gold: gold, energy: energy })) + '</div>' +
+        global.UI.rich(streakHtml) + global.UI.rich(piggyHtml);
       const self = this;
       const btns = [
         { label: T('btn_map'), onClick: function () { self.go('map'); } },

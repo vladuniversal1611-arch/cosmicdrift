@@ -336,9 +336,9 @@
           '<div class="farm-ic">' + bIcon + '</div>' +
           '<div class="farm-name">' + T('build_' + b.id) + '</div>' +
           (built
-            ? '<div class="farm-lvl">' + T('dc_level', { n: lvl }) + ' · ' + (b.rate * lvl) + resIc + '/' + T('hour') + '</div>' +
+            ? '<div class="farm-lvl">' + T('dc_level', { n: lvl }) + ' · ' + (b.rate * lvl) + UI.rich(resIc) + '/' + T('hour') + '</div>' +
               '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + (b.res === 'gems' ? '#79e0ff' : b.res === 'energy' ? '#b48bff' : '#ffd24d') + '"></div></div>' +
-              '<div class="farm-stored">' + stored + ' / ' + cap + ' ' + resIc + '</div>'
+              '<div class="farm-stored">' + stored + ' / ' + cap + ' ' + UI.rich(resIc) + '</div>'
             : '<div class="farm-lvl muted">' + T('not_built') + '</div>');
         click(card, function () { UI.showBuilding(b.id); });
         grid.appendChild(card);
@@ -738,8 +738,9 @@
         { key: 'moves', ic: '➕5', name: T('moves_pack'), desc: T('moves_pdesc'), amount: 3, price: 250 }
       ].forEach(function (b) {
         const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">' + b.ic + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · ' + T('you_have', { n: (p.boosters[b.key] || 0) }) + '</span></div>';
-        const btn = click(el('button', 'btn btn-buy btn-mini', b.price + '🪙'), function () {
+        const bShopIc = (global.UiIcons && global.UiIcons.tag(b.key, 'shop-ic-img')) || b.ic;
+        c.innerHTML = '<div class="shop-ic">' + bShopIc + '</div><div class="shop-info"><b>' + b.name + '</b><span>' + b.desc + ' · ' + T('you_have', { n: (p.boosters[b.key] || 0) }) + '</span></div>';
+        const btn = click(el('button', 'btn btn-buy btn-mini', UI.rich(b.price + '🪙')), function () {
           if (p.gold < b.price) { UI.toast(T('not_enough_gold')); return; }
           p.gold -= b.price; p.boosters[b.key] = (p.boosters[b.key] || 0) + b.amount; global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast(T('bought', { name: b.name })); UI.renderShop();
@@ -906,6 +907,16 @@
       if (rw.life) parts.push(rw.life + '❤️');
       return parts.join('   ');
     },
+    // Swap known emoji for small inline painted icons. ONLY for HTML that is
+    // inserted via innerHTML (never for toasts, which use textContent).
+    rich: function (str) {
+      if (!global.UiIcons) return str;
+      const MAP = { '🪙': 'coin', '💎': 'gem', '⚡': 'energy', '❤️': 'heart', '🔨': 'hammer', '🔀': 'shuffle', '🐷': 'piggy', '🎁': 'chest', '⭐': 'star', '🏆': 'tile_ach', '🔥': 'fever' };
+      return String(str).replace(/🪙|💎|⚡|❤️|🔨|🔀|🐷|🎁|⭐|🏆|🔥/g, function (e) {
+        const u = MAP[e] && global.UiIcons.url(MAP[e]);
+        return u ? '<img class="uicon ic-inline" src="' + u + '" alt="">' : e;
+      });
+    },
     weightedPick: function (list) {
       let total = 0; for (let i = 0; i < list.length; i++) total += list[i].w;
       let r = Math.random() * total;
@@ -1004,7 +1015,7 @@
           orb.querySelector('.orb-core').textContent = loot.ic;
           UI.grantReward(loot.rw);
           global.Audio2.play(loot.rarity === 'epic' ? 'win' : 'coin'); UI.refreshCurrencies();
-          result.innerHTML = '<b class="rarity-' + loot.rarity + '">' + T('sr_' + loot.rarity) + '</b><div class="summon-loot">' + UI.rewardStr(loot.rw) + '</div>';
+          result.innerHTML = '<b class="rarity-' + loot.rarity + '">' + T('sr_' + loot.rarity) + '</b><div class="summon-loot">' + UI.rich(UI.rewardStr(loot.rw)) + '</div>';
           busy = false; btn.disabled = false;
         }, 900);
       });
@@ -1112,7 +1123,7 @@
       const dayIdx = p.daily.streak % 7;
       rewards.forEach(function (amt, i) {
         const cell = el('div', 'daily-cell' + (i < dayIdx ? ' done' : (i === dayIdx && UI.dailyAvailable() ? ' today' : '')));
-        cell.innerHTML = '<div class="dd">' + T('day_n', { n: i + 1 }) + '</div><div class="da">' + amt + (i === 6 ? '💎' : '🪙') + '</div>';
+        cell.innerHTML = '<div class="dd">' + T('day_n', { n: i + 1 }) + '</div><div class="da">' + amt + UI.rich(i === 6 ? '💎' : '🪙') + '</div>';
         grid.appendChild(cell);
       });
       body.appendChild(grid);
