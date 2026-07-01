@@ -567,7 +567,7 @@
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
         '</div>' +
         '<div class="fever-meter" id="hud-fever">' +
-          '<div class="fv-label">🔥 <span>' + T('fever') + '</span> ×3</div>' +
+          '<div class="fv-label">' + ((global.UiIcons && global.UiIcons.tag('fever', 'fv-ic-img')) || '🔥') + ' <span>' + T('fever') + '</span> ×3</div>' +
           '<div class="fv-track"><div class="fv-fill" id="hud-fever-fill"></div></div>' +
         '</div>';
       s.appendChild(hud);

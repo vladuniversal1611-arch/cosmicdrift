@@ -46,7 +46,8 @@ const uiIcons = {};
 ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star',
  'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home',
  'tile_modes', 'tile_daily', 'tile_wheel', 'tile_summon', 'tile_skills', 'tile_pvp',
- 'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings'].forEach(function (nm) {
+ 'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings',
+ 'farm_volcano', 'farm_garden', 'farm_forge', 'farm_mine', 'piggy', 'chest', 'fever', 'event'].forEach(function (nm) {
   const p = path.join(ROOT, 'www/assets/ui/' + nm + '.png');
   if (fs.existsSync(p)) uiIcons[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });

@@ -270,7 +270,8 @@
       // Piggy bank widget
       const full = p.piggy.coins >= p.piggy.cap;
       const piggy = el('div', 'piggy-widget' + (full ? ' full' : ''));
-      piggy.innerHTML = '<div class="piggy-ic">🐷</div>' +
+      const piggyIcon = (global.UiIcons && global.UiIcons.tag('piggy', 'piggy-ic-img')) || '🐷';
+      piggy.innerHTML = '<div class="piggy-ic">' + piggyIcon + '</div>' +
         '<div class="piggy-body"><div class="piggy-top"><b>' + T('piggy_title') + '</b><span>' + T('piggy_info', { n: p.piggy.coins, cap: p.piggy.cap }) + '</span></div>' +
         '<div class="bar"><div class="bar-fill" style="width:' + Math.round(p.piggy.coins / p.piggy.cap * 100) + '%;background:#ff9ec4"></div></div></div>';
       const crackBtn = el('button', 'btn btn-mini ' + (full ? 'btn-primary' : 'btn-ghost'), full ? T('piggy_crack', { n: p.piggy.coins }) : '🔒');
@@ -330,8 +331,9 @@
         const pct = cap > 0 ? Math.min(100, Math.round(stored / cap * 100)) : 0;
         const resIc = b.res === 'gold' ? '🪙' : b.res === 'energy' ? '⚡' : '💎';
         const card = el('div', 'farm-card' + (built ? '' : ' unbuilt') + (stored > 0 ? ' ready' : ''));
+        const bIcon = (global.UiIcons && global.UiIcons.tag('farm_' + b.id, 'farm-ic-img')) || b.ic;
         card.innerHTML =
-          '<div class="farm-ic">' + b.ic + '</div>' +
+          '<div class="farm-ic">' + bIcon + '</div>' +
           '<div class="farm-name">' + T('build_' + b.id) + '</div>' +
           (built
             ? '<div class="farm-lvl">' + T('dc_level', { n: lvl }) + ' · ' + (b.rate * lvl) + resIc + '/' + T('hour') + '</div>' +
@@ -359,7 +361,8 @@
       const resIc = b.res === 'gold' ? '🪙' : b.res === 'energy' ? '⚡' : '💎';
       const stored = Math.floor(p.farm.stored[id] || 0);
       const body = el('div', 'modal-body');
-      body.innerHTML = '<div class="big-emoji">' + b.ic + '</div>' +
+      const bBig = (global.UiIcons && global.UiIcons.tag('farm_' + id, 'big-icon-img')) || b.ic;
+      body.innerHTML = '<div class="big-emoji">' + bBig + '</div>' +
         (built
           ? '<div class="up-stats"><div>' + T('dc_level', { n: lvl }) + '</div><div>' + T('production') + ': <b>' + (b.rate * lvl) + resIc + '/' + T('hour') + '</b></div><div>' + T('stored') + ': <b>' + stored + ' / ' + global.Save.farmCap(id) + resIc + '</b></div></div>'
           : '<p class="muted">' + T('build_desc_' + b.id) + '</p>');
@@ -521,8 +524,9 @@
           if (milestone > D.LEVELS.length) return;
           const opened = !!p.chests[milestone];
           const ready = p.levelProgress > milestone && !opened;
+          const chestIcon = (global.UiIcons && global.UiIcons.tag('chest', 'chest-ic-img')) || '🎁';
           const chest = el('button', 'chest-node' + (opened ? ' opened' : ready ? ' ready' : ' locked'),
-            opened ? '✅' : '🎁');
+            opened ? '✅' : chestIcon);
           if (ready) click(chest, function () { UI.openChest(milestone); });
           chestRow.appendChild(chest);
         });

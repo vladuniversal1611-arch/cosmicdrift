@@ -87,7 +87,8 @@
   const UI_IDS = ['coin', 'gem', 'energy', 'heart', 'hammer', 'shuffle', 'moves', 'star',
     'nav_map', 'nav_modes', 'nav_dragons', 'nav_shop', 'nav_pass', 'nav_home',
     'tile_modes', 'tile_daily', 'tile_wheel', 'tile_summon', 'tile_skills', 'tile_pvp',
-    'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings'];
+    'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings',
+    'farm_volcano', 'farm_garden', 'farm_forge', 'farm_mine', 'piggy', 'chest', 'fever', 'event'];
   const uiInline = global.UI_ICONS || null;
   const uiUrls = {};
   UI_IDS.forEach(function (id) {
