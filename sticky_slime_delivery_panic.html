@@ -35,11 +35,32 @@
   }
   #bestBox{ background:linear-gradient(135deg,#fff6d8,#ffe9a8); }
 
+  .hudRight{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; pointer-events:auto; }
+  .iconRow{ display:flex; gap:6px; }
+  .iconBtn{
+    width:38px; height:38px; border-radius:50%;
+    border:3px solid #2b2160; background:linear-gradient(135deg,#ffffff,#e9f0ff);
+    font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+    font-family:inherit;
+  }
+  .iconBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.25); }
+
+  #buffRow{
+    position:absolute; top:64px; left:14px; display:flex; flex-wrap:wrap; gap:6px; z-index:5; pointer-events:none;
+    max-width:60vw;
+  }
+  .buffPill{
+    display:none; align-items:center; gap:4px;
+    background:rgba(20,15,50,0.62); color:#fff; font-size:12px; font-weight:700;
+    padding:5px 10px; border-radius:12px; white-space:nowrap;
+  }
+
   #hint{
     position:absolute; left:50%; bottom:6%; transform:translateX(-50%);
     background:rgba(20,15,50,0.55);
     color:#fff; padding:10px 18px; border-radius:16px;
-    font-size:clamp(13px,3.6vw,17px); font-weight:700; text-align:center;
+    font-size:clamp(12px,3.4vw,16px); font-weight:700; text-align:center;
     pointer-events:none; z-index:5;
     transition:opacity 0.5s ease, transform 0.5s ease;
     white-space:nowrap;
@@ -117,10 +138,22 @@
 
   <div id="hud">
     <div class="hudPill" id="scoreBox">🏔️ <span id="scoreValue">0</span> м</div>
-    <div class="hudPill" id="bestBox">🏆 <span id="bestValue">0</span> м</div>
+    <div class="hudRight">
+      <div class="hudPill" id="bestBox">🏆 <span id="bestValue">0</span> м</div>
+      <div class="iconRow">
+        <button id="muteBtn" class="iconBtn" type="button">🔊</button>
+        <button id="skinBtn" class="iconBtn" type="button">🎨</button>
+      </div>
+    </div>
   </div>
 
-  <div id="hint">👆 Потягни слайма і відпусти — запустиш його вгору! 👆</div>
+  <div id="buffRow">
+    <div class="buffPill" id="buffGlue">🧲 <span id="glueTime"></span></div>
+    <div class="buffPill" id="buffShield">🛡️ Щит</div>
+    <div class="buffPill" id="buffBoost">🚀 Буст готовий</div>
+  </div>
+
+  <div id="hint">👆 Тягни і відпускай — лови 🧲🚀🛡️ по дорозі! 👆</div>
 
   <div id="gameOverScreen" class="hidden">
     <div class="panel">
@@ -149,6 +182,12 @@ const finalScoreEl = document.getElementById('finalScore');
 const finalBestEl = document.getElementById('finalBest');
 const newBestBadge = document.getElementById('newBestBadge');
 const restartBtn = document.getElementById('restartBtn');
+const muteBtn = document.getElementById('muteBtn');
+const skinBtn = document.getElementById('skinBtn');
+const buffGlueEl = document.getElementById('buffGlue');
+const glueTimeEl = document.getElementById('glueTime');
+const buffShieldEl = document.getElementById('buffShield');
+const buffBoostEl = document.getElementById('buffBoost');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -169,20 +208,94 @@ window.addEventListener('resize', resize);
 const GRAVITY = 2100;
 const MAX_DRAG = 150;
 const LAUNCH_SPEED = 1600;
+const MAX_LAUNCH_SPEED = LAUNCH_SPEED*1.2;
 const SLIME_R = 27;
 const PLAT_H = 24;
 const BOX_SIZE = 30;
 const TILT_LIMIT = 0.95;
 const SQUASH_STIFF = 140;
 const SQUASH_DAMP = 9;
+const GLUE_DURATION = 6;
 
 let best = parseInt(localStorage.getItem('stickySlimeBest') || '0', 10) || 0;
 bestValueEl.textContent = best;
 
+const SKINS = [
+  { name:'Класичний', min:0,    top:'#c8ff7a', mid:'#7ee62a', bot:'#4ec20f', stroke:'#3a9e0a' },
+  { name:'Океан',      min:150,  top:'#8fe8ff', mid:'#33b8e8', bot:'#1a7fbf', stroke:'#0f5a8a' },
+  { name:'Аметист',    min:400,  top:'#e0aaff', mid:'#b366e0', bot:'#7c2fb0', stroke:'#571f80' },
+  { name:'Золото',     min:800,  top:'#fff2a8', mid:'#ffcf3f', bot:'#e0a30a', stroke:'#9c6f00' },
+  { name:'Вогонь',     min:1400, top:'#ffcf9e', mid:'#ff7a3d', bot:'#e0432a', stroke:'#9c1f10' }
+];
+let skinIndex = parseInt(localStorage.getItem('stickySlimeSkinIndex') || '0', 10) || 0;
+function progressScore(){ return Math.max(best, game ? game.score : 0); }
+function unlockedSkins(){ return SKINS.filter(s => progressScore() >= s.min); }
+function currentSkin(){
+  const u = unlockedSkins();
+  if(skinIndex >= u.length) skinIndex = 0;
+  return u[skinIndex] || SKINS[0];
+}
+function cycleSkin(){
+  const u = unlockedSkins();
+  if(u.length <= 1) return false;
+  skinIndex = (skinIndex+1) % u.length;
+  localStorage.setItem('stickySlimeSkinIndex', String(skinIndex));
+  return true;
+}
+
+let muted = localStorage.getItem('stickySlimeMuted') === '1';
+muteBtn.textContent = muted ? '🔇' : '🔊';
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  } else if(audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+}
+function tone(freq, dur, type, vol, sweepTo){
+  if(muted || !audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(Math.max(1,freq), t0);
+  if(sweepTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1,sweepTo), t0+dur);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001,vol||0.2), t0+0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function noiseBurst(dur, vol){
+  if(muted || !audioCtx) return;
+  const bufferSize = Math.max(1, Math.floor(audioCtx.sampleRate*dur));
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1)*(1-i/bufferSize);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.value = vol||0.2;
+  src.connect(gain); gain.connect(audioCtx.destination);
+  src.start();
+}
+function sfxLaunch(power){ tone(300+power*200, 0.18, 'sine', 0.15, 700+power*400); }
+function sfxLand(strength){ const s=clamp(strength,0.3,1); tone(120,0.12,'sine',0.18*s,60); noiseBurst(0.05,0.06*s); }
+function sfxSpike(){ noiseBurst(0.25,0.28); tone(90,0.3,'sawtooth',0.15,40); }
+function sfxBoxDetach(){ tone(500,0.15,'triangle',0.12,250); }
+function sfxBoxGone(){ tone(400,0.35,'sine',0.15,90); }
+function sfxGameOver(){ tone(300,0.5,'sine',0.18,60); }
+function sfxRecord(){ [0,1,2].forEach(i=>setTimeout(()=>tone(500+i*160,0.18,'square',0.12), i*90)); }
+function sfxPickup(){ tone(650,0.14,'square',0.13,1000); }
+function sfxMilestone(){ tone(700,0.2,'sine',0.15,1100); }
+function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} } }
+
 let game = null;
 
 function makeBox(index){
-  return { index, angle:0, angVel:0, detached:false, fx:0, fy:0, fvx:0, fvy:0, frot:0, frotVel:0 };
+  return { index, angle:0, angVel:0, warning:false, detached:false, goneOffscreen:false, fx:0, fy:0, fvx:0, fvy:0, frot:0, frotVel:0 };
 }
 
 function newGame(){
@@ -191,6 +304,10 @@ function newGame(){
     state: 'stuck',
     time: 0,
     score: 0,
+    heightScore: 0,
+    bonusScore: 0,
+    streak: 0,
+    nextMilestone: 100,
     minWorldY: 0,
     slime: {
       x: W/2, y: 0, vx: 0, vy: 0,
@@ -202,21 +319,30 @@ function newGame(){
     platforms: [],
     clouds: [],
     particles: [],
+    floatingTexts: [],
+    pickups: [],
     cameraY: 0,
     drag: { active:false, x:0, y:0, dx:0, dy:0, power:0 },
     eyeDir: { x:0, y:-1 },
     lastPlatSide: 'left',
     highestPlatformY: 0,
+    highestPlatformCenterX: W/2,
     ignorePlatform: null,
     ignoreTimer: 0,
-    shakeT: 0,
-    over: false
+    glueTimer: 0,
+    shield: false,
+    boostReady: false,
+    windPhase: Math.random()*Math.PI*2,
+    windStrengthNow: 0,
+    currentWindAccel: 0,
+    shakeT: 0
   };
 
   const startW = 150;
-  const startPlat = { x: W/2 - startW/2, y: 60, w: startW, h: PLAT_H, moving:false, spike:false, vx:0, baseX: W/2-startW/2, range:0, phase:0, speed:0 };
+  const startPlat = { x: W/2 - startW/2, y: 60, w: startW, h: PLAT_H, moving:false, spike:false, crumble:false, crumbleTimer:null, vx:0, baseX: W/2-startW/2, range:0, phase:0, speed:0 };
   game.platforms.push(startPlat);
   game.highestPlatformY = startPlat.y;
+  game.highestPlatformCenterX = startPlat.x + startPlat.w/2;
   game.slime.x = W/2;
   game.slime.y = startPlat.y - SLIME_R;
   game.slime.prevX = game.slime.x;
@@ -229,39 +355,85 @@ function newGame(){
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
   scoreValueEl.textContent = '0';
+  updateBuffUI();
+}
+
+function diffForHeight(h){
+  return Math.pow(clamp(h/9000, 0, 1), 1.35);
+}
+
+function maxHeightAtDistance(dx, speed){
+  dx = Math.abs(dx);
+  let maxH = 0;
+  for(let a=8; a<=82; a+=4){
+    const rad = a*Math.PI/180;
+    const vx = speed*Math.cos(rad), vy = speed*Math.sin(rad);
+    if(vx < 1) continue;
+    const t = dx/vx;
+    const h = vy*t - 0.5*GRAVITY*t*t;
+    if(h > maxH) maxH = h;
+  }
+  return maxH;
 }
 
 function generateAhead(){
   const targetY = game.cameraY - H*1.6;
   while(game.highestPlatformY > targetY){
     const prevY = game.highestPlatformY;
+    const prevCenterX = game.highestPlatformCenterX;
     const heightScore = Math.max(0, -prevY);
-    const diff = Math.min(1, heightScore/9000);
-    const gap = 95 + Math.random()*65 + diff*95;
-    const y = prevY - gap;
+    const diff = diffForHeight(heightScore);
+    const wishGap = 95 + Math.random()*65 + diff*95;
     const width = Math.max(64, 155 - diff*80 - Math.random()*25);
 
     let side = Math.random() < 0.68 ? (game.lastPlatSide==='left' ? 'right':'left') : game.lastPlatSide;
     game.lastPlatSide = side;
     let x = side==='left' ? 0 : (W - width);
-
     if(Math.random() < 0.18 + diff*0.1 && (W - width - 50) > 40){
       x = 25 + Math.random()*(W - width - 50);
     }
 
+    const MAX_DX = 260;
+    let nearestX = clamp(prevCenterX, x, x+width);
+    let dx = nearestX - prevCenterX;
+    if(Math.abs(dx) > MAX_DX){
+      const shift = Math.abs(dx) - MAX_DX;
+      x += dx > 0 ? -shift : shift;
+      x = clamp(x, 0, W-width);
+      nearestX = clamp(prevCenterX, x, x+width);
+      dx = nearestX - prevCenterX;
+    }
+
+    const allowedGap = maxHeightAtDistance(dx, MAX_LAUNCH_SPEED*0.82);
+    const gap = clamp(wishGap, 70, Math.max(70, allowedGap*0.85));
+    const y = prevY - gap;
+
     const moving = Math.random() < 0.1 + diff*0.28;
-    const spike = !moving && Math.random() < 0.08 + diff*0.16;
+    let spikeChance = 0.08 + diff*0.16;
+    if(moving) spikeChance *= (diff > 0.4 ? 0.55 : 0.12);
+    const spike = Math.random() < spikeChance;
+    const crumble = !spike && !moving && Math.random() < 0.06 + diff*0.14;
+
     let range = 0;
     if(moving){
       const maxRange = Math.max(0, W - width - x);
       range = Math.min(maxRange, 55 + Math.random()*110);
     }
 
-    game.platforms.push({
-      x, y, w:width, h:PLAT_H, moving, spike,
-      vx:0, baseX:x, range, phase: Math.random()*Math.PI*2, speed: 0.7+Math.random()*0.7
-    });
+    const plat = {
+      x, y, w:width, h:PLAT_H, moving, spike, crumble,
+      vx:0, baseX:x, range, phase: Math.random()*Math.PI*2, speed: 0.7+Math.random()*0.7,
+      crumbleTimer: null
+    };
+    game.platforms.push(plat);
     game.highestPlatformY = y;
+    game.highestPlatformCenterX = x + width/2 + (moving ? range/2 : 0);
+
+    if(!spike && Math.random() < 0.16){
+      const types = ['glue','boost','shield'];
+      const type = types[Math.floor(Math.random()*types.length)];
+      game.pickups.push({ x: x+width/2, y: y-34, type, taken:false, bob: Math.random()*Math.PI*2 });
+    }
 
     if(Math.random() < 0.45){
       game.clouds.push({ x: Math.random()*W, y: y - 20 - Math.random()*140, size: 26+Math.random()*38, spd: 0.15+Math.random()*0.2 });
@@ -274,6 +446,7 @@ function cleanupWorld(){
   game.platforms = game.platforms.filter(p => p.y < bottomBound || p === game.slime.stuckPlatform);
   game.clouds = game.clouds.filter(c => c.y < bottomBound);
   game.particles = game.particles.filter(p => p.life > 0);
+  game.pickups = game.pickups.filter(pu => !pu.taken && pu.y < bottomBound);
 }
 
 function getPointerPos(e){
@@ -301,6 +474,7 @@ function updateAimFromDrag(){
 
 function onPointerDown(e){
   if(!game || game.state !== 'stuck') return;
+  ensureAudio();
   const p = getPointerPos(e);
   game.drag.active = true;
   game.drag.x = p.x;
@@ -334,14 +508,21 @@ function launchFromDrag(){
   }
   const dx = game.drag.dx, dy = game.drag.dy;
   const len = Math.hypot(dx,dy) || 1;
-  const speed = power*power_curve(power)*LAUNCH_SPEED;
+  let speed = power*power_curve(power)*LAUNCH_SPEED;
   const s = game.slime;
+  if(game.boostReady){
+    speed *= 1.4;
+    game.boostReady = false;
+    spawnParticles(s.x, s.y, '#ff8a3d', 14);
+    spawnFloatingText(s.x, s.y-50, '🚀 БУСТ!', '#ff8a3d');
+  }
   s.vx = -dx/len*speed;
   s.vy = -dy/len*speed;
   game.ignorePlatform = s.stuckPlatform;
   game.ignoreTimer = 0.22;
   s.stuckPlatform = null;
   game.state = 'flying';
+  sfxLaunch(power);
 }
 function power_curve(p){ return 0.55 + p*0.65; }
 
@@ -349,6 +530,22 @@ canvas.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('pointermove', onPointerMove);
 window.addEventListener('pointerup', onPointerUp);
 window.addEventListener('pointercancel', onPointerUp);
+
+muteBtn.addEventListener('click', ()=>{
+  muted = !muted;
+  localStorage.setItem('stickySlimeMuted', muted ? '1':'0');
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+});
+skinBtn.addEventListener('click', ()=>{
+  if(!game) return;
+  const u = unlockedSkins();
+  if(u.length <= 1){
+    spawnFloatingText(game.slime.x, game.slime.y-70, `🔒 Наступний скін на ${SKINS[1].min} м`, '#ffffff');
+    return;
+  }
+  cycleSkin();
+  spawnFloatingText(game.slime.x, game.slime.y-70, `🎨 ${currentSkin().name}`, '#ffffff');
+});
 
 function spawnParticles(x, y, color, count){
   for(let i=0;i<count;i++){
@@ -372,6 +569,68 @@ function updateParticles(dt){
   game.particles = game.particles.filter(p => p.life > 0);
 }
 
+function spawnFloatingText(x, y, text, color){
+  game.floatingTexts.push({ x, y, text, color: color||'#ffffff', life:1.15, maxLife:1.15 });
+}
+function updateFloatingTexts(dt){
+  for(const f of game.floatingTexts){
+    f.y -= 42*dt;
+    f.life -= dt;
+  }
+  game.floatingTexts = game.floatingTexts.filter(f => f.life > 0);
+}
+function drawFloatingTexts(){
+  for(const f of game.floatingTexts){
+    const a = clamp(f.life/f.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillText(f.text, f.x+1, f.y - game.cameraY+1);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y - game.cameraY);
+    ctx.restore();
+  }
+}
+
+function celebrateMilestone(m){
+  spawnFloatingText(game.slime.x, game.slime.y-60, `🎉 ${m} м! 🎉`, '#ffd23f');
+  spawnParticles(game.slime.x, game.slime.y, '#ffd23f', 20);
+  sfxMilestone();
+  vibrate([15,30,15]);
+  game.shakeT = Math.max(game.shakeT, 0.15);
+}
+
+function applyPickup(type){
+  sfxPickup();
+  vibrate(20);
+  if(type === 'glue'){
+    game.glueTimer = GLUE_DURATION;
+    spawnFloatingText(game.slime.x, game.slime.y-40, '🧲 Клей! Коробки стабільні', '#6ec8ff');
+  } else if(type === 'boost'){
+    game.boostReady = true;
+    spawnFloatingText(game.slime.x, game.slime.y-40, '🚀 Прискорювач готовий!', '#ff8a3d');
+  } else if(type === 'shield'){
+    game.shield = true;
+    spawnFloatingText(game.slime.x, game.slime.y-40, '🛡️ Щит активовано!', '#ffd23f');
+  }
+}
+
+function updatePickups(dt){
+  const s = game.slime;
+  for(const pu of game.pickups){
+    if(pu.taken) continue;
+    const dx = s.x-pu.x, dy = s.y-pu.y;
+    const r = SLIME_R+16;
+    if(dx*dx+dy*dy < r*r){
+      pu.taken = true;
+      applyPickup(pu.type);
+    }
+  }
+}
+
 function closestPointOnRect(px, py, rx, ry, rw, rh){
   return { x: clamp(px, rx, rx+rw), y: clamp(py, ry, ry+rh) };
 }
@@ -390,24 +649,48 @@ function checkPlatformCollisions(){
       s.x += nx*overlap;
       s.y += ny*overlap;
 
-      if(p.spike){
+      if(p.spike && !game.shield){
         spawnParticles(s.x, s.y, '#e0324c', 18);
         s.squashVel += 3;
         game.shakeT = 0.4;
+        sfxSpike();
+        vibrate(80);
         triggerGameOver('spike');
         return;
+      }
+      if(p.spike && game.shield){
+        game.shield = false;
+        spawnParticles(s.x, s.y, '#ffd23f', 16);
+        spawnFloatingText(s.x, s.y-40, '🛡️ Щит врятував!', '#ffd23f');
+        sfxPickup();
+        vibrate(30);
       }
 
       const impactSpeed = Math.hypot(s.vx, s.vy);
       s.squashVel += clamp(impactSpeed*0.0011, 0.5, 3.4);
       const impactDirX = s.vx/(impactSpeed || 1);
+      const glueActive = game.glueTimer > 0;
       for(let i=0;i<game.boxes.length;i++){
         const b = game.boxes[i];
         if(b.detached) continue;
-        b.angVel += -impactDirX*(0.35+i*0.28)*clamp(impactSpeed/900, 0.25, 2.4);
+        b.angVel += -impactDirX*(0.45+i*0.35)*clamp(impactSpeed/700, 0.3, 3.2)*(glueActive ? 0.28 : 1);
       }
       spawnParticles(cp.x, cp.y, '#ffffff', 8);
       game.shakeT = Math.max(game.shakeT, clamp(impactSpeed/2200, 0.05, 0.3));
+      sfxLand(impactSpeed/1500);
+
+      const center = p.x + p.w/2;
+      const offRatio = Math.abs(s.x - center) / (p.w/2);
+      if(offRatio < 0.4){
+        game.streak++;
+        const bonus = Math.min(50, 5*game.streak);
+        game.bonusScore += bonus;
+        spawnFloatingText(s.x, s.y-44, `+${bonus} 🔥 x${game.streak}`, '#5ee06a');
+      } else {
+        game.streak = 0;
+      }
+
+      if(p.crumble && p.crumbleTimer == null) p.crumbleTimer = 0.75;
 
       s.vx = 0; s.vy = 0;
       s.stuckPlatform = p;
@@ -423,6 +706,30 @@ function updatePlatformsMotion(dt){
     const oldX = p.x;
     p.x = p.baseX + (Math.sin(game.time*p.speed + p.phase)*0.5 + 0.5) * p.range;
     p.vx = (p.x - oldX) / Math.max(dt, 0.0001);
+  }
+}
+
+function updateCrumblingPlatforms(dt){
+  const toRemove = [];
+  for(const p of game.platforms){
+    if(p.crumbleTimer == null) continue;
+    p.crumbleTimer -= dt;
+    if(p.crumbleTimer <= 0){
+      toRemove.push(p);
+      if(game.slime.stuckPlatform === p){
+        game.drag.active = false;
+        game.slime.stuckPlatform = null;
+        game.slime.vx = (Math.random()-0.5)*40;
+        game.slime.vy = -90;
+        game.state = 'flying';
+        game.ignorePlatform = p;
+        game.ignoreTimer = 0.15;
+      }
+      spawnParticles(p.x+p.w/2, p.y, '#8a6636', 10);
+    }
+  }
+  if(toRemove.length){
+    game.platforms = game.platforms.filter(p => toRemove.indexOf(p) === -1);
   }
 }
 
@@ -443,6 +750,7 @@ function detachBox(fromIndex){
     if(b.detached) continue;
     const pos = getBoxWorldPos(k);
     b.detached = true;
+    b.warning = false;
     b.fx = pos.x;
     b.fy = pos.y;
     b.fvx = game.slime.vx*0.3 + b.angVel*70 + (Math.random()-0.5)*130;
@@ -451,21 +759,27 @@ function detachBox(fromIndex){
     b.frotVel = b.angVel*1.6 + (Math.random()-0.5)*4.5;
   }
   game.shakeT = Math.max(game.shakeT, 0.25);
+  sfxBoxDetach();
+  vibrate(20);
 }
 
 function updateBoxes(dt, accX){
+  const glueActive = game.glueTimer > 0;
+  const torqueMul = glueActive ? 0.15 : 1;
+  const tiltLimit = TILT_LIMIT * (glueActive ? 1.8 : 1);
   for(let i=0;i<game.boxes.length;i++){
     const b = game.boxes[i];
     if(b.detached) continue;
     const lever = 1 + i*0.55;
-    const torque = -accX*0.00022*lever;
-    b.angVel += (-b.angle*7.5 - b.angVel*3.2 + torque) * dt;
+    const torque = -accX*0.00032*lever*torqueMul;
+    b.angVel += (-b.angle*6.0 - b.angVel*2.6 + torque) * dt;
     b.angle += b.angVel*dt;
+    b.warning = Math.abs(b.angle) > tiltLimit*0.68;
   }
   let minIdx = -1;
   for(let i=0;i<game.boxes.length;i++){
     const b = game.boxes[i];
-    if(!b.detached && Math.abs(b.angle) > TILT_LIMIT){ minIdx = i; break; }
+    if(!b.detached && Math.abs(b.angle) > tiltLimit){ minIdx = i; break; }
   }
   if(minIdx !== -1) detachBox(minIdx);
 }
@@ -477,9 +791,20 @@ function updateDetachedBoxes(dt){
     b.fx += b.fvx*dt;
     b.fy += b.fvy*dt;
     b.frot += b.frotVel*dt;
-    if(b.fy - game.cameraY > H + 140 && game.state !== 'gameover'){
-      triggerGameOver('boxes');
+    if(!b.goneOffscreen && (b.fy - game.cameraY) > H + 140){
+      b.goneOffscreen = true;
+      const remaining = game.boxes.filter(x => !x.detached).length;
+      if(remaining > 0){
+        spawnFloatingText(game.slime.x, game.slime.y-50, `📦 Коробка втрачена! Залишилось: ${remaining}`, '#ff8a6b');
+        sfxBoxGone();
+        vibrate([25,25,25]);
+      }
     }
+  }
+  const allDetached = game.boxes.every(b => b.detached);
+  const allGone = allDetached && game.boxes.every(b => b.goneOffscreen);
+  if(allGone && game.state !== 'gameover'){
+    triggerGameOver('boxes');
   }
 }
 
@@ -492,11 +817,23 @@ function updateCamera(dt){
 
 function updateScore(){
   if(game.slime.y < game.minWorldY) game.minWorldY = game.slime.y;
-  const newScore = Math.max(0, Math.round((0 - game.minWorldY)/8));
-  if(newScore > game.score){
-    game.score = newScore;
+  game.heightScore = Math.max(0, Math.round((0 - game.minWorldY)/8));
+  const total = game.heightScore + game.bonusScore;
+  if(total !== game.score){
+    game.score = total;
     scoreValueEl.textContent = game.score;
   }
+  while(game.score >= game.nextMilestone){
+    celebrateMilestone(game.nextMilestone);
+    game.nextMilestone += 100;
+  }
+}
+
+function updateBuffUI(){
+  buffGlueEl.style.display = game.glueTimer > 0 ? 'flex' : 'none';
+  if(game.glueTimer > 0) glueTimeEl.textContent = game.glueTimer.toFixed(1)+'с';
+  buffShieldEl.style.display = game.shield ? 'flex' : 'none';
+  buffBoostEl.style.display = game.boostReady ? 'flex' : 'none';
 }
 
 function triggerGameOver(reason){
@@ -505,7 +842,7 @@ function triggerGameOver(reason){
   const reasons = {
     spike: '💢 Слайм наштрикнувся на шипи!',
     fall: '💧 Слайм зірвався вниз!',
-    boxes: '📦 Коробки випали за межі екрану!'
+    boxes: '📦 Усі коробки втрачено!'
   };
   gameOverReasonEl.textContent = reasons[reason] || 'Доставку провалено...';
   finalScoreEl.textContent = game.score;
@@ -518,6 +855,8 @@ function triggerGameOver(reason){
   }
   finalBestEl.textContent = best;
   newBestBadge.classList.toggle('hidden-badge', !isNewBest);
+  if(isNewBest){ sfxRecord(); vibrate([20,20,20,20,60]); }
+  else { sfxGameOver(); vibrate(80); }
   setTimeout(()=>{ gameOverScreen.classList.remove('hidden'); }, 260);
 }
 
@@ -537,11 +876,17 @@ function update(dt){
     if(game){
       updateDetachedBoxes(dt);
       updateParticles(dt);
+      updateFloatingTexts(dt);
     }
     return;
   }
   game.time += dt;
   updatePlatformsMotion(dt);
+  updateCrumblingPlatforms(dt);
+
+  const diffNow = diffForHeight(Math.max(0, -game.cameraY));
+  game.windStrengthNow = 30 + diffNow*150;
+  game.currentWindAccel = Math.sin(game.time*0.45 + game.windPhase) * game.windStrengthNow;
 
   const s = game.slime;
   s.prevX = s.x; s.prevY = s.y;
@@ -550,8 +895,10 @@ function update(dt){
     game.ignoreTimer -= dt;
     if(game.ignoreTimer <= 0) game.ignorePlatform = null;
   }
+  if(game.glueTimer > 0) game.glueTimer = Math.max(0, game.glueTimer - dt);
 
   if(game.state === 'flying'){
+    s.vx += game.currentWindAccel*dt;
     s.vy += GRAVITY*dt;
     s.x += s.vx*dt;
     s.y += s.vy*dt;
@@ -574,11 +921,14 @@ function update(dt){
 
   updateBoxes(dt, accX);
   updateDetachedBoxes(dt);
+  updatePickups(dt);
   updateCamera(dt);
   generateAhead();
   cleanupWorld();
   updateParticles(dt);
+  updateFloatingTexts(dt);
   updateScore();
+  updateBuffUI();
 
   if(game.shakeT > 0) game.shakeT = Math.max(0, game.shakeT - dt*2.2);
 }
@@ -635,7 +985,6 @@ function drawBackground(){
 
   ctx.save();
   ctx.translate(0, -game.cameraY*0.45);
-  ctx.font = '32px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.globalAlpha = 0.85;
@@ -652,7 +1001,9 @@ function drawBackground(){
 
 function drawPlatform(p){
   ctx.save();
-  ctx.translate(p.x, p.y - game.cameraY);
+  let wob = 0;
+  if(p.crumbleTimer != null){ wob = Math.sin(game.time*40) * (1 - Math.max(0,p.crumbleTimer)/0.75) * 4; }
+  ctx.translate(p.x+wob, p.y - game.cameraY);
   const grad = ctx.createLinearGradient(0,0,0,p.h);
   if(p.spike){
     grad.addColorStop(0, '#9aa3b0');
@@ -660,6 +1011,9 @@ function drawPlatform(p){
   } else if(p.moving){
     grad.addColorStop(0, '#6ec8ff');
     grad.addColorStop(1, '#2f7fd6');
+  } else if(p.crumble){
+    grad.addColorStop(0, p.crumbleTimer != null ? '#a9834f' : '#d9b06c');
+    grad.addColorStop(1, '#6b4a22');
   } else {
     grad.addColorStop(0, '#ffb95c');
     grad.addColorStop(1, '#c9761f');
@@ -680,6 +1034,13 @@ function drawPlatform(p){
 
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.fillRect(3, 3, p.w-6, 3);
+
+  if(p.crumble){
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(p.w*0.25,2); ctx.lineTo(p.w*0.4,p.h-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.w*0.68,2); ctx.lineTo(p.w*0.55,p.h-2); ctx.stroke();
+  }
 
   if(p.spike){
     const n = Math.max(2, Math.floor(p.w/22));
@@ -710,6 +1071,21 @@ function drawPlatform(p){
 
 function drawPlatforms(){
   for(const p of game.platforms) drawPlatform(p);
+}
+
+function drawPickups(){
+  for(const pu of game.pickups){
+    if(pu.taken) continue;
+    const icon = pu.type === 'glue' ? '🧲' : pu.type === 'boost' ? '🚀' : '🛡️';
+    const bobY = Math.sin(game.time*3 + pu.bob)*6;
+    ctx.save();
+    ctx.translate(pu.x, pu.y + bobY - game.cameraY);
+    ctx.font = '28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icon, 0, 0);
+    ctx.restore();
+  }
 }
 
 function drawEyes(dirX, dirY){
@@ -747,6 +1123,7 @@ function drawEyes(dirX, dirY){
 
 function drawSlime(){
   const s = game.slime;
+  const skin = currentSkin();
   ctx.save();
   ctx.translate(s.x, s.y - game.cameraY);
 
@@ -772,13 +1149,13 @@ function drawSlime(){
   }
   ctx.closePath();
   const grad = ctx.createRadialGradient(-SLIME_R*0.3,-SLIME_R*0.4,4, 0,0, SLIME_R*1.35);
-  grad.addColorStop(0, '#c8ff7a');
-  grad.addColorStop(0.55, '#7ee62a');
-  grad.addColorStop(1, '#4ec20f');
+  grad.addColorStop(0, skin.top);
+  grad.addColorStop(0.55, skin.mid);
+  grad.addColorStop(1, skin.bot);
   ctx.fillStyle = grad;
   ctx.fill();
   ctx.lineWidth = 3;
-  ctx.strokeStyle = '#3a9e0a';
+  ctx.strokeStyle = skin.stroke;
   ctx.stroke();
 
   ctx.beginPath();
@@ -788,6 +1165,21 @@ function drawSlime(){
 
   drawEyes(game.eyeDir.x, game.eyeDir.y);
 
+  ctx.restore();
+}
+
+function drawShieldRing(){
+  if(!game.shield) return;
+  const s = game.slime;
+  ctx.save();
+  ctx.translate(s.x, s.y - game.cameraY);
+  ctx.rotate(game.time*2);
+  ctx.beginPath();
+  ctx.arc(0,0, SLIME_R*1.35, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(255,210,63,0.85)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7,5]);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -808,6 +1200,16 @@ function drawStackedBoxes(){
     const b = game.boxes[i];
     if(b.detached) continue;
     const pos = getBoxWorldPos(i);
+    if(b.warning){
+      const pulse = 0.5+0.5*Math.sin(game.time*14);
+      ctx.save();
+      ctx.globalAlpha = 0.35+0.35*pulse;
+      ctx.fillStyle = '#ff3b3b';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y - game.cameraY, BOX_SIZE*0.85, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
     drawBoxSprite(pos.x, pos.y, b.angle, BOX_SIZE+8);
   }
 }
@@ -830,6 +1232,53 @@ function drawParticles(){
     ctx.fill();
     ctx.restore();
   }
+}
+
+function computeTrajectoryPreview(){
+  const s = game.slime;
+  const dx = game.drag.dx, dy = game.drag.dy;
+  const len = Math.hypot(dx,dy) || 1;
+  const power = game.drag.power;
+  let speed = power*power_curve(power)*LAUNCH_SPEED;
+  if(game.boostReady) speed *= 1.4;
+  let vx = -dx/len*speed;
+  let vy = -dy/len*speed;
+  let x = s.x, y = s.y;
+  const pts = [];
+  const dt = 0.032;
+  for(let i=0;i<45;i++){
+    const windA = Math.sin((game.time+i*dt)*0.45 + game.windPhase) * game.windStrengthNow;
+    vx += windA*dt;
+    vy += GRAVITY*dt;
+    x += vx*dt;
+    y += vy*dt;
+    if(x < SLIME_R || x > W-SLIME_R) break;
+    let hit = false;
+    for(const p of game.platforms){
+      if(p === s.stuckPlatform) continue;
+      const cp = closestPointOnRect(x,y,p.x,p.y,p.w,p.h);
+      const ddx = x-cp.x, ddy = y-cp.y;
+      if(ddx*ddx+ddy*ddy < SLIME_R*SLIME_R){ hit = true; break; }
+    }
+    pts.push({x,y});
+    if(hit) break;
+  }
+  return pts;
+}
+
+function drawTrajectoryPreview(){
+  const pts = computeTrajectoryPreview();
+  ctx.save();
+  for(let i=0;i<pts.length;i+=2){
+    const pt = pts[i];
+    const a = 1 - i/pts.length;
+    ctx.globalAlpha = 0.15+a*0.5;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y - game.cameraY, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawAimLine(){
@@ -877,6 +1326,21 @@ function drawAimLine(){
   ctx.restore();
 }
 
+function drawWindIndicator(){
+  const w = game.currentWindAccel;
+  if(Math.abs(w) < 15) return;
+  const alpha = clamp(Math.abs(w)/200, 0.25, 0.9);
+  const arrow = w > 0 ? '➡️ вітер' : '⬅️ вітер';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(arrow, W/2, 76);
+  ctx.restore();
+}
+
 function render(){
   ctx.clearRect(0,0,W,H);
   drawBackground();
@@ -890,15 +1354,20 @@ function render(){
   ctx.save();
   ctx.translate(shakeX, shakeY);
   drawPlatforms();
+  drawPickups();
   drawDetachedBoxes();
   drawSlime();
+  drawShieldRing();
   drawStackedBoxes();
   drawParticles();
+  drawFloatingTexts();
   ctx.restore();
 
   if(game.state === 'aiming'){
+    drawTrajectoryPreview();
     drawAimLine();
   }
+  drawWindIndicator();
 }
 
 let lastT = performance.now();
