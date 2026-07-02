@@ -803,7 +803,7 @@
     watchAd: function () {
       this.watchAdGeneric(function () {
         const p = global.Save.get();
-        p.gold += 100; p.energy += 20; global.Save.save();
+        p.gems += 6; p.energy += 30; global.Save.save();
         global.Audio2.play('coin'); UI.refreshCurrencies();
         UI.toast(T('reward_got'));
       });
@@ -1122,7 +1122,7 @@
     showDaily: function () {
       const p = global.Save.get();
       const today = new Date().toISOString().slice(0, 10);
-      const rewards = [50, 80, 120, 160, 200, 300, 500];
+      const rewards = [50, 80, 120, 160, 200, 300, 40];
       const body = el('div', 'modal-body');
       const grid = el('div', 'daily-grid');
       const dayIdx = p.daily.streak % 7;

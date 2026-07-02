@@ -186,14 +186,14 @@
 
   // ---- Achievements --------------------------------------------------------
   const ACHIEVEMENTS = [
-    { id: 'first_blood', name: 'Перший вибух',     desc: 'Завершіть рівень 1',            goal: 1,    stat: 'levelsWon',   reward: 100 },
-    { id: 'combo_master', name: 'Майстер комбо',   desc: 'Зробіть комбо x5',              goal: 5,    stat: 'maxCombo',    reward: 200 },
-    { id: 'hatch5',       name: 'Дракононяня',     desc: 'Виведіть 5 драконів',           goal: 5,    stat: 'dragonsHatched', reward: 300 },
-    { id: 'crush1000',    name: 'Подрібнювач',     desc: 'Знищіть 1000 кристалів',        goal: 1000, stat: 'crystalsCrushed', reward: 250 },
-    { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 400 },
-    { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 600 },
-    { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 800 },
-    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 1500 }
+    { id: 'first_blood', name: 'Перший вибух',     desc: 'Завершіть рівень 1',            goal: 1,    stat: 'levelsWon',   reward: 8 },
+    { id: 'combo_master', name: 'Майстер комбо',   desc: 'Зробіть комбо x5',              goal: 5,    stat: 'maxCombo',    reward: 12 },
+    { id: 'hatch5',       name: 'Дракононяня',     desc: 'Виведіть 5 драконів',           goal: 5,    stat: 'dragonsHatched', reward: 18 },
+    { id: 'crush1000',    name: 'Подрібнювач',     desc: 'Знищіть 1000 кристалів',        goal: 1000, stat: 'crystalsCrushed', reward: 15 },
+    { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 25 },
+    { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 35 },
+    { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 45 },
+    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 }
   ];
 
   // ---- Daily quests pool ---------------------------------------------------
@@ -215,7 +215,7 @@
         : { type: 'gold', amount: 80 + i * 10 };
       const premium = i % 10 === 0
         ? { type: 'dragon', amount: 1 }
-        : (i % 5 === 0 ? { type: 'gems', amount: 60 } : { type: 'gold', amount: 200 + i * 15 });
+        : (i % 5 === 0 ? { type: 'gems', amount: 40 } : { type: 'gold', amount: 200 + i * 15 });
       tiers.push({ tier: i, xp: i * 100, free, premium });
     }
     return tiers;
