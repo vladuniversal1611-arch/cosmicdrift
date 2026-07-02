@@ -787,6 +787,54 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 .win-double { margin: 10px auto 2px; display: block; animation: pulse 1.3s infinite; }
 .win-double.used { opacity: 0.5; animation: none; }
 
+/* ---- Level map: winding island path ---- */
+#screen-map { background: linear-gradient(180deg, #12405e 0%, #0e2f49 50%, #0a1f34 100%); }
+.map-path { position: relative; width: 100%; margin: 0 auto; }
+.map-path::before {
+  /* subtle water shimmer over the whole path */
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(70% 24% at 22% 6%, rgba(150,215,255,0.10), transparent 60%),
+    radial-gradient(60% 20% at 82% 40%, rgba(150,215,255,0.07), transparent 60%);
+}
+.isle-band {
+  position: absolute; left: 4.5%; right: 4.5%; border-radius: 28px; z-index: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 2px 22px rgba(0,0,0,0.28), 0 8px 20px rgba(0,0,0,0.28);
+}
+.isle-band.cur {
+  border-color: rgba(255,210,77,0.55);
+  box-shadow: 0 0 24px rgba(255,210,77,0.20), inset 0 2px 22px rgba(0,0,0,0.28);
+}
+.isle-band-label {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  font-weight: 900; font-size: 13px; white-space: nowrap;
+  padding: 4px 14px; border-radius: 14px;
+  background: rgba(6,10,20,0.55); border: 1px solid rgba(255,255,255,0.08);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.isle-band-label .isle-stars { color: var(--gold); font-size: 11px; margin-left: 5px; }
+.isle-band-label .lock { color: var(--muted); font-size: 11px; font-weight: 700; margin-left: 5px; }
+.path-bead {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  transform: translate(-50%, -50%); z-index: 1;
+  background: rgba(255,255,255,0.22); box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.path-bead.done { background: var(--gold); box-shadow: 0 0 7px rgba(255,210,77,0.6); }
+.lv-slot { position: absolute; transform: translate(-50%, -50%); z-index: 2; }
+/* round platform nodes (override the old grid-tile styling) */
+.lv-node {
+  width: 62px; height: 62px; aspect-ratio: auto; border-radius: 50%;
+  font-size: 20px;
+  box-shadow: 0 5px 0 rgba(0,0,0,0.30), 0 9px 14px rgba(0,0,0,0.32);
+}
+.lv-node::after { border-radius: 50%; }
+.lv-node.boss { width: 70px; height: 70px; font-size: 26px; }
+.lv-node.current { box-shadow: 0 0 0 4px var(--gold), 0 5px 0 rgba(0,0,0,0.3), 0 9px 14px rgba(0,0,0,0.35); }
+.lv-node.mastered:not(.current) { box-shadow: 0 0 0 3px var(--gold), 0 0 14px rgba(255,210,77,0.5), 0 5px 0 rgba(0,0,0,0.3); }
+.lv-node .lv-stars { bottom: -7px; font-size: 10px; }
+.chest-slot .chest-node { width: 42px; height: 42px; }
+
 </style>
 </head>
 <body>
@@ -4560,9 +4608,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     renderMap: function (keepAnchor) {
       const p = global.Save.get();
       const count = D.ISLANDS.length;
-      const WIN = 8; // islands rendered per page
+      const WIN = 5; // islands rendered per page (~125 levels of winding path)
       const cur = Math.floor((p.levelProgress - 1) / 25);
-      if (!keepAnchor || this.mapAnchor == null) this.mapAnchor = Math.max(0, Math.min(count - WIN, cur - 1));
+      if (!keepAnchor || this.mapAnchor == null) this.mapAnchor = Math.max(0, Math.min(count - WIN, cur - 2));
       const start = Math.max(0, Math.min(count - WIN, this.mapAnchor));
       const end = Math.min(count, start + WIN);
       const s = document.getElementById('screen-map');
@@ -4580,60 +4628,104 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       pager.appendChild(prev); pager.appendChild(jump); pager.appendChild(next);
       s.appendChild(pager);
 
-      const scroll = el('div', 'map-scroll');
       const curIslandId = Math.floor((p.levelProgress - 1) / 25);
+      const startLevel = start * 25 + 1;
+      const endLevel = Math.min(D.LEVELS.length, end * 25);
+      const n = endLevel - startLevel + 1;
+      // Serpentine layout constants (x is a % of width, y is px)
+      const PAD_TOP = 92, STEP = 84, PAD_BOT = 96, AMP = 26, FREQ = 0.7, PHASE = 0.7;
+      const H = PAD_TOP + (n - 1) * STEP + PAD_BOT;
+      const xAt = function (i) { return 50 + AMP * Math.sin(i * FREQ + PHASE); };
+      const yAt = function (i) { return PAD_TOP + i * STEP; };
+
+      const path = el('div', 'map-path');
+      path.style.height = H + 'px';
+
+      // Island theme bands (behind the path) with a floating name label
       D.ISLANDS.slice(start, end).forEach(function (island) {
+        const first = island.id * 25 + 1;
+        const last = Math.min(D.LEVELS.length, island.id * 25 + 25);
+        if (first > endLevel) return;
+        const fi = first - startLevel, li = last - startLevel;
+        const top = yAt(fi) - STEP * 0.55, bot = yAt(li) + STEP * 0.55;
         const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
-        const isCurIsland = island.id === curIslandId;
-        // stars earned across this island's 25 levels (max 75)
         let islandStars = 0;
         for (let k = 0; k < 25; k++) islandStars += (p.stars[island.id * 25 + k + 1] || 0);
-        const block = el('div', 'island-block' + (isCurIsland ? ' cur-island' : ''));
-        block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
-        const head = el('div', 'island-head');
-        head.innerHTML = '<b style="color:' + island.theme + '">' + D.islandName(island) + '</b>' +
-          (unlocked ? '<span class="isle-stars">⭐ ' + islandStars + '/75</span>'
-                    : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
-        block.appendChild(head);
-        const nodes = el('div', 'level-nodes');
-        for (let i = 0; i < 25; i++) {
-          const lvNum = island.id * 25 + i + 1;
-          const lv = D.LEVELS[lvNum - 1];
-          if (!lv) continue;
-          const stars = p.stars[lvNum] || 0;
-          const isUnlocked = lvNum <= p.levelProgress;
-          const done = lvNum < p.levelProgress;
-          const node = el('button', 'lv-node' +
-            (lvNum === p.levelProgress ? ' current' : '') +
-            (done ? ' done' : '') +
-            (stars === 3 ? ' mastered' : '') +
-            (lv.hard ? ' hard' : '') +
-            (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
-          node.innerHTML = (lv.boss ? '👑' : lvNum) +
-            (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
-            (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
-          if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
-          else node.disabled = true;
-          nodes.appendChild(node);
-        }
-        block.appendChild(nodes);
-        // Reward chests at every 5th level of the island
-        const chestRow = el('div', 'chest-row');
+        const band = el('div', 'isle-band' + (island.id === curIslandId ? ' cur' : ''));
+        band.style.top = top + 'px'; band.style.height = (bot - top) + 'px';
+        band.style.background = 'linear-gradient(160deg,' + island.bg1 + 'e6,' + island.bg2 + 'e6)';
+        const label = el('div', 'isle-band-label');
+        label.style.color = island.theme;
+        label.innerHTML = D.islandName(island) +
+          (unlocked ? ' <span class="isle-stars">⭐' + islandStars + '/75</span>'
+                    : ' <span class="lock">🔒 ' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
+        band.appendChild(label);
+        path.appendChild(band);
+      });
+
+      // Bead trail connecting consecutive level nodes
+      for (let i = 0; i < n - 1; i++) {
+        const walked = (startLevel + i + 1) <= p.levelProgress;
+        [0.34, 0.68].forEach(function (f) {
+          const bx = xAt(i) + (xAt(i + 1) - xAt(i)) * f;
+          const by = yAt(i) + (yAt(i + 1) - yAt(i)) * f;
+          const bead = el('div', 'path-bead' + (walked ? ' done' : ''));
+          bead.style.left = bx + '%'; bead.style.top = by + 'px';
+          path.appendChild(bead);
+        });
+      }
+
+      // Milestone chest levels (every 5th) within this window
+      const chestLevels = {};
+      D.ISLANDS.slice(start, end).forEach(function (island) {
         [5, 10, 15, 20, 25].forEach(function (m) {
-          const milestone = island.id * 25 + m;
-          if (milestone > D.LEVELS.length) return;
-          const opened = !!p.chests[milestone];
-          const ready = p.levelProgress > milestone && !opened;
+          const ml = island.id * 25 + m;
+          if (ml <= D.LEVELS.length) chestLevels[ml] = true;
+        });
+      });
+
+      // Level nodes along the path (each wrapped in a positioned slot so the
+      // pulse animation's scale transform doesn't fight the centering transform)
+      for (let i = 0; i < n; i++) {
+        const lvNum = startLevel + i;
+        const lv = D.LEVELS[lvNum - 1];
+        if (!lv) continue;
+        const stars = p.stars[lvNum] || 0;
+        const isUnlocked = lvNum <= p.levelProgress;
+        const done = lvNum < p.levelProgress;
+        const slot = el('div', 'lv-slot');
+        slot.style.left = xAt(i) + '%'; slot.style.top = yAt(i) + 'px';
+        const node = el('button', 'lv-node' +
+          (lvNum === p.levelProgress ? ' current' : '') +
+          (done ? ' done' : '') +
+          (stars === 3 ? ' mastered' : '') +
+          (lv.hard ? ' hard' : '') +
+          (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
+        node.innerHTML = (lv.boss ? '👑' : lvNum) +
+          (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
+          (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
+        if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
+        else node.disabled = true;
+        slot.appendChild(node);
+        path.appendChild(slot);
+
+        // Reward chest sitting to the side of its milestone node
+        if (chestLevels[lvNum]) {
+          const opened = !!p.chests[lvNum];
+          const ready = p.levelProgress > lvNum && !opened;
+          const off = xAt(i) < 50 ? 24 : -24;
+          const cslot = el('div', 'lv-slot chest-slot');
+          cslot.style.left = Math.max(12, Math.min(88, xAt(i) + off)) + '%';
+          cslot.style.top = (yAt(i) - STEP * 0.5) + 'px';
           const chestIcon = (global.UiIcons && global.UiIcons.tag('chest', 'chest-ic-img')) || '🎁';
           const chest = el('button', 'chest-node' + (opened ? ' opened' : ready ? ' ready' : ' locked'),
             opened ? '✅' : chestIcon);
-          if (ready) click(chest, function () { UI.openChest(milestone); });
-          chestRow.appendChild(chest);
-        });
-        block.appendChild(chestRow);
-        scroll.appendChild(block);
-      });
-      s.appendChild(scroll);
+          if (ready) click(chest, function () { UI.openChest(lvNum); });
+          cslot.appendChild(chest);
+          path.appendChild(cslot);
+        }
+      }
+      s.appendChild(path);
       s.appendChild(this.navBar('map'));
       // scroll to current
       setTimeout(function () {

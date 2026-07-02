@@ -460,9 +460,9 @@
     renderMap: function (keepAnchor) {
       const p = global.Save.get();
       const count = D.ISLANDS.length;
-      const WIN = 8; // islands rendered per page
+      const WIN = 5; // islands rendered per page (~125 levels of winding path)
       const cur = Math.floor((p.levelProgress - 1) / 25);
-      if (!keepAnchor || this.mapAnchor == null) this.mapAnchor = Math.max(0, Math.min(count - WIN, cur - 1));
+      if (!keepAnchor || this.mapAnchor == null) this.mapAnchor = Math.max(0, Math.min(count - WIN, cur - 2));
       const start = Math.max(0, Math.min(count - WIN, this.mapAnchor));
       const end = Math.min(count, start + WIN);
       const s = document.getElementById('screen-map');
@@ -480,60 +480,104 @@
       pager.appendChild(prev); pager.appendChild(jump); pager.appendChild(next);
       s.appendChild(pager);
 
-      const scroll = el('div', 'map-scroll');
       const curIslandId = Math.floor((p.levelProgress - 1) / 25);
+      const startLevel = start * 25 + 1;
+      const endLevel = Math.min(D.LEVELS.length, end * 25);
+      const n = endLevel - startLevel + 1;
+      // Serpentine layout constants (x is a % of width, y is px)
+      const PAD_TOP = 92, STEP = 84, PAD_BOT = 96, AMP = 26, FREQ = 0.7, PHASE = 0.7;
+      const H = PAD_TOP + (n - 1) * STEP + PAD_BOT;
+      const xAt = function (i) { return 50 + AMP * Math.sin(i * FREQ + PHASE); };
+      const yAt = function (i) { return PAD_TOP + i * STEP; };
+
+      const path = el('div', 'map-path');
+      path.style.height = H + 'px';
+
+      // Island theme bands (behind the path) with a floating name label
       D.ISLANDS.slice(start, end).forEach(function (island) {
+        const first = island.id * 25 + 1;
+        const last = Math.min(D.LEVELS.length, island.id * 25 + 25);
+        if (first > endLevel) return;
+        const fi = first - startLevel, li = last - startLevel;
+        const top = yAt(fi) - STEP * 0.55, bot = yAt(li) + STEP * 0.55;
         const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
-        const isCurIsland = island.id === curIslandId;
-        // stars earned across this island's 25 levels (max 75)
         let islandStars = 0;
         for (let k = 0; k < 25; k++) islandStars += (p.stars[island.id * 25 + k + 1] || 0);
-        const block = el('div', 'island-block' + (isCurIsland ? ' cur-island' : ''));
-        block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
-        const head = el('div', 'island-head');
-        head.innerHTML = '<b style="color:' + island.theme + '">' + D.islandName(island) + '</b>' +
-          (unlocked ? '<span class="isle-stars">⭐ ' + islandStars + '/75</span>'
-                    : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
-        block.appendChild(head);
-        const nodes = el('div', 'level-nodes');
-        for (let i = 0; i < 25; i++) {
-          const lvNum = island.id * 25 + i + 1;
-          const lv = D.LEVELS[lvNum - 1];
-          if (!lv) continue;
-          const stars = p.stars[lvNum] || 0;
-          const isUnlocked = lvNum <= p.levelProgress;
-          const done = lvNum < p.levelProgress;
-          const node = el('button', 'lv-node' +
-            (lvNum === p.levelProgress ? ' current' : '') +
-            (done ? ' done' : '') +
-            (stars === 3 ? ' mastered' : '') +
-            (lv.hard ? ' hard' : '') +
-            (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
-          node.innerHTML = (lv.boss ? '👑' : lvNum) +
-            (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
-            (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
-          if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
-          else node.disabled = true;
-          nodes.appendChild(node);
-        }
-        block.appendChild(nodes);
-        // Reward chests at every 5th level of the island
-        const chestRow = el('div', 'chest-row');
+        const band = el('div', 'isle-band' + (island.id === curIslandId ? ' cur' : ''));
+        band.style.top = top + 'px'; band.style.height = (bot - top) + 'px';
+        band.style.background = 'linear-gradient(160deg,' + island.bg1 + 'e6,' + island.bg2 + 'e6)';
+        const label = el('div', 'isle-band-label');
+        label.style.color = island.theme;
+        label.innerHTML = D.islandName(island) +
+          (unlocked ? ' <span class="isle-stars">⭐' + islandStars + '/75</span>'
+                    : ' <span class="lock">🔒 ' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
+        band.appendChild(label);
+        path.appendChild(band);
+      });
+
+      // Bead trail connecting consecutive level nodes
+      for (let i = 0; i < n - 1; i++) {
+        const walked = (startLevel + i + 1) <= p.levelProgress;
+        [0.34, 0.68].forEach(function (f) {
+          const bx = xAt(i) + (xAt(i + 1) - xAt(i)) * f;
+          const by = yAt(i) + (yAt(i + 1) - yAt(i)) * f;
+          const bead = el('div', 'path-bead' + (walked ? ' done' : ''));
+          bead.style.left = bx + '%'; bead.style.top = by + 'px';
+          path.appendChild(bead);
+        });
+      }
+
+      // Milestone chest levels (every 5th) within this window
+      const chestLevels = {};
+      D.ISLANDS.slice(start, end).forEach(function (island) {
         [5, 10, 15, 20, 25].forEach(function (m) {
-          const milestone = island.id * 25 + m;
-          if (milestone > D.LEVELS.length) return;
-          const opened = !!p.chests[milestone];
-          const ready = p.levelProgress > milestone && !opened;
+          const ml = island.id * 25 + m;
+          if (ml <= D.LEVELS.length) chestLevels[ml] = true;
+        });
+      });
+
+      // Level nodes along the path (each wrapped in a positioned slot so the
+      // pulse animation's scale transform doesn't fight the centering transform)
+      for (let i = 0; i < n; i++) {
+        const lvNum = startLevel + i;
+        const lv = D.LEVELS[lvNum - 1];
+        if (!lv) continue;
+        const stars = p.stars[lvNum] || 0;
+        const isUnlocked = lvNum <= p.levelProgress;
+        const done = lvNum < p.levelProgress;
+        const slot = el('div', 'lv-slot');
+        slot.style.left = xAt(i) + '%'; slot.style.top = yAt(i) + 'px';
+        const node = el('button', 'lv-node' +
+          (lvNum === p.levelProgress ? ' current' : '') +
+          (done ? ' done' : '') +
+          (stars === 3 ? ' mastered' : '') +
+          (lv.hard ? ' hard' : '') +
+          (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
+        node.innerHTML = (lv.boss ? '👑' : lvNum) +
+          (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
+          (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
+        if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
+        else node.disabled = true;
+        slot.appendChild(node);
+        path.appendChild(slot);
+
+        // Reward chest sitting to the side of its milestone node
+        if (chestLevels[lvNum]) {
+          const opened = !!p.chests[lvNum];
+          const ready = p.levelProgress > lvNum && !opened;
+          const off = xAt(i) < 50 ? 24 : -24;
+          const cslot = el('div', 'lv-slot chest-slot');
+          cslot.style.left = Math.max(12, Math.min(88, xAt(i) + off)) + '%';
+          cslot.style.top = (yAt(i) - STEP * 0.5) + 'px';
           const chestIcon = (global.UiIcons && global.UiIcons.tag('chest', 'chest-ic-img')) || '🎁';
           const chest = el('button', 'chest-node' + (opened ? ' opened' : ready ? ' ready' : ' locked'),
             opened ? '✅' : chestIcon);
-          if (ready) click(chest, function () { UI.openChest(milestone); });
-          chestRow.appendChild(chest);
-        });
-        block.appendChild(chestRow);
-        scroll.appendChild(block);
-      });
-      s.appendChild(scroll);
+          if (ready) click(chest, function () { UI.openChest(lvNum); });
+          cslot.appendChild(chest);
+          path.appendChild(cslot);
+        }
+      }
+      s.appendChild(path);
       s.appendChild(this.navBar('map'));
       // scroll to current
       setTimeout(function () {
