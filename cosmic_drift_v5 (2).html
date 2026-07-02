@@ -1634,13 +1634,23 @@ function showRewardedAd(onReward,onSkip){
   if(typeof window.cdShowRewardedAd==='function'){window.cdShowRewardedAd(onReward,onSkip);return;}
   onReward&&onReward(); // web fallback (no native ads): grant directly
 }
+let reviveBusy=false;
+function resetReviveBtn(){
+  const b=document.getElementById('reviveBtn');b.style.pointerEvents='';b.textContent='📺 REVIVE';
+}
 function showRevivePrompt(){
-  st='revive';
+  st='revive';reviveBusy=false;
+  resetReviveBtn();
+  document.getElementById('reviveMsg').textContent='Watch a short ad to revive with a fresh shield and keep your score.';
   document.getElementById('reviveOv').className='on';
 }
 function doRevive(){
-  document.getElementById('reviveOv').className='';
-  showRewardedAd(()=>{
+  if(reviveBusy)return;reviveBusy=true;                       // avoid double taps while the ad loads
+  const b=document.getElementById('reviveBtn');b.style.pointerEvents='none';b.textContent='⏳ LOADING…';
+  document.getElementById('reviveMsg').textContent='Loading ad…';
+  showRewardedAd(()=>{                                        // reward earned
+    document.getElementById('reviveOv').className='';
+    resetReviveBtn();reviveBusy=false;
     reviveUsed=true;
     lives=Math.max(lives,2);
     bombAll();                 // clear the screen so the player isn't instantly hit
@@ -1649,9 +1659,14 @@ function doRevive(){
     sndShield();updateHUD();updatePuHUD();
     st='playing';
     if(musicOn)startMusic();
-  },()=>{declineRevive();});
+  },()=>{                                                     // no ad available / skipped
+    document.getElementById('reviveMsg').textContent='No ad available right now.';
+    resetReviveBtn();reviveBusy=false;
+    setTimeout(()=>{document.getElementById('reviveOv').className='';doGameOver();},1000);
+  });
 }
 function declineRevive(){
+  if(reviveBusy)return;
   document.getElementById('reviveOv').className='';
   doGameOver();
 }
