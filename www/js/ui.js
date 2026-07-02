@@ -471,8 +471,9 @@
       // player's progress. Levels climb bottom -> top (index 0 lowest, at the
       // bottom). Nodes are virtualized: only chunks near the viewport are
       // mounted, so the path can span thousands of levels cheaply.
-      const AHEAD = 15;
-      const maxLevel = Math.min(total, progress + AHEAD);
+      // Show the entire journey (level 1 .. last). Nodes are virtualized, so a
+      // 5000-level path stays cheap; the water is a pinned viewport-sized layer.
+      const maxLevel = total;
       const n = maxLevel;                       // level = index + 1
       const curIslandId = Math.floor((progress - 1) / 25);
       const lastIsle = Math.floor((maxLevel - 1) / 25);
@@ -489,13 +490,14 @@
 
       const path = el('div', 'map-path');
       path.style.height = H + 'px';
+      let waterEl = null;
       if (haveArt) {
         path.classList.add('art');
-        // Water lives on its own layer so it can drift (GPU transform) for a
-        // subtle "living water" motion without repainting the whole path.
-        const water = el('div', 'map-water');
-        water.style.backgroundImage = 'url(' + MS('water') + ')';
-        path.appendChild(water);
+        // Water is a viewport-pinned (sticky) layer that gently drifts — its
+        // size is independent of the very tall path, so it stays cheap.
+        waterEl = el('div', 'map-water');
+        waterEl.style.backgroundImage = 'url(' + MS('water') + ')';
+        path.appendChild(waterEl);
       }
 
       // Island name signs (kept mounted for every island in range — cheap)
@@ -608,6 +610,7 @@
       mountChunks(Math.floor((progress - 1) / CHUNK) - 2, Math.floor((progress - 1) / CHUNK) + 2);
       global.requestAnimationFrame(function () {
         const vh = s.clientHeight || global.innerHeight || 700;
+        if (waterEl) waterEl.style.height = vh + 'px';
         s.scrollTop = Math.max(0, path.offsetTop + yAt(progress - 1) - vh / 2);
         update();
       });
