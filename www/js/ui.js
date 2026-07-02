@@ -485,7 +485,7 @@
       const endLevel = Math.min(D.LEVELS.length, end * 25);
       const n = endLevel - startLevel + 1;
       // Serpentine layout constants (x is a % of width, y is px)
-      const PAD_TOP = 92, STEP = 84, PAD_BOT = 96, AMP = 26, FREQ = 0.7, PHASE = 0.7;
+      const PAD_TOP = 96, STEP = 92, PAD_BOT = 100, AMP = 27, FREQ = 0.7, PHASE = 0.7;
       const H = PAD_TOP + (n - 1) * STEP + PAD_BOT;
       const xAt = function (i) { return 50 + AMP * Math.sin(i * FREQ + PHASE); };
       const yAt = function (i) { return PAD_TOP + i * STEP; };
