@@ -341,7 +341,9 @@
       choices.forEach(function (rel) {
         const card = document.createElement('div');
         card.className = 'relic-card';
-        card.innerHTML = '<div class="relic-ic">' + rel.ic + '</div><div class="relic-info"><b>' + T('relic_' + rel.id) + '</b><span>' + T('relic_' + rel.id + '_d') + '</span></div>';
+        const RELIC_ICON = { moves: 'moves', charge: 'energy', score: 'relic_score', specials: 'relic_specials', power: 'fever', shield: 'relic_shield' };
+        const rIcon = (global.UiIcons && global.UiIcons.tag(RELIC_ICON[rel.id], 'relic-ic-img')) || rel.ic;
+        card.innerHTML = '<div class="relic-ic">' + rIcon + '</div><div class="relic-info"><b>' + T('relic_' + rel.id) + '</b><span>' + T('relic_' + rel.id + '_d') + '</span></div>';
         card.addEventListener('click', function () {
           global.Audio2.play('coin');
           if (rel.id === 'shield') self.run.revive = true; else self.run.relics.push(rel.id);
