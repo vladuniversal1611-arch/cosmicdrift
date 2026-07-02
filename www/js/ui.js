@@ -462,44 +462,40 @@
       const total = D.LEVELS.length;
       const progress = p.levelProgress;
       const s = document.getElementById('screen-map');
+      // Detach a previous scroll handler before re-rendering (avoid leaks/dupes)
+      if (this._mapScroll) { this._mapScroll.el.removeEventListener('scroll', this._mapScroll.fn); this._mapScroll = null; }
       clear(s);
       s.appendChild(this.currencyBar());
 
-      // One continuous scroll (no pages): recent levels below + a short
-      // look-ahead above. Levels climb from the bottom upward.
-      const PAST = 120, AHEAD = 15;
-      const startLevel = Math.max(1, progress - PAST);
-      const endLevel = Math.min(total, progress + AHEAD);
-      const n = endLevel - startLevel + 1;
+      // One continuous path from level 1 up to a short look-ahead past the
+      // player's progress. Levels climb bottom -> top (index 0 lowest, at the
+      // bottom). Nodes are virtualized: only chunks near the viewport are
+      // mounted, so the path can span thousands of levels cheaply.
+      const AHEAD = 15;
+      const maxLevel = Math.min(total, progress + AHEAD);
+      const n = maxLevel;                       // level = index + 1
       const curIslandId = Math.floor((progress - 1) / 25);
-      const firstIsle = Math.floor((startLevel - 1) / 25);
-      const lastIsle = Math.floor((endLevel - 1) / 25);
-      // Serpentine layout constants (x is a % of width, y is px). y is inverted
-      // so index 0 (lowest level) sits at the bottom and numbers rise upward.
+      const lastIsle = Math.floor((maxLevel - 1) / 25);
       const PAD_TOP = 74, STEP = 92, PAD_BOT = 112, AMP = 27, FREQ = 0.7, PHASE = 0.7;
       const H = PAD_TOP + (n - 1) * STEP + PAD_BOT;
       const xAt = function (i) { return 50 + AMP * Math.sin(i * FREQ + PHASE); };
       const yAt = function (i) { return (H - PAD_BOT) - i * STEP; };
 
-      const path = el('div', 'map-path');
-      path.style.height = H + 'px';
-
-      // Painted map art (falls back to CSS look if sprites are unavailable)
       const MS = function (id) {
         return (global.MapSprites && global.MapSprites.url(id)) ||
           ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
       };
-      // Painted art is used whenever the loader is present; url() resolves to
-      // inlined data URIs (single-file build) or assets/map/*.png (served app).
       const haveArt = !!global.MapSprites;
+
+      const path = el('div', 'map-path');
+      path.style.height = H + 'px';
       if (haveArt) { path.classList.add('art'); path.style.backgroundImage = 'url(' + MS('water') + ')'; }
 
-      // Floating island name signs over the water (sits above each island's top level)
-      for (let isl = firstIsle; isl <= lastIsle; isl++) {
+      // Island name signs (kept mounted for every island in range — cheap)
+      for (let isl = 0; isl <= lastIsle; isl++) {
         const island = D.ISLANDS[isl];
         if (!island) continue;
-        const topLevel = Math.min(endLevel, isl * 25 + 25);
-        const ti = topLevel - startLevel;
+        const ti = Math.min(maxLevel, isl * 25 + 25) - 1;
         const unlocked = progress > island.unlockLevel || island.unlockLevel === 0;
         let islandStars = 0;
         for (let k = 0; k < 25; k++) islandStars += (p.stars[isl * 25 + k + 1] || 0);
@@ -512,34 +508,22 @@
         path.appendChild(sign);
       }
 
-      // Bead trail connecting consecutive level nodes
-      for (let i = 0; i < n - 1; i++) {
-        const walked = (startLevel + i + 1) <= p.levelProgress;
-        [0.34, 0.68].forEach(function (f) {
-          const bx = xAt(i) + (xAt(i + 1) - xAt(i)) * f;
-          const by = yAt(i) + (yAt(i + 1) - yAt(i)) * f;
-          const bead = el('div', 'path-bead' + (walked ? ' done' : ''));
-          bead.style.left = bx + '%'; bead.style.top = by + 'px';
-          if (haveArt) bead.style.backgroundImage = 'url(' + MS(walked ? 'bead_done' : 'bead_todo') + ')';
-          path.appendChild(bead);
-        });
-      }
-
-      // Milestone chest levels (every 5th) within this window
-      const chestLevels = {};
-      for (let isl = firstIsle; isl <= lastIsle; isl++) {
-        [5, 10, 15, 20, 25].forEach(function (m) {
-          const ml = isl * 25 + m;
-          if (ml <= total) chestLevels[ml] = true;
-        });
-      }
-
-      // Level nodes along the path (each wrapped in a positioned slot so the
-      // pulse animation's scale transform doesn't fight the centering transform)
-      for (let i = 0; i < n; i++) {
-        const lvNum = startLevel + i;
+      // Build one level's elements (outgoing bead pair + node + milestone chest)
+      const buildLevel = function (i, box) {
+        const lvNum = i + 1;
         const lv = D.LEVELS[lvNum - 1];
-        if (!lv) continue;
+        if (!lv) return;
+        if (i < n - 1) {
+          const walked = (lvNum + 1) <= p.levelProgress;
+          [0.34, 0.68].forEach(function (f) {
+            const bx = xAt(i) + (xAt(i + 1) - xAt(i)) * f;
+            const by = yAt(i) + (yAt(i + 1) - yAt(i)) * f;
+            const bead = el('div', 'path-bead' + (walked ? ' done' : ''));
+            bead.style.left = bx + '%'; bead.style.top = by + 'px';
+            if (haveArt) bead.style.backgroundImage = 'url(' + MS(walked ? 'bead_done' : 'bead_todo') + ')';
+            box.appendChild(bead);
+          });
+        }
         const stars = p.stars[lvNum] || 0;
         const isUnlocked = lvNum <= p.levelProgress;
         const done = lvNum < p.levelProgress;
@@ -547,10 +531,8 @@
         const slot = el('div', 'lv-slot');
         slot.style.left = xAt(i) + '%'; slot.style.top = yAt(i) + 'px';
         const node = el('button', 'lv-node' + (haveArt ? ' art' : '') +
-          (isCur ? ' current' : '') +
-          (done ? ' done' : '') +
-          (stars === 3 ? ' mastered' : '') +
-          (lv.hard ? ' hard' : '') +
+          (isCur ? ' current' : '') + (done ? ' done' : '') +
+          (stars === 3 ? ' mastered' : '') + (lv.hard ? ' hard' : '') +
           (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
         let platImg = '';
         if (haveArt) {
@@ -563,10 +545,8 @@
         if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
         else node.disabled = true;
         slot.appendChild(node);
-        path.appendChild(slot);
-
-        // Reward chest sitting to the side of its milestone node
-        if (chestLevels[lvNum]) {
+        box.appendChild(slot);
+        if (lvNum % 5 === 0) {
           const opened = !!p.chests[lvNum];
           const ready = p.levelProgress > lvNum && !opened;
           const off = xAt(i) < 50 ? 24 : -24;
@@ -578,16 +558,54 @@
             opened ? '✅' : chestIcon);
           if (ready) click(chest, function () { UI.openChest(lvNum); });
           cslot.appendChild(chest);
-          path.appendChild(cslot);
+          box.appendChild(cslot);
         }
-      }
+      };
+
+      // Chunked virtualization: mount/unmount groups of levels as they scroll in
+      const CHUNK = 12, BUFFER = 800;
+      const totalChunks = Math.ceil(n / CHUNK);
+      const mounted = new Map();
+      const buildChunk = function (cid) {
+        const box = el('div', 'map-chunk');
+        const lo = cid * CHUNK, hi = Math.min(n - 1, lo + CHUNK - 1);
+        for (let i = lo; i <= hi; i++) buildLevel(i, box);
+        return box;
+      };
+
       s.appendChild(path);
       s.appendChild(this.navBar('map'));
-      // scroll to current
-      setTimeout(function () {
-        const cur = s.querySelector('.lv-node.current');
-        if (cur) cur.scrollIntoView({ block: 'center' });
-      }, 30);
+
+      const pathTop = path.offsetTop;
+      const update = function () {
+        const vh = s.clientHeight || global.innerHeight || 700;
+        const top = s.scrollTop;
+        const yLo = top - pathTop - BUFFER;
+        const yHi = top - pathTop + vh + BUFFER;
+        const iA = Math.floor(((H - PAD_BOT) - yHi) / STEP);
+        const iB = Math.ceil(((H - PAD_BOT) - yLo) / STEP);
+        const cLo = Math.max(0, Math.floor(Math.min(iA, iB) / CHUNK));
+        const cHi = Math.min(totalChunks - 1, Math.ceil(Math.max(iA, iB) / CHUNK));
+        for (let c = cLo; c <= cHi; c++) {
+          if (!mounted.has(c)) { const b = buildChunk(c); mounted.set(c, b); path.appendChild(b); }
+        }
+        mounted.forEach(function (b, c) {
+          if (c < cLo - 1 || c > cHi + 1) { b.remove(); mounted.delete(c); }
+        });
+      };
+
+      // Centre the current level, then mount whatever is visible
+      const vh0 = s.clientHeight || global.innerHeight || 700;
+      s.scrollTop = Math.max(0, pathTop + yAt(progress - 1) - vh0 / 2);
+      update();
+
+      let raf = 0;
+      const onScroll = function () {
+        if (raf) return;
+        raf = global.requestAnimationFrame(function () { raf = 0; update(); });
+      };
+      s.addEventListener('scroll', onScroll);
+      this._mapScroll = { el: s, fn: onScroll };
     },
 
     openChest: function (milestone) {
