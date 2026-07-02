@@ -576,16 +576,8 @@
       s.appendChild(path);
       s.appendChild(this.navBar('map'));
 
-      const pathTop = path.offsetTop;
-      const update = function () {
-        const vh = s.clientHeight || global.innerHeight || 700;
-        const top = s.scrollTop;
-        const yLo = top - pathTop - BUFFER;
-        const yHi = top - pathTop + vh + BUFFER;
-        const iA = Math.floor(((H - PAD_BOT) - yHi) / STEP);
-        const iB = Math.ceil(((H - PAD_BOT) - yLo) / STEP);
-        const cLo = Math.max(0, Math.floor(Math.min(iA, iB) / CHUNK));
-        const cHi = Math.min(totalChunks - 1, Math.ceil(Math.max(iA, iB) / CHUNK));
+      const mountChunks = function (cLo, cHi) {
+        cLo = Math.max(0, cLo); cHi = Math.min(totalChunks - 1, cHi);
         for (let c = cLo; c <= cHi; c++) {
           if (!mounted.has(c)) { const b = buildChunk(c); mounted.set(c, b); path.appendChild(b); }
         }
@@ -593,11 +585,25 @@
           if (c < cLo - 1 || c > cHi + 1) { b.remove(); mounted.delete(c); }
         });
       };
+      const update = function () {
+        const vh = s.clientHeight || global.innerHeight || 700;
+        const pathTop = path.offsetTop;
+        const yLo = s.scrollTop - pathTop - BUFFER;
+        const yHi = s.scrollTop - pathTop + vh + BUFFER;
+        const iA = Math.floor(((H - PAD_BOT) - yHi) / STEP);
+        const iB = Math.ceil(((H - PAD_BOT) - yLo) / STEP);
+        mountChunks(Math.floor(Math.min(iA, iB) / CHUNK), Math.ceil(Math.max(iA, iB) / CHUNK));
+      };
 
-      // Centre the current level, then mount whatever is visible
-      const vh0 = s.clientHeight || global.innerHeight || 700;
-      s.scrollTop = Math.max(0, pathTop + yAt(progress - 1) - vh0 / 2);
-      update();
+      // Mount around the current level right away (so the view isn't blank),
+      // then centre it once the screen is actually shown & laid out. go() calls
+      // renderMap() before show(id), so scrollTop must be set in a later frame.
+      mountChunks(Math.floor((progress - 1) / CHUNK) - 2, Math.floor((progress - 1) / CHUNK) + 2);
+      global.requestAnimationFrame(function () {
+        const vh = s.clientHeight || global.innerHeight || 700;
+        s.scrollTop = Math.max(0, path.offsetTop + yAt(progress - 1) - vh / 2);
+        update();
+      });
 
       let raf = 0;
       const onScroll = function () {
