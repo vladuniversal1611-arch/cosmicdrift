@@ -845,12 +845,29 @@
         '<div class="win-rewards">' + global.UI.rich(T('win_rewards', { gold: gold, energy: energy })) + '</div>' +
         global.UI.rich(streakHtml) + global.UI.rich(piggyHtml);
       const self = this;
+      const adBreak = function () { try { global.Ads && global.Ads.interstitial(); } catch (e) {} };
       const btns = [
-        { label: T('btn_map'), onClick: function () { self.go('map'); } },
+        { label: T('btn_map'), onClick: function () { adBreak(); self.go('map'); } },
         { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
-      if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { self.startLevel(lvNum + 1); } });
-      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } });
+      if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { adBreak(); self.startLevel(lvNum + 1); } });
+      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { adBreak(); self.go('home'); } });
+      // Rewarded: optionally double the level reward by watching an ad (once).
+      if ((gold > 0 || energy > 0)) {
+        const dbl = document.createElement('button');
+        dbl.className = 'btn btn-buy win-double';
+        dbl.innerHTML = '📺 ' + T('double_reward');
+        dbl.addEventListener('click', function () {
+          if (dbl.disabled) return;
+          global.Ads.rewarded(function () {
+            const pp = global.Save.get(); pp.gold += gold; pp.energy += energy; global.Save.save();
+            global.Audio2.play('coin'); global.UI.refreshCurrencies();
+            global.UI.toast(global.UI.rich('+' + gold + '🪙 +' + energy + '⚡'));
+          }, null);
+          dbl.disabled = true; dbl.classList.add('used');
+        });
+        body.appendChild(dbl);
+      }
       // staggered star sounds
       for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
       global.UI.modal(T('victory'), body, btns);

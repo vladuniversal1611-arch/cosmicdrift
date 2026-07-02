@@ -613,6 +613,17 @@
   const HARD = { uk: 'Складний рівень', en: 'Hard level', es: 'Nivel difícil', de: 'Schweres Level', fr: 'Niveau difficile', pt: 'Nível difícil' };
   Object.keys(HARD).forEach(function (l) { STR[l].hard_level = HARD[l]; });
 
+  // Ads / rewarded.
+  const ADS = {
+    uk: { double_reward: 'Подвоїти нагороду', ad_label: 'Реклама', ad_skip: 'Пропустити' },
+    en: { double_reward: 'Double reward', ad_label: 'Ad', ad_skip: 'Skip' },
+    es: { double_reward: 'Duplicar recompensa', ad_label: 'Anuncio', ad_skip: 'Saltar' },
+    de: { double_reward: 'Belohnung verdoppeln', ad_label: 'Werbung', ad_skip: 'Überspringen' },
+    fr: { double_reward: 'Doubler la récompense', ad_label: 'Pub', ad_skip: 'Passer' },
+    pt: { double_reward: 'Dobrar recompensa', ad_label: 'Anúncio', ad_skip: 'Pular' }
+  };
+  Object.keys(ADS).forEach(function (l) { Object.assign(STR[l], ADS[l]); });
+
   // Win/lose screen polish.
   const WL = {
     uk: { so_close: 'Так близько!', short_by: 'Не вистачило: {n}', perfect: 'ПЕРФЕКТ!', first_clear: 'Перше проходження!', boss: 'Бос' },

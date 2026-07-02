@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const ORDER = ['data', 'i18n', 'sprites', 'save', 'audio', 'engine', 'ui', 'main'];
+const ORDER = ['data', 'i18n', 'sprites', 'save', 'audio', 'ads', 'engine', 'ui', 'main'];
 const DRAGONS = ['flare', 'frost', 'storm', 'verdant', 'aether',
   'boss_ash', 'boss_titan', 'boss_storm', 'boss_beast', 'boss_phoenix', 'egg'];
 

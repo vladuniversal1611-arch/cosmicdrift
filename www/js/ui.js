@@ -780,6 +780,11 @@
     // Generic simulated rewarded ad; calls onReward() on completion.
     // In the packaged app this routes to the AdMob plugin if present.
     watchAdGeneric: function (onReward) {
+      // Unified rewarded path: real AdMob on native, simulated overlay on web.
+      if (global.Ads && global.Ads.rewarded) {
+        global.Ads.rewarded(function () { onReward && onReward(); }, null);
+        return;
+      }
       if (global.AdMobBridge && global.AdMobBridge.showRewarded) {
         global.AdMobBridge.showRewarded(function () { onReward && onReward(); });
         return;
