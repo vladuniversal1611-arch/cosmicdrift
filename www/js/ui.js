@@ -489,7 +489,14 @@
 
       const path = el('div', 'map-path');
       path.style.height = H + 'px';
-      if (haveArt) { path.classList.add('art'); path.style.backgroundImage = 'url(' + MS('water') + ')'; }
+      if (haveArt) {
+        path.classList.add('art');
+        // Water lives on its own layer so it can drift (GPU transform) for a
+        // subtle "living water" motion without repainting the whole path.
+        const water = el('div', 'map-water');
+        water.style.backgroundImage = 'url(' + MS('water') + ')';
+        path.appendChild(water);
+      }
 
       // Island name signs (kept mounted for every island in range — cheap)
       for (let isl = 0; isl <= lastIsle; isl++) {

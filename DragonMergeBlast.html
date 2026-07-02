@@ -923,10 +923,33 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 }
 
 /* ---- Level map: painted art mode (GPT sprites) ---- */
-.map-path.art {
-  background-size: 100% auto; background-repeat: repeat-y; background-position: center top;
-}
 .map-path.art::before { display: none; } /* real water replaces the CSS shimmer */
+/* animated water layer: gently drifts (GPU transform) so the sea feels alive */
+.map-water {
+  position: absolute; left: 0; right: 0; top: -26px; bottom: -26px; z-index: 0;
+  pointer-events: none;
+  background-size: 100% auto; background-repeat: repeat-y; background-position: center top;
+  will-change: transform; transform: translate3d(0,0,0);
+  animation: waterDrift 15s ease-in-out infinite alternate;
+}
+/* slow light-caustics shimmer sweeping over the water */
+.map-water::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 26% at 28% 18%, rgba(255,255,255,0.10), transparent 62%),
+    radial-gradient(110% 22% at 72% 58%, rgba(190,240,255,0.09), transparent 62%),
+    radial-gradient(120% 24% at 40% 88%, rgba(255,255,255,0.07), transparent 62%);
+  mix-blend-mode: screen; will-change: transform;
+  animation: waterCaustics 11s ease-in-out infinite alternate;
+}
+@keyframes waterDrift {
+  from { transform: translate3d(-8px, -7px, 0); }
+  to   { transform: translate3d(8px, 13px, 0); }
+}
+@keyframes waterCaustics {
+  from { transform: translate3d(0, 0, 0); opacity: 0.85; }
+  to   { transform: translate3d(16px, -12px, 0); opacity: 1; }
+}
 
 /* platform node = painted <img> sprite (object-fit:contain never clips, and
    is immune to the state-color `background:` shorthands). Number on top face. */
@@ -4817,7 +4840,14 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 
       const path = el('div', 'map-path');
       path.style.height = H + 'px';
-      if (haveArt) { path.classList.add('art'); path.style.backgroundImage = 'url(' + MS('water') + ')'; }
+      if (haveArt) {
+        path.classList.add('art');
+        // Water lives on its own layer so it can drift (GPU transform) for a
+        // subtle "living water" motion without repainting the whole path.
+        const water = el('div', 'map-water');
+        water.style.backgroundImage = 'url(' + MS('water') + ')';
+        path.appendChild(water);
+      }
 
       // Island name signs (kept mounted for every island in range — cheap)
       for (let isl = 0; isl <= lastIsle; isl++) {
