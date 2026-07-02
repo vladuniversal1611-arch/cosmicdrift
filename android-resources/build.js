@@ -61,7 +61,16 @@ const uiIcons = {};
   const p = path.join(ROOT, 'www/assets/ui/' + nm + '.png');
   if (fs.existsSync(p)) uiIcons[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';</script>\n';
+// Inline level-map art: platform nodes + path beads (PNG) and the water tile (JPG).
+const mapSprites = {};
+['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss', 'bead_done', 'bead_todo', 'bead_moss'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/map/' + nm + '.png');
+  if (fs.existsSync(p)) mapSprites[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+});
+const waterP = path.join(ROOT, 'www/assets/map/water_tile.jpg');
+if (fs.existsSync(waterP)) mapSprites['water'] = 'data:image/jpeg;base64,' + fs.readFileSync(waterP).toString('base64');
+
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');

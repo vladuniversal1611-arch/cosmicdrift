@@ -100,4 +100,20 @@
     // Returns an <img> tag (or empty string) for inlining into DOM innerHTML.
     tag: function (id, cls) { return uiUrls[id] ? '<img class="uicon ' + (cls || '') + '" src="' + uiUrls[id] + '" alt="">' : ''; }
   };
+
+  // ---- Level-map art: platform nodes, path beads, water background ----------
+  const MAP_IDS = ['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss',
+    'bead_done', 'bead_todo', 'bead_moss', 'water'];
+  const mapInline = global.MAP_SPRITES || null;
+  const mapUrls = {};
+  MAP_IDS.forEach(function (id) {
+    mapUrls[id] = (mapInline && mapInline[id]) ? mapInline[id]
+      : ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
+  });
+  global.MapSprites = {
+    url: function (id) { return mapUrls[id] || null; },
+    // Only report "has art" when sprites were inlined (single-file build);
+    // guards the CSS fallback path in the map renderer.
+    has: function (id) { return !!(mapInline && mapInline[id]); }
+  };
 })(window);

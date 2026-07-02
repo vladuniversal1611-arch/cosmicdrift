@@ -493,26 +493,31 @@
       const path = el('div', 'map-path');
       path.style.height = H + 'px';
 
-      // Island theme bands (behind the path) with a floating name label
+      // Painted map art (falls back to CSS look if sprites are unavailable)
+      const MS = function (id) {
+        return (global.MapSprites && global.MapSprites.url(id)) ||
+          ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
+      };
+      // Painted art is used whenever the loader is present; url() resolves to
+      // inlined data URIs (single-file build) or assets/map/*.png (served app).
+      const haveArt = !!global.MapSprites;
+      if (haveArt) { path.classList.add('art'); path.style.backgroundImage = 'url(' + MS('water') + ')'; }
+
+      // Floating island name signs over the water
       D.ISLANDS.slice(start, end).forEach(function (island) {
         const first = island.id * 25 + 1;
-        const last = Math.min(D.LEVELS.length, island.id * 25 + 25);
         if (first > endLevel) return;
-        const fi = first - startLevel, li = last - startLevel;
-        const top = yAt(fi) - STEP * 0.55, bot = yAt(li) + STEP * 0.55;
+        const fi = first - startLevel;
         const unlocked = p.levelProgress > island.unlockLevel || island.unlockLevel === 0;
         let islandStars = 0;
         for (let k = 0; k < 25; k++) islandStars += (p.stars[island.id * 25 + k + 1] || 0);
-        const band = el('div', 'isle-band' + (island.id === curIslandId ? ' cur' : ''));
-        band.style.top = top + 'px'; band.style.height = (bot - top) + 'px';
-        band.style.background = 'linear-gradient(160deg,' + island.bg1 + 'e6,' + island.bg2 + 'e6)';
-        const label = el('div', 'isle-band-label');
-        label.style.color = island.theme;
-        label.innerHTML = D.islandName(island) +
+        const sign = el('div', 'isle-sign' + (island.id === curIslandId ? ' cur' : ''));
+        sign.style.top = (yAt(fi) - 54) + 'px';
+        sign.style.color = island.theme;
+        sign.innerHTML = D.islandName(island) +
           (unlocked ? ' <span class="isle-stars">⭐' + islandStars + '/75</span>'
                     : ' <span class="lock">🔒 ' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
-        band.appendChild(label);
-        path.appendChild(band);
+        path.appendChild(sign);
       });
 
       // Bead trail connecting consecutive level nodes
@@ -523,6 +528,7 @@
           const by = yAt(i) + (yAt(i + 1) - yAt(i)) * f;
           const bead = el('div', 'path-bead' + (walked ? ' done' : ''));
           bead.style.left = bx + '%'; bead.style.top = by + 'px';
+          if (haveArt) bead.style.backgroundImage = 'url(' + MS(walked ? 'bead_done' : 'bead_todo') + ')';
           path.appendChild(bead);
         });
       }
@@ -545,15 +551,20 @@
         const stars = p.stars[lvNum] || 0;
         const isUnlocked = lvNum <= p.levelProgress;
         const done = lvNum < p.levelProgress;
+        const isCur = lvNum === p.levelProgress;
         const slot = el('div', 'lv-slot');
         slot.style.left = xAt(i) + '%'; slot.style.top = yAt(i) + 'px';
-        const node = el('button', 'lv-node' +
-          (lvNum === p.levelProgress ? ' current' : '') +
+        const node = el('button', 'lv-node' + (haveArt ? ' art' : '') +
+          (isCur ? ' current' : '') +
           (done ? ' done' : '') +
           (stars === 3 ? ' mastered' : '') +
           (lv.hard ? ' hard' : '') +
           (isUnlocked ? '' : ' locked') + (lv.boss ? ' boss' : ''));
-        node.innerHTML = (lv.boss ? '👑' : lvNum) +
+        if (haveArt) {
+          const sprite = lv.boss ? 'p_boss' : done ? 'p_done' : isCur ? 'p_current' : isUnlocked ? 'p_upcoming' : 'p_locked';
+          node.style.backgroundImage = 'url(' + MS(sprite) + ')';
+        }
+        node.innerHTML = '<span class="lv-num">' + (lv.boss ? '👑' : lvNum) + '</span>' +
           (lv.hard && isUnlocked && !lv.boss ? '<span class="lv-hard">🔥</span>' : '') +
           (stars ? '<span class="lv-stars">' + '★'.repeat(stars) + '</span>' : '');
         if (isUnlocked) click(node, function () { UI.showLevelPreview(lvNum); });
