@@ -102,6 +102,9 @@
       this.inLevel = false;
       this.gameScreen.classList.add('hidden');
       global.UI.closeModal();
+      // Clear any lingering in-game dialogue / tip bubbles when leaving a level.
+      const dp = this.root.querySelector('.dialogue-pop'); if (dp) dp.remove();
+      const tp = this.root.querySelector('.tip-pop'); if (tp) tp.remove();
       const prog = global.Save.get().levelProgress;
       global.Audio2.setIsland(Math.floor((prog - 1) / 25)); // hub music matches current island
       if (id === 'home') global.UI.renderHome();
