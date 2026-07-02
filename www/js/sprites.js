@@ -103,7 +103,8 @@
 
   // ---- Level-map art: platform nodes, path beads, water background ----------
   const MAP_IDS = ['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss',
-    'bead_done', 'bead_todo', 'bead_moss', 'water'];
+    'bead_done', 'bead_todo', 'bead_moss', 'water',
+    'cloud1', 'cloud2', 'cloud3', 'islet', 'gulls', 'signpost', 'boat', 'lighthouse', 'buoy'];
   const mapInline = global.MAP_SPRITES || null;
   const mapUrls = {};
   MAP_IDS.forEach(function (id) {

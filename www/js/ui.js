@@ -487,6 +487,17 @@
           ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
       };
       const haveArt = !!global.MapSprites;
+      // Deterministic hash so decorations are stable across mount/unmount
+      const hashI = function (i) { let x = (i * 2654435761) >>> 0; x ^= x >>> 13; x = (x * 1274126177) >>> 0; return x >>> 0; };
+      const DECOR = [
+        { s: ['cloud1', 'cloud2', 'cloud3'], cls: 'd-cloud' },
+        { s: ['gulls'], cls: 'd-gulls' },
+        { s: ['boat'], cls: 'd-boat' },
+        { s: ['buoy'], cls: 'd-buoy' },
+        { s: ['islet'], cls: 'd-islet' },
+        { s: ['signpost'], cls: 'd-sign' },
+        { s: ['lighthouse'], cls: 'd-lh' }
+      ];
 
       const path = el('div', 'map-path');
       path.style.height = H + 'px';
@@ -568,6 +579,19 @@
           if (ready) click(chest, function () { UI.openChest(lvNum); });
           cslot.appendChild(chest);
           box.appendChild(cslot);
+        }
+        // scattered, animated sea/sky decorations (deterministic placement)
+        if (haveArt && (hashI(i) % 100) < 17) {
+          const dh = hashI(i * 7 + 3);
+          const pick = DECOR[(dh >>> 3) % DECOR.length];
+          const nodeX = xAt(i);
+          const dx = nodeX < 50 ? 60 + (dh % 28) : 12 + (dh % 28);
+          const dec = el('div', 'map-decor ' + pick.cls);
+          dec.style.left = Math.max(6, Math.min(92, dx)) + '%';
+          dec.style.top = (yAt(i) + ((dh >>> 11) % 46 - 23)) + 'px';
+          dec.style.backgroundImage = 'url(' + MS(pick.s[(dh >>> 7) % pick.s.length]) + ')';
+          dec.style.animationDelay = '-' + (dh % 9000) + 'ms';
+          box.appendChild(dec);
         }
       };
 

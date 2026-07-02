@@ -63,7 +63,8 @@ const uiIcons = {};
 });
 // Inline level-map art: platform nodes + path beads (PNG) and the water tile (JPG).
 const mapSprites = {};
-['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss', 'bead_done', 'bead_todo', 'bead_moss'].forEach(function (nm) {
+['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss', 'bead_done', 'bead_todo', 'bead_moss',
+ 'cloud1', 'cloud2', 'cloud3', 'islet', 'gulls', 'signpost', 'boat', 'lighthouse', 'buoy'].forEach(function (nm) {
   const p = path.join(ROOT, 'www/assets/map/' + nm + '.png');
   if (fs.existsSync(p)) mapSprites[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
 });
