@@ -69,11 +69,11 @@
   // ---- Islands -------------------------------------------------------------
   // Five base biomes, cycled to generate a long world of islands.
   const BASE_ISLANDS = [
-    { name: 'Острів Світанку',  theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a' },
-    { name: 'Крижані Вершини',  theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63' },
-    { name: 'Грозове Плато',    theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470' },
-    { name: 'Смарагдові Хащі',  theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236' },
-    { name: 'Небесна Цитадель', theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18' }
+    { name: 'Острів Світанку',  nameKey: 'isle_dawn',    theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a' },
+    { name: 'Крижані Вершини',  nameKey: 'isle_frost',   theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63' },
+    { name: 'Грозове Плато',    nameKey: 'isle_storm',   theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470' },
+    { name: 'Смарагдові Хащі',  nameKey: 'isle_emerald', theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236' },
+    { name: 'Небесна Цитадель', nameKey: 'isle_sky',     theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18' }
   ];
   const TOTAL_LEVELS = 5000;
   const LEVELS_PER_ISLAND = 25;
@@ -82,8 +82,9 @@
   for (let k = 0; k < ISLAND_COUNT; k++) {
     const base = BASE_ISLANDS[k % BASE_ISLANDS.length];
     const cycleNum = Math.floor(k / BASE_ISLANDS.length); // 0,1,2... how many times biome repeated
+    const nameSuffix = cycleNum > 0 ? ' ' + romanNumeral(cycleNum + 1) : '';
     ISLANDS.push({
-      id: k, name: base.name + (cycleNum > 0 ? ' ' + romanNumeral(cycleNum + 1) : ''),
+      id: k, name: base.name + nameSuffix, baseName: base.name, nameKey: base.nameKey, nameSuffix: nameSuffix,
       theme: base.theme, bg1: base.bg1, bg2: base.bg2, unlockLevel: k * LEVELS_PER_ISLAND
     });
   }
@@ -348,10 +349,30 @@
     { id: 'ch7', ic: '🐉', at: 151 }
   ];
 
+  // Localized content-name helpers. Content (dragon titles/descs, island and
+  // boss names) is authored in data with a translation key; these resolve the
+  // key via the i18n layer at render time, falling back to the authored string
+  // if the key is missing for the current language.
+  function loc(key, fallback) {
+    if (global.T && key) { const s = global.T(key); if (s && s !== key) return s; }
+    return fallback;
+  }
+  function dragonTitle(def) { return def ? loc('dt_' + def.id, def.title) : ''; }
+  function dragonDesc(def) { return def ? loc('dd_' + def.id, def.desc) : ''; }
+  function bossName(def) {
+    if (!def) return loc('boss_default', 'Boss');
+    return loc('bn_' + String(def.sprite || '').replace('boss_', ''), def.name);
+  }
+  function islandName(isl) {
+    if (!isl) return '';
+    return loc(isl.nameKey, isl.baseName || isl.name) + (isl.nameSuffix || '');
+  }
+
   global.GameData = {
     CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     WHEEL, WHEEL_SPIN_COST, SUMMON_COST, SUMMON_POOL, SKILLS, skillById, skillMods, STORY_CHAPTERS,
+    dragonTitle: dragonTitle, dragonDesc: dragonDesc, bossName: bossName, islandName: islandName,
     dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
   };
 })(window);

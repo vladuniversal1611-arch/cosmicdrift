@@ -207,7 +207,7 @@
       s.appendChild(this.currencyBar());
 
       const title = el('div', 'home-title');
-      title.innerHTML = '<h1>Dragon Merge Blast</h1><p>' + island.name + '</p>';
+      title.innerHTML = '<h1>Dragon Blast</h1><p>' + D.islandName(island) + '</p>';
       s.appendChild(title);
 
       // Live-ops event banner
@@ -248,7 +248,7 @@
         card.setAttribute('data-egg', idx);
         card.innerHTML =
           '<div class="egg-emoji">' + spriteGlyph('egg', '🥚', 'egg-sprite', def.glow) + '</div>' +
-          '<div class="egg-name">' + def.title + '</div>' +
+          '<div class="egg-name">' + D.dragonTitle(def) + '</div>' +
           '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;background:' + def.color + '"></div></div>' +
           '<div class="egg-pct">' + (ready ? '✨ ' + T('egg_ready') : T('egg_remaining', { n: egg.need - egg.charge })) + '</div>';
         const btn = el('button', 'btn btn-mini ' + (ready ? 'btn-primary' : 'btn-ghost'),
@@ -406,8 +406,8 @@
         const def = D.dragonById(egg.dragon);
         UI.hatchAnim(def, function () {
           UI.modal(T('new_dragon'), el('div', 'modal-body',
-            '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + def.title + '</b>' +
-            '<p class="dragon-quote">“' + T('dragon_q_' + def.id) + '”</p><p>' + def.desc + '</p>'),
+            '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div><b>' + D.dragonTitle(def) + '</b>' +
+            '<p class="dragon-quote">“' + T('dragon_q_' + def.id) + '”</p><p>' + D.dragonDesc(def) + '</p>'),
             [{ label: T('great'), primary: true, onClick: function () { UI.renderHome(); } }]);
         });
       } else {
@@ -491,7 +491,7 @@
         const block = el('div', 'island-block' + (isCurIsland ? ' cur-island' : ''));
         block.style.background = 'linear-gradient(135deg,' + island.bg1 + 'cc,' + island.bg2 + 'cc)';
         const head = el('div', 'island-head');
-        head.innerHTML = '<b style="color:' + island.theme + '">' + island.name + '</b>' +
+        head.innerHTML = '<b style="color:' + island.theme + '">' + D.islandName(island) + '</b>' +
           (unlocked ? '<span class="isle-stars">⭐ ' + islandStars + '/75</span>'
                     : '<span class="lock">' + T('locked_at', { n: island.unlockLevel + 1 }) + '</span>');
         block.appendChild(head);
@@ -638,9 +638,9 @@
           (owned ? '<div class="dc-tier">' + '⭐'.repeat(tier) + '</div>' : '') +
           '<div class="dc-emoji">' + (owned ? dragonGlyph(def, '', (D.SKIN_COLORS[p.activeSkins[def.id]] || def).glow || def.glow) : '<span class="demoji" style="filter:drop-shadow(0 0 ' + glowMul + 'px #444)">❔</span>') + '</div>' +
           '<div class="dc-name" style="color:' + skinColor + '">' + def.name + '</div>' +
-          '<div class="dc-title">' + def.title + '</div>' +
+          '<div class="dc-title">' + D.dragonTitle(def) + '</div>' +
           (owned ? '<div class="dc-lvl">' + T('dc_level', { n: lvl }) + ' · ' + T('tier', { n: tier }) + '</div>' : '<div class="dc-lvl muted">' + T('not_unlocked') + '</div>') +
-          '<div class="dc-desc">' + def.desc + '</div>';
+          '<div class="dc-desc">' + D.dragonDesc(def) + '</div>';
         if (owned) click(card, function () { UI.showUpgrade(def.id); });
         grid.appendChild(card);
       });
@@ -662,7 +662,7 @@
       body.innerHTML =
         '<div class="big-emoji">' + dragonGlyph(def, 'big-sprite', def.glow) + '</div>' +
         '<div class="dc-tier" style="position:static;margin:4px 0">' + '⭐'.repeat(tier) + '</div>' +
-        '<p>' + def.desc + '</p>' +
+        '<p>' + D.dragonDesc(def) + '</p>' +
         '<div class="up-stats">' +
         '<div>' + T('cur_level') + ': <b>' + lvl + '</b> · ' + T('tier', { n: tier }) + '</div>' +
         '<div>' + T('ability_power') + ': <b>' + (lvl + (tier - 1) * 2) + '</b> → <b>' + (lvl + 1 + (tier - 1) * 2) + '</b></div>' +

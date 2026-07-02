@@ -47,7 +47,7 @@
       skills: {},                       // dragon skill tree: { skillId: level }
       pvp: { trophies: 0, wins: 0, losses: 0, lastDate: '', played: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'uk', autoDragons: false, perf: false, colorblind: false },
+      settings: { sound: true, music: true, vibration: true, language: 'en', autoDragons: false, perf: false, colorblind: false },
       tutorialDone: false,
       tips: {},
       story: { bossSeen: {}, read: {} }, // read: story chapters the player opened
