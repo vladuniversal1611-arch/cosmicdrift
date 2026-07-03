@@ -1105,6 +1105,23 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 }
 @media (max-height: 640px) { .map-rail { gap: 11px; } .rail-chip { width: 42px; height: 42px; } .rail-lbl { font-size: 8px; } }
 
+/* ---- Gem-pack promo card ---- */
+.shop-card.promo {
+  position: relative; overflow: visible;
+  border: 1px solid rgba(255,210,77,0.55);
+  box-shadow: 0 0 16px rgba(255,190,60,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  background: linear-gradient(120deg, rgba(255,180,60,0.12), rgba(255,120,60,0.06));
+}
+.shop-card .promo-tag {
+  position: absolute; top: -9px; left: 12px; z-index: 2;
+  font-size: 10px; font-weight: 900; letter-spacing: 0.4px; color: #3a1a00;
+  padding: 2px 9px; border-radius: 9px;
+  background: linear-gradient(120deg, #ffd24d, #ff8a3d);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.pack-was { color: var(--muted); opacity: 0.8; font-weight: 700; margin-right: 3px; text-decoration: line-through; }
+.shop-card.promo .shop-info b { color: #ffd24d; }
+
 </style>
 </head>
 <body>
@@ -2383,7 +2400,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_venom: 'Отруйний дракон', dd_venom: 'Розповсюджує отруту, що з’їдає цілу групу одного кольору.', dragon_q_venom: 'Отрута знайде кожного.',
       dt_terra: 'Земляний дракон', dd_terra: 'Викликає землетрус, що трощить нижні ряди поля.', dragon_q_terra: 'Земля здригнеться від мого реву.',
       dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
-      rarity_legendary: 'легендарний', sr_legendary: 'легендарний'
+      rarity_legendary: 'легендарний', sr_legendary: 'легендарний',
+      promo_x5: '🔥 АКЦІЯ ×5', promo_bonus: 'Бонус! +20% кристалів'
     },
     en: {
       dt_magma: 'Magma Dragon', dd_magma: 'Hurls a molten bomb that blasts a 3×3 area of crystals.', dragon_q_magma: 'The earth burns at my breath.',
@@ -2393,7 +2411,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_venom: 'Venom Dragon', dd_venom: 'Spreads a toxic bloom that eats a whole cluster of one colour.', dragon_q_venom: 'The poison finds everyone.',
       dt_terra: 'Terra Dragon', dd_terra: 'Triggers an earthquake that shatters the bottom rows.', dragon_q_terra: 'The earth trembles at my roar.',
       dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
-      rarity_legendary: 'legendary', sr_legendary: 'legendary'
+      rarity_legendary: 'legendary', sr_legendary: 'legendary',
+      promo_x5: '🔥 SALE ×5', promo_bonus: 'Bonus! +20% gems'
     }
   };
   Object.keys(DRG).forEach(function (l) { if (STR[l]) Object.assign(STR[l], DRG[l]); });
@@ -5441,13 +5460,21 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       adCard.appendChild(adBtn);
       s.appendChild(adCard);
 
-      // Gem packs (IAP placeholders)
+      // Gem packs (IAP placeholders). x5 value on every pack; the $9.99 pack is
+      // a promo: the x5 amount (6000) is struck through and a bonus 7200 shown.
       s.appendChild(el('div', 'section-h', T('gems_section')));
       [
-        { gems: 100, price: '$0.99' }, { gems: 550, price: '$4.99' }, { gems: 1200, price: '$9.99' }
+        { gems: 500, price: '$0.99' },
+        { gems: 2750, price: '$4.99' },
+        { gems: 7200, was: 6000, price: '$9.99' }
       ].forEach(function (pack) {
-        const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' 💎</b><span>' + T('best_price') + '</span></div>';
+        const c = el('div', 'shop-card' + (pack.was ? ' promo' : ''));
+        const amount = pack.was
+          ? '<s class="pack-was">' + pack.was + '</s> <b>' + pack.gems + '</b> 💎'
+          : '<b>' + pack.gems + ' 💎</b>';
+        c.innerHTML = (pack.was ? '<div class="promo-tag">' + T('promo_x5') + '</div>' : '') +
+          '<div class="shop-ic">💎</div><div class="shop-info"><b>' + amount + '</b><span>' +
+          T(pack.was ? 'promo_bonus' : 'best_price') + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
         c.appendChild(b); s.appendChild(c);
       });

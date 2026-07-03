@@ -832,13 +832,21 @@
       adCard.appendChild(adBtn);
       s.appendChild(adCard);
 
-      // Gem packs (IAP placeholders)
+      // Gem packs (IAP placeholders). x5 value on every pack; the $9.99 pack is
+      // a promo: the x5 amount (6000) is struck through and a bonus 7200 shown.
       s.appendChild(el('div', 'section-h', T('gems_section')));
       [
-        { gems: 100, price: '$0.99' }, { gems: 550, price: '$4.99' }, { gems: 1200, price: '$9.99' }
+        { gems: 500, price: '$0.99' },
+        { gems: 2750, price: '$4.99' },
+        { gems: 7200, was: 6000, price: '$9.99' }
       ].forEach(function (pack) {
-        const c = el('div', 'shop-card');
-        c.innerHTML = '<div class="shop-ic">💎</div><div class="shop-info"><b>' + pack.gems + ' 💎</b><span>' + T('best_price') + '</span></div>';
+        const c = el('div', 'shop-card' + (pack.was ? ' promo' : ''));
+        const amount = pack.was
+          ? '<s class="pack-was">' + pack.was + '</s> <b>' + pack.gems + '</b> 💎'
+          : '<b>' + pack.gems + ' 💎</b>';
+        c.innerHTML = (pack.was ? '<div class="promo-tag">' + T('promo_x5') + '</div>' : '') +
+          '<div class="shop-ic">💎</div><div class="shop-info"><b>' + amount + '</b><span>' +
+          T(pack.was ? 'promo_bonus' : 'best_price') + '</span></div>';
         const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
         c.appendChild(b); s.appendChild(c);
       });
