@@ -471,7 +471,7 @@
 
       const MS = function (id) {
         return (global.MapSprites && global.MapSprites.url(id)) ||
-          ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
+          ('assets/map/' + id + '.webp');
       };
       const haveArt = !!global.MapSprites;
       // Deterministic hash so decorations are stable across mount/unmount

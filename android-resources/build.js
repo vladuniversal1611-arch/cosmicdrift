@@ -13,10 +13,10 @@ let css = fs.readFileSync(path.join(ROOT, 'www/css/style.css'), 'utf8');
 // Inline any CSS-referenced panel backgrounds as data URIs so url() resolves
 // inside the single-file build (which has no asset files served).
 ['panel_gold', 'panel_green', 'panel_ghost', 'panel_dark', 'panel_blue', 'panel_red'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/panels/' + nm + '.png');
+  const p = path.join(ROOT, 'www/assets/panels/' + nm + '.webp');
   if (fs.existsSync(p)) {
-    const uri = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
-    css = css.split('assets/panels/' + nm + '.png').join(uri);
+    const uri = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
+    css = css.split('assets/panels/' + nm + '.webp').join(uri);
   }
 });
 const js = ORDER.map(f => fs.readFileSync(path.join(ROOT, 'www/js/' + f + '.js'), 'utf8')).join('\n//----\n');
@@ -24,32 +24,32 @@ const js = ORDER.map(f => fs.readFileSync(path.join(ROOT, 'www/js/' + f + '.js')
 // Inline dragon sprites as data URIs so the single file works offline.
 const sprites = {};
 DRAGONS.forEach(function (id) {
-  const p = path.join(ROOT, 'www/assets/dragons/' + id + '.png');
-  if (fs.existsSync(p)) sprites[id] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/dragons/' + id + '.webp');
+  if (fs.existsSync(p)) sprites[id] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
 // Inline crystal gem sprites (gem0..gem5) the same way.
 const gems = {};
 for (let i = 0; i < 6; i++) {
-  const p = path.join(ROOT, 'www/assets/gems/gem' + i + '.png');
-  if (fs.existsSync(p)) gems['gem' + i] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/gems/gem' + i + '.webp');
+  if (fs.existsSync(p)) gems['gem' + i] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 }
 // Inline special-crystal marker sprites (line_h/line_v/bomb/rainbow).
 const specials = {};
 ['line_h', 'line_v', 'bomb', 'rainbow'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/specials/' + nm + '.png');
-  if (fs.existsSync(p)) specials[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/specials/' + nm + '.webp');
+  if (fs.existsSync(p)) specials[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
 // Inline blocker sprites (ice / crate / chain).
 const blockers = {};
 ['ice', 'crate', 'chain'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/blockers/' + nm + '.png');
-  if (fs.existsSync(p)) blockers[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/blockers/' + nm + '.webp');
+  if (fs.existsSync(p)) blockers[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
 // Inline jelly sprites.
 const jelly = {};
 ['jelly1', 'jelly2'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/jelly/' + nm + '.png');
-  if (fs.existsSync(p)) jelly[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/jelly/' + nm + '.webp');
+  if (fs.existsSync(p)) jelly[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
 // Inline UI icons (currency / boosters / star).
 const uiIcons = {};
@@ -59,18 +59,18 @@ const uiIcons = {};
  'tile_story', 'tile_quests', 'tile_leaderboard', 'tile_ach', 'tile_settings',
  'farm_volcano', 'farm_garden', 'farm_forge', 'farm_mine', 'piggy', 'chest', 'fever', 'event',
  'mode_trials', 'mode_blitz', 'mode_endless', 'mode_daily', 'mode_adventure', 'relic_score', 'relic_specials', 'relic_shield'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/ui/' + nm + '.png');
-  if (fs.existsSync(p)) uiIcons[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/ui/' + nm + '.webp');
+  if (fs.existsSync(p)) uiIcons[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
 // Inline level-map art: platform nodes + path beads (PNG) and the water tile (JPG).
 const mapSprites = {};
 ['p_done', 'p_current', 'p_locked', 'p_upcoming', 'p_boss', 'bead_done', 'bead_todo', 'bead_moss',
  'cloud1', 'cloud2', 'cloud3', 'islet', 'gulls', 'gull_strip', 'signpost', 'boat', 'lighthouse', 'buoy'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/map/' + nm + '.png');
-  if (fs.existsSync(p)) mapSprites[nm] = 'data:image/png;base64,' + fs.readFileSync(p).toString('base64');
+  const p = path.join(ROOT, 'www/assets/map/' + nm + '.webp');
+  if (fs.existsSync(p)) mapSprites[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
 });
-const waterP = path.join(ROOT, 'www/assets/map/water_tile.jpg');
-if (fs.existsSync(waterP)) mapSprites['water'] = 'data:image/jpeg;base64,' + fs.readFileSync(waterP).toString('base64');
+const waterP = path.join(ROOT, 'www/assets/map/water_tile.webp');
+if (fs.existsSync(waterP)) mapSprites['water'] = 'data:image/webp;base64,' + fs.readFileSync(waterP).toString('base64');
 
 const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';</script>\n';
 

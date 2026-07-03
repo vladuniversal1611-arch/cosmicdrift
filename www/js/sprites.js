@@ -10,7 +10,7 @@
   const inline = global.DRAGON_SPRITES || null;
   const urls = {}, imgs = {};
   IDS.forEach(function (id) {
-    urls[id] = (inline && inline[id]) ? inline[id] : ('assets/dragons/' + id + '.png');
+    urls[id] = (inline && inline[id]) ? inline[id] : ('assets/dragons/' + id + '.webp');
     if (typeof global.Image === 'function') {
       try { const im = new global.Image(); im.src = urls[id]; imgs[id] = im; } catch (e) {}
     }
@@ -26,7 +26,7 @@
   const gUrls = {}, gImgs = {};
   for (let i = 0; i < 6; i++) {
     const id = 'gem' + i;
-    gUrls[i] = (gInline && gInline[id]) ? gInline[id] : ('assets/gems/' + id + '.png');
+    gUrls[i] = (gInline && gInline[id]) ? gInline[id] : ('assets/gems/' + id + '.webp');
     if (typeof global.Image === 'function') {
       try { const im = new global.Image(); im.src = gUrls[i]; gImgs[i] = im; } catch (e) {}
     }
@@ -44,7 +44,7 @@
   const sUrls = {}, sImgs = {};
   Object.keys(SP_NAMES).forEach(function (k) {
     const nm = SP_NAMES[k];
-    sUrls[k] = (sInline && sInline[nm]) ? sInline[nm] : ('assets/specials/' + nm + '.png');
+    sUrls[k] = (sInline && sInline[nm]) ? sInline[nm] : ('assets/specials/' + nm + '.webp');
     if (typeof global.Image === 'function') {
       try { const im = new global.Image(); im.src = sUrls[k]; sImgs[k] = im; } catch (e) {}
     }
@@ -59,7 +59,7 @@
   const bkInline = global.BLOCKER_SPRITES || null;
   const bkUrls = {}, bkImgs = {};
   BK_IDS.forEach(function (id) {
-    bkUrls[id] = (bkInline && bkInline[id]) ? bkInline[id] : ('assets/blockers/' + id + '.png');
+    bkUrls[id] = (bkInline && bkInline[id]) ? bkInline[id] : ('assets/blockers/' + id + '.webp');
     if (typeof global.Image === 'function') {
       try { const im = new global.Image(); im.src = bkUrls[id]; bkImgs[id] = im; } catch (e) {}
     }
@@ -74,7 +74,7 @@
   const jUrls = {}, jImgs = {};
   ['jelly1', 'jelly2'].forEach(function (nm, i) {
     const k = i + 1;
-    jUrls[k] = (jInline && jInline[nm]) ? jInline[nm] : ('assets/jelly/' + nm + '.png');
+    jUrls[k] = (jInline && jInline[nm]) ? jInline[nm] : ('assets/jelly/' + nm + '.webp');
     if (typeof global.Image === 'function') {
       try { const im = new global.Image(); im.src = jUrls[k]; jImgs[k] = im; } catch (e) {}
     }
@@ -94,7 +94,7 @@
   const uiInline = global.UI_ICONS || null;
   const uiUrls = {};
   UI_IDS.forEach(function (id) {
-    uiUrls[id] = (uiInline && uiInline[id]) ? uiInline[id] : ('assets/ui/' + id + '.png');
+    uiUrls[id] = (uiInline && uiInline[id]) ? uiInline[id] : ('assets/ui/' + id + '.webp');
   });
   global.UiIcons = {
     url: function (id) { return uiUrls[id] || null; },
@@ -110,7 +110,7 @@
   const mapUrls = {};
   MAP_IDS.forEach(function (id) {
     mapUrls[id] = (mapInline && mapInline[id]) ? mapInline[id]
-      : ('assets/map/' + id + (id === 'water' ? '.jpg' : '.png'));
+      : ('assets/map/' + id + '.webp');
   });
   global.MapSprites = {
     url: function (id) { return mapUrls[id] || null; },
