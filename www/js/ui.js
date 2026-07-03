@@ -491,7 +491,7 @@
       const hashI = function (i) { let x = (i * 2654435761) >>> 0; x ^= x >>> 13; x = (x * 1274126177) >>> 0; return x >>> 0; };
       const DECOR = [
         { s: ['cloud1', 'cloud2', 'cloud3'], cls: 'd-cloud' },
-        { s: ['gulls'], cls: 'd-gulls' },
+        { s: ['gull_strip'], cls: 'd-gull1' },
         { s: ['boat'], cls: 'd-boat' },
         { s: ['buoy'], cls: 'd-buoy' },
         { s: ['islet'], cls: 'd-islet' },
