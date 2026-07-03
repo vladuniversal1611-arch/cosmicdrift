@@ -5,6 +5,7 @@
 (function (global) {
   'use strict';
   const IDS = ['flare', 'frost', 'storm', 'verdant', 'aether',
+    'magma', 'tide', 'shadow', 'celestial',
     'boss_ash', 'boss_titan', 'boss_storm', 'boss_beast', 'boss_phoenix', 'egg'];
   const inline = global.DRAGON_SPRITES || null;
   const urls = {}, imgs = {};
