@@ -1122,6 +1122,15 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 .pack-was { color: var(--muted); opacity: 0.8; font-weight: 700; margin-right: 3px; text-decoration: line-through; }
 .shop-card.promo .shop-info b { color: #ffd24d; }
 
+/* ---- "Loading ad…" placeholder spinner ---- */
+.ad-spin {
+  width: 46px; height: 46px; margin: 6px auto 14px; border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.18); border-top-color: var(--gold);
+  animation: adSpin 0.8s linear infinite;
+}
+@keyframes adSpin { to { transform: rotate(360deg); } }
+.ad-loading .ad-sim-title { color: #fff; font-weight: 800; }
+
 </style>
 </head>
 <body>
@@ -1437,16 +1446,25 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   ];
 
   // Skin colour overrides for rendering.
+  // filter = CSS filter applied to the dragon sprite so the skin actually
+  // recolours the dragon (not just its glow / name colour).
+  // filter = CSS filter applied to the dragon sprite (tuned per that dragon's
+  // base hue) so the skin visibly recolours the whole dragon.
   const SKIN_COLORS = {
-    lava:    { color: '#ff3b1f', glow: '#ffae5c' },
-    gold:    { color: '#ffd24d', glow: '#fff4c2' },
-    glacier: { color: '#9fe8ff', glow: '#ffffff' },
-    aurora:  { color: '#7affd0', glow: '#c2b9ff' },
-    voltage: { color: '#d6a3ff', glow: '#fff0a0' },
-    nebula:  { color: '#7a5cff', glow: '#ff7ad0' },
-    bloom:   { color: '#5fe39a', glow: '#ffd0e8' },
-    crystal: { color: '#a0ffd6', glow: '#ffffff' },
-    prism:   { color: '#ffd24d', glow: '#9fd0ff' }
+    // flare (orange base)
+    lava:    { color: '#ff3b1f', glow: '#ffae5c', filter: 'hue-rotate(-15deg) saturate(1.75) brightness(0.98) contrast(1.1)' },
+    gold:    { color: '#ffd24d', glow: '#fff4c2', filter: 'sepia(0.6) saturate(2.1) hue-rotate(-8deg) brightness(1.16)' },
+    // frost (cyan-blue base)
+    glacier: { color: '#9fe8ff', glow: '#ffffff', filter: 'saturate(0.85) brightness(1.22) hue-rotate(10deg)' },
+    aurora:  { color: '#7affd0', glow: '#c2b9ff', filter: 'hue-rotate(-45deg) saturate(1.4) brightness(1.12)' },
+    // storm (violet base)
+    voltage: { color: '#d6a3ff', glow: '#fff0a0', filter: 'hue-rotate(-20deg) saturate(1.5) brightness(1.15)' },
+    nebula:  { color: '#7a5cff', glow: '#ff7ad0', filter: 'hue-rotate(40deg) saturate(1.5) brightness(1.06)' },
+    // verdant (green base)
+    bloom:   { color: '#5fe39a', glow: '#ffd0e8', filter: 'hue-rotate(180deg) saturate(1.4) brightness(1.1)' },
+    crystal: { color: '#a0ffd6', glow: '#ffffff', filter: 'hue-rotate(40deg) saturate(1.3) brightness(1.18)' },
+    // aether (gold base)
+    prism:   { color: '#ffd24d', glow: '#9fd0ff', filter: 'hue-rotate(180deg) saturate(1.5) brightness(1.1)' }
   };
 
   // Fake competitor names for the local leaderboard.
@@ -2401,7 +2419,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_terra: 'Земляний дракон', dd_terra: 'Викликає землетрус, що трощить нижні ряди поля.', dragon_q_terra: 'Земля здригнеться від мого реву.',
       dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
       rarity_legendary: 'легендарний', sr_legendary: 'легендарний',
-      promo_x5: '🔥 АКЦІЯ ×5', promo_bonus: 'Бонус! +20% кристалів'
+      promo_x5: '🔥 АКЦІЯ ×5', promo_bonus: 'Бонус! +20% кристалів',
+      ad_loading: 'Реклама завантажується…'
     },
     en: {
       dt_magma: 'Magma Dragon', dd_magma: 'Hurls a molten bomb that blasts a 3×3 area of crystals.', dragon_q_magma: 'The earth burns at my breath.',
@@ -2412,7 +2431,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_terra: 'Terra Dragon', dd_terra: 'Triggers an earthquake that shatters the bottom rows.', dragon_q_terra: 'The earth trembles at my roar.',
       dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
       rarity_legendary: 'legendary', sr_legendary: 'legendary',
-      promo_x5: '🔥 SALE ×5', promo_bonus: 'Bonus! +20% gems'
+      promo_x5: '🔥 SALE ×5', promo_bonus: 'Bonus! +20% gems',
+      ad_loading: 'Loading ad…'
     }
   };
   Object.keys(DRG).forEach(function (l) { if (STR[l]) Object.assign(STR[l], DRG[l]); });
@@ -2997,26 +3017,50 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     else { simulate('rewarded', function (completed) { if (completed && onReward) onReward(); if (onClose) onClose(); }); }
   }
 
+  // A lightweight "loading ad…" placeholder shown while we try to fetch a real
+  // ad. If no real ad is available yet (e.g. the app is still under AdMob
+  // review / no fill), we fall back to the simulated ad so the button still
+  // works and the reward is granted, instead of silently doing nothing.
+  function loadingOverlay() {
+    const T = global.T || function (k) { return k; };
+    const layer = document.createElement('div');
+    layer.className = 'ad-sim ad-loading';
+    layer.innerHTML = '<div class="ad-sim-card"><div class="ad-spin"></div><div class="ad-sim-title">' +
+      (T('ad_loading') || 'Loading ad…') + '</div></div>';
+    (global.UI && global.UI.root ? global.UI.root : document.body).appendChild(layer);
+    return layer;
+  }
+
   function showNativeRewarded(onReward, onClose) {
     const AdMob = plugin();
-    let earned = false, done = false, rl, dl, fl;
-    const finish = function () {
-      if (done) return; done = true;
-      try { rl && rl.remove(); dl && dl.remove(); fl && fl.remove(); } catch (e) {}
+    let handled = false, earned = false, rl, dl, fl;
+    const overlay = loadingOverlay();
+    const t0 = Date.now();
+    const rmListeners = function () { try { rl && rl.remove(); dl && dl.remove(); fl && fl.remove(); } catch (e) {} };
+    const rmOverlay = function () { if (overlay && overlay.parentNode) overlay.remove(); };
+    const fallback = function () { // no real ad → simulate so the feature works
+      if (handled) return; handled = true; clearTimeout(tmr); rmListeners();
+      const wait = Math.max(0, 900 - (Date.now() - t0)); // keep the placeholder visible a beat
+      setTimeout(function () { rmOverlay(); simulate('rewarded', function (ok) { if (ok && onReward) onReward(); if (onClose) onClose(); }); }, wait);
+    };
+    const finishReal = function () {
+      if (handled) return; handled = true; clearTimeout(tmr); rmListeners(); rmOverlay();
       if (earned && onReward) onReward();
       if (onClose) onClose();
       prepareRewarded(); // preload the next one
     };
-    // Event names per @capacitor-community/admob (RewardAdPluginEvents).
+    const tmr = setTimeout(fallback, 6000); // safety: no ad within 6s → fall back
     try {
       rl = AdMob.addListener('onRewardedVideoAdReward', function () { earned = true; });
-      dl = AdMob.addListener('onRewardedVideoAdDismissed', finish);
-      fl = AdMob.addListener('onRewardedVideoAdFailedToShow', finish);
+      dl = AdMob.addListener('onRewardedVideoAdDismissed', finishReal);
+      fl = AdMob.addListener('onRewardedVideoAdFailedToShow', fallback);
     } catch (e) {}
     ensureInit().then(function () {
       const go = rewardedReady ? Promise.resolve() : prepareRewarded();
-      go.then(function () { return AdMob.showRewardVideoAd(); }).catch(finish);
-    });
+      return go.then(function () { return AdMob.showRewardVideoAd(); });
+    }).then(function () {
+      clearTimeout(tmr); rmOverlay(); // real ad is showing
+    }).catch(fallback);
   }
 
   // ---- Interstitial --------------------------------------------------------
@@ -3037,11 +3081,23 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   }
   function showNativeInterstitial() {
     const AdMob = plugin();
+    let handled = false;
+    const overlay = loadingOverlay();
+    const t0 = Date.now();
+    const removeOverlay = function () { if (overlay && overlay.parentNode) overlay.remove(); };
+    const fallback = function () {
+      if (handled) return; handled = true; clearTimeout(tmr);
+      const wait = Math.max(0, 900 - (Date.now() - t0));
+      setTimeout(function () { removeOverlay(); simulate('interstitial', function () {}); }, wait);
+    };
+    const tmr = setTimeout(fallback, 6000);
     ensureInit().then(function () {
       const go = interReady ? Promise.resolve() : prepareInterstitial();
-      go.then(function () { return AdMob.showInterstitial(); }).catch(function () {})
-        .then(function () { interReady = false; prepareInterstitial(); });
-    });
+      return go.then(function () { return AdMob.showInterstitial(); });
+    }).then(function () {
+      clearTimeout(tmr); if (handled) return; handled = true; removeOverlay();
+      interReady = false; prepareInterstitial();
+    }).catch(fallback);
   }
 
   // ---- Web/preview simulation ---------------------------------------------
@@ -4653,15 +4709,24 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   }
 
   // Sprite glyph: <img> when a sprite id is available, otherwise emoji.
-  function spriteGlyph(spriteId, emoji, cls, glow) {
+  function spriteGlyph(spriteId, emoji, cls, glow, skinFilter) {
     if (global.DragonSprites && spriteId && global.DragonSprites.url(spriteId)) {
+      const f = 'drop-shadow(0 0 10px ' + (glow || '#fff') + ')' + (skinFilter ? ' ' + skinFilter : '');
       return '<img class="dsprite ' + (cls || '') + '" src="' + global.DragonSprites.url(spriteId) +
-        '" alt="" style="filter:drop-shadow(0 0 10px ' + (glow || '#fff') + ')">';
+        '" alt="" style="filter:' + f + '">';
     }
     return '<span class="demoji ' + (cls || '') + '">' + (emoji || '') + '</span>';
   }
-  // Dragon glyph convenience.
-  function dragonGlyph(def, cls, glow) { return spriteGlyph(def.id, def.emoji, cls, glow || def.glow); }
+  // Dragon glyph convenience — applies the dragon's active skin (glow + sprite tint).
+  function dragonGlyph(def, cls, glow) {
+    let filter = '';
+    try {
+      const sk = global.Save && global.Save.get().activeSkins[def.id];
+      const sc = sk && D.SKIN_COLORS[sk];
+      if (sc) { glow = glow || sc.glow; filter = sc.filter || ''; }
+    } catch (e) {}
+    return spriteGlyph(def.id, def.emoji, cls, glow || def.glow, filter);
+  }
 
   const UI = {
     screens: {},

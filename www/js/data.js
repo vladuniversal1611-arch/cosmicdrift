@@ -285,16 +285,25 @@
   ];
 
   // Skin colour overrides for rendering.
+  // filter = CSS filter applied to the dragon sprite so the skin actually
+  // recolours the dragon (not just its glow / name colour).
+  // filter = CSS filter applied to the dragon sprite (tuned per that dragon's
+  // base hue) so the skin visibly recolours the whole dragon.
   const SKIN_COLORS = {
-    lava:    { color: '#ff3b1f', glow: '#ffae5c' },
-    gold:    { color: '#ffd24d', glow: '#fff4c2' },
-    glacier: { color: '#9fe8ff', glow: '#ffffff' },
-    aurora:  { color: '#7affd0', glow: '#c2b9ff' },
-    voltage: { color: '#d6a3ff', glow: '#fff0a0' },
-    nebula:  { color: '#7a5cff', glow: '#ff7ad0' },
-    bloom:   { color: '#5fe39a', glow: '#ffd0e8' },
-    crystal: { color: '#a0ffd6', glow: '#ffffff' },
-    prism:   { color: '#ffd24d', glow: '#9fd0ff' }
+    // flare (orange base)
+    lava:    { color: '#ff3b1f', glow: '#ffae5c', filter: 'hue-rotate(-15deg) saturate(1.75) brightness(0.98) contrast(1.1)' },
+    gold:    { color: '#ffd24d', glow: '#fff4c2', filter: 'sepia(0.6) saturate(2.1) hue-rotate(-8deg) brightness(1.16)' },
+    // frost (cyan-blue base)
+    glacier: { color: '#9fe8ff', glow: '#ffffff', filter: 'saturate(0.85) brightness(1.22) hue-rotate(10deg)' },
+    aurora:  { color: '#7affd0', glow: '#c2b9ff', filter: 'hue-rotate(-45deg) saturate(1.4) brightness(1.12)' },
+    // storm (violet base)
+    voltage: { color: '#d6a3ff', glow: '#fff0a0', filter: 'hue-rotate(-20deg) saturate(1.5) brightness(1.15)' },
+    nebula:  { color: '#7a5cff', glow: '#ff7ad0', filter: 'hue-rotate(40deg) saturate(1.5) brightness(1.06)' },
+    // verdant (green base)
+    bloom:   { color: '#5fe39a', glow: '#ffd0e8', filter: 'hue-rotate(180deg) saturate(1.4) brightness(1.1)' },
+    crystal: { color: '#a0ffd6', glow: '#ffffff', filter: 'hue-rotate(40deg) saturate(1.3) brightness(1.18)' },
+    // aether (gold base)
+    prism:   { color: '#ffd24d', glow: '#9fd0ff', filter: 'hue-rotate(180deg) saturate(1.5) brightness(1.1)' }
   };
 
   // Fake competitor names for the local leaderboard.

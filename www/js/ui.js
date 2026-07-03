@@ -23,15 +23,24 @@
   }
 
   // Sprite glyph: <img> when a sprite id is available, otherwise emoji.
-  function spriteGlyph(spriteId, emoji, cls, glow) {
+  function spriteGlyph(spriteId, emoji, cls, glow, skinFilter) {
     if (global.DragonSprites && spriteId && global.DragonSprites.url(spriteId)) {
+      const f = 'drop-shadow(0 0 10px ' + (glow || '#fff') + ')' + (skinFilter ? ' ' + skinFilter : '');
       return '<img class="dsprite ' + (cls || '') + '" src="' + global.DragonSprites.url(spriteId) +
-        '" alt="" style="filter:drop-shadow(0 0 10px ' + (glow || '#fff') + ')">';
+        '" alt="" style="filter:' + f + '">';
     }
     return '<span class="demoji ' + (cls || '') + '">' + (emoji || '') + '</span>';
   }
-  // Dragon glyph convenience.
-  function dragonGlyph(def, cls, glow) { return spriteGlyph(def.id, def.emoji, cls, glow || def.glow); }
+  // Dragon glyph convenience — applies the dragon's active skin (glow + sprite tint).
+  function dragonGlyph(def, cls, glow) {
+    let filter = '';
+    try {
+      const sk = global.Save && global.Save.get().activeSkins[def.id];
+      const sc = sk && D.SKIN_COLORS[sk];
+      if (sc) { glow = glow || sc.glow; filter = sc.filter || ''; }
+    } catch (e) {}
+    return spriteGlyph(def.id, def.emoji, cls, glow || def.glow, filter);
+  }
 
   const UI = {
     screens: {},

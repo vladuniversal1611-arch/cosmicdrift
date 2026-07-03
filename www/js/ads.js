@@ -68,26 +68,50 @@
     else { simulate('rewarded', function (completed) { if (completed && onReward) onReward(); if (onClose) onClose(); }); }
   }
 
+  // A lightweight "loading ad…" placeholder shown while we try to fetch a real
+  // ad. If no real ad is available yet (e.g. the app is still under AdMob
+  // review / no fill), we fall back to the simulated ad so the button still
+  // works and the reward is granted, instead of silently doing nothing.
+  function loadingOverlay() {
+    const T = global.T || function (k) { return k; };
+    const layer = document.createElement('div');
+    layer.className = 'ad-sim ad-loading';
+    layer.innerHTML = '<div class="ad-sim-card"><div class="ad-spin"></div><div class="ad-sim-title">' +
+      (T('ad_loading') || 'Loading ad…') + '</div></div>';
+    (global.UI && global.UI.root ? global.UI.root : document.body).appendChild(layer);
+    return layer;
+  }
+
   function showNativeRewarded(onReward, onClose) {
     const AdMob = plugin();
-    let earned = false, done = false, rl, dl, fl;
-    const finish = function () {
-      if (done) return; done = true;
-      try { rl && rl.remove(); dl && dl.remove(); fl && fl.remove(); } catch (e) {}
+    let handled = false, earned = false, rl, dl, fl;
+    const overlay = loadingOverlay();
+    const t0 = Date.now();
+    const rmListeners = function () { try { rl && rl.remove(); dl && dl.remove(); fl && fl.remove(); } catch (e) {} };
+    const rmOverlay = function () { if (overlay && overlay.parentNode) overlay.remove(); };
+    const fallback = function () { // no real ad → simulate so the feature works
+      if (handled) return; handled = true; clearTimeout(tmr); rmListeners();
+      const wait = Math.max(0, 900 - (Date.now() - t0)); // keep the placeholder visible a beat
+      setTimeout(function () { rmOverlay(); simulate('rewarded', function (ok) { if (ok && onReward) onReward(); if (onClose) onClose(); }); }, wait);
+    };
+    const finishReal = function () {
+      if (handled) return; handled = true; clearTimeout(tmr); rmListeners(); rmOverlay();
       if (earned && onReward) onReward();
       if (onClose) onClose();
       prepareRewarded(); // preload the next one
     };
-    // Event names per @capacitor-community/admob (RewardAdPluginEvents).
+    const tmr = setTimeout(fallback, 6000); // safety: no ad within 6s → fall back
     try {
       rl = AdMob.addListener('onRewardedVideoAdReward', function () { earned = true; });
-      dl = AdMob.addListener('onRewardedVideoAdDismissed', finish);
-      fl = AdMob.addListener('onRewardedVideoAdFailedToShow', finish);
+      dl = AdMob.addListener('onRewardedVideoAdDismissed', finishReal);
+      fl = AdMob.addListener('onRewardedVideoAdFailedToShow', fallback);
     } catch (e) {}
     ensureInit().then(function () {
       const go = rewardedReady ? Promise.resolve() : prepareRewarded();
-      go.then(function () { return AdMob.showRewardVideoAd(); }).catch(finish);
-    });
+      return go.then(function () { return AdMob.showRewardVideoAd(); });
+    }).then(function () {
+      clearTimeout(tmr); rmOverlay(); // real ad is showing
+    }).catch(fallback);
   }
 
   // ---- Interstitial --------------------------------------------------------
@@ -108,11 +132,23 @@
   }
   function showNativeInterstitial() {
     const AdMob = plugin();
+    let handled = false;
+    const overlay = loadingOverlay();
+    const t0 = Date.now();
+    const removeOverlay = function () { if (overlay && overlay.parentNode) overlay.remove(); };
+    const fallback = function () {
+      if (handled) return; handled = true; clearTimeout(tmr);
+      const wait = Math.max(0, 900 - (Date.now() - t0));
+      setTimeout(function () { removeOverlay(); simulate('interstitial', function () {}); }, wait);
+    };
+    const tmr = setTimeout(fallback, 6000);
     ensureInit().then(function () {
       const go = interReady ? Promise.resolve() : prepareInterstitial();
-      go.then(function () { return AdMob.showInterstitial(); }).catch(function () {})
-        .then(function () { interReady = false; prepareInterstitial(); });
-    });
+      return go.then(function () { return AdMob.showInterstitial(); });
+    }).then(function () {
+      clearTimeout(tmr); if (handled) return; handled = true; removeOverlay();
+      interReady = false; prepareInterstitial();
+    }).catch(fallback);
   }
 
   // ---- Web/preview simulation ---------------------------------------------
