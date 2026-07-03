@@ -63,6 +63,34 @@
       ability: 'shuffle', // reshuffles board & adds moves
       desc: 'Перемішує поле та дарує додаткові ходи.',
       chargeNeed: 30, basePower: 1, rarity: 'epic', skins: ['classic', 'prism']
+    },
+    {
+      id: 'magma', name: 'Magma', title: 'Magma Dragon', emoji: '🌋',
+      color: '#ff5330', glow: '#ffb37a',
+      ability: 'bomb', // blasts a square area around a target
+      desc: 'Hurls a molten bomb that blasts a whole 3×3 area of crystals.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'tide', name: 'Tide', title: 'Tide Dragon', emoji: '🌊',
+      color: '#2fb6ff', glow: '#bfeaff',
+      ability: 'cross', // clears a full row + column
+      desc: 'Unleashes a tidal cross, clearing a full row and column at once.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'shadow', name: 'Shadow', title: 'Shadow Dragon', emoji: '🌑',
+      color: '#7b5cff', glow: '#c9b8ff',
+      ability: 'colorclear', // removes every crystal of one colour
+      desc: 'Devours every crystal of a single colour across the whole board.',
+      chargeNeed: 30, basePower: 2, rarity: 'epic', skins: ['classic']
+    },
+    {
+      id: 'celestial', name: 'Celestial', title: 'Celestial Dragon', emoji: '☄️',
+      color: '#ffd24d', glow: '#fff2c2',
+      ability: 'meteor', // a storm of blasts across the board
+      desc: 'Summons a meteor storm that batters the entire board.',
+      chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
     }
   ];
 

@@ -768,7 +768,21 @@
   };
 
   // Whether an ability benefits from manual aiming.
-  Engine.prototype.abilityNeedsAim = function (d) { return d.def.ability === 'row' || d.def.ability === 'bonus'; };
+  Engine.prototype.abilityNeedsAim = function (d) {
+    const a = d.def.ability;
+    return a === 'row' || a === 'bonus' || a === 'bomb' || a === 'cross';
+  };
+  // Most common non-blocked crystal colour on the board (for 'colorclear').
+  Engine.prototype.commonColor = function () {
+    const counts = {};
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const t = this.grid[r][c];
+      if (t && !t.ice && t.special === SP.NONE) counts[t.type] = (counts[t.type] || 0) + 1;
+    }
+    let best = -1, bt = 0;
+    for (const k in counts) if (counts[k] > best) { best = counts[k]; bt = +k; }
+    return bt;
+  };
 
   // Player taps a ready dragon (active mode). target = {r,c} when aimed.
   Engine.prototype.castReady = function (d, target) {
@@ -809,6 +823,10 @@
       else if (ab === 'freeze') { for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t.ice) { t.ice = false; t.crate = false; t.blockHp = 0; self.iceLeft = Math.max(0, self.iceLeft - 1); } if (t.chain) t.chain = false; } }
       else if (ab === 'bonus') { for (let k = 0; k < 2 + (power / 3 | 0); k++) { const r = rnd(self.rows), c = rnd(self.cols), t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE) t.special = (rnd(2) ? SP.BOMB : SP.LINE_H); } }
       else if (ab === 'shuffle') { self.movesLeft += 2; }
+      else if (ab === 'bomb') { const r = rnd(self.rows), c = rnd(self.cols), rd = 1 + (power / 4 | 0); for (let dr = -rd; dr <= rd; dr++) for (let dc = -rd; dc <= rd; dc++) add(r + dr, c + dc); }
+      else if (ab === 'cross') { const r = rnd(self.rows), c = rnd(self.cols); for (let cc = 0; cc < self.cols; cc++) add(r, cc); for (let rr = 0; rr < self.rows; rr++) add(rr, c); }
+      else if (ab === 'colorclear') { const ct = self.commonColor(); for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE && t.type === ct) add(r, c); } }
+      else if (ab === 'meteor') { const hits = 3 + (power / 2 | 0); for (let k = 0; k < hits; k++) { const r = rnd(self.rows), c = rnd(self.cols); add(r, c); add(r + 1, c); add(r - 1, c); add(r, c + 1); add(r, c - 1); } }
     });
     // central blast scaled by combined power (kept modest — not a full wipe)
     const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(1, power / 6 | 0);
@@ -897,6 +915,36 @@
       this.state = 'busy';
       this.shuffleBoard(true); // sets afterAnims → resolveStep → endResolve
       return;
+    } else if (d.def.ability === 'bomb') {
+      // molten blast over a square area (aimed or random), radius scales with power
+      const cell = target || { r: rnd(this.rows), c: rnd(this.cols) };
+      const rad = 1 + Math.min(2, Math.floor(power / 3));
+      for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+        const r = cell.r + dr, c = cell.c + dc;
+        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols && !this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      }
+    } else if (d.def.ability === 'cross') {
+      // clears the full row and column through the aimed (or random) cell
+      const cell = target || { r: rnd(this.rows), c: rnd(this.cols) };
+      for (let c = 0; c < this.cols; c++) if (!this.grid[cell.r][c].ice) set[cell.r + ',' + c] = { r: cell.r, c: c };
+      for (let r = 0; r < this.rows; r++) if (!this.grid[r][cell.c].ice) set[r + ',' + cell.c] = { r: r, c: cell.c };
+    } else if (d.def.ability === 'colorclear') {
+      // removes every crystal of one colour (aimed cell's colour, else most common)
+      const ct = (target && this.grid[target.r][target.c] && !this.grid[target.r][target.c].ice)
+        ? this.grid[target.r][target.c].type : this.commonColor();
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+        const t = this.grid[r][c]; if (t && !t.ice && t.type === ct) set[r + ',' + c] = { r: r, c: c };
+      }
+    } else if (d.def.ability === 'meteor') {
+      // a storm of small blasts scattered across the whole board
+      const hits = 4 + power;
+      for (let k = 0; k < hits; k++) {
+        const r = rnd(this.rows), c = rnd(this.cols);
+        [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          const rr = r + o[0], cc = c + o[1];
+          if (rr >= 0 && rr < self.rows && cc >= 0 && cc < self.cols && !self.grid[rr][cc].ice) set[rr + ',' + cc] = { r: rr, c: cc };
+        });
+      }
     }
 
     if (Object.keys(set).length) {

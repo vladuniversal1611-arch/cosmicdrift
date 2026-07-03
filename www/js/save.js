@@ -21,10 +21,14 @@
       dragonTiers: { flare: 1 },   // evolution tier per dragon (1..3)
       equipped: ['flare', null, null],
       eggs: [                      // incubating eggs on the island
-        { dragon: 'frost',   charge: 0, need: 120 },
-        { dragon: 'storm',   charge: 0, need: 220 },
-        { dragon: 'verdant', charge: 0, need: 340 },
-        { dragon: 'aether',  charge: 0, need: 520 }
+        { dragon: 'frost',     charge: 0, need: 120 },
+        { dragon: 'storm',     charge: 0, need: 220 },
+        { dragon: 'verdant',   charge: 0, need: 340 },
+        { dragon: 'aether',    charge: 0, need: 520 },
+        { dragon: 'magma',     charge: 0, need: 700 },
+        { dragon: 'tide',      charge: 0, need: 900 },
+        { dragon: 'shadow',    charge: 0, need: 1200 },
+        { dragon: 'celestial', charge: 0, need: 1600 }
       ],
       ownedSkins: [],
       activeSkins: {},             // { dragonId: skinId }
@@ -72,6 +76,14 @@
       } else {
         profile = freshProfile();
       }
+      // Migration: make sure every collectible dragon has an egg to hatch from,
+      // so existing saves receive eggs for dragons added after they started.
+      if (!Array.isArray(profile.eggs)) profile.eggs = [];
+      freshProfile().eggs.forEach(function (de) {
+        if ((profile.ownedDragons || []).indexOf(de.dragon) !== -1) return; // already hatched
+        if (profile.eggs.some(function (e) { return e.dragon === de.dragon; })) return; // already incubating
+        profile.eggs.push({ dragon: de.dragon, charge: 0, need: de.need });
+      });
     } catch (e) {
       profile = freshProfile();
     }

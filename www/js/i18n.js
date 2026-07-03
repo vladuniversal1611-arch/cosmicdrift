@@ -809,6 +809,25 @@
   Object.keys(CT).forEach(function (l) { if (STR[l]) Object.assign(STR[l], CT[l]); });
   // <<< CONTENT-LANGS END >>>
 
+  // New-dragon names/quotes + legendary rarity (uk + en; other langs fall back to en).
+  const DRG = {
+    uk: {
+      dt_magma: 'Магмовий дракон', dd_magma: 'Кидає розпечену бомбу, що вибухає у зоні 3×3.', dragon_q_magma: 'Земля палає під моїм подихом.',
+      dt_tide: 'Припливний дракон', dd_tide: 'Здіймає хвилю-хрест — очищає цілий ряд і стовпець.', dragon_q_tide: 'Хвиля змиває все.',
+      dt_shadow: 'Тіньовий дракон', dd_shadow: 'Пожирає всі кристали одного кольору на полі.', dragon_q_shadow: 'Пітьма поглине колір.',
+      dt_celestial: 'Небесний дракон', dd_celestial: 'Прикликає метеоритний шторм на все поле.', dragon_q_celestial: 'Небеса впадуть на ворогів.',
+      rarity_legendary: 'легендарний', sr_legendary: 'легендарний'
+    },
+    en: {
+      dt_magma: 'Magma Dragon', dd_magma: 'Hurls a molten bomb that blasts a 3×3 area of crystals.', dragon_q_magma: 'The earth burns at my breath.',
+      dt_tide: 'Tide Dragon', dd_tide: 'Sends a tidal cross, clearing a full row and column.', dragon_q_tide: 'The wave washes all away.',
+      dt_shadow: 'Shadow Dragon', dd_shadow: 'Devours every crystal of one colour on the board.', dragon_q_shadow: 'Darkness swallows all colour.',
+      dt_celestial: 'Celestial Dragon', dd_celestial: 'Summons a meteor storm across the whole board.', dragon_q_celestial: 'The heavens fall upon my foes.',
+      rarity_legendary: 'legendary', sr_legendary: 'legendary'
+    }
+  };
+  Object.keys(DRG).forEach(function (l) { if (STR[l]) Object.assign(STR[l], DRG[l]); });
+
   const ORDER = ['uk', 'en', 'es', 'de', 'fr', 'pt', 'it', 'pl', 'tr', 'ja', 'ko', 'zh'];
 
   function currentLang() {
