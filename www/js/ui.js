@@ -371,10 +371,15 @@
         if (stored > 0) buttons.push({ label: '🎁 ' + T('collect') + ' (' + stored + resIc + ')', onClick: function () {
           global.Save.farmCollect(id); global.Audio2.play('coin'); UI.refreshCurrencies(); UI.renderHome();
         } });
+        // Each building is upgraded with the resource it produces
+        const upCur = b.res;
+        const upIc = upCur === 'gems' ? '💎' : upCur === 'energy' ? '⚡' : '🪙';
         const upCost = b.up * (lvl + 1);
-        buttons.push({ label: '⬆ ' + T('upgrade_btn', { cost: upCost }) , primary: true, onClick: function () {
-          if (p.gold < upCost) { UI.toast(T('not_enough_gold')); return; }
-          p.gold -= upCost; p.farm.buildings[id] = lvl + 1; global.Save.save();
+        buttons.push({ label: '⬆ ' + T('upgrade_btn', { cost: upCost, ic: upIc }), primary: true, onClick: function () {
+          const have = upCur === 'gems' ? p.gems : upCur === 'energy' ? p.energy : p.gold;
+          if (have < upCost) { UI.toast(upCur === 'gems' ? T('not_enough_gems') : upCur === 'energy' ? T('need_energy') : T('not_enough_gold')); return; }
+          if (upCur === 'gems') p.gems -= upCost; else if (upCur === 'energy') p.energy -= upCost; else p.gold -= upCost;
+          p.farm.buildings[id] = lvl + 1; global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.renderHome();
         } });
       } else {
