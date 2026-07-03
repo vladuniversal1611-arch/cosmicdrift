@@ -91,6 +91,27 @@
       ability: 'meteor', // a storm of blasts across the board
       desc: 'Summons a meteor storm that batters the entire board.',
       chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
+    },
+    {
+      id: 'venom', name: 'Venom', title: 'Venom Dragon', emoji: '🐍',
+      color: '#57d64a', glow: '#c6ffb0',
+      ability: 'poison', // spreads through a connected same-colour blob
+      desc: 'Spreads a toxic bloom that eats a whole cluster of one colour.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'terra', name: 'Terra', title: 'Terra Dragon', emoji: '⛰️',
+      color: '#c98a45', glow: '#ffd9a0',
+      ability: 'quake', // shatters the bottom rows
+      desc: 'Triggers an earthquake that shatters the bottom rows of the board.',
+      chargeNeed: 30, basePower: 2, rarity: 'epic', skins: ['classic']
+    },
+    {
+      id: 'volt', name: 'Volt', title: 'Volt Dragon', emoji: '⚡',
+      color: '#ffe14d', glow: '#fff7c2',
+      ability: 'chain', // jagged lightning bolts down the board
+      desc: 'Calls chain lightning that forks in jagged bolts across the board.',
+      chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
     }
   ];
 

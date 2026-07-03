@@ -28,7 +28,10 @@
         { dragon: 'magma',     charge: 0, need: 700 },
         { dragon: 'tide',      charge: 0, need: 900 },
         { dragon: 'shadow',    charge: 0, need: 1200 },
-        { dragon: 'celestial', charge: 0, need: 1600 }
+        { dragon: 'celestial', charge: 0, need: 1600 },
+        { dragon: 'venom',     charge: 0, need: 2000 },
+        { dragon: 'terra',     charge: 0, need: 2500 },
+        { dragon: 'volt',      charge: 0, need: 3200 }
       ],
       ownedSkins: [],
       activeSkins: {},             // { dragonId: skinId }

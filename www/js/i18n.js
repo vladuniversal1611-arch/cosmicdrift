@@ -816,6 +816,9 @@
       dt_tide: 'Припливний дракон', dd_tide: 'Здіймає хвилю-хрест — очищає цілий ряд і стовпець.', dragon_q_tide: 'Хвиля змиває все.',
       dt_shadow: 'Тіньовий дракон', dd_shadow: 'Пожирає всі кристали одного кольору на полі.', dragon_q_shadow: 'Пітьма поглине колір.',
       dt_celestial: 'Небесний дракон', dd_celestial: 'Прикликає метеоритний шторм на все поле.', dragon_q_celestial: 'Небеса впадуть на ворогів.',
+      dt_venom: 'Отруйний дракон', dd_venom: 'Розповсюджує отруту, що з’їдає цілу групу одного кольору.', dragon_q_venom: 'Отрута знайде кожного.',
+      dt_terra: 'Земляний дракон', dd_terra: 'Викликає землетрус, що трощить нижні ряди поля.', dragon_q_terra: 'Земля здригнеться від мого реву.',
+      dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
       rarity_legendary: 'легендарний', sr_legendary: 'легендарний'
     },
     en: {
@@ -823,6 +826,9 @@
       dt_tide: 'Tide Dragon', dd_tide: 'Sends a tidal cross, clearing a full row and column.', dragon_q_tide: 'The wave washes all away.',
       dt_shadow: 'Shadow Dragon', dd_shadow: 'Devours every crystal of one colour on the board.', dragon_q_shadow: 'Darkness swallows all colour.',
       dt_celestial: 'Celestial Dragon', dd_celestial: 'Summons a meteor storm across the whole board.', dragon_q_celestial: 'The heavens fall upon my foes.',
+      dt_venom: 'Venom Dragon', dd_venom: 'Spreads a toxic bloom that eats a whole cluster of one colour.', dragon_q_venom: 'The poison finds everyone.',
+      dt_terra: 'Terra Dragon', dd_terra: 'Triggers an earthquake that shatters the bottom rows.', dragon_q_terra: 'The earth trembles at my roar.',
+      dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
       rarity_legendary: 'legendary', sr_legendary: 'legendary'
     }
   };

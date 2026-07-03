@@ -770,7 +770,7 @@
   // Whether an ability benefits from manual aiming.
   Engine.prototype.abilityNeedsAim = function (d) {
     const a = d.def.ability;
-    return a === 'row' || a === 'bonus' || a === 'bomb' || a === 'cross';
+    return a === 'row' || a === 'bonus' || a === 'bomb' || a === 'cross' || a === 'poison';
   };
   // Most common non-blocked crystal colour on the board (for 'colorclear').
   Engine.prototype.commonColor = function () {
@@ -827,6 +827,9 @@
       else if (ab === 'cross') { const r = rnd(self.rows), c = rnd(self.cols); for (let cc = 0; cc < self.cols; cc++) add(r, cc); for (let rr = 0; rr < self.rows; rr++) add(rr, c); }
       else if (ab === 'colorclear') { const ct = self.commonColor(); for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE && t.type === ct) add(r, c); } }
       else if (ab === 'meteor') { const hits = 3 + (power / 2 | 0); for (let k = 0; k < hits; k++) { const r = rnd(self.rows), c = rnd(self.cols); add(r, c); add(r + 1, c); add(r - 1, c); add(r, c + 1); add(r, c - 1); } }
+      else if (ab === 'poison') { const sr = rnd(self.rows), sc = rnd(self.cols), t0 = self.grid[sr][sc]; if (t0 && !t0.ice) { const col = t0.type, seen = {}, stk = [[sr, sc]]; let bud = 6 + (power * 2 | 0); while (stk.length && bud > 0) { const cur = stk.pop(), k = cur[0] + ',' + cur[1]; if (seen[k]) continue; const row = self.grid[cur[0]], tt = row && row[cur[1]]; if (!tt || tt.ice || tt.type !== col) continue; seen[k] = 1; add(cur[0], cur[1]); bud--; stk.push([cur[0] + 1, cur[1]], [cur[0] - 1, cur[1]], [cur[0], cur[1] + 1], [cur[0], cur[1] - 1]); } } }
+      else if (ab === 'quake') { const nR = Math.min(self.rows, 2 + (power / 3 | 0)); for (let r = self.rows - nR; r < self.rows; r++) for (let c = 0; c < self.cols; c++) add(r, c); }
+      else if (ab === 'chain') { let c = rnd(self.cols); for (let r = 0; r < self.rows; r++) { add(r, c); c += rnd(3) - 1; if (c < 0) c = 0; if (c >= self.cols) c = self.cols - 1; } }
     });
     // central blast scaled by combined power (kept modest — not a full wipe)
     const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(1, power / 6 | 0);
@@ -944,6 +947,39 @@
           const rr = r + o[0], cc = c + o[1];
           if (rr >= 0 && rr < self.rows && cc >= 0 && cc < self.cols && !self.grid[rr][cc].ice) set[rr + ',' + cc] = { r: rr, c: cc };
         });
+      }
+    } else if (d.def.ability === 'poison') {
+      // toxic spread: clears the connected same-colour blob from the aimed cell
+      const cell = target || { r: rnd(this.rows), c: rnd(this.cols) };
+      const t0 = this.grid[cell.r][cell.c];
+      if (t0 && !t0.ice) {
+        const col = t0.type, seen = {}, stk = [[cell.r, cell.c]];
+        let bud = 8 + power * 3;
+        while (stk.length && bud > 0) {
+          const cur = stk.pop(), k = cur[0] + ',' + cur[1];
+          if (seen[k]) continue;
+          const row = this.grid[cur[0]], tt = row && row[cur[1]];
+          if (!tt || tt.ice || tt.type !== col) continue;
+          seen[k] = 1; set[k] = { r: cur[0], c: cur[1] }; bud--;
+          stk.push([cur[0] + 1, cur[1]], [cur[0] - 1, cur[1]], [cur[0], cur[1] + 1], [cur[0], cur[1] - 1]);
+        }
+      }
+    } else if (d.def.ability === 'quake') {
+      // earthquake: shatters the bottom rows of the board
+      const nRows = Math.min(this.rows, 2 + Math.floor(power / 3));
+      for (let r = this.rows - nRows; r < this.rows; r++) for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      this.shake = Math.max(this.shake, 0.8);
+    } else if (d.def.ability === 'chain') {
+      // chain lightning: one or more jagged bolts from top to bottom
+      const bolts = 1 + Math.floor(power / 2);
+      for (let b = 0; b < bolts; b++) {
+        let c = rnd(this.cols);
+        for (let r = 0; r < this.rows; r++) {
+          if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+          const nc = c + (rnd(3) - 1);
+          if (nc >= 0 && nc < this.cols && !this.grid[r][nc].ice) set[r + ',' + nc] = { r: r, c: nc };
+          c += rnd(3) - 1; if (c < 0) c = 0; if (c >= this.cols) c = this.cols - 1;
+        }
       }
     }
 

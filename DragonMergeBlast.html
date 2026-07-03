@@ -1226,6 +1226,27 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       ability: 'meteor', // a storm of blasts across the board
       desc: 'Summons a meteor storm that batters the entire board.',
       chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
+    },
+    {
+      id: 'venom', name: 'Venom', title: 'Venom Dragon', emoji: '🐍',
+      color: '#57d64a', glow: '#c6ffb0',
+      ability: 'poison', // spreads through a connected same-colour blob
+      desc: 'Spreads a toxic bloom that eats a whole cluster of one colour.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'terra', name: 'Terra', title: 'Terra Dragon', emoji: '⛰️',
+      color: '#c98a45', glow: '#ffd9a0',
+      ability: 'quake', // shatters the bottom rows
+      desc: 'Triggers an earthquake that shatters the bottom rows of the board.',
+      chargeNeed: 30, basePower: 2, rarity: 'epic', skins: ['classic']
+    },
+    {
+      id: 'volt', name: 'Volt', title: 'Volt Dragon', emoji: '⚡',
+      color: '#ffe14d', glow: '#fff7c2',
+      ability: 'chain', // jagged lightning bolts down the board
+      desc: 'Calls chain lightning that forks in jagged bolts across the board.',
+      chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
     }
   ];
 
@@ -2359,6 +2380,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_tide: 'Припливний дракон', dd_tide: 'Здіймає хвилю-хрест — очищає цілий ряд і стовпець.', dragon_q_tide: 'Хвиля змиває все.',
       dt_shadow: 'Тіньовий дракон', dd_shadow: 'Пожирає всі кристали одного кольору на полі.', dragon_q_shadow: 'Пітьма поглине колір.',
       dt_celestial: 'Небесний дракон', dd_celestial: 'Прикликає метеоритний шторм на все поле.', dragon_q_celestial: 'Небеса впадуть на ворогів.',
+      dt_venom: 'Отруйний дракон', dd_venom: 'Розповсюджує отруту, що з’їдає цілу групу одного кольору.', dragon_q_venom: 'Отрута знайде кожного.',
+      dt_terra: 'Земляний дракон', dd_terra: 'Викликає землетрус, що трощить нижні ряди поля.', dragon_q_terra: 'Земля здригнеться від мого реву.',
+      dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
       rarity_legendary: 'легендарний', sr_legendary: 'легендарний'
     },
     en: {
@@ -2366,6 +2390,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_tide: 'Tide Dragon', dd_tide: 'Sends a tidal cross, clearing a full row and column.', dragon_q_tide: 'The wave washes all away.',
       dt_shadow: 'Shadow Dragon', dd_shadow: 'Devours every crystal of one colour on the board.', dragon_q_shadow: 'Darkness swallows all colour.',
       dt_celestial: 'Celestial Dragon', dd_celestial: 'Summons a meteor storm across the whole board.', dragon_q_celestial: 'The heavens fall upon my foes.',
+      dt_venom: 'Venom Dragon', dd_venom: 'Spreads a toxic bloom that eats a whole cluster of one colour.', dragon_q_venom: 'The poison finds everyone.',
+      dt_terra: 'Terra Dragon', dd_terra: 'Triggers an earthquake that shatters the bottom rows.', dragon_q_terra: 'The earth trembles at my roar.',
+      dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
       rarity_legendary: 'legendary', sr_legendary: 'legendary'
     }
   };
@@ -2548,7 +2575,10 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         { dragon: 'magma',     charge: 0, need: 700 },
         { dragon: 'tide',      charge: 0, need: 900 },
         { dragon: 'shadow',    charge: 0, need: 1200 },
-        { dragon: 'celestial', charge: 0, need: 1600 }
+        { dragon: 'celestial', charge: 0, need: 1600 },
+        { dragon: 'venom',     charge: 0, need: 2000 },
+        { dragon: 'terra',     charge: 0, need: 2500 },
+        { dragon: 'volt',      charge: 0, need: 3200 }
       ],
       ownedSkins: [],
       activeSkins: {},             // { dragonId: skinId }
@@ -3808,7 +3838,7 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   // Whether an ability benefits from manual aiming.
   Engine.prototype.abilityNeedsAim = function (d) {
     const a = d.def.ability;
-    return a === 'row' || a === 'bonus' || a === 'bomb' || a === 'cross';
+    return a === 'row' || a === 'bonus' || a === 'bomb' || a === 'cross' || a === 'poison';
   };
   // Most common non-blocked crystal colour on the board (for 'colorclear').
   Engine.prototype.commonColor = function () {
@@ -3865,6 +3895,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       else if (ab === 'cross') { const r = rnd(self.rows), c = rnd(self.cols); for (let cc = 0; cc < self.cols; cc++) add(r, cc); for (let rr = 0; rr < self.rows; rr++) add(rr, c); }
       else if (ab === 'colorclear') { const ct = self.commonColor(); for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) { const t = self.grid[r][c]; if (t && !t.ice && t.special === SP.NONE && t.type === ct) add(r, c); } }
       else if (ab === 'meteor') { const hits = 3 + (power / 2 | 0); for (let k = 0; k < hits; k++) { const r = rnd(self.rows), c = rnd(self.cols); add(r, c); add(r + 1, c); add(r - 1, c); add(r, c + 1); add(r, c - 1); } }
+      else if (ab === 'poison') { const sr = rnd(self.rows), sc = rnd(self.cols), t0 = self.grid[sr][sc]; if (t0 && !t0.ice) { const col = t0.type, seen = {}, stk = [[sr, sc]]; let bud = 6 + (power * 2 | 0); while (stk.length && bud > 0) { const cur = stk.pop(), k = cur[0] + ',' + cur[1]; if (seen[k]) continue; const row = self.grid[cur[0]], tt = row && row[cur[1]]; if (!tt || tt.ice || tt.type !== col) continue; seen[k] = 1; add(cur[0], cur[1]); bud--; stk.push([cur[0] + 1, cur[1]], [cur[0] - 1, cur[1]], [cur[0], cur[1] + 1], [cur[0], cur[1] - 1]); } } }
+      else if (ab === 'quake') { const nR = Math.min(self.rows, 2 + (power / 3 | 0)); for (let r = self.rows - nR; r < self.rows; r++) for (let c = 0; c < self.cols; c++) add(r, c); }
+      else if (ab === 'chain') { let c = rnd(self.cols); for (let r = 0; r < self.rows; r++) { add(r, c); c += rnd(3) - 1; if (c < 0) c = 0; if (c >= self.cols) c = self.cols - 1; } }
     });
     // central blast scaled by combined power (kept modest — not a full wipe)
     const cr = this.rows >> 1, cc = this.cols >> 1, rad = 1 + Math.min(1, power / 6 | 0);
@@ -3982,6 +4015,39 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
           const rr = r + o[0], cc = c + o[1];
           if (rr >= 0 && rr < self.rows && cc >= 0 && cc < self.cols && !self.grid[rr][cc].ice) set[rr + ',' + cc] = { r: rr, c: cc };
         });
+      }
+    } else if (d.def.ability === 'poison') {
+      // toxic spread: clears the connected same-colour blob from the aimed cell
+      const cell = target || { r: rnd(this.rows), c: rnd(this.cols) };
+      const t0 = this.grid[cell.r][cell.c];
+      if (t0 && !t0.ice) {
+        const col = t0.type, seen = {}, stk = [[cell.r, cell.c]];
+        let bud = 8 + power * 3;
+        while (stk.length && bud > 0) {
+          const cur = stk.pop(), k = cur[0] + ',' + cur[1];
+          if (seen[k]) continue;
+          const row = this.grid[cur[0]], tt = row && row[cur[1]];
+          if (!tt || tt.ice || tt.type !== col) continue;
+          seen[k] = 1; set[k] = { r: cur[0], c: cur[1] }; bud--;
+          stk.push([cur[0] + 1, cur[1]], [cur[0] - 1, cur[1]], [cur[0], cur[1] + 1], [cur[0], cur[1] - 1]);
+        }
+      }
+    } else if (d.def.ability === 'quake') {
+      // earthquake: shatters the bottom rows of the board
+      const nRows = Math.min(this.rows, 2 + Math.floor(power / 3));
+      for (let r = this.rows - nRows; r < this.rows; r++) for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+      this.shake = Math.max(this.shake, 0.8);
+    } else if (d.def.ability === 'chain') {
+      // chain lightning: one or more jagged bolts from top to bottom
+      const bolts = 1 + Math.floor(power / 2);
+      for (let b = 0; b < bolts; b++) {
+        let c = rnd(this.cols);
+        for (let r = 0; r < this.rows; r++) {
+          if (!this.grid[r][c].ice) set[r + ',' + c] = { r: r, c: c };
+          const nc = c + (rnd(3) - 1);
+          if (nc >= 0 && nc < this.cols && !this.grid[r][nc].ice) set[r + ',' + nc] = { r: r, c: nc };
+          c += rnd(3) - 1; if (c < 0) c = 0; if (c >= this.cols) c = this.cols - 1;
+        }
       }
     }
 
