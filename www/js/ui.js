@@ -651,6 +651,38 @@
       };
       s.addEventListener('scroll', onScroll);
       this._mapScroll = { el: s, fn: onScroll };
+      s.appendChild(this.mapRails());
+    },
+
+    // Quick-access shortcut rails pinned to the left & right edges of the map.
+    mapRails: function () {
+      const wrap = el('div', 'map-rails');
+      const mk = function (side, items) {
+        const rail = el('div', 'map-rail ' + side);
+        items.forEach(function (a) {
+          const glyph = (global.UiIcons && global.UiIcons.tag(a.icon, 'rail-ic')) || ('<span class="rail-em">' + a.ic + '</span>');
+          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : ''), glyph);
+          btn.title = a.label; btn.setAttribute('aria-label', a.label);
+          click(btn, a.go);
+          rail.appendChild(btn);
+        });
+        return rail;
+      };
+      wrap.appendChild(mk('left', [
+        { ic: '🎁', icon: 'tile_daily', label: T('t_daily'), go: function () { UI.showDaily(); }, badge: UI.dailyAvailable() },
+        { ic: '🎡', icon: 'tile_wheel', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
+        { ic: '🎰', icon: 'tile_summon', label: T('t_summon'), go: function () { UI.showSummon(); } },
+        { ic: '🌳', icon: 'tile_skills', label: T('t_skills'), go: function () { UI.showSkills(); } },
+        { ic: '⚔️', icon: 'tile_pvp', label: T('t_pvp'), go: function () { UI.showPvp(); } }
+      ]));
+      wrap.appendChild(mk('right', [
+        { ic: '📖', icon: 'tile_story', label: T('t_story'), go: function () { UI.showStory(); }, badge: UI.storyAvailable() },
+        { ic: '📜', icon: 'tile_quests', label: T('t_quests'), go: function () { UI.showQuests(); } },
+        { ic: '📊', icon: 'tile_leaderboard', label: T('t_leaderboard'), go: function () { UI.showLeaderboard(); } },
+        { ic: '🏆', icon: 'tile_ach', label: T('t_ach'), go: function () { UI.showAchievements(); } },
+        { ic: '⚙️', icon: 'tile_settings', label: T('t_options'), go: function () { UI.showSettings(); } }
+      ]));
+      return wrap;
     },
 
     openChest: function (milestone) {
