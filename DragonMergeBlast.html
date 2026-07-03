@@ -2999,12 +2999,27 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   let rewardedReady = false, interReady = false;
   let lastInterstitial = 0, levelsSinceInterstitial = 0;
 
+  // UMP (User Messaging Platform) consent — required by Google Play for
+  // personalized ads in the EEA/UK. Shows the consent form once when required;
+  // never blocks ads if the API/step is unavailable or fails.
+  function requestConsent(AdMob) {
+    if (!AdMob || typeof AdMob.requestConsentInfo !== 'function') return Promise.resolve();
+    return AdMob.requestConsentInfo({ tagForUnderAgeOfConsent: false })
+      .then(function (info) {
+        if (info && info.isConsentFormAvailable && info.status === 'REQUIRED' && AdMob.showConsentForm) {
+          return AdMob.showConsentForm().catch(function () {});
+        }
+      })
+      .catch(function () {});
+  }
+
   function ensureInit() {
     if (inited) return Promise.resolve(true);
     if (!isNative()) return Promise.resolve(false);
     if (initing) return initing;
     const AdMob = plugin();
-    initing = AdMob.initialize({ initializeForTesting: CONFIG.testing })
+    initing = requestConsent(AdMob)
+      .then(function () { return AdMob.initialize({ initializeForTesting: CONFIG.testing }); })
       .then(function () { inited = true; prepareRewarded(); prepareInterstitial(); return true; })
       .catch(function () { return false; });
     return initing;
