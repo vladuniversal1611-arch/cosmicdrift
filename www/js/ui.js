@@ -643,7 +643,8 @@
         const rail = el('div', 'map-rail ' + side);
         items.forEach(function (a) {
           const glyph = (global.UiIcons && global.UiIcons.tag(a.icon, 'rail-ic')) || ('<span class="rail-em">' + a.ic + '</span>');
-          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : ''), glyph);
+          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : ''),
+            '<span class="rail-chip">' + glyph + '</span><span class="rail-lbl">' + a.label + '</span>');
           btn.title = a.label; btn.setAttribute('aria-label', a.label);
           click(btn, a.go);
           rail.appendChild(btn);
