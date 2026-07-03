@@ -1,0 +1,446 @@
+/* ============================================================
+   Dragon Merge Blast — Game Data
+   Dragons, crystals, islands, levels, quests, achievements,
+   battle pass, shop & daily rewards definitions.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  // ---- Crystal (gem) types -------------------------------------------------
+  // Each crystal has an id, a display glyph and a vivid gradient palette.
+  const CRYSTALS = [
+    { id: 0, name: 'Ruby',     glyph: '🔥', c1: '#ff5d6c', c2: '#b3002d', core: '#ffd5da' },
+    { id: 1, name: 'Sapphire', glyph: '💧', c1: '#5db4ff', c2: '#0046b3', core: '#d5ecff' },
+    { id: 2, name: 'Emerald',  glyph: '🍃', c1: '#56e29a', c2: '#0a8a4a', core: '#d8ffe9' },
+    { id: 3, name: 'Topaz',    glyph: '⚡', c1: '#ffd24d', c2: '#c98800', core: '#fff4cf' },
+    { id: 4, name: 'Amethyst', glyph: '🔮', c1: '#c58bff', c2: '#6a1fb3', core: '#efddff' },
+    { id: 5, name: 'Pearl',    glyph: '🌙', c1: '#f3f0ff', c2: '#b9c0e0', core: '#ffffff' }
+  ];
+
+  // Special crystals created by big matches.
+  const SPECIAL = {
+    NONE: 0,
+    LINE_H: 1,   // clears its row
+    LINE_V: 2,   // clears its column
+    BOMB: 3,     // clears 3x3 area
+    RAINBOW: 4   // clears all of one colour
+  };
+
+  // ---- Dragons -------------------------------------------------------------
+  // ability: triggered automatically when the dragon's charge bar fills.
+  const DRAGONS = [
+    {
+      id: 'flare', name: 'Flare', title: 'Вогняний дракон', emoji: '🐉',
+      color: '#ff6a3d', glow: '#ff9d5c',
+      ability: 'row', // destroys full row(s)
+      desc: 'Спалює цілі ряди кристалів, перетворюючи їх на енергію.',
+      chargeNeed: 24, basePower: 1, rarity: 'common', skins: ['classic', 'lava', 'gold']
+    },
+    {
+      id: 'frost', name: 'Frost', title: 'Крижаний дракон', emoji: '🐲',
+      color: '#5fd0ff', glow: '#bff0ff',
+      ability: 'freeze', // removes ice/obstacles & freezes board damage
+      desc: 'Заморожує перешкоди та розбиває кригу на полі.',
+      chargeNeed: 26, basePower: 1, rarity: 'common', skins: ['classic', 'glacier', 'aurora']
+    },
+    {
+      id: 'storm', name: 'Storm', title: 'Грозовий дракон', emoji: '🦅',
+      color: '#b48bff', glow: '#e3d2ff',
+      ability: 'random', // destroys random crystals
+      desc: 'Б’є блискавками по випадкових кристалах поля.',
+      chargeNeed: 22, basePower: 4, rarity: 'rare', skins: ['classic', 'voltage', 'nebula']
+    },
+    {
+      id: 'verdant', name: 'Verdant', title: 'Лісовий дракон', emoji: '🦎',
+      color: '#5fe39a', glow: '#c7ffe0',
+      ability: 'bonus', // spawns bonus/special crystals
+      desc: 'Вирощує бонусні кристали-підсилювачі на полі.',
+      chargeNeed: 28, basePower: 1, rarity: 'rare', skins: ['classic', 'bloom', 'crystal']
+    },
+    {
+      id: 'aether', name: 'Aether', title: 'Ефірний дракон', emoji: '✨',
+      color: '#ffd24d', glow: '#fff2c2',
+      ability: 'shuffle', // reshuffles board & adds moves
+      desc: 'Перемішує поле та дарує додаткові ходи.',
+      chargeNeed: 30, basePower: 1, rarity: 'epic', skins: ['classic', 'prism']
+    },
+    {
+      id: 'magma', name: 'Magma', title: 'Magma Dragon', emoji: '🌋',
+      color: '#ff5330', glow: '#ffb37a',
+      ability: 'bomb', // blasts a square area around a target
+      desc: 'Hurls a molten bomb that blasts a whole 3×3 area of crystals.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'tide', name: 'Tide', title: 'Tide Dragon', emoji: '🌊',
+      color: '#2fb6ff', glow: '#bfeaff',
+      ability: 'cross', // clears a full row + column
+      desc: 'Unleashes a tidal cross, clearing a full row and column at once.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'shadow', name: 'Shadow', title: 'Shadow Dragon', emoji: '🌑',
+      color: '#7b5cff', glow: '#c9b8ff',
+      ability: 'colorclear', // removes every crystal of one colour
+      desc: 'Devours every crystal of a single colour across the whole board.',
+      chargeNeed: 30, basePower: 2, rarity: 'epic', skins: ['classic']
+    },
+    {
+      id: 'celestial', name: 'Celestial', title: 'Celestial Dragon', emoji: '☄️',
+      color: '#ffd24d', glow: '#fff2c2',
+      ability: 'meteor', // a storm of blasts across the board
+      desc: 'Summons a meteor storm that batters the entire board.',
+      chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
+    },
+    {
+      id: 'venom', name: 'Venom', title: 'Venom Dragon', emoji: '🐍',
+      color: '#57d64a', glow: '#c6ffb0',
+      ability: 'poison', // spreads through a connected same-colour blob
+      desc: 'Spreads a toxic bloom that eats a whole cluster of one colour.',
+      chargeNeed: 26, basePower: 2, rarity: 'rare', skins: ['classic']
+    },
+    {
+      id: 'terra', name: 'Terra', title: 'Terra Dragon', emoji: '⛰️',
+      color: '#c98a45', glow: '#ffd9a0',
+      ability: 'quake', // shatters the bottom rows
+      desc: 'Triggers an earthquake that shatters the bottom rows of the board.',
+      chargeNeed: 30, basePower: 2, rarity: 'epic', skins: ['classic']
+    },
+    {
+      id: 'volt', name: 'Volt', title: 'Volt Dragon', emoji: '⚡',
+      color: '#ffe14d', glow: '#fff7c2',
+      ability: 'chain', // jagged lightning bolts down the board
+      desc: 'Calls chain lightning that forks in jagged bolts across the board.',
+      chargeNeed: 34, basePower: 3, rarity: 'legendary', skins: ['classic']
+    }
+  ];
+
+  // ---- Islands -------------------------------------------------------------
+  // Five base biomes, cycled to generate a long world of islands.
+  const BASE_ISLANDS = [
+    { name: 'Острів Світанку',  nameKey: 'isle_dawn',    theme: '#ff8a5c', bg1: '#2a1330', bg2: '#5a1f3a' },
+    { name: 'Крижані Вершини',  nameKey: 'isle_frost',   theme: '#5fd0ff', bg1: '#0e2340', bg2: '#163a63' },
+    { name: 'Грозове Плато',    nameKey: 'isle_storm',   theme: '#b48bff', bg1: '#1c1340', bg2: '#3a2470' },
+    { name: 'Смарагдові Хащі',  nameKey: 'isle_emerald', theme: '#5fe39a', bg1: '#0f2e1f', bg2: '#1a5236' },
+    { name: 'Небесна Цитадель', nameKey: 'isle_sky',     theme: '#ffd24d', bg1: '#301f10', bg2: '#5a3a18' }
+  ];
+  const TOTAL_LEVELS = 5000;
+  const LEVELS_PER_ISLAND = 25;
+  const ISLAND_COUNT = Math.ceil(TOTAL_LEVELS / LEVELS_PER_ISLAND);
+  const ISLANDS = [];
+  for (let k = 0; k < ISLAND_COUNT; k++) {
+    const base = BASE_ISLANDS[k % BASE_ISLANDS.length];
+    const cycleNum = Math.floor(k / BASE_ISLANDS.length); // 0,1,2... how many times biome repeated
+    const nameSuffix = cycleNum > 0 ? ' ' + romanNumeral(cycleNum + 1) : '';
+    ISLANDS.push({
+      id: k, name: base.name + nameSuffix, baseName: base.name, nameKey: base.nameKey, nameSuffix: nameSuffix,
+      theme: base.theme, bg1: base.bg1, bg2: base.bg2, unlockLevel: k * LEVELS_PER_ISLAND
+    });
+  }
+  function romanNumeral(n) {
+    const map = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+    let r = '';
+    for (let i = 0; i < map.length; i++) { while (n >= map[i][0]) { r += map[i][1]; n -= map[i][0]; } }
+    return r;
+  }
+
+  // ---- Level generator -----------------------------------------------------
+  // Objective types: 'score', 'collect' (gather N of a colour), 'ice' (clear ice).
+  const OBJ = { SCORE: 'score', COLLECT: 'collect', ICE: 'ice', JELLY: 'jelly', BOSS: 'boss' };
+
+  // Boss roster — one guardian per island, defeated by dealing damage (matches).
+  const BOSSES = [
+    { emoji: '👹', name: 'Лорд Попелу',   color: '#ff6a3d', sprite: 'boss_ash' },
+    { emoji: '🧊', name: 'Крижаний Тітан', color: '#5fd0ff', sprite: 'boss_titan' },
+    { emoji: '🌩️', name: 'Володар Бурі',  color: '#b48bff', sprite: 'boss_storm' },
+    { emoji: '🐗', name: 'Хащний Звір',    color: '#5fe39a', sprite: 'boss_beast' },
+    { emoji: '🐦‍🔥', name: 'Небесний Фенікс', color: '#ffd24d', sprite: 'boss_phoenix' }
+  ];
+
+  // Per-island objective orders (each row is one biome's 5-slot cycle) so that
+  // no two neighbouring islands play the identical sequence. Slot 4 of the last
+  // block always becomes the boss regardless.
+  const OBJ_CYCLES = [
+    [OBJ.SCORE,   OBJ.SCORE,   OBJ.COLLECT, OBJ.JELLY,   OBJ.ICE],
+    [OBJ.SCORE,   OBJ.COLLECT, OBJ.ICE,     OBJ.SCORE,   OBJ.JELLY],
+    [OBJ.ICE,     OBJ.SCORE,   OBJ.JELLY,   OBJ.COLLECT, OBJ.SCORE],
+    [OBJ.JELLY,   OBJ.ICE,     OBJ.SCORE,   OBJ.COLLECT, OBJ.SCORE],
+    [OBJ.COLLECT, OBJ.SCORE,   OBJ.JELLY,   OBJ.ICE,     OBJ.SCORE]
+  ];
+
+  function buildLevels() {
+    const levels = [];
+    const total = TOTAL_LEVELS;
+    for (let i = 0; i < total; i++) {
+      const n = i + 1;
+      const island = Math.floor(i / LEVELS_PER_ISLAND);
+      const inIsland = i % LEVELS_PER_ISLAND;
+      const biome = island % BASE_ISLANDS.length;
+      const cols = 8, rows = 8;
+      // Difficulty tier ramps over the first ~500 levels, then holds; a gentle
+      // wave keeps consecutive levels from feeling identical. All targets are
+      // bounded to the moves budget so every level stays board-feasible.
+      const d = Math.min(1, i / 500);                       // 0 → 1 difficulty tier
+      const wave = 0.5 + 0.5 * Math.sin(i * 0.7);           // 0..1 per-level variation
+      const colors = Math.min(6, 4 + Math.floor(i / 25));   // 4 → 6 colours
+      const isBoss = inIsland === (LEVELS_PER_ISLAND - 1);
+      // Moves oscillate around a slowly tightening baseline (never frozen flat).
+      let moves = Math.max(16, Math.round(26 - d * 7 + wave * 2));
+      const hard = !isBoss && inIsland >= LEVELS_PER_ISLAND - 3; // tense run-up to the boss
+      if (hard) moves = Math.max(15, moves - 2);
+
+      const pattern = OBJ_CYCLES[island % OBJ_CYCLES.length];
+      let objective = pattern[inIsland % 5];
+      let target = 0, color = 0, iceCount = 0, jellyCount = 0, crates = 0, chains = 0;
+
+      if (objective === OBJ.COLLECT) {
+        color = i % colors;
+        target = Math.round(18 + d * 92 + wave * 12);       // ~18 → ~122
+        chains = Math.min(8, Math.floor(d * 6) + (hard ? 2 : 0));
+      } else if (objective === OBJ.JELLY) {
+        jellyCount = Math.round(10 + d * 34 + wave * 4);     // ~10 → ~48
+        target = jellyCount;
+      } else if (objective === OBJ.ICE) {
+        iceCount = Math.round(8 + d * 34 + wave * 4);        // ~8 → ~46
+        crates = Math.min(10, 1 + Math.floor(d * 7) + (hard ? 1 : 0));
+        target = iceCount;
+      } else { // SCORE — target tied to the moves budget so it is always reachable
+        const perMove = 100 + Math.min(320, island * 7);    // 100 → 420 per move
+        target = Math.round(moves * perMove * (0.85 + 0.3 * wave));
+        chains = (inIsland % 5 === 1) ? Math.min(8, 1 + Math.floor(d * 6)) : 0;
+      }
+
+      if (isBoss) {
+        objective = OBJ.BOSS;
+        moves += 8;
+        // Each boss is tougher than the last: HP ramps with the boss number
+        // (island index) plus the global difficulty tier.
+        target = Math.min(1600, Math.round(110 + island * 40 + d * 240)); // boss HP
+        color = 0; iceCount = 0; jellyCount = 0;
+        chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
+      }
+
+      levels.push({
+        n, island, cols, rows, colors, moves,
+        objective, target, color, iceCount, jellyCount, crates, chains, hard: hard,
+        star2: Math.round(target * 1.4),
+        star3: Math.round(target * 1.9),
+        reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.2), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
+        boss: isBoss,
+        bossDef: isBoss ? BOSSES[biome] : null,
+        name: isBoss ? (BOSSES[biome].name) : ('Рівень ' + n)
+      });
+    }
+    return levels;
+  }
+
+  const LEVELS = buildLevels();
+
+  // ---- Achievements --------------------------------------------------------
+  const ACHIEVEMENTS = [
+    { id: 'first_blood', name: 'Перший вибух',     desc: 'Завершіть рівень 1',            goal: 1,    stat: 'levelsWon',   reward: 8 },
+    { id: 'combo_master', name: 'Майстер комбо',   desc: 'Зробіть комбо x5',              goal: 5,    stat: 'maxCombo',    reward: 12 },
+    { id: 'hatch5',       name: 'Дракононяня',     desc: 'Виведіть 5 драконів',           goal: 5,    stat: 'dragonsHatched', reward: 18 },
+    { id: 'crush1000',    name: 'Подрібнювач',     desc: 'Знищіть 1000 кристалів',        goal: 1000, stat: 'crystalsCrushed', reward: 15 },
+    { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 25 },
+    { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 35 },
+    { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 45 },
+    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 },
+    { id: 'combo7',       name: 'Ланцюгова реакція', desc: 'Зробіть комбо x7',            goal: 7,    stat: 'maxCombo',    reward: 15 },
+    { id: 'procs50',      name: 'Приборкувач',     desc: 'Активуйте драконів 50 разів',   goal: 50,   stat: 'dragonProcs', reward: 20 },
+    { id: 'specials40',   name: 'Алхімік',         desc: 'Створіть 40 особливих кристалів', goal: 40, stat: 'specialsMade', reward: 25 },
+    { id: 'crush5000',    name: 'Руйнівник світів', desc: 'Знищіть 5000 кристалів',       goal: 5000, stat: 'crystalsCrushed', reward: 40 },
+    { id: 'hatch12',      name: 'Володар драконів', desc: 'Виведіть усіх 12 драконів',    goal: 12,   stat: 'dragonsHatched', reward: 60 },
+    { id: 'stars300',     name: 'Сузір’я',         desc: 'Зберіть 300 зірок',             goal: 300,  stat: 'totalStars',  reward: 70 },
+    { id: 'isle5',        name: 'Першопроходець',  desc: 'Відкрийте п’ятий острів',       goal: 100,  stat: 'levelsWon',   reward: 55 },
+    { id: 'level250',     name: 'Безсмертний',     desc: 'Пройдіть 250 рівнів',           goal: 250,  stat: 'levelsWon',   reward: 120 }
+  ];
+
+  // ---- Daily quests pool ---------------------------------------------------
+  const QUEST_POOL = [
+    { id: 'q_win3',    text: 'Виграйте 3 рівні',          goal: 3,   stat: 'levelsWon',      reward: 120 },
+    { id: 'q_crush200',text: 'Знищіть 200 кристалів',     goal: 200, stat: 'crystalsCrushed',reward: 150 },
+    { id: 'q_combo4',  text: 'Зробіть комбо x4',          goal: 4,   stat: 'maxCombo',       reward: 180 },
+    { id: 'q_dragon',  text: 'Активуйте драконів 8 разів',goal: 8,   stat: 'dragonProcs',    reward: 160 },
+    { id: 'q_energy',  text: 'Зберіть 200 енергії',       goal: 200, stat: 'energyEarned',   reward: 140 },
+    { id: 'q_special', text: 'Створіть 6 особливих кристалів', goal: 6, stat: 'specialsMade',reward: 170 }
+  ];
+
+  // ---- Battle pass tiers (50 tiers) ---------------------------------------
+  function buildPass() {
+    const tiers = [];
+    for (let i = 1; i <= 50; i++) {
+      const free = i % 5 === 0
+        ? { type: 'gems', amount: 20 }
+        : { type: 'gold', amount: 80 + i * 10 };
+      const premium = i % 10 === 0
+        ? { type: 'dragon', amount: 1 }
+        : (i % 5 === 0 ? { type: 'gems', amount: 40 } : { type: 'gold', amount: 200 + i * 15 });
+      tiers.push({ tier: i, xp: i * 100, free, premium });
+    }
+    return tiers;
+  }
+  const BATTLE_PASS = buildPass();
+
+  // ---- Cosmetic skin shop --------------------------------------------------
+  const SKINS = [
+    { id: 'flare_lava',   dragon: 'flare',  skin: 'lava',    name: 'Лавовий Flare',   price: 250, cur: 'gems' },
+    { id: 'flare_gold',   dragon: 'flare',  skin: 'gold',    name: 'Золотий Flare',   price: 400, cur: 'gems' },
+    { id: 'frost_glacier',dragon: 'frost',  skin: 'glacier', name: 'Льодовик Frost',  price: 250, cur: 'gems' },
+    { id: 'frost_aurora', dragon: 'frost',  skin: 'aurora',  name: 'Аврора Frost',    price: 400, cur: 'gems' },
+    { id: 'storm_voltage',dragon: 'storm',  skin: 'voltage', name: 'Вольтаж Storm',   price: 300, cur: 'gems' },
+    { id: 'storm_nebula', dragon: 'storm',  skin: 'nebula',  name: 'Небула Storm',    price: 450, cur: 'gems' },
+    { id: 'verdant_bloom',dragon: 'verdant',skin: 'bloom',   name: 'Цвіт Verdant',    price: 300, cur: 'gems' },
+    { id: 'aether_prism', dragon: 'aether', skin: 'prism',   name: 'Призма Aether',   price: 600, cur: 'gems' }
+  ];
+
+  // Skin colour overrides for rendering.
+  // filter = CSS filter applied to the dragon sprite so the skin actually
+  // recolours the dragon (not just its glow / name colour).
+  // filter = CSS filter applied to the dragon sprite (tuned per that dragon's
+  // base hue) so the skin visibly recolours the whole dragon.
+  const SKIN_COLORS = {
+    // flare (orange base)
+    lava:    { color: '#ff3b1f', glow: '#ffae5c', filter: 'hue-rotate(-15deg) saturate(1.75) brightness(0.98) contrast(1.1)' },
+    gold:    { color: '#ffd24d', glow: '#fff4c2', filter: 'sepia(0.6) saturate(2.1) hue-rotate(-8deg) brightness(1.16)' },
+    // frost (cyan-blue base)
+    glacier: { color: '#9fe8ff', glow: '#ffffff', filter: 'saturate(0.85) brightness(1.22) hue-rotate(10deg)' },
+    aurora:  { color: '#7affd0', glow: '#c2b9ff', filter: 'hue-rotate(-45deg) saturate(1.4) brightness(1.12)' },
+    // storm (violet base)
+    voltage: { color: '#d6a3ff', glow: '#fff0a0', filter: 'hue-rotate(-20deg) saturate(1.5) brightness(1.15)' },
+    nebula:  { color: '#7a5cff', glow: '#ff7ad0', filter: 'hue-rotate(40deg) saturate(1.5) brightness(1.06)' },
+    // verdant (green base)
+    bloom:   { color: '#5fe39a', glow: '#ffd0e8', filter: 'hue-rotate(180deg) saturate(1.4) brightness(1.1)' },
+    crystal: { color: '#a0ffd6', glow: '#ffffff', filter: 'hue-rotate(40deg) saturate(1.3) brightness(1.18)' },
+    // aether (gold base)
+    prism:   { color: '#ffd24d', glow: '#9fd0ff', filter: 'hue-rotate(180deg) saturate(1.5) brightness(1.1)' }
+  };
+
+  // Fake competitor names for the local leaderboard.
+  const LB_NAMES = ['DragonKing', 'Aurora', 'BlazeFury', 'IcyQueen', 'StormRider', 'PixelMage',
+    'NovaStar', 'EmberWolf', 'FrostByte', 'ThunderX', 'JadeViper', 'CrimsonAce', 'LunaCat',
+    'ShadowFox', 'GoldenEye', 'MysticOwl', 'RubyHeart', 'ZenMaster'];
+
+  // ---- Live-ops events (rotate daily, deterministic by date) --------------
+  const EVENTS = [
+    { id: 'gold',   ic: '🪙', mult: 'gold' },
+    { id: 'energy', ic: '⚡', mult: 'energy' },
+    { id: 'dragon', ic: '🐉', mult: 'dragon' }
+  ];
+  function activeEvent() {
+    const d = new Date();
+    const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+    return EVENTS[((day % EVENTS.length) + EVENTS.length) % EVENTS.length];
+  }
+
+  // ---- Island farm buildings (idle / offline income) ----------------------
+  // rate = production per HOUR at level 1 (scales with level); cap = 8h storage.
+  const FARM = [
+    { id: 'volcano', ic: '🌋', res: 'gold',   rate: 70,  build: 0,    buildCur: 'gold', up: 450 },
+    { id: 'garden',  ic: '🌳', res: 'energy', rate: 9,   build: 600,  buildCur: 'gold', up: 45 },
+    { id: 'forge',   ic: '🔨', res: 'gold',   rate: 180, build: 2500, buildCur: 'gold', up: 1300 },
+    { id: 'mine',    ic: '💎', res: 'gems',   rate: 2,   build: 250,  buildCur: 'gems', up: 40 }
+  ];
+  function farmById(id) { return FARM.find(function (b) { return b.id === id; }); }
+
+  // ---- Roguelite relics (Dragon Trials) ----------------------------------
+  const RELICS = [
+    { id: 'moves',    ic: '➕' },  // +3 moves each level
+    { id: 'charge',   ic: '⚡' },  // dragons charge faster
+    { id: 'score',    ic: '✖️' },  // +15% score
+    { id: 'specials', ic: '💠' },  // start with a special crystal
+    { id: 'power',    ic: '🔥' },  // +1 dragon ability power
+    { id: 'shield',   ic: '🛡️' }   // survive one defeat (revive)
+  ];
+
+  // ---- Wheel of Fortune (daily free spin) --------------------------------
+  // w = weight (higher = more common). rw = reward payload for UI.grantReward.
+  const WHEEL = [
+    { id: 'g1', ic: '🪙', label: '150',  w: 22, rw: { gold: 150 } },
+    { id: 'e1', ic: '⚡', label: '35',   w: 18, rw: { energy: 35 } },
+    { id: 'b1', ic: '🔨', label: '×1',   w: 14, rw: { booster: 'hammer' } },
+    { id: 'g2', ic: '🪙', label: '400',  w: 13, rw: { gold: 400 } },
+    { id: 'm1', ic: '💎', label: '12',   w: 11, rw: { gems: 12 } },
+    { id: 'b2', ic: '➕', label: '×1',   w: 10, rw: { booster: 'moves' } },
+    { id: 'g3', ic: '🪙', label: '1000', w: 8,  rw: { gold: 1000 } },
+    { id: 'j1', ic: '💎', label: 'JACKPOT', w: 4, rw: { gems: 50 } }
+  ];
+  const WHEEL_SPIN_COST = 30; // gems for an extra spin
+
+  // ---- Dragon Summon (gacha) --------------------------------------------
+  // Weighted loot pool. rarity drives the reveal flourish. Cost in gems.
+  const SUMMON_COST = 60;
+  const SUMMON_POOL = [
+    { id: 's_gold',  rarity: 'common', ic: '🪙', w: 26, rw: { gold: 500 } },
+    { id: 's_energy',rarity: 'common', ic: '⚡', w: 22, rw: { energy: 60 } },
+    { id: 's_ham',   rarity: 'common', ic: '🔨', w: 14, rw: { booster: 'hammer', boosterN: 2 } },
+    { id: 's_egg',   rarity: 'rare',   ic: '🥚', w: 16, rw: { eggCharge: 120 } },
+    { id: 's_mix',   rarity: 'rare',   ic: '🔀', w: 10, rw: { booster: 'shuffle', boosterN: 2 } },
+    { id: 's_gems',  rarity: 'rare',   ic: '💎', w: 8,  rw: { gems: 60 } },
+    { id: 's_life',  rarity: 'epic',   ic: '❤️', w: 6,  rw: { life: 3 } },
+    { id: 's_jack',  rarity: 'epic',   ic: '🌟', w: 4,  rw: { gems: 150, gold: 800 } }
+  ];
+
+  // ---- Dragon skill tree (permanent passives) ----------------------------
+  // Each node: max levels, gem cost per level (index), and the mod it grants.
+  const SKILLS = [
+    { id: 'sk_moves',  ic: '➕', max: 3, cost: [40, 90, 160],  eff: 'extraMoves' },   // +1 start move / lvl
+    { id: 'sk_charge', ic: '⚡', max: 3, cost: [40, 90, 160],  eff: 'chargeMult' },   // +8% dragon charge / lvl
+    { id: 'sk_score',  ic: '✖️', max: 3, cost: [50, 110, 200], eff: 'scoreMult' },    // +6% score / lvl
+    { id: 'sk_power',  ic: '🔥', max: 2, cost: [80, 180],      eff: 'powerBonus' },   // +1 dragon power / lvl
+    { id: 'sk_gold',   ic: '🪙', max: 3, cost: [40, 90, 160],  eff: 'goldMult' },     // +8% level gold / lvl
+    { id: 'sk_start',  ic: '💠', max: 2, cost: [90, 200],      eff: 'startSpecials' } // +1 starting special / lvl
+  ];
+  function skillById(id) { return SKILLS.find(function (s) { return s.id === id; }); }
+  // Aggregate a player's skill levels into engine `mods` + meta multipliers.
+  function skillMods(levels) {
+    levels = levels || {};
+    const lv = function (id) { return levels[id] || 0; };
+    return {
+      extraMoves: lv('sk_moves'),
+      chargeMult: 1 + lv('sk_charge') * 0.08,
+      scoreMult: 1 + lv('sk_score') * 0.06,
+      powerBonus: lv('sk_power'),
+      goldMult: 1 + lv('sk_gold') * 0.08,
+      startSpecials: lv('sk_start')
+    };
+  }
+
+  // ---- Story chapters (narrative log, unlocked by level progress) --------
+  const STORY_CHAPTERS = [
+    { id: 'ch1', ic: '🥚', at: 1 },
+    { id: 'ch2', ic: '🔥', at: 26 },
+    { id: 'ch3', ic: '❄️', at: 51 },
+    { id: 'ch4', ic: '🌩️', at: 76 },
+    { id: 'ch5', ic: '🌳', at: 101 },
+    { id: 'ch6', ic: '✨', at: 126 },
+    { id: 'ch7', ic: '🐉', at: 151 }
+  ];
+
+  // Localized content-name helpers. Content (dragon titles/descs, island and
+  // boss names) is authored in data with a translation key; these resolve the
+  // key via the i18n layer at render time, falling back to the authored string
+  // if the key is missing for the current language.
+  function loc(key, fallback) {
+    if (global.T && key) { const s = global.T(key); if (s && s !== key) return s; }
+    return fallback;
+  }
+  function dragonTitle(def) { return def ? loc('dt_' + def.id, def.title) : ''; }
+  function dragonDesc(def) { return def ? loc('dd_' + def.id, def.desc) : ''; }
+  function bossName(def) {
+    if (!def) return loc('boss_default', 'Boss');
+    return loc('bn_' + String(def.sprite || '').replace('boss_', ''), def.name);
+  }
+  function islandName(isl) {
+    if (!isl) return '';
+    return loc(isl.nameKey, isl.baseName || isl.name) + (isl.nameSuffix || '');
+  }
+
+  global.GameData = {
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
+    ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
+    WHEEL, WHEEL_SPIN_COST, SUMMON_COST, SUMMON_POOL, SKILLS, skillById, skillMods, STORY_CHAPTERS,
+    dragonTitle: dragonTitle, dragonDesc: dragonDesc, bossName: bossName, islandName: islandName,
+    dragonById: function (id) { return DRAGONS.find(function (d) { return d.id === id; }); }
+  };
+})(window);
