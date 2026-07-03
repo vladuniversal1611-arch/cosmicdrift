@@ -821,7 +821,8 @@
       dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
       rarity_legendary: 'легендарний', sr_legendary: 'легендарний',
       promo_x5: '🔥 АКЦІЯ ×5', promo_bonus: 'Бонус! +20% кристалів',
-      ad_loading: 'Реклама завантажується…'
+      ad_loading: 'Реклама завантажується…',
+      claim_x2: 'Забрати ×2', wheel_spin_ad: 'Крутити ({n}/5)'
     },
     en: {
       dt_magma: 'Magma Dragon', dd_magma: 'Hurls a molten bomb that blasts a 3×3 area of crystals.', dragon_q_magma: 'The earth burns at my breath.',
@@ -833,7 +834,8 @@
       dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
       rarity_legendary: 'legendary', sr_legendary: 'legendary',
       promo_x5: '🔥 SALE ×5', promo_bonus: 'Bonus! +20% gems',
-      ad_loading: 'Loading ad…'
+      ad_loading: 'Loading ad…',
+      claim_x2: 'Claim ×2', wheel_spin_ad: 'Spin ({n}/5)'
     }
   };
   Object.keys(DRG).forEach(function (l) { if (STR[l]) Object.assign(STR[l], DRG[l]); });

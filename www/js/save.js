@@ -50,7 +50,7 @@
       chests: {},
       modeBest: { blitz: 0, endless: 0, trials: 0 },
       farm: { lastTick: Date.now(), buildings: { volcano: 1, garden: 0, forge: 0, mine: 0 }, stored: { volcano: 0, garden: 0, forge: 0, mine: 0 } },
-      wheel: { lastFree: '' },          // Wheel of Fortune: date of last free spin
+      wheel: { lastFree: '', adDate: '', adCount: 0 }, // free spin + ad spins (5/day)
       skills: {},                       // dragon skill tree: { skillId: level }
       pvp: { trophies: 0, wins: 0, losses: 0, lastDate: '', played: 0 },
       daily2: { date: '', done: false },

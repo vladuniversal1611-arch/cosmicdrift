@@ -1374,7 +1374,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       if (isBoss) {
         objective = OBJ.BOSS;
         moves += 8;
-        target = Math.min(600, Math.round(100 + d * 380 + island)); // boss HP, capped
+        // Each boss is tougher than the last: HP ramps with the boss number
+        // (island index) plus the global difficulty tier.
+        target = Math.min(1600, Math.round(110 + island * 40 + d * 240)); // boss HP
         color = 0; iceCount = 0; jellyCount = 0;
         chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
       }
@@ -1404,7 +1406,15 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 25 },
     { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 35 },
     { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 45 },
-    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 }
+    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 },
+    { id: 'combo7',       name: 'Ланцюгова реакція', desc: 'Зробіть комбо x7',            goal: 7,    stat: 'maxCombo',    reward: 15 },
+    { id: 'procs50',      name: 'Приборкувач',     desc: 'Активуйте драконів 50 разів',   goal: 50,   stat: 'dragonProcs', reward: 20 },
+    { id: 'specials40',   name: 'Алхімік',         desc: 'Створіть 40 особливих кристалів', goal: 40, stat: 'specialsMade', reward: 25 },
+    { id: 'crush5000',    name: 'Руйнівник світів', desc: 'Знищіть 5000 кристалів',       goal: 5000, stat: 'crystalsCrushed', reward: 40 },
+    { id: 'hatch12',      name: 'Володар драконів', desc: 'Виведіть усіх 12 драконів',    goal: 12,   stat: 'dragonsHatched', reward: 60 },
+    { id: 'stars300',     name: 'Сузір’я',         desc: 'Зберіть 300 зірок',             goal: 300,  stat: 'totalStars',  reward: 70 },
+    { id: 'isle5',        name: 'Першопроходець',  desc: 'Відкрийте п’ятий острів',       goal: 100,  stat: 'levelsWon',   reward: 55 },
+    { id: 'level250',     name: 'Безсмертний',     desc: 'Пройдіть 250 рівнів',           goal: 250,  stat: 'levelsWon',   reward: 120 }
   ];
 
   // ---- Daily quests pool ---------------------------------------------------
@@ -2420,7 +2430,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_volt: 'Блискавичний дракон', dd_volt: 'Прикликає ланцюгову блискавку, що розгалужується по полю.', dragon_q_volt: 'Грім кориться моїй волі.',
       rarity_legendary: 'легендарний', sr_legendary: 'легендарний',
       promo_x5: '🔥 АКЦІЯ ×5', promo_bonus: 'Бонус! +20% кристалів',
-      ad_loading: 'Реклама завантажується…'
+      ad_loading: 'Реклама завантажується…',
+      claim_x2: 'Забрати ×2', wheel_spin_ad: 'Крутити ({n}/5)'
     },
     en: {
       dt_magma: 'Magma Dragon', dd_magma: 'Hurls a molten bomb that blasts a 3×3 area of crystals.', dragon_q_magma: 'The earth burns at my breath.',
@@ -2432,7 +2443,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       dt_volt: 'Volt Dragon', dd_volt: 'Calls chain lightning that forks in jagged bolts across the board.', dragon_q_volt: 'The thunder obeys my will.',
       rarity_legendary: 'legendary', sr_legendary: 'legendary',
       promo_x5: '🔥 SALE ×5', promo_bonus: 'Bonus! +20% gems',
-      ad_loading: 'Loading ad…'
+      ad_loading: 'Loading ad…',
+      claim_x2: 'Claim ×2', wheel_spin_ad: 'Spin ({n}/5)'
     }
   };
   Object.keys(DRG).forEach(function (l) { if (STR[l]) Object.assign(STR[l], DRG[l]); });
@@ -2636,7 +2648,7 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       chests: {},
       modeBest: { blitz: 0, endless: 0, trials: 0 },
       farm: { lastTick: Date.now(), buildings: { volcano: 1, garden: 0, forge: 0, mine: 0 }, stored: { volcano: 0, garden: 0, forge: 0, mine: 0 } },
-      wheel: { lastFree: '' },          // Wheel of Fortune: date of last free spin
+      wheel: { lastFree: '', adDate: '', adCount: 0 }, // free spin + ad spins (5/day)
       skills: {},                       // dragon skill tree: { skillId: level }
       pvp: { trophies: 0, wins: 0, losses: 0, lastDate: '', played: 0 },
       daily2: { date: '', done: false },
@@ -5783,24 +5795,23 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       body.appendChild(info);
       const spinBtn = el('button', 'btn btn-primary btn-big', '');
       body.appendChild(spinBtn);
+      const adBtn = el('button', 'btn btn-buy btn-big wheel-ad', '');
+      body.appendChild(adBtn);
       let spinning = false;
+      const WHEEL_AD_MAX = 5;
+      const adLeft = function () { return p.wheel.adDate === today ? Math.max(0, WHEEL_AD_MAX - (p.wheel.adCount || 0)) : WHEEL_AD_MAX; };
       const refresh = function () {
         const free = UI.wheelAvailable();
         info.innerHTML = free ? '<b class="wheel-free">🎁 ' + T('wheel_free') + '</b>' : T('wheel_cost', { n: D.WHEEL_SPIN_COST }) + ' · 💎 ' + p.gems;
         spinBtn.textContent = free ? T('wheel_spin_free') : T('wheel_spin_gems', { n: D.WHEEL_SPIN_COST });
         spinBtn.disabled = false; spinBtn.classList.toggle('btn-ghost', !free && p.gems < D.WHEEL_SPIN_COST);
+        const left = adLeft();
+        adBtn.textContent = '📺 ' + T('wheel_spin_ad', { n: left });
+        adBtn.disabled = left <= 0; adBtn.classList.toggle('btn-ghost', left <= 0);
       };
-      refresh();
-      click(spinBtn, function () {
-        if (spinning) return;
-        const free = UI.wheelAvailable();
-        if (!free) {
-          if (p.gems < D.WHEEL_SPIN_COST) { UI.toast(T('need_gems')); return; }
-          p.gems -= D.WHEEL_SPIN_COST;
-        }
-        if (free) p.wheel.lastFree = today;
-        global.Save.save(); UI.refreshCurrencies();
-        spinning = true; spinBtn.disabled = true;
+      // The spin animation + prize (no cost handling — the caller pays first).
+      const runSpin = function () {
+        spinning = true; spinBtn.disabled = true; adBtn.disabled = true;
         const idx = UI.weightedPick(D.WHEEL);
         const target = 360 * 6 + (360 - (idx * seg + seg / 2));
         face.style.transition = 'transform 3.6s cubic-bezier(.12,.82,.2,1)';
@@ -5815,6 +5826,27 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
           UI.toast('🎡 ' + UI.rewardStr(prize.rw));
           spinning = false; refresh();
         }, 3700);
+      };
+      refresh();
+      click(spinBtn, function () {
+        if (spinning) return;
+        const free = UI.wheelAvailable();
+        if (!free) {
+          if (p.gems < D.WHEEL_SPIN_COST) { UI.toast(T('need_gems')); return; }
+          p.gems -= D.WHEEL_SPIN_COST;
+        }
+        if (free) p.wheel.lastFree = today;
+        global.Save.save(); UI.refreshCurrencies();
+        runSpin();
+      });
+      click(adBtn, function () {
+        if (spinning || adLeft() <= 0) return;
+        UI.watchAdGeneric(function () {
+          if (p.wheel.adDate !== today) { p.wheel.adDate = today; p.wheel.adCount = 0; }
+          p.wheel.adCount = (p.wheel.adCount || 0) + 1;
+          global.Save.save();
+          runSpin();
+        });
       });
       this.modal(T('wheel_title'), body, [{ label: T('close'), primary: true }]);
     },
@@ -5961,18 +5993,24 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         grid.appendChild(cell);
       });
       body.appendChild(grid);
-      this.modal(T('daily_title'), body, [
-        { label: T('close') },
-        UI.dailyAvailable()
-          ? { label: T('claim'), primary: true, onClick: function () {
-              const amt = rewards[dayIdx];
-              if (dayIdx === 6) p.gems += amt; else p.gold += amt;
-              p.daily.streak += 1; p.daily.lastClaim = today;
-              global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-              UI.toast(T('daily_got'));
-            }}
-          : { label: T('already_claimed'), primary: true }
-      ]);
+      const claim = function (mult) {
+        const amt = rewards[dayIdx] * mult;
+        if (dayIdx === 6) p.gems += amt; else p.gold += amt;
+        p.daily.streak += 1; p.daily.lastClaim = today;
+        global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
+        UI.toast('🎁 ' + amt + (dayIdx === 6 ? '💎' : '🪙') + (mult > 1 ? ' ×2' : ''));
+      };
+      const buttons = [{ label: T('close') }];
+      if (UI.dailyAvailable()) {
+        buttons.push({ label: '📺 ' + T('claim_x2'), onClick: function () {
+          UI.closeModal();
+          UI.watchAdGeneric(function () { claim(2); });
+        } });
+        buttons.push({ label: T('claim'), primary: true, onClick: function () { claim(1); } });
+      } else {
+        buttons.push({ label: T('already_claimed'), primary: true });
+      }
+      this.modal(T('daily_title'), body, buttons);
     },
 
     // ---- QUESTS -----------------------------------------------------------
@@ -7070,7 +7108,7 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
       if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { adBreak(); self.startLevel(lvNum + 1); } });
-      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { adBreak(); self.go('home'); } });
+      else btns.push({ label: T('btn_map'), primary: true, onClick: function () { adBreak(); self.go('map'); } });
       // Rewarded: optionally double the level reward by watching an ad (once).
       if ((gold > 0 || energy > 0)) {
         const dbl = document.createElement('button');

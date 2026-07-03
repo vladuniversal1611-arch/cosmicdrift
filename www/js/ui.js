@@ -1097,24 +1097,23 @@
       body.appendChild(info);
       const spinBtn = el('button', 'btn btn-primary btn-big', '');
       body.appendChild(spinBtn);
+      const adBtn = el('button', 'btn btn-buy btn-big wheel-ad', '');
+      body.appendChild(adBtn);
       let spinning = false;
+      const WHEEL_AD_MAX = 5;
+      const adLeft = function () { return p.wheel.adDate === today ? Math.max(0, WHEEL_AD_MAX - (p.wheel.adCount || 0)) : WHEEL_AD_MAX; };
       const refresh = function () {
         const free = UI.wheelAvailable();
         info.innerHTML = free ? '<b class="wheel-free">🎁 ' + T('wheel_free') + '</b>' : T('wheel_cost', { n: D.WHEEL_SPIN_COST }) + ' · 💎 ' + p.gems;
         spinBtn.textContent = free ? T('wheel_spin_free') : T('wheel_spin_gems', { n: D.WHEEL_SPIN_COST });
         spinBtn.disabled = false; spinBtn.classList.toggle('btn-ghost', !free && p.gems < D.WHEEL_SPIN_COST);
+        const left = adLeft();
+        adBtn.textContent = '📺 ' + T('wheel_spin_ad', { n: left });
+        adBtn.disabled = left <= 0; adBtn.classList.toggle('btn-ghost', left <= 0);
       };
-      refresh();
-      click(spinBtn, function () {
-        if (spinning) return;
-        const free = UI.wheelAvailable();
-        if (!free) {
-          if (p.gems < D.WHEEL_SPIN_COST) { UI.toast(T('need_gems')); return; }
-          p.gems -= D.WHEEL_SPIN_COST;
-        }
-        if (free) p.wheel.lastFree = today;
-        global.Save.save(); UI.refreshCurrencies();
-        spinning = true; spinBtn.disabled = true;
+      // The spin animation + prize (no cost handling — the caller pays first).
+      const runSpin = function () {
+        spinning = true; spinBtn.disabled = true; adBtn.disabled = true;
         const idx = UI.weightedPick(D.WHEEL);
         const target = 360 * 6 + (360 - (idx * seg + seg / 2));
         face.style.transition = 'transform 3.6s cubic-bezier(.12,.82,.2,1)';
@@ -1129,6 +1128,27 @@
           UI.toast('🎡 ' + UI.rewardStr(prize.rw));
           spinning = false; refresh();
         }, 3700);
+      };
+      refresh();
+      click(spinBtn, function () {
+        if (spinning) return;
+        const free = UI.wheelAvailable();
+        if (!free) {
+          if (p.gems < D.WHEEL_SPIN_COST) { UI.toast(T('need_gems')); return; }
+          p.gems -= D.WHEEL_SPIN_COST;
+        }
+        if (free) p.wheel.lastFree = today;
+        global.Save.save(); UI.refreshCurrencies();
+        runSpin();
+      });
+      click(adBtn, function () {
+        if (spinning || adLeft() <= 0) return;
+        UI.watchAdGeneric(function () {
+          if (p.wheel.adDate !== today) { p.wheel.adDate = today; p.wheel.adCount = 0; }
+          p.wheel.adCount = (p.wheel.adCount || 0) + 1;
+          global.Save.save();
+          runSpin();
+        });
       });
       this.modal(T('wheel_title'), body, [{ label: T('close'), primary: true }]);
     },
@@ -1275,18 +1295,24 @@
         grid.appendChild(cell);
       });
       body.appendChild(grid);
-      this.modal(T('daily_title'), body, [
-        { label: T('close') },
-        UI.dailyAvailable()
-          ? { label: T('claim'), primary: true, onClick: function () {
-              const amt = rewards[dayIdx];
-              if (dayIdx === 6) p.gems += amt; else p.gold += amt;
-              p.daily.streak += 1; p.daily.lastClaim = today;
-              global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
-              UI.toast(T('daily_got'));
-            }}
-          : { label: T('already_claimed'), primary: true }
-      ]);
+      const claim = function (mult) {
+        const amt = rewards[dayIdx] * mult;
+        if (dayIdx === 6) p.gems += amt; else p.gold += amt;
+        p.daily.streak += 1; p.daily.lastClaim = today;
+        global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
+        UI.toast('🎁 ' + amt + (dayIdx === 6 ? '💎' : '🪙') + (mult > 1 ? ' ×2' : ''));
+      };
+      const buttons = [{ label: T('close') }];
+      if (UI.dailyAvailable()) {
+        buttons.push({ label: '📺 ' + T('claim_x2'), onClick: function () {
+          UI.closeModal();
+          UI.watchAdGeneric(function () { claim(2); });
+        } });
+        buttons.push({ label: T('claim'), primary: true, onClick: function () { claim(1); } });
+      } else {
+        buttons.push({ label: T('already_claimed'), primary: true });
+      }
+      this.modal(T('daily_title'), body, buttons);
     },
 
     // ---- QUESTS -----------------------------------------------------------

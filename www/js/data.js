@@ -213,7 +213,9 @@
       if (isBoss) {
         objective = OBJ.BOSS;
         moves += 8;
-        target = Math.min(600, Math.round(100 + d * 380 + island)); // boss HP, capped
+        // Each boss is tougher than the last: HP ramps with the boss number
+        // (island index) plus the global difficulty tier.
+        target = Math.min(1600, Math.round(110 + island * 40 + d * 240)); // boss HP
         color = 0; iceCount = 0; jellyCount = 0;
         chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
       }
@@ -243,7 +245,15 @@
     { id: 'isle2',        name: 'Мандрівник',      desc: 'Відкрийте другий острів',       goal: 25,   stat: 'levelsWon',   reward: 25 },
     { id: 'level50',      name: 'Півшляху',        desc: 'Пройдіть 50 рівнів',            goal: 50,   stat: 'levelsWon',   reward: 35 },
     { id: 'stars100',     name: 'Зорепад',         desc: 'Зберіть 100 зірок',             goal: 100,  stat: 'totalStars',  reward: 45 },
-    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 }
+    { id: 'level100',     name: 'Легенда',         desc: 'Пройдіть 100 рівнів',           goal: 100,  stat: 'levelsWon',   reward: 80 },
+    { id: 'combo7',       name: 'Ланцюгова реакція', desc: 'Зробіть комбо x7',            goal: 7,    stat: 'maxCombo',    reward: 15 },
+    { id: 'procs50',      name: 'Приборкувач',     desc: 'Активуйте драконів 50 разів',   goal: 50,   stat: 'dragonProcs', reward: 20 },
+    { id: 'specials40',   name: 'Алхімік',         desc: 'Створіть 40 особливих кристалів', goal: 40, stat: 'specialsMade', reward: 25 },
+    { id: 'crush5000',    name: 'Руйнівник світів', desc: 'Знищіть 5000 кристалів',       goal: 5000, stat: 'crystalsCrushed', reward: 40 },
+    { id: 'hatch12',      name: 'Володар драконів', desc: 'Виведіть усіх 12 драконів',    goal: 12,   stat: 'dragonsHatched', reward: 60 },
+    { id: 'stars300',     name: 'Сузір’я',         desc: 'Зберіть 300 зірок',             goal: 300,  stat: 'totalStars',  reward: 70 },
+    { id: 'isle5',        name: 'Першопроходець',  desc: 'Відкрийте п’ятий острів',       goal: 100,  stat: 'levelsWon',   reward: 55 },
+    { id: 'level250',     name: 'Безсмертний',     desc: 'Пройдіть 250 рівнів',           goal: 250,  stat: 'levelsWon',   reward: 120 }
   ];
 
   // ---- Daily quests pool ---------------------------------------------------

@@ -851,7 +851,7 @@
         { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
       if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { adBreak(); self.startLevel(lvNum + 1); } });
-      else btns.push({ label: T('btn_island'), primary: true, onClick: function () { adBreak(); self.go('home'); } });
+      else btns.push({ label: T('btn_map'), primary: true, onClick: function () { adBreak(); self.go('map'); } });
       // Rewarded: optionally double the level reward by watching an ad (once).
       if ((gold > 0 || energy > 0)) {
         const dbl = document.createElement('button');
