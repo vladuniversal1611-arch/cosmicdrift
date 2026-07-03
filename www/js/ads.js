@@ -14,14 +14,16 @@
   'use strict';
 
   const CONFIG = {
-    // Keep TRUE until the store release so only Google test ads are served
-    // (showing real ads to yourself during dev violates AdMob policy).
-    testing: true,
+    // Real AdMob units for "Зв ряд" (Android). testing:false serves REAL ads
+    // (store build). Flip to true while developing to serve safe Google test
+    // ads — never click your own real ads, that violates AdMob policy.
+    testing: false,
+    // AdMob App ID — must be added to AndroidManifest (see ADMOB_SETUP.md):
+    appId: 'ca-app-pub-5816871059908402~7483444743',
     android: {
-      // Google's official TEST ad unit IDs (safe for development):
-      rewarded:     'ca-app-pub-3940256099942544/5224354917',
-      interstitial: 'ca-app-pub-3940256099942544/1033173712',
-      banner:       'ca-app-pub-3940256099942544/6300978111'
+      rewarded:     'ca-app-pub-5816871059908402/7577566678',
+      interstitial: 'ca-app-pub-5816871059908402/7265741333',
+      banner:       '' // not used (no banner shown in-game)
     },
     interstitialEveryLevels: 3,        // at most one interstitial per N level completions
     interstitialMinGapMs: 90 * 1000,   // and never more often than every 90s

@@ -17,40 +17,35 @@
   не частіше ніж раз на 3 рівні / 90 сек і не для новачків (перші 3 перемоги).
 - `package.json` містить залежність `@capacitor-community/admob`.
 
+## Реальні ID (застосунок «Зв ряд», Android)
+| Що | Значення |
+|---|---|
+| **App ID** | `ca-app-pub-5816871059908402~7483444743` |
+| **Rewarded** | `ca-app-pub-5816871059908402/7577566678` |
+| **Interstitial** | `ca-app-pub-5816871059908402/7265741333` |
+
 ## Кроки для релізу
 
-### 1. Створити AdMob акаунт і юніти
-1. https://admob.google.com → створи застосунок «Dragon Merge Blast» (Android).
-2. Створи 3 рекламні юніти й скопіюй їхні ID:
-   - Rewarded (відео за винагороду)
-   - Interstitial (повноекранна)
-   - Banner (необов'язково)
-3. Запиши **AdMob App ID** (виглядає як `ca-app-pub-XXXXXXXX~YYYYYYYY`).
+### 1. ✅ ID уже вписані в гру
+`www/js/ads.js` → `CONFIG` уже містить реальні Rewarded/Interstitial юніти й
+`testing: false`. Single-file перезібрано (`node android-resources/build.js`).
+> Під час розробки постав `testing: true`, щоб бачити **безпечні тестові** рекламні
+> оголошення Google. Для стор-збірки лиши `false`. **Ніколи не клікай власну
+> справжню рекламу** — це бан AdMob.
 
-### 2. Вставити свої ID у гру
-У `www/js/ads.js` → об'єкт `CONFIG`:
-```js
-testing: false,                       // ВАЖЛИВО: false для продакшену
-android: {
-  rewarded:     'ca-app-pub-ТВОЄ/юніт',
-  interstitial: 'ca-app-pub-ТВОЄ/юніт',
-  banner:       'ca-app-pub-ТВОЄ/юніт'
-}
-```
-Потім перезібрати single-file: `node android-resources/build.js`.
-
-### 3. Встановити плагін і додати App ID
+### 2. Встановити плагін і додати App ID у маніфест
 ```bash
 npm install @capacitor-community/admob
+npx cap add android    # якщо папки android/ ще немає
 npx cap sync android
 ```
 У `android/app/src/main/AndroidManifest.xml` всередині `<application>` додати:
 ```xml
 <meta-data
     android:name="com.google.android.gms.ads.APPLICATION_ID"
-    android:value="ca-app-pub-XXXXXXXX~YYYYYYYY"/>
+    android:value="ca-app-pub-5816871059908402~7483444743"/>
 ```
-(це **App ID**, не юніт). Без нього застосунок впаде на старті.
+(це **App ID** зі знаком `~`, не юніт). Без нього застосунок впаде на старті.
 
 ### 4. Згода користувача (обов'язково для Google Play)
 Для показу персоналізованої реклами в ЄС потрібна згода (UMP / Consent).
