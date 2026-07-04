@@ -493,6 +493,10 @@ function newGame(daily){
     nextLightningAt: 3 + Math.random()*4,
     meteors: [],
     meteorTimer: 5 + Math.random()*4,
+    dangerY: 0,
+    dangerActive: false,
+    dangerGraceTime: 9,
+    shockwaves: [],
     replayLog: [],
     replaySampleTimer: 0,
     ghost: null,
@@ -544,6 +548,7 @@ function newGame(daily){
   game.slime.stuckPlatform = startPlat;
   game.minWorldY = game.slime.y;
   game.cameraY = game.slime.y - H*0.62;
+  game.dangerY = game.slime.y + H*0.95;
 
   generateAhead();
   gameOverScreen.classList.add('hidden');
@@ -647,6 +652,7 @@ function generateAhead(){
     let spike = !isCheckpoint && rng() < spikeChance;
     let crumble = !isCheckpoint && !spike && !moving && rng() < 0.06 + diff*0.14;
     let golden = !isCheckpoint && !spike && !moving && !crumble && rng() < 0.035;
+    if(heightScore < 130*8){ moving = false; spike = false; crumble = false; }
 
     let finalWidth = isCheckpoint ? Math.max(width, 130) : width;
     let finalX = x;
@@ -773,6 +779,10 @@ function launchFromDrag(){
   game.ignoreTimer = 0.22;
   s.stuckPlatform = null;
   game.state = 'flying';
+  s.squashVel -= 1.1 + power*0.9;
+  game.shakeT = Math.max(game.shakeT, 0.1 + power*0.12);
+  game.zoom = Math.min(game.zoom, 0.9);
+  spawnParticles(s.x, s.y, currentSkin().mid, 10 + Math.round(power*8));
   sfxLaunch(power);
 }
 function power_curve(p){ return 0.55 + p*0.65; }
@@ -1003,6 +1013,7 @@ function checkPlatformCollisions(){
 
       if(p.spike && !game.shield){
         spawnParticles(s.x, s.y, '#e0324c', 18);
+        spawnShockwave(s.x, s.y, '#e0324c');
         s.squashVel += 3;
         game.shakeT = 0.4;
         sfxSpike();
@@ -1030,6 +1041,7 @@ function checkPlatformCollisions(){
       spawnParticles(cp.x, cp.y, '#ffffff', 8);
       game.shakeT = Math.max(game.shakeT, clamp(impactSpeed/2200, 0.05, 0.3));
       sfxLand(impactSpeed/1500);
+      if(impactSpeed > 900) spawnShockwave(s.x, s.y, '#ffffff');
 
       const center = p.x + p.w/2;
       const tol = 0.4 * game.character.centerTolMul;
@@ -1154,6 +1166,49 @@ function updateWeather(dt){
     game.flashAlpha = 0.5;
     noiseBurst(0.3, 0.1);
     game.nextLightningAt = game.time + 4 + Math.random()*5;
+  }
+}
+
+function updateDanger(dt){
+  if(!game.dangerActive){
+    if(game.time > game.dangerGraceTime){
+      game.dangerActive = true;
+      spawnFloatingText(game.slime.x, game.slime.y-100, '🌫️ Насувається темрява! Тікай вгору!', '#ff9ecf');
+      sfxSpike();
+      vibrate([30,30,30]);
+    }
+    return;
+  }
+  const diff = diffForHeight(Math.max(0, -game.cameraY));
+  const creep = 32 + diff*68;
+  game.dangerY -= creep*dt;
+  if(game.slime.y >= game.dangerY && game.state !== 'gameover'){
+    spawnShockwave(game.slime.x, game.slime.y, '#3a0a52');
+    triggerGameOver('fog');
+  }
+}
+
+function spawnShockwave(x, y, color){
+  game.shockwaves.push({ x, y, r: SLIME_R*0.6, maxR: SLIME_R*3.2, life: 0.4, maxLife: 0.4, color: color || '#ffffff' });
+}
+function updateShockwaves(dt){
+  for(const sw of game.shockwaves){
+    sw.life -= dt;
+    sw.r += (sw.maxR - sw.r) * Math.min(1, dt*8);
+  }
+  game.shockwaves = game.shockwaves.filter(sw => sw.life > 0);
+}
+function drawShockwaves(){
+  for(const sw of game.shockwaves){
+    const a = clamp(sw.life/sw.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a*0.8;
+    ctx.strokeStyle = sw.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y - game.cameraY, sw.r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -1291,7 +1346,8 @@ function triggerGameOver(reason){
     spike: '💢 Слайм наштрикнувся на шипи!',
     fall: '💧 Слайм зірвався вниз!',
     boxes: '📦 Усі коробки втрачено!',
-    meteor: '☄️ У слайма влучив метеорит!'
+    meteor: '☄️ У слайма влучив метеорит!',
+    fog: '🌫️ Темрява наздогнала слайма!'
   };
   gameOverReasonEl.textContent = reasons[reason] || 'Доставку провалено...';
   finalScoreEl.textContent = game.score;
@@ -1364,6 +1420,8 @@ function resumeFromCheckpoint(){
   game.nextMilestone = Math.ceil((preservedScore+1)/100)*100;
   game.nextCheckpointAt = Math.ceil((preservedHeight+1)/CHECKPOINT_INTERVAL)*CHECKPOINT_INTERVAL;
   game.cameraY = game.slime.y - H*0.62;
+  game.dangerY = game.slime.y + H*0.95;
+  game.dangerActive = false;
   game.checkpoint = cp;
 
   for(let i=0;i<game.boxes.length;i++){
@@ -1415,6 +1473,8 @@ function update(dt){
   updateCrumblingPlatforms(dt);
   updateMeteors(dt);
   updateWeather(dt);
+  updateDanger(dt);
+  updateShockwaves(dt);
 
   if(game.slowMoCooldown > 0) game.slowMoCooldown = Math.max(0, game.slowMoCooldown - dt);
 
@@ -1756,18 +1816,27 @@ function drawSlime(){
   const c = clamp(s.squashPos, -0.6, 1.1);
   const scaleX = 1 + c*0.5;
   const scaleY = 1 - c*0.42;
-  ctx.scale(scaleX, scaleY);
 
-  const wobbleAmt = 1.5 + Math.abs(c)*9;
-  const N = 18;
+  ctx.save();
   ctx.beginPath();
-  for(let i=0;i<=N;i++){
-    const a = (i/N)*Math.PI*2;
-    const r = SLIME_R + Math.sin(a*3 + game.time*5)*wobbleAmt*0.28 + Math.sin(a*5 - game.time*3.2)*wobbleAmt*0.18;
-    const px = Math.cos(a)*r, py = Math.sin(a)*r;
-    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  if(game.state === 'aiming'){
+    const dragAngle = Math.atan2(game.drag.dy, game.drag.dx) - rot;
+    const stretch = 1 + game.drag.power*0.55;
+    ctx.rotate(dragAngle);
+    ctx.ellipse(0, 0, SLIME_R*stretch, SLIME_R/Math.sqrt(stretch), 0, 0, Math.PI*2);
+    ctx.rotate(-dragAngle);
+  } else {
+    ctx.scale(scaleX, scaleY);
+    const wobbleAmt = 1.5 + Math.abs(c)*9;
+    const N = 18;
+    for(let i=0;i<=N;i++){
+      const a = (i/N)*Math.PI*2;
+      const r = SLIME_R + Math.sin(a*3 + game.time*5)*wobbleAmt*0.28 + Math.sin(a*5 - game.time*3.2)*wobbleAmt*0.18;
+      const px = Math.cos(a)*r, py = Math.sin(a)*r;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath();
   }
-  ctx.closePath();
   const grad = ctx.createRadialGradient(-SLIME_R*0.3,-SLIME_R*0.4,4, 0,0, SLIME_R*1.35);
   grad.addColorStop(0, skin.top);
   grad.addColorStop(0.55, skin.mid);
@@ -1777,13 +1846,17 @@ function drawSlime(){
   ctx.lineWidth = 3;
   ctx.strokeStyle = skin.stroke;
   ctx.stroke();
+  ctx.restore();
 
+  ctx.save();
+  ctx.scale(scaleX, scaleY);
   ctx.beginPath();
   ctx.ellipse(-SLIME_R*0.32, -SLIME_R*0.48, SLIME_R*0.32, SLIME_R*0.18, -0.5, 0, Math.PI*2);
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.fill();
 
   drawEyes(game.eyeDir.x, game.eyeDir.y);
+  ctx.restore();
 
   ctx.restore();
 }
@@ -1912,9 +1985,14 @@ function drawAimLine(){
   ctx.lineWidth = 4;
   const hue = lerp(120, 0, power);
   ctx.strokeStyle = `hsl(${hue},85%,55%)`;
+  const len = Math.hypot(dx,dy) || 1;
+  const perpX = -dy/len, perpY = dx/len;
+  const vibe = Math.sin(game.time*28) * power * 4;
+  const midX = sx - dx*1.1 + perpX*vibe;
+  const midY = sy - dy*1.1 + perpY*vibe;
   ctx.beginPath();
   ctx.moveTo(sx, sy);
-  ctx.lineTo(sx - dx*2.2, sy - dy*2.2);
+  ctx.quadraticCurveTo(midX, midY, sx - dx*2.2, sy - dy*2.2);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -1944,6 +2022,40 @@ function drawAimLine(){
   if(ctx.roundRect) ctx.roundRect(-barW/2, -barH/2, Math.max(6,fillW), barH, 6); else ctx.rect(-barW/2,-barH/2,fillW,barH);
   ctx.fill();
   ctx.restore();
+}
+
+function drawDanger(){
+  if(!game.dangerActive) return;
+  const topScreenY = game.dangerY - game.cameraY;
+  if(topScreenY > H+80) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-10, topScreenY+400);
+  ctx.lineTo(-10, topScreenY);
+  for(let x=0; x<=W+10; x+=20){
+    const wy = topScreenY + Math.sin(x*0.045 + game.time*3)*10 + Math.sin(x*0.017 - game.time*1.6)*6;
+    ctx.lineTo(x, wy);
+  }
+  ctx.lineTo(W+10, topScreenY);
+  ctx.lineTo(W+10, topScreenY+400);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, topScreenY-10, 0, topScreenY+220);
+  grad.addColorStop(0, 'rgba(80,20,100,0.9)');
+  grad.addColorStop(0.4, 'rgba(35,8,60,0.95)');
+  grad.addColorStop(1, 'rgba(8,2,20,0.98)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  const margin = game.dangerY - game.slime.y;
+  if(margin < 220){
+    const pulse = 0.4+0.4*Math.sin(game.time*10);
+    ctx.save();
+    ctx.globalAlpha = clamp((220-margin)/220, 0, 1)*(0.4+pulse*0.3);
+    ctx.fillStyle = '#ff2a6d';
+    ctx.fillRect(0, H-70, W, 70);
+    ctx.restore();
+  }
 }
 
 function drawWindIndicator(){
@@ -1995,9 +2107,11 @@ function render(){
   drawMeteors();
   drawGhost();
   drawDetachedBoxes();
+  drawDanger();
   drawSlime();
   drawShieldRing();
   drawStackedBoxes();
+  drawShockwaves();
   drawParticles();
   drawFloatingTexts();
   ctx.restore();
