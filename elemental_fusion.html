@@ -146,6 +146,7 @@
       <button id="grimoireBtn" class="iconBtn" type="button" title="Гримуар">📖</button>
       <button id="achievementsBtn" class="iconBtn" type="button" title="Досягнення">🏅</button>
       <button id="shakeBtn" class="iconBtn" type="button" title="Струсити казан">🫨</button>
+      <button id="riskBtn" class="iconBtn" type="button" title="Ва-банк на наступний кидок">🎰</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
     </div>
   </div>
@@ -158,6 +159,7 @@
       <h1>⚗️ КАЗАН ПЕРЕПОВНЕНО</h1>
       <div class="bigScore">✨ <span id="finalScore">0</span></div>
       <p>Рекорд: 🏆 <span id="finalBest">0</span></p>
+      <p id="historyLine" style="font-size:12px; opacity:0.8;"></p>
       <button id="restartBtn" type="button">🔄 Грати знову</button>
     </div>
   </div>
@@ -187,6 +189,8 @@
       <p>🔥💧⚡🌿 <b>Однаковий розмір, різна стихія</b> → хімічна реакція замість злиття: щось може зникнути, а щось натомість вирости чи вибухнути. Кожна пара стихій дає свій ефект — дивись 📖 Гримуар, там усі рецепти.</p>
       <p>🛒 Час від часу з'являється замовлення — виконай потрібну реакцію вчасно за бонус.</p>
       <p>🔄 Кружок "обмін" зліва — відкладає поточну кульку про запас (і дістає її пізніше). Раз на кульку.</p>
+      <p>🎲 Кулька-джокер зі знаком питання стає випадковою стихією, коли торкнеться чогось — іноді трапляється джекпот!</p>
+      <p>🎰 Ва-банк — активуй перед кидком: якщо кулька зіллється чи прореагує — бонус, якщо ні — штраф. Обмежена кількість спроб.</p>
       <p>🫨 Кнопка струсу — обмежена кількість разів за забіг, струшує весь казан у критичний момент.</p>
       <p>🚩 Не дай кулькам стояти вище червоної лінії надовго — інакше казан переповниться!</p>
       <button id="rulesCloseBtn" class="secondaryBtn" type="button">Зрозуміло!</button>
@@ -207,6 +211,7 @@ const gameOverScreen = document.getElementById('gameOverScreen');
 const finalScoreEl = document.getElementById('finalScore');
 const finalBestEl = document.getElementById('finalBest');
 const newBestBadge = document.getElementById('newBestBadge');
+const historyLineEl = document.getElementById('historyLine');
 const restartBtn = document.getElementById('restartBtn');
 const muteBtn = document.getElementById('muteBtn');
 const grimoireBtn = document.getElementById('grimoireBtn');
@@ -221,6 +226,7 @@ const achievementsScreen = document.getElementById('achievementsScreen');
 const achievementsListEl = document.getElementById('achievementsList');
 const achievementsCloseBtn = document.getElementById('achievementsCloseBtn');
 const shakeBtn = document.getElementById('shakeBtn');
+const riskBtn = document.getElementById('riskBtn');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -321,6 +327,23 @@ function unlockAchievement(id){
   sfxOverload();
   vibrate([15,30,15]);
 }
+
+const HISTORY_KEY = 'elementalFusionHistory';
+let runHistory = [];
+try{
+  const savedH = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  if(Array.isArray(savedH)) runHistory = savedH;
+}catch(e){ runHistory = []; }
+function recordRunHistory(score){
+  runHistory.unshift(score);
+  runHistory = runHistory.slice(0, 5);
+  try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(runHistory)); }catch(e){}
+}
+
+const WILDCARD_CHANCE = 0.07;
+const WILDCARD_JACKPOT_CHANCE = 0.15;
+const RISK_PER_RUN = 3;
+const RISK_TIMEOUT = 3.5;
 
 let containerLeft=0, containerRight=0, containerTop=0, containerBottom=0, dangerY=0, spawnY=0;
 function computeContainer(){
@@ -441,7 +464,9 @@ function randomTier(){
   }
   return 0;
 }
-function makeQueueItem(prevElement){ return { tier: randomTier(), element: randomElement(prevElement) }; }
+function makeQueueItem(prevElement){
+  return { tier: randomTier(), element: randomElement(prevElement), wildcard: Math.random() < WILDCARD_CHANCE };
+}
 
 const SHAKES_PER_RUN = 2;
 
@@ -466,6 +491,9 @@ function newGame(){
     hold: null,
     holdUsed: false,
     shakesLeft: SHAKES_PER_RUN,
+    riskArmed: false,
+    riskUsesLeft: RISK_PER_RUN,
+    heartbeatTimer: 0,
     comboCount: 0,
     comboTimer: 0,
     shakeT: 0,
@@ -478,15 +506,19 @@ function newGame(){
   hintEl.classList.remove('hidden');
   scoreValueEl.textContent = '0';
   shakeBtn.textContent = '🫨' + SHAKES_PER_RUN;
+  riskBtn.textContent = '🎰' + RISK_PER_RUN;
 }
 
-function spawnOrb(x, y, tier, element, vx, vy){
+function spawnOrb(x, y, tier, element, vx, vy, wildcard){
   const o = {
     id: orbIdCounter++,
     x, y, vx: vx||0, vy: vy||0,
     r: TIERS[tier].r, tier, element,
     lastReaction: -999, consumed: false,
-    popScale: 1
+    popScale: 1,
+    wildcard: !!wildcard,
+    risky: false,
+    riskyDeadline: 0
   };
   game.orbs.push(o);
   return o;
@@ -497,7 +529,12 @@ function dropCurrentOrb(){
   const item = game.queue[0];
   const r = TIERS[item.tier].r;
   const x = clamp(game.dropX, containerLeft+r, containerRight-r);
-  spawnOrb(x, spawnY, item.tier, item.element, 0, 40);
+  const orb = spawnOrb(x, spawnY, item.tier, item.element, 0, 40, item.wildcard);
+  if(game.riskArmed){
+    orb.risky = true;
+    orb.riskyDeadline = game.time + RISK_TIMEOUT;
+    game.riskArmed = false;
+  }
   game.dropCooldown = DROP_COOLDOWN;
   game.holdUsed = false;
   game.queue.shift();
@@ -537,6 +574,27 @@ function useShake(){
   spawnFloatingText((containerLeft+containerRight)/2, containerTop+40, '🫨 Струс!', '#c9861a');
 }
 shakeBtn.addEventListener('click', useShake);
+
+function armRisk(){
+  if(!game || game.over || game.riskArmed || game.riskUsesLeft <= 0) return;
+  game.riskArmed = true;
+  game.riskUsesLeft--;
+  riskBtn.textContent = '🎰' + game.riskUsesLeft;
+  spawnFloatingText(game.dropX, spawnY-24, '🎰 Ва-банк на цей кидок!', '#e0432a');
+  sfxDrop();
+}
+riskBtn.addEventListener('click', armRisk);
+
+function updateRiskyOrbs(){
+  for(const o of game.orbs){
+    if(o.risky && !o.consumed && game.time > o.riskyDeadline){
+      o.risky = false;
+      addScore(-15);
+      spawnFloatingText(o.x, o.y-20, '💥 Ризик не зіграв...', '#c9281a');
+      sfxBurn();
+    }
+  }
+}
 
 function getPointerPos(e){
   const rect = canvas.getBoundingClientRect();
@@ -913,6 +971,7 @@ function applyReaction(type, a, b){
   const bigReactions = ['spark','shock','shatter','conduct'];
   addMeter(bigReactions.indexOf(type) !== -1 ? 21 : 18);
   registerCombo(midX, midY);
+  checkRiskyPayoff(a, b, midX, midY);
 
   if(game.order && game.order.type === type){
     addScore(40);
@@ -925,6 +984,15 @@ function applyReaction(type, a, b){
     stats.orders = (stats.orders||0) + 1;
     saveStats();
     if(stats.orders >= 10) unlockAchievement('orders_10');
+  }
+}
+
+function checkRiskyPayoff(a, b, midX, midY){
+  if(a.risky || b.risky){
+    addScore(50);
+    spawnFloatingText(midX, midY-52, '🎰 РИЗИК ЗІГРАВ! +50', '#e0432a');
+    sfxRecord();
+    vibrate([20,40,20]);
   }
 }
 
@@ -941,11 +1009,32 @@ function applyMerge(a, b){
   addMeter(4);
   sfxMerge(newTier);
   registerCombo(midX, midY-20);
+  checkRiskyPayoff(a, b, midX, midY);
   checkElementDiscovery(a.element, newTier);
   if(newTier === MAX_TIER){
     spawnFloatingText(midX, midY-30, '👑 МАКСИМУМ!', '#ffd23f');
     game.shakeT = Math.max(game.shakeT, 0.2);
     unlockAchievement('max_tier');
+  }
+}
+
+function revealWildcard(o){
+  if(!o.wildcard) return;
+  o.wildcard = false;
+  const jackpot = Math.random() < WILDCARD_JACKPOT_CHANCE;
+  o.element = unlockedElements[Math.floor(Math.random()*unlockedElements.length)];
+  if(jackpot){
+    o.tier = Math.min(MAX_TIER, o.tier+2);
+    o.r = TIERS[o.tier].r;
+    o.popScale = 1.6;
+    spawnParticles(o.x, o.y, '#ffd23f', 30, 2);
+    spawnFloatingText(o.x, o.y-40, '🎰 ДЖЕКПОТ!', '#e0432a');
+    sfxOverload();
+    vibrate([30,60,30,60,90]);
+    game.shakeT = Math.max(game.shakeT, 0.4);
+  } else {
+    spawnParticles(o.x, o.y, ELEMENTS[o.element].mid, 14, 1.2);
+    sfxDrop();
   }
 }
 
@@ -956,6 +1045,7 @@ function resolveBounds(o){
     o.y = containerBottom-o.r;
     if(o.vy>0) o.vy = 0;
     o.vx *= 0.9;
+    if(o.wildcard) revealWildcard(o);
   }
   if(o.y - o.r < 0){ o.y = o.r; if(o.vy<0) o.vy = 0; }
 }
@@ -1013,6 +1103,8 @@ function physicsStep(dt){
 
           resolveBounds(a);
           resolveBounds(b);
+          if(a.wildcard) revealWildcard(a);
+          if(b.wildcard) revealWildcard(b);
 
           if(iter === 0 && a.tier === b.tier){
             if(a.element === b.element && a.tier < MAX_TIER){
@@ -1073,12 +1165,27 @@ function updateOrders(dt){
   }
 }
 
+const DANGER_THRESHOLD = 1.7;
+
 function updateDanger(dt){
   const settled = game.orbs.some(o => (o.y - o.r) < dangerY && Math.hypot(o.vx,o.vy) < 260);
   if(settled) game.dangerTimer += dt;
   else game.dangerTimer = Math.max(0, game.dangerTimer - dt*2);
-  if(game.dangerTimer > 1.7 && !game.over){
+  if(game.dangerTimer > DANGER_THRESHOLD && !game.over){
     triggerGameOver();
+  }
+}
+
+function updateTension(dt){
+  const t = clamp(game.dangerTimer/DANGER_THRESHOLD, 0, 1);
+  if(t > 0.12){
+    game.heartbeatTimer -= dt;
+    if(game.heartbeatTimer <= 0){
+      tone(65, 0.13, 'sine', 0.1+t*0.12, 50);
+      game.heartbeatTimer = lerp(0.85, 0.22, t);
+    }
+  } else {
+    game.heartbeatTimer = 0;
   }
 }
 
@@ -1094,6 +1201,8 @@ function triggerGameOver(){
   }
   finalBestEl.textContent = best;
   newBestBadge.classList.toggle('hidden-badge', !isNewBest);
+  recordRunHistory(game.score);
+  historyLineEl.textContent = runHistory.length > 1 ? ('Останні забіги: ' + runHistory.join(', ')) : '';
   if(isNewBest){ sfxRecord(); vibrate([20,20,20,20,60]); }
   else { sfxGameOver(); vibrate(80); }
   setTimeout(()=>{ gameOverScreen.classList.remove('hidden'); }, 260);
@@ -1113,6 +1222,8 @@ function update(dt){
   physicsStep(dt);
   updateDanger(dt);
   updateOrders(dt);
+  updateRiskyOrbs();
+  updateTension(dt);
   updateParticles(dt);
   updateFloatingTexts(dt);
 }
@@ -1161,17 +1272,26 @@ function drawContainer(){
 }
 
 function drawOrb(o){
-  const el = ELEMENTS[o.element];
   ctx.save();
   ctx.translate(o.x, o.y);
   ctx.scale(o.popScale, o.popScale);
   ctx.beginPath();
   ctx.arc(0,0,o.r,0,Math.PI*2);
-  const grad = ctx.createRadialGradient(-o.r*0.3,-o.r*0.35,o.r*0.1,0,0,o.r*1.1);
-  grad.addColorStop(0, el.top);
-  grad.addColorStop(0.6, el.mid);
-  grad.addColorStop(1, el.bot);
-  ctx.fillStyle = grad;
+  if(o.wildcard){
+    const hue = (game.time*140) % 360;
+    const grad = ctx.createRadialGradient(-o.r*0.3,-o.r*0.35,o.r*0.1,0,0,o.r*1.1);
+    grad.addColorStop(0, `hsl(${hue},95%,88%)`);
+    grad.addColorStop(0.6, `hsl(${hue},85%,62%)`);
+    grad.addColorStop(1, `hsl(${(hue+40)%360},80%,38%)`);
+    ctx.fillStyle = grad;
+  } else {
+    const el = ELEMENTS[o.element];
+    const grad = ctx.createRadialGradient(-o.r*0.3,-o.r*0.35,o.r*0.1,0,0,o.r*1.1);
+    grad.addColorStop(0, el.top);
+    grad.addColorStop(0.6, el.mid);
+    grad.addColorStop(1, el.bot);
+    ctx.fillStyle = grad;
+  }
   ctx.fill();
   ctx.lineWidth = 2.5;
   ctx.strokeStyle = 'rgba(0,0,0,0.3)';
@@ -1179,8 +1299,22 @@ function drawOrb(o){
   ctx.font = Math.round(o.r*1.05) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(el.emoji, 0, 1);
+  ctx.fillText(o.wildcard ? '🎲' : ELEMENTS[o.element].emoji, 0, 1);
   ctx.restore();
+
+  if(o.risky && !o.consumed){
+    const pulse = 0.5 + 0.5*Math.sin(game.time*10);
+    ctx.save();
+    ctx.globalAlpha = 0.5 + 0.3*pulse;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r+5, 0, Math.PI*2);
+    ctx.strokeStyle = '#e0432a';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4,3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 }
 
 function drawOrbs(){
@@ -1198,15 +1332,24 @@ function findAimTarget(x, r){
   return best;
 }
 
-function drawSmallOrb(x, y, r, element){
+function drawSmallOrb(x, y, r, element, wildcard){
   ctx.save();
   ctx.translate(x, y);
   ctx.beginPath();
   ctx.arc(0,0,r,0,Math.PI*2);
-  const el = ELEMENTS[element];
-  const grad = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r*1.1);
-  grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
-  ctx.fillStyle = grad;
+  if(wildcard){
+    const hue = (game.time*140) % 360;
+    const grad = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r*1.1);
+    grad.addColorStop(0, `hsl(${hue},95%,88%)`);
+    grad.addColorStop(0.6, `hsl(${hue},85%,62%)`);
+    grad.addColorStop(1, `hsl(${(hue+40)%360},80%,38%)`);
+    ctx.fillStyle = grad;
+  } else {
+    const el = ELEMENTS[element];
+    const grad = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r*1.1);
+    grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
+    ctx.fillStyle = grad;
+  }
   ctx.fill();
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = 'rgba(150,90,20,0.5)';
@@ -1214,7 +1357,7 @@ function drawSmallOrb(x, y, r, element){
   ctx.font = Math.round(r*1.1) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(el.emoji, 0, 1);
+  ctx.fillText(wildcard ? '🎲' : ELEMENTS[element].emoji, 0, 1);
   ctx.restore();
 }
 
@@ -1234,11 +1377,10 @@ function drawHoldBox(){
   ctx.stroke();
   ctx.setLineDash([]);
   if(game.hold){
-    const el = ELEMENTS[game.hold.element];
     ctx.font = '17px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(el.emoji, HOLD_BOX.x, HOLD_BOX.y+1);
+    ctx.fillText(game.hold.wildcard ? '🎲' : ELEMENTS[game.hold.element].emoji, HOLD_BOX.x, HOLD_BOX.y+1);
   } else {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = 'rgba(150,90,20,0.45)';
@@ -1252,7 +1394,6 @@ function drawHoldBox(){
 function drawDropGuide(){
   if(game.over) return;
   const item = game.queue[0];
-  const el = ELEMENTS[item.element];
   const r = TIERS[item.tier].r;
   const x = clamp(game.dropX, containerLeft+r, containerRight-r);
   ctx.save();
@@ -1266,19 +1407,21 @@ function drawDropGuide(){
   ctx.setLineDash([]);
   ctx.restore();
 
-  const target = findAimTarget(x, r);
-  if(target){
-    const willMerge = target.element === item.element && target.tier === item.tier;
-    const willReact = !willMerge && target.element !== item.element && target.tier === item.tier && reactionFor(target.element, item.element);
-    if(willMerge || willReact){
-      ctx.save();
-      ctx.globalAlpha = 0.55 + 0.3*Math.sin(game.time*8);
-      ctx.beginPath();
-      ctx.arc(target.x, target.y, target.r+7, 0, Math.PI*2);
-      ctx.strokeStyle = willMerge ? '#4a9e2f' : '#e0a30a';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.restore();
+  if(!item.wildcard){
+    const target = findAimTarget(x, r);
+    if(target && !target.wildcard){
+      const willMerge = target.element === item.element && target.tier === item.tier;
+      const willReact = !willMerge && target.element !== item.element && target.tier === item.tier && reactionFor(target.element, item.element);
+      if(willMerge || willReact){
+        ctx.save();
+        ctx.globalAlpha = 0.55 + 0.3*Math.sin(game.time*8);
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, target.r+7, 0, Math.PI*2);
+        ctx.strokeStyle = willMerge ? '#4a9e2f' : '#e0a30a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
@@ -1287,9 +1430,19 @@ function drawDropGuide(){
   ctx.globalAlpha = game.dropCooldown > 0 ? 0.4 : 0.95;
   ctx.beginPath();
   ctx.arc(0,0,r,0,Math.PI*2);
-  const grad = ctx.createRadialGradient(-r*0.3,-r*0.35,r*0.1,0,0,r*1.1);
-  grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
-  ctx.fillStyle = grad;
+  if(item.wildcard){
+    const hue = (game.time*140) % 360;
+    const grad = ctx.createRadialGradient(-r*0.3,-r*0.35,r*0.1,0,0,r*1.1);
+    grad.addColorStop(0, `hsl(${hue},95%,88%)`);
+    grad.addColorStop(0.6, `hsl(${hue},85%,62%)`);
+    grad.addColorStop(1, `hsl(${(hue+40)%360},80%,38%)`);
+    ctx.fillStyle = grad;
+  } else {
+    const el = ELEMENTS[item.element];
+    const grad = ctx.createRadialGradient(-r*0.3,-r*0.35,r*0.1,0,0,r*1.1);
+    grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
+    ctx.fillStyle = grad;
+  }
   ctx.fill();
   ctx.lineWidth = 2;
   ctx.strokeStyle = 'rgba(150,90,20,0.6)';
@@ -1297,8 +1450,22 @@ function drawDropGuide(){
   ctx.font = Math.round(r*1.05) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(el.emoji, 0, 1);
+  ctx.fillText(item.wildcard ? '🎲' : ELEMENTS[item.element].emoji, 0, 1);
   ctx.restore();
+
+  if(game.riskArmed){
+    const pulse = 0.5 + 0.5*Math.sin(game.time*10);
+    ctx.save();
+    ctx.globalAlpha = 0.6 + 0.3*pulse;
+    ctx.beginPath();
+    ctx.arc(x, spawnY, r+8, 0, Math.PI*2);
+    ctx.strokeStyle = '#e0432a';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 }
 
 function drawTopUI(){
@@ -1309,8 +1476,8 @@ function drawTopUI(){
   ctx.fillStyle = 'rgba(138,74,16,0.75)';
   ctx.fillText('далі', nx, ny-24);
   ctx.restore();
-  drawSmallOrb(nx, ny, 15, game.queue[1].element);
-  drawSmallOrb(nx+34, ny+5, 10, game.queue[2].element);
+  drawSmallOrb(nx, ny, 15, game.queue[1].element, game.queue[1].wildcard);
+  drawSmallOrb(nx+34, ny+5, 10, game.queue[2].element, game.queue[2].wildcard);
 
   drawHoldBox();
 
@@ -1366,6 +1533,19 @@ function drawOrderCard(){
   ctx.restore();
 }
 
+function drawTensionVignette(){
+  const t = clamp(game.dangerTimer/DANGER_THRESHOLD, 0, 1);
+  if(t <= 0.1) return;
+  const pulse = 0.5 + 0.5*Math.sin(game.time*(6+t*10));
+  ctx.save();
+  const grad = ctx.createRadialGradient(W/2,H/2,H*0.3, W/2,H/2,H*0.75);
+  grad.addColorStop(0, 'rgba(224,50,42,0)');
+  grad.addColorStop(1, `rgba(224,50,42,${(0.15+0.3*t)*(0.6+0.4*pulse)})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+}
+
 function render(){
   ctx.clearRect(0,0,W,H);
 
@@ -1387,6 +1567,7 @@ function render(){
 
   drawTopUI();
   drawOrderCard();
+  drawTensionVignette();
 
   if(game.overloadFlash > 0){
     ctx.save();
