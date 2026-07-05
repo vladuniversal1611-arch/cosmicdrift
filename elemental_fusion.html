@@ -61,7 +61,7 @@
     50%{ transform:translateX(-50%) translateY(-8px); }
   }
 
-  #gameOverScreen, #grimoireScreen, #rulesScreen{
+  #gameOverScreen, #grimoireScreen, #rulesScreen, #achievementsScreen{
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
     background:rgba(120,70,20,0.35);
@@ -69,7 +69,7 @@
     z-index:20;
     opacity:1; transition:opacity 0.35s ease;
   }
-  #gameOverScreen.hidden, #grimoireScreen.hidden, #rulesScreen.hidden{ opacity:0; pointer-events:none; }
+  #gameOverScreen.hidden, #grimoireScreen.hidden, #rulesScreen.hidden, #achievementsScreen.hidden{ opacity:0; pointer-events:none; }
   .recipeRow{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     background:#fff6e6; border:2px solid #ffcf8a; border-radius:12px;
@@ -82,8 +82,9 @@
     margin-top:14px; font-family:inherit; font-weight:800; font-size:14px; color:#8a4a10;
     background:#fff; border:3px solid #ff9f43; border-radius:14px; padding:10px 20px; cursor:pointer; width:100%;
   }
-  #grimoireScreen .panel, #rulesScreen .panel{ max-height:82vh; overflow-y:auto; }
-  #grimoireScreen h1, #rulesScreen h1{ color:#e0432a; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
+  #grimoireScreen .panel, #rulesScreen .panel, #achievementsScreen .panel{ max-height:82vh; overflow-y:auto; }
+  #grimoireScreen h1, #rulesScreen h1, #achievementsScreen h1{ color:#e0432a; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
+  .recipeRow.achieved{ background:#fff0d0; border-color:#ffb703; }
   #rulesScreen p{ text-align:left; font-size:clamp(12px,3.5vw,14px); line-height:1.5; }
   .panel{
     background:linear-gradient(160deg,#fffaf0,#ffe8bf);
@@ -143,6 +144,7 @@
       <div class="hudPill" id="bestBox">🏆 <span id="bestValue">0</span></div>
       <button id="rulesBtn" class="iconBtn" type="button" title="Правила">❓</button>
       <button id="grimoireBtn" class="iconBtn" type="button" title="Гримуар">📖</button>
+      <button id="achievementsBtn" class="iconBtn" type="button" title="Досягнення">🏅</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
     </div>
   </div>
@@ -164,6 +166,14 @@
       <h1>📖 Гримуар рецептів</h1>
       <div id="grimoireList"></div>
       <button id="grimoireCloseBtn" class="secondaryBtn" type="button">Закрити</button>
+    </div>
+  </div>
+
+  <div id="achievementsScreen" class="hidden">
+    <div class="panel">
+      <h1>🏅 Досягнення</h1>
+      <div id="achievementsList"></div>
+      <button id="achievementsCloseBtn" class="secondaryBtn" type="button">Закрити</button>
     </div>
   </div>
 
@@ -202,6 +212,10 @@ const grimoireCloseBtn = document.getElementById('grimoireCloseBtn');
 const rulesBtn = document.getElementById('rulesBtn');
 const rulesScreen = document.getElementById('rulesScreen');
 const rulesCloseBtn = document.getElementById('rulesCloseBtn');
+const achievementsBtn = document.getElementById('achievementsBtn');
+const achievementsScreen = document.getElementById('achievementsScreen');
+const achievementsListEl = document.getElementById('achievementsList');
+const achievementsCloseBtn = document.getElementById('achievementsCloseBtn');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -229,19 +243,27 @@ const ELEMENTS = {
   fire:      { emoji:'🔥', top:'#ffe08a', mid:'#ff7a3d', bot:'#c92e0e' },
   water:     { emoji:'💧', top:'#cdeeff', mid:'#4ea8e0', bot:'#155f95' },
   lightning: { emoji:'⚡', top:'#fff6c2', mid:'#ffd23f', bot:'#9a6b00' },
-  nature:    { emoji:'🌿', top:'#ddffb8', mid:'#7ed957', bot:'#276b18' }
+  nature:    { emoji:'🌿', top:'#ddffb8', mid:'#7ed957', bot:'#276b18' },
+  ice:       { emoji:'❄️', top:'#eaffff', mid:'#8fd9f0', bot:'#2f7a9a' },
+  metal:     { emoji:'⚙️', top:'#f0f0f5', mid:'#a8a8c0', bot:'#55556e' }
 };
 const ELEMENT_KEYS = Object.keys(ELEMENTS);
-const ELEMENT_NAMES = { fire:'Вогонь', water:'Вода', lightning:'Блискавка', nature:'Природа' };
+const ELEMENT_NAMES = { fire:'Вогонь', water:'Вода', lightning:'Блискавка', nature:'Природа', ice:'Лід', metal:'Метал' };
 const ELEMENT_UNLOCK_TIER = 4;
-const ELEMENT_UNLOCK_MAP = { fire:'lightning', water:'nature' };
+const ELEMENT_UNLOCK_MAP = { fire:'lightning', water:'nature', lightning:'ice', nature:'metal' };
 const REACTION_INFO = {
-  steam:  { name:'Пара',      icon:'💨', desc:"Вогонь + Вода — обидві зникають, пара очищує простір" },
-  burn:   { name:'Спалення',  icon:'🔥', desc:'Вогонь поглинає Природу і росте на тір більше' },
-  spark:  { name:'Іскра',     icon:'💥', desc:'Вогонь + Блискавка — вибух штовхає сусідні кульки' },
-  shock:  { name:'Розряд',    icon:'⚡', desc:"Блискавка + Вода — б'є всі кульки поруч" },
-  bloom:  { name:'Цвітіння',  icon:'🌸', desc:'Природа поглинає Воду і росте на тір більше' },
-  growth: { name:'Ріст',      icon:'🌱', desc:'Блискавка живить Природу задарма' }
+  steam:   { name:'Пара',        icon:'💨', desc:"Вогонь + Вода — обидві зникають, пара очищує простір" },
+  burn:    { name:'Спалення',    icon:'🔥', desc:'Вогонь поглинає Природу і росте на тір більше' },
+  spark:   { name:'Іскра',       icon:'💥', desc:'Вогонь + Блискавка — вибух штовхає сусідні кульки' },
+  shock:   { name:'Розряд',      icon:'⚡', desc:"Блискавка + Вода — б'є всі кульки поруч" },
+  bloom:   { name:'Цвітіння',    icon:'🌸', desc:'Природа поглинає Воду і росте на тір більше' },
+  growth:  { name:'Ріст',        icon:'🌱', desc:'Блискавка живить Природу задарма' },
+  melt:    { name:'Танення',     icon:'💧', desc:'Вогонь + Лід — обидва зникають, тануть у пару' },
+  freeze:  { name:'Заморозка',   icon:'❄️', desc:'Лід поглинає Воду і росте на тір більше' },
+  shatter: { name:'Розкол',      icon:'💎', desc:'Блискавка + Лід — вибух розколює лід навколо' },
+  temper:  { name:'Гартування',  icon:'⚙️', desc:'Метал поглинає Лід і росте на тір більше' },
+  forge:   { name:'Кування',     icon:'🔨', desc:'Метал поглинає Вогонь і росте на тір більше' },
+  conduct: { name:'Провідність', icon:'⚡', desc:"Метал + Блискавка — б'є всі кульки поруч" }
 };
 const UNLOCK_KEY = 'elementalFusionUnlocked';
 const DISCOVERED_KEY = 'elementalFusionDiscoveredReactions';
@@ -260,6 +282,40 @@ try{
   const savedR = JSON.parse(localStorage.getItem(DISCOVERED_KEY) || '[]');
   if(Array.isArray(savedR)) discoveredReactions = savedR;
 }catch(e){ discoveredReactions = []; }
+
+const ACHIEVEMENTS = [
+  { id:'first_merge',    name:'Перше злиття',        desc:'Злий дві кульки вперше', icon:'🔗' },
+  { id:'first_reaction', name:'Перша реакція',       desc:'Викликай хімічну реакцію вперше', icon:'⚗️' },
+  { id:'max_tier',       name:'Гігантська кулька',    desc:'Досягни максимального розміру', icon:'👑' },
+  { id:'combo_5',        name:'Ланцюгова реакція',    desc:'Зроби комбо x5', icon:'🔥' },
+  { id:'orders_10',      name:'Надійний алхімік',     desc:'Виконай 10 замовлень', icon:'🛒' },
+  { id:'overload_5',     name:'Перевантажувач',       desc:'Викликай перевантаження 5 разів', icon:'⚡' },
+  { id:'all_elements',   name:'Всі стихії',           desc:'Відкрий усі 6 стихій', icon:'🌟' },
+  { id:'all_recipes',    name:'Майстер рецептів',     desc:'Розкрий усі 12 рецептів у гримуарі', icon:'📖' }
+];
+const ACHIEVEMENTS_KEY = 'elementalFusionAchievements';
+const STATS_KEY = 'elementalFusionStats';
+let unlockedAchievements = [];
+try{
+  const savedA = JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || '[]');
+  if(Array.isArray(savedA)) unlockedAchievements = savedA;
+}catch(e){ unlockedAchievements = []; }
+let stats = { orders:0, overloads:0 };
+try{
+  const savedS = JSON.parse(localStorage.getItem(STATS_KEY) || '{}');
+  if(savedS && typeof savedS === 'object') stats = Object.assign(stats, savedS);
+}catch(e){}
+function saveStats(){ try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch(e){} }
+function unlockAchievement(id){
+  if(unlockedAchievements.indexOf(id) !== -1) return;
+  unlockedAchievements.push(id);
+  try{ localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(unlockedAchievements)); }catch(e){}
+  const a = ACHIEVEMENTS.find(x => x.id === id);
+  if(!a || !game) return;
+  spawnFloatingText((containerLeft+containerRight)/2, containerTop+50, `🏅 ${a.name}!`, '#c9861a');
+  sfxOverload();
+  vibrate([15,30,15]);
+}
 
 let containerLeft=0, containerRight=0, containerTop=0, containerBottom=0, dangerY=0, spawnY=0;
 function computeContainer(){
@@ -345,6 +401,7 @@ function checkElementDiscovery(element, tier){
   unlockedElements.push(target);
   try{ localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlockedElements)); }catch(e){}
   announceElementDiscovery(target);
+  if(unlockedElements.length >= ELEMENT_KEYS.length) unlockAchievement('all_elements');
 }
 function announceElementDiscovery(key){
   const el = ELEMENTS[key];
@@ -362,6 +419,7 @@ function markReactionDiscovered(type){
   try{ localStorage.setItem(DISCOVERED_KEY, JSON.stringify(discoveredReactions)); }catch(e){}
   const info = REACTION_INFO[type];
   spawnFloatingText((containerLeft+containerRight)/2, containerTop+30, `📖 Новий рецепт: ${info.name} ${info.icon}!`, '#c9b8ff');
+  if(discoveredReactions.length >= Object.keys(REACTION_INFO).length) unlockAchievement('all_recipes');
 }
 function randomTier(){
   const weights = [0.38,0.3,0.18,0.09,0.05];
@@ -395,7 +453,8 @@ function newGame(){
     shakeT: 0,
     time: 0,
     order: null,
-    orderCooldown: 7 + Math.random()*4
+    orderCooldown: 7 + Math.random()*4,
+    lastOrderType: null
   };
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
@@ -486,6 +545,26 @@ grimoireCloseBtn.addEventListener('click', ()=>{
   grimoireScreen.classList.add('hidden');
 });
 
+function buildAchievementsUI(){
+  achievementsListEl.innerHTML = '';
+  for(const a of ACHIEVEMENTS){
+    const done = unlockedAchievements.indexOf(a.id) !== -1;
+    const row = document.createElement('div');
+    row.className = 'recipeRow' + (done ? ' achieved' : ' locked');
+    row.innerHTML = done
+      ? `<div><div class="rName">${a.icon} ${a.name}</div><div class="rDesc">${a.desc}</div></div>`
+      : `<div><div class="rName">🔒 ${a.name}</div><div class="rDesc">${a.desc}</div></div>`;
+    achievementsListEl.appendChild(row);
+  }
+}
+achievementsBtn.addEventListener('click', ()=>{
+  buildAchievementsUI();
+  achievementsScreen.classList.remove('hidden');
+});
+achievementsCloseBtn.addEventListener('click', ()=>{
+  achievementsScreen.classList.add('hidden');
+});
+
 const RULES_SEEN_KEY = 'elementalFusionSeenRules';
 rulesBtn.addEventListener('click', ()=>{
   rulesScreen.classList.remove('hidden');
@@ -569,29 +648,36 @@ function registerCombo(x, y){
   if(game.comboCount >= 2){
     spawnFloatingText(x, y-20, `🔗 КОМБО x${game.comboCount}`, '#ffe066');
   }
+  if(game.comboCount >= 5) unlockAchievement('combo_5');
 }
 
 function triggerOverload(){
   game.meter = 0;
-  game.overloadFlash = 0.5;
-  game.shakeT = Math.max(game.shakeT, 0.35);
+  game.overloadFlash = 0.65;
+  game.shakeT = Math.max(game.shakeT, 0.5);
   sfxOverload();
-  vibrate([20,30,20,30,50]);
+  vibrate([20,30,20,30,60,30,90]);
+  const cx = (containerLeft+containerRight)/2, cy = (containerTop+containerBottom)/2;
   let cleared = 0;
   for(const o of game.orbs){
     if(o.tier <= 1 && !o.consumed){
       o.consumed = true;
-      spawnParticles(o.x, o.y, ELEMENTS[o.element].mid, 12, 1.3);
+      spawnParticles(o.x, o.y, ELEMENTS[o.element].mid, 20, 1.8);
       cleared++;
     } else {
       const ang = Math.atan2(o.y-(containerBottom), o.x-(containerLeft+containerRight)/2);
-      o.vx += Math.cos(ang)*80;
-      o.vy -= 60;
+      o.vx += Math.cos(ang)*100;
+      o.vy -= 90;
     }
   }
   game.orbs = game.orbs.filter(o => !o.consumed);
+  const rainbow = ['#ff9f43','#ffd23f','#7ed957','#4ea8e0','#c9281a'];
+  for(const c of rainbow) spawnParticles(cx, cy, c, 10, 2.1);
   addScore(150 + cleared*8);
-  spawnFloatingText((containerLeft+containerRight)/2, (containerTop+containerBottom)/2, '⚡ ПЕРЕВАНТАЖЕННЯ! ⚡', '#ffd23f');
+  spawnFloatingText(cx, cy, '⚡ ПЕРЕВАНТАЖЕННЯ! ⚡', '#c9861a');
+  stats.overloads = (stats.overloads||0) + 1;
+  saveStats();
+  if(stats.overloads >= 5) unlockAchievement('overload_5');
 }
 
 function reactionFor(e1, e2){
@@ -603,15 +689,25 @@ function reactionFor(e1, e2){
     'fire_lightning': 'spark',
     'lightning_water': 'shock',
     'nature_water': 'bloom',
-    'lightning_nature': 'growth'
+    'lightning_nature': 'growth',
+    'fire_ice': 'melt',
+    'ice_water': 'freeze',
+    'ice_lightning': 'shatter',
+    'ice_metal': 'temper',
+    'fire_metal': 'forge',
+    'lightning_metal': 'conduct'
   };
   return map[pair] || null;
 }
 
-const REACTION_COLORS = { steam:'#1a6fa8', burn:'#c94a1a', spark:'#c9281a', shock:'#a87400', bloom:'#2f8a1a', growth:'#1f7a2f' };
+const REACTION_COLORS = {
+  steam:'#1a6fa8', burn:'#c94a1a', spark:'#c9281a', shock:'#a87400', bloom:'#2f8a1a', growth:'#1f7a2f',
+  melt:'#1a6fa8', freeze:'#1a6fa8', shatter:'#2a6fa0', temper:'#55556e', forge:'#c94a1a', conduct:'#a87400'
+};
 
 function applyReaction(type, a, b){
   const midX = (a.x+b.x)/2, midY = (a.y+b.y)/2;
+  unlockAchievement('first_reaction');
   markReactionDiscovered(type);
   const info = REACTION_INFO[type];
   spawnFloatingText(midX, midY-8, `${info.icon} ${info.name}!`, REACTION_COLORS[type] || '#8a4a10');
@@ -685,8 +781,79 @@ function applyReaction(type, a, b){
     spawnParticles(midX, midY, '#ddffb8', 16, 1.1);
     addScore(18 + light.tier*4);
     sfxGrowth();
+  } else if(type === 'melt'){
+    a.consumed = true; b.consumed = true;
+    spawnParticles(midX, midY, '#bfe8ff', 18, 1.1);
+    addScore(20 + (a.tier+b.tier)*3);
+    sfxSteam();
+  } else if(type === 'freeze'){
+    const ice = a.element==='ice' ? a : b;
+    const wat = a.element==='water' ? a : b;
+    wat.consumed = true;
+    ice.tier = Math.min(MAX_TIER, ice.tier+1);
+    ice.r = TIERS[ice.tier].r;
+    ice.popScale = 1.35;
+    ice.lastReaction = game.time;
+    spawnParticles(midX, midY, '#8fd9f0', 16, 1.1);
+    addScore(18 + wat.tier*5);
+    sfxGrowth();
+  } else if(type === 'shatter'){
+    a.consumed = true; b.consumed = true;
+    spawnParticles(midX, midY, '#bfe8ff', 26, 1.6);
+    game.shakeT = Math.max(game.shakeT, 0.22);
+    for(const o of game.orbs){
+      if(o === a || o === b || o.consumed) continue;
+      const dx = o.x-midX, dy = o.y-midY;
+      const dist = Math.hypot(dx,dy);
+      if(dist < 90){
+        const f = (1-dist/90)*260;
+        o.vx += (dx/(dist||1))*f;
+        o.vy += (dy/(dist||1))*f - 60;
+      }
+    }
+    addScore(30 + (a.tier+b.tier)*4);
+    sfxSpark();
+  } else if(type === 'temper'){
+    const metal = a.element==='metal' ? a : b;
+    const ice = a.element==='ice' ? a : b;
+    ice.consumed = true;
+    metal.tier = Math.min(MAX_TIER, metal.tier+1);
+    metal.r = TIERS[metal.tier].r;
+    metal.popScale = 1.35;
+    metal.lastReaction = game.time;
+    spawnParticles(midX, midY, '#a8a8c0', 16, 1.1);
+    addScore(18 + ice.tier*5);
+    sfxGrowth();
+  } else if(type === 'forge'){
+    const metal = a.element==='metal' ? a : b;
+    const fire = a.element==='fire' ? a : b;
+    fire.consumed = true;
+    metal.tier = Math.min(MAX_TIER, metal.tier+1);
+    metal.r = TIERS[metal.tier].r;
+    metal.popScale = 1.35;
+    metal.lastReaction = game.time;
+    spawnParticles(midX, midY, '#ff9f43', 16, 1.1);
+    addScore(18 + fire.tier*5);
+    sfxBurn();
+  } else if(type === 'conduct'){
+    a.consumed = true; b.consumed = true;
+    spawnParticles(midX, midY, '#fff2a8', 18, 1.3);
+    let zapped = 0;
+    for(const o of game.orbs){
+      if(o === a || o === b || o.consumed) continue;
+      const dx = o.x-midX, dy = o.y-midY;
+      const dist = Math.hypot(dx,dy);
+      if(dist < 110){
+        o.vy -= 140;
+        o.vx += (Math.random()-0.5)*160;
+        zapped++;
+      }
+    }
+    addScore(25 + zapped*5);
+    sfxShock();
   }
-  addMeter(type === 'spark' ? 22 : type === 'shock' ? 20 : 18);
+  const bigReactions = ['spark','shock','shatter','conduct'];
+  addMeter(bigReactions.indexOf(type) !== -1 ? 21 : 18);
   registerCombo(midX, midY);
 
   if(game.order && game.order.type === type){
@@ -697,10 +864,14 @@ function applyReaction(type, a, b){
     vibrate([15,15,15]);
     game.order = null;
     game.orderCooldown = 5 + Math.random()*4;
+    stats.orders = (stats.orders||0) + 1;
+    saveStats();
+    if(stats.orders >= 10) unlockAchievement('orders_10');
   }
 }
 
 function applyMerge(a, b){
+  unlockAchievement('first_merge');
   const newTier = Math.min(MAX_TIER, a.tier+1);
   a.consumed = true; b.consumed = true;
   const midX = (a.x+b.x)/2, midY = (a.y+b.y)/2;
@@ -716,6 +887,7 @@ function applyMerge(a, b){
   if(newTier === MAX_TIER){
     spawnFloatingText(midX, midY-30, '👑 МАКСИМУМ!', '#ffd23f');
     game.shakeT = Math.max(game.shakeT, 0.2);
+    unlockAchievement('max_tier');
   }
 }
 
@@ -827,13 +999,18 @@ function updateOrders(dt){
     game.orderCooldown -= dt;
   } else {
     const types = availableReactionTypes();
-    if(types.length){
-      const type = types[Math.floor(Math.random()*types.length)];
+    if(types.length >= 2){
+      let pool = types;
+      if(game.lastOrderType && types.length > 1){
+        pool = types.filter(t => t !== game.lastOrderType);
+      }
+      const type = pool[Math.floor(Math.random()*pool.length)];
       game.order = { type, timeLeft: 24, total: 24 };
+      game.lastOrderType = type;
       const info = REACTION_INFO[type];
-      spawnFloatingText((containerLeft+containerRight)/2, containerTop-4, `🛒 Треба: ${info.name} ${info.icon}`, '#ffe066');
+      spawnFloatingText((containerLeft+containerRight)/2, containerTop-4, `🛒 Треба: ${info.name} ${info.icon}`, '#c9861a');
     } else {
-      game.orderCooldown = 3;
+      game.orderCooldown = 4;
     }
   }
 }
