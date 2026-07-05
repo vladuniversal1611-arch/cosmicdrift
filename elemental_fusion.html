@@ -145,6 +145,7 @@
       <button id="rulesBtn" class="iconBtn" type="button" title="Правила">❓</button>
       <button id="grimoireBtn" class="iconBtn" type="button" title="Гримуар">📖</button>
       <button id="achievementsBtn" class="iconBtn" type="button" title="Досягнення">🏅</button>
+      <button id="shakeBtn" class="iconBtn" type="button" title="Струсити казан">🫨</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
     </div>
   </div>
@@ -185,6 +186,8 @@
       <p>🔵 <b>Однаковий розмір + однакова стихія</b> → дві кульки зливаються в ОДНУ більшу. Це головна мета — рости!</p>
       <p>🔥💧⚡🌿 <b>Однаковий розмір, різна стихія</b> → хімічна реакція замість злиття: щось може зникнути, а щось натомість вирости чи вибухнути. Кожна пара стихій дає свій ефект — дивись 📖 Гримуар, там усі рецепти.</p>
       <p>🛒 Час від часу з'являється замовлення — виконай потрібну реакцію вчасно за бонус.</p>
+      <p>🔄 Кружок "обмін" зліва — відкладає поточну кульку про запас (і дістає її пізніше). Раз на кульку.</p>
+      <p>🫨 Кнопка струсу — обмежена кількість разів за забіг, струшує весь казан у критичний момент.</p>
       <p>🚩 Не дай кулькам стояти вище червоної лінії надовго — інакше казан переповниться!</p>
       <button id="rulesCloseBtn" class="secondaryBtn" type="button">Зрозуміло!</button>
     </div>
@@ -217,6 +220,7 @@ const achievementsBtn = document.getElementById('achievementsBtn');
 const achievementsScreen = document.getElementById('achievementsScreen');
 const achievementsListEl = document.getElementById('achievementsList');
 const achievementsCloseBtn = document.getElementById('achievementsCloseBtn');
+const shakeBtn = document.getElementById('shakeBtn');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -321,7 +325,7 @@ function unlockAchievement(id){
 let containerLeft=0, containerRight=0, containerTop=0, containerBottom=0, dangerY=0, spawnY=0;
 function computeContainer(){
   const hudHeight = 96;
-  containerTop = hudHeight + 62;
+  containerTop = hudHeight + 80;
   containerBottom = H - 18;
   containerLeft = W*0.06;
   containerRight = W*0.94;
@@ -439,10 +443,13 @@ function randomTier(){
 }
 function makeQueueItem(prevElement){ return { tier: randomTier(), element: randomElement(prevElement) }; }
 
+const SHAKES_PER_RUN = 2;
+
 function newGame(){
   resize();
   const firstItem = makeQueueItem(null);
   const secondItem = makeQueueItem(firstItem.element);
+  const thirdItem = makeQueueItem(secondItem.element);
   game = {
     score: 0,
     over: false,
@@ -455,7 +462,10 @@ function newGame(){
     dropCooldown: 0,
     dropX: W/2,
     aiming: false,
-    queue: [firstItem, secondItem],
+    queue: [firstItem, secondItem, thirdItem],
+    hold: null,
+    holdUsed: false,
+    shakesLeft: SHAKES_PER_RUN,
     comboCount: 0,
     comboTimer: 0,
     shakeT: 0,
@@ -467,6 +477,7 @@ function newGame(){
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
   scoreValueEl.textContent = '0';
+  shakeBtn.textContent = '🫨' + SHAKES_PER_RUN;
 }
 
 function spawnOrb(x, y, tier, element, vx, vy){
@@ -488,10 +499,44 @@ function dropCurrentOrb(){
   const x = clamp(game.dropX, containerLeft+r, containerRight-r);
   spawnOrb(x, spawnY, item.tier, item.element, 0, 40);
   game.dropCooldown = DROP_COOLDOWN;
+  game.holdUsed = false;
   game.queue.shift();
   game.queue.push(makeQueueItem(game.queue[game.queue.length-1].element));
   sfxDrop();
 }
+
+const HOLD_BOX = { x: 40, y: 98, r: 20 };
+
+function performHoldSwap(){
+  if(!game || game.over || game.holdUsed) return;
+  if(game.hold){
+    const temp = game.hold;
+    game.hold = game.queue[0];
+    game.queue[0] = temp;
+  } else {
+    game.hold = game.queue[0];
+    game.queue[0] = game.queue[1];
+    game.queue[1] = game.queue[2];
+    game.queue[2] = makeQueueItem(game.queue[1].element);
+  }
+  game.holdUsed = true;
+  sfxGrowth();
+}
+
+function useShake(){
+  if(!game || game.over || game.shakesLeft <= 0) return;
+  game.shakesLeft--;
+  shakeBtn.textContent = '🫨' + game.shakesLeft;
+  game.shakeT = Math.max(game.shakeT, 0.4);
+  for(const o of game.orbs){
+    o.vx += (Math.random()-0.5)*260;
+    o.vy -= 80 + Math.random()*120;
+  }
+  sfxOverload();
+  vibrate([20,20,20]);
+  spawnFloatingText((containerLeft+containerRight)/2, containerTop+40, '🫨 Струс!', '#c9861a');
+}
+shakeBtn.addEventListener('click', useShake);
 
 function getPointerPos(e){
   const rect = canvas.getBoundingClientRect();
@@ -500,8 +545,13 @@ function getPointerPos(e){
 function onPointerDown(e){
   if(!game || game.over) return;
   ensureAudio();
-  game.aiming = true;
   const p = getPointerPos(e);
+  if(Math.hypot(p.x-HOLD_BOX.x, p.y-HOLD_BOX.y) < HOLD_BOX.r){
+    performHoldSwap();
+    e.preventDefault();
+    return;
+  }
+  game.aiming = true;
   game.dropX = p.x;
   hintEl.classList.add('hidden');
   e.preventDefault();
@@ -1137,6 +1187,68 @@ function drawOrbs(){
   for(const o of game.orbs) drawOrb(o);
 }
 
+function findAimTarget(x, r){
+  let best = null;
+  for(const o of game.orbs){
+    if(o.consumed) continue;
+    if(Math.abs(o.x-x) < (o.r+r)*0.85){
+      if(!best || o.y < best.y) best = o;
+    }
+  }
+  return best;
+}
+
+function drawSmallOrb(x, y, r, element){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.arc(0,0,r,0,Math.PI*2);
+  const el = ELEMENTS[element];
+  const grad = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r*1.1);
+  grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(150,90,20,0.5)';
+  ctx.stroke();
+  ctx.font = Math.round(r*1.1) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(el.emoji, 0, 1);
+  ctx.restore();
+}
+
+function drawHoldBox(){
+  ctx.save();
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(138,74,16,0.75)';
+  ctx.fillText('обмін', HOLD_BOX.x, HOLD_BOX.y-26);
+  ctx.beginPath();
+  ctx.arc(HOLD_BOX.x, HOLD_BOX.y, HOLD_BOX.r, 0, Math.PI*2);
+  ctx.fillStyle = game.holdUsed ? 'rgba(150,90,20,0.12)' : 'rgba(255,255,255,0.65)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = game.holdUsed ? 'rgba(150,90,20,0.35)' : '#ff9f43';
+  ctx.setLineDash(game.hold ? [] : [4,3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if(game.hold){
+    const el = ELEMENTS[game.hold.element];
+    ctx.font = '17px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(el.emoji, HOLD_BOX.x, HOLD_BOX.y+1);
+  } else {
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = 'rgba(150,90,20,0.45)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('+', HOLD_BOX.x, HOLD_BOX.y);
+  }
+  ctx.restore();
+}
+
 function drawDropGuide(){
   if(game.over) return;
   const item = game.queue[0];
@@ -1153,6 +1265,22 @@ function drawDropGuide(){
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
+
+  const target = findAimTarget(x, r);
+  if(target){
+    const willMerge = target.element === item.element && target.tier === item.tier;
+    const willReact = !willMerge && target.element !== item.element && target.tier === item.tier && reactionFor(target.element, item.element);
+    if(willMerge || willReact){
+      ctx.save();
+      ctx.globalAlpha = 0.55 + 0.3*Math.sin(game.time*8);
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, target.r+7, 0, Math.PI*2);
+      ctx.strokeStyle = willMerge ? '#4a9e2f' : '#e0a30a';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   ctx.save();
   ctx.translate(x, spawnY);
@@ -1174,32 +1302,19 @@ function drawDropGuide(){
 }
 
 function drawTopUI(){
-  const next = game.queue[1];
-  const nx = W-34, ny = 78;
+  const nx = 108, ny = 98;
   ctx.save();
   ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(138,74,16,0.75)';
-  ctx.fillText('далі', nx, ny-20);
-  const r = 15;
-  ctx.translate(nx, ny);
-  ctx.beginPath();
-  ctx.arc(0,0,r,0,Math.PI*2);
-  const el = ELEMENTS[next.element];
-  const grad = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r*1.1);
-  grad.addColorStop(0, el.top); grad.addColorStop(0.6, el.mid); grad.addColorStop(1, el.bot);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = 'rgba(150,90,20,0.5)';
-  ctx.stroke();
-  ctx.font = '15px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(el.emoji, 0, 1);
+  ctx.fillText('далі', nx, ny-24);
   ctx.restore();
+  drawSmallOrb(nx, ny, 15, game.queue[1].element);
+  drawSmallOrb(nx+34, ny+5, 10, game.queue[2].element);
 
-  const barX = 14, barY = 60, barW = W*0.5, barH = 12;
+  drawHoldBox();
+
+  const barX = 14, barY = 58, barW = W*0.5, barH = 11;
   ctx.save();
   ctx.fillStyle = 'rgba(150,90,20,0.18)';
   if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(barX,barY,barW,barH,6); ctx.fill(); }
@@ -1225,7 +1340,7 @@ function drawTopUI(){
 function drawOrderCard(){
   if(!game.order) return;
   const info = REACTION_INFO[game.order.type];
-  const cardX = 14, cardY = 104, cardW = W-28, cardH = 30;
+  const cardX = 14, cardY = 128, cardW = W-28, cardH = 30;
   ctx.save();
   ctx.globalAlpha = 0.95;
   ctx.fillStyle = 'rgba(255,250,240,0.95)';
