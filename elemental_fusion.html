@@ -698,7 +698,8 @@ function spawnOrb(x, y, tier, element, vx, vy, wildcard){
     popScale: 1,
     wildcard: !!wildcard,
     risky: false,
-    riskyDeadline: 0
+    riskyDeadline: 0,
+    blinkSeed: Math.random()*10
   };
   game.orbs.push(o);
   return o;
@@ -974,23 +975,29 @@ if(!localStorage.getItem(RULES_SEEN_KEY)){
   rulesScreen.classList.remove('hidden');
 }
 
-function spawnParticles(x, y, color, count, speedMul){
+function spawnParticles(x, y, color, count, speedMul, opts){
+  opts = opts || {};
+  const shape = opts.shape || 'circle';
+  const gravityMul = opts.gravityMul != null ? opts.gravityMul : 1;
+  const upBias = opts.upBias || 0;
   speedMul = speedMul || 1;
   for(let i=0;i<count;i++){
     const a = Math.random()*Math.PI*2;
     const sp = (40 + Math.random()*140)*speedMul;
     game.particles.push({
-      x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 30,
+      x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 30 - upBias,
       life: 0.4+Math.random()*0.4, maxLife: 0.4+Math.random()*0.4,
-      size: 3+Math.random()*4, color
+      size: 3+Math.random()*4, color, shape, gravityMul,
+      rot: Math.random()*Math.PI*2
     });
   }
 }
 function updateParticles(dt){
   for(const p of game.particles){
-    p.vy += 500*dt;
+    p.vy += 500*dt*(p.gravityMul != null ? p.gravityMul : 1);
     p.x += p.vx*dt;
     p.y += p.vy*dt;
+    if(p.spin) p.rot = (p.rot||0) + p.spin*dt;
     p.life -= dt;
   }
   game.particles = game.particles.filter(p => p.life > 0);
@@ -1001,10 +1008,91 @@ function drawParticles(){
     ctx.save();
     ctx.globalAlpha = a;
     ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-    ctx.fill();
+    ctx.strokeStyle = p.color;
+    if(p.shape === 'spark'){
+      ctx.lineWidth = Math.max(1.5, p.size*0.6);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx*0.035, p.y - p.vy*0.035);
+      ctx.stroke();
+    } else if(p.shape === 'leaf'){
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot||0);
+      ctx.beginPath();
+      ctx.ellipse(0,0,p.size*1.3,p.size*0.65,0,0,Math.PI*2);
+      ctx.fill();
+    } else if(p.shape === 'shard'){
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot||0);
+      ctx.beginPath();
+      ctx.moveTo(0,-p.size); ctx.lineTo(p.size*0.85, p.size*0.6); ctx.lineTo(-p.size*0.85, p.size*0.6);
+      ctx.closePath();
+      ctx.fill();
+    } else if(p.shape === 'glint'){
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot||0);
+      ctx.beginPath();
+      ctx.moveTo(0,-p.size*1.4); ctx.lineTo(p.size*0.5,0); ctx.lineTo(0,p.size*1.4); ctx.lineTo(-p.size*0.5,0);
+      ctx.closePath();
+      ctx.fill();
+    } else if(p.shape === 'confetti'){
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot||0);
+      ctx.fillRect(-p.size, -p.size*0.5, p.size*2, p.size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fill();
+    }
     ctx.restore();
+  }
+}
+
+const ELEMENT_BURST = {
+  fire:      { shape:'spark',  gravityMul:0.55, upBias:70, speedMul:1.3 },
+  water:     { shape:'circle', gravityMul:1.5,  upBias:-10, speedMul:0.9 },
+  lightning: { shape:'spark',  gravityMul:0.3,  upBias:20, speedMul:1.8 },
+  nature:    { shape:'leaf',   gravityMul:0.45, upBias:0,  speedMul:0.8 },
+  ice:       { shape:'shard',  gravityMul:1.1,  upBias:10, speedMul:1.1 },
+  metal:     { shape:'glint',  gravityMul:0.9,  upBias:30, speedMul:1.4 }
+};
+function spawnElementBurst(element, x, y, count){
+  const el = ELEMENTS[element];
+  const cfg = ELEMENT_BURST[element] || {};
+  spawnParticles(x, y, el.mid, count, cfg.speedMul || 1, { shape: cfg.shape, gravityMul: cfg.gravityMul, upBias: cfg.upBias });
+}
+
+const REACTION_BURST = {
+  steam:   { shape:'circle', gravityMul:0.3, upBias:40 },
+  burn:    { shape:'spark',  gravityMul:0.5, upBias:60 },
+  spark:   { shape:'spark',  gravityMul:0.4, upBias:20 },
+  shock:   { shape:'spark',  gravityMul:0.3, upBias:10 },
+  bloom:   { shape:'leaf',   gravityMul:0.5, upBias:0 },
+  growth:  { shape:'leaf',   gravityMul:0.45,upBias:0 },
+  melt:    { shape:'circle', gravityMul:0.6, upBias:20 },
+  freeze:  { shape:'shard',  gravityMul:1.0, upBias:10 },
+  shatter: { shape:'shard',  gravityMul:0.8, upBias:20 },
+  temper:  { shape:'glint',  gravityMul:0.9, upBias:10 },
+  forge:   { shape:'glint',  gravityMul:0.7, upBias:30 },
+  conduct: { shape:'spark',  gravityMul:0.3, upBias:10 }
+};
+function spawnReactionBurst(type, x, y, color, count, speedMul){
+  const cfg = REACTION_BURST[type] || {};
+  spawnParticles(x, y, color, count, speedMul, { shape: cfg.shape, gravityMul: cfg.gravityMul, upBias: cfg.upBias });
+}
+
+function spawnConfetti(cx, cy, count){
+  const colors = ['#ff9f43','#ffd23f','#7ed957','#4ea8e0','#e0432a','#c79bf0'];
+  for(let i=0;i<count;i++){
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    game.particles.push({
+      x: cx + (Math.random()-0.5)*70, y: cy,
+      vx: (Math.random()-0.5)*260, vy: -220 - Math.random()*260,
+      life: 1.3+Math.random()*0.8, maxLife: 1.3+Math.random()*0.8,
+      size: 3+Math.random()*3, color, shape:'confetti', gravityMul:0.7,
+      rot: Math.random()*Math.PI*2, spin:(Math.random()-0.5)*10
+    });
   }
 }
 
@@ -1167,7 +1255,7 @@ function applyReaction(type, a, b){
   spawnFloatingText(midX, midY-8, `${info.icon} ${info.name}!`, REACTION_COLORS[type] || '#8a4a10');
   if(type === 'steam'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#dfefff', 20, 1.1);
+    spawnReactionBurst(type, midX, midY, '#dfefff', 20, 1.1);
     addScore(15 + (a.tier+b.tier)*3);
     sfxSteam();
   } else if(type === 'burn'){
@@ -1178,12 +1266,12 @@ function applyReaction(type, a, b){
     fire.r = TIERS[fire.tier].r;
     fire.popScale = 1.35;
     fire.lastReaction = game.time;
-    spawnParticles(midX, midY, '#ff7a3d', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#ff7a3d', 16, 1.1);
     addScore(20 + nat.tier*5);
     sfxBurn();
   } else if(type === 'spark'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#ffcf3f', 26, 1.6);
+    spawnReactionBurst(type, midX, midY, '#ffcf3f', 26, 1.6);
     game.shakeT = Math.max(game.shakeT, 0.22);
     for(const o of game.orbs){
       if(o === a || o === b || o.consumed) continue;
@@ -1199,7 +1287,7 @@ function applyReaction(type, a, b){
     sfxSpark();
   } else if(type === 'shock'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#fff2a8', 18, 1.3);
+    spawnReactionBurst(type, midX, midY, '#fff2a8', 18, 1.3);
     let zapped = 0;
     for(const o of game.orbs){
       if(o === a || o === b || o.consumed) continue;
@@ -1221,7 +1309,7 @@ function applyReaction(type, a, b){
     nat.r = TIERS[nat.tier].r;
     nat.popScale = 1.35;
     nat.lastReaction = game.time;
-    spawnParticles(midX, midY, '#7ed957', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#7ed957', 16, 1.1);
     addScore(18 + wat.tier*5);
     sfxGrowth();
   } else if(type === 'growth'){
@@ -1232,12 +1320,12 @@ function applyReaction(type, a, b){
     nat.r = TIERS[nat.tier].r;
     nat.popScale = 1.35;
     nat.lastReaction = game.time;
-    spawnParticles(midX, midY, '#ddffb8', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#ddffb8', 16, 1.1);
     addScore(18 + light.tier*4);
     sfxGrowth();
   } else if(type === 'melt'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#bfe8ff', 18, 1.1);
+    spawnReactionBurst(type, midX, midY, '#bfe8ff', 18, 1.1);
     addScore(20 + (a.tier+b.tier)*3);
     sfxSteam();
   } else if(type === 'freeze'){
@@ -1248,12 +1336,12 @@ function applyReaction(type, a, b){
     ice.r = TIERS[ice.tier].r;
     ice.popScale = 1.35;
     ice.lastReaction = game.time;
-    spawnParticles(midX, midY, '#8fd9f0', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#8fd9f0', 16, 1.1);
     addScore(18 + wat.tier*5);
     sfxGrowth();
   } else if(type === 'shatter'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#bfe8ff', 26, 1.6);
+    spawnReactionBurst(type, midX, midY, '#bfe8ff', 26, 1.6);
     game.shakeT = Math.max(game.shakeT, 0.22);
     for(const o of game.orbs){
       if(o === a || o === b || o.consumed) continue;
@@ -1275,7 +1363,7 @@ function applyReaction(type, a, b){
     metal.r = TIERS[metal.tier].r;
     metal.popScale = 1.35;
     metal.lastReaction = game.time;
-    spawnParticles(midX, midY, '#a8a8c0', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#a8a8c0', 16, 1.1);
     addScore(18 + ice.tier*5);
     sfxGrowth();
   } else if(type === 'forge'){
@@ -1286,12 +1374,12 @@ function applyReaction(type, a, b){
     metal.r = TIERS[metal.tier].r;
     metal.popScale = 1.35;
     metal.lastReaction = game.time;
-    spawnParticles(midX, midY, '#ff9f43', 16, 1.1);
+    spawnReactionBurst(type, midX, midY, '#ff9f43', 16, 1.1);
     addScore(18 + fire.tier*5);
     sfxBurn();
   } else if(type === 'conduct'){
     a.consumed = true; b.consumed = true;
-    spawnParticles(midX, midY, '#fff2a8', 18, 1.3);
+    spawnReactionBurst(type, midX, midY, '#fff2a8', 18, 1.3);
     let zapped = 0;
     for(const o of game.orbs){
       if(o === a || o === b || o.consumed) continue;
@@ -1348,8 +1436,7 @@ function applyMerge(a, b){
   const newTier = Math.min(MAX_TIER, a.tier+1);
   a.consumed = true; b.consumed = true;
   const midX = (a.x+b.x)/2, midY = (a.y+b.y)/2;
-  const el = ELEMENTS[a.element];
-  spawnParticles(midX, midY, el.mid, 14 + newTier*2, 1);
+  spawnElementBurst(a.element, midX, midY, 14 + newTier*2);
   const newOrb = spawnOrb(midX, midY - 4, newTier, a.element, (a.vx+b.vx)*0.2, -60);
   newOrb.popScale = 1.4 + Math.min(0.35, game.comboCount*0.03);
   addScore((newTier+1)*10);
@@ -1371,8 +1458,8 @@ function applyMasterRecipe(recipe, a, b, c){
   const midX = (a.x+b.x+c.x)/3, midY = (a.y+b.y+c.y)/3;
   const bonusTier = Math.max(a.tier, b.tier, c.tier);
   a.consumed = true; b.consumed = true; c.consumed = true;
-  spawnParticles(midX, midY, '#ffd23f', 40, 2.2);
-  spawnParticles(midX, midY, '#ff9f43', 24, 1.8);
+  spawnParticles(midX, midY, '#ffd23f', 40, 2.2, { shape:'glint', gravityMul:0.4, upBias:50 });
+  spawnParticles(midX, midY, '#ff9f43', 24, 1.8, { shape:'spark', gravityMul:0.3, upBias:30 });
   game.shakeT = Math.max(game.shakeT, 0.35);
   triggerPunch(midX, midY, 0.9);
   spawnFloatingText(midX, midY-34, `${recipe.icon} ${recipe.name}! МАЙСТЕР-РЕЦЕПТ`, '#e0432a');
@@ -1620,6 +1707,7 @@ function triggerGameOver(){
       localStorage.setItem('elementalFusionBest', String(best));
       bestValueEl.textContent = best;
       isNewBest = true;
+      spawnConfetti(W/2, H*0.25, 60);
     }
     recordRunHistory(game.score);
     historyLineEl.textContent = runHistory.length > 1 ? ('Останні забіги: ' + runHistory.join(', ')) : '';
@@ -1640,6 +1728,7 @@ function triggerGameOver(){
       dailyBestRecord = { date: today, best: game.score };
       saveDailyBest();
       isNewDailyBest = true;
+      spawnConfetti(W/2, H*0.25, 45);
     }
     let bonusLine = isNewDailyBest ? `🗓️ Новий рекорд дня: ${game.score}!` : `🗓️ Виклик дня: ${game.score} (рекорд: ${dailyBestRecord.best})`;
     if(localStorage.getItem(DAILY_BONUS_KEY) !== today){
@@ -1660,17 +1749,21 @@ function triggerGameOver(){
 }
 
 function update(dt){
-  if(!game || game.over) return;
+  if(!game) return;
+  if(game.overloadFlash > 0) game.overloadFlash = Math.max(0, game.overloadFlash - dt*1.5);
+  if(game.shakeT > 0) game.shakeT = Math.max(0, game.shakeT - dt*2.5);
+  if(game.punchT > 0) game.punchT = Math.max(0, game.punchT - dt*3.5);
+  if(game.comboFlash > 0) game.comboFlash = Math.max(0, game.comboFlash - dt*2);
+  updateParticles(dt);
+  updateFloatingTexts(dt);
+  if(game.over) return;
+
   game.time += dt;
   if(game.dropCooldown > 0) game.dropCooldown = Math.max(0, game.dropCooldown - dt);
   if(game.comboTimer > 0){
     game.comboTimer -= dt;
     if(game.comboTimer <= 0) game.comboCount = 0;
   }
-  if(game.overloadFlash > 0) game.overloadFlash = Math.max(0, game.overloadFlash - dt*1.5);
-  if(game.shakeT > 0) game.shakeT = Math.max(0, game.shakeT - dt*2.5);
-  if(game.punchT > 0) game.punchT = Math.max(0, game.punchT - dt*3.5);
-  if(game.comboFlash > 0) game.comboFlash = Math.max(0, game.comboFlash - dt*2);
 
   physicsStep(dt);
   updateDanger(dt);
@@ -1678,8 +1771,6 @@ function update(dt){
   updateRiskyOrbs();
   updateTension(dt);
   updateEconomyBonus(dt);
-  updateParticles(dt);
-  updateFloatingTexts(dt);
 }
 
 function drawContainer(){
@@ -1784,6 +1875,44 @@ function drawCauldronFace(){
   ctx.restore();
 }
 
+function drawOrbFace(o){
+  const r = o.r;
+  if(r < 18) return;
+  const speed = Math.hypot(o.vx, o.vy);
+  const happy = o.popScale > 1.15;
+  const surprised = !happy && speed > 220;
+  const blinkPhase = Math.sin(game.time*0.7 + o.blinkSeed);
+  const blinking = !happy && !surprised && blinkPhase > 0.965;
+  const eyeDX = r*0.34, eyeY = -r*0.56;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(35,20,5,0.5)';
+  ctx.fillStyle = 'rgba(35,20,5,0.5)';
+  ctx.lineWidth = Math.max(1.2, r*0.055);
+  ctx.lineCap = 'round';
+  if(blinking){
+    ctx.beginPath();
+    ctx.moveTo(-eyeDX-r*0.1, eyeY); ctx.lineTo(-eyeDX+r*0.1, eyeY);
+    ctx.moveTo(eyeDX-r*0.1, eyeY); ctx.lineTo(eyeDX+r*0.1, eyeY);
+    ctx.stroke();
+  } else if(surprised){
+    ctx.beginPath();
+    ctx.arc(-eyeDX, eyeY, r*0.13, 0, Math.PI*2);
+    ctx.arc(eyeDX, eyeY, r*0.13, 0, Math.PI*2);
+    ctx.fill();
+  } else if(happy){
+    ctx.beginPath();
+    ctx.arc(-eyeDX, eyeY+r*0.06, r*0.14, Math.PI, 0);
+    ctx.arc(eyeDX, eyeY+r*0.06, r*0.14, Math.PI, 0);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(-eyeDX, eyeY, r*0.085, 0, Math.PI*2);
+    ctx.arc(eyeDX, eyeY, r*0.085, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawOrb(o){
   ctx.save();
   ctx.filter = currentOrbSkin().filter;
@@ -1814,6 +1943,7 @@ function drawOrb(o){
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(o.wildcard ? '🎲' : ELEMENTS[o.element].emoji, 0, 1);
+  if(!o.wildcard) drawOrbFace(o);
   ctx.restore();
 
   if(o.risky && !o.consumed){
