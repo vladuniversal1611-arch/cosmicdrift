@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1020">
+<title>Perfect Builder</title>
+<style>
+  :root{ color-scheme: dark; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; touch-action:none; }
+  html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#0f1020; font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif; }
+  #app{ position:fixed; inset:0; overflow:hidden; }
+  canvas{ position:absolute; inset:0; display:block; width:100%; height:100%; }
+
+  .hud{ position:absolute; inset:0; pointer-events:none; }
+  .hud *{ pointer-events:auto; }
+
+  .score-wrap{ position:absolute; top:max(18px, env(safe-area-inset-top)); left:0; right:0; text-align:center; }
+  .score{ font-size:54px; font-weight:800; color:#fff; text-shadow:0 3px 12px rgba(0,0,0,.35); letter-spacing:1px; transition:transform .12s ease; }
+  .score.pop{ transform:scale(1.25); }
+  .best{ font-size:15px; font-weight:600; color:rgba(255,255,255,.75); margin-top:2px; }
+
+  .coins{ position:absolute; top:max(20px, env(safe-area-inset-top)); right:16px; display:flex; align-items:center; gap:6px;
+    background:rgba(0,0,0,.28); backdrop-filter:blur(6px); padding:8px 14px 8px 10px; border-radius:999px; color:#fff; font-weight:700; font-size:16px; }
+  .coin-ic{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #ffe58a, #f2b400 60%, #b97a00); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5); }
+
+  .combo{ position:absolute; top:120px; left:0; right:0; text-align:center; opacity:0; transition:opacity .15s ease, transform .15s ease; transform:translateY(6px) scale(.9); }
+  .combo.show{ opacity:1; transform:translateY(0) scale(1); }
+  .combo .txt{ font-size:26px; font-weight:800; color:#ffe066; text-shadow:0 2px 10px rgba(0,0,0,.4); }
+  .combo .mult{ font-size:14px; font-weight:700; color:#fff; opacity:.85; }
+
+  .icon-btn{ position:absolute; bottom:max(18px, env(safe-area-inset-bottom)); width:52px; height:52px; border-radius:50%;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; cursor:pointer; }
+  .icon-btn:active{ transform:scale(.92); }
+  #btnSettings{ left:16px; } #btnShop{ right:16px; }
+
+  .panel-overlay{ position:absolute; inset:0; background:rgba(8,8,18,.72); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:20;}
+  .panel-overlay:not(.open), .panel-overlay:not(.open) *{ pointer-events:none; }
+  .panel-overlay.open{ opacity:1; pointer-events:auto; }
+  .panel{ width:min(92vw,420px); max-height:82vh; overflow-y:auto; background:linear-gradient(160deg,#211f3a,#151328); border-radius:24px;
+    padding:22px; color:#fff; box-shadow:0 20px 60px rgba(0,0,0,.5); transform:translateY(10px) scale(.97); transition:transform .18s ease; }
+  .panel-overlay.open .panel{ transform:translateY(0) scale(1); }
+  .panel h2{ margin:0 0 14px; font-size:22px; text-align:center; }
+  .panel-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.12);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; }
+
+  .tabs{ display:flex; gap:6px; margin-bottom:16px; background:rgba(0,0,0,.25); border-radius:12px; padding:4px; }
+  .tab{ flex:1; text-align:center; padding:8px 4px; border-radius:9px; font-size:13px; font-weight:700; opacity:.6; cursor:pointer; }
+  .tab.active{ background:rgba(255,255,255,.15); opacity:1; }
+  .tabpage{ display:none; } .tabpage.active{ display:block; }
+
+  .row{ display:flex; align-items:center; justify-content:space-between; padding:12px 4px; border-bottom:1px solid rgba(255,255,255,.08); }
+  .row:last-child{ border-bottom:none; }
+  .row .label{ font-size:15px; font-weight:600; }
+  .row .sub{ font-size:12px; color:rgba(255,255,255,.55); margin-top:2px; }
+
+  .switch{ width:48px; height:28px; border-radius:16px; background:rgba(255,255,255,.18); position:relative; cursor:pointer; flex-shrink:0; }
+  .switch.on{ background:#5fd07a; }
+  .switch::after{ content:''; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .15s ease; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+  .switch.on::after{ transform:translateX(20px); }
+
+  .shop-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .shop-item{ border-radius:16px; padding:12px; text-align:center; cursor:pointer; border:2px solid transparent; background:rgba(255,255,255,.06); }
+  .shop-item.selected{ border-color:#ffe066; }
+  .shop-item.locked{ opacity:.55; }
+  .swatch{ height:44px; border-radius:10px; margin-bottom:8px; }
+  .shop-item .name{ font-size:12.5px; font-weight:700; }
+  .shop-item .price{ font-size:11.5px; color:#ffe066; margin-top:3px; font-weight:700; }
+
+  .mission-item, .ach-item{ padding:10px 4px; border-bottom:1px solid rgba(255,255,255,.08); }
+  .mission-item:last-child, .ach-item:last-child{ border-bottom:none; }
+  .m-top{ display:flex; justify-content:space-between; font-size:13.5px; font-weight:700; margin-bottom:6px; }
+  .bar{ height:8px; border-radius:5px; background:rgba(255,255,255,.12); overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg,#7ee0a8,#4fb8ff); border-radius:5px; transition:width .3s ease; }
+  .claim-btn{ margin-top:6px; font-size:12px; font-weight:700; background:#ffe066; color:#4a3b00; border-radius:8px; padding:5px 10px; display:inline-block; cursor:pointer; }
+  .ach-item.locked{ opacity:.45; }
+  .ach-name{ font-size:14px; font-weight:700; } .ach-desc{ font-size:11.5px; color:rgba(255,255,255,.55); }
+
+  .center-screen{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:#fff; z-index:15; }
+  .title{ font-size:44px; font-weight:900; letter-spacing:1px; text-shadow:0 4px 18px rgba(0,0,0,.4); }
+  .title span{ color:#ffe066; }
+  .subtitle{ font-size:14px; opacity:.7; margin-top:6px; margin-bottom:30px; }
+  .btn-primary{ background:linear-gradient(135deg,#7ee0a8,#4fb8ff); color:#0d1730; font-weight:800; font-size:19px;
+    padding:16px 46px; border-radius:999px; cursor:pointer; box-shadow:0 10px 26px rgba(79,184,255,.35); }
+  .btn-primary:active{ transform:scale(.96); }
+  .menu-best{ margin-top:22px; font-size:14px; opacity:.75; }
+  .menu-row{ display:flex; gap:14px; margin-top:16px; }
+  .menu-icon{ width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; }
+
+  .gameover-card{ width:min(90vw,380px); background:linear-gradient(160deg,#211f3a,#151328); border-radius:26px; padding:28px 24px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .go-title{ font-size:24px; font-weight:900; color:#ff8080; margin-bottom:16px; }
+  .go-stats{ display:flex; justify-content:space-around; margin-bottom:22px; }
+  .go-stat .n{ font-size:26px; font-weight:800; } .go-stat .l{ font-size:11.5px; opacity:.6; margin-top:2px; }
+  .go-buttons{ display:flex; gap:12px; }
+  .btn-secondary{ flex:1; background:rgba(255,255,255,.12); color:#fff; font-weight:700; padding:14px 0; border-radius:16px; cursor:pointer; }
+  .btn-again{ flex:1; background:linear-gradient(135deg,#7ee0a8,#4fb8ff); color:#0d1730; font-weight:800; padding:14px 0; border-radius:16px; cursor:pointer; }
+  .go-coins{ font-size:13px; color:#ffe066; font-weight:700; margin-top:-8px; margin-bottom:14px; }
+
+  .toast{ position:absolute; bottom:100px; left:50%; transform:translateX(-50%) translateY(10px); background:rgba(0,0,0,.7); color:#fff;
+    padding:10px 18px; border-radius:12px; font-size:13px; font-weight:600; opacity:0; transition:opacity .2s, transform .2s; z-index:30; white-space:nowrap;}
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <!-- In-game HUD -->
+    <div id="hudPlay" class="hidden">
+      <div class="score-wrap">
+        <div class="score" id="scoreVal">0</div>
+        <div class="best" id="bestVal">BEST 0</div>
+      </div>
+      <div class="coins">
+        <div class="coin-ic"></div><span id="coinVal">0</span>
+      </div>
+      <div class="combo" id="comboWrap">
+        <div class="txt" id="comboTxt">PERFECT!</div>
+        <div class="mult" id="comboMult">COMBO x1</div>
+      </div>
+      <div class="icon-btn" id="btnSettings">⚙</div>
+      <div class="icon-btn" id="btnShop">🛍</div>
+    </div>
+
+    <!-- Main menu -->
+    <div id="menuScreen" class="center-screen">
+      <div class="title">PERFECT<br><span>BUILDER</span></div>
+      <div class="subtitle">Tap to drop. Stack perfectly. Build the sky.</div>
+      <div class="btn-primary" id="btnPlay">PLAY</div>
+      <div class="menu-best" id="menuBest">Best: 0 &nbsp;•&nbsp; Coins: 0</div>
+      <div class="menu-row">
+        <div class="menu-icon" id="btnMenuShop">🛍</div>
+        <div class="menu-icon" id="btnMenuSettings">⚙</div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameOverScreen" class="center-screen hidden">
+      <div class="gameover-card">
+        <div class="go-title">GAME OVER</div>
+        <div class="go-stats">
+          <div class="go-stat"><div class="n" id="goScore">0</div><div class="l">SCORE</div></div>
+          <div class="go-stat"><div class="n" id="goBest">0</div><div class="l">BEST</div></div>
+        </div>
+        <div class="go-coins" id="goCoins">+0 coins earned</div>
+        <div class="go-buttons">
+          <div class="btn-secondary" id="btnHome">Home</div>
+          <div class="btn-again" id="btnAgain">Play Again</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="panel-overlay" id="settingsOverlay">
+      <div class="panel" style="position:relative">
+        <div class="panel-close" id="closeSettings">✕</div>
+        <h2>Settings</h2>
+        <div class="row"><div class="label">Music</div><div class="switch" id="swMusic"></div></div>
+        <div class="row"><div class="label">Sound</div><div class="switch" id="swSound"></div></div>
+        <div class="row"><div class="label">Vibration</div><div class="switch" id="swVibration"></div></div>
+        <div class="row"><div class="label">High Quality</div><div class="switch" id="swQuality"></div></div>
+      </div>
+    </div>
+
+    <!-- Shop / Missions / Achievements panel -->
+    <div class="panel-overlay" id="shopOverlay">
+      <div class="panel" style="position:relative">
+        <div class="panel-close" id="closeShop">✕</div>
+        <h2 id="shopTitle">Shop</h2>
+        <div class="tabs">
+          <div class="tab active" data-tab="shop">Shop</div>
+          <div class="tab" data-tab="missions">Missions</div>
+          <div class="tab" data-tab="achievements">Achievements</div>
+        </div>
+        <div class="tabpage active" id="page-shop"><div class="shop-grid" id="shopGrid"></div></div>
+        <div class="tabpage" id="page-missions"><div id="missionList"></div></div>
+        <div class="tabpage" id="page-achievements"><div id="achList"></div></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================================
+   PERFECT BUILDER — single-file HTML5 mobile game
+   Classes: SaveManager, AudioManager, Input, Camera, ParticleSystem,
+            Biomes, Tower, Effects, UI, Game
+   ========================================================================= */
+
+/* ---------------------------- SaveManager ------------------------------ */
+class SaveManager {
+  constructor(){
+    this.key = 'perfectBuilder.save.v1';
+    this.data = this.load();
+  }
+  defaults(){
+    return {
+      bestScore: 0,
+      coins: 0,
+      selectedTheme: 0,
+      unlockedThemes: [0],
+      settings: { music:true, sound:true, vibration:true, quality:true },
+      achievements: {},
+      stats: { gamesPlayed:0, totalPerfects:0, bestFloors:0 },
+      missions: { date:'', progress:{ floors:0, perfects:0, games:0 }, claimed:{} }
+    };
+  }
+  load(){
+    try{
+      const raw = localStorage.getItem(this.key);
+      if(!raw) return this.defaults();
+      const parsed = JSON.parse(raw);
+      return Object.assign(this.defaults(), parsed, {
+        settings: Object.assign(this.defaults().settings, parsed.settings||{}),
+        stats: Object.assign(this.defaults().stats, parsed.stats||{}),
+        missions: Object.assign(this.defaults().missions, parsed.missions||{}, {
+          progress: Object.assign(this.defaults().missions.progress, (parsed.missions&&parsed.missions.progress)||{}),
+          claimed: Object.assign({}, (parsed.missions&&parsed.missions.claimed)||{})
+        })
+      });
+    }catch(e){ return this.defaults(); }
+  }
+  save(){
+    try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){ /* storage unavailable */ }
+  }
+}
+
+/* ---------------------------- AudioManager ------------------------------ */
+class AudioManager {
+  constructor(save){
+    this.save = save;
+    this.ctx = null;
+    this.musicNodes = null;
+    this.musicOn = false;
+  }
+  ensure(){
+    if(!this.ctx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new Ctx();
+    }
+    if(this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  tone(freq, dur, type='sine', gainVal=0.18, delay=0){
+    if(!this.save.data.settings.sound) return;
+    this.ensure();
+    const t0 = this.ctx.currentTime + delay;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(gainVal, t0+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+  }
+  place(){ this.tone(220,0.12,'sine',0.16); }
+  perfect(mult){
+    this.ensure();
+    const base = 520;
+    [0,1,2].forEach(i=> this.tone(base + i*140, 0.16, 'triangle', 0.14, i*0.05));
+    if(mult>=3) this.tone(base+420, 0.2, 'triangle', 0.12, 0.16);
+  }
+  coin(){ this.tone(900,0.08,'square',0.06); }
+  gameOver(){
+    this.ensure();
+    [0,1,2].forEach(i=> this.tone(300 - i*70, 0.22, 'sawtooth', 0.1, i*0.09));
+  }
+  setMusic(on){
+    this.musicOn = on && this.save.data.settings.music;
+    if(this.musicOn) this.startMusic(); else this.stopMusic();
+  }
+  startMusic(){
+    if(!this.save.data.settings.music) return;
+    this.ensure();
+    this.stopMusic();
+    const ctx = this.ctx;
+    const master = ctx.createGain(); master.gain.value = 0.05;
+    master.connect(ctx.destination);
+    const notes = [261.6,329.6,392.0,466.2];
+    let i = 0;
+    const iv = setInterval(()=>{
+      if(!this.musicOn) return;
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type='sine'; o.frequency.value = notes[i % notes.length];
+      g.gain.setValueAtTime(0, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0.7, ctx.currentTime+0.4);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime+1.6);
+      o.connect(g).connect(master);
+      o.start(); o.stop(ctx.currentTime+1.7);
+      i++;
+    }, 1400);
+    this.musicNodes = { master, iv };
+  }
+  stopMusic(){
+    if(this.musicNodes){ clearInterval(this.musicNodes.iv); try{this.musicNodes.master.disconnect();}catch(e){} this.musicNodes=null; }
+  }
+  vibrate(ms){
+    if(this.save.data.settings.vibration && navigator.vibrate) navigator.vibrate(ms);
+  }
+}
+
+/* ------------------------------ Input ----------------------------------- */
+class InputManager {
+  constructor(target, onTap){
+    this.onTap = onTap;
+    target.addEventListener('pointerdown', (e)=>{ e.preventDefault(); this.onTap(); }, {passive:false});
+    target.addEventListener('contextmenu', e=>e.preventDefault());
+  }
+}
+
+/* ------------------------------ Camera ----------------------------------- */
+class Camera {
+  constructor(){
+    this.y = 0; this.targetY = 0;
+    this.zoom = 1; this.targetZoom = 1;
+    this.shakeMag = 0; this.shakeT = 0;
+    this.shakeX = 0; this.shakeY = 0;
+  }
+  shake(mag){ this.shakeMag = Math.max(this.shakeMag, mag); }
+  update(dt){
+    this.y += (this.targetY - this.y) * Math.min(1, dt*4.2);
+    this.zoom += (this.targetZoom - this.zoom) * Math.min(1, dt*3);
+    if(this.shakeMag > 0.01){
+      this.shakeT += dt*40;
+      this.shakeMag *= Math.pow(0.001, dt);
+      this.shakeX = Math.sin(this.shakeT*1.7) * this.shakeMag;
+      this.shakeY = Math.cos(this.shakeT*2.3) * this.shakeMag * 0.6;
+    } else { this.shakeMag = 0; this.shakeX = 0; this.shakeY = 0; }
+  }
+}
+
+/* --------------------------- Particle system ----------------------------- */
+class ParticleSystem {
+  constructor(maxParticles=260){
+    this.pool = new Array(maxParticles).fill(null).map(()=>({active:false}));
+  }
+  spawn(o){
+    const p = this.pool.find(p=>!p.active);
+    if(!p) return;
+    Object.assign(p, {active:true, life:o.life, maxLife:o.life}, o);
+  }
+  burst(x,y,color,count,opts={}){
+    for(let i=0;i<count;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = (opts.speed||140) * (0.4+Math.random()*0.9);
+      this.spawn({
+        x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - (opts.up||0),
+        size:(opts.size||3)+Math.random()*(opts.sizeVar||3),
+        color, life:(opts.life||0.7)+Math.random()*0.4,
+        gravity: opts.gravity!==undefined?opts.gravity:260,
+        shape: opts.shape||'circle', rot:Math.random()*Math.PI*2, rotSpeed:(Math.random()-0.5)*6,
+        fade:true
+      });
+    }
+  }
+  update(dt){
+    for(const p of this.pool){
+      if(!p.active) continue;
+      p.life -= dt;
+      if(p.life<=0){ p.active=false; continue; }
+      p.vy += (p.gravity||0)*dt;
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.rot += (p.rotSpeed||0)*dt;
+      p.vx *= (1 - dt*0.25);
+    }
+  }
+  draw(ctx, worldToScreen){
+    for(const p of this.pool){
+      if(!p.active) continue;
+      const s = worldToScreen(p.x, p.y);
+      const alpha = Math.max(0, p.life/p.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(s.x, s.y);
+      ctx.rotate(p.rot||0);
+      ctx.fillStyle = p.color;
+      if(p.shape==='rect'){
+        ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+      } else if(p.shape==='star'){
+        drawStar(ctx, 0,0, p.size*0.55, p.size, 5);
+      } else {
+        ctx.beginPath(); ctx.arc(0,0,p.size*0.55*s.scale,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+function drawStar(ctx,cx,cy,inner,outer,points){
+  ctx.beginPath();
+  for(let i=0;i<points*2;i++){
+    const r = i%2===0?outer:inner;
+    const a = (Math.PI/points)*i - Math.PI/2;
+    const x = cx+Math.cos(a)*r, y = cy+Math.sin(a)*r;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+/* -------------------------------- Biomes --------------------------------- */
+const BIOMES = [
+  { name:'Classic House', sky:['#8ec9ff','#e9f6ff'], block:['#ff9f7a','#ffce7a','#8bd7c8','#a3d9a5'], particle:'#fff2c9', night:false },
+  { name:'Modern Building', sky:['#6f8dc9','#c9dcf2'], block:['#7a90ff','#8bb4ff','#b5c4ff','#9fd3ff'], particle:'#dff0ff', night:false },
+  { name:'Glass Tower', sky:['#4c6b9c','#a9c7e8'], block:['#7fd8ff','#a0e8ff','#c6f2ff','#8ecbe0'], particle:'#eafcff', night:false },
+  { name:'Japanese Pagoda', sky:['#e26b6b','#ffc39a'], block:['#c0392b','#e67e22','#f4d35e','#7a2e2e'], particle:'#ffe3c2', night:false },
+  { name:'Castle', sky:['#5c5470','#a89bc9'], block:['#8d99ae','#6c757d','#adb5bd','#495057'], particle:'#e9e4ff', night:false },
+  { name:'Sci-Fi Tower', sky:['#1b1240','#3a2a70'], block:['#00e5ff','#7b5cff','#ff4ecb','#4dffb0'], particle:'#b8e0ff', night:true },
+  { name:'Floating Sky Temple', sky:['#0c1a3d','#274a8c'], block:['#ffd166','#f4a261','#e0fbfc','#98c1d9'], particle:'#fff2c9', night:true },
+  { name:'Crystal Palace', sky:['#0a0a2a','#3d1f6e'], block:['#e0aaff','#c77dff','#7b2ff7','#ffd6ff'], particle:'#f3d9ff', night:true }
+];
+
+/* ---------------------------------- Tower --------------------------------- */
+class Tower {
+  constructor(game){
+    this.game = game;
+    this.reset();
+  }
+  reset(){
+    this.floorHeight = 42;
+    this.level = 0;
+    this.placed = [];
+    this.debris = [];
+    this.perfectStreak = 0;
+    this.multiplier = 1;
+    const w = Math.min(this.game.width*0.62, 260);
+    this.placed.push({ level:0, x:-w/2, width:w, colorIdx:0 });
+    this.spawnMover();
+  }
+  biomeIndex(){ return Math.min(BIOMES.length-1, Math.floor(this.level/50)); }
+  biome(){ return BIOMES[this.biomeIndex()]; }
+  speedFor(level){
+    const base = 90, inc = 4.2, max = 340;
+    return Math.min(max, base + level*inc);
+  }
+  spawnMover(){
+    const prev = this.placed[this.placed.length-1];
+    const speed = this.speedFor(this.level);
+    const dir = Math.random()<0.5 ? 1 : -1;
+    this.mover = {
+      level: this.level+1,
+      width: prev.width,
+      x: prev.x, // left edge, world space relative to tower center
+      vx: speed*dir,
+      colorIdx: (prev.colorIdx+1) % 4
+    };
+  }
+  boundsFor(width){
+    const half = this.game.width*0.5*1.0;
+    return { min:-half+ (this.game.width*0.06), max:half - width - (this.game.width*0.06) };
+  }
+  update(dt){
+    if(this.mover){
+      const b = this.boundsFor(this.mover.width);
+      this.mover.x += this.mover.vx*dt;
+      if(this.mover.x < b.min){ this.mover.x = b.min; this.mover.vx = Math.abs(this.mover.vx); }
+      if(this.mover.x > b.max){ this.mover.x = b.max; this.mover.vx = -Math.abs(this.mover.vx); }
+    }
+    for(const d of this.debris){
+      d.vy += 900*dt;
+      d.x += d.vx*dt; d.y += d.vy*dt;
+      d.rot += d.rotSpeed*dt;
+      d.life -= dt;
+    }
+    this.debris = this.debris.filter(d=> d.life>0 && d.y < this.game.camera.y*-1 + this.game.height*2);
+  }
+  worldTopY(){ return -(this.level)*this.floorHeight; }
+  /** Attempt to drop the moving platform. Returns result info. */
+  drop(){
+    if(!this.mover) return null;
+    const prev = this.placed[this.placed.length-1];
+    const mv = this.mover;
+    const prevLeft = prev.x, prevRight = prev.x+prev.width;
+    const mvLeft = mv.x, mvRight = mv.x+mv.width;
+    const overlapLeft = Math.max(prevLeft, mvLeft);
+    const overlapRight = Math.min(prevRight, mvRight);
+    const overlapWidth = overlapRight - overlapLeft;
+
+    if(overlapWidth <= 4){
+      // total miss -> falls entirely
+      this.spawnDebris(mv, mv.x, mv.width, this.worldTopYFor(mv.level));
+      this.mover = null;
+      return { result:'miss' };
+    }
+
+    const diff = Math.abs(mvLeft - prevLeft);
+    const isPerfect = diff < 4.5;
+    let newX = overlapLeft, newWidth = overlapWidth;
+    if(isPerfect){ newX = prev.x; newWidth = prev.width; }
+
+    // spawn falling debris for the cut-off piece(s)
+    if(!isPerfect){
+      if(mvLeft < overlapLeft){
+        const w = overlapLeft-mvLeft;
+        this.spawnDebris({colorIdx:mv.colorIdx}, mvLeft, w, this.worldTopYFor(mv.level), -1);
+      }
+      if(mvRight > overlapRight){
+        const w = mvRight-overlapRight;
+        this.spawnDebris({colorIdx:mv.colorIdx}, overlapRight, w, this.worldTopYFor(mv.level), 1);
+      }
+    }
+
+    const placedFloor = { level:mv.level, x:newX, width:newWidth, colorIdx:mv.colorIdx };
+    this.placed.push(placedFloor);
+    if(this.placed.length>14) this.placed.shift();
+    this.level = mv.level;
+
+    const tooThin = newWidth < 14;
+    this.mover = null;
+    if(!tooThin) this.spawnMover();
+
+    if(isPerfect){ this.perfectStreak++; }
+    else { this.perfectStreak = 0; }
+    this.multiplier = this.perfectStreak>=20?5: this.perfectStreak>=15?4 : this.perfectStreak>=10?3 : this.perfectStreak>=5?2:1;
+
+    return { result: tooThin?'toothin':'placed', perfect:isPerfect, multiplier:this.multiplier, width:newWidth, x:newX };
+  }
+  worldTopYFor(level){ return -(level)*this.floorHeight; }
+  spawnDebris(mv, x, width, y, dirHint){
+    const dir = dirHint || (Math.random()<0.5?-1:1);
+    this.debris.push({
+      x, y, width, height:this.floorHeight*0.9, colorIdx:mv.colorIdx,
+      vx: dir*70 + (Math.random()-0.5)*40, vy: -60,
+      rot:0, rotSpeed:(Math.random()-0.5)*6 * (dir),
+      life: 3.2
+    });
+  }
+}
+
+/* -------------------------------- Effects --------------------------------- */
+class Effects {
+  constructor(game){ this.game = game; this.floaters = []; this.clouds=[]; this.initClouds(); }
+  initClouds(){
+    for(let i=0;i<7;i++){
+      this.clouds.push({ x:Math.random()*1, y:Math.random()*0.5, s:0.6+Math.random()*0.8, speed:6+Math.random()*10 });
+    }
+  }
+  floatText(x,y,text,color){
+    this.floaters.push({x,y,text,color,life:1,vy:-60});
+  }
+  update(dt){
+    for(const f of this.floaters){ f.life -= dt*1.1; f.y += f.vy*dt; }
+    this.floaters = this.floaters.filter(f=>f.life>0);
+    for(const c of this.clouds){ c.x += c.speed*dt*0.0006; if(c.x>1.3) c.x=-0.3; }
+  }
+}
+
+/* ---------------------------------- UI ------------------------------------ */
+class UI {
+  constructor(game){
+    this.game = game;
+    this.el = {
+      hudPlay: document.getElementById('hudPlay'),
+      scoreVal: document.getElementById('scoreVal'),
+      bestVal: document.getElementById('bestVal'),
+      coinVal: document.getElementById('coinVal'),
+      comboWrap: document.getElementById('comboWrap'),
+      comboTxt: document.getElementById('comboTxt'),
+      comboMult: document.getElementById('comboMult'),
+      menuScreen: document.getElementById('menuScreen'),
+      menuBest: document.getElementById('menuBest'),
+      gameOverScreen: document.getElementById('gameOverScreen'),
+      goScore: document.getElementById('goScore'),
+      goBest: document.getElementById('goBest'),
+      goCoins: document.getElementById('goCoins'),
+      settingsOverlay: document.getElementById('settingsOverlay'),
+      shopOverlay: document.getElementById('shopOverlay'),
+      toast: document.getElementById('toast'),
+    };
+    this.bindStatic();
+    this.comboTimer = null;
+  }
+  bindStatic(){
+    const g = this.game;
+    document.getElementById('btnPlay').onclick = ()=> g.startGame();
+    document.getElementById('btnAgain').onclick = ()=> g.startGame();
+    document.getElementById('btnHome').onclick = ()=> g.goHome();
+    document.getElementById('btnSettings').onclick = ()=> this.openSettings();
+    document.getElementById('btnMenuSettings').onclick = ()=> this.openSettings();
+    document.getElementById('closeSettings').onclick = ()=> this.el.settingsOverlay.classList.remove('open');
+    document.getElementById('btnShop').onclick = ()=> this.openShop();
+    document.getElementById('btnMenuShop').onclick = ()=> this.openShop();
+    document.getElementById('closeShop').onclick = ()=> this.el.shopOverlay.classList.remove('open');
+
+    document.getElementById('settingsOverlay').addEventListener('click', e=>{ if(e.target.id==='settingsOverlay') this.el.settingsOverlay.classList.remove('open'); });
+    document.getElementById('shopOverlay').addEventListener('click', e=>{ if(e.target.id==='shopOverlay') this.el.shopOverlay.classList.remove('open'); });
+
+    const sw = (id, key, cb)=>{
+      const node = document.getElementById(id);
+      node.onclick = ()=>{
+        const s = g.save.data.settings;
+        s[key] = !s[key];
+        g.save.save();
+        this.refreshSwitches();
+        if(cb) cb(s[key]);
+      };
+    };
+    sw('swMusic','music',(on)=> g.audio.setMusic(on && g.state==='playing'));
+    sw('swSound','sound');
+    sw('swVibration','vibration');
+    sw('swQuality','quality');
+
+    document.querySelectorAll('.tab').forEach(tab=>{
+      tab.onclick = ()=>{
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('page-'+tab.dataset.tab).classList.add('active');
+      };
+    });
+  }
+  refreshSwitches(){
+    const s = this.game.save.data.settings;
+    for(const [id,key] of [['swMusic','music'],['swSound','sound'],['swVibration','vibration'],['swQuality','quality']]){
+      document.getElementById(id).classList.toggle('on', !!s[key]);
+    }
+  }
+  openSettings(){ this.refreshSwitches(); this.el.settingsOverlay.classList.add('open'); }
+  openShop(){ this.renderShop(); this.renderMissions(); this.renderAchievements(); this.el.shopOverlay.classList.add('open'); }
+
+  showToast(msg){
+    this.el.toast.textContent = msg;
+    this.el.toast.classList.add('show');
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(()=> this.el.toast.classList.remove('show'), 1600);
+  }
+
+  setPlaying(on){ this.el.hudPlay.classList.toggle('hidden', !on); }
+  showMenu(){
+    this.el.menuScreen.classList.remove('hidden');
+    this.el.gameOverScreen.classList.add('hidden');
+    this.setPlaying(false);
+    const d = this.game.save.data;
+    this.el.menuBest.textContent = `Best: ${d.bestScore}  •  Coins: ${d.coins}`;
+  }
+  hideMenu(){ this.el.menuScreen.classList.add('hidden'); }
+  showGameOver(score, best, coinsEarned){
+    this.el.gameOverScreen.classList.remove('hidden');
+    this.setPlaying(false);
+    this.el.goScore.textContent = score;
+    this.el.goBest.textContent = best;
+    this.el.goCoins.textContent = `+${coinsEarned} coins earned`;
+  }
+  updateScore(score, best){
+    this.el.scoreVal.textContent = score;
+    this.el.bestVal.textContent = 'BEST ' + best;
+    this.el.coinVal.textContent = this.game.save.data.coins;
+    this.el.scoreVal.classList.remove('pop');
+    void this.el.scoreVal.offsetWidth;
+    this.el.scoreVal.classList.add('pop');
+  }
+  showCombo(mult){
+    this.el.comboTxt.textContent = 'PERFECT!';
+    this.el.comboMult.textContent = 'COMBO x' + mult;
+    this.el.comboWrap.classList.add('show');
+    clearTimeout(this.comboTimer);
+    this.comboTimer = setTimeout(()=> this.el.comboWrap.classList.remove('show'), 900);
+  }
+
+  renderShop(){
+    const g = this.game;
+    const grid = document.getElementById('shopGrid');
+    grid.innerHTML = '';
+    const themes = BIOMES;
+    themes.forEach((b, i)=>{
+      const unlocked = g.save.data.unlockedThemes.includes(i);
+      const price = i===0?0:(i)*50;
+      const item = document.createElement('div');
+      item.className = 'shop-item' + (unlocked?'':' locked') + (g.save.data.selectedTheme===i?' selected':'');
+      item.innerHTML = `<div class="swatch" style="background:linear-gradient(135deg,${b.block[0]},${b.block[2]})"></div>
+        <div class="name">${b.name}</div>
+        <div class="price">${unlocked ? (g.save.data.selectedTheme===i?'Selected':'Owned') : price+' 🪙'}</div>`;
+      item.onclick = ()=>{
+        if(unlocked){
+          g.save.data.selectedTheme = i;
+          g.save.save();
+          this.renderShop();
+          this.showToast('Theme selected: '+b.name);
+        } else if(g.save.data.coins >= price){
+          g.save.data.coins -= price;
+          g.save.data.unlockedThemes.push(i);
+          g.save.data.selectedTheme = i;
+          g.save.save();
+          this.renderShop();
+          this.updateScore(g.score, g.save.data.bestScore);
+          this.showToast('Unlocked: '+b.name+'!');
+        } else {
+          this.showToast('Not enough coins');
+        }
+      };
+      grid.appendChild(item);
+    });
+  }
+  renderMissions(){
+    const g = this.game;
+    const m = g.save.data.missions;
+    const defs = [
+      { id:'floors', label:'Reach 100 floors (best run)', target:100, reward:60, val:g.save.data.stats.bestFloors },
+      { id:'perfects', label:'Make 20 perfect placements', target:20, reward:40, val:m.progress.perfects },
+      { id:'games', label:'Play 5 games', target:5, reward:25, val:m.progress.games },
+    ];
+    const list = document.getElementById('missionList');
+    list.innerHTML = '';
+    defs.forEach(d=>{
+      const pct = Math.min(100, Math.floor(d.val/d.target*100));
+      const claimed = !!m.claimed[d.id];
+      const done = d.val >= d.target;
+      const div = document.createElement('div');
+      div.className = 'mission-item';
+      div.innerHTML = `<div class="m-top"><span>${d.label}</span><span>${Math.min(d.val,d.target)}/${d.target}</span></div>
+        <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+        ${claimed?'<div style="font-size:11px;color:#7ee0a8;margin-top:6px;">Claimed ✓</div>' :
+          done? `<div class="claim-btn" data-id="${d.id}" data-reward="${d.reward}">Claim +${d.reward} 🪙</div>` : ''}`;
+      list.appendChild(div);
+    });
+    list.querySelectorAll('.claim-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.dataset.id, reward = parseInt(btn.dataset.reward,10);
+        g.save.data.coins += reward;
+        g.save.data.missions.claimed[id] = true;
+        g.save.save();
+        this.renderMissions();
+        this.updateScore(g.score, g.save.data.bestScore);
+        this.showToast('+' + reward + ' coins!');
+      };
+    });
+  }
+  renderAchievements(){
+    const g = this.game;
+    const defs = [
+      { id:'f50', label:'50 Floors', desc:'Reach floor 50', test: ()=> g.save.data.stats.bestFloors>=50 },
+      { id:'f100', label:'100 Floors', desc:'Reach floor 100', test: ()=> g.save.data.stats.bestFloors>=100 },
+      { id:'f500', label:'500 Floors', desc:'Reach floor 500', test: ()=> g.save.data.stats.bestFloors>=500 },
+      { id:'f1000', label:'1000 Floors', desc:'Reach floor 1000', test: ()=> g.save.data.stats.bestFloors>=1000 },
+      { id:'perfectmaster', label:'Perfect Master', desc:'100 total perfect placements', test: ()=> g.save.data.stats.totalPerfects>=100 },
+      { id:'comboking', label:'Combo King', desc:'Reach x5 combo multiplier', test: ()=> g.maxMultiplierSeen>=5 },
+    ];
+    const list = document.getElementById('achList');
+    list.innerHTML = '';
+    defs.forEach(d=>{
+      const unlocked = d.test() || !!g.save.data.achievements[d.id];
+      if(unlocked) g.save.data.achievements[d.id] = true;
+      const div = document.createElement('div');
+      div.className = 'ach-item' + (unlocked?'':' locked');
+      div.innerHTML = `<div class="ach-name">${unlocked?'🏆':'🔒'} ${d.label}</div><div class="ach-desc">${d.desc}</div>`;
+      list.appendChild(div);
+    });
+    g.save.save();
+  }
+}
+
+/* ---------------------------------- Game ----------------------------------- */
+class Game {
+  constructor(){
+    this.canvas = document.getElementById('game');
+    this.ctx = this.canvas.getContext('2d');
+    this.save = new SaveManager();
+    this.audio = new AudioManager(this.save);
+    this.camera = new Camera();
+    this.particles = new ParticleSystem(300);
+    this.effects = new Effects(this);
+    this.ui = new UI(this);
+    this.tower = null;
+    this.state = 'menu'; // menu | playing | gameover
+    this.score = 0;
+    this.coinsThisRun = 0;
+    this.maxMultiplierSeen = 1;
+    this.lastTime = performance.now();
+    this.resize();
+    window.addEventListener('resize', ()=>this.resize());
+    new InputManager(this.canvas, ()=> this.handleTap());
+    this.ui.showMenu();
+    this.checkDailyReset();
+    requestAnimationFrame(t=>this.loop(t));
+  }
+  resize(){
+    const dpr = Math.min(2, window.devicePixelRatio||1);
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.canvas.width = this.width*dpr;
+    this.canvas.height = this.height*dpr;
+    this.canvas.style.width = this.width+'px';
+    this.canvas.style.height = this.height+'px';
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  checkDailyReset(){
+    const today = new Date().toISOString().slice(0,10);
+    const m = this.save.data.missions;
+    if(m.date !== today){
+      m.date = today;
+      m.progress = { floors:0, perfects:0, games:0 };
+      m.claimed = {};
+      this.save.save();
+    }
+  }
+  goHome(){
+    this.state = 'menu';
+    this.audio.setMusic(false);
+    this.ui.showMenu();
+  }
+  startGame(){
+    this.state = 'playing';
+    this.score = 0;
+    this.coinsThisRun = 0;
+    this.maxMultiplierSeen = 1;
+    this.tower = new Tower(this);
+    this.camera.y = this.tower.worldTopY();
+    this.camera.targetY = this.tower.worldTopY();
+    this.camera.zoom = 1; this.camera.targetZoom = 1;
+    this.ui.hideMenu();
+    document.getElementById('gameOverScreen').classList.add('hidden');
+    this.ui.setPlaying(true);
+    this.ui.updateScore(0, this.save.data.bestScore);
+    this.save.data.missions.progress.games++;
+    this.save.save();
+    this.audio.setMusic(true);
+  }
+  handleTap(){
+    this.audio.ensure();
+    if(this.state === 'menu') { this.startGame(); return; }
+    if(this.state === 'gameover') return;
+    if(this.state !== 'playing') return;
+
+    const res = this.tower.drop();
+    if(!res) return;
+
+    if(res.result === 'miss'){
+      this.audio.gameOver();
+      this.audio.vibrate(60);
+      this.triggerGameOver();
+      return;
+    }
+
+    // placed (perfect or cut)
+    this.audio.place();
+    this.audio.vibrate(15);
+    const biome = this.tower.biome();
+    const worldY = this.tower.worldTopYFor(this.tower.level);
+    const px = res.x + res.width/2;
+
+    let gained = 1;
+    let coinGain = 1;
+    if(res.perfect){
+      gained = 2*res.multiplier;
+      coinGain = 2*res.multiplier;
+      this.audio.perfect(res.multiplier);
+      this.audio.vibrate(25);
+      this.camera.shake(6);
+      this.particles.burst(px, worldY, biome.particle, 22, {speed:180, up:40, life:0.8, shape:'star', size:5, gravity:200});
+      this.particles.burst(px, worldY, '#ffffff', 10, {speed:90, life:0.5, shape:'circle', size:3, gravity:80});
+      this.effects.floatText(px, worldY, 'PERFECT!', '#ffe066');
+      this.ui.showCombo(res.multiplier);
+      this.save.data.stats.totalPerfects++;
+      this.save.data.missions.progress.perfects++;
+      this.maxMultiplierSeen = Math.max(this.maxMultiplierSeen, res.multiplier);
+    } else {
+      this.camera.shake(2);
+      this.particles.burst(px, worldY, biome.particle, 8, {speed:70, life:0.5, size:2.5, gravity:180});
+    }
+    this.score += gained;
+    this.coinsThisRun += coinGain;
+    this.save.data.coins += coinGain;
+    this.audio.coin();
+
+    this.camera.targetY = worldY;
+    this.camera.targetZoom = 1/(1+Math.floor(this.tower.level/100)*0.15);
+    if(this.camera.targetZoom < 0.55) this.camera.targetZoom = 0.55;
+
+    this.save.data.stats.bestFloors = Math.max(this.save.data.stats.bestFloors, this.tower.level);
+    this.save.data.missions.progress.floors = Math.max(this.save.data.missions.progress.floors, this.tower.level);
+    this.ui.updateScore(this.score, Math.max(this.score, this.save.data.bestScore));
+    this.save.save();
+
+    if(res.result === 'toothin'){
+      setTimeout(()=>{
+        this.audio.gameOver();
+        this.audio.vibrate(60);
+        this.triggerGameOver();
+      }, 260);
+    }
+  }
+  triggerGameOver(){
+    this.state = 'gameover';
+    this.audio.setMusic(false);
+    const biome = this.tower.biome();
+    const topY = this.tower.worldTopY();
+    this.particles.burst(0, topY, biome.particle, 30, {speed:200, life:1, size:4, gravity:340, shape:'rect'});
+    this.camera.shake(14);
+    if(this.score > this.save.data.bestScore) this.save.data.bestScore = this.score;
+    this.save.save();
+    this.ui.renderAchievements();
+    setTimeout(()=>{
+      this.ui.showGameOver(this.score, this.save.data.bestScore, this.coinsThisRun);
+    }, 500);
+  }
+
+  worldToScreen(wx, wy){
+    const cx = this.width/2 + this.camera.shakeX;
+    const baseScreenY = this.height*0.66 + this.camera.shakeY;
+    const z = this.camera.zoom;
+    return { x: cx + wx*z, y: baseScreenY + (wy - this.camera.y)*z, scale:z };
+  }
+
+  loop(now){
+    const dt = Math.min(0.033, (now-this.lastTime)/1000);
+    this.lastTime = now;
+    this.update(dt);
+    this.render();
+    requestAnimationFrame(t=>this.loop(t));
+  }
+  update(dt){
+    this.camera.update(dt);
+    this.particles.update(dt);
+    this.effects.update(dt);
+    if(this.state==='playing' && this.tower) this.tower.update(dt);
+  }
+
+  render(){
+    const ctx = this.ctx;
+    const biome = this.tower ? this.tower.biome() : BIOMES[0];
+    this.drawBackground(ctx, biome);
+    if(this.tower) this.drawTower(ctx, biome);
+    this.particles.draw(ctx, (x,y)=>this.worldToScreen(x,y));
+    this.drawFloaters(ctx);
+  }
+
+  drawBackground(ctx, biome){
+    const w=this.width, h=this.height;
+    const level = this.tower? this.tower.level : 0;
+    const heightProgress = Math.min(1, level/400);
+    const grad = ctx.createLinearGradient(0,0,0,h);
+    const top = lerpColor(biome.sky[0], biome.night? '#05061a':biome.sky[0], 0);
+    grad.addColorStop(0, biome.sky[0]);
+    grad.addColorStop(1, biome.sky[1]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+
+    // stars at higher altitude / night biomes
+    if(biome.night){
+      ctx.save();
+      const starCount = 40;
+      for(let i=0;i<starCount;i++){
+        const sx = (i*97 % 100)/100*w;
+        const sy = (i*53 % 100)/100*h*0.6;
+        const tw = 0.5+0.5*Math.sin((performance.now()/500)+i);
+        ctx.globalAlpha = 0.4+0.5*tw;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(sx,sy,1.4,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // aurora for final biome
+    if(this.tower && this.tower.biomeIndex() === BIOMES.length-1){
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      for(let i=0;i<3;i++){
+        ctx.fillStyle = ['#7b2ff7','#4dffb0','#00e5ff'][i];
+        ctx.beginPath();
+        ctx.moveTo(0, h*0.15+i*18);
+        for(let x=0;x<=w;x+=40){
+          ctx.lineTo(x, h*0.15+i*18 + Math.sin(x*0.02 + performance.now()*0.0006 + i)*20);
+        }
+        ctx.lineTo(w, 0); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // clouds
+    ctx.save();
+    ctx.globalAlpha = biome.night? 0.12:0.5;
+    for(const c of this.effects.clouds){
+      const cx = c.x*w, cy = (0.08+c.y*0.35)*h;
+      ctx.fillStyle = '#fff';
+      const r = 26*c.s;
+      roundedCloud(ctx, cx, cy, r);
+    }
+    ctx.restore();
+  }
+
+  drawTower(ctx, biome){
+    const t = this.tower;
+    // base ground shadow line
+    for(const f of t.placed){
+      const y = t.worldTopYFor(f.level);
+      const s = this.worldToScreen(f.x, y);
+      const s2 = this.worldToScreen(f.x+f.width, y);
+      const wpx = s2.x - s.x;
+      const hpx = t.floorHeight*this.camera.zoom;
+      drawBlock(ctx, s.x, s.y, wpx, hpx, colorFor(biome, f.colorIdx));
+    }
+    // debris
+    for(const d of t.debris){
+      const s = this.worldToScreen(d.x + d.width/2, d.y);
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(d.rot);
+      const wpx = d.width*this.camera.zoom, hpx = d.height*this.camera.zoom;
+      ctx.globalAlpha = Math.max(0, Math.min(1, d.life/1));
+      drawBlock(ctx, -wpx/2, -hpx/2, wpx, hpx, colorFor(biome, d.colorIdx), true);
+      ctx.restore();
+    }
+    // mover
+    if(t.mover){
+      const y = t.worldTopYFor(t.mover.level);
+      const s = this.worldToScreen(t.mover.x, y);
+      const s2 = this.worldToScreen(t.mover.x+t.mover.width, y);
+      const wpx = s2.x-s.x, hpx = t.floorHeight*this.camera.zoom;
+      drawBlock(ctx, s.x, s.y, wpx, hpx, colorFor(biome, t.mover.colorIdx));
+      // alignment guide (subtle)
+      const prev = t.placed[t.placed.length-1];
+      const py = t.worldTopYFor(prev.level);
+      const ps = this.worldToScreen(prev.x, py);
+    }
+  }
+
+  drawFloaters(ctx){
+    for(const f of this.effects.floaters){
+      const s = this.worldToScreen(f.x, f.y);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0,f.life);
+      ctx.fillStyle = f.color;
+      ctx.font = '700 22px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 6;
+      ctx.fillText(f.text, s.x, s.y);
+      ctx.restore();
+    }
+  }
+}
+
+/* ------------------------------- draw helpers ------------------------------ */
+function drawBlock(ctx, x, y, w, h, color, centered){
+  const rx = centered ? x : x;
+  const ry = centered ? y : y - h/2;
+  const rw = Math.max(2,w), rh = h;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.28)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 8;
+  roundRect(ctx, rx, ry, rw, rh, Math.min(10, rh*0.28));
+  const grad = ctx.createLinearGradient(rx, ry, rx, ry+rh);
+  grad.addColorStop(0, lighten(color, 18));
+  grad.addColorStop(1, color);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+  // top highlight strip
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  roundRect(ctx, rx+rw*0.06, ry+2, rw*0.5, Math.max(2,rh*0.16), 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.restore();
+}
+function roundRect(ctx,x,y,w,h,r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function roundedCloud(ctx,cx,cy,r){
+  ctx.beginPath();
+  ctx.arc(cx-r*0.6, cy, r*0.55, 0, Math.PI*2);
+  ctx.arc(cx, cy-r*0.2, r*0.7, 0, Math.PI*2);
+  ctx.arc(cx+r*0.6, cy, r*0.55, 0, Math.PI*2);
+  ctx.fill();
+}
+function colorFor(biome, idx){ return biome.block[idx % biome.block.length]; }
+function lighten(hex, pct){
+  const c = hexToRgb(hex);
+  const f = (v)=> Math.max(0,Math.min(255, Math.round(v + (255-v)*(pct/100))));
+  return `rgb(${f(c.r)},${f(c.g)},${f(c.b)})`;
+}
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
+}
+function lerpColor(a,b,t){ return a; }
+
+/* ---------------------------------- boot ------------------------------------ */
+window.addEventListener('load', ()=>{ new Game(); });
+</script>
+</body>
+</html>
