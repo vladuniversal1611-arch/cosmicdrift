@@ -562,7 +562,10 @@ function noiseBurst(dur, vol){
   src.start();
 }
 function sfxDrop(){ tone(320,0.08,'sine',0.1,220); }
-function sfxMerge(tier){ tone(300+tier*70,0.14,'square',0.14,600+tier*80); }
+function sfxMerge(tier){
+  const b = comboAudioBoost();
+  tone(300+tier*70,0.14,'square',0.14*b,(600+tier*80)*b);
+}
 function sfxSteam(){ noiseBurst(0.3,0.12); tone(500,0.25,'sine',0.08,900); }
 function sfxBurn(){ noiseBurst(0.18,0.14); tone(200,0.2,'sawtooth',0.1,90); }
 function sfxSpark(){ noiseBurst(0.28,0.22); tone(150,0.3,'sawtooth',0.16,50); }
@@ -672,7 +675,12 @@ function newGame(dailyMode){
     bonusMode: 'neutral',
     bonusMultiplier: 1,
     bonusCheckTimer: 2.5,
-    dailyMode: usingDailyRng
+    dailyMode: usingDailyRng,
+    punchT: 0,
+    punchX: 0,
+    punchY: 0,
+    comboFlash: 0,
+    nearMissPending: false
   };
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
@@ -1024,9 +1032,19 @@ function drawFloatingTexts(){
 }
 
 function addScore(n){
-  const mult = (game.bonusMultiplier) || 1;
+  const mult = (game.bonusMultiplier || 1) * comboMultiplier();
   game.score += Math.round(n*mult);
   scoreValueEl.textContent = game.score;
+}
+function comboMultiplier(){
+  return 1 + Math.min(0.5, (game.comboCount||0)*0.06);
+}
+function comboAudioBoost(){
+  return 1 + Math.min(0.5, (game.comboCount||0)*0.04);
+}
+function triggerPunch(x, y, strength){
+  game.punchT = Math.max(game.punchT||0, strength);
+  game.punchX = x; game.punchY = y;
 }
 function addMeter(n){
   game.meter = Math.min(OVERLOAD_MAX, game.meter + n);
@@ -1071,11 +1089,17 @@ function updateEconomyBonus(dt){
   }
   setBonusMode('neutral', 1);
 }
+const COMBO_WINDOW = 1.0;
 function registerCombo(x, y){
-  game.comboTimer = 0.7;
+  game.comboTimer = COMBO_WINDOW;
   game.comboCount++;
   if(game.comboCount >= 2){
     spawnFloatingText(x, y-20, `🔗 КОМБО x${game.comboCount}`, '#ffe066');
+  }
+  if(game.comboCount === 3 || game.comboCount === 5 || game.comboCount === 8){
+    game.comboFlash = 0.35;
+    game.shakeT = Math.max(game.shakeT, 0.15 + game.comboCount*0.015);
+    triggerPunch(x, y, 0.4 + game.comboCount*0.03);
   }
   if(game.comboCount >= 5) unlockAchievement('combo_5');
 }
@@ -1084,6 +1108,7 @@ function triggerOverload(){
   game.meter = 0;
   game.overloadFlash = 0.65;
   game.shakeT = Math.max(game.shakeT, 0.5);
+  triggerPunch((containerLeft+containerRight)/2, (containerTop+containerBottom)/2, 1.0);
   sfxOverload();
   vibrate([20,30,20,30,60,30,90]);
   const cx = (containerLeft+containerRight)/2, cy = (containerTop+containerBottom)/2;
@@ -1282,7 +1307,9 @@ function applyReaction(type, a, b){
     sfxShock();
   }
   const bigReactions = ['spark','shock','shatter','conduct'];
-  addMeter(bigReactions.indexOf(type) !== -1 ? 21 : 18);
+  const isBigReaction = bigReactions.indexOf(type) !== -1;
+  addMeter(isBigReaction ? 21 : 18);
+  triggerPunch(midX, midY, isBigReaction ? 0.45 : 0.2);
   registerCombo(midX, midY);
   checkRiskyPayoff(a, b, midX, midY);
 
@@ -1302,10 +1329,17 @@ function applyReaction(type, a, b){
 
 function checkRiskyPayoff(a, b, midX, midY){
   if(a.risky || b.risky){
-    addScore(50);
-    spawnFloatingText(midX, midY-52, '🎰 РИЗИК ЗІГРАВ! +50', '#e0432a');
+    const orb = a.risky ? a : b;
+    const margin = orb.riskyDeadline - game.time;
+    const justInTime = margin < 0.5;
+    addScore(justInTime ? 80 : 50);
+    spawnFloatingText(midX, midY-52, justInTime ? '🥵 В ОСТАННЮ МИТЬ! +80' : '🎰 РИЗИК ЗІГРАВ! +50', '#e0432a');
+    if(justInTime){
+      triggerPunch(midX, midY, 0.7);
+      game.shakeT = Math.max(game.shakeT, 0.3);
+    }
     sfxRecord();
-    vibrate([20,40,20]);
+    vibrate(justInTime ? [10,20,10,20,10,60] : [20,40,20]);
   }
 }
 
@@ -1317,16 +1351,18 @@ function applyMerge(a, b){
   const el = ELEMENTS[a.element];
   spawnParticles(midX, midY, el.mid, 14 + newTier*2, 1);
   const newOrb = spawnOrb(midX, midY - 4, newTier, a.element, (a.vx+b.vx)*0.2, -60);
-  newOrb.popScale = 1.4;
+  newOrb.popScale = 1.4 + Math.min(0.35, game.comboCount*0.03);
   addScore((newTier+1)*10);
   addMeter(4);
   sfxMerge(newTier);
+  triggerPunch(midX, midY, 0.15 + newTier*0.05);
   registerCombo(midX, midY-20);
   checkRiskyPayoff(a, b, midX, midY);
   checkElementDiscovery(a.element, newTier);
   if(newTier === MAX_TIER){
     spawnFloatingText(midX, midY-30, '👑 МАКСИМУМ!', '#ffd23f');
     game.shakeT = Math.max(game.shakeT, 0.2);
+    triggerPunch(midX, midY, 0.8);
     unlockAchievement('max_tier');
   }
 }
@@ -1338,6 +1374,7 @@ function applyMasterRecipe(recipe, a, b, c){
   spawnParticles(midX, midY, '#ffd23f', 40, 2.2);
   spawnParticles(midX, midY, '#ff9f43', 24, 1.8);
   game.shakeT = Math.max(game.shakeT, 0.35);
+  triggerPunch(midX, midY, 0.9);
   spawnFloatingText(midX, midY-34, `${recipe.icon} ${recipe.name}! МАЙСТЕР-РЕЦЕПТ`, '#e0432a');
   addScore(120 + bonusTier*20);
   addMeter(30);
@@ -1536,9 +1573,28 @@ function updateDanger(dt){
   const settled = game.orbs.some(o => (o.y - o.r) < dangerY && Math.hypot(o.vx,o.vy) < 260);
   if(settled) game.dangerTimer += dt;
   else game.dangerTimer = Math.max(0, game.dangerTimer - dt*2);
+
+  if(game.dangerTimer > DANGER_THRESHOLD*0.8 && !game.nearMissPending){
+    game.nearMissPending = true;
+  }
+  if(game.nearMissPending && game.dangerTimer < DANGER_THRESHOLD*0.25){
+    game.nearMissPending = false;
+    triggerNearMiss();
+  }
+
   if(game.dangerTimer > DANGER_THRESHOLD && !game.over){
     triggerGameOver();
   }
+}
+
+function triggerNearMiss(){
+  const cx = (containerLeft+containerRight)/2, cy = (containerTop+containerBottom)/2;
+  spawnFloatingText(cx, cy, '😰 НА ВОЛОСОК!', '#e0432a');
+  game.shakeT = Math.max(game.shakeT, 0.3);
+  triggerPunch(cx, cy, 0.6);
+  addScore(25);
+  sfxRecord();
+  vibrate([15,15,15,15,40]);
 }
 
 function updateTension(dt){
@@ -1613,6 +1669,8 @@ function update(dt){
   }
   if(game.overloadFlash > 0) game.overloadFlash = Math.max(0, game.overloadFlash - dt*1.5);
   if(game.shakeT > 0) game.shakeT = Math.max(0, game.shakeT - dt*2.5);
+  if(game.punchT > 0) game.punchT = Math.max(0, game.punchT - dt*3.5);
+  if(game.comboFlash > 0) game.comboFlash = Math.max(0, game.comboFlash - dt*2);
 
   physicsStep(dt);
   updateDanger(dt);
@@ -1960,6 +2018,30 @@ function drawTopUI(){
   ctx.restore();
 
   drawPurityBadge();
+  drawHeatMeter();
+}
+
+function drawHeatMeter(){
+  if(game.comboCount < 2) return;
+  const barX = 14, barY = 82, barW = W*0.4, barH = 7;
+  const pct = clamp(game.comboTimer / COMBO_WINDOW, 0, 1);
+  const heat = clamp(game.comboCount/10, 0, 1);
+  ctx.save();
+  ctx.fillStyle = 'rgba(150,90,20,0.18)';
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(barX,barY,barW,barH,5); ctx.fill(); }
+  else ctx.fillRect(barX,barY,barW,barH);
+  const fillGrad = ctx.createLinearGradient(barX,0,barX+barW,0);
+  fillGrad.addColorStop(0, '#ffd23f');
+  fillGrad.addColorStop(1, `hsl(${20-heat*20},90%,50%)`);
+  ctx.fillStyle = fillGrad;
+  const fillW = Math.max(3, barW*pct);
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(barX,barY,fillW,barH,5); ctx.fill(); }
+  else ctx.fillRect(barX,barY,fillW,barH);
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = '#e0432a';
+  ctx.textAlign = 'left';
+  ctx.fillText(`🔥 x${game.comboCount} (x${comboMultiplier().toFixed(2)})`, barX, barY-3);
+  ctx.restore();
 }
 
 function drawPurityBadge(){
@@ -2030,6 +2112,12 @@ function render(){
 
   ctx.save();
   ctx.translate(shakeX, shakeY);
+  if(game.punchT > 0){
+    const punchScale = 1 + game.punchT*0.06;
+    ctx.translate(game.punchX, game.punchY);
+    ctx.scale(punchScale, punchScale);
+    ctx.translate(-game.punchX, -game.punchY);
+  }
   drawDropGuide();
   drawOrbs();
   drawParticles();
@@ -2039,6 +2127,14 @@ function render(){
   drawTopUI();
   drawOrderCard();
   drawTensionVignette();
+
+  if(game.comboFlash > 0){
+    ctx.save();
+    ctx.globalAlpha = game.comboFlash*0.5;
+    ctx.fillStyle = '#ff9f43';
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
 
   if(game.overloadFlash > 0){
     ctx.save();
