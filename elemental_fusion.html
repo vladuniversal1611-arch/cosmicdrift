@@ -181,8 +181,9 @@
     <div class="panel">
       <h1>❓ Як грати</h1>
       <p>👆 Веди пальцем і відпусти — кулька впаде в казан.</p>
-      <p>🔵 <b>Однакова стихія + однаковий розмір</b> → дві кульки зливаються в ОДНУ більшу. Це головна мета — рости!</p>
-      <p>🔥💧⚡🌿 <b>Різна стихія</b> → хімічна реакція замість злиття: щось може зникнути, а щось натомість вирости чи вибухнути. Кожна пара стихій дає свій ефект — дивись 📖 Гримуар, там усі рецепти.</p>
+      <p>⚖️ Реакція між кульками спрацьовує ТІЛЬКИ якщо вони однакового розміру. Різний розмір — просто відскакують одна від одної, нічого не відбувається.</p>
+      <p>🔵 <b>Однаковий розмір + однакова стихія</b> → дві кульки зливаються в ОДНУ більшу. Це головна мета — рости!</p>
+      <p>🔥💧⚡🌿 <b>Однаковий розмір, різна стихія</b> → хімічна реакція замість злиття: щось може зникнути, а щось натомість вирости чи вибухнути. Кожна пара стихій дає свій ефект — дивись 📖 Гримуар, там усі рецепти.</p>
       <p>🛒 Час від часу з'являється замовлення — виконай потрібну реакцію вчасно за бонус.</p>
       <p>🚩 Не дай кулькам стояти вище червоної лінії надовго — інакше казан переповниться!</p>
       <button id="rulesCloseBtn" class="secondaryBtn" type="button">Зрозуміло!</button>
@@ -384,7 +385,12 @@ function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern
 let game = null;
 let orbIdCounter = 0;
 
-function randomElement(){ return unlockedElements[Math.floor(Math.random()*unlockedElements.length)]; }
+function randomElement(prevElement){
+  if(prevElement && unlockedElements.length > 1 && Math.random() < 0.55){
+    return prevElement;
+  }
+  return unlockedElements[Math.floor(Math.random()*unlockedElements.length)];
+}
 function availableReactionTypes(){
   const types = [];
   for(let i=0;i<unlockedElements.length;i++){
@@ -431,10 +437,12 @@ function randomTier(){
   }
   return 0;
 }
-function makeQueueItem(){ return { tier: randomTier(), element: randomElement() }; }
+function makeQueueItem(prevElement){ return { tier: randomTier(), element: randomElement(prevElement) }; }
 
 function newGame(){
   resize();
+  const firstItem = makeQueueItem(null);
+  const secondItem = makeQueueItem(firstItem.element);
   game = {
     score: 0,
     over: false,
@@ -447,7 +455,7 @@ function newGame(){
     dropCooldown: 0,
     dropX: W/2,
     aiming: false,
-    queue: [makeQueueItem(), makeQueueItem()],
+    queue: [firstItem, secondItem],
     comboCount: 0,
     comboTimer: 0,
     shakeT: 0,
@@ -481,7 +489,7 @@ function dropCurrentOrb(){
   spawnOrb(x, spawnY, item.tier, item.element, 0, 40);
   game.dropCooldown = DROP_COOLDOWN;
   game.queue.shift();
-  game.queue.push(makeQueueItem());
+  game.queue.push(makeQueueItem(game.queue[game.queue.length-1].element));
   sfxDrop();
 }
 
@@ -956,8 +964,8 @@ function physicsStep(dt){
           resolveBounds(a);
           resolveBounds(b);
 
-          if(iter === 0){
-            if(a.element === b.element && a.tier === b.tier && a.tier < MAX_TIER){
+          if(iter === 0 && a.tier === b.tier){
+            if(a.element === b.element && a.tier < MAX_TIER){
               mergeEvents.push([a,b]);
             } else if(a.element !== b.element){
               const type = reactionFor(a.element, b.element);
