@@ -41,8 +41,10 @@
     font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
     box-shadow:0 3px 0 rgba(150,90,20,0.25);
     font-family:inherit;
+    transition:transform 0.15s cubic-bezier(.3,1.6,.4,1), box-shadow 0.15s ease;
   }
-  .iconBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(150,90,20,0.25); }
+  .iconBtn:hover{ transform:scale(1.1); }
+  .iconBtn:active{ transform:scale(0.9) translateY(2px); box-shadow:0 1px 0 rgba(150,90,20,0.25); }
 
   #hint{
     position:absolute; left:50%; bottom:4%; transform:translateX(-50%);
@@ -82,12 +84,41 @@
     font-family:inherit; font-weight:800; font-size:12px; color:#fff8ec;
     background:linear-gradient(160deg,#ffb703,#e0432a); border:2px solid #a83e10; border-radius:10px;
     padding:6px 10px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+    transition:transform 0.12s cubic-bezier(.3,1.6,.4,1);
   }
   .buyBtn:disabled{ opacity:0.4; cursor:default; }
+  .buyBtn:not(:disabled):hover{ transform:scale(1.06); }
+  .buyBtn:not(:disabled):active{ transform:scale(0.94); }
   .secondaryBtn{
     margin-top:14px; font-family:inherit; font-weight:800; font-size:14px; color:#8a4a10;
     background:#fff; border:3px solid #ff9f43; border-radius:14px; padding:10px 20px; cursor:pointer; width:100%;
+    transition:transform 0.12s cubic-bezier(.3,1.6,.4,1);
   }
+  .secondaryBtn:hover{ transform:scale(1.03); }
+  .secondaryBtn:active{ transform:scale(0.96); }
+  .bookPanel{
+    background:linear-gradient(160deg,#f5e6c8,#e8d0a0);
+    border:6px solid #8a5a2a;
+    box-shadow:0 12px 0 rgba(90,60,20,0.35), 0 20px 40px rgba(60,40,10,0.45), inset 0 0 30px rgba(120,80,30,0.22);
+  }
+  .bookPanel h1{ color:#6b3f14; }
+  .pageWrap{ min-height:200px; perspective:900px; }
+  #grimoireList.pageFlipping{ animation:pageFlip 0.35s ease; }
+  @keyframes pageFlip{
+    0%{ transform:rotateY(0deg); opacity:1; }
+    45%{ transform:rotateY(85deg); opacity:0.25; }
+    55%{ transform:rotateY(-85deg); opacity:0.25; }
+    100%{ transform:rotateY(0deg); opacity:1; }
+  }
+  .pageNav{ display:flex; align-items:center; justify-content:center; gap:14px; margin:6px 0 4px; }
+  .navBtn{
+    width:32px; height:32px; border-radius:50%; border:2px solid #8a5a2a; background:#fff6e2; cursor:pointer;
+    font-weight:800; color:#5a3200; transition:transform 0.12s cubic-bezier(.3,1.6,.4,1);
+  }
+  .navBtn:disabled{ opacity:0.3; cursor:default; }
+  .navBtn:not(:disabled):hover{ transform:scale(1.12); }
+  .navBtn:not(:disabled):active{ transform:scale(0.9); }
+  #grimoirePageLabel{ font-weight:800; color:#5a3200; font-size:13px; }
   #grimoireScreen .panel, #rulesScreen .panel, #achievementsScreen .panel, #upgradesScreen .panel, #skinsScreen .panel, #dailyScreen .panel{ max-height:82vh; overflow-y:auto; }
   #grimoireScreen h1, #rulesScreen h1, #achievementsScreen h1, #upgradesScreen h1, #skinsScreen h1, #dailyScreen h1{ color:#e0432a; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
   .recipeRow.achieved{ background:#fff0d0; border-color:#ffb703; }
@@ -129,6 +160,7 @@
     transition:transform 0.08s ease, box-shadow 0.08s ease;
     width:100%;
   }
+  #restartBtn:hover, #dailyStartBtn:hover{ transform:translateY(-2px) scale(1.02); }
   #restartBtn:active, #dailyStartBtn:active{ transform:translateY(4px); box-shadow:0 2px 0 #a86b00; }
   #newBestBadge{
     display:inline-block; background:#ff7a3d; color:#fff8ec;
@@ -201,15 +233,21 @@
       <p style="font-size:13px;" id="dailyDateLine"></p>
       <p style="font-size:15px;">Рекорд дня: 🏆 <span id="dailyBestValue">0</span></p>
       <p style="font-size:12px; opacity:0.8;">Однакова послідовність кульок для всіх сьогодні — усі стихії відкриті!</p>
+      <p id="dailyModifierLine" style="font-size:13px; font-weight:800; color:#e0432a;"></p>
       <button id="dailyStartBtn" type="button">🎲 Почати виклик</button>
       <button id="dailyCloseBtn" class="secondaryBtn" type="button">Закрити</button>
     </div>
   </div>
 
   <div id="grimoireScreen" class="hidden">
-    <div class="panel">
+    <div class="panel bookPanel">
       <h1>📖 Гримуар рецептів</h1>
-      <div id="grimoireList"></div>
+      <div class="pageWrap"><div id="grimoireList"></div></div>
+      <div class="pageNav">
+        <button id="grimoirePrevBtn" class="navBtn" type="button">◀</button>
+        <span id="grimoirePageLabel">1 / 1</span>
+        <button id="grimoireNextBtn" class="navBtn" type="button">▶</button>
+      </div>
       <button id="grimoireCloseBtn" class="secondaryBtn" type="button">Закрити</button>
     </div>
   </div>
@@ -263,6 +301,9 @@ const grimoireBtn = document.getElementById('grimoireBtn');
 const grimoireScreen = document.getElementById('grimoireScreen');
 const grimoireListEl = document.getElementById('grimoireList');
 const grimoireCloseBtn = document.getElementById('grimoireCloseBtn');
+const grimoirePrevBtn = document.getElementById('grimoirePrevBtn');
+const grimoireNextBtn = document.getElementById('grimoireNextBtn');
+const grimoirePageLabelEl = document.getElementById('grimoirePageLabel');
 const rulesBtn = document.getElementById('rulesBtn');
 const rulesScreen = document.getElementById('rulesScreen');
 const rulesCloseBtn = document.getElementById('rulesCloseBtn');
@@ -289,6 +330,7 @@ const dailyBtn = document.getElementById('dailyBtn');
 const dailyScreen = document.getElementById('dailyScreen');
 const dailyDateLineEl = document.getElementById('dailyDateLine');
 const dailyBestValueEl = document.getElementById('dailyBestValue');
+const dailyModifierLineEl = document.getElementById('dailyModifierLine');
 const dailyStartBtn = document.getElementById('dailyStartBtn');
 const dailyCloseBtn = document.getElementById('dailyCloseBtn');
 
@@ -426,7 +468,11 @@ const UPGRADES = [
 ];
 function upgradeCost(def, level){ return def.baseCost + level*def.costStep; }
 function effectiveShakes(){ return SHAKES_PER_RUN + (upgrades.shake||0); }
-function effectiveDropCooldown(){ return Math.max(0.12, DROP_COOLDOWN - (upgrades.speed||0)*0.05); }
+function effectiveDropCooldown(){
+  let cd = Math.max(0.12, DROP_COOLDOWN - (upgrades.speed||0)*0.05);
+  if(game && game.dailyModifier === 'fast') cd *= 0.6;
+  return cd;
+}
 
 function mulberry32(seed){
   return function(){
@@ -448,6 +494,18 @@ let dailyRng = null;
 let usingDailyRng = false;
 function rnd(){ return (usingDailyRng && dailyRng) ? dailyRng() : Math.random(); }
 function currentElementPool(){ return usingDailyRng ? ELEMENT_KEYS : unlockedElements; }
+
+const DAILY_MODIFIERS = [
+  { id:'heavy', name:'Важкі кульки',   icon:'⚓', desc:'Гравітація сильніша' },
+  { id:'tight', name:'Тісний казан',   icon:'📦', desc:'Менше простору в казані' },
+  { id:'combo', name:'Подвійне комбо', icon:'🔥', desc:'Комбо-множник росте вдвічі швидше' },
+  { id:'fast',  name:'Швидкі руки',    icon:'⚡', desc:'Коротший кулдаун між кидками' }
+];
+function pickDailyModifier(){
+  const modRng = mulberry32(dailySeedNumber() + 777);
+  return DAILY_MODIFIERS[Math.floor(modRng()*DAILY_MODIFIERS.length)];
+}
+let activeDailyModifier = null;
 
 const DAILY_BEST_KEY = 'elementalFusionDailyBest';
 let dailyBestRecord = { date:'', best:0 };
@@ -496,8 +554,9 @@ function computeContainer(){
   const cauldronLvl = (upgrades && upgrades.cauldron) || 0;
   containerTop = hudHeight + 80 - cauldronLvl*6;
   containerBottom = H - 18;
-  containerLeft = W*(0.06 - cauldronLvl*0.01);
-  containerRight = W*(0.94 + cauldronLvl*0.01);
+  const tightMod = (activeDailyModifier && activeDailyModifier.id === 'tight') ? 0.05 : 0;
+  containerLeft = W*(0.06 - cauldronLvl*0.01 + tightMod);
+  containerRight = W*(0.94 + cauldronLvl*0.01 - tightMod);
   dangerY = containerTop + (containerBottom-containerTop)*0.14;
   spawnY = containerTop - 6;
 }
@@ -622,6 +681,7 @@ function makeQueueItem(prevElement){
 const SHAKES_PER_RUN = 2;
 
 function newGame(dailyMode){
+  activeDailyModifier = dailyMode ? pickDailyModifier() : null;
   resize();
   usingDailyRng = !!dailyMode;
   dailyRng = usingDailyRng ? mulberry32(dailySeedNumber()) : null;
@@ -634,6 +694,7 @@ function newGame(dailyMode){
     orbs: [],
     particles: [],
     floatingTexts: [],
+    flourishes: [],
     meter: 0,
     overloadFlash: 0,
     dangerTimer: 0,
@@ -653,6 +714,7 @@ function newGame(dailyMode){
     orderCooldown: 7 + Math.random()*4,
     lastOrderType: null,
     dailyMode: usingDailyRng,
+    dailyModifier: activeDailyModifier ? activeDailyModifier.id : null,
     punchT: 0,
     punchX: 0,
     punchY: 0,
@@ -672,6 +734,7 @@ function spawnOrb(x, y, tier, element, vx, vy, wildcard){
     r: TIERS[tier].r, tier, element,
     lastReaction: -999, consumed: false,
     popScale: 1,
+    squashT: 0, squashAmt: 0, grounded: false,
     wildcard: !!wildcard,
     blinkSeed: Math.random()*10
   };
@@ -767,9 +830,16 @@ muteBtn.addEventListener('click', ()=>{
 });
 restartBtn.addEventListener('click', ()=>{ newGame(); });
 
+const GRIMOIRE_PAGE_SIZE = 4;
+let grimoirePage = 0;
 function buildGrimoireUI(){
+  const types = Object.keys(REACTION_INFO);
+  const totalPages = Math.max(1, Math.ceil(types.length / GRIMOIRE_PAGE_SIZE));
+  grimoirePage = clamp(grimoirePage, 0, totalPages-1);
+  const start = grimoirePage*GRIMOIRE_PAGE_SIZE;
+  const pageTypes = types.slice(start, start+GRIMOIRE_PAGE_SIZE);
   grimoireListEl.innerHTML = '';
-  for(const type of Object.keys(REACTION_INFO)){
+  for(const type of pageTypes){
     const info = REACTION_INFO[type];
     const known = discoveredReactions.indexOf(type) !== -1;
     const row = document.createElement('div');
@@ -781,8 +851,25 @@ function buildGrimoireUI(){
     }
     grimoireListEl.appendChild(row);
   }
+  grimoirePageLabelEl.textContent = (grimoirePage+1) + ' / ' + totalPages;
+  grimoirePrevBtn.disabled = grimoirePage === 0;
+  grimoireNextBtn.disabled = grimoirePage === totalPages-1;
 }
+function flipGrimoirePage(delta){
+  const types = Object.keys(REACTION_INFO);
+  const totalPages = Math.max(1, Math.ceil(types.length / GRIMOIRE_PAGE_SIZE));
+  const next = clamp(grimoirePage+delta, 0, totalPages-1);
+  if(next === grimoirePage) return;
+  grimoirePage = next;
+  grimoireListEl.classList.remove('pageFlipping');
+  void grimoireListEl.offsetWidth;
+  grimoireListEl.classList.add('pageFlipping');
+  buildGrimoireUI();
+}
+grimoirePrevBtn.addEventListener('click', ()=> flipGrimoirePage(-1));
+grimoireNextBtn.addEventListener('click', ()=> flipGrimoirePage(1));
 grimoireBtn.addEventListener('click', ()=>{
+  grimoirePage = 0;
   buildGrimoireUI();
   grimoireScreen.classList.remove('hidden');
 });
@@ -901,6 +988,8 @@ skinsCloseBtn.addEventListener('click', ()=>{
 dailyBtn.addEventListener('click', ()=>{
   dailyDateLineEl.textContent = 'Сьогодні: ' + todayString();
   dailyBestValueEl.textContent = todaysDailyBest();
+  const mod = pickDailyModifier();
+  dailyModifierLineEl.textContent = `${mod.icon} Модифікатор дня: ${mod.name} — ${mod.desc}`;
   dailyScreen.classList.remove('hidden');
 });
 dailyCloseBtn.addEventListener('click', ()=>{
@@ -997,6 +1086,54 @@ function drawParticles(){
   }
 }
 
+function spawnFlourish(type, x, y, color){
+  if(!type) return;
+  game.flourishes.push({ type, x, y, color, life:0.55, maxLife:0.55, seedAngle: Math.random()*Math.PI*2 });
+}
+function updateFlourishes(dt){
+  for(const f of game.flourishes) f.life -= dt;
+  game.flourishes = game.flourishes.filter(f => f.life > 0);
+}
+function drawFlourishes(){
+  for(const f of game.flourishes){
+    const t = 1 - clamp(f.life/f.maxLife, 0, 1);
+    const alpha = clamp(f.life/f.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if(f.type === 'fog'){
+      const r = 18 + t*55;
+      const grad = ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,r);
+      grad.addColorStop(0, f.color);
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.fill();
+    } else if(f.type === 'ring'){
+      const r = 8 + t*48;
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 3.5*(1-t)+1;
+      ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.stroke();
+    } else if(f.type === 'crack'){
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 2;
+      for(let i=0;i<6;i++){
+        const ang = f.seedAngle + i*(Math.PI/3);
+        const len = 10 + t*32;
+        ctx.beginPath();
+        ctx.moveTo(f.x,f.y);
+        ctx.lineTo(f.x+Math.cos(ang)*len, f.y+Math.sin(ang)*len);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+const REACTION_FLOURISH = {
+  steam:'fog', melt:'fog', bloom:'fog', growth:'fog',
+  burn:'ring', spark:'ring', forge:'ring', conduct:'ring', shock:'ring',
+  freeze:'crack', shatter:'crack', temper:'crack'
+};
+
 const ELEMENT_BURST = {
   fire:      { shape:'spark',  gravityMul:0.55, upBias:70, speedMul:1.3 },
   water:     { shape:'circle', gravityMul:1.5,  upBias:-10, speedMul:0.9 },
@@ -1073,7 +1210,8 @@ function addScore(n){
   scoreValueEl.textContent = game.score;
 }
 function comboMultiplier(){
-  return 1 + Math.min(0.5, (game.comboCount||0)*0.06);
+  const factor = game.dailyModifier === 'combo' ? 0.12 : 0.06;
+  return 1 + Math.min(0.5, (game.comboCount||0)*factor);
 }
 function comboAudioBoost(){
   return 1 + Math.min(0.5, (game.comboCount||0)*0.04);
@@ -1163,6 +1301,7 @@ function applyReaction(type, a, b){
   markReactionDiscovered(type);
   const info = REACTION_INFO[type];
   spawnFloatingText(midX, midY-8, `${info.icon} ${info.name}!`, REACTION_COLORS[type] || '#8a4a10');
+  spawnFlourish(REACTION_FLOURISH[type], midX, midY, REACTION_COLORS[type] || '#8a4a10');
   if(type === 'steam'){
     a.consumed = true; b.consumed = true;
     spawnReactionBurst(type, midX, midY, '#dfefff', 20, 1.1);
@@ -1372,9 +1511,18 @@ function resolveBounds(o){
   if(o.x + o.r > containerRight){ o.x = containerRight-o.r; if(o.vx>0) o.vx *= -0.2; }
   if(o.y + o.r > containerBottom){
     o.y = containerBottom-o.r;
-    if(o.vy>0) o.vy = 0;
+    if(o.vy>0){
+      if(!o.grounded && o.vy > 90){
+        const amt = clamp(o.vy/600,0,1) * (0.1+o.tier*0.02);
+        if(amt > o.squashAmt){ o.squashT = 1; o.squashAmt = amt; }
+      }
+      o.grounded = true;
+      o.vy = 0;
+    }
     o.vx *= 0.9;
     if(o.wildcard) revealWildcard(o);
+  } else {
+    o.grounded = false;
   }
   if(o.y - o.r < 0){ o.y = o.r; if(o.vy<0) o.vy = 0; }
 }
@@ -1382,8 +1530,9 @@ function resolveBounds(o){
 function physicsStep(dt){
   const orbs = game.orbs;
   const MAX_SPEED = 1400;
+  const gravMul = game.dailyModifier === 'heavy' ? 1.25 : 1;
   for(const o of orbs){
-    o.vy += GRAVITY*dt;
+    o.vy += GRAVITY*gravMul*dt;
     o.vx *= 0.97;
     o.vy *= 0.985;
     const speed = Math.hypot(o.vx, o.vy);
@@ -1392,6 +1541,10 @@ function physicsStep(dt){
     o.y += o.vy*dt;
     resolveBounds(o);
     o.popScale = 1 + (o.popScale-1)*Math.max(0, 1-dt*10);
+    if(o.squashT > 0){
+      o.squashT = Math.max(0, o.squashT - dt*6);
+      if(o.squashT === 0) o.squashAmt = 0;
+    }
   }
 
   const mergeEvents = [];
@@ -1423,6 +1576,13 @@ function physicsStep(dt){
             const impulse = -relN/2;
             a.vx -= impulse*nx; a.vy -= impulse*ny;
             b.vx += impulse*nx; b.vy += impulse*ny;
+            const impactSpeed = -relN;
+            if(impactSpeed > 140){
+              const amtA = clamp(impactSpeed/700,0,1) * (0.1+a.tier*0.02);
+              const amtB = clamp(impactSpeed/700,0,1) * (0.1+b.tier*0.02);
+              if(amtA > a.squashAmt){ a.squashT = 1; a.squashAmt = amtA; }
+              if(amtB > b.squashAmt){ b.squashT = 1; b.squashAmt = amtB; }
+            }
           }
           const tx = -ny, ty = nx;
           const relT = rvx*tx + rvy*ty;
@@ -1596,6 +1756,7 @@ function update(dt){
   if(game.comboFlash > 0) game.comboFlash = Math.max(0, game.comboFlash - dt*2);
   updateParticles(dt);
   updateFloatingTexts(dt);
+  updateFlourishes(dt);
   if(game.over) return;
 
   game.time += dt;
@@ -1620,13 +1781,14 @@ function drawContainer(){
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,W,H);
 
-  ctx.globalAlpha = 0.35;
   ctx.fillStyle = '#ffb703';
-  for(let i=0;i<26;i++){
+  for(let i=0;i<36;i++){
     const sx = (i*173.2 + game.time*8) % W;
-    const sy = (i*231.7) % H;
+    const sy = (i*97.3 + game.time*5) % H;
+    const twinkle = 0.5 + 0.5*Math.sin(game.time*2 + i*1.7);
+    ctx.globalAlpha = 0.15 + twinkle*0.3;
     ctx.beginPath();
-    ctx.arc(sx, sy, 1.8, 0, Math.PI*2);
+    ctx.arc(sx, sy, 1.3+twinkle*1.2, 0, Math.PI*2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -1661,6 +1823,9 @@ function drawCauldronFace(){
   const dangerT = clamp(game.dangerTimer/DANGER_THRESHOLD, 0, 1);
   const dizzy = game.shakeT > 0.15;
   const eyeDX = 16;
+  const halfSpan = Math.max(1, (containerRight-containerLeft)/2);
+  const lookTarget = game.aiming ? game.dropX : cx;
+  const look = clamp((lookTarget - cx)/halfSpan, -1, 1) * 4.5;
   ctx.save();
   ctx.globalAlpha = 0.3;
   ctx.strokeStyle = '#8a4a10';
@@ -1682,7 +1847,7 @@ function drawCauldronFace(){
   } else if(dangerT > 0.45){
     for(const sx of [-eyeDX, eyeDX]){
       ctx.beginPath();
-      ctx.arc(cx+sx, cy, 5, 0, Math.PI*2);
+      ctx.arc(cx+sx+look, cy, 5, 0, Math.PI*2);
       ctx.stroke();
     }
     ctx.beginPath();
@@ -1692,7 +1857,7 @@ function drawCauldronFace(){
   } else {
     for(const sx of [-eyeDX, eyeDX]){
       ctx.beginPath();
-      ctx.arc(cx+sx, cy, 3.5, 0, Math.PI*2);
+      ctx.arc(cx+sx+look, cy, 3.5, 0, Math.PI*2);
       ctx.fill();
     }
   }
@@ -1754,8 +1919,14 @@ function drawOrbFace(o){
 function drawOrb(o){
   ctx.save();
   ctx.filter = currentOrbSkin().filter;
-  ctx.translate(o.x, o.y);
-  ctx.scale(o.popScale, o.popScale);
+  let idleBobY = 0;
+  if(o.grounded && Math.hypot(o.vx,o.vy) < 8){
+    const bobAmt = Math.max(0, 2.2 - o.tier*0.35);
+    idleBobY = Math.sin(game.time*3 + o.blinkSeed)*bobAmt;
+  }
+  ctx.translate(o.x, o.y + idleBobY);
+  const squash = o.squashT * o.squashAmt;
+  ctx.scale(o.popScale*(1+squash), o.popScale*(1-squash));
   ctx.beginPath();
   ctx.arc(0,0,o.r,0,Math.PI*2);
   if(o.wildcard){
@@ -2046,6 +2217,7 @@ function render(){
     ctx.translate(-game.punchX, -game.punchY);
   }
   drawDropGuide();
+  drawFlourishes();
   drawOrbs();
   drawParticles();
   drawFloatingTexts();
