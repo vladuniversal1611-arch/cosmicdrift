@@ -155,7 +155,6 @@
       <button id="skinsBtn" class="iconBtn" type="button" title="Вигляд казана">🎨</button>
       <button id="dailyBtn" class="iconBtn" type="button" title="Виклик дня">📅</button>
       <button id="shakeBtn" class="iconBtn" type="button" title="Струсити казан">🫨</button>
-      <button id="riskBtn" class="iconBtn" type="button" title="Ва-банк на наступний кидок">🎰</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
     </div>
   </div>
@@ -233,10 +232,8 @@
       <p>🛒 Час від часу з'являється замовлення — виконай потрібну реакцію вчасно за бонус.</p>
       <p>🔄 Кружок "обмін" зліва — відкладає поточну кульку про запас (і дістає її пізніше). Раз на кульку.</p>
       <p>🎲 Кулька-джокер зі знаком питання стає випадковою стихією, коли торкнеться чогось — іноді трапляється джекпот!</p>
-      <p>🎰 Ва-банк — активуй перед кидком: якщо кулька зіллється чи прореагує — бонус, якщо ні — штраф. Обмежена кількість спроб.</p>
+      <p>🔥 Швидко зливай кульки одну за одною — комбо росте, і очки множаться!</p>
       <p>🫨 Кнопка струсу — обмежена кількість разів за забіг, струшує весь казан у критичний момент.</p>
-      <p>🌀 <b>Майстер-рецепт</b>: зведи разом 3 кульки ОДНАКОВОГО розміру але 3 РІЗНИХ стихій за особливим рецептом — вони зникнуть з гучним бонусом і звільнять місце в казані!</p>
-      <p>⚖️ <b>Чистота і Різноманіття</b>: якщо в казані переважає одна стихія — активна "Чистота" (x1.5 очок), якщо представлені всі відкриті стихії — "Різноманіття" (x1.3 очок).</p>
       <p>🧪 За кожен забіг ти отримуєш Есенцію — витрать її в лабораторії на постійні покращення казана або на 🎨 нові вигляди кульок і казана.</p>
       <p>📅 Виклик дня — усі стихії відкриті, і послідовність кульок однакова для всіх гравців сьогодні. Спробуй побити свій рекорд дня!</p>
       <p>🚩 Не дай кулькам стояти вище червоної лінії надовго — інакше казан переповниться!</p>
@@ -274,7 +271,6 @@ const achievementsScreen = document.getElementById('achievementsScreen');
 const achievementsListEl = document.getElementById('achievementsList');
 const achievementsCloseBtn = document.getElementById('achievementsCloseBtn');
 const shakeBtn = document.getElementById('shakeBtn');
-const riskBtn = document.getElementById('riskBtn');
 const upgradesBtn = document.getElementById('upgradesBtn');
 const upgradesScreen = document.getElementById('upgradesScreen');
 const upgradesListEl = document.getElementById('upgradesList');
@@ -370,8 +366,7 @@ const ACHIEVEMENTS = [
   { id:'orders_10',      name:'Надійний алхімік',     desc:'Виконай 10 замовлень', icon:'🛒' },
   { id:'overload_5',     name:'Перевантажувач',       desc:'Викликай перевантаження 5 разів', icon:'⚡' },
   { id:'all_elements',   name:'Всі стихії',           desc:'Відкрий усі 6 стихій', icon:'🌟' },
-  { id:'all_recipes',    name:'Майстер рецептів',     desc:'Розкрий усі 12 рецептів у гримуарі', icon:'📖' },
-  { id:'master_recipe',  name:'Потрійне злиття',      desc:'Зроби майстер-рецепт з 3 стихій', icon:'🌀' }
+  { id:'all_recipes',    name:'Майстер рецептів',     desc:'Розкрий усі 12 рецептів у гримуарі', icon:'📖' }
 ];
 const ACHIEVEMENTS_KEY = 'elementalFusionAchievements';
 const STATS_KEY = 'elementalFusionStats';
@@ -411,24 +406,13 @@ function recordRunHistory(score){
 
 const WILDCARD_CHANCE = 0.07;
 const WILDCARD_JACKPOT_CHANCE = 0.15;
-const RISK_PER_RUN = 3;
-const RISK_TIMEOUT = 3.5;
-
-function masterRecipeKey(e1,e2,e3){ return [e1,e2,e3].sort().join('+'); }
-const MASTER_RECIPES = {
-  [masterRecipeKey('fire','lightning','water')]:  { name:'Плазма',           icon:'🌀' },
-  [masterRecipeKey('ice','nature','water')]:      { name:'Вічна мерзлота',   icon:'🧊' },
-  [masterRecipeKey('fire','lightning','metal')]:  { name:'Ковальська буря',  icon:'⛈️' },
-  [masterRecipeKey('metal','nature','water')]:    { name:'Симбіоз',          icon:'🌿' },
-  [masterRecipeKey('fire','ice','metal')]:        { name:'Загартована сталь',icon:'🗡️' }
-};
 
 const ESSENCE_KEY = 'elementalFusionEssence';
 let essence = parseInt(localStorage.getItem(ESSENCE_KEY) || '0', 10) || 0;
 function saveEssence(){ try{ localStorage.setItem(ESSENCE_KEY, String(essence)); }catch(e){} }
 
 const UPGRADES_KEY = 'elementalFusionUpgrades';
-let upgrades = { cauldron:0, shake:0, risk:0, speed:0 };
+let upgrades = { cauldron:0, shake:0, speed:0 };
 try{
   const savedU = JSON.parse(localStorage.getItem(UPGRADES_KEY) || '{}');
   if(savedU && typeof savedU === 'object') upgrades = Object.assign(upgrades, savedU);
@@ -438,12 +422,10 @@ function saveUpgrades(){ try{ localStorage.setItem(UPGRADES_KEY, JSON.stringify(
 const UPGRADES = [
   { id:'cauldron', name:'Більший казан',    icon:'⚗️', desc:'Більше простору в казані', maxLevel:3, baseCost:5, costStep:4 },
   { id:'shake',    name:'Запасний струс',   icon:'🫨', desc:'+1 струс за забіг',        maxLevel:3, baseCost:4, costStep:3 },
-  { id:'risk',     name:'Запасний ва-банк', icon:'🎰', desc:'+1 спроба ва-банк за забіг',maxLevel:3, baseCost:4, costStep:3 },
   { id:'speed',    name:'Швидші руки',      icon:'✋', desc:'Коротший кулдаун кидків',   maxLevel:3, baseCost:6, costStep:5 }
 ];
 function upgradeCost(def, level){ return def.baseCost + level*def.costStep; }
 function effectiveShakes(){ return SHAKES_PER_RUN + (upgrades.shake||0); }
-function effectiveRisk(){ return RISK_PER_RUN + (upgrades.risk||0); }
 function effectiveDropCooldown(){ return Math.max(0.12, DROP_COOLDOWN - (upgrades.speed||0)*0.05); }
 
 function mulberry32(seed){
@@ -662,8 +644,6 @@ function newGame(dailyMode){
     hold: null,
     holdUsed: false,
     shakesLeft: effectiveShakes(),
-    riskArmed: false,
-    riskUsesLeft: effectiveRisk(),
     heartbeatTimer: 0,
     comboCount: 0,
     comboTimer: 0,
@@ -672,9 +652,6 @@ function newGame(dailyMode){
     order: null,
     orderCooldown: 7 + Math.random()*4,
     lastOrderType: null,
-    bonusMode: 'neutral',
-    bonusMultiplier: 1,
-    bonusCheckTimer: 2.5,
     dailyMode: usingDailyRng,
     punchT: 0,
     punchX: 0,
@@ -686,7 +663,6 @@ function newGame(dailyMode){
   hintEl.classList.remove('hidden');
   scoreValueEl.textContent = '0';
   shakeBtn.textContent = '🫨' + effectiveShakes();
-  riskBtn.textContent = '🎰' + effectiveRisk();
 }
 
 function spawnOrb(x, y, tier, element, vx, vy, wildcard){
@@ -697,8 +673,6 @@ function spawnOrb(x, y, tier, element, vx, vy, wildcard){
     lastReaction: -999, consumed: false,
     popScale: 1,
     wildcard: !!wildcard,
-    risky: false,
-    riskyDeadline: 0,
     blinkSeed: Math.random()*10
   };
   game.orbs.push(o);
@@ -710,12 +684,7 @@ function dropCurrentOrb(){
   const item = game.queue[0];
   const r = TIERS[item.tier].r;
   const x = clamp(game.dropX, containerLeft+r, containerRight-r);
-  const orb = spawnOrb(x, spawnY, item.tier, item.element, 0, 40, item.wildcard);
-  if(game.riskArmed){
-    orb.risky = true;
-    orb.riskyDeadline = game.time + RISK_TIMEOUT;
-    game.riskArmed = false;
-  }
+  spawnOrb(x, spawnY, item.tier, item.element, 0, 40, item.wildcard);
   game.dropCooldown = effectiveDropCooldown();
   game.holdUsed = false;
   game.queue.shift();
@@ -755,27 +724,6 @@ function useShake(){
   spawnFloatingText((containerLeft+containerRight)/2, containerTop+40, '🫨 Струс!', '#c9861a');
 }
 shakeBtn.addEventListener('click', useShake);
-
-function armRisk(){
-  if(!game || game.over || game.riskArmed || game.riskUsesLeft <= 0) return;
-  game.riskArmed = true;
-  game.riskUsesLeft--;
-  riskBtn.textContent = '🎰' + game.riskUsesLeft;
-  spawnFloatingText(game.dropX, spawnY-24, '🎰 Ва-банк на цей кидок!', '#e0432a');
-  sfxDrop();
-}
-riskBtn.addEventListener('click', armRisk);
-
-function updateRiskyOrbs(){
-  for(const o of game.orbs){
-    if(o.risky && !o.consumed && game.time > o.riskyDeadline){
-      o.risky = false;
-      addScore(-15);
-      spawnFloatingText(o.x, o.y-20, '💥 Ризик не зіграв...', '#c9281a');
-      sfxBurn();
-    }
-  }
-}
 
 function getPointerPos(e){
   const rect = canvas.getBoundingClientRect();
@@ -1120,7 +1068,7 @@ function drawFloatingTexts(){
 }
 
 function addScore(n){
-  const mult = (game.bonusMultiplier || 1) * comboMultiplier();
+  const mult = comboMultiplier();
   game.score += Math.round(n*mult);
   scoreValueEl.textContent = game.score;
 }
@@ -1139,44 +1087,6 @@ function addMeter(n){
   if(game.meter >= OVERLOAD_MAX) triggerOverload();
 }
 
-function setBonusMode(mode, mult, icon){
-  if(game.bonusMode === mode){ game.bonusMultiplier = mult; return; }
-  game.bonusMode = mode;
-  game.bonusMultiplier = mult;
-  if(mode === 'purity'){
-    spawnFloatingText((containerLeft+containerRight)/2, containerTop+70, `${icon||''} ЧИСТОТА! x${mult} очок`, '#e0432a');
-  } else if(mode === 'variety'){
-    spawnFloatingText((containerLeft+containerRight)/2, containerTop+70, `🌈 РІЗНОМАНІТТЯ! x${mult} очок`, '#2f8a1a');
-  }
-}
-
-function updateEconomyBonus(dt){
-  game.bonusCheckTimer -= dt;
-  if(game.bonusCheckTimer > 0) return;
-  game.bonusCheckTimer = 3;
-  const counts = {};
-  let total = 0;
-  for(const o of game.orbs){
-    if(o.consumed || o.wildcard) continue;
-    counts[o.element] = (counts[o.element]||0) + 1;
-    total++;
-  }
-  if(total < 4){ setBonusMode('neutral', 1); return; }
-  let maxEl = null, maxCount = 0;
-  for(const k in counts){
-    if(counts[k] > maxCount){ maxCount = counts[k]; maxEl = k; }
-  }
-  if(maxCount/total >= 0.7){
-    setBonusMode('purity', 1.5, ELEMENTS[maxEl].emoji);
-    return;
-  }
-  const allPresent = unlockedElements.length >= 3 && unlockedElements.every(e => counts[e] > 0);
-  if(allPresent){
-    setBonusMode('variety', 1.3);
-    return;
-  }
-  setBonusMode('neutral', 1);
-}
 const COMBO_WINDOW = 1.0;
 function registerCombo(x, y){
   game.comboTimer = COMBO_WINDOW;
@@ -1399,7 +1309,6 @@ function applyReaction(type, a, b){
   addMeter(isBigReaction ? 21 : 18);
   triggerPunch(midX, midY, isBigReaction ? 0.45 : 0.2);
   registerCombo(midX, midY);
-  checkRiskyPayoff(a, b, midX, midY);
 
   if(game.order && game.order.type === type){
     addScore(40);
@@ -1412,22 +1321,6 @@ function applyReaction(type, a, b){
     stats.orders = (stats.orders||0) + 1;
     saveStats();
     if(stats.orders >= 10) unlockAchievement('orders_10');
-  }
-}
-
-function checkRiskyPayoff(a, b, midX, midY){
-  if(a.risky || b.risky){
-    const orb = a.risky ? a : b;
-    const margin = orb.riskyDeadline - game.time;
-    const justInTime = margin < 0.5;
-    addScore(justInTime ? 80 : 50);
-    spawnFloatingText(midX, midY-52, justInTime ? '🥵 В ОСТАННЮ МИТЬ! +80' : '🎰 РИЗИК ЗІГРАВ! +50', '#e0432a');
-    if(justInTime){
-      triggerPunch(midX, midY, 0.7);
-      game.shakeT = Math.max(game.shakeT, 0.3);
-    }
-    sfxRecord();
-    vibrate(justInTime ? [10,20,10,20,10,60] : [20,40,20]);
   }
 }
 
@@ -1444,7 +1337,6 @@ function applyMerge(a, b){
   sfxMerge(newTier);
   triggerPunch(midX, midY, 0.15 + newTier*0.05);
   registerCombo(midX, midY-20);
-  checkRiskyPayoff(a, b, midX, midY);
   checkElementDiscovery(a.element, newTier);
   if(newTier === MAX_TIER){
     spawnFloatingText(midX, midY-30, '👑 МАКСИМУМ!', '#ffd23f');
@@ -1452,23 +1344,6 @@ function applyMerge(a, b){
     triggerPunch(midX, midY, 0.8);
     unlockAchievement('max_tier');
   }
-}
-
-function applyMasterRecipe(recipe, a, b, c){
-  const midX = (a.x+b.x+c.x)/3, midY = (a.y+b.y+c.y)/3;
-  const bonusTier = Math.max(a.tier, b.tier, c.tier);
-  a.consumed = true; b.consumed = true; c.consumed = true;
-  spawnParticles(midX, midY, '#ffd23f', 40, 2.2, { shape:'glint', gravityMul:0.4, upBias:50 });
-  spawnParticles(midX, midY, '#ff9f43', 24, 1.8, { shape:'spark', gravityMul:0.3, upBias:30 });
-  game.shakeT = Math.max(game.shakeT, 0.35);
-  triggerPunch(midX, midY, 0.9);
-  spawnFloatingText(midX, midY-34, `${recipe.icon} ${recipe.name}! МАЙСТЕР-РЕЦЕПТ`, '#e0432a');
-  addScore(120 + bonusTier*20);
-  addMeter(30);
-  sfxOverload();
-  vibrate([25,50,25,50,80]);
-  unlockAchievement('master_recipe');
-  registerCombo(midX, midY);
 }
 
 function revealWildcard(o){
@@ -1521,7 +1396,6 @@ function physicsStep(dt){
 
   const mergeEvents = [];
   const reactionEvents = [];
-  const touchPairs = [];
   const iterations = 10;
   for(let iter=0; iter<iterations; iter++){
     for(let i=0;i<orbs.length;i++){
@@ -1562,7 +1436,6 @@ function physicsStep(dt){
           if(b.wildcard) revealWildcard(b);
 
           if(iter === 0 && a.tier === b.tier){
-            touchPairs.push([a,b]);
             if(a.element === b.element && a.tier < MAX_TIER){
               mergeEvents.push([a,b]);
             } else if(a.element !== b.element){
@@ -1582,39 +1455,6 @@ function physicsStep(dt){
     if(Math.hypot(o.vx, o.vy) < 14){ o.vx = 0; o.vy = 0; }
   }
 
-  const recipeEvents = [];
-  if(touchPairs.length >= 2){
-    const adj = new Map();
-    const orbById = new Map();
-    for(const [a,b] of touchPairs){
-      orbById.set(a.id, a); orbById.set(b.id, b);
-      if(!adj.has(a.id)) adj.set(a.id, new Set());
-      if(!adj.has(b.id)) adj.set(b.id, new Set());
-      adj.get(a.id).add(b.id);
-      adj.get(b.id).add(a.id);
-    }
-    const claimed = new Set();
-    for(const [a,b] of touchPairs){
-      if(claimed.has(a.id) || claimed.has(b.id)) continue;
-      const setB = adj.get(b.id);
-      for(const cid of adj.get(a.id)){
-        if(cid === b.id || claimed.has(cid) || !setB.has(cid)) continue;
-        const c = orbById.get(cid);
-        const key = masterRecipeKey(a.element, b.element, c.element);
-        const recipe = MASTER_RECIPES[key];
-        if(recipe){
-          recipeEvents.push([recipe,a,b,c]);
-          claimed.add(a.id); claimed.add(b.id); claimed.add(cid);
-          break;
-        }
-      }
-    }
-  }
-
-  for(const [recipe,a,b,c] of recipeEvents){
-    if(a.consumed || b.consumed || c.consumed) continue;
-    applyMasterRecipe(recipe, a, b, c);
-  }
   for(const [a,b] of mergeEvents){
     if(a.consumed || b.consumed) continue;
     applyMerge(a,b);
@@ -1768,9 +1608,7 @@ function update(dt){
   physicsStep(dt);
   updateDanger(dt);
   updateOrders(dt);
-  updateRiskyOrbs();
   updateTension(dt);
-  updateEconomyBonus(dt);
 }
 
 function drawContainer(){
@@ -1945,20 +1783,6 @@ function drawOrb(o){
   ctx.fillText(o.wildcard ? '🎲' : ELEMENTS[o.element].emoji, 0, 1);
   if(!o.wildcard) drawOrbFace(o);
   ctx.restore();
-
-  if(o.risky && !o.consumed){
-    const pulse = 0.5 + 0.5*Math.sin(game.time*10);
-    ctx.save();
-    ctx.globalAlpha = 0.5 + 0.3*pulse;
-    ctx.beginPath();
-    ctx.arc(o.x, o.y, o.r+5, 0, Math.PI*2);
-    ctx.strokeStyle = '#e0432a';
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([4,3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
 }
 
 function drawOrbs(){
@@ -2096,20 +1920,6 @@ function drawDropGuide(){
   ctx.textBaseline = 'middle';
   ctx.fillText(item.wildcard ? '🎲' : ELEMENTS[item.element].emoji, 0, 1);
   ctx.restore();
-
-  if(game.riskArmed){
-    const pulse = 0.5 + 0.5*Math.sin(game.time*10);
-    ctx.save();
-    ctx.globalAlpha = 0.6 + 0.3*pulse;
-    ctx.beginPath();
-    ctx.arc(x, spawnY, r+8, 0, Math.PI*2);
-    ctx.strokeStyle = '#e0432a';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([5,4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
 }
 
 function drawTopUI(){
@@ -2147,7 +1957,6 @@ function drawTopUI(){
   ctx.fillText('⚡ заряд реакції', barX, barY-4);
   ctx.restore();
 
-  drawPurityBadge();
   drawHeatMeter();
 }
 
@@ -2171,18 +1980,6 @@ function drawHeatMeter(){
   ctx.fillStyle = '#e0432a';
   ctx.textAlign = 'left';
   ctx.fillText(`🔥 x${game.comboCount} (x${comboMultiplier().toFixed(2)})`, barX, barY-3);
-  ctx.restore();
-}
-
-function drawPurityBadge(){
-  if(!game.bonusMode || game.bonusMode === 'neutral') return;
-  const label = game.bonusMode === 'purity' ? `🔥 ЧИСТОТА x${game.bonusMultiplier}` : `🌈 РІЗНОМАНІТТЯ x${game.bonusMultiplier}`;
-  const color = game.bonusMode === 'purity' ? '#e0432a' : '#2f8a1a';
-  ctx.save();
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = color;
-  ctx.fillText(label, W-14, 70);
   ctx.restore();
 }
 
