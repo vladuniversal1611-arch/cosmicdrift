@@ -51,7 +51,7 @@
     font-size:clamp(11px,3.2vw,15px); font-weight:700; text-align:center;
     pointer-events:none; z-index:5;
     transition:opacity 0.5s ease, transform 0.5s ease;
-    white-space:nowrap;
+    max-width:92vw;
     animation:hintBob 1.6s ease-in-out infinite;
     text-shadow:0 2px 4px rgba(0,0,0,0.4);
   }
@@ -61,7 +61,7 @@
     50%{ transform:translateX(-50%) translateY(-8px); }
   }
 
-  #gameOverScreen{
+  #gameOverScreen, #grimoireScreen{
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
     background:rgba(8,4,20,0.75);
@@ -69,7 +69,21 @@
     z-index:20;
     opacity:1; transition:opacity 0.35s ease;
   }
-  #gameOverScreen.hidden{ opacity:0; pointer-events:none; }
+  #gameOverScreen.hidden, #grimoireScreen.hidden{ opacity:0; pointer-events:none; }
+  .recipeRow{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:#241547; border:2px solid #4a2e7a; border-radius:12px;
+    padding:8px 12px; margin-bottom:8px; text-align:left;
+  }
+  .recipeRow.locked{ opacity:0.5; }
+  .recipeRow .rName{ font-weight:800; color:#ffe9a8; font-size:14px; }
+  .recipeRow .rDesc{ font-size:11px; color:#c9b8ff; margin-top:2px; }
+  .secondaryBtn{
+    margin-top:14px; font-family:inherit; font-weight:800; font-size:14px; color:#2d1b4e;
+    background:#fff; border:3px solid #2d1b4e; border-radius:14px; padding:10px 20px; cursor:pointer; width:100%;
+  }
+  #grimoireScreen .panel{ max-height:82vh; overflow-y:auto; }
+  #grimoireScreen h1{ color:#ffe066; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
   .panel{
     background:linear-gradient(160deg,#2d1b4e,#1a0f30);
     border:5px solid #ffd23f;
@@ -127,11 +141,12 @@
     <div class="hudPill" id="scoreBox">✨ <span id="scoreValue">0</span></div>
     <div class="hudRight">
       <div class="hudPill" id="bestBox">🏆 <span id="bestValue">0</span></div>
+      <button id="grimoireBtn" class="iconBtn" type="button" title="Гримуар">📖</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
     </div>
   </div>
 
-  <div id="hint">👆 Веди пальцем і відпусти — впусти кульку в казан!</div>
+  <div id="hint">👆 Зливай кульки — відкриєш нові стихії 🔓</div>
 
   <div id="gameOverScreen" class="hidden">
     <div class="panel">
@@ -140,6 +155,14 @@
       <div class="bigScore">✨ <span id="finalScore">0</span></div>
       <p>Рекорд: 🏆 <span id="finalBest">0</span></p>
       <button id="restartBtn" type="button">🔄 Грати знову</button>
+    </div>
+  </div>
+
+  <div id="grimoireScreen" class="hidden">
+    <div class="panel">
+      <h1>📖 Гримуар рецептів</h1>
+      <div id="grimoireList"></div>
+      <button id="grimoireCloseBtn" class="secondaryBtn" type="button">Закрити</button>
     </div>
   </div>
 </div>
@@ -159,6 +182,10 @@ const finalBestEl = document.getElementById('finalBest');
 const newBestBadge = document.getElementById('newBestBadge');
 const restartBtn = document.getElementById('restartBtn');
 const muteBtn = document.getElementById('muteBtn');
+const grimoireBtn = document.getElementById('grimoireBtn');
+const grimoireScreen = document.getElementById('grimoireScreen');
+const grimoireListEl = document.getElementById('grimoireList');
+const grimoireCloseBtn = document.getElementById('grimoireCloseBtn');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -189,14 +216,39 @@ const ELEMENTS = {
   nature:    { emoji:'🌿', top:'#ddffb8', mid:'#7ed957', bot:'#276b18' }
 };
 const ELEMENT_KEYS = Object.keys(ELEMENTS);
+const ELEMENT_NAMES = { fire:'Вогонь', water:'Вода', lightning:'Блискавка', nature:'Природа' };
+const ELEMENT_UNLOCK_TIER = 4;
+const ELEMENT_UNLOCK_MAP = { fire:'lightning', water:'nature' };
+const REACTION_INFO = {
+  steam:  { name:'Пара',      icon:'💨', desc:"Вогонь + Вода — обидві зникають, пара очищує простір" },
+  burn:   { name:'Спалення',  icon:'🔥', desc:'Вогонь поглинає Природу і росте на тір більше' },
+  spark:  { name:'Іскра',     icon:'💥', desc:'Вогонь + Блискавка — вибух штовхає сусідні кульки' },
+  shock:  { name:'Розряд',    icon:'⚡', desc:"Блискавка + Вода — б'є всі кульки поруч" },
+  bloom:  { name:'Цвітіння',  icon:'🌸', desc:'Природа поглинає Воду і росте на тір більше' },
+  growth: { name:'Ріст',      icon:'🌱', desc:'Блискавка живить Природу задарма' }
+};
+const UNLOCK_KEY = 'elementalFusionUnlocked';
+const DISCOVERED_KEY = 'elementalFusionDiscoveredReactions';
 const DROP_COOLDOWN = 0.32;
 const REACTION_COOLDOWN = 1.1;
 const OVERLOAD_MAX = 100;
 
+let unlockedElements = ['fire','water'];
+try{
+  const saved = JSON.parse(localStorage.getItem(UNLOCK_KEY) || '["fire","water"]');
+  if(Array.isArray(saved) && saved.length) unlockedElements = saved;
+}catch(e){ unlockedElements = ['fire','water']; }
+
+let discoveredReactions = [];
+try{
+  const savedR = JSON.parse(localStorage.getItem(DISCOVERED_KEY) || '[]');
+  if(Array.isArray(savedR)) discoveredReactions = savedR;
+}catch(e){ discoveredReactions = []; }
+
 let containerLeft=0, containerRight=0, containerTop=0, containerBottom=0, dangerY=0, spawnY=0;
 function computeContainer(){
   const hudHeight = 96;
-  containerTop = hudHeight + 34;
+  containerTop = hudHeight + 62;
   containerBottom = H - 18;
   containerLeft = W*0.06;
   containerRight = W*0.94;
@@ -260,7 +312,41 @@ function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern
 let game = null;
 let orbIdCounter = 0;
 
-function randomElement(){ return ELEMENT_KEYS[Math.floor(Math.random()*ELEMENT_KEYS.length)]; }
+function randomElement(){ return unlockedElements[Math.floor(Math.random()*unlockedElements.length)]; }
+function availableReactionTypes(){
+  const types = [];
+  for(let i=0;i<unlockedElements.length;i++){
+    for(let j=i+1;j<unlockedElements.length;j++){
+      const t = reactionFor(unlockedElements[i], unlockedElements[j]);
+      if(t && types.indexOf(t) === -1) types.push(t);
+    }
+  }
+  return types;
+}
+function checkElementDiscovery(element, tier){
+  const target = ELEMENT_UNLOCK_MAP[element];
+  if(!target || tier < ELEMENT_UNLOCK_TIER || unlockedElements.indexOf(target) !== -1) return;
+  unlockedElements.push(target);
+  try{ localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlockedElements)); }catch(e){}
+  announceElementDiscovery(target);
+}
+function announceElementDiscovery(key){
+  const el = ELEMENTS[key];
+  const cx = (containerLeft+containerRight)/2, cy = (containerTop+containerBottom)/2;
+  spawnFloatingText(cx, cy-40, `🔓 Відкрито: ${ELEMENT_NAMES[key]} ${el.emoji}!`, '#ffe066');
+  spawnParticles(cx, cy, el.mid, 30, 1.4);
+  game.shakeT = Math.max(game.shakeT, 0.25);
+  game.overloadFlash = Math.max(game.overloadFlash, 0.4);
+  sfxOverload();
+  vibrate([20,40,20,40,60]);
+}
+function markReactionDiscovered(type){
+  if(discoveredReactions.indexOf(type) !== -1) return;
+  discoveredReactions.push(type);
+  try{ localStorage.setItem(DISCOVERED_KEY, JSON.stringify(discoveredReactions)); }catch(e){}
+  const info = REACTION_INFO[type];
+  spawnFloatingText((containerLeft+containerRight)/2, containerTop+30, `📖 Новий рецепт: ${info.name} ${info.icon}!`, '#c9b8ff');
+}
 function randomTier(){
   const weights = [0.38,0.3,0.18,0.09,0.05];
   const roll = Math.random();
@@ -291,7 +377,9 @@ function newGame(){
     comboCount: 0,
     comboTimer: 0,
     shakeT: 0,
-    time: 0
+    time: 0,
+    order: null,
+    orderCooldown: 7 + Math.random()*4
   };
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
@@ -358,6 +446,29 @@ muteBtn.addEventListener('click', ()=>{
   muteBtn.textContent = muted ? '🔇' : '🔊';
 });
 restartBtn.addEventListener('click', ()=>{ newGame(); });
+
+function buildGrimoireUI(){
+  grimoireListEl.innerHTML = '';
+  for(const type of Object.keys(REACTION_INFO)){
+    const info = REACTION_INFO[type];
+    const known = discoveredReactions.indexOf(type) !== -1;
+    const row = document.createElement('div');
+    row.className = 'recipeRow' + (known ? '' : ' locked');
+    if(known){
+      row.innerHTML = `<div><div class="rName">${info.icon} ${info.name}</div><div class="rDesc">${info.desc}</div></div>`;
+    } else {
+      row.innerHTML = `<div><div class="rName">❔ Невідомий рецепт</div><div class="rDesc">Зіткни дві різні стихії, щоб дізнатись</div></div>`;
+    }
+    grimoireListEl.appendChild(row);
+  }
+}
+grimoireBtn.addEventListener('click', ()=>{
+  buildGrimoireUI();
+  grimoireScreen.classList.remove('hidden');
+});
+grimoireCloseBtn.addEventListener('click', ()=>{
+  grimoireScreen.classList.add('hidden');
+});
 
 function spawnParticles(x, y, color, count, speedMul){
   speedMul = speedMul || 1;
@@ -471,6 +582,7 @@ function reactionFor(e1, e2){
 
 function applyReaction(type, a, b){
   const midX = (a.x+b.x)/2, midY = (a.y+b.y)/2;
+  markReactionDiscovered(type);
   if(type === 'steam'){
     a.consumed = true; b.consumed = true;
     spawnParticles(midX, midY, '#dfefff', 20, 1.1);
@@ -544,6 +656,16 @@ function applyReaction(type, a, b){
   }
   addMeter(type === 'spark' ? 22 : type === 'shock' ? 20 : 18);
   registerCombo(midX, midY);
+
+  if(game.order && game.order.type === type){
+    addScore(40);
+    addMeter(10);
+    spawnFloatingText(midX, midY-56, '✅ Замовлення виконано! +40', '#5ee066');
+    sfxGrowth();
+    vibrate([15,15,15]);
+    game.order = null;
+    game.orderCooldown = 5 + Math.random()*4;
+  }
 }
 
 function applyMerge(a, b){
@@ -558,6 +680,7 @@ function applyMerge(a, b){
   addMeter(4);
   sfxMerge(newTier);
   registerCombo(midX, midY-20);
+  checkElementDiscovery(a.element, newTier);
   if(newTier === MAX_TIER){
     spawnFloatingText(midX, midY-30, '👑 МАКСИМУМ!', '#ffd23f');
     game.shakeT = Math.max(game.shakeT, 0.2);
@@ -661,6 +784,28 @@ function physicsStep(dt){
   game.orbs = game.orbs.filter(o => !o.consumed);
 }
 
+function updateOrders(dt){
+  if(game.order){
+    game.order.timeLeft -= dt;
+    if(game.order.timeLeft <= 0){
+      game.order = null;
+      game.orderCooldown = 4 + Math.random()*3;
+    }
+  } else if(game.orderCooldown > 0){
+    game.orderCooldown -= dt;
+  } else {
+    const types = availableReactionTypes();
+    if(types.length){
+      const type = types[Math.floor(Math.random()*types.length)];
+      game.order = { type, timeLeft: 24, total: 24 };
+      const info = REACTION_INFO[type];
+      spawnFloatingText((containerLeft+containerRight)/2, containerTop-4, `🛒 Треба: ${info.name} ${info.icon}`, '#ffe066');
+    } else {
+      game.orderCooldown = 3;
+    }
+  }
+}
+
 function updateDanger(dt){
   const settled = game.orbs.some(o => (o.y - o.r) < dangerY && Math.hypot(o.vx,o.vy) < 260);
   if(settled) game.dangerTimer += dt;
@@ -700,6 +845,7 @@ function update(dt){
 
   physicsStep(dt);
   updateDanger(dt);
+  updateOrders(dt);
   updateParticles(dt);
   updateFloatingTexts(dt);
 }
@@ -854,6 +1000,35 @@ function drawTopUI(){
   ctx.restore();
 }
 
+function drawOrderCard(){
+  if(!game.order) return;
+  const info = REACTION_INFO[game.order.type];
+  const cardX = 14, cardY = 104, cardW = W-28, cardH = 30;
+  ctx.save();
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = 'rgba(45,27,78,0.92)';
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(cardX,cardY,cardW,cardH,10); ctx.fill(); }
+  else ctx.fillRect(cardX,cardY,cardW,cardH);
+
+  const pct = clamp(game.order.timeLeft/game.order.total, 0, 1);
+  ctx.fillStyle = pct < 0.25 ? 'rgba(255,70,90,0.4)' : 'rgba(255,210,63,0.28)';
+  const fillW = Math.max(4, cardW*pct);
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(cardX,cardY,fillW,cardH,10); ctx.fill(); }
+
+  ctx.strokeStyle = '#ffd23f';
+  ctx.lineWidth = 2;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(cardX,cardY,cardW,cardH,10); ctx.stroke(); }
+
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#ffe9a8';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`🛒 Замовлення: ${info.name} ${info.icon}`, cardX+10, cardY+cardH/2+1);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${Math.ceil(game.order.timeLeft)}с`, cardX+cardW-10, cardY+cardH/2+1);
+  ctx.restore();
+}
+
 function render(){
   ctx.clearRect(0,0,W,H);
 
@@ -874,6 +1049,7 @@ function render(){
   ctx.restore();
 
   drawTopUI();
+  drawOrderCard();
 
   if(game.overloadFlash > 0){
     ctx.save();
