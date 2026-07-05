@@ -34,7 +34,7 @@
     display:flex; align-items:center; gap:6px;
   }
   #bestBox{ border-color:#ff7a3d; }
-  .hudRight{ display:flex; align-items:flex-start; gap:8px; pointer-events:auto; flex-wrap:wrap; justify-content:flex-end; max-width:150px; }
+  .hudRight{ display:flex; align-items:flex-start; gap:8px; pointer-events:auto; flex-wrap:wrap; justify-content:flex-end; max-width:190px; }
   .iconBtn{
     width:36px; height:36px; border-radius:50%;
     border:3px solid #ff9f43; background:linear-gradient(135deg,#ffffff,#fff1d6);
@@ -61,7 +61,7 @@
     50%{ transform:translateX(-50%) translateY(-8px); }
   }
 
-  #gameOverScreen, #grimoireScreen, #rulesScreen, #achievementsScreen{
+  #gameOverScreen, #grimoireScreen, #rulesScreen, #achievementsScreen, #upgradesScreen{
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
     background:rgba(120,70,20,0.35);
@@ -69,7 +69,7 @@
     z-index:20;
     opacity:1; transition:opacity 0.35s ease;
   }
-  #gameOverScreen.hidden, #grimoireScreen.hidden, #rulesScreen.hidden, #achievementsScreen.hidden{ opacity:0; pointer-events:none; }
+  #gameOverScreen.hidden, #grimoireScreen.hidden, #rulesScreen.hidden, #achievementsScreen.hidden, #upgradesScreen.hidden{ opacity:0; pointer-events:none; }
   .recipeRow{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     background:#fff6e6; border:2px solid #ffcf8a; border-radius:12px;
@@ -78,12 +78,18 @@
   .recipeRow.locked{ opacity:0.55; }
   .recipeRow .rName{ font-weight:800; color:#8a4a10; font-size:14px; }
   .recipeRow .rDesc{ font-size:11px; color:#a87a40; margin-top:2px; }
+  .buyBtn{
+    font-family:inherit; font-weight:800; font-size:12px; color:#fff8ec;
+    background:linear-gradient(160deg,#ffb703,#e0432a); border:2px solid #a83e10; border-radius:10px;
+    padding:6px 10px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+  }
+  .buyBtn:disabled{ opacity:0.4; cursor:default; }
   .secondaryBtn{
     margin-top:14px; font-family:inherit; font-weight:800; font-size:14px; color:#8a4a10;
     background:#fff; border:3px solid #ff9f43; border-radius:14px; padding:10px 20px; cursor:pointer; width:100%;
   }
-  #grimoireScreen .panel, #rulesScreen .panel, #achievementsScreen .panel{ max-height:82vh; overflow-y:auto; }
-  #grimoireScreen h1, #rulesScreen h1, #achievementsScreen h1{ color:#e0432a; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
+  #grimoireScreen .panel, #rulesScreen .panel, #achievementsScreen .panel, #upgradesScreen .panel{ max-height:82vh; overflow-y:auto; }
+  #grimoireScreen h1, #rulesScreen h1, #achievementsScreen h1, #upgradesScreen h1{ color:#e0432a; -webkit-text-stroke:0; text-shadow:none; font-size:clamp(20px,6vw,26px); }
   .recipeRow.achieved{ background:#fff0d0; border-color:#ffb703; }
   #rulesScreen p{ text-align:left; font-size:clamp(12px,3.5vw,14px); line-height:1.5; }
   .panel{
@@ -145,6 +151,7 @@
       <button id="rulesBtn" class="iconBtn" type="button" title="Правила">❓</button>
       <button id="grimoireBtn" class="iconBtn" type="button" title="Гримуар">📖</button>
       <button id="achievementsBtn" class="iconBtn" type="button" title="Досягнення">🏅</button>
+      <button id="upgradesBtn" class="iconBtn" type="button" title="Алхімічна лабораторія">🧪</button>
       <button id="shakeBtn" class="iconBtn" type="button" title="Струсити казан">🫨</button>
       <button id="riskBtn" class="iconBtn" type="button" title="Ва-банк на наступний кидок">🎰</button>
       <button id="muteBtn" class="iconBtn" type="button">🔊</button>
@@ -159,8 +166,18 @@
       <h1>⚗️ КАЗАН ПЕРЕПОВНЕНО</h1>
       <div class="bigScore">✨ <span id="finalScore">0</span></div>
       <p>Рекорд: 🏆 <span id="finalBest">0</span></p>
+      <p id="essenceEarnedLine" style="font-size:13px; color:#8a4a10;"></p>
       <p id="historyLine" style="font-size:12px; opacity:0.8;"></p>
       <button id="restartBtn" type="button">🔄 Грати знову</button>
+    </div>
+  </div>
+
+  <div id="upgradesScreen" class="hidden">
+    <div class="panel">
+      <h1>🧪 Алхімічна лабораторія</h1>
+      <p style="font-size:14px;">Есенція: <span id="essenceValue">0</span> 🧪</p>
+      <div id="upgradesList"></div>
+      <button id="upgradesCloseBtn" class="secondaryBtn" type="button">Закрити</button>
     </div>
   </div>
 
@@ -192,6 +209,9 @@
       <p>🎲 Кулька-джокер зі знаком питання стає випадковою стихією, коли торкнеться чогось — іноді трапляється джекпот!</p>
       <p>🎰 Ва-банк — активуй перед кидком: якщо кулька зіллється чи прореагує — бонус, якщо ні — штраф. Обмежена кількість спроб.</p>
       <p>🫨 Кнопка струсу — обмежена кількість разів за забіг, струшує весь казан у критичний момент.</p>
+      <p>🌀 <b>Майстер-рецепт</b>: зведи разом 3 кульки ОДНАКОВОГО розміру але 3 РІЗНИХ стихій за особливим рецептом — вони зникнуть з гучним бонусом і звільнять місце в казані!</p>
+      <p>⚖️ <b>Чистота і Різноманіття</b>: якщо в казані переважає одна стихія — активна "Чистота" (x1.5 очок), якщо представлені всі відкриті стихії — "Різноманіття" (x1.3 очок).</p>
+      <p>🧪 За кожен забіг ти отримуєш Есенцію — витрать її в лабораторії на постійні покращення казана.</p>
       <p>🚩 Не дай кулькам стояти вище червоної лінії надовго — інакше казан переповниться!</p>
       <button id="rulesCloseBtn" class="secondaryBtn" type="button">Зрозуміло!</button>
     </div>
@@ -212,6 +232,7 @@ const finalScoreEl = document.getElementById('finalScore');
 const finalBestEl = document.getElementById('finalBest');
 const newBestBadge = document.getElementById('newBestBadge');
 const historyLineEl = document.getElementById('historyLine');
+const essenceEarnedLineEl = document.getElementById('essenceEarnedLine');
 const restartBtn = document.getElementById('restartBtn');
 const muteBtn = document.getElementById('muteBtn');
 const grimoireBtn = document.getElementById('grimoireBtn');
@@ -227,6 +248,11 @@ const achievementsListEl = document.getElementById('achievementsList');
 const achievementsCloseBtn = document.getElementById('achievementsCloseBtn');
 const shakeBtn = document.getElementById('shakeBtn');
 const riskBtn = document.getElementById('riskBtn');
+const upgradesBtn = document.getElementById('upgradesBtn');
+const upgradesScreen = document.getElementById('upgradesScreen');
+const upgradesListEl = document.getElementById('upgradesList');
+const upgradesCloseBtn = document.getElementById('upgradesCloseBtn');
+const essenceValueEl = document.getElementById('essenceValue');
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
@@ -302,7 +328,8 @@ const ACHIEVEMENTS = [
   { id:'orders_10',      name:'Надійний алхімік',     desc:'Виконай 10 замовлень', icon:'🛒' },
   { id:'overload_5',     name:'Перевантажувач',       desc:'Викликай перевантаження 5 разів', icon:'⚡' },
   { id:'all_elements',   name:'Всі стихії',           desc:'Відкрий усі 6 стихій', icon:'🌟' },
-  { id:'all_recipes',    name:'Майстер рецептів',     desc:'Розкрий усі 12 рецептів у гримуарі', icon:'📖' }
+  { id:'all_recipes',    name:'Майстер рецептів',     desc:'Розкрий усі 12 рецептів у гримуарі', icon:'📖' },
+  { id:'master_recipe',  name:'Потрійне злиття',      desc:'Зроби майстер-рецепт з 3 стихій', icon:'🌀' }
 ];
 const ACHIEVEMENTS_KEY = 'elementalFusionAchievements';
 const STATS_KEY = 'elementalFusionStats';
@@ -345,13 +372,46 @@ const WILDCARD_JACKPOT_CHANCE = 0.15;
 const RISK_PER_RUN = 3;
 const RISK_TIMEOUT = 3.5;
 
+function masterRecipeKey(e1,e2,e3){ return [e1,e2,e3].sort().join('+'); }
+const MASTER_RECIPES = {
+  [masterRecipeKey('fire','lightning','water')]:  { name:'Плазма',           icon:'🌀' },
+  [masterRecipeKey('ice','nature','water')]:      { name:'Вічна мерзлота',   icon:'🧊' },
+  [masterRecipeKey('fire','lightning','metal')]:  { name:'Ковальська буря',  icon:'⛈️' },
+  [masterRecipeKey('metal','nature','water')]:    { name:'Симбіоз',          icon:'🌿' },
+  [masterRecipeKey('fire','ice','metal')]:        { name:'Загартована сталь',icon:'🗡️' }
+};
+
+const ESSENCE_KEY = 'elementalFusionEssence';
+let essence = parseInt(localStorage.getItem(ESSENCE_KEY) || '0', 10) || 0;
+function saveEssence(){ try{ localStorage.setItem(ESSENCE_KEY, String(essence)); }catch(e){} }
+
+const UPGRADES_KEY = 'elementalFusionUpgrades';
+let upgrades = { cauldron:0, shake:0, risk:0, speed:0 };
+try{
+  const savedU = JSON.parse(localStorage.getItem(UPGRADES_KEY) || '{}');
+  if(savedU && typeof savedU === 'object') upgrades = Object.assign(upgrades, savedU);
+}catch(e){}
+function saveUpgrades(){ try{ localStorage.setItem(UPGRADES_KEY, JSON.stringify(upgrades)); }catch(e){} }
+
+const UPGRADES = [
+  { id:'cauldron', name:'Більший казан',    icon:'⚗️', desc:'Більше простору в казані', maxLevel:3, baseCost:5, costStep:4 },
+  { id:'shake',    name:'Запасний струс',   icon:'🫨', desc:'+1 струс за забіг',        maxLevel:3, baseCost:4, costStep:3 },
+  { id:'risk',     name:'Запасний ва-банк', icon:'🎰', desc:'+1 спроба ва-банк за забіг',maxLevel:3, baseCost:4, costStep:3 },
+  { id:'speed',    name:'Швидші руки',      icon:'✋', desc:'Коротший кулдаун кидків',   maxLevel:3, baseCost:6, costStep:5 }
+];
+function upgradeCost(def, level){ return def.baseCost + level*def.costStep; }
+function effectiveShakes(){ return SHAKES_PER_RUN + (upgrades.shake||0); }
+function effectiveRisk(){ return RISK_PER_RUN + (upgrades.risk||0); }
+function effectiveDropCooldown(){ return Math.max(0.12, DROP_COOLDOWN - (upgrades.speed||0)*0.05); }
+
 let containerLeft=0, containerRight=0, containerTop=0, containerBottom=0, dangerY=0, spawnY=0;
 function computeContainer(){
   const hudHeight = 96;
-  containerTop = hudHeight + 80;
+  const cauldronLvl = (upgrades && upgrades.cauldron) || 0;
+  containerTop = hudHeight + 80 - cauldronLvl*6;
   containerBottom = H - 18;
-  containerLeft = W*0.06;
-  containerRight = W*0.94;
+  containerLeft = W*(0.06 - cauldronLvl*0.01);
+  containerRight = W*(0.94 + cauldronLvl*0.01);
   dangerY = containerTop + (containerBottom-containerTop)*0.14;
   spawnY = containerTop - 6;
 }
@@ -490,9 +550,9 @@ function newGame(){
     queue: [firstItem, secondItem, thirdItem],
     hold: null,
     holdUsed: false,
-    shakesLeft: SHAKES_PER_RUN,
+    shakesLeft: effectiveShakes(),
     riskArmed: false,
-    riskUsesLeft: RISK_PER_RUN,
+    riskUsesLeft: effectiveRisk(),
     heartbeatTimer: 0,
     comboCount: 0,
     comboTimer: 0,
@@ -500,13 +560,16 @@ function newGame(){
     time: 0,
     order: null,
     orderCooldown: 7 + Math.random()*4,
-    lastOrderType: null
+    lastOrderType: null,
+    bonusMode: 'neutral',
+    bonusMultiplier: 1,
+    bonusCheckTimer: 2.5
   };
   gameOverScreen.classList.add('hidden');
   hintEl.classList.remove('hidden');
   scoreValueEl.textContent = '0';
-  shakeBtn.textContent = '🫨' + SHAKES_PER_RUN;
-  riskBtn.textContent = '🎰' + RISK_PER_RUN;
+  shakeBtn.textContent = '🫨' + effectiveShakes();
+  riskBtn.textContent = '🎰' + effectiveRisk();
 }
 
 function spawnOrb(x, y, tier, element, vx, vy, wildcard){
@@ -535,7 +598,7 @@ function dropCurrentOrb(){
     orb.riskyDeadline = game.time + RISK_TIMEOUT;
     game.riskArmed = false;
   }
-  game.dropCooldown = DROP_COOLDOWN;
+  game.dropCooldown = effectiveDropCooldown();
   game.holdUsed = false;
   game.queue.shift();
   game.queue.push(makeQueueItem(game.queue[game.queue.length-1].element));
@@ -681,6 +744,42 @@ achievementsCloseBtn.addEventListener('click', ()=>{
   achievementsScreen.classList.add('hidden');
 });
 
+function buildUpgradesUI(){
+  essenceValueEl.textContent = essence;
+  upgradesListEl.innerHTML = '';
+  for(const def of UPGRADES){
+    const level = upgrades[def.id] || 0;
+    const maxed = level >= def.maxLevel;
+    const cost = upgradeCost(def, level);
+    const row = document.createElement('div');
+    row.className = 'recipeRow';
+    const info = document.createElement('div');
+    info.innerHTML = `<div class="rName">${def.icon} ${def.name} (${level}/${def.maxLevel})</div><div class="rDesc">${def.desc}</div>`;
+    row.appendChild(info);
+    const btn = document.createElement('button');
+    btn.className = 'buyBtn';
+    btn.type = 'button';
+    btn.textContent = maxed ? 'МАКС' : `${cost} 🧪`;
+    btn.disabled = maxed || essence < cost;
+    btn.addEventListener('click', ()=>{
+      if(maxed || essence < cost) return;
+      essence -= cost;
+      upgrades[def.id] = level+1;
+      saveEssence(); saveUpgrades();
+      buildUpgradesUI();
+    });
+    row.appendChild(btn);
+    upgradesListEl.appendChild(row);
+  }
+}
+upgradesBtn.addEventListener('click', ()=>{
+  buildUpgradesUI();
+  upgradesScreen.classList.remove('hidden');
+});
+upgradesCloseBtn.addEventListener('click', ()=>{
+  upgradesScreen.classList.add('hidden');
+});
+
 const RULES_SEEN_KEY = 'elementalFusionSeenRules';
 rulesBtn.addEventListener('click', ()=>{
   rulesScreen.classList.remove('hidden');
@@ -751,12 +850,52 @@ function drawFloatingTexts(){
 }
 
 function addScore(n){
-  game.score += Math.round(n);
+  const mult = (game.bonusMultiplier) || 1;
+  game.score += Math.round(n*mult);
   scoreValueEl.textContent = game.score;
 }
 function addMeter(n){
   game.meter = Math.min(OVERLOAD_MAX, game.meter + n);
   if(game.meter >= OVERLOAD_MAX) triggerOverload();
+}
+
+function setBonusMode(mode, mult, icon){
+  if(game.bonusMode === mode){ game.bonusMultiplier = mult; return; }
+  game.bonusMode = mode;
+  game.bonusMultiplier = mult;
+  if(mode === 'purity'){
+    spawnFloatingText((containerLeft+containerRight)/2, containerTop+70, `${icon||''} ЧИСТОТА! x${mult} очок`, '#e0432a');
+  } else if(mode === 'variety'){
+    spawnFloatingText((containerLeft+containerRight)/2, containerTop+70, `🌈 РІЗНОМАНІТТЯ! x${mult} очок`, '#2f8a1a');
+  }
+}
+
+function updateEconomyBonus(dt){
+  game.bonusCheckTimer -= dt;
+  if(game.bonusCheckTimer > 0) return;
+  game.bonusCheckTimer = 3;
+  const counts = {};
+  let total = 0;
+  for(const o of game.orbs){
+    if(o.consumed || o.wildcard) continue;
+    counts[o.element] = (counts[o.element]||0) + 1;
+    total++;
+  }
+  if(total < 4){ setBonusMode('neutral', 1); return; }
+  let maxEl = null, maxCount = 0;
+  for(const k in counts){
+    if(counts[k] > maxCount){ maxCount = counts[k]; maxEl = k; }
+  }
+  if(maxCount/total >= 0.7){
+    setBonusMode('purity', 1.5, ELEMENTS[maxEl].emoji);
+    return;
+  }
+  const allPresent = unlockedElements.length >= 3 && unlockedElements.every(e => counts[e] > 0);
+  if(allPresent){
+    setBonusMode('variety', 1.3);
+    return;
+  }
+  setBonusMode('neutral', 1);
 }
 function registerCombo(x, y){
   game.comboTimer = 0.7;
@@ -1018,6 +1157,22 @@ function applyMerge(a, b){
   }
 }
 
+function applyMasterRecipe(recipe, a, b, c){
+  const midX = (a.x+b.x+c.x)/3, midY = (a.y+b.y+c.y)/3;
+  const bonusTier = Math.max(a.tier, b.tier, c.tier);
+  a.consumed = true; b.consumed = true; c.consumed = true;
+  spawnParticles(midX, midY, '#ffd23f', 40, 2.2);
+  spawnParticles(midX, midY, '#ff9f43', 24, 1.8);
+  game.shakeT = Math.max(game.shakeT, 0.35);
+  spawnFloatingText(midX, midY-34, `${recipe.icon} ${recipe.name}! МАЙСТЕР-РЕЦЕПТ`, '#e0432a');
+  addScore(120 + bonusTier*20);
+  addMeter(30);
+  sfxOverload();
+  vibrate([25,50,25,50,80]);
+  unlockAchievement('master_recipe');
+  registerCombo(midX, midY);
+}
+
 function revealWildcard(o){
   if(!o.wildcard) return;
   o.wildcard = false;
@@ -1067,6 +1222,7 @@ function physicsStep(dt){
 
   const mergeEvents = [];
   const reactionEvents = [];
+  const touchPairs = [];
   const iterations = 10;
   for(let iter=0; iter<iterations; iter++){
     for(let i=0;i<orbs.length;i++){
@@ -1107,6 +1263,7 @@ function physicsStep(dt){
           if(b.wildcard) revealWildcard(b);
 
           if(iter === 0 && a.tier === b.tier){
+            touchPairs.push([a,b]);
             if(a.element === b.element && a.tier < MAX_TIER){
               mergeEvents.push([a,b]);
             } else if(a.element !== b.element){
@@ -1126,6 +1283,39 @@ function physicsStep(dt){
     if(Math.hypot(o.vx, o.vy) < 14){ o.vx = 0; o.vy = 0; }
   }
 
+  const recipeEvents = [];
+  if(touchPairs.length >= 2){
+    const adj = new Map();
+    const orbById = new Map();
+    for(const [a,b] of touchPairs){
+      orbById.set(a.id, a); orbById.set(b.id, b);
+      if(!adj.has(a.id)) adj.set(a.id, new Set());
+      if(!adj.has(b.id)) adj.set(b.id, new Set());
+      adj.get(a.id).add(b.id);
+      adj.get(b.id).add(a.id);
+    }
+    const claimed = new Set();
+    for(const [a,b] of touchPairs){
+      if(claimed.has(a.id) || claimed.has(b.id)) continue;
+      const setB = adj.get(b.id);
+      for(const cid of adj.get(a.id)){
+        if(cid === b.id || claimed.has(cid) || !setB.has(cid)) continue;
+        const c = orbById.get(cid);
+        const key = masterRecipeKey(a.element, b.element, c.element);
+        const recipe = MASTER_RECIPES[key];
+        if(recipe){
+          recipeEvents.push([recipe,a,b,c]);
+          claimed.add(a.id); claimed.add(b.id); claimed.add(cid);
+          break;
+        }
+      }
+    }
+  }
+
+  for(const [recipe,a,b,c] of recipeEvents){
+    if(a.consumed || b.consumed || c.consumed) continue;
+    applyMasterRecipe(recipe, a, b, c);
+  }
   for(const [a,b] of mergeEvents){
     if(a.consumed || b.consumed) continue;
     applyMerge(a,b);
@@ -1201,6 +1391,12 @@ function triggerGameOver(){
   }
   finalBestEl.textContent = best;
   newBestBadge.classList.toggle('hidden-badge', !isNewBest);
+  const earned = Math.floor(game.score/20);
+  if(earned > 0){
+    essence += earned;
+    saveEssence();
+  }
+  essenceEarnedLineEl.textContent = earned > 0 ? `+${earned} 🧪 Есенції отримано` : '';
   recordRunHistory(game.score);
   historyLineEl.textContent = runHistory.length > 1 ? ('Останні забіги: ' + runHistory.join(', ')) : '';
   if(isNewBest){ sfxRecord(); vibrate([20,20,20,20,60]); }
@@ -1224,6 +1420,7 @@ function update(dt){
   updateOrders(dt);
   updateRiskyOrbs();
   updateTension(dt);
+  updateEconomyBonus(dt);
   updateParticles(dt);
   updateFloatingTexts(dt);
 }
@@ -1268,6 +1465,64 @@ function drawContainer(){
   ctx.lineTo(containerRight, dangerY);
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawCauldronFace(){
+  const cx = (containerLeft+containerRight)/2;
+  const cy = containerBottom - 40;
+  const dangerT = clamp(game.dangerTimer/DANGER_THRESHOLD, 0, 1);
+  const dizzy = game.shakeT > 0.15;
+  const eyeDX = 16;
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = '#8a4a10';
+  ctx.fillStyle = '#8a4a10';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+
+  if(dizzy){
+    for(const sx of [-eyeDX, eyeDX]){
+      ctx.beginPath();
+      for(let a=0;a<Math.PI*4;a+=0.35){
+        const r = a*1.1;
+        const px = cx+sx + Math.cos(a+game.time*6)*r*0.4;
+        const py = cy + Math.sin(a+game.time*6)*r*0.4;
+        if(a===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+  } else if(dangerT > 0.45){
+    for(const sx of [-eyeDX, eyeDX]){
+      ctx.beginPath();
+      ctx.arc(cx+sx, cy, 5, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(cx-eyeDX-8, cy-12); ctx.lineTo(cx-eyeDX+6, cy-6);
+    ctx.moveTo(cx+eyeDX+8, cy-12); ctx.lineTo(cx+eyeDX-6, cy-6);
+    ctx.stroke();
+  } else {
+    for(const sx of [-eyeDX, eyeDX]){
+      ctx.beginPath();
+      ctx.arc(cx+sx, cy, 3.5, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  ctx.beginPath();
+  if(dizzy){
+    ctx.arc(cx, cy+22, 8, 0, Math.PI*2);
+    ctx.stroke();
+  } else if(dangerT > 0.45){
+    ctx.moveTo(cx-12, cy+28);
+    ctx.quadraticCurveTo(cx, cy+18, cx+12, cy+28);
+    ctx.stroke();
+  } else {
+    ctx.moveTo(cx-12, cy+20);
+    ctx.quadraticCurveTo(cx, cy+30, cx+12, cy+20);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1502,6 +1757,20 @@ function drawTopUI(){
   ctx.textAlign = 'left';
   ctx.fillText('⚡ заряд реакції', barX, barY-4);
   ctx.restore();
+
+  drawPurityBadge();
+}
+
+function drawPurityBadge(){
+  if(!game.bonusMode || game.bonusMode === 'neutral') return;
+  const label = game.bonusMode === 'purity' ? `🔥 ЧИСТОТА x${game.bonusMultiplier}` : `🌈 РІЗНОМАНІТТЯ x${game.bonusMultiplier}`;
+  const color = game.bonusMode === 'purity' ? '#e0432a' : '#2f8a1a';
+  ctx.save();
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = color;
+  ctx.fillText(label, W-14, 70);
+  ctx.restore();
 }
 
 function drawOrderCard(){
@@ -1556,6 +1825,7 @@ function render(){
   }
 
   drawContainer();
+  drawCauldronFace();
 
   ctx.save();
   ctx.translate(shakeX, shakeY);
