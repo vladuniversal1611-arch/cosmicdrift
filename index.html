@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lava Survivor">
+<meta name="application-name" content="Lava Survivor">
+<meta name="theme-color" content="#12060a">
+<meta name="description" content="Lava Survivor — виживи на острові, що тоне в лаві! Roguelite-платформер: біжи вгору, збирай скарби, відкривай героїв.">
+<meta name="keywords" content="arcade, lava, survival, roguelite, platformer, game">
+
+<!-- PWA Manifest (inline) -->
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Lava%20Survivor%22%2C%22short_name%22%3A%22LavaSurvivor%22%2C%22description%22%3A%22Survival%20roguelite%20platformer%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%2312060a%22%2C%22theme_color%22%3A%22%2312060a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon-192.png%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%2C%7B%22src%22%3A%22icon-512.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%231a0508'/%3E%3Cpath d='M0 140 Q48 110 96 140 T192 140 V192 H0 Z' fill='%23ff5a1f'/%3E%3Ccircle cx='96' cy='84' r='34' fill='%23ffd23f'/%3E%3Ccircle cx='84' cy='78' r='5' fill='%23222'/%3E%3Ccircle cx='108' cy='78' r='5' fill='%23222'/%3E%3C/svg%3E">
+
+<title>Lava Survivor</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;background:#0a0305;display:flex;justify-content:center;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#fff}
+#G{position:relative;width:400px;height:700px;overflow:hidden;border-radius:22px;background:#12060a;box-shadow:0 0 0 1px #3a1208,0 0 60px #ff3c0028,0 0 140px #ff1a0012;transform-origin:center center}
+#cv{display:block;position:absolute;inset:0;border-radius:22px}
+#heroPrev{display:block;margin:6px auto}
+/* ---------- generic UI ---------- */
+.hidden{display:none!important}
+button{font-family:inherit;border:none;cursor:pointer;color:#fff}
+.btn{display:block;width:100%;padding:14px;border-radius:14px;font-size:17px;font-weight:800;letter-spacing:.5px;background:linear-gradient(180deg,#ff8a2a,#ff4d12);box-shadow:0 4px 0 #a32605,0 6px 18px #ff5a1f55;transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #a32605}
+.btn.sec{background:linear-gradient(180deg,#3d4664,#252c44);box-shadow:0 4px 0 #14182a}
+.btn.grn{background:linear-gradient(180deg,#4ecb5c,#22a233);box-shadow:0 4px 0 #0d6b1c}
+.btn.dis{filter:grayscale(.9) brightness(.6);pointer-events:none}
+.btn.sm{padding:9px 12px;font-size:13px;border-radius:11px;width:auto}
+.pill{background:rgba(20,8,10,.85);border:1px solid rgba(255,110,40,.35);border-radius:12px;padding:5px 11px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px}
+.ico{font-size:14px;line-height:1}
+/* ---------- HUD ---------- */
+#hud{position:absolute;top:0;left:0;right:0;z-index:10;padding:12px 12px 0;pointer-events:none}
+#hudRow{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+#hDist{font-size:15px}
+#btnPause{pointer-events:auto;width:36px;height:36px;border-radius:11px;background:rgba(20,8,10,.85);border:1px solid rgba(255,110,40,.35);font-size:15px}
+#hudRow2{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+#hLives{color:#ff7a8a}
+/* ---------- screens ---------- */
+.screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,#2a0c12 0%,#160509 55%,#0c0206 100%)}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 8px;gap:8px}
+.cur{display:flex;gap:6px}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 14px 90px;-webkit-overflow-scrolling:touch}
+.body::-webkit-scrollbar{width:0}
+/* bottom nav */
+#nav{position:absolute;left:0;right:0;bottom:0;z-index:25;display:flex;background:rgba(14,4,8,.96);border-top:1px solid #3a1512;padding:6px 4px calc(8px + env(safe-area-inset-bottom))}
+.navB{flex:1;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#8a6a60;padding:5px 0;border-radius:10px}
+.navB .nIco{font-size:20px}
+.navB.on{color:#ffb35a}
+.navB.on .nIco{filter:drop-shadow(0 0 6px #ff8a2a)}
+/* cards & rows */
+.card{background:linear-gradient(180deg,#241016,#180a0e);border:1px solid #45201a;border-radius:16px;padding:12px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:10px}
+.row .grow{flex:1;min-width:0}
+.tName{font-size:14px;font-weight:800}
+.tSub{font-size:11.5px;color:#c09a88;margin-top:2px}
+.big{font-size:22px;font-weight:900}
+h2{font-size:17px;margin:6px 2px 10px;color:#ffd9a0}
+h3{font-size:13px;margin:10px 2px 6px;color:#e8b080}
+.bar{height:8px;border-radius:5px;background:#3a1a14;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#ffb03a,#ff5a1f)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gCell{background:linear-gradient(180deg,#241016,#180a0e);border:1px solid #45201a;border-radius:14px;padding:10px 6px;text-align:center;position:relative}
+.gCell.sel{border-color:#ffb03a;box-shadow:0 0 12px #ff8a2a66}
+.gCell.lock{opacity:.55}
+.gIco{font-size:30px;line-height:1.25}
+.gName{font-size:10.5px;font-weight:800;margin-top:3px}
+.gSub{font-size:9.5px;color:#c09a88;margin-top:1px;min-height:22px}
+.gCost{font-size:10px;font-weight:800;color:#7ee0ff;margin-top:3px}
+.tag{position:absolute;top:5px;right:5px;font-size:9px;background:#22a233;border-radius:6px;padding:1px 5px;font-weight:800}
+/* overlays */
+.ov{position:absolute;inset:0;z-index:40;background:rgba(6,2,4,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:22px}
+.ovBox{width:100%;background:linear-gradient(180deg,#2c1218,#1a0a0e);border:1px solid #5a2a1c;border-radius:20px;padding:18px;box-shadow:0 20px 60px #000c}
+.ovTitle{font-size:20px;font-weight:900;text-align:center;color:#ffd9a0;margin-bottom:4px}
+.ovSub{font-size:12.5px;text-align:center;color:#c09a88;margin-bottom:14px}
+.upCard{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:linear-gradient(180deg,#33161c,#221016);border:1px solid #5a2a1c;border-radius:15px;padding:13px;margin-bottom:9px;transition:transform .08s}
+.upCard:active{transform:scale(.97)}
+.upIco{font-size:30px}
+.upT{font-size:14.5px;font-weight:800}
+.upD{font-size:11.5px;color:#c09a88;margin-top:2px}
+.statRow{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 2px;border-bottom:1px dashed #3a1a14}
+.statRow b{color:#ffd9a0}
+#toast{position:absolute;left:50%;top:74px;transform:translateX(-50%) translateY(-8px);z-index:60;background:rgba(30,12,8,.95);border:1px solid #ff8a2a88;border-radius:13px;padding:9px 16px;font-size:13px;font-weight:700;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.evBan{background:linear-gradient(90deg,#4a1a5a,#7a2a3a);border:1px solid #b05aff66;border-radius:13px;padding:9px 12px;font-size:12px;font-weight:700;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+.chip{display:inline-block;background:#3a1a14;border-radius:8px;padding:2px 8px;font-size:10.5px;font-weight:800;color:#ffb35a;margin:2px 3px 0 0}
+#heroPrev{width:120px;height:120px;margin:6px auto}
+.claimB{background:linear-gradient(180deg,#4ecb5c,#22a233);border-radius:10px;padding:7px 13px;font-size:12px;font-weight:800;box-shadow:0 3px 0 #0d6b1c}
+.title{font-size:34px;font-weight:900;text-align:center;letter-spacing:1px;background:linear-gradient(180deg,#ffe27a,#ff6a1f);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 10px #ff5a1f55)}
+.subT{text-align:center;font-size:12px;color:#c09a88;letter-spacing:3px;margin-top:-2px}
+</style>
+</head>
+<body>
+<div id="G">
+  <canvas id="cv" width="400" height="700"></canvas>
+
+  <!-- In-run HUD -->
+  <div id="hud" class="hidden">
+    <div id="hudRow">
+      <div class="pill" id="hDist"><span class="ico">⛰️</span><span id="hDistV">0 м</span></div>
+      <div style="display:flex;gap:6px">
+        <div class="pill"><span class="ico">🪙</span><span id="hCoinV">0</span></div>
+        <div class="pill"><span class="ico">💎</span><span id="hCrysV">0</span></div>
+        <button id="btnPause">⏸</button>
+      </div>
+    </div>
+    <div id="hudRow2">
+      <div class="pill" id="hLives">❤️ <span id="hLivesV">0</span></div>
+      <div class="pill hidden" id="hShield">🛡️</div>
+      <div class="pill hidden" id="hMag">🧲 <span id="hMagV"></span></div>
+    </div>
+  </div>
+
+  <!-- Main menu / hub -->
+  <div id="scrMenu" class="screen hidden">
+    <div class="hdr">
+      <div class="cur">
+        <div class="pill"><span class="ico">🪙</span><span id="mCoins">0</span></div>
+        <div class="pill"><span class="ico">💎</span><span id="mCrys">0</span></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="pill" id="btnAch">🏆</button>
+        <button class="pill" id="btnSet">⚙️</button>
+      </div>
+    </div>
+    <div class="body" id="tabBody"></div>
+    <div id="nav">
+      <button class="navB on" data-tab="home"><span class="nIco">🌋</span>Гра</button>
+      <button class="navB" data-tab="heroes"><span class="nIco">🦸</span>Герої</button>
+      <button class="navB" data-tab="base"><span class="nIco">🏕️</span>База</button>
+      <button class="navB" data-tab="missions"><span class="nIco">📜</span>Місії</button>
+      <button class="navB" data-tab="shop"><span class="nIco">🎁</span>Магазин</button>
+    </div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="ovUpgrade" class="ov hidden"></div>
+  <div id="ovResult" class="ov hidden"></div>
+  <div id="ovPause" class="ov hidden"></div>
+  <div id="ovOffline" class="ov hidden"></div>
+  <div id="ovModal" class="ov hidden"></div>
+  <div id="toast"></div>
+</div>
+<script>
+"use strict";
+/* =========================================================
+   LAVA SURVIVOR — endless survival roguelite
+   Один файл. Canvas-геймплей + DOM-меню.
+   Готово до упаковки в Android (TWA / Capacitor WebView).
+   Точки інтеграції монетизації позначено: [ADS] та [IAP].
+   ========================================================= */
+/* ================= HELPERS ================= */
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+const W=400,H=700;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const TAU=Math.PI*2;
+const fmt=n=>{n=Math.floor(n);if(n>=1e6)return(n/1e6).toFixed(n>=1e7?0:1)+'M';if(n>=1e4)return(n/1e3).toFixed(n>=1e5?0:1)+'K';return ''+n};
+const ROM=['I','II','III','IV','V','VI','VII','VIII'];
+function mulberry(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function dayStr(d){d=d||new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function weekNum(){const d=new Date();return Math.floor((d.getTime()/864e5+4)/7)}
+
+/* ================= SAVE ================= */
+const SAVE_KEY='lavaSurvivor.v1';
+const DEF={
+  coins:0,crys:20,hero:0,heroes:[0],
+  skin:0,trail:0,wings:0,aura:0,pet:0,
+  skinsO:[0],trailsO:[0],wingsO:[0],aurasO:[0],petsO:[0],
+  base:{camp:0,forge:0,portal:0,vault:0,statue:0},
+  best:0,stats:{},ach:{},
+  daily:{date:'',m:[],p:{},done:[]},
+  login:{last:'',streak:0},
+  lastSeen:Date.now(),premium:false,sound:true,lowFx:false,seenIntro:false
+};
+function load(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return JSON.parse(JSON.stringify(DEF));
+    const s=JSON.parse(raw),d=JSON.parse(JSON.stringify(DEF));
+    for(const k in d)if(s[k]===undefined)s[k]=d[k];
+    for(const k in d.base)if(s.base[k]===undefined)s.base[k]=0;
+    return s;
+  }catch(e){return JSON.parse(JSON.stringify(DEF))}
+}
+let S=load();
+let saveT=0;
+function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S))}catch(e){}}
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(save,400)}
+
+/* ================= HEROES (32) =================
+   [emoji, name, desc, bonusKey, value, crystal cost] */
+const HEROES=[
+['🙂','Новачок','Без бонусів — чистий скіл','none',0,0],
+['🛡️','Лицар','+1 ❤️ на старті забігу','life',1,40],
+['🧙','Маг','Лава піднімається на 8% повільніше','lava',.08,60],
+['🏹','Лучник','+8% швидкість руху','speed',.08,50],
+['🏴‍☠️','Пірат','+15% монет за забіг','coin',.15,50],
+['🤖','Робот','Щит 🛡️ на старті забігу','shieldStart',1,70],
+['🥷','Ніндзя','Подвійний стрибок із самого старту','dj',1,90],
+['🐉','Дракончик','Імунітет до вогняних куль','fireImmune',1,120],
+['🪓','Вікінг','+10% висота стрибка','jump',.10,60],
+['👨‍🚀','Космонавт','+12% радіус збору','radius',.12,55],
+['⛏️','Шахтар','+20% кристалів за забіг','crys',.20,80],
+['🧝‍♀️','Чарівниця','4 варіанти покращень замість 3','luck',1,100],
+['👻','Привид','Довша невразливість після удару','invuln',.6,65],
+['🧔','Гном','+25% офлайн-нагород','offline',.25,70],
+['⚔️','Самурай','+12% швидкість руху','speed',.12,90],
+['🧟','Зомбі','+1 ❤️ на старті забігу','life',1,85],
+['🧚','Фея','Магніт 🧲 на старті забігу','magStart',1,75],
+['🐧','Пінгвін','Лава повільніша на 12%','lava',.12,110],
+['🤠','Ковбой','+20% монет за забіг','coin',.20,90],
+['🧜‍♀️','Русалка','+25% кристалів за забіг','crys',.25,130],
+['🦾','Кіборг','Щит на старті та +5% швидкість','cyborg',1,150],
+['🌿','Друїд','+15% нагород за місії','mission',.15,95],
+['🧝','Ельф','+15% висота стрибка','jump',.15,120],
+['🗿','Голем','+2 ❤️ на старті забігу','life',2,200],
+['🐦‍🔥','Фенікс','1 безкоштовне відродження за забіг','revive',1,250],
+['❄️','Йєті','Лава повільніша на 15%','lava',.15,180],
+['😈','Демон','+30% монет за забіг','coin',.30,220],
+['😇','Ангел','Новий щит кожні 500 м','angel',1,260],
+['👑','Король','+25% усіх нагород','all',.25,300],
+['🌑','Тінь','+18% швидкість руху','speed',.18,240],
+['🐲','Дракон','Імунітет до вогню та +1 ❤️','dragon',1,350],
+['🌟','Легенда','+10% монет, кристалів і швидкості','legend',.10,500]
+];
+function heroMul(){return 1+S.base.statue*.08}
+function heroB(key){
+  const h=HEROES[S.hero],m=heroMul();let v=0;
+  if(h[3]===key)v=h[4];
+  if(h[3]==='cyborg'){if(key==='shieldStart')v=1;if(key==='speed')v=.05}
+  if(h[3]==='dragon'){if(key==='fireImmune')v=1;if(key==='life')v=1}
+  if(h[3]==='legend'&&(key==='coin'||key==='crys'||key==='speed'))v=h[4];
+  if(h[3]==='all'&&(key==='coin'||key==='crys'||key==='mission'))v=h[4];
+  return typeof v==='number'&&v<1?v*m:v;
+}
+
+/* ================= ZONES (7 локацій) ================= */
+const ZONES=[
+{n:'Вулкан',       at:0,   sky:['#4a1206','#1c0502'],glow:'#ff5a1f',plat:['#8a5a30','#5a3416'],fire:1.0,rock:.15,spike:.10,barrel:.10,crumb:.12,move:.10},
+{n:'Печери',       at:600, sky:['#241d33','#0a0712'],glow:'#7a6aff',plat:['#6a6a84','#42425a'],fire:.25,rock:1.0,spike:.16,barrel:.06,crumb:.16,move:.12},
+{n:'Стародавній храм',at:1300,sky:['#3d3010','#150e04'],glow:'#ffd23f',plat:['#b09a58','#7a6a38'],fire:.4,rock:.4,spike:.22,barrel:.14,crumb:.14,move:.16},
+{n:'Джунглі',      at:2100,sky:['#0e3316','#041207'],glow:'#4ecb5c',plat:['#3f8a4a','#26592e'],fire:.3,rock:.3,spike:.20,barrel:.10,crumb:.20,move:.20},
+{n:'Засніжені вершини',at:3000,sky:['#2a3d5a','#0c1524'],glow:'#bfe8ff',plat:['#cfe2f0','#8aa8c0'],fire:.2,rock:.8,spike:.18,barrel:.08,crumb:.22,move:.22},
+{n:'Небесний острів',at:4000,sky:['#1f3a66','#0a1430'],glow:'#7ecbff',plat:['#e8d9a0','#b0a068'],fire:.3,rock:.2,spike:.16,barrel:.10,crumb:.26,move:.30},
+{n:'Магічний світ', at:5200,sky:['#3a1050','#12041f'],glow:'#c86aff',plat:['#8a5ab0','#5a3478'],fire:.7,rock:.6,spike:.24,barrel:.16,crumb:.24,move:.30}
+];
+function zoneAt(m){let z=ZONES[0];for(const q of ZONES)if(m>=q.at)z=q;return z}
+function zoneIdx(m){let i=0;for(let j=0;j<ZONES.length;j++)if(m>=ZONES[j].at)i=j;return i}
+
+/* ================= RUN UPGRADES ================= */
+const UPGRADES=[
+{id:'sp',ico:'⚡',n:'+10% швидкість',d:'Герой бігає швидше'},
+{id:'dj',ico:'🦘',n:'Стрибок у повітрі',d:'+1 додатковий стрибок (тап)'},
+{id:'mg',ico:'🧲',n:'Магніт для монет',d:'Монети летять до тебе весь забіг'},
+{id:'sh',ico:'🛡️',n:'Щит',d:'Поглинає один удар'},
+{id:'lv',ico:'🐌',n:'Повільна лава',d:'Лава на 12% повільніша'},
+{id:'lf',ico:'❤️',n:'Додаткове життя',d:'+1 життя'},
+{id:'rd',ico:'⭕',n:'Радіус збору',d:'+25% радіус підбирання'},
+{id:'cv',ico:'💰',n:'Цінні монети',d:'+25% вартість монет'},
+{id:'jp',ico:'🚀',n:'+10% стрибок',d:'Вищі стрибки'},
+{id:'fb',ico:'🔥',n:'Вогнестійкість',d:'Перший удар вогню ігнорується'}
+];
+
+/* ================= HOME BASE ================= */
+const vaultRate=l=>l?20+30*l:0;
+const BASE=[
+{id:'camp',ico:'🏕️',n:'Табір',d:l=>l?`+${l*2}% нагород за забіг${l>=5?', +1 ❤️ на старті':''}`:'Покращуй, щоб отримувати більше нагород'},
+{id:'forge',ico:'⚒️',n:'Кузня',d:l=>l?`+${(l*1.5).toFixed(1).replace('.0','')}% швидкість і стрибок`:'Кує постійну силу героя'},
+{id:'portal',ico:'🌀',n:'Магічний портал',d:l=>l?`Старт забігу з ${l*30} м`:'Телепортує вище від лави'},
+{id:'vault',ico:'🏦',n:'Сховище',d:l=>l?`${vaultRate(l)} 🪙/год офлайн (макс. 8 год)`:'Приносить монети, поки тебе немає'},
+{id:'statue',ico:'🗿',n:'Статуя героїв',d:l=>l?`+${l*8}% до бонусу героя`:'Підсилює бонус обраного героя'}
+];
+const MAXB=10;
+const baseCost=l=>Math.floor(250*Math.pow(1.6,l));
+
+/* ================= COSMETICS (без впливу на баланс) ================= */
+const SKINS=[
+{n:'Класика',col:'#ffd23f',c:0},{n:'М’ята',col:'#5ee8a0',c:600},{n:'Океан',col:'#5ab8ff',c:600},
+{n:'Полум’я',col:'#ff6a3a',c:900},{n:'Орхідея',col:'#d07aff',c:900},{n:'Нічний',col:'#8a94b8',c:1200},
+{n:'Рожевий',col:'#ff8ac0',c:1200},{n:'Золотий',col:'#ffe27a',g:60}];
+const TRAILS=[{n:'Немає',c:0},{n:'Вогняний слід',col:'#ff7a2a',c:800},{n:'Крижаний слід',col:'#8ae0ff',c:800},
+{n:'Райдужний слід',col:'rainbow',c:1500},{n:'Зоряний слід',col:'#ffe27a',g:40},{n:'Сердечка',col:'#ff6a9a',g:40}];
+const WINGS=[{n:'Немає',c:0},{n:'Ангельські крила',col:'#fff',g:50},{n:'Крила кажана',col:'#6a4a8a',g:50},{n:'Крила метелика',col:'#5ee8d0',g:80}];
+const AURAS=[{n:'Немає',c:0},{n:'Золота аура',col:'#ffd23f',c:1500},{n:'Крижана аура',col:'#7ad0ff',c:1500},{n:'Тіньова аура',col:'#a06aff',g:60}];
+const PETS=[{n:'Немає',e:'',c:0},{n:'Курча',e:'🐤',c:1000},{n:'Кошеня',e:'🐱',c:1500},{n:'Привид',e:'👻',g:40},{n:'Дракончик',e:'🐲',g:80}];
+
+/* ================= DAILY MISSIONS ================= */
+const MPOOL=[
+{id:'dist',t:v=>`Пробігти ${fmt(v)} м`,base:800,mul:25},
+{id:'coins',t:v=>`Зібрати ${fmt(v)} монет`,base:350,mul:12},
+{id:'crys',t:v=>`Зібрати ${v} кристалів`,base:8,mul:.4},
+{id:'time',t:v=>`Протриматись ${v} с сумарно`,base:240,mul:8},
+{id:'upg',t:v=>`Обрати ${v} покращень`,base:5,mul:.25},
+{id:'resc',t:v=>`Врятувати ${v} персонажів`,base:2,mul:.12},
+{id:'runs',t:v=>`Зробити ${v} забігів`,base:4,mul:.15}
+];
+function genDaily(){
+  const ds=dayStr();
+  if(S.daily.date===ds)return;
+  let seed=0;for(const ch of ds)seed=seed*31+ch.charCodeAt(0)|0;
+  const rng=mulberry(seed),pool=MPOOL.slice(),m=[];
+  const lvl=Math.max(1,Math.sqrt(S.best/300));
+  for(let i=0;i<3;i++){
+    const j=Math.floor(rng()*pool.length),t=pool.splice(j,1)[0];
+    const v=Math.max(1,Math.round(t.base*(0.7+rng()*0.8)+t.mul*lvl));
+    m.push({id:t.id,v:v,g:10+Math.floor(rng()*12)});
+  }
+  S.daily={date:ds,m:m,p:{},done:[]};
+  saveSoon();
+}
+function mProg(id){return S.daily.p[id]||0}
+function addDaily(id,v){
+  if(!S.daily.m.some(x=>x.id===id))return;
+  S.daily.p[id]=(S.daily.p[id]||0)+v;
+}
+
+/* ================= ACHIEVEMENTS (19 × 8 = 152) ================= */
+const ACHS=[
+{s:'runs',ico:'🏁',n:'Спробуй ще',t:[1,5,15,40,100,250,600,1500]},
+{s:'dist',ico:'⛰️',n:'Марафонець',t:[500,2000,6000,15000,40000,100000,250000,600000]},
+{s:'best',ico:'🥇',n:'Рекордсмен',t:[200,500,1000,2000,3500,5000,7500,10000]},
+{s:'coins',ico:'🪙',n:'Скарбник',t:[100,500,2000,8000,25000,80000,250000,1000000]},
+{s:'crys',ico:'💎',n:'Ювелір',t:[10,40,120,350,900,2200,5000,12000]},
+{s:'resc',ico:'🆘',n:'Рятівник',t:[1,5,15,40,100,220,500,1000]},
+{s:'upg',ico:'✨',n:'Колекціонер сил',t:[3,15,50,150,400,1000,2500,6000]},
+{s:'jumps',ico:'🦘',n:'Стрибун',t:[100,500,2000,8000,25000,80000,200000,500000]},
+{s:'dj',ico:'🌪️',n:'Акробат',t:[10,50,200,800,2500,8000,20000,50000]},
+{s:'shield',ico:'🛡️',n:'Незламний',t:[1,5,20,60,150,400,1000,2500]},
+{s:'mag',ico:'🧲',n:'Магнетизм',t:[1,5,20,60,150,400,1000,2500]},
+{s:'missions',ico:'📜',n:'Виконавець',t:[1,5,15,40,100,220,450,900]},
+{s:'heroes',ico:'🦸',n:'Збирач героїв',t:[2,4,7,11,16,22,28,32]},
+{s:'cosm',ico:'🎨',n:'Модник',t:[1,3,6,10,14,18,22,26]},
+{s:'baseL',ico:'🏗️',n:'Будівельник',t:[1,5,10,18,28,38,45,50]},
+{s:'logins',ico:'📅',n:'Відданий',t:[2,5,10,20,40,80,150,365]},
+{s:'chests',ico:'🗝️',n:'Шукач скарбів',t:[1,5,15,40,100,250,600,1500]},
+{s:'stages',ico:'🚩',n:'Підкорювач етапів',t:[1,10,40,120,350,900,2200,5000]},
+{s:'deaths',ico:'💀',n:'Фенікс духом',t:[1,10,30,80,200,500,1200,3000]}
+];
+function stat(k){return S.stats[k]||0}
+function addStat(k,v){
+  S.stats[k]=(S.stats[k]||0)+v;
+  checkAch(k);
+}
+function setStat(k,v){if(v>stat(k)){S.stats[k]=v;checkAch(k)}}
+function achState(a){
+  const v=stat(a.s);let un=0;
+  for(const t of a.t)if(v>=t)un++;
+  return{un:un,cl:S.ach[a.s]||0};
+}
+let achToastQ=[];
+function checkAch(k){
+  const a=ACHS.find(x=>x.s===k);if(!a)return;
+  const st=achState(a),seen=S.ach['_s_'+k]||0;
+  if(st.un>seen){S.ach['_s_'+k]=st.un;achToastQ.push('🏆 Досягнення: '+a.n+' '+ROM[st.un-1]);}
+}
+function achTotals(){
+  let un=0,cl=0,all=0;
+  for(const a of ACHS){all+=a.t.length;const st=achState(a);un+=st.un;cl+=st.cl}
+  return{un:un,cl:cl,all:all};
+}
+
+/* ================= EVENTS (щотижневі івенти) ================= */
+const EVENTS=[
+{id:'x2c',ico:'🪙',n:'Подвійні монети',d:'Усі монети в забігу ×2!'},
+{id:'cw',ico:'💎',n:'Кристальний тиждень',d:'Кристали трапляються вдвічі частіше'},
+{id:'inf',ico:'♾️',n:'Нескінченний режим',d:'Лава на 20% повільніша, етапи довші'},
+{id:'storm',ico:'☄️',n:'Лавовий шторм',d:'Удвічі більше вогню, але +50% нагород'},
+{id:'th',ico:'🗝️',n:'Полювання на скарби',d:'На платформах з’являються скрині!'}
+];
+function curEvent(){return EVENTS[weekNum()%EVENTS.length]}
+
+/* ================= AUDIO (WebAudio synth) ================= */
+let AC=null;
+function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function beep(f,dur,type,vol,slide){
+  if(!S.sound)return;const c=ac();if(!c)return;
+  try{
+    const o=c.createOscillator(),g=c.createGain(),t=c.currentTime;
+    o.type=type||'square';o.frequency.setValueAtTime(f,t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,slide),t+dur);
+    g.gain.setValueAtTime(vol||.08,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+.02);
+  }catch(e){}
+}
+const SFX={
+  jump:()=>beep(300,.12,'square',.05,520),
+  dj:()=>beep(420,.14,'square',.06,760),
+  coin:()=>beep(1150,.07,'square',.05,1500),
+  crys:()=>{beep(900,.1,'sine',.07,1400);setTimeout(()=>beep(1350,.12,'sine',.06,1800),60)},
+  hurt:()=>beep(220,.25,'sawtooth',.1,70),
+  death:()=>{beep(300,.4,'sawtooth',.12,50);setTimeout(()=>beep(150,.5,'sawtooth',.1,40),120)},
+  boom:()=>beep(90,.4,'sawtooth',.16,30),
+  pick:()=>{beep(520,.1,'sine',.08,780);setTimeout(()=>beep(780,.12,'sine',.07,1040),70)},
+  click:()=>beep(700,.05,'square',.04,500),
+  buy:()=>{beep(620,.08,'sine',.07);setTimeout(()=>beep(930,.1,'sine',.07),70)},
+  shield:()=>beep(500,.2,'sine',.08,900),
+  rescue:()=>{beep(660,.1,'sine',.08,880);setTimeout(()=>beep(880,.1,'sine',.08,1100),80);setTimeout(()=>beep(1100,.15,'sine',.08,1320),160)},
+  fire:()=>beep(160,.2,'sawtooth',.07,90)
+};
+
+/* ================= UI ================= */
+let curTab='home';
+function toast(msg){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function flushAchToasts(){
+  if(!achToastQ.length)return;
+  const m=achToastQ.shift();toast(m);
+  if(achToastQ.length)setTimeout(flushAchToasts,2400);
+}
+function updCur(){$('mCoins').textContent=fmt(S.coins);$('mCrys').textContent=fmt(S.crys)}
+function showMenu(){
+  $('scrMenu').classList.remove('hidden');$('hud').classList.add('hidden');
+  genDaily();updCur();renderTab(curTab);flushAchToasts();
+}
+function hideMenu(){$('scrMenu').classList.add('hidden')}
+
+document.querySelectorAll('.navB').forEach(b=>{
+  b.onclick=()=>{SFX.click();document.querySelectorAll('.navB').forEach(x=>x.classList.toggle('on',x===b));renderTab(b.dataset.tab)};
+});
+function renderTab(tab){
+  curTab=tab;updCur();
+  const el=$('tabBody');
+  if(tab==='home')el.innerHTML=tplHome();
+  else if(tab==='heroes')el.innerHTML=tplHeroes();
+  else if(tab==='base')el.innerHTML=tplBase();
+  else if(tab==='missions')el.innerHTML=tplMissions();
+  else if(tab==='shop')el.innerHTML=tplShop();
+  bindTab(tab);
+}
+
+/* ---------- HOME ---------- */
+function tplHome(){
+  const ev=curEvent(),h=HEROES[S.hero];
+  const zi=zoneIdx(S.best),zNext=ZONES[zi+1];
+  return `
+  <div class="title">LAVA SURVIVOR</div>
+  <div class="subT">ВИЖИВИ • ПІДНІМАЙСЯ • ПОВТОРИ</div>
+  <canvas id="heroPrev" width="120" height="120"></canvas>
+  <div style="text-align:center;font-size:13px;font-weight:800">${h[0]} ${h[1]}</div>
+  <div style="text-align:center;font-size:11px;color:#c09a88;margin-bottom:12px">${h[2]}</div>
+  <div class="evBan"><span style="font-size:22px">${ev.ico}</span><div><div>Івент тижня: ${ev.n}</div><div style="font-weight:400;font-size:11px;opacity:.85">${ev.d}</div></div></div>
+  <button class="btn" id="btnPlay" style="font-size:21px;padding:17px">🌋 ПОЧАТИ ЗАБІГ</button>
+  <div class="card" style="margin-top:12px">
+    <div class="statRow"><span>Рекорд</span><b>${fmt(S.best)} м</b></div>
+    <div class="statRow"><span>Локація</span><b>${ZONES[zi].n}</b></div>
+    <div class="statRow" style="border:none"><span>Наступна локація</span><b>${zNext?zNext.n+' — '+fmt(zNext.at)+' м':'Усі відкрито!'}</b></div>
+  </div>
+  <div class="card">
+    <div class="tSub" style="margin-bottom:4px">Щоденний вхід — серія: <b style="color:#ffd9a0">${S.login.streak} дн.</b></div>
+    <div class="tSub">Заходь щодня та отримуй кристали!</div>
+  </div>`;
+}
+function drawHeroPreview(){
+  const c=$('heroPrev');if(!c)return;const g=c.getContext('2d');
+  g.clearRect(0,0,120,120);g.save();g.translate(60,66);g.scale(2.1,2.1);
+  drawPlayerBody(g,0,performance.now()/1000);g.restore();
+}
+
+/* ---------- HEROES ---------- */
+function tplHeroes(){
+  let s=`<h2>Герої <span style="font-size:12px;color:#c09a88">(${S.heroes.length}/${HEROES.length})</span></h2><div class="grid">`;
+  HEROES.forEach((h,i)=>{
+    const own=S.heroes.includes(i),sel=S.hero===i;
+    s+=`<button class="gCell ${sel?'sel':''} ${own?'':'lock'}" data-hero="${i}">
+      ${sel?'<span class="tag">✓</span>':''}
+      <div class="gIco">${own?h[0]:'🔒'}</div>
+      <div class="gName">${h[1]}</div>
+      <div class="gSub">${h[2]}</div>
+      ${own?'':`<div class="gCost">💎 ${h[5]}</div>`}
+    </button>`;
+  });
+  return s+'</div>';
+}
+
+/* ---------- BASE ---------- */
+function tplBase(){
+  let s='<h2>Домашня база</h2>';
+  BASE.forEach(b=>{
+    const l=S.base[b.id],cost=baseCost(l),max=l>=MAXB;
+    s+=`<div class="card row">
+      <div style="font-size:32px">${b.ico}</div>
+      <div class="grow">
+        <div class="tName">${b.n} <span style="color:#ffb35a">Рів. ${l}</span></div>
+        <div class="tSub">${b.d(l)}</div>
+        <div class="bar"><i style="width:${l/MAXB*100}%"></i></div>
+      </div>
+      <button class="btn sm ${max?'dis':(S.coins<cost?'dis':'')}" data-base="${b.id}">${max?'МАКС':'🪙 '+fmt(cost)}</button>
+    </div>`;
+  });
+  return s;
+}
+
+/* ---------- MISSIONS ---------- */
+function tplMissions(){
+  genDaily();
+  let s='<h2>Щоденні місії</h2>';
+  S.daily.m.forEach((m,i)=>{
+    const t=MPOOL.find(x=>x.id===m.id),p=Math.min(mProg(m.id),m.v),done=S.daily.done.includes(i),ready=p>=m.v&&!done;
+    s+=`<div class="card">
+      <div class="row"><div class="grow">
+        <div class="tName">${t.t(m.v)}</div>
+        <div class="tSub">${fmt(p)} / ${fmt(m.v)} • Нагорода: 💎 ${Math.round(m.g*(1+heroB('mission')))}</div>
+        <div class="bar"><i style="width:${p/m.v*100}%"></i></div>
+      </div>
+      ${done?'<div style="font-size:22px">✅</div>':ready?`<button class="claimB" data-claim="${i}">ЗАБРАТИ</button>`:''}
+      </div></div>`;
+  });
+  s+=`<h3>Оновлення місій — опівночі</h3>
+  <div class="card"><div class="tSub">Виконуй місії, щоб заробляти кристали 💎 та відкривати нових героїв!</div></div>`;
+  return s;
+}
+
+/* ---------- SHOP / COSMETICS ---------- */
+function costTxt(it){return it.g?('💎 '+it.g):it.c?('🪙 '+fmt(it.c)):'Безкоштовно'}
+function cosmSection(title,list,owned,selKey,key){
+  let s=`<h3>${title}</h3><div class="grid">`;
+  list.forEach((it,i)=>{
+    const own=owned.includes(i),sel=S[selKey]===i;
+    s+=`<button class="gCell ${sel?'sel':''} ${own?'':'lock'}" data-cosm="${key}:${i}">
+      ${sel?'<span class="tag">✓</span>':''}
+      <div class="gIco">${it.e!==undefined?(it.e||'🚫'):`<span style="display:inline-block;width:26px;height:26px;border-radius:50%;background:${it.col==='rainbow'?'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)':(it.col||'#444')};box-shadow:0 0 10px ${it.col==='rainbow'?'#fff5':(it.col||'#0000')}66"></span>`}</div>
+      <div class="gName">${it.n}</div>
+      ${own?'':`<div class="gCost">${costTxt(it)}</div>`}
+    </button>`;
+  });
+  return s+'</div>';
+}
+function tplShop(){
+  let s='<h2>Магазин і косметика</h2>';
+  s+=`<div class="card row"><div style="font-size:30px">🌟</div><div class="grow">
+    <div class="tName">Преміум-перепустка</div>
+    <div class="tSub">×2 офлайн-нагороди, +50% кристалів з місій, ексклюзивна аура</div></div>
+    ${S.premium?'<div style="font-size:22px">✅</div>':'<button class="btn sm" id="btnPrem">КУПИТИ</button>'}</div>`;
+  s+=`<div class="card row"><div style="font-size:30px">📺</div><div class="grow">
+    <div class="tName">Безкоштовні кристали</div>
+    <div class="tSub">Переглянь рекламу та отримай 💎 15</div></div>
+    <button class="btn sm grn" id="btnAdGems">ДИВИТИСЬ</button></div>`;
+  s+=cosmSection('Скіни персонажа',SKINS,S.skinsO,'skin','skin');
+  s+=cosmSection('Ефекти сліду',TRAILS,S.trailsO,'trail','trail');
+  s+=cosmSection('Крила',WINGS,S.wingsO,'wings','wings');
+  s+=cosmSection('Аури',AURAS,S.aurasO,'aura','aura');
+  s+=cosmSection('Улюбленці',PETS,S.petsO,'pet','pet');
+  s+='<div style="height:8px"></div><div class="tSub" style="text-align:center">Косметика не впливає на баланс гри 💚</div>';
+  return s;
+}
+const COSM_MAP={skin:[SKINS,'skinsO','skin'],trail:[TRAILS,'trailsO','trail'],wings:[WINGS,'wingsO','wings'],aura:[AURAS,'aurasO','aura'],pet:[PETS,'petsO','pet']};
+
+/* ---------- tab bindings ---------- */
+function bindTab(tab){
+  const el=$('tabBody');
+  if(tab==='home'){
+    $('btnPlay').onclick=()=>{SFX.click();startRun()};
+    drawHeroPreview();
+  }
+  el.querySelectorAll('[data-hero]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.hero,h=HEROES[i];
+    if(S.heroes.includes(i)){S.hero=i;SFX.click();saveSoon();renderTab('heroes')}
+    else if(S.crys>=h[5]){
+      confirmBox(`Відкрити героя ${h[0]} ${h[1]} за 💎 ${h[5]}?`,()=>{
+        S.crys-=h[5];S.heroes.push(i);S.hero=i;addStat('heroes',1);SFX.buy();save();renderTab('heroes');flushAchToasts();
+      });
+    }else toast('Не вистачає кристалів 💎');
+  });
+  el.querySelectorAll('[data-base]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.base,l=S.base[id],cost=baseCost(l);
+    if(l>=MAXB||S.coins<cost)return;
+    S.coins-=cost;S.base[id]++;addStat('baseL',1);SFX.buy();save();renderTab('base');flushAchToasts();
+  });
+  el.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.claim,m=S.daily.m[i];
+    if(S.daily.done.includes(i))return;
+    S.daily.done.push(i);
+    let g=Math.round(m.g*(1+heroB('mission'))*(S.premium?1.5:1));
+    S.crys+=g;addStat('missions',1);SFX.buy();toast('💎 +'+g+' за місію!');save();renderTab('missions');flushAchToasts();
+  });
+  el.querySelectorAll('[data-cosm]').forEach(b=>b.onclick=()=>{
+    const[key,iS]=b.dataset.cosm.split(':'),i=+iS,[list,ownKey,selKey]=COSM_MAP[key],it=list[i];
+    if(S[ownKey].includes(i)){S[selKey]=i;SFX.click();saveSoon();renderTab('shop')}
+    else{
+      const canC=it.c&&S.coins>=it.c,canG=it.g&&S.crys>=it.g;
+      if(!it.c&&!it.g){S[ownKey].push(i);S[selKey]=i;saveSoon();renderTab('shop');return}
+      if(canC||canG){
+        confirmBox(`Купити «${it.n}» за ${costTxt(it)}?`,()=>{
+          if(it.g)S.crys-=it.g;else S.coins-=it.c;
+          S[ownKey].push(i);S[selKey]=i;addStat('cosm',1);SFX.buy();save();renderTab('shop');flushAchToasts();
+        });
+      }else toast('Не вистачає '+(it.g?'кристалів 💎':'монет 🪙'));
+    }
+  });
+  const bp=$('btnPrem');if(bp)bp.onclick=()=>{
+    /* [IAP] Тут підключіть Google Play Billing. Для демо — покупка за кристали. */
+    confirmBox('Преміум-перепустка за 💎 300?<br><span style="font-size:11px;color:#c09a88">У релізі — через Google Play Billing</span>',()=>{
+      if(S.crys<300){toast('Не вистачає кристалів 💎');return}
+      S.crys-=300;S.premium=true;SFX.buy();toast('🌟 Преміум активовано!');save();renderTab('shop');
+    });
+  };
+  const ba=$('btnAdGems');if(ba)ba.onclick=()=>rewardedAd(()=>{S.crys+=15;toast('💎 +15!');save();renderTab('shop')});
+}
+
+/* ---------- achievements & settings (modal) ---------- */
+$('btnAch').onclick=()=>{SFX.click();showAchievements()};
+$('btnSet').onclick=()=>{SFX.click();showSettings()};
+function modal(html){$('ovModal').innerHTML=`<div class="ovBox" style="max-height:86%;overflow-y:auto">${html}</div>`;$('ovModal').classList.remove('hidden')}
+function closeModal(){$('ovModal').classList.add('hidden')}
+function confirmBox(q,yes){
+  modal(`<div class="ovTitle" style="font-size:16px">${q}</div>
+  <button class="btn" id="cbY">Так</button><div style="height:8px"></div>
+  <button class="btn sec" id="cbN">Скасувати</button>`);
+  $('cbY').onclick=()=>{closeModal();yes()};
+  $('cbN').onclick=()=>{SFX.click();closeModal()};
+}
+function showAchievements(){
+  const tot=achTotals();
+  let s=`<div class="ovTitle">🏆 Досягнення</div><div class="ovSub">${tot.un} / ${tot.all} відкрито</div>`;
+  ACHS.forEach(a=>{
+    const st=achState(a),v=stat(a.s);
+    const next=st.un<a.t.length?a.t[st.un]:null;
+    const canClaim=st.un>st.cl;
+    s+=`<div class="card row" style="padding:9px">
+      <div style="font-size:24px">${a.ico}</div>
+      <div class="grow">
+        <div class="tName" style="font-size:12.5px">${a.n} ${st.un?ROM[Math.min(st.un,8)-1]:''} <span style="color:#8a6a60;font-size:10px">(${st.un}/${a.t.length})</span></div>
+        <div class="tSub">${next?fmt(v)+' / '+fmt(next):'Усі рівні пройдено!'}</div>
+        <div class="bar"><i style="width:${next?clamp(v/next*100,0,100):100}%"></i></div>
+      </div>
+      ${canClaim?`<button class="claimB" data-ach="${a.s}">💎 ${(st.un-st.cl)*5}</button>`:''}
+    </div>`;
+  });
+  s+='<button class="btn sec" id="achClose">Закрити</button>';
+  modal(s);
+  $('achClose').onclick=()=>{SFX.click();closeModal()};
+  document.querySelectorAll('[data-ach]').forEach(b=>b.onclick=()=>{
+    const a=ACHS.find(x=>x.s===b.dataset.ach),st=achState(a);
+    const g=(st.un-st.cl)*5;S.crys+=g;S.ach[a.s]=st.un;SFX.buy();toast('💎 +'+g+'!');save();showAchievements();updCur();
+  });
+}
+function showSettings(){
+  modal(`<div class="ovTitle">⚙️ Налаштування</div>
+  <button class="btn sec" id="stSnd">${S.sound?'🔊 Звук: увімкнено':'🔇 Звук: вимкнено'}</button><div style="height:8px"></div>
+  <button class="btn sec" id="stFx">${S.lowFx?'📱 Графіка: економна':'✨ Графіка: максимальна'}</button><div style="height:8px"></div>
+  <button class="btn sec" id="stReset" style="background:linear-gradient(180deg,#8a3040,#5a1a26);box-shadow:0 4px 0 #3a0a12">🗑️ Скинути прогрес</button><div style="height:8px"></div>
+  <button class="btn" id="stClose">Готово</button>
+  <div class="tSub" style="text-align:center;margin-top:10px">Lava Survivor v1.0</div>`);
+  $('stSnd').onclick=e=>{S.sound=!S.sound;SFX.click();saveSoon();e.target.textContent=S.sound?'🔊 Звук: увімкнено':'🔇 Звук: вимкнено'};
+  $('stFx').onclick=e=>{S.lowFx=!S.lowFx;SFX.click();saveSoon();e.target.textContent=S.lowFx?'📱 Графіка: економна':'✨ Графіка: максимальна'};
+  $('stReset').onclick=()=>confirmBox('Точно видалити ВЕСЬ прогрес?',()=>{localStorage.removeItem(SAVE_KEY);location.reload()});
+  $('stClose').onclick=()=>{SFX.click();closeModal()};
+}
+
+/* ---------- [ADS] rewarded ad stub ----------
+   У релізі замініть вміст rewardedAd() на виклик AdMob
+   (rewarded ad) через Capacitor-плагін або JS-міст TWA. */
+function rewardedAd(onDone){
+  modal(`<div class="ovTitle">📺 Реклама</div>
+  <div class="ovSub">Симуляція перегляду реклами…<br><span style="font-size:10px">[ADS] У релізі тут AdMob Rewarded</span></div>
+  <div class="bar" style="height:12px"><i id="adBar" style="width:0%;transition:width 2.2s linear"></i></div>`);
+  requestAnimationFrame(()=>{const b=$('adBar');if(b)b.style.width='100%'});
+  setTimeout(()=>{closeModal();onDone()},2400);
+}
+
+/* ---------- offline rewards ---------- */
+function checkOffline(){
+  const now=Date.now(),dtH=(now-S.lastSeen)/36e5;
+  S.lastSeen=now;saveSoon();
+  const rate=vaultRate(S.base.vault);
+  if(rate<=0||dtH<0.17)return;
+  const hrs=Math.min(dtH,8);
+  let c=Math.floor(rate*hrs*(S.premium?2:1)*(1+heroB('offline')));
+  let g=Math.floor(hrs/2);
+  if(c<=0)return;
+  $('ovOffline').innerHTML=`<div class="ovBox">
+    <div class="ovTitle">🏦 Офлайн-нагороди</div>
+    <div class="ovSub">Тебе не було ${hrs.toFixed(1)} год (макс. 8)</div>
+    <div style="text-align:center;font-size:24px;font-weight:900;margin-bottom:14px">🪙 ${fmt(c)}${g?' &nbsp;💎 '+g:''}</div>
+    <button class="btn grn" id="offX2">📺 ЗАБРАТИ ×2</button><div style="height:8px"></div>
+    <button class="btn sec" id="offOk">Забрати</button></div>`;
+  $('ovOffline').classList.remove('hidden');
+  const takeIt=m=>{S.coins+=c*m;S.crys+=g*m;addStat('coins',c*m);addStat('crys',g*m);addStat('chests',0);S.stats.offline=(S.stats.offline||0)+1;save();$('ovOffline').classList.add('hidden');updCur();toast('🪙 +'+fmt(c*m)+(g?' 💎 +'+g*m:''));renderTab(curTab)};
+  $('offOk').onclick=()=>{SFX.buy();takeIt(1)};
+  $('offX2').onclick=()=>rewardedAd(()=>takeIt(2));
+}
+function checkLogin(){
+  const ds=dayStr();
+  if(S.login.last===ds)return;
+  const yest=dayStr(new Date(Date.now()-864e5));
+  S.login.streak=(S.login.last===yest)?S.login.streak+1:1;
+  S.login.last=ds;addStat('logins',1);
+  const g=Math.min(5+S.login.streak*2,25);
+  S.crys+=g;save();
+  setTimeout(()=>toast('📅 День '+S.login.streak+'! 💎 +'+g),600);
+}
+setInterval(()=>{S.lastSeen=Date.now();saveSoon()},30000);
+
+/* ================= GAME ENGINE ================= */
+const GRAV=1900, BASE_JUMP=780, BASE_SPEED=260, PR=15; // player radius
+let R=null; // run state
+let mode='menu'; // menu | run | pause | upgrade | dead
+let last=0, shake=0;
+
+function newRun(){
+  const ev=curEvent();
+  const startM=S.base.portal*30;
+  const lives=1+heroB('life')+(S.base.camp>=5?1:0);
+  return{
+    t:0, ev:ev.id,
+    px:W/2, py:startM*10+40, vx:0, vy:BASE_JUMP,
+    camY:startM*10-260,
+    lavaY:startM*10-220, lavaSpd:26,
+    dir:0, face:1,
+    lives:lives, shield:heroB('shieldStart')>0, invuln:2, dead:false,
+    airJumps:heroB('dj'), airLeft:0,
+    magnet:heroB('magStart')>0?9999:0,
+    fireGuard:false, fireImmune:heroB('fireImmune')>0,
+    revives:heroB('revive'), adRevive:true,
+    spMul:1+heroB('speed')+S.base.forge*.015,
+    jMul:1+heroB('jump')+S.base.forge*.015,
+    lavaMul:(1-heroB('lava'))*(ev.id==='inf'?0.8:1),
+    coinMul:(1+heroB('coin'))*(ev.id==='x2c'?2:1),
+    crysMul:1+heroB('crys'),
+    radius:1+heroB('radius'),
+    coins:0, crys:0, upgrades:[], stage:0,
+    nextStageM:(ev.id==='inf'?600:400),
+    plats:[], items:[], fires:[], rocks:[], parts:[],
+    genY:0, pCount:0, angelNext:500,
+    fireT:rnd(3,6), rockT:rnd(4,8),
+    jumps:0, djs:0, rescues:0, chests:0,
+    lastZone:-1
+  };
+}
+
+/* ---------- platform generation ---------- */
+function diffAt(m){return clamp(m/2500,0,1)} // 0..1
+function genPlats(){
+  const topNeed=R.camY+H+300;
+  while(R.genY<topNeed){
+    const m=R.genY/10, z=zoneAt(m), d=diffAt(m);
+    const gap=rnd(50,72)+d*rnd(12,32);
+    R.genY+=gap;
+    let w=rnd(108,148)-d*48;
+    if(m<80)w+=34; // ширші платформи на старті — м'який вхід у гру
+    const x=rnd(w/2+6,W-w/2-6);
+    const p={x:x,y:R.genY,w:w,type:'norm',vx:0,ph:rnd(0,TAU),broke:0};
+    const r=Math.random(),dd=.5+d;
+    if(r<z.move*dd){p.type='move';p.rng=rnd(40,90);p.spd=rnd(.6,1.4)+d}
+    else if(r<(z.move+z.crumb)*dd)p.type='crumb';
+    else if(r<(z.move+z.crumb+z.spike)*dd)p.type='spike';
+    R.pCount++;
+    R.plats.push(p);
+    // items on platform
+    const iy=R.genY+26;
+    const ev=R.ev;
+    const roll=Math.random();
+    if(p.type!=='spike'){
+      if(roll<.06&&p.type==='norm'&&Math.random()<z.barrel*2)R.items.push({t:'barrel',x:x,y:R.genY+14,p:p});
+      else if(R.pCount%ri(16,24)===0)R.items.push({t:'cage',x:x,y:iy+4,p:p});
+      else if(ev==='th'&&roll<.10)R.items.push({t:'chest',x:x,y:iy,p:p});
+      else if(roll<.5){
+        const n=ri(1,3);
+        for(let i=0;i<n;i++)R.items.push({t:'coin',x:x+(i-(n-1)/2)*22,y:iy+Math.abs(i-(n-1)/2)*-6,ph:rnd(0,TAU)});
+      }
+      else if(roll<(.56+(ev==='cw'?.06:0)))R.items.push({t:'crys',x:x,y:iy,ph:rnd(0,TAU)});
+      else if(roll<.585)R.items.push({t:'shield',x:x,y:iy});
+      else if(roll<.61)R.items.push({t:'mag',x:x,y:iy});
+      else if(roll<.622)R.items.push({t:'heart',x:x,y:iy});
+    }else if(roll<.35){
+      R.items.push({t:'crys',x:x,y:iy+16,ph:rnd(0,TAU)});
+    }
+    // rescue via mission guarantee: none extra
+  }
+  // cleanup below lava
+  const cut=R.lavaY-160;
+  R.plats=R.plats.filter(p=>p.y>cut);
+  R.items=R.items.filter(i=>i.y>cut&&!i.got);
+}
+
+function startRun(){
+  ac();
+  R=newRun();
+  genPlats();
+  // starting platform under player
+  R.plats.push({x:W/2,y:R.py-PR-6,w:150,type:'norm',vx:0,ph:0,broke:0});
+  mode='run';hideMenu();
+  $('hud').classList.remove('hidden');
+  addDaily('runs',1);addStat('runs',1);
+  updHud();
+}
+
+/* ---------- HUD ---------- */
+function updHud(){
+  $('hDistV').textContent=fmt(Math.max(0,R.py/10))+' м';
+  $('hCoinV').textContent=fmt(R.coins);
+  $('hCrysV').textContent=fmt(R.crys);
+  $('hLivesV').textContent=R.lives;
+  $('hShield').classList.toggle('hidden',!R.shield);
+  $('hMag').classList.toggle('hidden',R.magnet<=0);
+  if(R.magnet>0&&R.magnet<9000)$('hMagV').textContent=Math.ceil(R.magnet)+'с';else $('hMagV').textContent='∞';
+}
+
+/* ---------- particles ---------- */
+function part(x,y,vx,vy,col,life,sz,grav){
+  const cap=S.lowFx?70:210;
+  if(R.parts.length>cap)R.parts.shift();
+  R.parts.push({x:x,y:y,vx:vx,vy:vy,col:col,l:life,l0:life,sz:sz,g:grav||0});
+}
+function burst(x,y,col,n,spd){
+  n=S.lowFx?Math.ceil(n/2):n;
+  for(let i=0;i<n;i++){const a=rnd(0,TAU),s=rnd(.3,1)*spd;part(x,y,Math.cos(a)*s,Math.sin(a)*s,col,rnd(.3,.7),rnd(2,5),-600)}
+}
+
+/* ---------- damage / death ---------- */
+function hurt(src){
+  if(R.invuln>0||R.dead)return;
+  if(R.shield){R.shield=false;R.invuln=1.5+heroB('invuln');SFX.shield();burst(R.px,R.py,'#7ad0ff',14,220);updHud();return}
+  if(R.lives>1){R.lives--;R.invuln=2+heroB('invuln');SFX.hurt();shake=8;burst(R.px,R.py,'#ff5a5a',14,240);
+    if(src==='lava'){R.vy=BASE_JUMP*1.45*R.jMul;} updHud();return}
+  R.lives=0;die(src);
+}
+function die(src){
+  R.dead=true;SFX.death();shake=14;
+  burst(R.px,R.py,'#ff8a2a',30,320);burst(R.px,R.py,'#ffd23f',20,260);
+  addStat('deaths',1);
+  setTimeout(()=>showResult(),900);
+}
+function reviveNow(){
+  R.dead=false;R.invuln=3;R.shield=true;
+  R.lavaY=Math.min(R.lavaY,R.py-320);
+  R.py+=140;R.vy=BASE_JUMP*1.2;
+  // safety platform
+  R.plats.push({x:clamp(R.px,80,W-80),y:R.py-PR-8,w:150,type:'norm',vx:0,ph:0,broke:0});
+  R.fires.length=0;R.rocks.length=0;
+  mode='run';$('ovResult').classList.add('hidden');
+  SFX.rescue();updHud();
+}
+
+/* ---------- stage upgrades ---------- */
+function offerUpgrades(){
+  mode='upgrade';SFX.pick();
+  const n=heroB('luck')?4:3;
+  const pool=UPGRADES.slice();
+  const picks=[];
+  while(picks.length<n&&pool.length)picks.push(pool.splice(ri(0,pool.length-1),1)[0]);
+  let s=`<div class="ovBox"><div class="ovTitle">🚩 Етап ${R.stage}</div><div class="ovSub">Обери одне покращення</div>`;
+  picks.forEach(u=>{s+=`<button class="upCard" data-up="${u.id}"><span class="upIco">${u.ico}</span><span><div class="upT">${u.n}</div><div class="upD">${u.d}</div></span></button>`});
+  s+='</div>';
+  $('ovUpgrade').innerHTML=s;$('ovUpgrade').classList.remove('hidden');
+  document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{
+    applyUpgrade(b.dataset.up);
+    $('ovUpgrade').classList.add('hidden');
+    R.invuln=Math.max(R.invuln,1.2);
+    mode='run';last=0;
+  });
+}
+function applyUpgrade(id){
+  SFX.pick();R.upgrades.push(id);
+  addDaily('upg',1);addStat('upg',1);
+  switch(id){
+    case'sp':R.spMul*=1.10;break;
+    case'dj':R.airJumps++;break;
+    case'mg':R.magnet=9999;break;
+    case'sh':R.shield=true;break;
+    case'lv':R.lavaMul*=0.88;break;
+    case'lf':R.lives++;break;
+    case'rd':R.radius*=1.25;break;
+    case'cv':R.coinMul*=1.25;break;
+    case'jp':R.jMul*=1.10;break;
+    case'fb':R.fireGuard=true;break;
+  }
+  updHud();
+}
+
+/* ---------- run update ---------- */
+function update(dt){
+  R.t+=dt;
+  const m=R.py/10, z=zoneAt(m), zi=zoneIdx(m), d=diffAt(m);
+  if(zi!==R.lastZone){if(R.lastZone>=0){toast('📍 '+z.n);SFX.pick()}R.lastZone=zi}
+  // input → horizontal
+  const sp=BASE_SPEED*R.spMul;
+  R.vx=R.dir*sp;
+  if(R.dir)R.face=R.dir;
+  R.px+=R.vx*dt;
+  if(R.px<-PR)R.px=W+PR; if(R.px>W+PR)R.px=-PR; // wrap
+  // vertical
+  R.vy-=GRAV*dt;
+  const oldY=R.py;
+  R.py+=R.vy*dt;
+  if(R.invuln>0)R.invuln-=dt;
+  if(R.magnet>0&&R.magnet<9000)R.magnet-=dt;
+  // angel hero
+  if(HEROES[S.hero][3]==='angel'&&m>=R.angelNext){R.angelNext+=500;if(!R.shield){R.shield=true;SFX.shield();updHud()}}
+  // platform collision (only falling)
+  if(R.vy<0){
+    for(const p of R.plats){
+      if(p.broke>0)continue;
+      const top=p.y;
+      if(oldY-PR>=top&&R.py-PR<=top&&Math.abs(R.px-p.x)<p.w/2+PR*0.6){
+        if(p.type==='spike'&&R.invuln<=0){hurt('spike');if(R.dead)return}
+        R.py=top+PR;
+        R.vy=BASE_JUMP*R.jMul;
+        R.airLeft=R.airJumps;
+        R.jumps++;addStat('jumps',1);
+        SFX.jump();
+        part(R.px-6,top,-60,40,'#ccc8',.35,3,-300);part(R.px+6,top,60,40,'#ccc8',.35,3,-300);
+        if(p.type==='crumb'){p.broke=.01;SFX.click()}
+        break;
+      }
+    }
+  }
+  // moving / crumbling platforms
+  for(const p of R.plats){
+    if(p.type==='move'){p.ph+=p.spd*dt;if(p.x0===undefined)p.x0=p.x;p.x=clamp(p.x0+Math.sin(p.ph)*p.rng,p.w/2,W-p.w/2)}
+    if(p.broke>0){p.broke+=dt;p.y-=250*p.broke*dt}
+  }
+  // camera (тільки вгору)
+  const target=R.py-280;
+  if(target>R.camY)R.camY+=(target-R.camY)*Math.min(1,dt*10);
+  // lava
+  const ls=(R.lavaSpd+d*66+R.t*.55)*R.lavaMul;
+  const gap=R.py-R.lavaY;
+  R.lavaY+=ls*(gap>950?2.6:1)*dt;
+  if(R.py-PR<R.lavaY){hurt('lava');if(R.dead)return;R.lavaY=Math.min(R.lavaY,R.py-140)}
+  // fireballs
+  R.fireT-=dt*z.fire*(R.ev==='storm'?2:1)*(0.6+d);
+  if(R.fireT<=0){
+    R.fireT=rnd(2.2,4.5);
+    const fx=clamp(R.px+rnd(-90,90),20,W-20);
+    R.fires.push({x:fx,y:R.lavaY,vy:rnd(520,700),warn:.8});
+    SFX.fire();
+  }
+  for(const f of R.fires){
+    if(f.warn>0){f.warn-=dt;f.y=R.lavaY;continue}
+    f.y+=f.vy*dt;f.vy-=300*dt;
+    part(f.x+rnd(-4,4),f.y-10,rnd(-30,30),-120,'#ff8a2a',.3,4,0);
+    if(Math.abs(f.x-R.px)<PR+9&&Math.abs(f.y-R.py)<PR+9&&R.invuln<=0){
+      if(R.fireImmune){burst(f.x,f.y,'#ff8a2a',8,150);f.dead=true}
+      else if(R.fireGuard){R.fireGuard=false;burst(f.x,f.y,'#ffd23f',10,180);f.dead=true;SFX.shield()}
+      else{hurt('fire');if(R.dead)return;f.dead=true}
+    }
+  }
+  R.fires=R.fires.filter(f=>!f.dead&&f.y<R.camY+H+80&&(f.vy>0||f.y>R.lavaY-40));
+  // falling rocks
+  R.rockT-=dt*z.rock*(0.6+d);
+  if(R.rockT<=0){R.rockT=rnd(2.5,5);R.rocks.push({x:rnd(30,W-30),y:R.camY+H+40,vy:0,r:ri(9,14)})}
+  for(const rk of R.rocks){
+    rk.vy+=GRAV*.55*dt;rk.y-=rk.vy*dt;
+    if(Math.abs(rk.x-R.px)<PR+rk.r&&Math.abs(rk.y-R.py)<PR+rk.r&&R.invuln<=0){hurt('rock');if(R.dead)return;rk.dead=true;burst(rk.x,rk.y,'#8a8aa0',10,200)}
+    if(rk.y<R.lavaY){rk.dead=true;burst(rk.x,R.lavaY,'#ff8a2a',6,150)}
+  }
+  R.rocks=R.rocks.filter(rk=>!rk.dead);
+  // items
+  const magR=R.magnet>0?150:0;
+  for(const it of R.items){
+    if(it.got)continue;
+    if(it.p&&it.p.broke>0)it.y=it.p.y+(it.t==='barrel'?14:26);
+    if(it.p&&it.p.type==='move')it.x=it.p.x;
+    // magnet pull for coins/crys
+    if(magR&&(it.t==='coin'||it.t==='crys')){
+      const dx=R.px-it.x,dy=R.py-it.y,ds=Math.hypot(dx,dy);
+      if(ds<magR&&ds>1){it.x+=dx/ds*420*dt;it.y+=dy/ds*420*dt}
+    }
+    const rad=(PR+12)*R.radius;
+    if(Math.abs(it.x-R.px)<rad&&Math.abs(it.y-R.py)<rad){
+      if(it.t==='coin'){it.got=1;const v=Math.round(1*R.coinMul*(1+S.base.camp*.02)*(R.ev==='storm'?1.5:1)*10)/10;R.coins+=v;SFX.coin();part(it.x,it.y,0,150,'#ffd23f',.4,4,-200)}
+      else if(it.t==='crys'){it.got=1;const v=Math.max(1,Math.round(1*R.crysMul*(R.ev==='cw'?2:1)));R.crys+=v;SFX.crys();burst(it.x,it.y,'#7ee0ff',8,160)}
+      else if(it.t==='shield'){it.got=1;R.shield=true;SFX.shield();addStat('shield',1);burst(it.x,it.y,'#7ad0ff',10,170)}
+      else if(it.t==='mag'){it.got=1;R.magnet=Math.max(R.magnet,20);SFX.pick();addStat('mag',1)}
+      else if(it.t==='heart'){it.got=1;R.lives++;SFX.rescue();burst(it.x,it.y,'#ff6a9a',10,170)}
+      else if(it.t==='cage'){it.got=1;const g=Math.max(1,Math.round(3*R.crysMul));R.crys+=g;R.rescues++;addDaily('resc',1);addStat('resc',1);SFX.rescue();burst(it.x,it.y,'#ffe27a',16,220);toast('🆘 Врятовано! 💎 +'+g)}
+      else if(it.t==='chest'){it.got=1;const c=Math.round(ri(40,120)*R.coinMul);R.coins+=c;R.chests++;addStat('chests',1);SFX.buy();burst(it.x,it.y,'#ffd23f',20,260);toast('🗝️ Скриня! 🪙 +'+c)}
+      else if(it.t==='barrel'&&R.invuln<=0){it.got=1;SFX.boom();shake=10;burst(it.x,it.y,'#ff8a2a',24,320);burst(it.x,it.y,'#ffd23f',12,240);hurt('barrel');if(R.dead)return}
+      updHud();
+    }
+  }
+  // particles
+  for(const p of R.parts){p.l-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.g||0)*dt}
+  R.parts=R.parts.filter(p=>p.l>0);
+  // trail cosmetic
+  if(S.trail>0&&!S.lowFx&&Math.random()<.5){
+    const tc=TRAILS[S.trail].col;
+    part(R.px+rnd(-6,6),R.py-8,rnd(-20,20),rnd(-40,-100),tc==='rainbow'?`hsl(${(R.t*220)%360},90%,60%)`:tc,.5,4,0);
+  }
+  // stage check
+  if(m>=R.nextStageM){
+    const step=(R.ev==='inf'?600:400);
+    R.stage++;R.nextStageM=(Math.floor(m/step)+1)*step;
+    addStat('stages',1);
+    offerUpgrades();
+  }
+  // stats-ish
+  genPlats();
+  updHud();
+}
+
+/* ---------- air jump (tap) ---------- */
+function tryAirJump(){
+  if(mode!=='run'||R.dead)return;
+  if(R.vy<BASE_JUMP*.55&&R.airLeft>0){
+    R.airLeft--;R.vy=BASE_JUMP*.92*R.jMul;R.djs++;
+    addStat('dj',1);SFX.dj();
+    burst(R.px,R.py-PR,'#bfe8ff',8,140);
+  }
+}
+
+/* ---------- result ---------- */
+function showResult(){
+  mode='dead';
+  const m=Math.max(0,Math.floor(R.py/10));
+  const rewMul=(1+S.base.camp*.02)*(R.ev==='storm'?1.5:1)*(1+heroB('all'));
+  const coins=Math.floor(R.coins);
+  const crys=Math.floor(R.crys);
+  const rec=m>S.best;
+  S.coins+=coins;S.crys+=crys;
+  if(rec){S.best=m;setStat('best',m)}
+  addStat('dist',m);addStat('coins',coins);addStat('crys',crys);
+  addDaily('dist',m);addDaily('coins',coins);addDaily('crys',crys);addDaily('time',Math.floor(R.t));
+  save();
+  const canRev=(R.revives>0)||R.adRevive;
+  let s=`<div class="ovBox">
+    <div class="ovTitle">${rec?'🎉 НОВИЙ РЕКОРД!':'🌋 Лава перемогла…'}</div>
+    <div class="ovSub">${ZONES[zoneIdx(m)].n}</div>
+    <div class="statRow"><span>Дистанція</span><b>${fmt(m)} м${rec?' 🥇':''}</b></div>
+    <div class="statRow"><span>Монети</span><b>🪙 ${fmt(coins)}</b></div>
+    <div class="statRow"><span>Кристали</span><b>💎 ${crys}</b></div>
+    <div class="statRow" style="border:none"><span>Час / етапи</span><b>${Math.floor(R.t)}с • ${R.stage}</b></div>
+    <div style="height:12px"></div>`;
+  if(R.revives>0)s+=`<button class="btn grn" id="resRevF">🐦‍🔥 ВІДРОДИТИСЬ (безкоштовно)</button><div style="height:8px"></div>`;
+  else if(R.adRevive)s+=`<button class="btn grn" id="resRevA">📺 ВІДРОДИТИСЬ (реклама)</button><div style="height:8px"></div>`;
+  s+=`<button class="btn" id="resAgain">🔥 ЩЕ ОДНА СПРОБА</button><div style="height:8px"></div>
+    <button class="btn sec" id="resHome">🏠 На базу</button></div>`;
+  $('ovResult').innerHTML=s;$('ovResult').classList.remove('hidden');
+  const rf=$('resRevF');if(rf)rf.onclick=()=>{R.revives--;R.coins=0;R.crys=0;reviveNow()};
+  const ra=$('resRevA');if(ra)ra.onclick=()=>rewardedAd(()=>{R.adRevive=false;R.coins=0;R.crys=0;reviveNow()});
+  $('resAgain').onclick=()=>{SFX.click();$('ovResult').classList.add('hidden');startRun()};
+  $('resHome').onclick=()=>{SFX.click();$('ovResult').classList.add('hidden');mode='menu';showMenu()};
+}
+
+/* ---------- pause ---------- */
+$('btnPause').onclick=()=>{
+  if(mode!=='run')return;SFX.click();mode='pause';
+  $('ovPause').innerHTML=`<div class="ovBox">
+    <div class="ovTitle">⏸ Пауза</div>
+    <button class="btn" id="pRes">▶ Продовжити</button><div style="height:8px"></div>
+    <button class="btn sec" id="pSnd">${S.sound?'🔊 Звук: увімк.':'🔇 Звук: вимк.'}</button><div style="height:8px"></div>
+    <button class="btn sec" id="pHome">🏠 Завершити забіг</button></div>`;
+  $('ovPause').classList.remove('hidden');
+  $('pRes').onclick=()=>{SFX.click();$('ovPause').classList.add('hidden');mode='run';last=0};
+  $('pSnd').onclick=e=>{S.sound=!S.sound;saveSoon();e.target.textContent=S.sound?'🔊 Звук: увімк.':'🔇 Звук: вимк.'};
+  $('pHome').onclick=()=>{$('ovPause').classList.add('hidden');die('quit')};
+};
+
+/* ================= RENDER ================= */
+const sy=y=>H-(y-R.camY); // world y → screen y
+function lerpZone(m){
+  // плавний перехід кольорів між локаціями
+  const zi=zoneIdx(m),z=ZONES[zi],nz=ZONES[zi+1];
+  if(!nz)return z;
+  const t=clamp((m-(nz.at-120))/120,0,1);
+  if(t<=0)return z;
+  return t<.5?z:nz;
+}
+function drawBg(m){
+  const z=lerpZone(m);
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,z.sky[0]);g.addColorStop(1,z.sky[1]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // далекі силуети (паралакс)
+  const off=(R.camY*.15)%260;
+  ctx.fillStyle='rgba(0,0,0,.22)';
+  for(let i=-1;i<4;i++){
+    const yy=H-((i*260)-off)-160;
+    ctx.beginPath();
+    ctx.moveTo(-20,yy+120);
+    ctx.quadraticCurveTo(100,yy,200,yy+90);
+    ctx.quadraticCurveTo(300,yy+160,420,yy+60);
+    ctx.lineTo(420,yy+200);ctx.lineTo(-20,yy+200);
+    ctx.fill();
+  }
+  // атмосферні частинки зони
+  if(!S.lowFx){
+    ctx.fillStyle=z.glow+'44';
+    for(let i=0;i<14;i++){
+      const px=(i*173.3+R.t*(12+i))%W;
+      const py2=(i*97.7+R.camY*.4+R.t*(8+i*2))%H;
+      ctx.fillRect(px,H-py2,2,2);
+    }
+  }
+}
+function rRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function drawPlats(){
+  const z=lerpZone(R.py/10);
+  for(const p of R.plats){
+    const y=sy(p.y);
+    if(y<-30||y>H+40)continue;
+    const x=p.x-p.w/2;
+    ctx.globalAlpha=p.broke>0?clamp(1-p.broke*2,0,1):1;
+    const grad=ctx.createLinearGradient(0,y,0,y+14);
+    grad.addColorStop(0,z.plat[0]);grad.addColorStop(1,z.plat[1]);
+    ctx.fillStyle=grad;
+    rRect(x,y,p.w,13,6);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.18)';
+    rRect(x+3,y+1.5,p.w-6,3.5,2);ctx.fill();
+    if(p.type==='spike'){
+      ctx.fillStyle='#e8e0f0';
+      for(let sx2=x+7;sx2<x+p.w-7;sx2+=11){
+        ctx.beginPath();ctx.moveTo(sx2,y+1);ctx.lineTo(sx2+5,y-8);ctx.lineTo(sx2+10,y+1);ctx.fill();
+      }
+    }
+    if(p.type==='crumb'&&p.broke===0){
+      ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x+p.w*.3,y+2);ctx.lineTo(x+p.w*.42,y+11);ctx.moveTo(x+p.w*.65,y+1);ctx.lineTo(x+p.w*.58,y+12);ctx.stroke();
+    }
+    if(p.type==='move'){
+      ctx.fillStyle='rgba(255,255,255,.4)';
+      ctx.beginPath();ctx.moveTo(x+6,y+6.5);ctx.lineTo(x+11,y+3);ctx.lineTo(x+11,y+10);ctx.fill();
+      ctx.beginPath();ctx.moveTo(x+p.w-6,y+6.5);ctx.lineTo(x+p.w-11,y+3);ctx.lineTo(x+p.w-11,y+10);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+}
+function drawItems(){
+  for(const it of R.items){
+    if(it.got)continue;
+    const y=sy(it.y);
+    if(y<-30||y>H+30)continue;
+    const bob=it.ph!==undefined?Math.sin(R.t*3+it.ph)*3:0;
+    if(it.t==='coin'){
+      ctx.save();ctx.translate(it.x,y+bob);
+      const sq=Math.abs(Math.sin(R.t*2.5+(it.ph||0)));
+      ctx.scale(.4+.6*sq,1);
+      ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.arc(0,0,7,0,TAU);ctx.fill();
+      ctx.fillStyle='#b8860b';ctx.beginPath();ctx.arc(0,0,4.2,0,TAU);ctx.fill();
+      ctx.fillStyle='#ffe27a';ctx.beginPath();ctx.arc(0,0,2.4,0,TAU);ctx.fill();
+      ctx.restore();
+    }else if(it.t==='crys'){
+      ctx.save();ctx.translate(it.x,y+bob);
+      ctx.fillStyle='#7ee0ff';
+      ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(6,0);ctx.lineTo(0,9);ctx.lineTo(-6,0);ctx.fill();
+      ctx.fillStyle='#d8f6ff';ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(6,0);ctx.lineTo(0,0);ctx.fill();
+      ctx.restore();
+    }else if(it.t==='shield'){
+      ctx.fillStyle='#7ad0ff';ctx.font='16px serif';ctx.textAlign='center';ctx.fillText('🛡️',it.x,y+bob+6);
+    }else if(it.t==='mag'){
+      ctx.font='16px serif';ctx.textAlign='center';ctx.fillText('🧲',it.x,y+bob+6);
+    }else if(it.t==='heart'){
+      ctx.font='16px serif';ctx.textAlign='center';ctx.fillText('❤️',it.x,y+bob+6);
+    }else if(it.t==='cage'){
+      ctx.font='20px serif';ctx.textAlign='center';ctx.fillText('🆘',it.x,y+2);
+      ctx.strokeStyle='#c0a060';ctx.lineWidth=2;
+      ctx.strokeRect(it.x-13,y-16,26,24);
+      ctx.beginPath();ctx.moveTo(it.x-6,y-16);ctx.lineTo(it.x-6,y+8);ctx.moveTo(it.x+6,y-16);ctx.lineTo(it.x+6,y+8);ctx.stroke();
+    }else if(it.t==='chest'){
+      ctx.font='20px serif';ctx.textAlign='center';ctx.fillText('🧰',it.x,y+4);
+      ctx.fillStyle='#ffd23f88';ctx.beginPath();ctx.arc(it.x,y-2,14+Math.sin(R.t*4)*3,0,TAU);ctx.strokeStyle='#ffd23f66';ctx.stroke();
+    }else if(it.t==='barrel'){
+      ctx.save();ctx.translate(it.x,y);
+      ctx.fillStyle='#8a4a1a';rRect(-9,-13,18,22,4);ctx.fill();
+      ctx.fillStyle='#5a2e0e';ctx.fillRect(-9,-8,18,3);ctx.fillRect(-9,2,18,3);
+      ctx.fillStyle='#ff3a2a';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText('💥',0,1);
+      ctx.restore();
+    }
+  }
+}
+function drawHazards(){
+  // fireballs
+  for(const f of R.fires){
+    if(f.warn>0){
+      const wx=f.x, wy=sy(R.lavaY)-14;
+      if(wy>0&&wy<H){ctx.globalAlpha=.5+.5*Math.sin(R.t*16);ctx.fillStyle='#ff5a1f';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('⚠',wx,Math.min(wy,H-14));ctx.globalAlpha=1}
+      continue;
+    }
+    const y=sy(f.y);
+    ctx.save();ctx.translate(f.x,y);
+    const gr=ctx.createRadialGradient(0,0,1,0,0,11);
+    gr.addColorStop(0,'#fff0a0');gr.addColorStop(.5,'#ff8a2a');gr.addColorStop(1,'#ff3a0a00');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.fill();
+    ctx.restore();
+  }
+  // rocks
+  for(const rk of R.rocks){
+    const y=sy(rk.y);
+    if(y<-20)continue;
+    ctx.save();ctx.translate(rk.x,y);ctx.rotate(rk.y*.02);
+    ctx.fillStyle='#6a6a80';
+    ctx.beginPath();ctx.moveTo(-rk.r,2);ctx.lineTo(-rk.r*.4,-rk.r);ctx.lineTo(rk.r*.7,-rk.r*.6);ctx.lineTo(rk.r,rk.r*.4);ctx.lineTo(0,rk.r);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#8a8aa0';ctx.beginPath();ctx.moveTo(-rk.r*.4,-rk.r);ctx.lineTo(rk.r*.7,-rk.r*.6);ctx.lineTo(0,0);ctx.fill();
+    ctx.restore();
+  }
+}
+function drawLava(){
+  const ly=sy(R.lavaY);
+  if(ly>H+60)return;
+  const top=Math.max(ly,-10);
+  // світіння
+  const gl=ctx.createLinearGradient(0,ly-70,0,ly);
+  gl.addColorStop(0,'#ff3a0a00');gl.addColorStop(1,'#ff5a1f55');
+  ctx.fillStyle=gl;ctx.fillRect(0,ly-70,W,70);
+  // тіло лави
+  const g=ctx.createLinearGradient(0,ly,0,H);
+  g.addColorStop(0,'#ffd23f');g.addColorStop(.12,'#ff7a1f');g.addColorStop(.6,'#e03a08');g.addColorStop(1,'#801502');
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,ly+6);
+  for(let x=0;x<=W;x+=16)ctx.lineTo(x,ly+Math.sin(x*.045+R.t*3)*4+Math.sin(x*.11-R.t*2)*2.5);
+  ctx.lineTo(W,H);ctx.fill();
+  // бульбашки
+  if(!S.lowFx){
+    for(let i=0;i<6;i++){
+      const bx=(i*73.7+R.t*30*(1+i*.3))%W;
+      const by=ly+10+((i*37+R.t*44)%Math.max(20,H-ly-16));
+      if(by<H){ctx.fillStyle='rgba(255,220,120,.5)';ctx.beginPath();ctx.arc(bx,by,2.5+(i%3),0,TAU);ctx.fill()}
+    }
+    if(Math.random()<.25)part(rnd(0,W),R.lavaY+rnd(0,10),rnd(-20,20),rnd(120,260),'#ff9a3a',rnd(.4,.9),rnd(2,4),-260);
+  }
+}
+function drawParts(){
+  for(const p of R.parts){
+    const y=sy(p.y);
+    ctx.globalAlpha=clamp(p.l/p.l0,0,1);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.sz/2,y-p.sz/2,p.sz,p.sz);
+  }
+  ctx.globalAlpha=1;
+}
+/* --- персонаж (тіло малюється і в меню-прев'ю) --- */
+function drawPlayerBody(g,face,t){
+  const col=SKINS[S.skin].col;
+  // крила
+  if(S.wings>0){
+    const wc=WINGS[S.wings].col,fl=Math.sin(t*10)*4;
+    g.fillStyle=wc+'cc';
+    g.beginPath();g.ellipse(-14,-2,10,5+fl,-.5,0,TAU);g.fill();
+    g.beginPath();g.ellipse(14,-2,10,5+fl,.5,0,TAU);g.fill();
+  }
+  // тіло
+  const gr=g.createRadialGradient(-4,-6,2,0,0,16);
+  gr.addColorStop(0,'#ffffff');gr.addColorStop(.25,col);gr.addColorStop(1,col);
+  g.fillStyle=gr;
+  g.beginPath();g.arc(0,0,PR,0,TAU);g.fill();
+  g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=1.5;g.stroke();
+  // очі
+  const ex=face*3;
+  g.fillStyle='#fff';
+  g.beginPath();g.arc(-4+ex,-4,4,0,TAU);g.arc(5+ex,-4,4,0,TAU);g.fill();
+  g.fillStyle='#222';
+  g.beginPath();g.arc(-3+ex*1.4,-4,2,0,TAU);g.arc(6+ex*1.4,-4,2,0,TAU);g.fill();
+  // посмішка
+  g.strokeStyle='#00000088';g.lineWidth=1.5;
+  g.beginPath();g.arc(1+ex,3,4,.15*Math.PI,.85*Math.PI);g.stroke();
+  // емодзі героя як "шапка"
+  g.font='11px serif';g.textAlign='center';
+  g.fillText(HEROES[S.hero][0],0,-17);
+}
+function drawPlayer(){
+  const y=sy(R.py);
+  ctx.save();ctx.translate(R.px,y);
+  // аура
+  if(S.aura>0||S.premium){
+    const acol=S.aura>0?AURAS[S.aura].col:'#ffd23f';
+    ctx.globalAlpha=.35+.15*Math.sin(R.t*5);
+    ctx.strokeStyle=acol;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(0,0,PR+7+Math.sin(R.t*5)*2,0,TAU);ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  // невразливість — миготіння
+  if(R.invuln>0&&Math.floor(R.t*12)%2===0)ctx.globalAlpha=.45;
+  // squash & stretch
+  const st=clamp(R.vy/1400,-.25,.3);
+  ctx.scale(1-st*.5,1+st*.6);
+  drawPlayerBody(ctx,R.face,R.t);
+  ctx.globalAlpha=1;
+  // щит
+  if(R.shield){
+    ctx.strokeStyle='#7ad0ff';ctx.lineWidth=2.5;ctx.globalAlpha=.7;
+    ctx.beginPath();ctx.arc(0,0,PR+5,0,TAU);ctx.stroke();ctx.globalAlpha=1;
+  }
+  ctx.restore();
+  // улюбленець
+  if(S.pet>0){
+    const pe=PETS[S.pet].e;
+    const px2=R.px-R.face*26,py2=y+10+Math.sin(R.t*4)*5;
+    ctx.font='16px serif';ctx.textAlign='center';ctx.fillText(pe,px2,py2);
+  }
+  // магнітне поле
+  if(R.magnet>0&&!S.lowFx){
+    ctx.globalAlpha=.12;ctx.strokeStyle='#ffe27a';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(R.px,y,150,0,TAU);ctx.stroke();ctx.globalAlpha=1;
+  }
+}
+function render(){
+  const m=R?R.py/10:0;
+  ctx.save();
+  if(shake>0){ctx.translate(rnd(-shake,shake),rnd(-shake,shake));shake*=.85;if(shake<.5)shake=0}
+  drawBg(m);
+  drawPlats();
+  drawItems();
+  drawHazards();
+  if(!R.dead)drawPlayer();
+  drawParts();
+  drawLava();
+  ctx.restore();
+}
+
+/* ================= INPUT ================= */
+const keys={};
+addEventListener('keydown',e=>{
+  keys[e.code]=1;
+  if(e.code==='Space'||e.code==='ArrowUp')tryAirJump();
+  updDir();
+});
+addEventListener('keyup',e=>{keys[e.code]=0;updDir()});
+function updDir(){if(!R)return;R.dir=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0)}
+let touches={};
+cv.addEventListener('pointerdown',e=>{
+  ac();
+  if(mode!=='run')return;
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*W;
+  touches[e.pointerId]={x:x,t:performance.now()};
+  R.dir=x<W/2?-1:1;R.face=R.dir;
+});
+cv.addEventListener('pointermove',e=>{
+  if(mode!=='run'||!touches[e.pointerId])return;
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*W;
+  R.dir=x<W/2?-1:1;
+});
+function endTouch(e){
+  const t=touches[e.pointerId];
+  delete touches[e.pointerId];
+  if(mode!=='run')return;
+  if(t&&performance.now()-t.t<180)tryAirJump(); // швидкий тап = стрибок у повітрі
+  if(Object.keys(touches).length===0)R.dir=0;
+}
+cv.addEventListener('pointerup',endTouch);
+cv.addEventListener('pointercancel',endTouch);
+
+/* ================= MAIN LOOP ================= */
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!last)last=ts;
+  let dt=(ts-last)/1000;last=ts;
+  if(dt>0.05)dt=0.05; // захист від фризів
+  if(mode==='run'&&R&&!R.dead){
+    // фіксований крок для стабільної фізики на слабких телефонах
+    const steps=dt>0.028?2:1,sdt=dt/steps;
+    for(let i=0;i<steps;i++){if(mode==='run'&&!R.dead)update(sdt)}
+  }
+  if(R&&(mode==='run'||mode==='upgrade'||mode==='pause'||mode==='dead')){
+    if(mode==='run')render();else{render()}
+  }
+  if(mode==='menu'&&curTab==='home'){
+    const c=$('heroPrev');
+    if(c)drawHeroPreview();
+  }
+}
+
+/* ---------- scale to fit ---------- */
+function fit(){
+  const s=Math.min(innerWidth/400,innerHeight/700);
+  $('G').style.transform='scale('+s+')';
+}
+addEventListener('resize',fit);fit();
+
+/* ---------- visibility: збереження + пауза ---------- */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){S.lastSeen=Date.now();save();if(mode==='run')$('btnPause').click()}
+});
+addEventListener('beforeunload',()=>{S.lastSeen=Date.now();save()});
+
+/* ================= INIT ================= */
+function intro(){
+  if(S.seenIntro)return;
+  S.seenIntro=true;saveSoon();
+  modal(`<div class="ovTitle">🌋 Lava Survivor</div>
+  <div class="ovSub">Острів тоне в лаві — біжи вгору!</div>
+  <div class="statRow"><span>👈👉 Тримай ліворуч/праворуч</span><b>рух</b></div>
+  <div class="statRow"><span>🦘 Стрибок</span><b>автоматично</b></div>
+  <div class="statRow" style="border:none"><span>👆 Швидкий тап</span><b>стрибок у повітрі*</b></div>
+  <div class="tSub" style="margin:6px 0 12px">*коли відкриєш здібність або героя Ніндзя</div>
+  <button class="btn" id="introOk">ЗРОЗУМІЛО!</button>`);
+  $('introOk').onclick=()=>{SFX.click();closeModal()};
+}
+genDaily();checkLogin();
+showMenu();
+checkOffline();
+intro();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
