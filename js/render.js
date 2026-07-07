@@ -12,7 +12,9 @@ function hash2(x, y) { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; r
 
 const Renderer = {
   cv: null, cx: null, scale: 1, offX: 0, offY: 0,
+  zoom: 1, camX: WORLD_W / 2, camY: WORLD_H / 2, // камера: щипок — зум, тягни — панорама
   sprites: [],     // жителі
+  critters: [],    // коти, качки та інша дрібнота
   floats: [],      // текст, що спливає
   bursts: [],      // ефект завершення будівництва
   clouds: [], birds: [], drops: [],
@@ -22,6 +24,9 @@ const Renderer = {
   init(canvas) {
     this.cv = canvas; this.cx = canvas.getContext('2d');
     for (let i = 0; i < 4; i++) this.clouds.push({ x: Math.random() * WORLD_W, y: 30 + Math.random() * 300, s: 0.5 + Math.random(), v: 3 + Math.random() * 5 });
+    const kinds = ['🐈', '🦆', '🐇', '🐕'];
+    for (let i = 0; i < 4; i++) this.critters.push({ kind: kinds[i], x: Math.random() * WORLD_W, y: 100 + Math.random() * (WORLD_H - 200),
+      tx: Math.random() * WORLD_W, ty: 100 + Math.random() * (WORLD_H - 200), v: 8 + Math.random() * 8, rest: 0 });
     this.resize();
     addEventListener('resize', () => this.resize());
     this.pickWeather(true);
@@ -32,23 +37,56 @@ const Renderer = {
     const w = wrap.clientWidth, h = wrap.clientHeight;
     this.cv.width = w * dpr; this.cv.height = h * dpr;
     this.cv.style.width = w + 'px'; this.cv.style.height = h + 'px';
-    const sc = Math.min(w / WORLD_W, h / WORLD_H);
-    this.scale = sc * dpr;
-    this.offX = (w * dpr - WORLD_W * this.scale) / 2;
-    this.offY = (h * dpr - WORLD_H * this.scale) / 2;
+    this.scale = Math.min(w / WORLD_W, h / WORLD_H) * dpr;
+    this.applyCamera();
+  },
+  applyCamera() {
+    this.zoom = Math.min(3, Math.max(1, this.zoom));
+    const eff = this.scale * this.zoom;
+    // якщо світ менший за екран по осі — центруємо, інакше не випускаємо за край
+    const halfW = this.cv.width / 2 / eff, halfH = this.cv.height / 2 / eff;
+    this.camX = halfW >= WORLD_W / 2 ? WORLD_W / 2 : Math.min(WORLD_W - halfW, Math.max(halfW, this.camX));
+    this.camY = halfH >= WORLD_H / 2 ? WORLD_H / 2 : Math.min(WORLD_H - halfH, Math.max(halfH, this.camY));
+    this.effScale = eff;
+    this.offX = this.cv.width / 2 - this.camX * eff;
+    this.offY = this.cv.height / 2 - this.camY * eff;
+  },
+  pan(dxPx, dyPx) { // dx у CSS-пікселях
+    const rect = this.cv.getBoundingClientRect();
+    const dpr = this.cv.width / rect.width;
+    this.camX -= dxPx * dpr / this.effScale;
+    this.camY -= dyPx * dpr / this.effScale;
+    this.applyCamera();
+  },
+  zoomBy(f) { this.zoom *= f; this.applyCamera(); },
+  toWorld(clientX, clientY) {
+    const rect = this.cv.getBoundingClientRect();
+    const dpr = this.cv.width / rect.width;
+    return {
+      x: ((clientX - rect.left) * dpr - this.offX) / this.effScale,
+      y: ((clientY - rect.top) * dpr - this.offY) / this.effScale,
+    };
   },
   plotXY(i) {
     const c = i % COLS, r = Math.floor(i / COLS);
     return { x: MARGIN_X + c * TILE, y: MARGIN_TOP + r * TILE };
   },
   plotAt(clientX, clientY) {
-    const rect = this.cv.getBoundingClientRect();
-    const dpr = this.cv.width / rect.width;
-    const wx = ((clientX - rect.left) * dpr - this.offX) / this.scale;
-    const wy = ((clientY - rect.top) * dpr - this.offY) / this.scale;
-    const c = Math.floor((wx - MARGIN_X) / TILE), r = Math.floor((wy - MARGIN_TOP) / TILE);
+    const w = this.toWorld(clientX, clientY);
+    const c = Math.floor((w.x - MARGIN_X) / TILE), r = Math.floor((w.y - MARGIN_TOP) / TILE);
     if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return -1;
     return r * COLS + c;
+  },
+  goblinAt(clientX, clientY) {
+    if (!Game.fight) return -1;
+    const w = this.toWorld(clientX, clientY);
+    let best = -1, bd = 20; // радіус попадання
+    Game.fight.goblins.forEach((g, i) => {
+      if (g.dead) return;
+      const d = Math.hypot(g.x - w.x, g.y - w.y);
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
   },
   float(i, text, color) {
     const p = this.plotXY(i);
@@ -78,17 +116,74 @@ const Renderer = {
     cx.setTransform(1, 0, 0, 1, 0, 0);
     cx.fillStyle = '#3e7c3a';
     cx.fillRect(0, 0, this.cv.width, this.cv.height);
-    cx.setTransform(this.scale, 0, 0, this.scale, this.offX, this.offY);
+    this.applyCamera();
+    cx.setTransform(this.effScale, 0, 0, this.effScale, this.offX, this.offY);
 
     this.drawGround(t);
     this.drawDecor(t);
     // будівлі знизу вгору для правильного перекриття тіней
     for (let i = 0; i < S.plots.length; i++) this.drawPlot(i, t);
     if (this.placeList) this.drawPlacement(t);
+    this.updateCritters(dt, t);
     this.updateCitizens(dt, t);
+    this.drawGoblins(dt, t);
     this.drawEffects(dt);
     this.drawAmbient(dt, t);
     this.drawLight(t);
+  },
+
+  updateCritters(dt, t) {
+    const cx = this.cx;
+    for (const c of this.critters) {
+      if (c.rest > 0) { c.rest -= dt; }
+      else {
+        const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
+        if (d < 3) {
+          c.rest = 2 + Math.random() * 5;
+          c.tx = 20 + Math.random() * (WORLD_W - 40); c.ty = 90 + Math.random() * (WORLD_H - 170);
+        } else { c.x += dx / d * c.v * dt; c.y += dy / d * c.v * dt; }
+      }
+      cx.font = '10px sans-serif'; cx.textAlign = 'center';
+      cx.fillText(c.kind, c.x, c.y + (c.rest > 0 ? 0 : Math.abs(Math.sin(t * 6)) * -1.5));
+    }
+  },
+
+  drawGoblins(dt, t) {
+    const f = Game.fight;
+    if (!f) return;
+    const cx = this.cx, now = Date.now();
+    for (const g of f.goblins) {
+      if (g.dead) { // хмарка «пух» після удару
+        const a = 1 - (now - g.dead) / 500;
+        if (a <= 0) continue;
+        cx.globalAlpha = a;
+        cx.fillStyle = '#ddd';
+        cx.beginPath(); cx.arc(g.x, g.y - 6, 8 * (1.5 - a * 0.5), 0, 7); cx.fill();
+        cx.globalAlpha = 1;
+        continue;
+      }
+      const bob = Math.sin(t * 9 + g.ph) * 1.5;
+      cx.fillStyle = 'rgba(0,0,0,.2)';
+      cx.beginPath(); cx.ellipse(g.x, g.y + 6, 6, 2.5, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#57a639'; // тіло
+      this.rr(g.x - 4.5, g.y - 5 + bob, 9, 11, 4); cx.fill();
+      cx.beginPath(); cx.arc(g.x, g.y - 8 + bob, 4.5, 0, 7); cx.fill(); // голова
+      // вуха
+      cx.beginPath(); cx.moveTo(g.x - 4, g.y - 9 + bob); cx.lineTo(g.x - 9, g.y - 12 + bob); cx.lineTo(g.x - 3, g.y - 12 + bob); cx.fill();
+      cx.beginPath(); cx.moveTo(g.x + 4, g.y - 9 + bob); cx.lineTo(g.x + 9, g.y - 12 + bob); cx.lineTo(g.x + 3, g.y - 12 + bob); cx.fill();
+      cx.fillStyle = '#e74c3c'; // очі
+      cx.fillRect(g.x - 2.5, g.y - 9 + bob, 1.8, 1.8); cx.fillRect(g.x + 0.7, g.y - 9 + bob, 1.8, 1.8);
+      // кільце-мішень, що пульсує
+      cx.strokeStyle = `rgba(231,76,60,${0.5 + Math.sin(t * 6 + g.ph) * 0.3})`;
+      cx.lineWidth = 1.5;
+      cx.beginPath(); cx.arc(g.x, g.y - 2, 13 + Math.sin(t * 6 + g.ph) * 2, 0, 7); cx.stroke();
+    }
+    // таймер бою
+    const left = Math.max(0, (f.end - now) / 1000);
+    cx.fillStyle = 'rgba(0,0,0,.55)';
+    this.rr(WORLD_W / 2 - 52, 30, 104, 18, 9); cx.fill();
+    cx.fillStyle = '#ffd54f'; cx.font = 'bold 11px sans-serif'; cx.textAlign = 'center';
+    cx.fillText(`👺 ${f.goblins.filter(g => !g.dead).length} · ⏱ ${Math.ceil(left)}с`, WORLD_W / 2, 43);
   },
 
   drawGround(t) {
@@ -345,7 +440,8 @@ const Renderer = {
   /* ---------------- жителі ---------------- */
   updateCitizens(dt, t) {
     const S = Game.S;
-    const want = Math.max(0, S.citizens.length - Game.busyCitizens());
+    // не більш як 40 спрайтів на екрані — заради продуктивності на слабких телефонах
+    const want = Math.min(40, Math.max(0, S.citizens.length - Game.busyCitizens()));
     while (this.sprites.length < want) this.sprites.push(this.mkSprite(this.sprites.length));
     if (this.sprites.length > want) this.sprites.length = want;
     const cx = this.cx;

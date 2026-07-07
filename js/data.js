@@ -18,8 +18,17 @@ const RARE_RES = ['mcrystal', 'relic', 'medal'];
 
 /* cost/time зростають у COST_MULT/TIME_MULT разів за кожен рівень; всі будівлі мають 10 рівнів */
 const MAX_LVL = 10;
-const COST_MULT = 1.55;
-const TIME_MULT = 1.35;
+const COST_MULT = 1.8;
+const TIME_MULT = 1.6;
+
+/* Віхи виробництва: рівень 5 подвоює, рівень 10 потроює базову швидкість.
+   Це вирівнює окупність високих рівнів (вартість росте експоненційно). */
+function lvlProdMult(lvl) { return lvl * (lvl >= 10 ? 3 : lvl >= 5 ? 2 : 1); }
+
+/* Престиж «Коронація»: доступна з рівня королівства PRESTIGE_MIN_KL,
+   кожна корона назавжди дає +2% до всього виробництва */
+const PRESTIGE_MIN_KL = 120;
+const CROWN_BONUS = 0.02;
 
 const BUILDINGS = {
   house:      { name: 'Будинок',       icon: '🏠', desc: '+2 населення за рівень, мешканці платять податки.',
@@ -177,6 +186,9 @@ function buildAchievements() {
   [10,50,200,1000].forEach((v, i) => add('tap' + i, `👆 Дбайливий ${i + 1}`, `Збери бонуси з будівель ${v} разів`, s => s.st.taps || 0, v, 1 + i));
   [1,3,10].forEach((v, i) => add('relic' + i, `🏺 Археолог ${i + 1}`, `Знайди ${v} давніх реліквій`, s => s.st.got_relic || 0, v, 3 + i * 2));
   [1,5,20].forEach((v, i) => add('medal' + i, `🎖️ Чемпіон ${i + 1}`, `Здобудь ${v} королівських медалей`, s => s.st.got_medal || 0, v, 3 + i * 2));
+  [1,3,10].forEach((v, i) => add('prst' + i, `👑 Династія ${i + 1}`, `Проведи ${v} Коронацій`, s => s.st.prestiges || 0, v, 5 + i * 3));
+  [5,20,50].forEach((v, i) => add('crown' + i, `👑 Корони ${i + 1}`, `Накопич ${v} корон`, s => s.g.S.crowns || 0, v, 4 + i * 3));
+  [5,25,100].forEach((v, i) => add('gob' + i, `👺 Гроза гоблінів ${i + 1}`, `Переможи ${v} гоблінів власноруч`, s => s.st.goblins || 0, v, 2 + i * 2));
   return A;
 }
 

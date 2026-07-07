@@ -49,7 +49,21 @@ const UI = {
       this.refreshTop();
       if (this.panel) this.renderPanel(); // тримаємо панель актуальною
       this.updateEventBanner();
+      this.updateNavBadges();
     }
+  },
+  updateNavBadges() {
+    // «Більше»: готові експедиції + квести + доступна Коронація
+    const n = Game.S.exps.filter(e => Date.now() >= e.end).length
+      + Game.S.quests.list.filter(x => !x.claimed && Game.questProg(x) >= x.goal).length
+      + (Game.crownsGain() ? 1 : 0);
+    const btn = document.querySelector('.navBtn[data-p="more"]');
+    if (!btn) return;
+    let dot = btn.querySelector('.dot');
+    if (n) {
+      if (!dot) { dot = document.createElement('i'); dot.className = 'dot'; btn.appendChild(dot); }
+      dot.textContent = n;
+    } else if (dot) dot.remove();
   },
 
   toast(text) {
@@ -179,27 +193,51 @@ const UI = {
   },
 
   mapHtml() {
-    let h = `<div class="hint">Нові землі дають бонуси та маршрути експедицій. Рівень 🏰 Замку: ${Game.castleLvl()}</div>`;
-    for (const [id, Z] of Object.entries(ZONES)) {
+    // мальована мапа: стежка знизу (Ліс) угору (Магічний ліс)
+    let h = `<div class="hint">Нові землі дають бонуси та маршрути експедицій. Рівень 🏰 Замку: ${Game.castleLvl()}</div><div class="wmap">`;
+    const ids = Object.keys(ZONES).reverse();
+    ids.forEach((id, k) => {
+      const Z = ZONES[id];
       const open = Game.zoneUnlocked(id);
       const can = Game.castleLvl() >= Z.req;
-      h += `<div class="card ${open ? '' : can ? '' : 'dim'}">
-        <div class="cardIcon">${Z.icon}</div>
-        <div class="cardMain"><b>${Z.name}</b> ${open ? '<small>відкрито</small>' : ''}<p>${Z.desc}</p>
-          <div class="cost">${open ? '' : (Z.cost ? costStr(Z.cost) : '') + (can ? '' : ` · 🔒 Замок р.${Z.req}`)}</div></div>
-        ${!open ? `<button class="btn small ${can && (!Z.cost || Game.canAfford(Z.cost)) ? '' : 'no'}"
-          onclick="UI.err(Game.unlockZone('${id}'));UI.renderPanel()">Відкрити</button>` : ''}
+      const side = k % 2 ? 'right' : 'left';
+      h += `<div class="wnode ${side} ${open ? 'open' : can ? 'ready' : 'locked'}" onclick="UI.zoneTap('${id}')">
+        <div class="wicon">${open ? Z.icon : can ? Z.icon : '🔒'}</div>
+        <div class="winfo"><b>${Z.name}</b>
+          <small>${open ? '✅ відкрито' : can ? (Z.cost ? costStr(Z.cost) : 'безкоштовно') : `🔒 Замок р.${Z.req}`}</small></div>
       </div>`;
+    });
+    return h + '</div>';
+  },
+  zoneTap(id) {
+    A.sfx('click');
+    const Z = ZONES[id];
+    if (Game.zoneUnlocked(id)) {
+      this.modal(`<h3>${Z.icon} ${Z.name}</h3><p>${Z.desc}</p><p>Сюди можна відправляти експедиції (📦 Більше → 🧭).</p>`);
+      return;
     }
-    return h;
+    const can = Game.castleLvl() >= Z.req;
+    this.modal(`<h3>${Z.icon} ${Z.name}</h3><p>${Z.desc}</p>
+      <p>${Z.cost ? 'Вартість: ' + costStr(Z.cost) : ''}${can ? '' : `<br>🔒 Потрібен Замок рівня ${Z.req}`}</p>`,
+      can ? [['unlock', 'Відкрити землі'], ['no', 'Пізніше']] : [['no', 'Зрозуміло']],
+      act => {
+        if (act === 'unlock') {
+          const e = Game.unlockZone(id);
+          if (e) { this.toast(e); return false; }
+          this.toast(`${Z.icon} ${Z.name} — нові землі відкрито!`);
+          this.renderPanel();
+        }
+      });
   },
 
   moreHtml() {
     const q = Game.S.quests.list.filter(x => !x.claimed && Game.questProg(x) >= x.goal).length;
     const expReady = Game.S.exps.filter(e => Date.now() >= e.end).length;
+    const crowns = Game.crownsGain();
     const rows = [
       ['exped', '🧭', 'Експедиції', expReady ? `${expReady} заверш.` : (Game.S.exps.length ? 'в дорозі…' : '')],
       ['quests', '📜', 'Щоденні квести', q ? `${q} готово!` : ''],
+      ['prestige', '👑', 'Коронація', crowns ? `+${crowns} 👑!` : (Game.S.crowns ? `${Game.S.crowns} 👑` : '')],
       ['ach', '🏅', 'Досягнення', `${Game.achDone()}/${ACH_LIST.length}`],
       ['coll', '🏆', 'Колекції', `${Game.colCount()}/48`],
       ['shop', '🛍️', 'Крамниця', ''],
@@ -216,6 +254,7 @@ const UI = {
     const back = `<button class="btn ghost" onclick="UI.renderPanel()">‹ Назад</button>`;
     if (id === 'exped') body.innerHTML = back + this.expedHtml();
     if (id === 'quests') body.innerHTML = back + this.questsHtml();
+    if (id === 'prestige') body.innerHTML = back + this.prestigeHtml();
     if (id === 'ach') body.innerHTML = back + this.achHtml();
     if (id === 'coll') body.innerHTML = back + this.collHtml();
     if (id === 'shop') body.innerHTML = back + this.shopHtml();
@@ -257,6 +296,40 @@ const UI = {
     for (const ex of r.extras) h += `<p>🎁 ${ex.text}</p>`;
     this.modal(h);
     this.sub('exped');
+  },
+
+  prestigeHtml() {
+    const S = Game.S, gain = Game.crownsGain(), kl = Game.kl();
+    let h = `<div class="colBlock" style="text-align:center">
+      <div style="font-size:40px">👑</div>
+      <b>Коронація</b>
+      <p class="hint" style="margin-top:6px">Передай трон нащадку: королівство почнеться заново, але кожна здобута корона
+      <b>назавжди</b> додає +${CROWN_BONUS * 100}% до всього виробництва.<br><br>
+      Зберігаються: корони, колекції, досягнення, рідкісні ресурси (🔮🏺🎖️), покупки та скіни.</p>
+      <div class="cost" style="margin:8px 0">Твої корони: 👑 ${S.crowns} (бонус +${(S.crowns * CROWN_BONUS * 100).toFixed(0)}%) · Коронацій: ${S.prestiges}</div>`;
+    if (gain) {
+      h += `<div class="cost" style="color:#2e7d32">Зараз отримаєш: +👑 ${gain}</div>
+        <button class="btn" style="margin-top:10px" onclick="UI.confirmPrestige()">👑 Коронувати нащадка</button>`;
+    } else {
+      h += `<div class="bar" style="margin:10px 0"><i style="width:${Math.min(100, kl / PRESTIGE_MIN_KL * 100)}%"></i></div>
+        <p class="hint">Потрібен рівень королівства ${PRESTIGE_MIN_KL} (зараз ${kl}). Корони рахуються з рівня королівства та краси — розбудовуйся і прикрашай!</p>`;
+    }
+    return h + '</div>';
+  },
+  confirmPrestige() {
+    const gain = Game.crownsGain();
+    this.modal(`<h3>👑 Коронація</h3><p>Почати нове королівство та отримати <b>+${gain} корон</b> (+${(gain * CROWN_BONUS * 100).toFixed(0)}% назавжди)?</p>
+      <p>Будівлі, ресурси, жителі, дослідження та землі буде скинуто.</p>`,
+      [['yes', `👑 Так, +${gain} корон!`], ['no', 'Ще ні']],
+      act => {
+        if (act === 'yes') {
+          const e = Game.doPrestige();
+          if (e) { this.toast(e); return false; }
+          this.openPanel(null);
+          setTimeout(() => this.modal(`<h3>👑 Нова епоха!</h3><p class="big">+${gain} корон. Хай живе новий монарх!</p>`), 100);
+          this.refreshTop();
+        }
+      });
   },
 
   questsHtml() {
@@ -358,18 +431,50 @@ const UI = {
   settings() {
     const S = Game.S;
     this.modal(`<h3>⚙️ Налаштування</h3>
-      <p>Tiny Kingdom v1.0</p>`, [
-      ['sfx', `${S.settings.sfx ? '🔊' : '🔇'} Звуки: ${S.settings.sfx ? 'увімк' : 'вимк'}`],
-      ['music', `${S.settings.music ? '🎵' : '🎵'} Музика: ${S.settings.music ? 'увімк' : 'вимк'}`],
+      <div class="volRow">🔊 Звуки <input type="range" min="0" max="100" value="${Math.round((S.settings.sfx || 0) * 100)}"
+        oninput="Game.S.settings.sfx=this.value/100" onchange="A.sfx('click')"></div>
+      <div class="volRow">🎵 Музика <input type="range" min="0" max="100" value="${Math.round((S.settings.music || 0) * 100)}"
+        oninput="Game.S.settings.music=this.value/100;A.music(this.value>0)"></div>
+      <p style="margin-top:8px">Tiny Kingdom v1.1</p>`, [
       ['save', '💾 Зберегти гру'],
+      ['export', '📤 Експорт збереження'],
+      ['import', '📥 Імпорт збереження'],
       ['reset', '🗑️ Нова гра', 'danger'],
       ['ok', 'Закрити'],
     ], act => {
-      if (act === 'sfx') { S.settings.sfx ^= 1; this.settings(); return false; }
-      if (act === 'music') { S.settings.music ^= 1; A.music(S.settings.music); this.settings(); return false; }
       if (act === 'save') { Game.save(); this.toast('💾 Збережено'); }
+      if (act === 'export') { this.exportModal(); return false; }
+      if (act === 'import') { this.importModal(); return false; }
       if (act === 'reset') { this.confirmReset(); return false; }
     });
+  },
+  exportModal() {
+    const code = Game.exportSave();
+    this.modal(`<h3>📤 Код збереження</h3>
+      <p>Скопіюй і збережи цей код — з нього можна відновити прогрес на будь-якому пристрої.</p>
+      <textarea class="saveArea" readonly onclick="this.select()">${code}</textarea>`,
+      [['copy', '📋 Скопіювати'], ['ok', 'Закрити']],
+      act => {
+        if (act === 'copy') {
+          const ta = document.querySelector('.saveArea');
+          ta.select();
+          try { navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); }
+          this.toast('📋 Скопійовано');
+          return false;
+        }
+      });
+  },
+  importModal() {
+    this.modal(`<h3>📥 Імпорт збереження</h3>
+      <p>Встав код збереження. <b>Поточний прогрес буде замінено!</b></p>
+      <textarea class="saveArea" placeholder="Встав код сюди…"></textarea>`,
+      [['load', 'Відновити', 'danger'], ['ok', 'Скасувати']],
+      act => {
+        if (act === 'load') {
+          const e = Game.importSave(document.querySelector('.saveArea').value);
+          if (e) { this.toast(e); return false; }
+        }
+      });
   },
   confirmReset() {
     this.modal('<h3>🗑️ Почати заново?</h3><p>Весь прогрес буде втрачено назавжди!</p>',
@@ -401,9 +506,10 @@ const UI = {
       ], act => this.finishEv(act === 'no' ? 'pass' : act));
     } else if (id === 'goblins') {
       const knights = Game.jobCounts().knight || 0;
-      this.modal(head + `<p>${d.n} гоблінів наближаються! У тебе лицарів: ${knights}.</p>`, [
+      this.modal(head + `<p>${d.n} гоблінів наближаються! У тебе лицарів: ${knights} — кожен зупинить одного гобліна.</p>
+        <p><b>Тапай по гоблінах на карті, щоб відбити напад!</b></p>`, [
         ['fight', '⚔️ До бою!'],
-        ['mercs', '💎2 Найманці'],
+        ['mercs', '💎2 Найманці (без бою)'],
       ], act => this.finishEv(act === 'close' ? 'fight' : act));
     } else if (id === 'harvest') {
       this.modal(head + `<p>Їжа виробляється вдвічі швидше до кінця свята!</p>`, [['ok', '🎉 Чудово!']],
@@ -417,8 +523,9 @@ const UI = {
     const r = Game.resolveEvent(act);
     if (!r) return;
     if (r.err) { this.toast(r.err); return false; }
-    setTimeout(() => this.modal(`<p class="big">${r.text}</p>`), 60);
     this.updateEventBanner();
+    if (r.minigame) { this.openPanel(null); return; } // бій іде на карті
+    setTimeout(() => this.modal(`<p class="big">${r.text}</p>`), 60);
   },
 
   /* ---------- ділянки ---------- */
@@ -457,9 +564,11 @@ const UI = {
     if (B.prod) {
       const sm = Game.staffMult(p.b);
       const rates = Object.entries(B.prod).map(([r, v]) =>
-        `${RES_META[r].icon}${(v * p.lvl * sm * Game.mult(r)).toFixed(2)}/с`).join(' ');
+        `${RES_META[r].icon}${(v * lvlProdMult(p.lvl) * sm * Game.mult(r)).toFixed(2)}/с`).join(' ');
       info += `<br>Виробництво: ${rates}`;
       if (B.job) info += `<br>Робітники (${JOBS[B.job].icon} ${JOBS[B.job].name}): ${Game.jobCounts()[B.job] || 0}/${Game.buildingCount(p.b)}`;
+      if (p.lvl < 5) info += `<br>💡 Віха: рівень 5 подвоїть виробництво!`;
+      else if (p.lvl < 10) info += `<br>💡 Віха: рівень 10 потроїть виробництво!`;
     }
     const up = p.lvl < MAX_LVL;
     const cost = up ? Game.costOf(p.b, p.lvl + 1) : null;

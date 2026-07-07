@@ -15,6 +15,8 @@ const A = {
     return true;
   },
 
+  _scale: 1, // гучність поточного каналу (звуки/музика), 0..1
+
   tone(freq, dur, type, vol, when, slide) {
     const c = this.ctx;
     const o = c.createOscillator(), g = c.createGain();
@@ -23,7 +25,7 @@ const A = {
     o.frequency.setValueAtTime(freq, t0);
     if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(vol || 0.15, t0 + 0.01);
+    g.gain.linearRampToValueAtTime((vol || 0.15) * this._scale, t0 + 0.01);
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     o.connect(g); g.connect(c.destination);
     o.start(t0); o.stop(t0 + dur + 0.05);
@@ -32,6 +34,7 @@ const A = {
   sfx(name) {
     if (!Game.S || !Game.S.settings.sfx) return;
     if (!this.ensure()) return;
+    this._scale = +Game.S.settings.sfx || 0;
     switch (name) {
       case 'click':   this.tone(600, 0.06, 'square', 0.05); break;
       case 'build':   this.tone(180, 0.15, 'triangle', 0.18); this.tone(120, 0.2, 'sine', 0.15, 0.08); break;
@@ -52,10 +55,12 @@ const A = {
     const pattern = [0, 2, 4, 7, 4, 2, 5, 3];
     this.musicTimer = setInterval(() => {
       if (!Game.S || !Game.S.settings.music) return;
+      this._scale = +Game.S.settings.music || 0;
       const n = pattern[this.step % pattern.length] + (Math.floor(this.step / 8) % 2 ? 1 : 0);
       this.tone(scale[n % scale.length], 1.4, 'sine', 0.035);
       if (this.step % 4 === 0) this.tone(scale[n % scale.length] / 2, 2.2, 'triangle', 0.03);
       this.step++;
+      this._scale = 1;
     }, 700);
   },
 

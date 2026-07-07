@@ -39,6 +39,7 @@ const Game = {
       skin: 0, skinsOwned: [0],
       builders: 1, offlineX2: false,
       tutorial: 0,
+      crowns: 0, prestiges: 0,
     };
     // стартові будівлі: будинок + лісопилка
     S.plots[this.pi(2, 4)] = { b: 'house', lvl: 1, until: 0, target: 0, tapAt: 0 };
@@ -54,10 +55,17 @@ const Game = {
     let loaded = null;
     try { loaded = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { loaded = null; }
     this.S = loaded && loaded.v === 1 ? loaded : this.newState();
+    this.migrate();
     this.ensureQuests();
     if (loaded) this.applyOffline();
     this.S.lastSeen = Date.now();
     this.save();
+  },
+  /* доповнюємо старі збереження новими полями */
+  migrate() {
+    const S = this.S;
+    if (S.crowns === undefined) S.crowns = 0;
+    if (S.prestiges === undefined) S.prestiges = 0;
   },
   save() {
     this.S.lastSeen = Date.now();
@@ -118,6 +126,7 @@ const Game = {
     let m = 1;
     if (RES_TECH[res]) m += 0.10 * (S.research[RES_TECH[res]] || 0);
     m += 0.05 * (S.research.automation || 0);
+    m += CROWN_BONUS * (S.crowns || 0);
     m += 0.05 * this.castleLvl() + 0.02 * this.typeLevel('palace');
     if (res === 'gold') m += 0.04 * this.typeLevel('bank');
     for (const z of S.zones) {
@@ -151,7 +160,7 @@ const Game = {
       const B = BUILDINGS[p.b];
       if (!B.prod) continue;
       const sm = this.staffMult(p.b);
-      for (const [r, v] of Object.entries(B.prod)) out[r] += v * p.lvl * sm * this.mult(r);
+      for (const [r, v] of Object.entries(B.prod)) out[r] += v * lvlProdMult(p.lvl) * sm * this.mult(r);
     }
     return out;
   },
@@ -250,7 +259,7 @@ const Game = {
     const got = {};
     const sm = this.staffMult(p.b);
     for (const [r, v] of Object.entries(B.prod)) {
-      const amt = v * p.lvl * sm * this.mult(r) * 45;
+      const amt = v * lvlProdMult(p.lvl) * sm * this.mult(r) * 30;
       if (amt >= 0.5) got[r] = this.addRes(r, amt);
     }
     this.stat('taps');
@@ -417,19 +426,17 @@ const Game = {
       this.stat('events');
       return { text: out, keep: true }; // бафф триває до ev.end
     } else if (id === 'goblins') {
-      const knights = this.jobCounts().knight || 0;
       if (action === 'mercs') {
         if (S.res.crystal < 2) return { err: 'Недостатньо кристалів' };
         S.res.crystal -= 2;
         const g = Math.round(30 + this.kl() * 4); this.addRes('gold', g);
         out = `Найманці розігнали гоблінів! Трофеї: 🪙${fmt(g)}`;
-      } else if (knights >= Math.ceil(d.n * 0.6)) {
-        const g = Math.round(40 + this.kl() * 5); this.addRes('gold', g);
-        out = `Лицарі відбили напад ${d.n} гоблінів! Трофеї: 🪙${fmt(g)}`;
       } else {
-        const lg = Math.floor(S.res.gold * 0.08), lw = Math.floor(S.res.wood * 0.08);
-        S.res.gold -= lg; S.res.wood -= lw;
-        out = `Гобліни пограбували королівство: -🪙${fmt(lg)} -🪵${fmt(lw)}. Найми лицарів!`;
+        // міні-гра: тапай гоблінів на карті
+        this.stat('events');
+        this.finishEvent();
+        this.startGoblinFight(d.n);
+        return { minigame: true };
       }
     } else if (id === 'treasure') {
       this.addRes('gold', d.gold);
@@ -542,6 +549,108 @@ const Game = {
     this.offlineReport = null;
   },
 
+  /* ---------------- престиж «Коронація» ---------------- */
+  crownsGain() {
+    if (this.kl() < PRESTIGE_MIN_KL) return 0;
+    return Math.max(1, Math.floor((this.kl() + this.beauty()) / 30));
+  },
+  doPrestige() {
+    const gain = this.crownsGain();
+    if (!gain) return `Потрібен рівень королівства ${PRESTIGE_MIN_KL}`;
+    const S = this.S;
+    S.crowns += gain;
+    S.prestiges++;
+    this.stat('prestiges');
+    // нове королівство: лишаються корони, колекції, досягнення, статистика,
+    // рідкісні ресурси, покупки та скіни
+    const keep = {
+      crowns: S.crowns, prestiges: S.prestiges, col: S.col, ach: S.ach, stats: S.stats,
+      mcrystal: S.res.mcrystal, relic: S.res.relic, medal: S.res.medal,
+      skin: S.skin, skinsOwned: S.skinsOwned, builders: S.builders, offlineX2: S.offlineX2,
+      settings: S.settings, created: S.created, quests: S.quests, tutorial: 1,
+    };
+    this.S = this.newState();
+    Object.assign(this.S, keep);
+    this.S.res.mcrystal = keep.mcrystal; this.S.res.relic = keep.relic; this.S.res.medal = keep.medal;
+    this.fight = null;
+    if (typeof Renderer !== 'undefined') Renderer.sprites.length = 0;
+    this.save();
+    A.sfx('ach');
+    return null;
+  },
+
+  /* ---------------- міні-гра: напад гоблінів ---------------- */
+  fight: null,
+  startGoblinFight(n) {
+    const knights = this.jobCounts().knight || 0;
+    const alive = Math.max(1, n - knights); // кожен лицар одразу зупиняє одного гобліна
+    const goblins = [];
+    for (let k = 0; k < alive; k++) {
+      const side = Math.floor(Math.random() * 3); // зліва / справа / знизу
+      goblins.push({
+        x: side === 0 ? -14 : side === 1 ? WORLD_W + 14 : Math.random() * WORLD_W,
+        y: side === 2 ? WORLD_H + 14 : 80 + Math.random() * (WORLD_H - 160),
+        dead: 0, ph: Math.random() * 7,
+      });
+    }
+    this.fight = { goblins, end: Date.now() + 20 * 1000, byKnights: n - alive };
+    UI.toast(knights ? `🛡️ Лицарі зупинили ${n - alive} гобл. Добий решту — тапай по них!` : '👺 Тапай по гоблінах, щоб відбити напад!');
+  },
+  hitGoblin(idx) {
+    const f = this.fight;
+    if (!f || !f.goblins[idx] || f.goblins[idx].dead) return;
+    f.goblins[idx].dead = Date.now();
+    this.stat('goblins');
+    A.sfx('collect');
+    if (f.goblins.every(g => g.dead)) this.endGoblinFight(true);
+  },
+  updateFight(dt) {
+    const f = this.fight;
+    if (!f) return;
+    // гобліни повзуть до центру села
+    const cxm = WORLD_W / 2, cym = WORLD_H / 2;
+    for (const g of f.goblins) {
+      if (g.dead) continue;
+      const d = Math.hypot(cxm - g.x, cym - g.y);
+      if (d > 6) { g.x += (cxm - g.x) / d * 26 * dt; g.y += (cym - g.y) / d * 26 * dt; }
+    }
+    if (Date.now() >= f.end) this.endGoblinFight(f.goblins.every(g => g.dead));
+  },
+  endGoblinFight(win) {
+    const f = this.fight;
+    if (!f) return;
+    this.fight = null;
+    if (win) {
+      const g = Math.round(50 + this.kl() * 5);
+      this.addRes('gold', g);
+      let extra = '';
+      if (Math.random() < 0.25) { const it = this.grantItem(); if (it) extra = `<br>Трофей: ${it.text}`; }
+      UI.modal(`<h3>🏆 Перемога!</h3><p class="big">Гоблінів розбито! +🪙${fmt(g)}${extra}</p>`);
+      A.sfx('ach');
+    } else {
+      const S = this.S;
+      const surv = 1; // хоч один утік зі здобиччю
+      const lg = Math.floor(S.res.gold * 0.06), lw = Math.floor(S.res.wood * 0.06);
+      S.res.gold -= lg; S.res.wood -= lw;
+      UI.modal(`<h3>👺 Гобліни втекли!</h3><p>Вони поцупили 🪙${fmt(lg)} та 🪵${fmt(lw)}. Найми більше лицарів!</p>`);
+    }
+  },
+
+  /* ---------------- експорт / імпорт збереження ---------------- */
+  exportSave() {
+    this.save();
+    return btoa(unescape(encodeURIComponent(JSON.stringify(this.S))));
+  },
+  importSave(code) {
+    try {
+      const S = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      if (!S || S.v !== 1 || !Array.isArray(S.plots)) return 'Це не схоже на код збереження';
+      localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+      location.reload();
+      return null;
+    } catch (e) { return 'Не вдалося прочитати код'; }
+  },
+
   /* ---------------- крамниця ---------------- */
   buySkin(id) {
     const sk = SKINS[id], S = this.S;
@@ -589,17 +698,19 @@ const Game = {
     }
     // прибуття жителів
     this.arriveTimer += dt;
-    if (this.arriveTimer >= CITIZEN_ARRIVE_S) {
+    if (this.arriveTimer >= CITIZEN_ARRIVE_S + this.pop() * 8) { // велике королівство росте повільніше
       this.arriveTimer = 0;
-      if (this.pop() < this.popCap() && S.res.food >= 25) {
-        S.res.food -= 10;
+      const need = 25 + this.pop() * 4;
+      if (this.pop() < this.popCap() && S.res.food >= need) {
+        S.res.food -= Math.min(S.res.food, 10 + this.pop() * 2);
         const c = this.mkCitizen(); this.autoAssign(c); S.citizens.push(c);
         UI.toast(`👋 ${c.n} приєднується до королівства!`);
       }
     }
-    // події
+    // події та бій із гоблінами
     if (S.event && now > S.event.end) this.finishEvent();
     this.maybeStartEvent();
+    this.updateFight(dt);
     // квести нового дня
     this.ensureQuests();
     // досягнення
