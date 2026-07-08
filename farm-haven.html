@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Farm Haven">
+<meta name="theme-color" content="#2e7d32">
+<meta name="description" content="Farm Haven: New Beginnings — відроди дідусеву ферму, допоможи мешканцям долини та поверни до життя магічне Дерево Життя.">
+<title>Farm Haven: Новий Початок</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;background:#1b2a1b;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none;font-family:'Segoe UI',system-ui,sans-serif}
+body{display:flex;justify-content:center;align-items:center}
+#app{position:relative;width:100%;max-width:440px;height:100%;max-height:940px;display:flex;flex-direction:column;background:linear-gradient(#aee49a,#8fd07a);border-radius:0;overflow:hidden;box-shadow:0 0 60px #00000066}
+@media(min-width:460px){#app{border-radius:22px;height:min(940px,96vh)}}
+
+/* seasons background tint */
+#app.season-spring{background:linear-gradient(#b7e8a0,#8fd07a)}
+#app.season-summer{background:linear-gradient(#c9e88a,#93c85e)}
+#app.season-autumn{background:linear-gradient(#f0d193,#d8a45e)}
+#app.season-winter{background:linear-gradient(#dbe9f4,#b6cede)}
+
+/* header */
+header{padding:10px 12px 8px;background:rgba(38,66,32,.92);color:#fff;backdrop-filter:blur(8px);z-index:5}
+#hrow{display:flex;align-items:center;gap:8px}
+.hpill{background:rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;font-size:14px;font-weight:700;white-space:nowrap}
+#coins{color:#ffd54f}
+#lvlbox{flex:1;min-width:0}
+#lvlrow{display:flex;justify-content:space-between;font-size:11px;opacity:.95;gap:6px}
+#lvlrow span{white-space:nowrap}
+#xptrack{height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;margin-top:3px}
+#xpfill{height:100%;width:0;background:linear-gradient(90deg,#aed581,#ffd54f);border-radius:3px;transition:width .3s}
+#gear{background:none;border:none;font-size:20px;cursor:pointer;color:#fff}
+#festbanner{display:none;margin-top:8px;background:linear-gradient(90deg,#ff8f00,#ffb300);color:#3d2600;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer;animation:glowp 1.6s infinite}
+@keyframes glowp{50%{filter:brightness(1.12)}}
+#treemini{cursor:pointer}
+
+/* main */
+main{flex:1;overflow:hidden;position:relative}
+.tab{position:absolute;inset:0;overflow-y:auto;padding:10px 10px 16px;display:none}
+.tab.on{display:block}
+
+/* farm grid */
+#grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;background:rgba(0,0,0,.08);padding:4px;border-radius:12px}
+.cell{position:relative;aspect-ratio:1;border-radius:5px;border:none;font-size:clamp(12px,4.4vw,20px);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
+.cell.grass{background:#7ec96a}
+.season-autumn .cell.grass{background:#c9b45c}
+.season-winter .cell.grass{background:#e8f2fa}
+.cell.soil{background:#8d6034;box-shadow:inset 0 0 0 2px #7a5129}
+.cell.weed{background:#6db85a}
+.cell.rock{background:#9aa79a}
+.cell.tree{background:#5faf52}
+.cell.house,.cell.barn{background:#c9a26a}
+.cell.deco{background:#8fd47c}
+.cell.locked{filter:grayscale(.85) brightness(.75);opacity:.75}
+.cell.ready{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.16);filter:brightness(1.25)}}
+
+/* seed bar */
+#seedbar{display:flex;gap:6px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
+#seedbar::-webkit-scrollbar{display:none}
+.seedchip{flex:0 0 auto;background:#fff9e8;border:2px solid transparent;border-radius:12px;padding:5px 9px;font-size:13px;font-weight:700;color:#4a3b1f;cursor:pointer;text-align:center}
+.seedchip.sel{border-color:#2e7d32;background:#e6ffd9}
+.seedchip.off{opacity:.45}
+.seedchip small{display:block;font-weight:600;font-size:10px;color:#8a7a55}
+
+/* cards */
+.card{background:rgba(255,253,245,.95);border-radius:14px;padding:11px 12px;margin-bottom:10px;color:#33301f;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.card h3{font-size:15px;margin-bottom:6px}
+.card p{font-size:13px;line-height:1.35}
+.muted{color:#7d7458;font-size:12px}
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #e4dcc4;font-size:14px}
+.rowline:last-child{border-bottom:none}
+.btn{background:#2e7d32;color:#fff;border:none;border-radius:10px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn:disabled{background:#b9b3a0;cursor:default}
+.btn.gold{background:#ef8f00}
+.btn.small{padding:5px 9px;font-size:12px}
+.btn.ghost{background:#e8e2cf;color:#4c452e}
+.secTitle{font-size:14px;font-weight:800;color:#274d22;margin:12px 4px 6px;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.season-winter .secTitle{color:#1c3a52}
+.needok{color:#2e7d32;font-weight:700}
+.needno{color:#c62828;font-weight:700}
+.pbar{height:7px;background:#e6dfc8;border-radius:4px;overflow:hidden;margin-top:6px}
+.pfill{height:100%;background:linear-gradient(90deg,#66bb6a,#9ccc65)}
+
+/* nav */
+nav{display:flex;background:rgba(38,66,32,.95);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:none;color:#cfe3c4;font-size:10px;cursor:pointer;padding:4px 0;border-radius:10px}
+nav button .ni{display:block;font-size:20px;margin-bottom:2px}
+nav button.on{background:rgba(255,255,255,.14);color:#fff}
+nav button .dot{position:relative}
+nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8px;height:8px;border-radius:50%;background:#ff5252}
+
+/* toasts */
+#toasts{position:absolute;left:0;right:0;bottom:74px;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:50}
+.toast{background:rgba(30,45,25,.93);color:#fff;border-radius:12px;padding:8px 16px;font-size:13px;font-weight:600;max-width:88%;text-align:center;animation:tin .25s}
+@keyframes tin{from{opacity:0;transform:translateY(12px)}}
+
+/* modal */
+#mback{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+#mback.on{display:flex}
+#mbox{background:#fffdf3;border-radius:18px;padding:18px;max-width:360px;width:100%;max-height:82%;overflow-y:auto;color:#332e1c}
+#mbox h2{font-size:18px;margin-bottom:10px;color:#274d22}
+#mbox p{font-size:14px;line-height:1.45;margin-bottom:10px}
+#mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+
+.treeArt{text-align:center;font-size:64px;margin:8px 0;filter:drop-shadow(0 4px 10px rgba(0,100,0,.3))}
+.treeArt.l0{filter:grayscale(1) opacity(.6)}
+.treeArt.l5{animation:glowp 2s infinite}
+.badge{display:inline-block;background:#e6ffd9;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;color:#2e7d32;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="hrow">
+      <div class="hpill" id="coins">🪙 100</div>
+      <div id="lvlbox">
+        <div id="lvlrow"><span id="lvltxt">Рівень 1</span><span id="xptxt">0/60</span></div>
+        <div id="xptrack"><div id="xpfill"></div></div>
+      </div>
+      <div class="hpill" id="seasonpill">🌸 День 1</div>
+      <div class="hpill" id="treemini" title="Дерево Життя">🌳0</div>
+      <button id="gear">⚙️</button>
+    </div>
+    <div id="festbanner"></div>
+  </header>
+  <main>
+    <section class="tab on" id="tab-farm">
+      <div id="grid"></div>
+      <div id="seedbar"></div>
+      <div class="secTitle">🐮 Хлів</div>
+      <div id="animals"></div>
+    </section>
+    <section class="tab" id="tab-shop"></section>
+    <section class="tab" id="tab-prod"></section>
+    <section class="tab" id="tab-map"></section>
+    <section class="tab" id="tab-quests"></section>
+    <section class="tab" id="tab-tree"></section>
+  </main>
+  <nav>
+    <button data-tab="farm" class="on"><span class="ni">🏡</span>Ферма</button>
+    <button data-tab="shop"><span class="ni">🛒</span>Крамниця</button>
+    <button data-tab="prod"><span class="ni">🏭</span>Цехи</button>
+    <button data-tab="map"><span class="ni">🗺️</span>Долина</button>
+    <button data-tab="quests"><span class="ni">🧑‍🌾</span>Люди</button>
+    <button data-tab="tree"><span class="ni">🌳</span>Дерево</button>
+  </nav>
+  <div id="toasts"></div>
+  <div id="mback"><div id="mbox"><h2 id="mtitle"></h2><div id="mbody"></div><div id="mbtns"></div></div></div>
+</div>
+<script>
+'use strict';
+/* ===================== Farm Haven: New Beginnings ===================== */
+const SAVE_KEY='farmhaven_save_v1';
+const SEC_PER_DAY=45, DAYS_PER_SEASON=8;
+const now=()=>Date.now();
+const SEASONS=[
+ {id:'spring',name:'Весна',e:'🌸'},
+ {id:'summer',name:'Літо',e:'☀️'},
+ {id:'autumn',name:'Осінь',e:'🍂'},
+ {id:'winter',name:'Зима',e:'❄️'}
+];
+
+const ITEMS={
+ wheat:{n:'Пшениця',e:'🌾',sell:18}, carrot:{n:'Морква',e:'🥕',sell:30},
+ potato:{n:'Картопля',e:'🥔',sell:42}, corn:{n:'Кукурудза',e:'🌽',sell:58},
+ tomato:{n:'Помідор',e:'🍅',sell:70}, strawberry:{n:'Полуниця',e:'🍓',sell:85},
+ sunflower:{n:'Соняшник',e:'🌻',sell:105}, pumpkin:{n:'Гарбуз',e:'🎃',sell:125},
+ grape:{n:'Виноград',e:'🍇',sell:145}, watermelon:{n:'Кавун',e:'🍉',sell:170},
+ winterberry:{n:'Зимова ягода',e:'🫐',sell:90},
+ egg:{n:'Яйце',e:'🥚',sell:14}, feather:{n:'Перо',e:'🪶',sell:20},
+ milk:{n:'Молоко',e:'🥛',sell:26}, goatmilk:{n:'Козине молоко',e:'🍶',sell:32},
+ wool:{n:'Вовна',e:'🧶',sell:36}, truffle:{n:'Трюфель',e:'🍄',sell:55},
+ fluff:{n:'Кролячий пух',e:'☁️',sell:34}, horseshoe:{n:'Підкова',e:'🧲',sell:50},
+ honey:{n:'Мед',e:'🍯',sell:40},
+ flour:{n:'Борошно',e:'🥖',sell:80}, cheese:{n:'Сир',e:'🧀',sell:90},
+ mayo:{n:'Майонез',e:'🥫',sell:75}, feed:{n:'Корм',e:'🌰',sell:6},
+ jam:{n:'Варення',e:'🫙',sell:220}, candy:{n:'Солодощі',e:'🍬',sell:160},
+ wood:{n:'Деревина',e:'🪵',sell:6}, stone:{n:'Камінь',e:'🪨',sell:5},
+ fish:{n:'Риба',e:'🐟',sell:18}, ore:{n:'Руда',e:'⚙️',sell:24},
+ crystal:{n:'Кристал',e:'💎',sell:70}, flower:{n:'Квітка',e:'🌸',sell:12},
+ essence:{n:'Магічна есенція',e:'✨',sell:90}, trophy:{n:'Кубок фестивалю',e:'🏆',sell:250},
+};
+
+const CROPS={
+ wheat:{lvl:1,cost:10,time:40,xp:4,seasons:['spring','summer','autumn']},
+ carrot:{lvl:2,cost:16,time:60,xp:6,seasons:['spring','summer','autumn']},
+ potato:{lvl:3,cost:22,time:85,xp:8,seasons:['spring','summer','autumn']},
+ winterberry:{lvl:3,cost:30,time:100,xp:10,seasons:['winter']},
+ corn:{lvl:4,cost:30,time:110,xp:10,seasons:['spring','summer','autumn']},
+ tomato:{lvl:5,cost:36,time:140,xp:12,seasons:['spring','summer']},
+ strawberry:{lvl:6,cost:45,time:170,xp:14,seasons:['spring','summer']},
+ sunflower:{lvl:7,cost:55,time:200,xp:16,seasons:['summer']},
+ pumpkin:{lvl:8,cost:65,time:240,xp:18,seasons:['autumn']},
+ grape:{lvl:9,cost:75,time:280,xp:20,seasons:['summer','autumn']},
+ watermelon:{lvl:10,cost:90,time:320,xp:24,seasons:['summer']},
+};
+
+const ANIMALS={
+ chicken:{n:'Курка',e:'🐔',lvl:2,cost:60,product:'egg',time:60,max:4},
+ duck:{n:'Качка',e:'🦆',lvl:4,cost:120,product:'feather',time:90,max:4},
+ cow:{n:'Корова',e:'🐄',lvl:5,cost:250,product:'milk',time:120,max:4},
+ goat:{n:'Коза',e:'🐐',lvl:6,cost:220,product:'goatmilk',time:110,max:4},
+ sheep:{n:'Вівця',e:'🐑',lvl:7,cost:300,product:'wool',time:150,max:4},
+ pig:{n:'Свиня',e:'🐖',lvl:8,cost:380,product:'truffle',time:200,max:4},
+ rabbit:{n:'Кролик',e:'🐰',lvl:9,cost:320,product:'fluff',time:160,max:4},
+ horse:{n:'Кінь',e:'🐴',lvl:11,cost:800,product:'horseshoe',time:300,max:2,bonus:'+5% до цін продажу'},
+ bee:{n:'Бджоли (вулик)',e:'🐝',lvl:1,cost:150,product:'honey',time:180,max:4,needsQuest:true},
+};
+
+const BUILDINGS={
+ mill:{n:'Млин',e:'🌾🏠',lvl:3,cost:300,recipes:[{inp:{wheat:3},out:{flour:1},time:60}]},
+ feedmill:{n:'Кормовий цех',e:'🌽🏠',lvl:4,cost:250,recipes:[{inp:{corn:1},out:{feed:3},time:45}]},
+ dairy:{n:'Сироварня',e:'🧀🏠',lvl:5,cost:450,recipes:[{inp:{milk:2},out:{cheese:1},time:90},{inp:{goatmilk:2},out:{cheese:1},time:80}]},
+ kitchen:{n:'Кухня',e:'🥫🏠',lvl:6,cost:400,recipes:[{inp:{egg:3},out:{mayo:1},time:80}]},
+ jamhouse:{n:'Джемоварня',e:'🫙🏠',lvl:8,cost:600,recipes:[{inp:{strawberry:2},out:{jam:1},time:120},{inp:{grape:2},out:{jam:1},time:110}]},
+ sweets:{n:'Цукерня',e:'🍬🏠',lvl:10,cost:800,recipes:[{inp:{honey:2},out:{candy:1},time:130}]},
+};
+
+const TERRITORIES={
+ forest:{n:'Густий ліс',e:'🌲',req:{quest:'Тесляр Богдан'},cd:60,desc:'Старі дерева дають багато деревини.',loot:()=>({wood:2+ri(3)})},
+ lake:{n:'Кришталеве озеро',e:'🏞️',req:{quest:'Рибалка Петро'},cd:90,desc:'Чиста вода повна риби.',loot:()=>({fish:1+ri(2)})},
+ flowerfield:{n:'Квітучі поля',e:'🌸',req:{lvl:5,cost:300},cd:70,desc:'Безкраї луки диких квітів.',loot:()=>({flower:2+ri(2)})},
+ mine:{n:'Покинута шахта',e:'⛏️',req:{lvl:6,cost:500},cd:100,desc:'Темні печери приховують камінь і руду.',loot:()=>({stone:2+ri(2),ore:1})},
+ oldmill:{n:'Старий млин',e:'🪵🏚️',req:{lvl:7,cost:600},cd:180,desc:'Ще меле борошно, якщо його доглянути.',loot:()=>({flour:1})},
+ mountains:{n:'Засніжені гори',e:'🏔️',req:{lvl:8,cost:900},cd:150,desc:'На вершинах виблискують кристали.',loot:()=>({stone:2,crystal:ri(2)})},
+ waterfall:{n:'Водоспад',e:'💧',req:{lvl:9,cost:1200},cd:160,desc:'У бризках води мерехтить магія.',loot:()=>({fish:1,essence:ri(2)})},
+ garden:{n:'Чарівний сад',e:'🪄',req:{tree:3},cd:150,desc:'Відкривається, коли Дерево Життя оживає (рівень 3).',loot:()=>({essence:1,flower:2})},
+ ruins:{n:'Руїни древнього храму',e:'🏛️',req:{tree:4},cd:200,desc:'Стародавні таємниці долини (Дерево рівня 4).',loot:()=>({crystal:1,essence:1})},
+ continent:{n:'Новий континент',e:'🌍',req:{continent:true},cd:240,desc:'Незвідані землі за океаном!',loot:()=>({crystal:2,essence:2,watermelon:1})},
+};
+
+const NPCS={
+ carpenter:{n:'Тесляр Богдан',e:'🧔‍♂️',steps:[
+  {t:'Міст через річку зруйнований, і шлях до лісу закрито. Принеси мені деревину — на фермі повно старих дерев!',need:{wood:10},rw:{coins:120,xp:30},unlock:{terr:'forest'},doneMsg:'Міст відремонтовано! Відкрито Густий ліс 🌲'},
+  {t:'Сільська комора тріщить по швах. Допоможи з матеріалами!',need:{wood:20,stone:10},rw:{coins:300,xp:60}},
+  {t:'Зробимо нові інструменти для всієї долини. Потрібна руда з шахти.',need:{wood:25,ore:5},rw:{coins:600,xp:120}},
+ ]},
+ baker:{n:'Пекарка Олена',e:'👩‍🍳',steps:[
+  {t:'Хочу спекти хліб для всього села! Принеси пшениці.',need:{wheat:5},rw:{coins:60,xp:20}},
+  {t:'Тепер великий пиріг: пшениця та свіжі яйця!',need:{wheat:10,egg:3},rw:{coins:180,xp:40}},
+  {t:'Справжній хліб потребує борошна. Збудуй млин!',need:{flour:5},rw:{coins:350,xp:80}},
+  {t:'Свято наближається — потрібні сир та борошно для святкових пирогів.',need:{cheese:3,flour:5},rw:{coins:650,xp:130}},
+ ]},
+ fisherman:{n:'Рибалка Петро',e:'🎣',steps:[
+  {t:'Озеро завалене камінням після зсуву. Принеси каміння не треба... забери його! Тобто — допоможи розчистити: віддай 10 каменів на укріплення берега.',need:{stone:10},rw:{coins:150,xp:40},unlock:{terr:'lake'},doneMsg:'Озеро очищено! Відкрито Кришталеве озеро 🏞️'},
+  {t:'Наловимо риби для сільської кухні!',need:{fish:5},rw:{coins:220,xp:50}},
+  {t:'Кажуть, на дні озера сяють кристали. Принеси рибу і кристали — перевіримо легенду.',need:{fish:10,crystal:2},rw:{coins:700,xp:140}},
+ ]},
+ beekeeper:{n:'Бджоляр Мирон',e:'🧑‍🌾',steps:[
+  {t:'Бджоли повертаються туди, де є квіти. Назбирай диких квітів!',need:{flower:10},rw:{coins:150,xp:40}},
+  {t:'Ще квітів і трохи солодких ягід — і я відкрию пасіку!',need:{flower:20,strawberry:5},rw:{coins:400,xp:100},unlock:{bees:true},doneMsg:'Пасіку відкрито! Тепер можна купувати вуликі 🐝'},
+  {t:'Перший мед майже готовий. Принеси мед — зроблю тобі запас на зиму.',need:{honey:5},rw:{coins:500,xp:120}},
+ ]},
+ elder:{n:'Старійшина Ганна',e:'🧓',steps:[
+  {t:'Легенда правдива: Дерево Життя чекає на справжнього фермера. Пробуди його (рівень 1).',treeReq:1,rw:{coins:200,xp:60}},
+  {t:'Дерево оживає, і долина розквітає! Доведи його до рівня 3.',treeReq:3,rw:{coins:800,xp:200}},
+  {t:'Останній крок: поверни Дереву всю його силу (рівень 5).',treeReq:5,rw:{coins:3000,xp:600}},
+ ]},
+};
+
+const TREE_LEVELS=[
+ {req:{wheat:20,wood:10},bonus:'+10% до цін продажу',stage:'Прокидається'},
+ {req:{stone:20,flour:5,flower:10},bonus:'-10% до часу росту культур',stage:'Оживає'},
+ {req:{fish:8,cheese:6,crystal:3},bonus:'Відкрито Чарівний сад 🪄',stage:'Квітне'},
+ {req:{honey:8,jam:4,essence:4},bonus:'Відкрито Руїни храму 🏛️',stage:'Сяє'},
+ {req:{crystal:10,essence:10,candy:6},bonus:'Відкрито Новий континент 🌍 (+25% до цін)',stage:'Величне'},
+];
+const TREE_STAGES=['Засохле','Прокидається','Оживає','Квітне','Сяє','Величне'];
+
+const FESTIVALS={
+ spring:{n:'Весняний ярмарок',e:'🎪',need:{carrot:10},rw:{coins:300,xp:60,trophy:1}},
+ summer:{n:'Фестиваль квітів',e:'💐',need:{flower:15},rw:{coins:400,xp:80,trophy:1}},
+ autumn:{n:'Свято врожаю: конкурс гарбузів',e:'🎃',need:{pumpkin:5},rw:{coins:600,xp:120,trophy:1}},
+ winter:{n:'Зимовий карнавал',e:'🎭',need:{winterberry:10},rw:{coins:500,xp:100,trophy:1}},
+};
+
+const EXPANSIONS={
+ east:{n:'Східне поле',cost:500,lvl:4},
+ west:{n:'Західний гай',cost:800,lvl:6},
+ north:{n:'Північні луки',cost:1500,lvl:8},
+ south:{n:'Південна долина',cost:2500,lvl:10},
+};
+
+const DECOS={
+ flowerbed:{n:'Клумба',e:'🌺',cost:150,lvl:3},
+ lantern:{n:'Ліхтар',e:'🏮',cost:250,lvl:4},
+ fountain:{n:'Фонтан',e:'⛲',cost:400,lvl:5},
+ statue:{n:'Статуя',e:'🗿',cost:900,lvl:9},
+};
+
+const ROWS=14, COLS=12;
+function zoneOf(r,c){
+ if(r<=2)return 'north';
+ if(r>=11)return 'south';
+ if(c<=1)return 'west';
+ if(c>=10)return 'east';
+ return null; // core
+}
+const ri=n=>Math.floor(Math.random()*n);
+
+/* ---------- state ---------- */
+let S=null;
+function defaultState(){
+ return {
+  coins:100, xp:0, level:1, inv:{},
+  grid:null, animals:[], buildings:{}, zones:{},
+  terr:{}, quests:{}, tree:{lvl:0,don:{}}, fest:{},
+  beesUnlocked:false, continent:false, decoCount:0,
+  sel:'wheat', worldStart:now(), lastDay:0, sound:true, intro:false,
+ };
+}
+function genGrid(){
+ const g=[];
+ for(let r=0;r<ROWS;r++){
+  const row=[];
+  for(let c=0;c<COLS;c++){
+   const z=zoneOf(r,c);
+   let t='grass';
+   const rr=Math.random();
+   if(z){ if(rr<.3)t='tree'; else if(rr<.5)t='rock'; else if(rr<.7)t='weed'; }
+   else { if(rr<.28)t='weed'; else if(rr<.42)t='rock'; else if(rr<.58)t='tree'; }
+   row.push({t});
+  }
+  g.push(row);
+ }
+ g[4][3]={t:'house'}; g[4][8]={t:'barn'};
+ for(const [r,c] of [[6,3],[6,4],[6,5],[7,3],[7,4],[7,5]]) g[r][c]={t:'soil'};
+ return g;
+}
+function newGame(){
+ S=defaultState();
+ S.grid=genGrid();
+ for(const k in NPCS) S.quests[k]=0;
+ for(const k in TERRITORIES) S.terr[k]={unlocked:false,last:0};
+ save();
+}
+function save(){ try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){} }
+function load(){
+ try{
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw) return false;
+  S=Object.assign(defaultState(),JSON.parse(raw));
+  if(!S.grid) return false;
+  return true;
+ }catch(e){ return false; }
+}
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+function fmt(n){ return Math.floor(n).toLocaleString('uk-UA'); }
+function fmtT(s){ s=Math.max(0,Math.ceil(s)); const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
+function invGet(id){ return S.inv[id]||0; }
+function give(id,n){ S.inv[id]=(S.inv[id]||0)+n; }
+function takeAll(need){ // need: {item:qty}; returns true if taken
+ for(const k in need) if(invGet(k)<need[k]) return false;
+ for(const k in need) S.inv[k]-=need[k];
+ return true;
+}
+function hasAll(need){ for(const k in need) if(invGet(k)<need[k]) return false; return true; }
+function needHTML(need){
+ return Object.entries(need).map(([k,v])=>{
+  const ok=invGet(k)>=v;
+  return `<span class="${ok?'needok':'needno'}">${ITEMS[k].e}${Math.min(invGet(k),v)}/${v}</span>`;
+ }).join(' &nbsp;');
+}
+function xpNeed(l){ return 40+l*l*20; }
+function sellMult(){
+ let m=1;
+ if(S.tree.lvl>=1)m+=.1;
+ m+=S.animals.filter(a=>a.type==='horse').length*.05;
+ m+=Math.min(S.decoCount,5)*.02;
+ if(S.continent)m+=.25;
+ return m;
+}
+function growMult(){ return S.tree.lvl>=2?0.9:1; }
+function sellPrice(id){ return Math.max(1,Math.round(ITEMS[id].sell*sellMult())); }
+
+function dayNum(){ return Math.floor((now()-S.worldStart)/1000/SEC_PER_DAY); }
+function seasonIdx(){ return Math.floor(dayNum()/DAYS_PER_SEASON)%4; }
+function season(){ return SEASONS[seasonIdx()]; }
+function yearNum(){ return Math.floor(dayNum()/(4*DAYS_PER_SEASON)); }
+function dayOfSeason(){ return dayNum()%DAYS_PER_SEASON; }
+function festActive(){ return dayOfSeason()>=5; }
+function festKey(){ return yearNum()+'-'+seasonIdx(); }
+
+/* ---------- audio ---------- */
+let AC=null;
+function snd(f,d,type){
+ if(!S||!S.sound)return;
+ try{
+  AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type||'triangle'; o.frequency.value=f;
+  g.gain.setValueAtTime(.08,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);
+  o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+d);
+ }catch(e){}
+}
+const sPop=()=>snd(520,.09), sCoin=()=>{snd(880,.08);setTimeout(()=>snd(1320,.1),70);}, sUp=()=>{snd(440,.12);setTimeout(()=>snd(660,.12),110);setTimeout(()=>snd(880,.18),220);}, sErr=()=>snd(160,.15,'sawtooth');
+
+/* ---------- toasts / modal ---------- */
+function toast(msg){
+ const t=document.createElement('div');
+ t.className='toast'; t.innerHTML=msg;
+ $('toasts').appendChild(t);
+ setTimeout(()=>t.remove(),2600);
+ while($('toasts').children.length>3) $('toasts').firstChild.remove();
+}
+function modal(title,body,btns){
+ $('mtitle').innerHTML=title; $('mbody').innerHTML=body;
+ const bx=$('mbtns'); bx.innerHTML='';
+ (btns||[{t:'Гаразд'}]).forEach(b=>{
+  const el=document.createElement('button');
+  el.className='btn'+(b.ghost?' ghost':'');
+  el.textContent=b.t;
+  el.onclick=()=>{ closeModal(); if(b.fn)b.fn(); };
+  bx.appendChild(el);
+ });
+ $('mback').classList.add('on');
+}
+function closeModal(){ $('mback').classList.remove('on'); }
+$('mback').addEventListener('click',e=>{ if(e.target.id==='mback')closeModal(); });
+
+/* ---------- xp / level ---------- */
+function addXp(n){
+ S.xp+=n;
+ while(S.xp>=xpNeed(S.level)){
+  S.xp-=xpNeed(S.level); S.level++;
+  sUp();
+  const un=[];
+  for(const k in CROPS) if(CROPS[k].lvl===S.level) un.push(ITEMS[k].e+' '+ITEMS[k].n);
+  for(const k in ANIMALS) if(ANIMALS[k].lvl===S.level&&!ANIMALS[k].needsQuest) un.push(ANIMALS[k].e+' '+ANIMALS[k].n);
+  for(const k in BUILDINGS) if(BUILDINGS[k].lvl===S.level) un.push(BUILDINGS[k].e+' '+BUILDINGS[k].n);
+  for(const k in TERRITORIES){const q=TERRITORIES[k].req; if(q.lvl===S.level) un.push(TERRITORIES[k].e+' '+TERRITORIES[k].n);}
+  modal('🎉 Рівень '+S.level+'!', un.length?'<p>Відкрито:</p><p>'+un.join('<br>')+'</p>':'<p>Ферма зростає — так тримати!</p>');
+ }
+}
+
+/* ---------- grid ---------- */
+let cellEls=[];
+function buildGrid(){
+ const g=$('grid'); g.innerHTML=''; cellEls=[];
+ for(let r=0;r<ROWS;r++){
+  const rowEls=[];
+  for(let c=0;c<COLS;c++){
+   const b=document.createElement('button');
+   b.className='cell';
+   b.onclick=()=>tapTile(r,c);
+   g.appendChild(b); rowEls.push(b);
+  }
+  cellEls.push(rowEls);
+ }
+ updateGrid();
+}
+function cropStage(tile){
+ const cd=CROPS[tile.crop];
+ const p=(now()-tile.at)/(cd.time*1000*growMult());
+ if(p>=1)return 'ready';
+ return p<.5?'sprout':'grow';
+}
+function updateGrid(){
+ const seasonId=season().id;
+ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+  const t=S.grid[r][c], el=cellEls[r][c];
+  const z=zoneOf(r,c), locked=z&&!S.zones[z];
+  let cls='cell '+t.t, em='';
+  if(t.t==='weed')em='🌿';
+  else if(t.t==='rock')em='🪨';
+  else if(t.t==='tree')em=seasonId==='winter'?'🌲':'🌳';
+  else if(t.t==='house')em='🏡';
+  else if(t.t==='barn')em='🛖';
+  else if(t.t==='deco')em=t.e;
+  else if(t.t==='crop'){
+   const st=cropStage(t);
+   if(st==='sprout')em='🌱';
+   else if(st==='grow')em='🌿';
+   else{em=ITEMS[t.crop].e; cls+=' ready';}
+  }
+  if(locked)cls+=' locked';
+  if(el.className!==cls)el.className=cls;
+  if(el.textContent!==em)el.textContent=em;
+ }
+}
+function tapTile(r,c){
+ const z=zoneOf(r,c);
+ if(z&&!S.zones[z]){ offerExpansion(z); return; }
+ const t=S.grid[r][c];
+ switch(t.t){
+  case 'weed':
+   S.grid[r][c]={t:'grass'}; addXp(2); sPop();
+   if(Math.random()<.18){ give('flower',1); toast('🌿 Розчищено! Знайдено 🌸 квітку'); }
+   else toast('🌿 Бур’ян розчищено (+2 досвіду)');
+   break;
+  case 'tree':{
+   const w=2+ri(2); give('wood',w); S.grid[r][c]={t:'grass'}; addXp(3); sPop();
+   toast('🪓 Зрубано дерево: +'+w+' 🪵');
+   break;}
+  case 'rock':{
+   const st=2+ri(2); give('stone',st); S.grid[r][c]={t:'grass'}; addXp(3); sPop();
+   toast('⛏️ Розбито камінь: +'+st+' 🪨');
+   break;}
+  case 'grass':
+   if(S.placing){
+    const d=DECOS[S.placing];
+    S.grid[r][c]={t:'deco',e:d.e}; S.decoCount++; S.placing=null;
+    toast(d.e+' '+d.n+' встановлено! Краса ферми зростає'); sCoin();
+    break;
+   }
+   S.grid[r][c]={t:'soil'}; addXp(1); sPop();
+   break;
+  case 'soil':{
+   const id=S.sel, cd=CROPS[id];
+   if(!cd||S.level<cd.lvl){ toast('Оберіть насіння внизу 👇'); break; }
+   if(!cd.seasons.includes(season().id)){ sErr(); toast('❄️ '+ITEMS[id].n+' не росте: зараз '+season().name.toLowerCase()); break; }
+   if(S.coins<cd.cost){ sErr(); toast('Не вистачає монет ('+cd.cost+'🪙)'); break; }
+   S.coins-=cd.cost;
+   S.grid[r][c]={t:'crop',crop:id,at:now()}; sPop();
+   break;}
+  case 'crop':{
+   if(cropStage(t)==='ready'){
+    const q=1+(Math.random()<.35?1:0);
+    give(t.crop,q); addXp(CROPS[t.crop].xp); sCoin();
+    S.grid[r][c]={t:'soil'};
+    toast(ITEMS[t.crop].e+' Зібрано ×'+q+' (+'+CROPS[t.crop].xp+' досвіду)');
+   }else{
+    const cd=CROPS[t.crop];
+    const left=cd.time*growMult()-(now()-t.at)/1000;
+    toast(ITEMS[t.crop].e+' Ще росте: '+fmtT(left));
+   }
+   break;}
+  case 'house':
+   modal('🏡 Твій дім','<p>Маленький будиночок, який залишив дідусь. Звідси починається відродження долини.</p><p class="muted">Порада: розчищай бур’яни, дерева та каміння, щоб отримати ресурси та місце для грядок.</p>');
+   break;
+  case 'barn':
+   showTab('shop');
+   break;
+  case 'deco':
+   toast(t.e+' Гарна прикраса! (+2% до цін продажу)');
+   break;
+ }
+ refresh();
+}
+function offerExpansion(z){
+ const ex=EXPANSIONS[z];
+ if(S.level<ex.lvl){ toast('🔒 '+ex.n+': потрібен рівень '+ex.lvl); return; }
+ modal('🔓 '+ex.n,'<p>Розширити ферму на нову територію?</p><p><b>Ціна: '+fmt(ex.cost)+' 🪙</b></p>',[
+  {t:'Купити',fn:()=>{
+   if(S.coins<ex.cost){ sErr(); toast('Не вистачає монет'); return; }
+   S.coins-=ex.cost; S.zones[z]=true; addXp(30); sUp();
+   toast('🎉 '+ex.n+' відкрито!'); refresh();
+  }},
+  {t:'Пізніше',ghost:true},
+ ]);
+}
+
+/* ---------- seed bar ---------- */
+function renderSeedbar(){
+ const bar=$('seedbar'); bar.innerHTML='';
+ for(const id in CROPS){
+  const cd=CROPS[id];
+  if(S.level<cd.lvl)continue;
+  const inSeason=cd.seasons.includes(season().id);
+  const chip=document.createElement('button');
+  chip.className='seedchip'+(S.sel===id?' sel':'')+(inSeason?'':' off');
+  chip.innerHTML=ITEMS[id].e+' '+ITEMS[id].n+'<small>'+cd.cost+'🪙 · '+fmtT(cd.time*growMult())+(inSeason?'':' · не сезон')+'</small>';
+  chip.onclick=()=>{ S.sel=id; renderSeedbar(); };
+  bar.appendChild(chip);
+ }
+}
+
+/* ---------- animals ---------- */
+function renderAnimals(){
+ const box=$('animals');
+ if(!S.animals.length){
+  box.innerHTML='<div class="card"><p class="muted">Поки що тварин немає. Купи їх у Крамниці 🛒 (кури — з 2 рівня).</p></div>';
+  return;
+ }
+ let html='';
+ S.animals.forEach((a,i)=>{
+  const d=ANIMALS[a.type];
+  const hap=Math.round(a.hap);
+  const hearts=hap>=80?'❤️❤️❤️':hap>=40?'❤️❤️':'❤️';
+  let action;
+  if(a.readyAt&&now()>=a.readyAt){
+   action=`<button class="btn gold small" onclick="collectAnimal(${i})">Зібрати ${ITEMS[d.product].e}</button>`;
+  }else if(a.readyAt){
+   action=`<span class="muted">${ITEMS[d.product].e} через ${fmtT((a.readyAt-now())/1000)}</span>`;
+  }else{
+   action=`<button class="btn small" onclick="feedAnimal(${i})">Годувати (1 🌰)</button>`;
+  }
+  html+=`<div class="card"><div class="rowline"><span>${d.e} <b>${d.n}</b> <span class="muted">${hearts} ${hap}%</span></span>${action}</div></div>`;
+ });
+ box.innerHTML=html;
+}
+function feedAnimal(i){
+ const a=S.animals[i], d=ANIMALS[a.type];
+ if(invGet('feed')<1){ sErr(); toast('Немає корму 🌰 — купи в Крамниці або зроби з кукурудзи'); return; }
+ S.inv.feed--;
+ a.hap=Math.min(100,a.hap+20);
+ a.readyAt=now()+d.time*1000;
+ sPop(); toast(d.e+' Нагодовано! Продукт буде за '+fmtT(d.time));
+ refresh();
+}
+function collectAnimal(i){
+ const a=S.animals[i], d=ANIMALS[a.type];
+ const q=1+(a.hap>=80?1:0);
+ give(d.product,q); a.readyAt=0; addXp(4); sCoin();
+ toast(ITEMS[d.product].e+' +'+q+' '+ITEMS[d.product].n);
+ refresh();
+}
+
+/* ---------- shop ---------- */
+function renderShop(){
+ const el=$('tab-shop');
+ let html='<div class="secTitle">💰 Продати товари <span class="badge">ціни ×'+sellMult().toFixed(2)+'</span></div><div class="card">';
+ const sellables=Object.keys(S.inv).filter(k=>S.inv[k]>0);
+ if(!sellables.length)html+='<p class="muted">Комора порожня. Зберіть врожай!</p>';
+ sellables.forEach(k=>{
+  html+=`<div class="rowline"><span>${ITEMS[k].e} ${ITEMS[k].n} ×${S.inv[k]} <span class="muted">(${sellPrice(k)}🪙/шт)</span></span>
+   <span><button class="btn small ghost" onclick="sellItem('${k}',1)">1</button>
+   <button class="btn small" onclick="sellItem('${k}',${S.inv[k]})">Все</button></span></div>`;
+ });
+ html+='</div>';
+
+ html+='<div class="secTitle">🌰 Корм для тварин</div><div class="card"><div class="rowline"><span>🌰 Корм (у вас: '+invGet('feed')+')</span><span><button class="btn small" onclick="buyFeed(1)">1 за 8🪙</button> <button class="btn small" onclick="buyFeed(10)">10 за 80🪙</button></span></div></div>';
+
+ html+='<div class="secTitle">🐄 Тварини</div><div class="card">';
+ for(const k in ANIMALS){
+  const d=ANIMALS[k];
+  const count=S.animals.filter(a=>a.type===k).length;
+  const gated=d.needsQuest&&!S.beesUnlocked;
+  if(gated){ html+=`<div class="rowline"><span>${d.e} ${d.n}</span><span class="muted">🔒 завдання Бджоляра</span></div>`; continue; }
+  if(S.level<d.lvl){ html+=`<div class="rowline"><span>${d.e} ${d.n}</span><span class="muted">🔒 рівень ${d.lvl}</span></div>`; continue; }
+  const full=count>=d.max;
+  html+=`<div class="rowline"><span>${d.e} ${d.n} <span class="muted">${count}/${d.max}${d.bonus?' · '+d.bonus:''}</span></span>
+   <button class="btn small" ${full?'disabled':''} onclick="buyAnimal('${k}')">${full?'Макс':fmt(d.cost)+'🪙'}</button></div>`;
+ }
+ html+='</div>';
+
+ html+='<div class="secTitle">🎀 Прикраси <span class="badge">+2% до цін кожна (до 5)</span></div><div class="card">';
+ for(const k in DECOS){
+  const d=DECOS[k];
+  if(S.level<d.lvl){ html+=`<div class="rowline"><span>${d.e} ${d.n}</span><span class="muted">🔒 рівень ${d.lvl}</span></div>`; continue; }
+  html+=`<div class="rowline"><span>${d.e} ${d.n}</span><button class="btn small" onclick="buyDeco('${k}')">${fmt(d.cost)}🪙</button></div>`;
+ }
+ html+='</div>';
+
+ html+='<div class="secTitle">🗺️ Розширення ферми</div><div class="card">';
+ for(const z in EXPANSIONS){
+  const ex=EXPANSIONS[z];
+  if(S.zones[z]){ html+=`<div class="rowline"><span>✅ ${ex.n}</span><span class="muted">відкрито</span></div>`; continue; }
+  if(S.level<ex.lvl){ html+=`<div class="rowline"><span>🔒 ${ex.n}</span><span class="muted">рівень ${ex.lvl}</span></div>`; continue; }
+  html+=`<div class="rowline"><span>${ex.n}</span><button class="btn small" onclick="offerExpansion('${z}')">${fmt(ex.cost)}🪙</button></div>`;
+ }
+ html+='</div>';
+ el.innerHTML=html;
+}
+function sellItem(k,n){
+ n=Math.min(n,invGet(k)); if(n<=0)return;
+ S.inv[k]-=n; S.coins+=sellPrice(k)*n; sCoin();
+ toast('💰 Продано '+ITEMS[k].e+'×'+n+' за '+fmt(sellPrice(k)*n)+'🪙');
+ refresh();
+}
+function buyFeed(n){
+ const cost=8*n;
+ if(S.coins<cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=cost; give('feed',n); sPop(); refresh();
+}
+function buyAnimal(k){
+ const d=ANIMALS[k];
+ if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
+ if(S.animals.filter(a=>a.type===k).length>=d.max)return;
+ S.coins-=d.cost;
+ S.animals.push({type:k,hap:50,readyAt:0});
+ addXp(10); sCoin();
+ toast(d.e+' '+d.n+' тепер живе на фермі!');
+ refresh();
+}
+function buyDeco(k){
+ const d=DECOS[k];
+ if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=d.cost; S.placing=k;
+ toast(d.e+' Куплено! Торкніться клітинки трави на фермі, щоб поставити');
+ showTab('farm');
+}
+
+/* ---------- production ---------- */
+function renderProd(){
+ const el=$('tab-prod');
+ let html='<div class="secTitle">🏭 Виробництво</div>';
+ for(const k in BUILDINGS){
+  const d=BUILDINGS[k], st=S.buildings[k];
+  if(!st||!st.owned){
+   if(S.level<d.lvl){ html+=`<div class="card"><h3>${d.e} ${d.n}</h3><p class="muted">🔒 Відкриється на рівні ${d.lvl}</p></div>`; }
+   else html+=`<div class="card"><h3>${d.e} ${d.n}</h3><p class="muted">${recipeText(d)}</p><div class="rowline"><span>Збудувати</span><button class="btn small" onclick="buyBuilding('${k}')">${fmt(d.cost)}🪙</button></div></div>`;
+   continue;
+  }
+  html+=`<div class="card"><h3>${d.e} ${d.n}</h3>`;
+  if(st.job){
+   const rc=d.recipes[st.job.r];
+   const outK=Object.keys(rc.out)[0];
+   if(now()>=st.job.end){
+    html+=`<div class="rowline"><span>${ITEMS[outK].e} Готово!</span><button class="btn gold small" onclick="collectJob('${k}')">Зібрати</button></div>`;
+   }else{
+    const total=rc.time*1000, left=(st.job.end-now());
+    html+=`<div class="rowline"><span>${ITEMS[outK].e} Виробляється…</span><span class="muted">${fmtT(left/1000)}</span></div>
+     <div class="pbar"><div class="pfill" style="width:${100*(1-left/total)}%"></div></div>`;
+   }
+  }else{
+   d.recipes.forEach((rc,i)=>{
+    const outK=Object.keys(rc.out)[0];
+    html+=`<div class="rowline"><span>${needHTML(rc.inp)} → ${ITEMS[outK].e}×${rc.out[outK]} <span class="muted">${fmtT(rc.time)}</span></span>
+     <button class="btn small" ${hasAll(rc.inp)?'':'disabled'} onclick="startJob('${k}',${i})">Почати</button></div>`;
+   });
+  }
+  html+='</div>';
+ }
+ el.innerHTML=html;
+}
+function recipeText(d){
+ return d.recipes.map(rc=>{
+  const i=Object.entries(rc.inp).map(([k,v])=>ITEMS[k].e+'×'+v).join('+');
+  const o=Object.entries(rc.out).map(([k,v])=>ITEMS[k].e+'×'+v).join('+');
+  return i+' → '+o;
+ }).join(' · ');
+}
+function buyBuilding(k){
+ const d=BUILDINGS[k];
+ if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=d.cost; S.buildings[k]={owned:true,job:null};
+ addXp(25); sUp(); toast(d.e+' '+d.n+' збудовано!');
+ refresh();
+}
+function startJob(k,i){
+ const d=BUILDINGS[k], st=S.buildings[k], rc=d.recipes[i];
+ if(st.job||!takeAll(rc.inp)){ sErr(); return; }
+ st.job={r:i,end:now()+rc.time*1000}; sPop();
+ refresh();
+}
+function collectJob(k){
+ const d=BUILDINGS[k], st=S.buildings[k];
+ if(!st.job||now()<st.job.end)return;
+ const rc=d.recipes[st.job.r];
+ for(const o in rc.out) give(o,rc.out[o]);
+ st.job=null; addXp(8); sCoin();
+ toast('🏭 Готову продукцію додано до комори');
+ refresh();
+}
+
+/* ---------- map / territories ---------- */
+function terrAvailable(k){
+ const t=TERRITORIES[k], q=t.req;
+ if(q.quest)return {locked:!S.terr[k].unlocked,why:'Виконайте завдання: '+q.quest};
+ if(q.tree)return {locked:S.tree.lvl<q.tree,why:'Дерево Життя рівня '+q.tree};
+ if(q.continent)return {locked:!S.continent,why:'Повністю відродіть Дерево Життя'};
+ return {locked:!S.terr[k].unlocked,why:null,buyable:S.level>=q.lvl,lvl:q.lvl,cost:q.cost};
+}
+function renderMap(){
+ const el=$('tab-map');
+ let html='<div class="secTitle">🗺️ Дослідження долини</div>';
+ for(const k in TERRITORIES){
+  const t=TERRITORIES[k], av=terrAvailable(k);
+  const open=t.req.tree?S.tree.lvl>=t.req.tree:(t.req.continent?S.continent:S.terr[k].unlocked);
+  html+=`<div class="card"><h3>${t.e} ${t.n}</h3><p class="muted">${t.desc}</p>`;
+  if(!open){
+   if(av.buyable!==undefined&&av.buyable)
+    html+=`<div class="rowline"><span>Відкрити шлях</span><button class="btn small" onclick="buyTerr('${k}')">${fmt(av.cost)}🪙</button></div>`;
+   else if(av.lvl!==undefined)
+    html+=`<p class="muted">🔒 Рівень ${av.lvl}${av.cost?' та '+fmt(av.cost)+'🪙':''}</p>`;
+   else html+=`<p class="muted">🔒 ${av.why}</p>`;
+  }else{
+   const last=S.terr[k].last||0, cdLeft=t.cd-(now()-last)/1000;
+   if(cdLeft>0)html+=`<div class="rowline"><span class="muted">Відновлення…</span><span class="muted">${fmtT(cdLeft)}</span></div><div class="pbar"><div class="pfill" style="width:${100*(1-cdLeft/t.cd)}%"></div></div>`;
+   else html+=`<div class="rowline"><span>Ресурси готові!</span><button class="btn gold small" onclick="gather('${k}')">Зібрати</button></div>`;
+  }
+  html+='</div>';
+ }
+ el.innerHTML=html;
+}
+function buyTerr(k){
+ const t=TERRITORIES[k];
+ if(S.coins<t.req.cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=t.req.cost; S.terr[k].unlocked=true; addXp(30); sUp();
+ toast(t.e+' '+t.n+' — відкрито!');
+ refresh();
+}
+function gather(k){
+ const t=TERRITORIES[k];
+ if((now()-(S.terr[k].last||0))/1000<t.cd)return;
+ const loot=t.loot(); const parts=[];
+ for(const it in loot){ if(loot[it]>0){ give(it,loot[it]); parts.push(ITEMS[it].e+'×'+loot[it]); } }
+ S.terr[k].last=now(); addXp(6); sCoin();
+ toast(t.e+' Зібрано: '+(parts.length?parts.join(' '):'нічого не знайдено…'));
+ refresh();
+}
+
+/* ---------- quests ---------- */
+function renderQuests(){
+ const el=$('tab-quests');
+ let html='<div class="secTitle">🧑‍🌾 Мешканці долини</div>';
+ // festival card
+ if(festActive()){
+  const f=FESTIVALS[season().id];
+  const done=S.fest[festKey()];
+  html+=`<div class="card" style="background:#fff3d6"><h3>${f.e} ${f.n}</h3>`;
+  if(done)html+='<p class="needok">✅ Нагороду отримано! До зустрічі наступного року.</p>';
+  else html+=`<p>Святковий ярмарок у селі! Принесіть: ${needHTML(f.need)}</p>
+   <div class="rowline"><span class="muted">Нагорода: ${fmt(f.rw.coins)}🪙 +${f.rw.xp}⭐ 🏆</span>
+   <button class="btn gold small" ${hasAll(f.need)?'':'disabled'} onclick="claimFest()">Здати</button></div>`;
+  html+='</div>';
+ }
+ for(const k in NPCS){
+  const npc=NPCS[k], step=S.quests[k];
+  html+=`<div class="card"><h3>${npc.e} ${npc.n}</h3>`;
+  if(step>=npc.steps.length){
+   html+='<p class="needok">✅ Усі прохання виконано. Дякує тобі щодня!</p>';
+  }else{
+   const q=npc.steps[step];
+   html+=`<p>«${q.t}»</p>`;
+   if(q.treeReq!==undefined){
+    const ok=S.tree.lvl>=q.treeReq;
+    html+=`<div class="rowline"><span class="${ok?'needok':'needno'}">🌳 Дерево: ${S.tree.lvl}/${q.treeReq}</span>
+     <button class="btn small" ${ok?'':'disabled'} onclick="doQuest('${k}')">Отримати</button></div>`;
+   }else{
+    html+=`<div class="rowline"><span>${needHTML(q.need)}</span>
+     <button class="btn small" ${hasAll(q.need)?'':'disabled'} onclick="doQuest('${k}')">Віддати</button></div>`;
+   }
+   html+=`<p class="muted">Нагорода: ${fmt(q.rw.coins)}🪙 +${q.rw.xp}⭐ · Завдання ${step+1}/${npc.steps.length}</p>`;
+  }
+  html+='</div>';
+ }
+ el.innerHTML=html;
+}
+function doQuest(k){
+ const npc=NPCS[k], step=S.quests[k];
+ if(step>=npc.steps.length)return;
+ const q=npc.steps[step];
+ if(q.treeReq!==undefined){ if(S.tree.lvl<q.treeReq)return; }
+ else if(!takeAll(q.need)){ sErr(); return; }
+ S.coins+=q.rw.coins; addXp(q.rw.xp); S.quests[k]++;
+ if(q.unlock){
+  if(q.unlock.terr){ S.terr[q.unlock.terr].unlocked=true; }
+  if(q.unlock.bees){ S.beesUnlocked=true; }
+ }
+ sUp();
+ modal(npc.e+' '+npc.n, '<p>'+(q.doneMsg||'«Дякую, фермере! Долина цього не забуде.»')+'</p><p class="needok">+'+fmt(q.rw.coins)+'🪙 +'+q.rw.xp+'⭐</p>');
+ refresh();
+}
+function claimFest(){
+ const f=FESTIVALS[season().id];
+ if(S.fest[festKey()]||!festActive())return;
+ if(!takeAll(f.need)){ sErr(); return; }
+ S.fest[festKey()]=true;
+ S.coins+=f.rw.coins; addXp(f.rw.xp); give('trophy',f.rw.trophy);
+ sUp();
+ modal(f.e+' '+f.n,'<p>Вітаємо, переможцю фестивалю! 🎉</p><p class="needok">+'+fmt(f.rw.coins)+'🪙 +'+f.rw.xp+'⭐ +🏆</p>');
+ refresh();
+}
+
+/* ---------- tree of life ---------- */
+function renderTree(){
+ const el=$('tab-tree');
+ const lvl=S.tree.lvl;
+ let html=`<div class="secTitle">🌳 Дерево Життя</div>
+  <div class="card" style="text-align:center">
+   <div class="treeArt l${lvl}">${lvl===0?'🥀':lvl<3?'🌳':lvl<5?'🌳✨':'🌳🌟'}</div>
+   <h3>Рівень ${lvl}/5 — «${TREE_STAGES[lvl]}»</h3>
+   <p class="muted">Легенда каже: коли Дерево Життя знову засяє, долина розквітне, а за океаном з’явиться новий континент.</p>
+  </div>`;
+ // bonuses so far
+ if(lvl>0){
+  html+='<div class="card"><h3>Отримані дари дерева</h3>';
+  for(let i=0;i<lvl;i++)html+='<p class="needok">✔ '+TREE_LEVELS[i].bonus+'</p>';
+  html+='</div>';
+ }
+ if(lvl<5){
+  const req=TREE_LEVELS[lvl].req;
+  html+=`<div class="card"><h3>Пожертви для рівня ${lvl+1} <span class="badge">${TREE_LEVELS[lvl].bonus}</span></h3>`;
+  for(const k in req){
+   const don=S.tree.don[k]||0, need=req[k];
+   const can=Math.min(invGet(k),need-don);
+   html+=`<div class="rowline"><span>${ITEMS[k].e} ${ITEMS[k].n}: <b>${don}/${need}</b> <span class="muted">(у коморі: ${invGet(k)})</span></span>
+    <button class="btn small" ${can>0?'':'disabled'} onclick="donate('${k}')">Віддати</button></div>`;
+  }
+  html+='</div>';
+ }else{
+  html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
+ }
+ el.innerHTML=html;
+}
+function donate(k){
+ if(S.tree.lvl>=5)return;
+ const req=TREE_LEVELS[S.tree.lvl].req;
+ const don=S.tree.don[k]||0;
+ const can=Math.min(invGet(k),(req[k]||0)-don);
+ if(can<=0)return;
+ S.inv[k]-=can; S.tree.don[k]=don+can; sPop();
+ // level complete?
+ let full=true;
+ for(const r in req) if((S.tree.don[r]||0)<req[r]){ full=false; break; }
+ if(full){
+  S.tree.lvl++; S.tree.don={}; addXp(100); sUp();
+  if(S.tree.lvl>=5){
+   S.continent=true;
+   modal('🌟 Дерево Життя відроджено!','<p>Величне дерево засяяло магічним світлом, і вся долина розквітла. Далеко за океаном з’явилися обриси незвіданих земель…</p><p class="needok">🌍 Відкрито Новий континент (вкладка «Долина»)!<br>+25% до всіх цін продажу назавжди.</p>');
+  }else{
+   modal('🌳 Дерево росте!','<p>Дерево Життя досягло рівня '+S.tree.lvl+' — «'+TREE_STAGES[S.tree.lvl]+'».</p><p class="needok">Дар дерева: '+TREE_LEVELS[S.tree.lvl-1].bonus+'</p>');
+  }
+ }
+ refresh();
+}
+
+/* ---------- tabs / HUD ---------- */
+let activeTab='farm';
+function showTab(t){
+ activeTab=t;
+ document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('on',el.id==='tab-'+t));
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+ refresh();
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+function renderHUD(){
+ $('coins').textContent='🪙 '+fmt(S.coins);
+ $('lvltxt').textContent='Рівень '+S.level;
+ $('xptxt').textContent=Math.floor(S.xp)+'/'+xpNeed(S.level);
+ $('xpfill').style.width=Math.min(100,100*S.xp/xpNeed(S.level))+'%';
+ const s=season();
+ $('seasonpill').textContent=s.e+' '+s.name+' · день '+(dayOfSeason()+1);
+ $('treemini').textContent='🌳'+S.tree.lvl+(S.continent?'🌍':'');
+ document.getElementById('app').className='season-'+s.id;
+ const fb=$('festbanner');
+ if(festActive()&&!S.fest[festKey()]){
+  const f=FESTIVALS[s.id];
+  fb.style.display='block';
+  fb.textContent=f.e+' '+f.n+' — сьогодні у селі! Тисни, щоб узяти участь';
+  fb.onclick=()=>showTab('quests');
+ }else fb.style.display='none';
+}
+
+function refresh(){
+ renderHUD();
+ updateGrid();
+ if(activeTab==='farm'){ renderSeedbar(); renderAnimals(); }
+ else{
+  const el=$('tab-'+activeTab);
+  const st=el.scrollTop;
+  if(activeTab==='shop')renderShop();
+  else if(activeTab==='prod')renderProd();
+  else if(activeTab==='map')renderMap();
+  else if(activeTab==='quests')renderQuests();
+  else if(activeTab==='tree')renderTree();
+  el.scrollTop=st;
+ }
+}
+
+/* ---------- settings ---------- */
+$('gear').onclick=()=>{
+ modal('⚙️ Налаштування',
+  '<p><b>Farm Haven: Новий Початок</b></p><p class="muted">Гра зберігається автоматично на цьому пристрої. День триває '+SEC_PER_DAY+' с, сезон — '+DAYS_PER_SEASON+' днів. Фестивалі проходять наприкінці кожного сезону.</p>',
+  [
+   {t:S.sound?'🔊 Звук: увімк.':'🔇 Звук: вимк.',fn:()=>{S.sound=!S.sound;save();}},
+   {t:'📖 Історія',fn:showIntro},
+   {t:'🗑️ Скинути прогрес',ghost:true,fn:()=>{
+    modal('Скинути прогрес?','<p>Весь прогрес буде втрачено назавжди. Ти впевнений?</p>',[
+     {t:'Так, почати заново',fn:()=>{ localStorage.removeItem(SAVE_KEY); location.reload(); }},
+     {t:'Ні',ghost:true},
+    ]);
+   }},
+   {t:'Закрити',ghost:true},
+  ]);
+};
+function showIntro(){
+ modal('🏡 Farm Haven: Новий Початок',
+  `<p>Після років у шумному місті ти отримуєш несподіваний лист: дідусь — легендарний фермер — залишив тобі у спадок стару ферму в долині.</p>
+   <p>Мешканці села розповідають легенду про <b>Дерево Життя</b> 🌳, що колись наповнювало землю магією. Дерево згасло — і долина почала занепадати.</p>
+   <p>Лише справжній фермер зможе відродити землю, допомогти мешканцям і повернути Дереву силу. <b>Ця людина — ти.</b></p>
+   <p class="muted">🌿 Торкайся клітинок, щоб розчищати бур’яни, каміння й дерева.<br>🌱 Обери насіння внизу і саджай на грядки.<br>🛒 Продавай врожай, купуй тварин і будуй виробництво.<br>🧑‍🌾 Допомагай мешканцям та відроджуй Дерево Життя!</p>`,
+  [{t:'Почати! 🚜'}]);
+}
+
+/* ---------- tick ---------- */
+let tickCount=0;
+function tick(){
+ tickCount++;
+ // animal happiness decay
+ S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-1/30); });
+ // new day events
+ const d=dayNum();
+ if(d!==S.lastDay){
+  const days=d-S.lastDay;
+  S.lastDay=d;
+  for(let i=0;i<Math.min(days,5);i++){
+   if(Math.random()<.5){
+    const spots=[];
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+     const z=zoneOf(r,c);
+     if((!z||S.zones[z])&&S.grid[r][c].t==='grass')spots.push([r,c]);
+    }
+    if(spots.length){ const [r,c]=spots[ri(spots.length)]; S.grid[r][c]={t:'weed'}; }
+   }
+  }
+ }
+ refresh();
+ if(tickCount%10===0)save();
+}
+
+/* ---------- boot ---------- */
+window.feedAnimal=feedAnimal; window.collectAnimal=collectAnimal;
+window.sellItem=sellItem; window.buyFeed=buyFeed; window.buyAnimal=buyAnimal; window.buyDeco=buyDeco;
+window.buyBuilding=buyBuilding; window.startJob=startJob; window.collectJob=collectJob;
+window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.claimFest=claimFest;
+window.donate=donate; window.offerExpansion=offerExpansion;
+
+if(!load())newGame();
+buildGrid();
+showTab('farm');
+refresh();
+setInterval(tick,1000);
+window.addEventListener('beforeunload',save);
+if(!S.intro){ S.intro=true; save(); showIntro(); }
+</script>
+</body>
+</html>
