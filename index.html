@@ -517,10 +517,10 @@ DATA.butterflies.forEach(b=>DATA.collection.push({id:b.id,cat:'Метелики'
 const GRID={C:7,R:8,T:48,ox:32,oy:150};
 let S=null;
 function freshState(){return{
- v:1,res:{seed:5,wood:0,water:4,stone:0,dust:20,crystal:0},
- light:60,cur:0,unlocked:1,isl:{},up:{power:0,cap:0,growth:0,luck:0},
+ v:1,res:{seed:6,wood:0,water:6,stone:0,dust:25,crystal:0},
+ light:75,cur:0,unlocked:1,isl:{},up:{power:0,cap:0,growth:0,luck:0},
  skins:['classic'],skin:'classic',col:[],ach:[],
- stats:{},daily:{d:'',q:[]},story:[],set:{snd:1},
+ stats:{},daily:{d:'',q:[]},story:[],set:{snd:1,mus:1},
  prodAcc:{},t:now(),days:[],bossDown:0,fin:0,adT:0};}
 const SaveSys={
  KEY:'lastseed_save',
@@ -586,10 +586,10 @@ const Isl={
 const Game={
  mode:'norm',buildSel:null,dirty:true,
  lightMax(){let m=100+S.up.cap*25;m+=this.countB('tower',true)*20;return m},
- lightRegen(){return .16*(1+this.countB('tower',true)*.5)},  /* за секунду */
+ lightRegen(){return .4*(1+this.countB('tower',true)*.5)},   /* за секунду */
  dmg(){return 1+S.up.power},
  luck(){return 1+S.up.luck*.15},
- growTime(){return 45*Math.pow(.88,S.up.growth)},           /* сек на стадію */
+ growTime(){return 32*Math.pow(.88,S.up.growth)},           /* сек на стадію */
  countB(key,all){let n=0;const scan=isl=>isl.tiles.forEach(t=>{if(t.o==='b:'+key)n++});
   if(all)for(const i in S.isl)scan(S.isl[i]);else scan(Isl.cur());return n;},
  helpers(){let h=0;for(const i in S.isl){const isl=S.isl[i];
@@ -865,6 +865,48 @@ const Snd={ctx:null,
   if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
   g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
   o.start(t);o.stop(t+d);}
+};
+
+/* ================= MUSIC (генеративний ембієнт) =================
+   Тиха процедурна музика: повільне пентатонічне арпеджіо + м'який пад.
+   Тон залежить від острова, темніє вночі. Без аудіофайлів. */
+const Music={
+ on:false,timer:null,step:0,master:null,
+ /* пентатоніка (напівтони від базової ноти) */
+ scale:[0,2,4,7,9,12,14,16],
+ start(){if(!S||!S.set.mus||!Snd.ctx)return;if(this.on)return;
+  const c=Snd.ctx;if(c.state==='suspended')c.resume();
+  this.master=c.createGain();this.master.gain.value=0;this.master.connect(c.destination);
+  this.master.gain.linearRampToValueAtTime(.5,c.currentTime+3);
+  this.on=true;this.step=0;
+  const bpmMs=520;
+  this.timer=setInterval(()=>this.tick(),bpmMs);this.tick();},
+ stop(){if(!this.on)return;this.on=false;clearInterval(this.timer);
+  if(this.master){try{this.master.gain.linearRampToValueAtTime(0,Snd.ctx.currentTime+1.2);
+   const m=this.master;setTimeout(()=>{try{m.disconnect()}catch(e){}},1400);}catch(e){}this.master=null;}},
+ toggle(v){if(v)this.start();else this.stop();},
+ base(){const isl=(S&&S.cur)||0;
+  const roots=[57,55,53,50,52,60,48];        /* MIDI-корінь на острів */
+  let r=roots[isl%roots.length];
+  if(FX&&FX.nightAmt&&FX.nightAmt()>.5)r-=12; /* вночі нижче й спокійніше */
+  return r;},
+ midi(n){return 440*Math.pow(2,(n-69)/12)},
+ note(freq,dur,vol,type){const c=Snd.ctx,t=c.currentTime;
+  const o=c.createOscillator(),g=c.createGain();o.type=type||'sine';
+  o.frequency.value=freq;o.connect(g);g.connect(this.master);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.04);
+  g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  o.start(t);o.stop(t+dur+.05);},
+ tick(){if(!this.on||!this.master)return;
+  const root=this.base(),s=this.scale;this.step++;
+  /* арпеджіо — одна нота на такт */
+  const deg=s[(this.step*3)%s.length];
+  this.note(this.midi(root+12+deg),1.4,.16,'triangle');
+  /* пад-акорд кожні 8 тактів */
+  if(this.step%8===1){[0,4,7].forEach((iv,k)=>
+   setTimeout(()=>this.on&&this.master&&this.note(this.midi(root+iv),4.5,.07,'sine'),k*40));}
+  /* рідкісна висока «крапля» */
+  if(Math.random()<.12)this.note(this.midi(root+24+pick(Math.random,s)),.9,.05,'sine');}
 };
 
 /* ================= RENDER ================= */
@@ -1261,6 +1303,8 @@ const UI={
   this.modal('🛠️ Майстерня',h);},
  showSet(){const h='<div class="card"><div style="display:flex;align-items:center;gap:10px"><h4 style="flex:1">🔊 Звук</h4>'+
    '<button class="btn'+(S.set.snd?'':' dark')+'" data-snd="1">'+(S.set.snd?'Увімкнено':'Вимкнено')+'</button></div></div>'+
+   '<div class="card"><div style="display:flex;align-items:center;gap:10px"><h4 style="flex:1">🎵 Музика</h4>'+
+   '<button class="btn'+(S.set.mus?'':' dark')+'" data-mus="1">'+(S.set.mus?'Увімкнено':'Вимкнено')+'</button></div></div>'+
    '<div class="card"><h4>💾 Збереження</h4><p>Гра зберігається автоматично кожні 10 секунд.</p></div>'+
    '<div class="card"><h4>🗑️ Скинути прогрес</h4><p>Почати світ заново. Незворотньо!</p>'+
    '<button class="btn dark" data-reset="1" style="margin-top:8px">Скинути все</button></div>'+
@@ -1306,6 +1350,7 @@ const UI={
    if(lv<u.max&&S.res[u.res]>=cost){S.res[u.res]-=cost;S.up[d.up]++;Snd.p('build');this.hud();}
    return this.showUp();}
   if(d.snd){S.set.snd=S.set.snd?0:1;return this.showSet();}
+  if(d.mus){S.set.mus=S.set.mus?0:1;Music.toggle(!!S.set.mus);return this.showSet();}
   if(d.reset){if(this.resetArm){SaveSys.reset();location.reload();}
    else{this.resetArm=true;this.toast('Торкнись ще раз для підтвердження!');setTimeout(()=>this.resetArm=false,3000);}return;}
  }
@@ -1313,7 +1358,7 @@ const UI={
 
 /* ================= INPUT ================= */
 function bindInput(){
- $('mBody').addEventListener('click',e=>{const a=e.target.closest('[data-act],[data-isl],[data-build],[data-claim],[data-menu],[data-story],[data-wear],[data-buyskin],[data-ad],[data-up],[data-snd],[data-reset]');
+ $('mBody').addEventListener('click',e=>{const a=e.target.closest('[data-act],[data-isl],[data-build],[data-claim],[data-menu],[data-story],[data-wear],[data-buyskin],[data-ad],[data-up],[data-snd],[data-mus],[data-reset]');
   if(a)UI.act(a.dataset);});
  $('mTabs').addEventListener('click',e=>{const t=e.target.closest('.tab');if(t)UI.act(t.dataset);});
  $('mX').onclick=()=>UI.close();
@@ -1365,6 +1410,7 @@ function startGame(fresh){
  if(st){const p=tileCenter(st);Render.fox.x=Render.fox.tx=p.x;Render.fox.y=Render.fox.ty=p.y;}
  if(fresh)Story.play('intro',()=>UI.toast('Торкнись темної землі поруч із зеленою! 🌱'));
  else Game.offline();
+ if(S.set.mus)Music.start();
  SaveSys.save();
 }
 window.addEventListener('load',()=>{
@@ -1377,7 +1423,9 @@ window.addEventListener('load',()=>{
    setTimeout(()=>UI.newArm=false,3000);return;}
   startGame(true);};
  requestAnimationFrame(loop);});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&S)SaveSys.save();});
+document.addEventListener('visibilitychange',()=>{if(!S)return;
+ if(document.hidden){SaveSys.save();Music.stop();}
+ else if(S.set.mus)Music.start();});
 window.addEventListener('beforeunload',()=>{if(S)SaveSys.save();});
 </script>
 </body>
