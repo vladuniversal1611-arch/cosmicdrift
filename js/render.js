@@ -297,7 +297,7 @@ const Renderer = {
     cx.fillStyle = '#ffd54f'; cx.font = 'bold 9px sans-serif'; cx.textAlign = 'center';
     cx.fillText(p.lvl >= MAX_LVL ? '★' : 'р.' + p.lvl, x + TILE - 13, y + 13);
     // готовий бонус — блискітка
-    if (B.prod && Date.now() - p.tapAt > TAP_CD * 1000) {
+    if (Game.tappable(p.b) && Date.now() - p.tapAt > TAP_CD * 1000) {
       const pu = 1 + Math.sin(t * 5 + i) * 0.15;
       cx.font = `${11 * pu}px sans-serif`;
       cx.fillText('✨', cxm, y + 6);

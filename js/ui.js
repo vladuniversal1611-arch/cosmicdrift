@@ -2,8 +2,9 @@
 'use strict';
 
 const UI = {
-  panel: null, placeType: null, refreshT: 0, needRefresh: false,
+  panel: null, subView: null, placeType: null, refreshT: 0, needRefresh: false,
   el(id) { return document.getElementById(id); },
+  modalBusy() { return this.el('modal').classList.contains('open'); },
 
   init() {
     this.el('nav').innerHTML = [
@@ -76,6 +77,7 @@ const UI = {
 
   modal(html, buttons, onAction) {
     const m = this.el('modal');
+    delete m.dataset.ad; // нове вікно скасовує таймер демо-реклами
     m.innerHTML = `<div class="modalBox">${html}
       <div class="modalBtns">${(buttons || [['ok', 'Гаразд']]).map(([a, l, cls]) =>
         `<button class="btn ${cls || ''}" data-a="${a}">${l}</button>`).join('')}</div></div>`;
@@ -93,6 +95,7 @@ const UI = {
   /* ---------- панелі ---------- */
   openPanel(id) {
     this.panel = id;
+    this.subView = null;
     this.placeType = null; Renderer.placeList = null;
     document.querySelectorAll('.navBtn').forEach(b => b.classList.toggle('active', b.dataset.p === id));
     const sheet = this.el('sheet');
@@ -105,7 +108,8 @@ const UI = {
     this.el('panelTitle').textContent = titles[this.panel] || '';
     const body = this.el('panelBody');
     const scroll = body.scrollTop;
-    if (this.panel === 'build') body.innerHTML = this.buildHtml();
+    if (this.panel === 'more' && this.subView) body.innerHTML = this.subHtml(this.subView);
+    else if (this.panel === 'build') body.innerHTML = this.buildHtml();
     else if (this.panel === 'citizens') body.innerHTML = this.citizensHtml();
     else if (this.panel === 'research') body.innerHTML = this.researchHtml();
     else if (this.panel === 'map') body.innerHTML = this.mapHtml();
@@ -235,6 +239,7 @@ const UI = {
     const expReady = Game.S.exps.filter(e => Date.now() >= e.end).length;
     const crowns = Game.crownsGain();
     const rows = [
+      ['story', '📖', 'Сюжет', Game.S.story < STORY.length ? `${Game.S.story}/${STORY.length}` : '✅'],
       ['exped', '🧭', 'Експедиції', expReady ? `${expReady} заверш.` : (Game.S.exps.length ? 'в дорозі…' : '')],
       ['quests', '📜', 'Щоденні квести', q ? `${q} готово!` : ''],
       ['prestige', '👑', 'Коронація', crowns ? `+${crowns} 👑!` : (Game.S.crowns ? `${Game.S.crowns} 👑` : '')],
@@ -250,16 +255,21 @@ const UI = {
 
   sub(id) {
     A.sfx('click');
-    const body = this.el('panelBody');
-    const back = `<button class="btn ghost" onclick="UI.renderPanel()">‹ Назад</button>`;
-    if (id === 'exped') body.innerHTML = back + this.expedHtml();
-    if (id === 'quests') body.innerHTML = back + this.questsHtml();
-    if (id === 'prestige') body.innerHTML = back + this.prestigeHtml();
-    if (id === 'ach') body.innerHTML = back + this.achHtml();
-    if (id === 'coll') body.innerHTML = back + this.collHtml();
-    if (id === 'shop') body.innerHTML = back + this.shopHtml();
-    if (id === 'stats') body.innerHTML = back + this.statsHtml();
-    body.scrollTop = 0;
+    this.subView = id; // тримається при автооновленні панелі
+    this.el('panelBody').innerHTML = this.subHtml(id);
+    this.el('panelBody').scrollTop = 0;
+  },
+  subHtml(id) {
+    const back = `<button class="btn ghost" onclick="UI.subView=null;UI.renderPanel()">‹ Назад</button>`;
+    if (id === 'exped') return back + this.expedHtml();
+    if (id === 'quests') return back + this.questsHtml();
+    if (id === 'story') return back + this.storyHtml();
+    if (id === 'prestige') return back + this.prestigeHtml();
+    if (id === 'ach') return back + this.achHtml();
+    if (id === 'coll') return back + this.collHtml();
+    if (id === 'shop') return back + this.shopHtml();
+    if (id === 'stats') return back + this.statsHtml();
+    return back;
   },
 
   expedHtml() {
@@ -296,6 +306,41 @@ const UI = {
     for (const ex of r.extras) h += `<p>🎁 ${ex.text}</p>`;
     this.modal(h);
     this.sub('exped');
+  },
+
+  storyHtml() {
+    const S = Game.S;
+    let h = '';
+    const next = STORY[S.story];
+    if (next) {
+      h += `<div class="colBlock storyNext"><b>📖 Поточний розділ</b>
+        <p class="hint" style="margin:6px 0 4px">«${next.title}»</p>
+        <div class="cost">🎯 ${next.goal}</div>
+        ${next.reward ? `<small style="color:#8a7561">Нагорода: ${costStr(next.reward)}</small>` : ''}</div>`;
+    } else {
+      h += `<div class="colBlock storyNext"><b>🏆 Історію завершено!</b>
+        <p class="hint" style="margin-top:6px">Серце Королівства знову б'ється. Далі — вічна слава: колекції, досягнення та нові династії.</p></div>`;
+    }
+    if (S.story > 0) h += `<div class="hint">Прочитані розділи:</div>`;
+    for (let i = S.story - 1; i >= 0; i--) {
+      const st = STORY[i], ch = CHARS[st.who];
+      h += `<div class="card tap" onclick="UI.storyModal(STORY[${i}], true)">
+        <div class="cardIcon">${ch.icon}</div>
+        <div class="cardMain"><b>${i + 1}. ${st.title}</b><p>${ch.n}</p></div><span class="chev">›</span></div>`;
+    }
+    return h;
+  },
+  /* діалогове вікно сюжету; replay=true — перечитування без нагороди */
+  storyModal(step, replay) {
+    const ch = CHARS[step.who];
+    this.modal(`<div class="storyDlg">
+        <div class="portrait">${ch.icon}</div>
+        <div class="charName">${ch.n}</div>
+        <h3>${step.title}</h3>
+        <p class="storyText">${step.text}</p>
+        ${!replay && step.reward ? `<p class="big">Нагорода: ${costStr(step.reward)}</p>` : ''}
+      </div>`, [['ok', replay ? 'Закрити' : '📖 Далі']]);
+    if (!replay) { A.sfx('event'); this.refreshTop(); }
   },
 
   prestigeHtml() {
@@ -408,8 +453,13 @@ const UI = {
     // через міст window.AndroidBridge.showRewardedAd(kind).
     if (window.AndroidBridge && window.AndroidBridge.showRewardedAd) { window.AndroidBridge.showRewardedAd(kind); return; }
     this.modal(`<h3>🎬 Реклама</h3><p>Уяви тут відео на 30 секунд…<br>(демо-режим: нагорода за 3 сек)</p>`, [['skip', 'Зачекати']], act => {});
+    const m = this.el('modal');
+    m.dataset.ad = '1';
     setTimeout(() => {
-      this.el('modal').classList.remove('open');
+      // видаємо нагороду, лише якщо рекламне вікно досі на екрані
+      if (m.dataset.ad !== '1') return;
+      delete m.dataset.ad;
+      m.classList.remove('open'); m.innerHTML = '';
       window.grantAdReward(kind);
     }, 3000);
   },

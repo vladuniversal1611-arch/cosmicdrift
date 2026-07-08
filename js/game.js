@@ -40,6 +40,7 @@ const Game = {
       builders: 1, offlineX2: false,
       tutorial: 0,
       crowns: 0, prestiges: 0,
+      story: 0,
     };
     // стартові будівлі: будинок + лісопилка
     S.plots[this.pi(2, 4)] = { b: 'house', lvl: 1, until: 0, target: 0, tapAt: 0 };
@@ -66,6 +67,22 @@ const Game = {
     const S = this.S;
     if (S.crowns === undefined) S.crowns = 0;
     if (S.prestiges === undefined) S.prestiges = 0;
+    if (S.story === undefined) {
+      S.story = 0;
+      // старе збереження з прогресом: тихо зараховуємо вже прожиті розділи
+      if (this.kl() > 3) {
+        const ctx = { g: this, st: S.stats };
+        let done = 0;
+        while (S.story < STORY.length) {
+          let ok = false;
+          try { ok = STORY[S.story].cond(ctx); } catch (e) {}
+          if (!ok) break;
+          for (const [r, v] of Object.entries(STORY[S.story].reward || {})) this.addRes(r, v);
+          S.story++; done++;
+        }
+        if (done && typeof UI !== 'undefined') UI.toast(`📖 Сюжет додано! Розділів зараховано: ${done}, нагороди нараховано.`);
+      }
+    }
   },
   save() {
     this.S.lastSeen = Date.now();
@@ -247,21 +264,27 @@ const Game = {
     this.S.plots[i] = { b: null, lvl: 0, until: 0, target: 0, tapAt: 0 };
     return null;
   },
-  /* збір бонусу з будівлі (тап): +45 секунд її виробництва */
+  /* чи дає будівля відчутний тап-бонус (медалі надто дрібні для збору) */
+  tappable(t) {
+    const B = BUILDINGS[t];
+    return !!B.prod && Object.keys(B.prod).some(r => r !== 'medal');
+  },
+  /* збір бонусу з будівлі (тап): +30 секунд її виробництва */
   collect(i) {
     const p = this.S.plots[i];
-    if (!p.b || p.lvl <= 0) return null;
+    if (!p.b || p.lvl <= 0 || !this.tappable(p.b)) return null;
     const B = BUILDINGS[p.b];
-    if (!B.prod) return null;
     const now = Date.now();
     if (now - p.tapAt < TAP_CD * 1000) return null;
-    p.tapAt = now;
     const got = {};
     const sm = this.staffMult(p.b);
     for (const [r, v] of Object.entries(B.prod)) {
+      if (r === 'medal') continue;
       const amt = v * lvlProdMult(p.lvl) * sm * this.mult(r) * 30;
       if (amt >= 0.5) got[r] = this.addRes(r, amt);
     }
+    if (!Object.keys(got).length) return null; // не палимо кулдаун намарно (склад повний тощо)
+    p.tapAt = now;
     this.stat('taps');
     A.sfx('collect');
     return got;
@@ -414,6 +437,7 @@ const Game = {
     if (id === 'caravan') {
       if (action === 'buy') {
         if (S.res.gold < d.buyGold) return { err: 'Недостатньо золота' };
+        if (S.res[d.r] + d.amount > this.storageCap()) return { err: 'Недостатньо місця на складі' };
         S.res.gold -= d.buyGold; this.addRes(d.r, d.amount);
         out = `Куплено ${RES_META[d.r].icon}${fmt(d.amount)} за 🪙${fmt(d.buyGold)}`;
       } else if (action === 'sell') {
@@ -504,6 +528,20 @@ const Game = {
     this.stat('quests');
     A.sfx('ach');
     UI.toast(`📜 Квест виконано! +${costStr(t.reward)}`);
+  },
+
+  /* ---------------- сюжет ---------------- */
+  checkStory() {
+    const step = STORY[this.S.story];
+    if (!step) return;
+    if (UI.modalBusy && UI.modalBusy()) return; // не перебиваємо відкриті вікна
+    if (this.fight) return;                     // і бій з гоблінами
+    let ok = false;
+    try { ok = step.cond({ g: this, st: this.S.stats }); } catch (e) {}
+    if (!ok) return;
+    this.S.story++;
+    for (const [r, v] of Object.entries(step.reward || {})) this.addRes(r, v);
+    if (UI.storyModal) UI.storyModal(step);
   },
 
   /* ---------------- досягнення ---------------- */
@@ -713,9 +751,9 @@ const Game = {
     this.updateFight(dt);
     // квести нового дня
     this.ensureQuests();
-    // досягнення
+    // досягнення та сюжет
     this.achTimer += dt;
-    if (this.achTimer > 2) { this.achTimer = 0; this.checkAchievements(); }
+    if (this.achTimer > 2) { this.achTimer = 0; this.checkAchievements(); this.checkStory(); }
     // автозбереження
     this.saveTimer += dt;
     if (this.saveTimer > 10) { this.saveTimer = 0; this.save(); }
