@@ -82,7 +82,11 @@ const UI = {
       <div class="modalBtns">${(buttons || [['ok', 'Гаразд']]).map(([a, l, cls]) =>
         `<button class="btn ${cls || ''}" data-a="${a}">${l}</button>`).join('')}</div></div>`;
     m.classList.add('open');
+    this._modalAt = Date.now();
     m.onclick = e => {
+      // тап, що відкрив вікно, породжує фантомний click по ньому ж —
+      // міг закрити панель чи навіть натиснути кнопку (напр. «Знести»)
+      if (Date.now() - this._modalAt < 300) return;
       const b = e.target.closest('button[data-a]');
       if (!b && e.target !== m) return;
       A.sfx('click');
@@ -582,22 +586,27 @@ const UI = {
   onPlotTap(i) {
     const S = Game.S, p = S.plots[i];
     if (this.placeType) {
-      const err = Game.buildAt(i, this.placeType);
-      if (err) { this.toast(err); }
-      else { this.placeType = null; Renderer.placeList = null; this.refreshTop(); }
-      return;
+      if (p.b || p.until) {
+        // тап по зайнятій ділянці: виходимо з режиму розміщення і показуємо будівлю
+        this.placeType = null; Renderer.placeList = null;
+      } else {
+        const err = Game.buildAt(i, this.placeType);
+        if (err) this.toast(err);
+        else { this.placeType = null; Renderer.placeList = null; this.refreshTop(); }
+        return;
+      }
     }
     if (!p.b) return;
     if (p.until > 0) { this.constructionPopup(i); return; }
-    // збір бонусу, якщо готовий
+    // бонус збирається тим самим дотиком, панель відкривається завжди
     const got = Game.collect(i);
+    let collected = null;
     if (got && Object.keys(got).length) {
-      const txt = Object.entries(got).map(([r, v]) => `+${fmt(v)}${RES_META[r].icon}`).join(' ');
-      Renderer.float(i, txt, '#ffe082');
+      collected = Object.entries(got).map(([r, v]) => `+${fmt(v)}${RES_META[r].icon}`).join(' ');
+      Renderer.float(i, collected, '#ffe082');
       this.refreshTop();
-      return;
     }
-    this.plotPopup(i);
+    this.plotPopup(i, collected);
   },
   constructionPopup(i) {
     const p = Game.S.plots[i], B = BUILDINGS[p.b];
@@ -607,10 +616,10 @@ const UI = {
       ['speed', `💎${cost} Прискорити`], ['ok', 'Гаразд'],
     ], act => { if (act === 'speed') { const e = Game.speedUp(i); if (e) { this.toast(e); return false; } } });
   },
-  plotPopup(i) {
+  plotPopup(i, collected) {
     const p = Game.S.plots[i], B = BUILDINGS[p.b];
     const S = Game.S;
-    let info = B.desc;
+    let info = (collected ? `<span class="collectedLine">✨ Зібрано: ${collected}</span><br>` : '') + B.desc;
     if (B.prod) {
       const sm = Game.staffMult(p.b);
       const rates = Object.entries(B.prod).map(([r, v]) =>

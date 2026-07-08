@@ -14,7 +14,7 @@
 
     cv.addEventListener('pointerdown', e => {
       A.start();
-      cv.setPointerCapture(e.pointerId);
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
       dragging = false;
       if (ptrs.size === 2) {
