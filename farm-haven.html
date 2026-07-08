@@ -16,11 +16,12 @@ body{display:flex;justify-content:center;align-items:center}
 #app{position:relative;width:100%;max-width:440px;height:100%;max-height:940px;display:flex;flex-direction:column;background:linear-gradient(#aee49a,#8fd07a);border-radius:0;overflow:hidden;box-shadow:0 0 60px #00000066}
 @media(min-width:460px){#app{border-radius:22px;height:min(940px,96vh)}}
 
-/* seasons background tint */
+/* seasons: background tint + terrain palette */
+#app{--gA:#84cb6d;--gB:#7bc363;--soil:#8d6034;--soilLine:rgba(60,30,5,.18)}
 #app.season-spring{background:linear-gradient(#b7e8a0,#8fd07a)}
-#app.season-summer{background:linear-gradient(#c9e88a,#93c85e)}
-#app.season-autumn{background:linear-gradient(#f0d193,#d8a45e)}
-#app.season-winter{background:linear-gradient(#dbe9f4,#b6cede)}
+#app.season-summer{background:linear-gradient(#c9e88a,#93c85e);--gA:#90cc5f;--gB:#87c457}
+#app.season-autumn{background:linear-gradient(#f0d193,#d8a45e);--gA:#cbab5e;--gB:#c2a256}
+#app.season-winter{background:linear-gradient(#dbe9f4,#b6cede);--gA:#eaf2f9;--gB:#dfeaf3;--soil:#7d6a52;--soilLine:rgba(40,40,60,.15)}
 
 /* header */
 header{padding:10px 12px 8px;background:rgba(38,66,32,.92);color:#fff;backdrop-filter:blur(8px);z-index:5}
@@ -42,21 +43,29 @@ main{flex:1;overflow:hidden;position:relative}
 .tab{position:absolute;inset:0;overflow-y:auto;padding:10px 10px 16px;display:none}
 .tab.on{display:block}
 
-/* farm grid */
-#grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;background:rgba(0,0,0,.08);padding:4px;border-radius:12px}
-.cell{position:relative;aspect-ratio:1;border-radius:5px;border:none;font-size:clamp(12px,4.4vw,20px);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
-.cell.grass{background:#7ec96a}
-.season-autumn .cell.grass{background:#c9b45c}
-.season-winter .cell.grass{background:#e8f2fa}
-.cell.soil{background:#8d6034;box-shadow:inset 0 0 0 2px #7a5129}
-.cell.weed{background:#6db85a}
-.cell.rock{background:#9aa79a}
-.cell.tree{background:#5faf52}
-.cell.house,.cell.barn{background:#c9a26a}
-.cell.deco{background:#8fd47c}
-.cell.locked{filter:grayscale(.85) brightness(.75);opacity:.75}
-.cell.ready{animation:pulse 1s infinite}
-@keyframes pulse{50%{transform:scale(1.16);filter:brightness(1.25)}}
+/* farm grid — continuous terrain */
+#grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;background:var(--gA);padding:0;border-radius:14px;border:5px solid #7a5a33;box-shadow:0 4px 14px rgba(0,0,0,.25),inset 0 0 22px rgba(30,60,15,.18);overflow:hidden}
+.cell{position:relative;aspect-ratio:1;border:none;font-size:clamp(13px,4.8vw,22px);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;background:var(--gA)}
+.cell.alt{background:var(--gB)}
+.cell.tuft{background-image:radial-gradient(circle at 30% 38%,rgba(0,70,0,.14) 2px,transparent 2.6px),radial-gradient(circle at 68% 72%,rgba(0,70,0,.11) 2px,transparent 2.6px)}
+.season-winter .cell.tuft{background-image:radial-gradient(circle at 30% 38%,rgba(120,150,190,.35) 2px,transparent 2.6px),radial-gradient(circle at 68% 72%,rgba(120,150,190,.28) 2px,transparent 2.6px)}
+.cell.soil,.cell.crop{background:var(--soil);background-image:repeating-linear-gradient(90deg,var(--soilLine) 0 2px,transparent 2px 7px);box-shadow:inset 0 0 0 2px rgba(45,25,5,.28),inset 0 2px 5px rgba(0,0,0,.2);border-radius:7px}
+.cell.path{background:#cba76a;background-image:radial-gradient(rgba(90,55,15,.16) 14%,transparent 16%);background-size:9px 9px;box-shadow:inset 0 0 6px rgba(90,55,15,.25)}
+.season-winter .cell.path{background:#d8dfe6}
+.cell span{display:block;pointer-events:none;filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.3))}
+.cell.tree span{font-size:1.4em;transform:translateY(-12%)}
+.cell.rock span{font-size:1.08em}
+.cell.weed span{font-size:1.05em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2)) saturate(1.1)}
+.cell.house span{font-size:2em;transform:translateY(-16%)}
+.cell.barn span{font-size:1.65em;transform:translateY(-12%)}
+.cell.deco span{font-size:1.2em;transform:translateY(-6%)}
+.cell.house::before,.cell.barn::before,.cell.tree::before{content:'';position:absolute;left:12%;right:12%;bottom:6%;height:22%;background:radial-gradient(ellipse,rgba(0,0,0,.22),transparent 70%);border-radius:50%}
+.cell.locked::after{content:'';position:absolute;inset:0;background:rgba(14,34,10,.45)}
+.season-winter .cell.locked::after{background:rgba(30,50,80,.35)}
+.cell.locked span{filter:grayscale(.5) brightness(.8)}
+.cell.ready{z-index:2}
+.cell.ready span{animation:pulse 1s infinite;font-size:1.15em}
+@keyframes pulse{50%{transform:scale(1.22);filter:drop-shadow(0 0 6px #ffe066) brightness(1.2)}}
 
 /* seed bar */
 #seedbar{display:flex;gap:6px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
@@ -328,6 +337,7 @@ function genGrid(){
   g.push(row);
  }
  g[4][3]={t:'house'}; g[4][8]={t:'barn'};
+ for(const [r,c] of [[4,4],[4,5],[4,6],[4,7],[5,4]]) g[r][c]={t:'path'};
  for(const [r,c] of [[6,3],[6,4],[6,5],[7,3],[7,4],[7,5]]) g[r][c]={t:'soil'};
  return g;
 }
@@ -462,12 +472,17 @@ function cropStage(tile){
  if(p>=1)return 'ready';
  return p<.5?'sprout':'grow';
 }
+const GRASSY={grass:1,weed:1,rock:1,tree:1,house:1,barn:1,deco:1};
 function updateGrid(){
  const seasonId=season().id;
  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
   const t=S.grid[r][c], el=cellEls[r][c];
   const z=zoneOf(r,c), locked=z&&!S.zones[z];
   let cls='cell '+t.t, em='';
+  if(GRASSY[t.t]){
+   if((r+c)%2)cls+=' alt';
+   if((r*31+c*17)%7===0)cls+=' tuft';
+  }
   if(t.t==='weed')em='🌿';
   else if(t.t==='rock')em='🪨';
   else if(t.t==='tree')em=seasonId==='winter'?'🌲':'🌳';
@@ -481,8 +496,12 @@ function updateGrid(){
    else{em=ITEMS[t.crop].e; cls+=' ready';}
   }
   if(locked)cls+=' locked';
-  if(el.className!==cls)el.className=cls;
-  if(el.textContent!==em)el.textContent=em;
+  const key=cls+'|'+em;
+  if(el.dataset.k!==key){
+   el.dataset.k=key;
+   el.className=cls;
+   el.innerHTML=em?'<span>'+em+'</span>':'';
+  }
  }
 }
 function tapTile(r,c){
@@ -540,6 +559,9 @@ function tapTile(r,c){
    break;
   case 'deco':
    toast(t.e+' Гарна прикраса! (+2% до цін продажу)');
+   break;
+  case 'path':
+   toast('🐾 Стежка між будинком і полями');
    break;
  }
  refresh();
