@@ -43,29 +43,13 @@ main{flex:1;overflow:hidden;position:relative}
 .tab{position:absolute;inset:0;overflow-y:auto;padding:10px 10px 16px;display:none}
 .tab.on{display:block}
 
-/* farm grid — continuous terrain */
-#grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;background:var(--gA);padding:0;border-radius:14px;border:5px solid #7a5a33;box-shadow:0 4px 14px rgba(0,0,0,.25),inset 0 0 22px rgba(30,60,15,.18);overflow:hidden}
-.cell{position:relative;aspect-ratio:1;border:none;font-size:clamp(13px,4.8vw,22px);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1;background:var(--gA)}
-.cell.alt{background:var(--gB)}
-.cell.tuft{background-image:radial-gradient(circle at 30% 38%,rgba(0,70,0,.14) 2px,transparent 2.6px),radial-gradient(circle at 68% 72%,rgba(0,70,0,.11) 2px,transparent 2.6px)}
-.season-winter .cell.tuft{background-image:radial-gradient(circle at 30% 38%,rgba(120,150,190,.35) 2px,transparent 2.6px),radial-gradient(circle at 68% 72%,rgba(120,150,190,.28) 2px,transparent 2.6px)}
-.cell.soil,.cell.crop{background:var(--soil);background-image:repeating-linear-gradient(90deg,var(--soilLine) 0 2px,transparent 2px 7px);box-shadow:inset 0 0 0 2px rgba(45,25,5,.28),inset 0 2px 5px rgba(0,0,0,.2);border-radius:7px}
-.cell.path{background:#cba76a;background-image:radial-gradient(rgba(90,55,15,.16) 14%,transparent 16%);background-size:9px 9px;box-shadow:inset 0 0 6px rgba(90,55,15,.25)}
-.season-winter .cell.path{background:#d8dfe6}
-.cell span{display:block;pointer-events:none;filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.3))}
-.cell.tree span{font-size:1.4em;transform:translateY(-12%)}
-.cell.rock span{font-size:1.08em}
-.cell.weed span{font-size:1.05em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2)) saturate(1.1)}
-.cell.house span{font-size:2em;transform:translateY(-16%)}
-.cell.barn span{font-size:1.65em;transform:translateY(-12%)}
-.cell.deco span{font-size:1.2em;transform:translateY(-6%)}
-.cell.house::before,.cell.barn::before,.cell.tree::before{content:'';position:absolute;left:12%;right:12%;bottom:6%;height:22%;background:radial-gradient(ellipse,rgba(0,0,0,.22),transparent 70%);border-radius:50%}
-.cell.locked::after{content:'';position:absolute;inset:0;background:rgba(14,34,10,.45)}
-.season-winter .cell.locked::after{background:rgba(30,50,80,.35)}
-.cell.locked span{filter:grayscale(.5) brightness(.8)}
-.cell.ready{z-index:2}
-.cell.ready span{animation:pulse 1s infinite;font-size:1.15em}
-@keyframes pulse{50%{transform:scale(1.22);filter:drop-shadow(0 0 6px #ffe066) brightness(1.2)}}
+/* farm map — pannable canvas world */
+#mapwrap{position:relative}
+#farmCanvas{display:block;width:100%;height:min(54vh,480px);border-radius:14px;border:4px solid #7a5a33;box-shadow:0 4px 14px rgba(0,0,0,.25);touch-action:none;background:#33502b;cursor:grab}
+#zoomctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zbtn{width:36px;height:36px;border:none;border-radius:10px;background:rgba(38,66,32,.85);color:#fff;font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+#maphint{text-align:center;font-size:11px;color:#3d5c33;margin-top:5px;opacity:.85}
+.season-winter #maphint{color:#2c4a63}
 
 /* seed bar */
 #seedbar{display:flex;gap:6px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
@@ -138,7 +122,11 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
   </header>
   <main>
     <section class="tab on" id="tab-farm">
-      <div id="grid"></div>
+      <div id="mapwrap">
+        <canvas id="farmCanvas"></canvas>
+        <div id="zoomctl"><button class="zbtn" id="zin">+</button><button class="zbtn" id="zout">−</button></div>
+      </div>
+      <div id="maphint">🖐 Тягни карту, щоб оглянути долину · 🔍 щипок або коліщатко — масштаб</div>
       <div id="seedbar"></div>
       <div class="secTitle">🐮 Хлів</div>
       <div id="animals"></div>
@@ -301,49 +289,99 @@ const DECOS={
  statue:{n:'Статуя',e:'🗿',cost:900,lvl:9},
 };
 
-const ROWS=14, COLS=12;
-function zoneOf(r,c){
- if(r<=2)return 'north';
- if(r>=11)return 'south';
- if(c<=1)return 'west';
- if(c>=10)return 'east';
- return null; // core
-}
 const ri=n=>Math.floor(Math.random()*n);
+
+/* ---------- world map geometry ---------- */
+const WORLD={w:1600,h:1200};
+const ZONES={
+ core:{x:500,y:350,w:600,h:500},
+ west:{x:140,y:350,w:360,h:500},
+ east:{x:1100,y:350,w:360,h:500},
+ north:{x:140,y:60,w:1320,h:290},
+ south:{x:140,y:850,w:1320,h:290},
+};
+const PADDOCK={x:930,y:480,w:160,h:140};   // animals wander here
+const POND={x:330,y:1010,rx:115,ry:62};    // decorative pond in the south
+const HOUSE_POS={x:590,y:450}, BARN_POS={x:1010,y:450};
+function zoneAt(x,y){
+ for(const k in ZONES){const z=ZONES[k]; if(x>=z.x&&x<z.x+z.w&&y>=z.y&&y<z.y+z.h)return k;}
+ return null;
+}
+function zoneOwned(k){ return k==='core'||!!S.zones[k]; }
+function inRect(x,y,r){ return x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h; }
+function inPond(x,y){ const dx=(x-POND.x)/(POND.rx+30), dy=(y-POND.y)/(POND.ry+30); return dx*dx+dy*dy<1; }
+function posFree(objs,x,y,r){
+ for(const o of objs){ const d=Math.hypot(o.x-x,o.y-y); if(d<r)return false; }
+ return true;
+}
 
 /* ---------- state ---------- */
 let S=null;
 function defaultState(){
  return {
   coins:100, xp:0, level:1, inv:{},
-  grid:null, animals:[], buildings:{}, zones:{},
+  world:null, animals:[], buildings:{}, zones:{},
   terr:{}, quests:{}, tree:{lvl:0,don:{}}, fest:{},
   beesUnlocked:false, continent:false, decoCount:0,
   sel:'wheat', worldStart:now(), lastDay:0, sound:true, intro:false,
  };
 }
-function genGrid(){
- const g=[];
- for(let r=0;r<ROWS;r++){
-  const row=[];
-  for(let c=0;c<COLS;c++){
-   const z=zoneOf(r,c);
-   let t='grass';
-   const rr=Math.random();
-   if(z){ if(rr<.3)t='tree'; else if(rr<.5)t='rock'; else if(rr<.7)t='weed'; }
-   else { if(rr<.28)t='weed'; else if(rr<.42)t='rock'; else if(rr<.58)t='tree'; }
-   row.push({t});
+function scatterZone(objs,zk,counts){
+ const z=ZONES[zk];
+ for(const [kind,n] of counts){
+  for(let t=0;t<n;t++){
+   for(let tries=0;tries<50;tries++){
+    const x=z.x+30+Math.random()*(z.w-60), y=z.y+40+Math.random()*(z.h-70);
+    if(!posFree(objs,x,y,kind==='weed'?38:46))continue;
+    if(inRect(x,y,PADDOCK)||inPond(x,y))continue;
+    if(Math.hypot(x-HOUSE_POS.x,y-HOUSE_POS.y)<80||Math.hypot(x-BARN_POS.x,y-BARN_POS.y)<80)continue;
+    objs.push({k:kind,x:Math.round(x),y:Math.round(y)}); break;
+   }
   }
-  g.push(row);
  }
- g[4][3]={t:'house'}; g[4][8]={t:'barn'};
- for(const [r,c] of [[4,4],[4,5],[4,6],[4,7],[5,4]]) g[r][c]={t:'path'};
- for(const [r,c] of [[6,3],[6,4],[6,5],[7,3],[7,4],[7,5]]) g[r][c]={t:'soil'};
- return g;
+}
+function genWorld(){
+ const objs=[];
+ objs.push({k:'house',x:HOUSE_POS.x,y:HOUSE_POS.y});
+ objs.push({k:'barn',x:BARN_POS.x,y:BARN_POS.y});
+ for(let r=0;r<2;r++)for(let c=0;c<3;c++)objs.push({k:'soil',x:600+c*52,y:620+r*52});
+ scatterZone(objs,'core',[['tree',7],['rock',6],['weed',9]]);
+ for(const zk of ['west','east','north','south'])
+  scatterZone(objs,zk,[['tree',10],['rock',7],['weed',8]]);
+ return objs;
+}
+function bedSpot(objs){ // free lattice spot for a migrated bed
+ for(let ring=0;ring<8;ring++)
+  for(let r=0;r<6;r++)for(let c=0;c<9;c++){
+   const x=560+c*52, y=620+r*52;
+   if(zoneAt(x,y)!=='core')continue;
+   if(inRect(x,y,PADDOCK))continue;
+   if(posFree(objs,x,y,44))return {x,y};
+  }
+ return null;
+}
+function migrateGrid(objs){ // carry crops/beds/decos over from the old grid save
+ const beds=[],decos=[];
+ for(const row of S.grid)for(const t of row){
+  if(t.t==='crop')beds.push({crop:t.crop,at:t.at});
+  else if(t.t==='soil')beds.push(null);
+  else if(t.t==='deco')decos.push(t.e);
+ }
+ const free=objs.filter(o=>o.k==='soil');
+ for(const b of beds){
+  let o=free.pop();
+  if(!o){ const p=bedSpot(objs); if(!p)break; o={k:'soil',x:p.x,y:p.y}; objs.push(o); }
+  if(b){ o.k='crop'; o.crop=b.crop; o.at=b.at; }
+ }
+ for(const e of decos){
+  const p=bedSpot(objs); if(!p)break;
+  objs.push({k:'deco',x:p.x,y:p.y,e});
+ }
+ delete S.grid;
 }
 function newGame(){
  S=defaultState();
- S.grid=genGrid();
+ S.world={objs:genWorld()};
  for(const k in NPCS) S.quests[k]=0;
  for(const k in TERRITORIES) S.terr[k]={unlocked:false,last:0};
  save();
@@ -354,7 +392,12 @@ function load(){
   const raw=localStorage.getItem(SAVE_KEY);
   if(!raw) return false;
   S=Object.assign(defaultState(),JSON.parse(raw));
-  if(!S.grid) return false;
+  if(!S.world){
+   if(!S.grid) return false;
+   const objs=genWorld();
+   migrateGrid(objs);
+   S.world={objs};
+  }
   return true;
  }catch(e){ return false; }
 }
@@ -450,121 +493,368 @@ function addXp(n){
  }
 }
 
-/* ---------- grid ---------- */
-let cellEls=[];
-function buildGrid(){
- const g=$('grid'); g.innerHTML=''; cellEls=[];
- for(let r=0;r<ROWS;r++){
-  const rowEls=[];
-  for(let c=0;c<COLS;c++){
-   const b=document.createElement('button');
-   b.className='cell';
-   b.onclick=()=>tapTile(r,c);
-   g.appendChild(b); rowEls.push(b);
-  }
-  cellEls.push(rowEls);
- }
- updateGrid();
-}
-function cropStage(tile){
- const cd=CROPS[tile.crop];
- const p=(now()-tile.at)/(cd.time*1000*growMult());
+/* ---------- canvas world engine ---------- */
+let cv,cx,bgCv,bgSeason=null,dpr=1;
+const BG_SCALE=1.2;
+const cam={x:380,y:330,s:.72};
+const wander=[]; // transient animal walk targets, index-matched to S.animals
+function cropStage(o){
+ const cd=CROPS[o.crop];
+ const p=(now()-o.at)/(cd.time*1000*growMult());
  if(p>=1)return 'ready';
  return p<.5?'sprout':'grow';
 }
-const GRASSY={grass:1,weed:1,rock:1,tree:1,house:1,barn:1,deco:1};
-function updateGrid(){
- const seasonId=season().id;
- for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-  const t=S.grid[r][c], el=cellEls[r][c];
-  const z=zoneOf(r,c), locked=z&&!S.zones[z];
-  let cls='cell '+t.t, em='';
-  if(GRASSY[t.t]){
-   if((r+c)%2)cls+=' alt';
-   if((r*31+c*17)%7===0)cls+=' tuft';
+const PAL={
+ spring:{grass:'#7ec769',blobA:'#74bd60',blobB:'#8ad175',path:'#c9a76b',water:'#5aa7d8',bank:'#4a8ab5',forest:'#31502a',fence:'#7c5a34'},
+ summer:{grass:'#8cc85d',blobA:'#82be53',blobB:'#97d268',path:'#cda96a',water:'#4fa3d4',bank:'#4487b0',forest:'#375426',fence:'#7c5a34'},
+ autumn:{grass:'#c4a458',blobA:'#b8994e',blobB:'#cfb065',path:'#b98f56',water:'#5a9ec9',bank:'#4a83a8',forest:'#4d4423',fence:'#6e5030'},
+ winter:{grass:'#e6eff7',blobA:'#dbe7f1',blobB:'#f0f6fb',path:'#cfd8df',water:'#8fc0e0',bank:'#7aa8c8',forest:'#3c5568',fence:'#6e6156'},
+};
+function rr(seed){ // deterministic pseudo-random for stable bg details
+ let s=seed;
+ return ()=>{ s=(s*16807+11)%2147483647; return (s&0xffff)/0x10000; };
+}
+function renderBG(seasonId){
+ const p=PAL[seasonId];
+ bgCv=bgCv||document.createElement('canvas');
+ bgCv.width=WORLD.w*BG_SCALE; bgCv.height=WORLD.h*BG_SCALE;
+ const b=bgCv.getContext('2d');
+ b.setTransform(BG_SCALE,0,0,BG_SCALE,0,0);
+ const rnd=rr(42);
+ // wilderness base
+ b.fillStyle=p.forest; b.fillRect(0,0,WORLD.w,WORLD.h);
+ // meadow zones
+ for(const k in ZONES){ const z=ZONES[k]; b.fillStyle=p.grass; b.fillRect(z.x,z.y,z.w,z.h); }
+ // organic grass patches
+ for(let i=0;i<130;i++){
+  const zk=Object.keys(ZONES)[Math.floor(rnd()*5)], z=ZONES[zk];
+  const x=z.x+rnd()*z.w, y=z.y+rnd()*z.h, r=14+rnd()*36;
+  b.fillStyle=rnd()<.5?p.blobA:p.blobB; b.globalAlpha=.4+rnd()*.3;
+  b.beginPath(); b.ellipse(x,y,r,r*.62,rnd()*3,0,7); b.fill();
+ }
+ b.globalAlpha=1;
+ // grass tufts
+ b.strokeStyle='rgba(20,60,10,.25)'; b.lineWidth=1.4;
+ if(seasonId==='winter')b.strokeStyle='rgba(120,150,190,.4)';
+ for(let i=0;i<420;i++){
+  const zk=Object.keys(ZONES)[Math.floor(rnd()*5)], z=ZONES[zk];
+  const x=z.x+rnd()*z.w, y=z.y+rnd()*z.h;
+  b.beginPath(); b.moveTo(x,y); b.lineTo(x-2,y-4); b.moveTo(x,y); b.lineTo(x+2,y-4); b.stroke();
+ }
+ // river on the far right
+ b.fillStyle=p.bank; b.fillRect(1466,0,104,WORLD.h);
+ b.fillStyle=p.water; b.fillRect(1474,0,88,WORLD.h);
+ b.strokeStyle='rgba(255,255,255,.25)'; b.lineWidth=2;
+ for(let i=0;i<26;i++){ const y=20+rnd()*(WORLD.h-40),x=1482+rnd()*70; b.beginPath(); b.moveTo(x,y); b.quadraticCurveTo(x+8,y+5,x+16,y); b.stroke(); }
+ // bridge over the river
+ b.fillStyle='#7c5a34'; b.fillRect(1462,585,112,52);
+ b.strokeStyle='#5e4423'; b.lineWidth=2;
+ for(let i=0;i<7;i++){ b.beginPath(); b.moveTo(1466+i*16,585); b.lineTo(1466+i*16,637); b.stroke(); }
+ b.fillStyle='#5e4423'; b.fillRect(1462,581,112,5); b.fillRect(1462,636,112,5);
+ // pond in the south
+ b.fillStyle=p.bank; b.beginPath(); b.ellipse(POND.x,POND.y,POND.rx+7,POND.ry+7,0,0,7); b.fill();
+ b.fillStyle=seasonId==='winter'?'#cfe4f2':p.water; b.beginPath(); b.ellipse(POND.x,POND.y,POND.rx,POND.ry,0,0,7); b.fill();
+ // dirt paths: house→barn, house→fields
+ b.strokeStyle=p.path; b.lineCap='round'; b.lineWidth=26;
+ b.beginPath(); b.moveTo(HOUSE_POS.x+40,HOUSE_POS.y+8); b.quadraticCurveTo(800,470,BARN_POS.x-45,BARN_POS.y+8); b.stroke();
+ b.beginPath(); b.moveTo(HOUSE_POS.x+15,HOUSE_POS.y+30); b.quadraticCurveTo(640,540,655,600); b.stroke();
+ b.strokeStyle='rgba(90,55,15,.18)'; b.lineWidth=22; b.setLineDash([3,9]);
+ b.beginPath(); b.moveTo(HOUSE_POS.x+40,HOUSE_POS.y+8); b.quadraticCurveTo(800,470,BARN_POS.x-45,BARN_POS.y+8); b.stroke();
+ b.setLineDash([]);
+ // fences around meadows
+ b.strokeStyle=p.fence; b.lineWidth=3;
+ for(const k in ZONES){
+  const z=ZONES[k];
+  b.strokeRect(z.x+3,z.y+3,z.w-6,z.h-6);
+  b.fillStyle=p.fence;
+  for(let x=z.x+3;x<=z.x+z.w-6;x+=46){ b.fillRect(x-2,z.y-2,5,10); b.fillRect(x-2,z.y+z.h-8,5,10); }
+  for(let y=z.y+3;y<=z.y+z.h-6;y+=46){ b.fillRect(z.x-2,y-2,10,5); b.fillRect(z.x+z.w-8,y-2,10,5); }
+ }
+ // paddock fence near barn
+ b.strokeStyle=p.fence; b.lineWidth=2.5; b.strokeRect(PADDOCK.x,PADDOCK.y,PADDOCK.w,PADDOCK.h);
+ // dense wild forest in the margins
+ b.font='34px serif'; b.textAlign='center'; b.textBaseline='middle';
+ const marginPts=[];
+ const step=52;
+ for(let x=26;x<WORLD.w;x+=step)for(let y=26;y<WORLD.h;y+=step){
+  const jx=x+(rnd()-.5)*30, jy=y+(rnd()-.5)*30;
+  if(zoneAt(jx,jy))continue;
+  if(jx>1440)continue; // river area
+  marginPts.push([jx,jy]);
+ }
+ b.fillStyle='#000';
+ for(const [x,y] of marginPts){ b.globalAlpha=.85+rnd()*.15; b.fillText('🌲',x,y); }
+ b.globalAlpha=1;
+}
+/* --- drawing helpers --- */
+function drawShadow(b,x,y,w){
+ b.fillStyle='rgba(0,0,0,.2)';
+ b.beginPath(); b.ellipse(x,y,w,w*.36,0,0,7); b.fill();
+}
+function drawBed(b,x,y){
+ b.fillStyle='#7a5129'; b.beginPath(); b.roundRect(x-24,y-24,48,48,7); b.fill();
+ b.fillStyle='#8d6034'; b.beginPath(); b.roundRect(x-21,y-21,42,42,5); b.fill();
+ b.strokeStyle='rgba(60,30,5,.3)'; b.lineWidth=2;
+ for(let i=-14;i<=14;i+=7){ b.beginPath(); b.moveTo(x+i,y-18); b.lineTo(x+i,y+18); b.stroke(); }
+}
+function emoji(b,e,x,y,size){
+ b.fillStyle='#000'; // opaque: fillStyle alpha bleeds into color emoji glyphs
+ b.font=size+'px serif'; b.textAlign='center'; b.textBaseline='middle';
+ b.fillText(e,x,y);
+}
+function objEmoji(o){
+ if(o.k==='tree')return season().id==='winter'?'🌲':'🌳';
+ if(o.k==='rock')return '🪨';
+ if(o.k==='weed')return '🌿';
+ if(o.k==='house')return '🏡';
+ if(o.k==='barn')return '🛖';
+ if(o.k==='deco')return o.e;
+ return '';
+}
+const OBJ_SIZE={tree:40,rock:24,weed:22,house:62,barn:50,deco:30};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:28,crop:28};
+/* --- per-frame draw --- */
+let lastTs=0;
+function frame(ts){
+ requestAnimationFrame(frame);
+ if(!S||!S.world||!cv||activeTab!=='farm')return;
+ const dt=Math.min(.1,(ts-lastTs)/1000)||.016; lastTs=ts;
+ if(bgSeason!==season().id){ renderBG(season().id); bgSeason=season().id; }
+ stepAnimals(dt);
+ const w=cv.width/dpr, h=cv.height/dpr;
+ clampCam(w,h);
+ cx.setTransform(dpr,0,0,dpr,0,0);
+ cx.clearRect(0,0,w,h);
+ cx.setTransform(dpr*cam.s,0,0,dpr*cam.s,-cam.x*dpr*cam.s,-cam.y*dpr*cam.s);
+ cx.imageSmoothingEnabled=true;
+ cx.drawImage(bgCv,0,0,WORLD.w,WORLD.h);
+ // objects, painter's order
+ const objs=S.world.objs.slice().sort((a,b2)=>a.y-b2.y);
+ for(const o of objs){
+  if(o.k==='soil'){ drawBed(cx,o.x,o.y); continue; }
+  if(o.k==='crop'){
+   drawBed(cx,o.x,o.y);
+   const st=cropStage(o);
+   if(st==='sprout')emoji(cx,'🌱',o.x,o.y-2,18);
+   else if(st==='grow')emoji(cx,'🌿',o.x,o.y-3,22);
+   else{
+    const pulse=1+.1*Math.sin(ts/160);
+    cx.save(); cx.shadowColor='#ffe066'; cx.shadowBlur=14;
+    emoji(cx,ITEMS[o.crop].e,o.x,o.y-4,Math.round(26*pulse));
+    cx.restore();
+   }
+   continue;
   }
-  if(t.t==='weed')em='🌿';
-  else if(t.t==='rock')em='🪨';
-  else if(t.t==='tree')em=seasonId==='winter'?'🌲':'🌳';
-  else if(t.t==='house')em='🏡';
-  else if(t.t==='barn')em='🛖';
-  else if(t.t==='deco')em=t.e;
-  else if(t.t==='crop'){
-   const st=cropStage(t);
-   if(st==='sprout')em='🌱';
-   else if(st==='grow')em='🌿';
-   else{em=ITEMS[t.crop].e; cls+=' ready';}
+  const sz=OBJ_SIZE[o.k]||26;
+  drawShadow(cx,o.x,o.y+sz*.34,sz*.42);
+  emoji(cx,objEmoji(o),o.x,o.y,sz);
+ }
+ // animals wandering in the paddock
+ S.animals.forEach((a,i)=>{
+  const wd=wander[i]; if(!wd)return;
+  const d=ANIMALS[a.type];
+  drawShadow(cx,wd.x,wd.y+9,11);
+  emoji(cx,d.e,wd.x,wd.y,26);
+  if(a.readyAt&&now()>=a.readyAt){
+   const bob=Math.sin(ts/220)*3;
+   emoji(cx,ITEMS[d.product].e,wd.x,wd.y-24+bob,16);
   }
-  if(locked)cls+=' locked';
-  const key=cls+'|'+em;
-  if(el.dataset.k!==key){
-   el.dataset.k=key;
-   el.className=cls;
-   el.innerHTML=em?'<span>'+em+'</span>':'';
-  }
+ });
+ // fog + signs over locked zones
+ for(const k in ZONES){
+  if(zoneOwned(k))continue;
+  const z=ZONES[k];
+  cx.fillStyle=season().id==='winter'?'rgba(30,50,80,.42)':'rgba(12,32,8,.5)';
+  cx.fillRect(z.x,z.y,z.w,z.h);
+  const ex=EXPANSIONS[k], sx=z.x+z.w/2, sy=z.y+z.h/2;
+  cx.fillStyle='#5e4423'; cx.beginPath(); cx.roundRect(sx-118,sy-34,236,68,10); cx.fill();
+  cx.fillStyle='#8a6437'; cx.beginPath(); cx.roundRect(sx-112,sy-28,224,56,8); cx.fill();
+  cx.fillStyle='#ffe9c2'; cx.font='bold 19px sans-serif'; cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText('🔒 '+ex.n,sx,sy-11);
+  cx.font='15px sans-serif';
+  cx.fillText(S.level>=ex.lvl?fmt(ex.cost)+' 🪙 — торкнись, щоб купити':'потрібен рівень '+ex.lvl,sx,sy+13);
  }
 }
-function tapTile(r,c){
- const z=zoneOf(r,c);
- if(z&&!S.zones[z]){ offerExpansion(z); return; }
- const t=S.grid[r][c];
- switch(t.t){
+function stepAnimals(dt){
+ while(wander.length<S.animals.length){
+  wander.push({x:PADDOCK.x+20+ri(PADDOCK.w-40),y:PADDOCK.y+20+ri(PADDOCK.h-40),tx:0,ty:0,wait:0});
+  const wd=wander[wander.length-1]; wd.tx=wd.x; wd.ty=wd.y;
+ }
+ wander.length=S.animals.length;
+ for(const wd of wander){
+  if(wd.wait>0){ wd.wait-=dt; continue; }
+  const dx=wd.tx-wd.x, dy=wd.ty-wd.y, d=Math.hypot(dx,dy);
+  if(d<2){ wd.tx=PADDOCK.x+16+ri(PADDOCK.w-32); wd.ty=PADDOCK.y+16+ri(PADDOCK.h-32); wd.wait=1+Math.random()*3; continue; }
+  const sp=18*dt;
+  wd.x+=dx/d*sp; wd.y+=dy/d*sp;
+ }
+}
+function clampCam(w,h){
+ const vw=w/cam.s, vh=h/cam.s, pad=60;
+ cam.x=vw>=WORLD.w+2*pad?(WORLD.w-vw)/2:Math.max(-pad,Math.min(WORLD.w+pad-vw,cam.x));
+ cam.y=vh>=WORLD.h+2*pad?(WORLD.h-vh)/2:Math.max(-pad,Math.min(WORLD.h+pad-vh,cam.y));
+}
+/* --- input: pan / pinch / tap --- */
+function initCanvas(){
+ cv=$('farmCanvas'); cx=cv.getContext('2d');
+ const resize=()=>{
+  dpr=window.devicePixelRatio||1;
+  cv.width=cv.clientWidth*dpr; cv.height=cv.clientHeight*dpr;
+ };
+ resize(); window.addEventListener('resize',resize);
+ // start centered between house and fields
+ cam.s=Math.max(.55,Math.min(1,cv.clientWidth/720));
+ cam.x=790-cv.clientWidth/cam.s/2; cam.y=560-cv.clientHeight/cam.s/2;
+ const pts=new Map(); let start=null,drag=false,pinchD=0;
+ const pdist=()=>{ const a=[...pts.values()]; return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); };
+ cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pts.size===1){ start={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y}; drag=false; }
+  else if(pts.size===2)pinchD=pdist();
+ });
+ cv.addEventListener('pointermove',e=>{
+  if(!pts.has(e.pointerId))return;
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pts.size===1&&start){
+   const dx=e.clientX-start.x, dy=e.clientY-start.y;
+   if(Math.hypot(dx,dy)>7)drag=true;
+   if(drag){ cam.x=start.cx-dx/cam.s; cam.y=start.cy-dy/cam.s; }
+  }else if(pts.size===2&&pinchD>0){
+   const nd=pdist();
+   const a=[...pts.values()];
+   const rect=cv.getBoundingClientRect();
+   zoomAt((a[0].x+a[1].x)/2-rect.left,(a[0].y+a[1].y)/2-rect.top,nd/pinchD);
+   pinchD=nd;
+  }
+ });
+ const up=e=>{
+  if(!pts.has(e.pointerId))return;
+  pts.delete(e.pointerId);
+  if(pts.size===0){
+   if(!drag&&start){
+    const rect=cv.getBoundingClientRect();
+    const wx=cam.x+(e.clientX-rect.left)/cam.s, wy=cam.y+(e.clientY-rect.top)/cam.s;
+    tapWorld(wx,wy);
+   }
+   start=null; drag=false;
+  }
+  pinchD=0;
+ };
+ cv.addEventListener('pointerup',up);
+ cv.addEventListener('pointercancel',up);
+ cv.addEventListener('wheel',e=>{ e.preventDefault(); const r=cv.getBoundingClientRect(); zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:.87); },{passive:false});
+ $('zin').onclick=()=>zoomAt(cv.clientWidth/2,cv.clientHeight/2,1.25);
+ $('zout').onclick=()=>zoomAt(cv.clientWidth/2,cv.clientHeight/2,.8);
+ requestAnimationFrame(frame);
+}
+function zoomAt(px,py,f){
+ const wx=cam.x+px/cam.s, wy=cam.y+py/cam.s;
+ cam.s=Math.max(.4,Math.min(1.7,cam.s*f));
+ cam.x=wx-px/cam.s; cam.y=wy-py/cam.s;
+}
+/* --- tap actions --- */
+function tapWorld(x,y){
+ // animals first
+ for(let i=0;i<S.animals.length;i++){
+  const wd=wander[i]; if(!wd)continue;
+  if(Math.hypot(wd.x-x,wd.y-y)<22){
+   const a=S.animals[i];
+   if(a.readyAt&&now()>=a.readyAt)collectAnimal(i);
+   else if(a.readyAt)toast(ANIMALS[a.type].e+' '+ITEMS[ANIMALS[a.type].product].e+' через '+fmtT((a.readyAt-now())/1000));
+   else feedAnimal(i);
+   return;
+  }
+ }
+ // nearest object
+ let best=null,bd=1e9;
+ for(const o of S.world.objs){
+  const zk=zoneAt(o.x,o.y);
+  if(zk&&!zoneOwned(zk))continue; // hidden under fog
+  const r=HITR[o.k]||24, d=Math.hypot(o.x-x,o.y-y);
+  if(d<r&&d<bd){ best=o; bd=d; }
+ }
+ if(best){ handleObj(best); refresh(); return; }
+ const zk=zoneAt(x,y);
+ if(!zk){ toast('🌲 Дикі хащі. Тут порядкує сама природа'); return; }
+ if(!zoneOwned(zk)){ offerExpansion(zk); return; }
+ if(inRect(x,y,PADDOCK)){ toast('🐮 Тут пасуться твої тварини'); return; }
+ if(inPond(x,y)){ toast('💧 Тихий ставок. Гарного дня!'); return; }
+ // empty owned land: place deco or till a new bed
+ if(S.placing){
+  const d=DECOS[S.placing];
+  if(!posFree(S.world.objs,x,y,40)){ toast('Тут замало місця'); return; }
+  S.world.objs.push({k:'deco',x:Math.round(x),y:Math.round(y),e:d.e});
+  S.decoCount++; S.placing=null; sCoin();
+  toast(d.e+' '+d.n+' встановлено! Краса ферми зростає');
+  refresh(); return;
+ }
+ tillAt(x,y);
+ refresh();
+}
+function tillAt(x,y){
+ // prefer a lattice-snapped spot so beds line up; fall back to the exact tap
+ const cands=[[Math.round(x/52)*52,Math.round(y/52)*52],[Math.round(x),Math.round(y)]];
+ for(const [gx,gy] of cands){
+  const zk=zoneAt(gx,gy);
+  if(!zk||!zoneOwned(zk)||inRect(gx,gy,PADDOCK)||inPond(gx,gy))continue;
+  if(!posFree(S.world.objs,gx,gy,44))continue;
+  S.world.objs.push({k:'soil',x:gx,y:gy});
+  addXp(1); sPop();
+  toast('⛏️ Нова грядка готова! Торкнись її, щоб посадити '+ITEMS[S.sel].e);
+  return;
+ }
+ toast('Тут замало місця для грядки');
+}
+function removeObj(o){
+ const i=S.world.objs.indexOf(o);
+ if(i>=0)S.world.objs.splice(i,1);
+}
+function handleObj(o){
+ switch(o.k){
   case 'weed':
-   S.grid[r][c]={t:'grass'}; addXp(2); sPop();
+   removeObj(o); addXp(2); sPop();
    if(Math.random()<.18){ give('flower',1); toast('🌿 Розчищено! Знайдено 🌸 квітку'); }
    else toast('🌿 Бур’ян розчищено (+2 досвіду)');
    break;
   case 'tree':{
-   const w=2+ri(2); give('wood',w); S.grid[r][c]={t:'grass'}; addXp(3); sPop();
+   const w=2+ri(2); give('wood',w); removeObj(o); addXp(3); sPop();
    toast('🪓 Зрубано дерево: +'+w+' 🪵');
    break;}
   case 'rock':{
-   const st=2+ri(2); give('stone',st); S.grid[r][c]={t:'grass'}; addXp(3); sPop();
+   const st=2+ri(2); give('stone',st); removeObj(o); addXp(3); sPop();
    toast('⛏️ Розбито камінь: +'+st+' 🪨');
    break;}
-  case 'grass':
-   if(S.placing){
-    const d=DECOS[S.placing];
-    S.grid[r][c]={t:'deco',e:d.e}; S.decoCount++; S.placing=null;
-    toast(d.e+' '+d.n+' встановлено! Краса ферми зростає'); sCoin();
-    break;
-   }
-   S.grid[r][c]={t:'soil'}; addXp(1); sPop();
-   break;
   case 'soil':{
    const id=S.sel, cd=CROPS[id];
    if(!cd||S.level<cd.lvl){ toast('Оберіть насіння внизу 👇'); break; }
    if(!cd.seasons.includes(season().id)){ sErr(); toast('❄️ '+ITEMS[id].n+' не росте: зараз '+season().name.toLowerCase()); break; }
    if(S.coins<cd.cost){ sErr(); toast('Не вистачає монет ('+cd.cost+'🪙)'); break; }
    S.coins-=cd.cost;
-   S.grid[r][c]={t:'crop',crop:id,at:now()}; sPop();
+   o.k='crop'; o.crop=id; o.at=now(); sPop();
    break;}
   case 'crop':{
-   if(cropStage(t)==='ready'){
+   if(cropStage(o)==='ready'){
     const q=1+(Math.random()<.35?1:0);
-    give(t.crop,q); addXp(CROPS[t.crop].xp); sCoin();
-    S.grid[r][c]={t:'soil'};
-    toast(ITEMS[t.crop].e+' Зібрано ×'+q+' (+'+CROPS[t.crop].xp+' досвіду)');
+    give(o.crop,q); addXp(CROPS[o.crop].xp); sCoin();
+    toast(ITEMS[o.crop].e+' Зібрано ×'+q+' (+'+CROPS[o.crop].xp+' досвіду)');
+    o.k='soil'; delete o.crop; delete o.at;
    }else{
-    const cd=CROPS[t.crop];
-    const left=cd.time*growMult()-(now()-t.at)/1000;
-    toast(ITEMS[t.crop].e+' Ще росте: '+fmtT(left));
+    const cd=CROPS[o.crop];
+    const left=cd.time*growMult()-(now()-o.at)/1000;
+    toast(ITEMS[o.crop].e+' Ще росте: '+fmtT(left));
    }
    break;}
   case 'house':
-   modal('🏡 Твій дім','<p>Маленький будиночок, який залишив дідусь. Звідси починається відродження долини.</p><p class="muted">Порада: розчищай бур’яни, дерева та каміння, щоб отримати ресурси та місце для грядок.</p>');
+   modal('🏡 Твій дім','<p>Маленький будиночок, який залишив дідусь. Звідси починається відродження долини.</p><p class="muted">Порада: тягни карту пальцем, щоб оглянути околиці. Розчищай бур’яни, дерева та каміння, торкайся вільної землі, щоб скопати нову грядку.</p>');
    break;
   case 'barn':
    showTab('shop');
    break;
   case 'deco':
-   toast(t.e+' Гарна прикраса! (+2% до цін продажу)');
-   break;
-  case 'path':
-   toast('🐾 Стежка між будинком і полями');
+   toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
    break;
  }
- refresh();
 }
 function offerExpansion(z){
  const ex=EXPANSIONS[z];
@@ -706,7 +996,7 @@ function buyDeco(k){
  const d=DECOS[k];
  if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
  S.coins-=d.cost; S.placing=k;
- toast(d.e+' Куплено! Торкніться клітинки трави на фермі, щоб поставити');
+ toast(d.e+' Куплено! Торкніться вільного місця на фермі, щоб поставити');
  showTab('farm');
 }
 
@@ -966,7 +1256,6 @@ function renderHUD(){
 
 function refresh(){
  renderHUD();
- updateGrid();
  if(activeTab==='farm'){ renderSeedbar(); renderAnimals(); }
  else{
   const el=$('tab-'+activeTab);
@@ -1001,13 +1290,14 @@ function showIntro(){
   `<p>Після років у шумному місті ти отримуєш несподіваний лист: дідусь — легендарний фермер — залишив тобі у спадок стару ферму в долині.</p>
    <p>Мешканці села розповідають легенду про <b>Дерево Життя</b> 🌳, що колись наповнювало землю магією. Дерево згасло — і долина почала занепадати.</p>
    <p>Лише справжній фермер зможе відродити землю, допомогти мешканцям і повернути Дереву силу. <b>Ця людина — ти.</b></p>
-   <p class="muted">🌿 Торкайся клітинок, щоб розчищати бур’яни, каміння й дерева.<br>🌱 Обери насіння внизу і саджай на грядки.<br>🛒 Продавай врожай, купуй тварин і будуй виробництво.<br>🧑‍🌾 Допомагай мешканцям та відроджуй Дерево Життя!</p>`,
+   <p class="muted">🖐 Тягни карту пальцем, щоб оглянути долину.<br>🌿 Торкайся бур’янів, каміння й дерев, щоб розчищати землю.<br>⛏️ Торкнись вільної землі — скопаєш нову грядку, обери насіння внизу і саджай.<br>🛒 Продавай врожай, купуй тварин і будуй виробництво.<br>🧑‍🌾 Допомагай мешканцям та відроджуй Дерево Життя!</p>`,
   [{t:'Почати! 🚜'}]);
 }
 
 /* ---------- tick ---------- */
 let tickCount=0;
 function tick(){
+ if(!S||!S.world)return;
  tickCount++;
  // animal happiness decay
  S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-1/30); });
@@ -1016,14 +1306,16 @@ function tick(){
  if(d!==S.lastDay){
   const days=d-S.lastDay;
   S.lastDay=d;
+  const weeds=S.world.objs.filter(o=>o.k==='weed').length;
   for(let i=0;i<Math.min(days,5);i++){
-   if(Math.random()<.5){
-    const spots=[];
-    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-     const z=zoneOf(r,c);
-     if((!z||S.zones[z])&&S.grid[r][c].t==='grass')spots.push([r,c]);
-    }
-    if(spots.length){ const [r,c]=spots[ri(spots.length)]; S.grid[r][c]={t:'weed'}; }
+   if(weeds+i>=28||Math.random()>=.5)continue;
+   const owned=Object.keys(ZONES).filter(zoneOwned);
+   const z=ZONES[owned[ri(owned.length)]];
+   for(let tries=0;tries<15;tries++){
+    const x=z.x+30+Math.random()*(z.w-60), y=z.y+40+Math.random()*(z.h-70);
+    if(!posFree(S.world.objs,x,y,40)||inRect(x,y,PADDOCK)||inPond(x,y))continue;
+    S.world.objs.push({k:'weed',x:Math.round(x),y:Math.round(y)});
+    break;
    }
   }
  }
@@ -1039,7 +1331,7 @@ window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.cla
 window.donate=donate; window.offerExpansion=offerExpansion;
 
 if(!load())newGame();
-buildGrid();
+initCanvas();
 showTab('farm');
 refresh();
 setInterval(tick,1000);
