@@ -84,6 +84,24 @@ nav button.on{background:rgba(255,255,255,.14);color:#fff}
 nav button .dot{position:relative}
 nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8px;height:8px;border-radius:50%;background:#ff5252}
 
+/* fishing minigame overlay */
+#fishing{position:absolute;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:flex-end;background:linear-gradient(#9fd4ef 0%,#5aa7d8 34%,#3d85b8 60%,#2a6a99 100%);overflow:hidden;touch-action:none}
+#fishing.on{display:flex}
+#fishing.winter{background:linear-gradient(#dfeaf3 0%,#b9d6ea 34%,#8fb8d6 60%,#6f9cbf 100%)}
+#fishSun{position:absolute;top:26px;right:34px;font-size:44px;filter:drop-shadow(0 0 18px #ffe28a)}
+#fishWaves{position:absolute;left:0;right:0;top:32%;bottom:0;pointer-events:none;opacity:.5;font-size:22px;color:#fff;letter-spacing:14px;overflow:hidden;line-height:2.4}
+#bobber{position:absolute;left:50%;top:44%;transform:translateX(-50%);font-size:44px;transition:top .3s;filter:drop-shadow(0 4px 6px rgba(0,20,40,.4))}
+#bobber.floaty{animation:bobf 2.2s ease-in-out infinite}
+#bobber.bite{animation:bshake .12s linear infinite}
+@keyframes bobf{50%{transform:translateX(-50%) translateY(7px)}}
+@keyframes bshake{25%{transform:translateX(-58%) translateY(9px) rotate(-9deg)}75%{transform:translateX(-42%) translateY(3px) rotate(9deg)}}
+#fishMsg{position:absolute;top:14%;left:0;right:0;text-align:center;font-size:19px;font-weight:800;color:#fff;text-shadow:0 2px 8px rgba(0,30,60,.55);padding:0 20px}
+#fishCatch{position:absolute;top:26%;left:0;right:0;text-align:center;font-size:56px;filter:drop-shadow(0 4px 8px rgba(0,20,40,.4))}
+#fishCtl{position:relative;z-index:2;display:flex;gap:10px;padding:0 16px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:420px}
+#castBtn{flex:1;padding:15px;font-size:17px;border-radius:16px}
+#castBtn.bite{background:#ef8f00;animation:glowp .4s infinite}
+#fishClose{width:54px;border-radius:16px}
+
 /* toasts */
 #toasts{position:absolute;left:0;right:0;bottom:calc(150px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:50}
 .toast{background:rgba(30,45,25,.93);color:#fff;border-radius:12px;padding:8px 16px;font-size:13px;font-weight:600;max-width:88%;text-align:center;animation:tin .25s}
@@ -138,6 +156,14 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
     <button data-tab="quests"><span class="ni">🧑‍🌾</span>Люди</button>
     <button data-tab="tree"><span class="ni">🌳</span>Дерево</button>
   </nav>
+  <div id="fishing">
+    <div id="fishSun">☀️</div>
+    <div id="fishMsg"></div>
+    <div id="fishCatch"></div>
+    <div id="bobber">🔴</div>
+    <div id="fishWaves">〰〰〰〰〰〰〰〰〰〰<br>〰〰〰〰〰〰〰〰〰〰<br>〰〰〰〰〰〰〰〰〰〰<br>〰〰〰〰〰〰〰〰〰〰</div>
+    <div id="fishCtl"><button class="btn" id="castBtn">🎣 Закинути</button><button class="btn ghost" id="fishClose">✖</button></div>
+  </div>
   <div id="toasts"></div>
   <div id="mback"><div id="mbox"><h2 id="mtitle"></h2><div id="mbody"></div><div id="mbtns"></div></div></div>
 </div>
@@ -173,6 +199,9 @@ const ITEMS={
  fish:{n:'Риба',e:'🐟',sell:18}, ore:{n:'Руда',e:'⚙️',sell:24},
  crystal:{n:'Кристал',e:'💎',sell:70}, flower:{n:'Квітка',e:'🌸',sell:12},
  essence:{n:'Магічна есенція',e:'✨',sell:90}, trophy:{n:'Кубок фестивалю',e:'🏆',sell:250},
+ boot:{n:'Старий черевик',e:'🥾',sell:3}, perch:{n:'Окунь',e:'🐠',sell:28},
+ crayfish:{n:'Рак',e:'🦞',sell:40}, trout:{n:'Форель',e:'🐡',sell:60},
+ goldfish:{n:'Золота рибка',e:'🎏',sell:150}, catfish:{n:'Сом Балтазар',e:'🐋',sell:500},
 };
 
 const CROPS={
@@ -239,6 +268,7 @@ const NPCS={
   {t:'Озеро завалене камінням після зсуву. Принеси каміння не треба... забери його! Тобто — допоможи розчистити: віддай 10 каменів на укріплення берега.',need:{stone:10},rw:{coins:150,xp:40},unlock:{terr:'lake'},doneMsg:'Озеро очищено! Відкрито Кришталеве озеро 🏞️'},
   {t:'Наловимо риби для сільської кухні!',need:{fish:5},rw:{coins:220,xp:50}},
   {t:'Кажуть, на дні озера сяють кристали. Принеси рибу і кристали — перевіримо легенду.',need:{fish:10,crystal:2},rw:{coins:700,xp:140}},
+  {t:'У глибинах живе сом Балтазар — старий друг твого дідуся. Злови його! (рідкісний шанс під час риболовлі 🎣)',need:{catfish:1},rw:{coins:1500,xp:250},doneMsg:'«Балтазаре, друже! Живий!» — Петро обіймає велетенського сома і відпускає назад у глибінь. Легенда житиме.'},
  ]},
  beekeeper:{n:'Бджоляр Мирон',e:'🧑‍🌾',steps:[
   {t:'Бджоли повертаються туди, де є квіти. Назбирай диких квітів!',need:{flower:10},rw:{coins:150,xp:40}},
@@ -840,11 +870,12 @@ function tapWorld(x,y){
   if(d<r&&d<bd){ best=o; bd=d; }
  }
  if(best){ handleObj(best); refresh(); return; }
+ if(x>1450&&x<1600){ openFishing(); return; } // river bank
+ if(inPond(x,y)){ openFishing(); return; }    // pond (works even under fog)
  const zk=zoneAt(x,y);
  if(!zk){ toast('🌲 Дикі хащі. Тут порядкує сама природа'); return; }
  if(!zoneOwned(zk)){ offerExpansion(zk); return; }
  if(inRect(x,y,PADDOCK)){ toast('🐮 Тут пасуться твої тварини'); return; }
- if(inPond(x,y)){ toast('💧 Тихий ставок. Гарного дня!'); return; }
  // empty owned land: place deco or till a new bed
  if(S.placing){
   const d=DECOS[S.placing];
@@ -1180,6 +1211,7 @@ function renderMap(){
    const last=S.terr[k].last||0, cdLeft=t.cd-(now()-last)/1000;
    if(cdLeft>0)html+=`<div class="rowline"><span class="muted">Відновлення…</span><span class="muted">${fmtT(cdLeft)}</span></div><div class="pbar"><div class="pfill" style="width:${100*(1-cdLeft/t.cd)}%"></div></div>`;
    else html+=`<div class="rowline"><span>Ресурси готові!</span><button class="btn gold small" onclick="gather('${k}')">Зібрати</button></div>`;
+   if(k==='lake')html+=`<div class="rowline"><span>🎣 Половити рибу вудкою</span><button class="btn small" onclick="openFishing()">Рибалити</button></div>`;
   }
   html+='</div>';
  }
@@ -1340,6 +1372,7 @@ function genGoals(){
   {t:'order',n:1+ri(2),txt:'Виконай замовлень'},
  ];
  if(S.animals.length)defs.push({t:'feed',n:Math.min(3+Math.floor(S.level/2),S.animals.length*3),txt:'Нагодуй тварин'});
+ if(S.terr.lake&&S.terr.lake.unlocked)defs.push({t:'fish',n:3+Math.floor(S.level/3),txt:'Злови рибу'});
  if(Object.keys(S.buildings).some(b=>S.buildings[b].owned))defs.push({t:'produce',n:2+Math.floor(S.level/3),txt:'Вироби товарів'});
  for(let i=defs.length-1;i>0;i--){ const j=ri(i+1); [defs[i],defs[j]]=[defs[j],defs[i]]; }
  return defs.slice(0,3).map(d=>({t:d.t,n:d.n,txt:d.txt,p:0,done:false,rw:20+S.level*10}));
@@ -1463,6 +1496,100 @@ function ensureBoard(){
  S.world.objs.push({k:'board',x:898,y:506});
 }
 function initExtras(){ ensureStory(); ensureOrders(); ensureDaily(); ensureBoard(); }
+
+/* ---------- fishing minigame ---------- */
+const FISH_TABLE=[
+ {id:'boot',w:8},{id:'fish',w:42},{id:'perch',w:26},
+ {id:'crayfish',w:12},{id:'trout',w:8},{id:'goldfish',w:4},
+];
+let fishPhase='idle', fishTimer=0, fishEscTimer=0;
+function fishingAllowed(){ return S.terr.lake&&S.terr.lake.unlocked; }
+function openFishing(){
+ if(!fishingAllowed()){
+  toast('🎣 Петро: «Спершу допоможи розчистити озеро!» (вкладка «Люди»)');
+  return;
+ }
+ fishPhase='idle';
+ const f=$('fishing');
+ f.classList.add('on');
+ f.classList.toggle('winter',season().id==='winter');
+ $('fishSun').textContent=season().id==='winter'?'❄️':'☀️';
+ fishUI(season().id==='winter'?'Підлідний лов. Тихо-тихо...':'Тихий плескіт води. Закидай!','',false);
+ $('castBtn').textContent='🎣 Закинути';
+}
+function closeFishing(){
+ clearTimeout(fishTimer); clearTimeout(fishEscTimer);
+ fishPhase='idle';
+ $('fishing').classList.remove('on');
+ refresh();
+}
+function fishUI(msg,catchEmoji,bite){
+ $('fishMsg').textContent=msg;
+ $('fishCatch').textContent=catchEmoji||'';
+ const b=$('bobber');
+ b.className=bite?'bite':(fishPhase==='wait'?'floaty':'');
+ b.style.top=fishPhase==='wait'||bite?'48%':'44%';
+ $('castBtn').classList.toggle('bite',bite);
+}
+function fishAction(){
+ if(fishPhase==='idle'){
+  fishPhase='wait';
+  fishUI('Чекаємо кльову... не смикай зарано!','',false);
+  $('castBtn').textContent='Підсікти!';
+  sPop();
+  clearTimeout(fishTimer);
+  fishTimer=setTimeout(()=>{
+   if(fishPhase!=='wait')return;
+   fishPhase='bite';
+   fishUI('❗ КЛЬОЮЄ! ПІДСІКАЙ!','',true);
+   snd(1250,.12); setTimeout(()=>snd(1250,.12),150);
+   clearTimeout(fishEscTimer);
+   fishEscTimer=setTimeout(()=>{
+    if(fishPhase!=='bite')return;
+    fishPhase='idle';
+    fishUI('Ех, зірвалась... Спробуй ще!','💨',false);
+    $('castBtn').textContent='🎣 Закинути';
+    sErr();
+   },900);
+  },1500+Math.random()*3500);
+ }else if(fishPhase==='wait'){
+  clearTimeout(fishTimer);
+  fishPhase='idle';
+  fishUI('Ти сполохав рибу! Терпіння, фермере.','🌊',false);
+  $('castBtn').textContent='🎣 Закинути';
+  sErr();
+ }else if(fishPhase==='bite'){
+  clearTimeout(fishEscTimer);
+  fishPhase='idle';
+  fishCatch();
+  $('castBtn').textContent='🎣 Закинути';
+ }
+}
+function fishCatch(){
+ // legendary Balthazar chance while Petro's last quest is active
+ if(S.quests.fisherman===3&&!S.story.flags.balt&&Math.random()<.06){
+  S.story.flags.balt=1;
+  give('catfish',1); addXp(50); dg('fish',1); sUp();
+  fishUI('НЕЙМОВІРНО!!!','🐋',false);
+  modal('🐋 СОМ БАЛТАЗАР!','<p>Вода вирує — і на гачку велетенський вусатий сом! Він дивиться на тебе на диво розумними очима... наче впізнає.</p><p class="needok">Віднеси його Петру (вкладка «Люди»)!</p>');
+  return;
+ }
+ let total=0; for(const f of FISH_TABLE)total+=f.w;
+ let r=Math.random()*total, pick=FISH_TABLE[0];
+ for(const f of FISH_TABLE){ r-=f.w; if(r<=0){ pick=f; break; } }
+ give(pick.id,1); dg('fish',1);
+ const it=ITEMS[pick.id];
+ if(pick.id==='boot'){
+  fishUI('Старий черевик... Ну, буває 😅','🥾',false);
+  addXp(1); sPop();
+ }else if(pick.id==='goldfish'){
+  fishUI('ЗОЛОТА РИБКА! Рідкісний улов!','🎏',false);
+  addXp(15); sUp();
+ }else{
+  fishUI('Спіймано: '+it.n+'! (+'+sellPrice(pick.id)+'🪙 у крамниці)',it.e,false);
+  addXp(pick.id==='trout'?8:pick.id==='crayfish'?6:3); sCoin();
+ }
+}
 
 /* ---------- tree of life ---------- */
 function renderTree(){
@@ -1629,7 +1756,10 @@ window.buyBuilding=buyBuilding; window.startJob=startJob; window.collectJob=coll
 window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.claimFest=claimFest;
 window.donate=donate; window.offerExpansion=offerExpansion;
 window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
-window.claimGoal=claimGoal; window.readPage=readPage;
+window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
+$('castBtn').onclick=fishAction;
+$('fishClose').onclick=closeFishing;
+$('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
 
 const isNew=!load();
 if(isNew)newGame();
