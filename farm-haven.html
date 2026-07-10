@@ -1252,6 +1252,12 @@ function renderQuests(){
  });
  if(S.daily.bonus)html+='<p class="needok" style="margin-top:6px">🎉 Бонус дня отримано!</p>';
  html+='</div>';
+ // village story
+ if(S.event){
+  const eh=evHTML();
+  if(eh)html+='<div class="secTitle">📜 Історія долини</div><div class="card" style="background:#fdf1d7">'+eh+'</div>';
+  else S.event=null;
+ }
  // order board
  ensureOrders();
  html+='<div class="secTitle">📋 Дошка замовлень</div>';
@@ -1591,6 +1597,152 @@ function fishCatch(){
  }
 }
 
+/* ---------- procedural village stories ---------- */
+const EV_NPC={carpenter:'Тесляр Богдан',baker:'Пекарка Олена',fisherman:'Рибалка Петро',beekeeper:'Бджоляр Мирон',elder:'Старійшина Ганна'};
+const EV_E={carpenter:'🧔‍♂️',baker:'👩‍🍳',fisherman:'🎣',beekeeper:'🧑‍🌾',elder:'🧓'};
+function evPick(not){ const ks=Object.keys(EV_NPC).filter(k=>k!==not); return ks[ri(ks.length)]; }
+function evBase(){ return 25+S.level*8; }
+function genStorylet(){
+ const items=orderItemsPool();
+ const pool=['quarrel','kids','treasure'];
+ if(items.length){ pool.push('traveler','contest'); }
+ if(S.animals.length)pool.push('sick');
+ const uT=Object.keys(TERRITORIES).filter(k=>S.terr[k]&&S.terr[k].unlocked);
+ if(uT.length)pool.push('lost');
+ if(Object.keys(S.inv).some(k=>S.inv[k]>=4))pool.push('merchant');
+ const tpl=pool[ri(pool.length)];
+ const e={tpl,bornAt:now(),expires:0};
+ if(tpl==='quarrel'){ e.a=evPick(); e.b=evPick(e.a); e.item=items[ri(items.length)]||'wheat'; }
+ if(tpl==='traveler'){ e.item=items[ri(items.length)]||'wheat'; e.qty=3+ri(4); e.expires=now()+30*60000; }
+ if(tpl==='sick'){ e.ai=ri(S.animals.length); }
+ if(tpl==='lost'){ e.a=evPick(); e.terr=uT[ri(uT.length)]; e.tries=0; }
+ if(tpl==='contest'){ e.a=evPick(); e.item=items[ri(items.length)]||'wheat'; e.qty=4+ri(5); e.expires=now()+45*60000; }
+ if(tpl==='merchant'){ const have=Object.keys(S.inv).filter(k=>S.inv[k]>=4); e.item=have[ri(have.length)]; e.expires=now()+20*60000; }
+ return e;
+}
+function evEnd(msg){ S.event=null; S.lastEvent=now(); if(msg)toast(msg); save(); refresh(); }
+function evHTML(){
+ const e=S.event; if(!e)return '';
+ const B=(i,l,dis)=>'<button class="btn small'+(dis?'" disabled':' gold"')+' onclick="evAct('+i+')">'+l+'</button>';
+ let tx='',btns='';
+ switch(e.tpl){
+  case 'quarrel':
+   tx=EV_E[e.a]+' <b>'+EV_NPC[e.a]+'</b> та '+EV_E[e.b]+' <b>'+EV_NPC[e.b]+'</b> посварилися: хто з них знається на '+ITEMS[e.item].e+' '+ITEMS[e.item].n.toLowerCase()+' краще! Просять тебе розсудити.';
+   btns=B(0,'На боці '+EV_NPC[e.a].split(' ')[1])+' '+B(1,'На боці '+EV_NPC[e.b].split(' ')[1]);
+   break;
+  case 'traveler':
+   tx='🎒 До села завітав утомлений мандрівник. Йому в дорогу потрібні припаси: '+needHTML({[e.item]:e.qty})+'. Обіцяє щедро віддячити.';
+   btns=B(0,'Дати припаси',!hasAll({[e.item]:e.qty}))+' '+B(1,'Провести так');
+   break;
+  case 'sick':{
+   const a=S.animals[e.ai], d=a?ANIMALS[a.type]:null;
+   if(!d)return '';
+   tx=d.e+' Твоя тварина <b>'+d.n+'</b> прихворіла 🤒. Потрібні ліки: зілля з 3🌸 та 1🍯 — або виклик ветеринара.';
+   btns=B(0,'Зілля (3🌸+1🍯)',!hasAll({flower:3,honey:1}))+' '+B(1,'Ветеринар (50🪙)',S.coins<50)+' '+B(2,'Почекати');
+   break;}
+  case 'lost':
+   tx=EV_E[e.a]+' <b>'+EV_NPC[e.a]+'</b> загубив(ла) свою улюблену річ десь біля місцини «'+TERRITORIES[e.terr].n+'» '+TERRITORIES[e.terr].e+'. Допоможеш пошукати?';
+   btns=B(0,'🔍 Пошукати ('+(3-e.tries)+' спроб)');
+   break;
+  case 'contest':
+   tx='🏁 '+EV_E[e.a]+' <b>'+EV_NPC[e.a]+'</b> викликає тебе на змагання: хто перший принесе на ярмарок '+needHTML({[e.item]:e.qty})+'!';
+   btns=B(0,'Здати товар',!hasAll({[e.item]:e.qty}));
+   break;
+  case 'merchant':
+   tx='🧙 Проїздом мандрівний скупник Лукас! Сьогодні він платить <b>×1.6</b> за '+ITEMS[e.item].e+' '+ITEMS[e.item].n+' (у тебе: '+invGet(e.item)+').';
+   btns=B(0,'Продати все ×1.6',invGet(e.item)<1);
+   break;
+  case 'kids':
+   tx='📦 Сільські дітлахи збудували «фортецю» з твоїх ящиків і тепер обороняють її дерев’яними мечами. Що робиш?';
+   btns=B(0,'Посміятись і пограти з ними')+' '+B(1,'Попросити прибрати');
+   break;
+  case 'treasure':
+   tx='🐾 Біля великого каменя хтось щось закопав... Свіжа земля, дивні сліди. Копнути?';
+   btns=B(0,'⛏️ Копнути');
+   break;
+ }
+ let exp='';
+ if(e.expires)exp='<p class="muted">⏳ Історія зникне через '+fmtT((e.expires-now())/1000)+'</p>';
+ return '<p>'+tx+'</p>'+exp+'<div class="rowline" style="justify-content:flex-end;gap:8px">'+btns+'</div>';
+}
+function evAct(n){
+ const e=S.event; if(!e)return;
+ const base=evBase();
+ switch(e.tpl){
+  case 'quarrel':{
+   const w=n===0?e.a:e.b, l=n===0?e.b:e.a;
+   S.coins+=base; addXp(12); sCoin();
+   evEnd(EV_E[w]+' вдячно киває (+'+base+'🪙). '+EV_NPC[l].split(' ')[1]+' буркоче, але мир відновлено 🤝');
+   return;}
+  case 'traveler':
+   if(n===0){
+    if(!takeAll({[e.item]:e.qty})){ sErr(); return; }
+    const rw=Math.round(ITEMS[e.item].sell*e.qty*1.8);
+    S.coins+=rw; addXp(20); sCoin();
+    evEnd('🎒 «Дякую, добра душе!» Мандрівник платить '+fmt(rw)+'🪙 і йде далі');
+   }else{ addXp(5); evEnd('🎒 Мандрівник махає рукою на прощання (+5⭐)'); }
+   return;
+  case 'sick':{
+   const a=S.animals[e.ai];
+   if(n===0){ if(!takeAll({flower:3,honey:1})){ sErr(); return; } }
+   else if(n===1){ if(S.coins<50){ sErr(); return; } S.coins-=50; }
+   else { if(a)a.hap=Math.max(0,a.hap-10); evEnd('🤒 Тварина ще трохи посумує...'); return; }
+   if(a)a.hap=100;
+   addXp(15); sUp();
+   evEnd('💚 Одужала! Щастя тварини повне (+15⭐)');
+   return;}
+  case 'lost':
+   if(Math.random()<.55){
+    const rw=Math.round(base*1.5);
+    S.coins+=rw; addXp(15); sCoin();
+    evEnd('🔍 Знайшов! '+EV_NPC[e.a].split(' ')[1]+' на радощах дає '+rw+'🪙');
+   }else{
+    e.tries++;
+    if(e.tries>=3){ addXp(5); evEnd('🔍 Не знайшлося... але за старання +5⭐'); }
+    else { sErr(); toast('Тут нема... лишилось спроб: '+(3-e.tries)); refresh(); }
+   }
+   return;
+  case 'contest':{
+   if(!takeAll({[e.item]:e.qty})){ sErr(); return; }
+   const rw=Math.round(ITEMS[e.item].sell*e.qty*1.5)+base;
+   S.coins+=rw; addXp(25); sUp();
+   evEnd('🏁 Перемога! '+EV_NPC[e.a].split(' ')[1]+' тисне руку: +'+fmt(rw)+'🪙');
+   return;}
+  case 'merchant':{
+   const q=invGet(e.item);
+   if(q<1){ sErr(); return; }
+   const rw=Math.round(sellPrice(e.item)*1.6*q);
+   S.inv[e.item]=0; S.coins+=rw; dg('sell',q); sCoin();
+   evEnd('🧙 Лукас платить '+fmt(rw)+'🪙 і зникає в куряві шляху');
+   return;}
+  case 'kids':
+   if(n===0){ addXp(15); const c=orderItemsPool()[0]||'wheat'; give(c,2);
+    evEnd('😄 Найкращий день! Дітлахи «за службу» приносять '+ITEMS[c].e+'×2 (+15⭐)'); }
+   else { S.coins+=20; evEnd('📦 Ящики на місці. Дітлахи лишили 20🪙 «компенсації» і втекли'); }
+   return;
+  case 'treasure':{
+   const r=Math.random();
+   if(r<.45){ const rw=Math.round(base*1.5); S.coins+=rw; sCoin(); evEnd('💰 Скарб! Стара скринька з '+rw+'🪙'); }
+   else if(r<.75){ const c=orderItemsPool()[0]||'wheat'; give(c,3); sCoin(); evEnd('📦 Схованка з припасами: '+ITEMS[c].e+'×3'); }
+   else if(r<.9){ give('crystal',1); sUp(); evEnd('💎 Кристал! Хтось сховав його дуже давно...'); }
+   else { give('boot',1); evEnd('🥾 Черевик. Знову черевик. ЧОМУ ЗАВЖДИ ЧЕРЕВИК?!'); }
+   return;}
+ }
+}
+function tickStories(){
+ if(S.event){
+  if(S.event.expires&&now()>S.event.expires)evEnd('📜 Історія завершилась без тебе...');
+  return;
+ }
+ if(S.level<2&&dayNum()<1)return; // let the player settle in first
+ if(now()-(S.lastEvent||0)<90000)return;
+ if(Math.random()<1/45){
+  S.event=genStorylet();
+  sUp(); toast('📜 У долині щось відбувається! Дивись вкладку «Люди»');
+  save();
+ }
+}
+
 /* ---------- tree of life ---------- */
 function renderTree(){
  const el=$('tab-tree');
@@ -1723,6 +1875,7 @@ function tick(){
  if(!S||!S.world)return;
  tickCount++;
  ensureDaily();
+ tickStories();
  if(S.story&&S.story.krukIntro&&!$('mback').classList.contains('on')
     &&now()-(S.story.lastKruk||0)>240000&&Math.random()<1/180)krukOffer();
  // animal happiness decay
@@ -1757,6 +1910,7 @@ window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.cla
 window.donate=donate; window.offerExpansion=offerExpansion;
 window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
 window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
+window.evAct=evAct;
 $('castBtn').onclick=fishAction;
 $('fishClose').onclick=closeFishing;
 $('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
