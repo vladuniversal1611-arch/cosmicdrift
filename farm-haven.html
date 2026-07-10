@@ -32,6 +32,7 @@ header{padding:calc(10px + env(safe-area-inset-top)) 12px 8px;background:rgba(30
 #xptrack{height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;margin-top:3px}
 #xpfill{height:100%;width:0;background:linear-gradient(90deg,#aed581,#ffd54f);border-radius:3px;transition:width .3s}
 #gear{background:none;border:none;font-size:20px;cursor:pointer;color:#fff}
+#calbanner{display:none;margin-top:8px;background:linear-gradient(90deg,#7b1fa2,#ab47bc);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer}
 #festbanner{display:none;margin-top:8px;background:linear-gradient(90deg,#ff8f00,#ffb300);color:#3d2600;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer;animation:glowp 1.6s infinite}
 @keyframes glowp{50%{filter:brightness(1.12)}}
 #treemini{cursor:pointer}
@@ -136,6 +137,7 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
       <button id="gear">⚙️</button>
     </div>
     <div id="festbanner"></div>
+    <div id="calbanner"></div>
   </header>
   <main>
     <section class="tab on" id="tab-farm">
@@ -1241,6 +1243,17 @@ function gather(k){
 function renderQuests(){
  const el=$('tab-quests');
  let html='';
+ // real-calendar event of the year
+ const cev=calActive();
+ if(cev){
+  const done=S.calDone&&S.calDone[calKey(cev)];
+  html+='<div class="secTitle">🗓 Подія року</div><div class="card" style="background:#f3e6fa">';
+  html+='<h3>'+cev.e+' '+cev.n+'</h3><p>'+cev.tx+'</p>';
+  if(done)html+='<p class="needok">✅ Дар цього року отримано. Свято триває — насолоджуйся!</p>';
+  else if(cev.need)html+='<div class="rowline"><span>'+needHTML(cev.need)+'</span><button class="btn small'+(hasAll(cev.need)?' gold':'')+'" '+(hasAll(cev.need)?'':'disabled')+' onclick="claimCal()">Святкувати</button></div><p class="muted">Нагорода: '+calRwText(cev.rw)+'</p>';
+  else html+='<div class="rowline"><span class="muted">Подарунок чекає!</span><button class="btn gold small" onclick="claimCal()">Відкрити 🎁</button></div>';
+  html+='</div>';
+ }
  // daily goals
  ensureDaily();
  html+='<div class="secTitle">📅 Щоденні цілі <span class="badge">серія: день '+S.daily.streak+'</span></div><div class="card">';
@@ -1743,6 +1756,61 @@ function tickStories(){
  }
 }
 
+/* ---------- real-calendar events: the living year ---------- */
+const CAL_EVENTS=[
+ {id:'newyear',from:'12-25',to:'01-07',n:'Новорічні свята',e:'🎄',tx:'Уся долина в вогниках! Принеси солодощів до святкового столу.',need:{candy:5},rw:{coins:900,trophy:1,crystal:2}},
+ {id:'hearts',from:'02-12',to:'02-16',n:'Свято сердець',e:'💝',tx:'Час дарувати тепло. Олена пече святкові пироги з варенням!',need:{jam:3},rw:{coins:600,trophy:1,crystal:1}},
+ {id:'spring',from:'03-01',to:'03-09',n:'Свято весни',e:'🌷',tx:'Зустрічаємо весну оберемками квітів!',need:{flower:12},rw:{coins:500,trophy:1,crystal:1}},
+ {id:'easter',from:'04-13',to:'04-27',n:'Великодній тиждень',e:'🥚',tx:'Село фарбує яйця та пече паски.',need:{egg:12,flour:4},rw:{coins:700,trophy:1,crystal:1}},
+ {id:'bees',from:'05-15',to:'05-22',n:'День пасіки',e:'🐝',tx:'Мирон святкує день бджіл! Медові частування для всіх.',need:{honey:6},rw:{coins:700,trophy:1,crystal:1}},
+ {id:'kupala',from:'07-05',to:'07-14',n:'Ніч на Івана Купала',e:'🔥',tx:'Вогнища, вінки на воді й папороть, що цвіте раз на рік...',need:{flower:10,essence:1},rw:{coins:800,trophy:1,crystal:2}},
+ {id:'harvest',from:'08-15',to:'08-24',n:'Свято жнив',e:'🌾',tx:'Головне свято хліборобів! Комори мають бути повні.',need:{wheat:25,flour:5},rw:{coins:800,trophy:1,crystal:1}},
+ {id:'spirits',from:'10-25',to:'11-01',n:'Ніч духів',e:'🎃',tx:'Гарбузові ліхтарі відганяють злих духів від долини.',need:{pumpkin:8},rw:{coins:900,trophy:1,crystal:2}},
+ {id:'mykolay',from:'12-17',to:'12-21',n:'День святого Миколая',e:'🎁',tx:'Миколай приніс подарунки всім, хто дбав про долину!',need:null,rw:{coins:400,feed:10,crystal:1}},
+];
+function mmdd(d){ return String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function calActive(dateNow){
+ const d=dateNow||new Date(), cur=mmdd(d);
+ for(const ev of CAL_EVENTS){
+  const wrap=ev.from>ev.to;
+  if(wrap?(cur>=ev.from||cur<=ev.to):(cur>=ev.from&&cur<=ev.to))return ev;
+ }
+ return null;
+}
+function calKey(ev){
+ const d=new Date(); let y=d.getFullYear();
+ if(ev.from>ev.to&&mmdd(d)<=ev.to)y--; // the new-year event keeps one key across Dec 31
+ return ev.id+'-'+y;
+}
+function calRwText(rw){
+ return Object.entries(rw).map(([k,v])=>k==='coins'?fmt(v)+'🪙':ITEMS[k].e+'×'+v).join(' + ');
+}
+function claimCal(){
+ const ev=calActive();
+ if(!ev)return;
+ if(!S.calDone)S.calDone={};
+ const key=calKey(ev);
+ if(S.calDone[key])return;
+ if(ev.need&&!takeAll(ev.need)){ sErr(); return; }
+ S.calDone[key]=true;
+ for(const k in ev.rw){ if(k==='coins')S.coins+=ev.rw[k]; else give(k,ev.rw[k]); }
+ addXp(60); sUp();
+ modal(ev.e+' '+ev.n,'<p>'+ev.tx+'</p><p class="needok">Нагорода року: '+calRwText(ev.rw)+' +60⭐</p><p class="muted">Наступного року свято повернеться з новими дарами!</p>');
+ save(); refresh();
+}
+function checkAnniversary(){
+ const years=Math.floor((now()-S.worldStart)/(365.25*864e5));
+ if(years>=1&&(S.annivYear||0)<years){
+  S.annivYear=years;
+  const rw=500*years;
+  S.coins+=rw; give('crystal',2*years); give('trophy',1); sUp();
+  modal('🎂 Річниця ферми!','<p>Сьогодні рівно '+years+' '+(years===1?'рік':years<5?'роки':'років')+' відтоді, як ти приїхав у долину. Мешканці влаштували свято на твою честь!</p><p class="needok">+'+fmt(rw)+'🪙, 💎×'+(2*years)+', 🏆</p>');
+  save();
+  return true;
+ }
+ return false;
+}
+
 /* ---------- tree of life ---------- */
 function renderTree(){
  const el=$('tab-tree');
@@ -1820,6 +1888,13 @@ function renderHUD(){
  $('seasonpill').textContent=s.e+' '+s.name+' · день '+(dayOfSeason()+1);
  $('treemini').textContent='🌳'+S.tree.lvl+(S.continent?'🌍':'');
  document.getElementById('app').className='season-'+s.id;
+ const cb=$('calbanner');
+ const cev=calActive();
+ if(cev&&!(S.calDone&&S.calDone[calKey(cev)])){
+  cb.style.display='block';
+  cb.textContent=cev.e+' '+cev.n+' — справжнє свято сьогодні! Тисни';
+  cb.onclick=()=>showTab('quests');
+ }else cb.style.display='none';
  const fb=$('festbanner');
  if(festActive()&&!S.fest[festKey()]){
   const f=FESTIVALS[s.id];
@@ -1910,7 +1985,7 @@ window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.cla
 window.donate=donate; window.offerExpansion=offerExpansion;
 window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
 window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
-window.evAct=evAct;
+window.evAct=evAct; window.claimCal=claimCal;
 $('castBtn').onclick=fishAction;
 $('fishClose').onclick=closeFishing;
 $('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
@@ -1924,7 +1999,7 @@ refresh();
 setInterval(tick,1000);
 window.addEventListener('beforeunload',save);
 if(!S.intro){ S.intro=true; S.daily.loginPending=false; save(); showIntro(); }
-else showLogin();
+else if(!checkAnniversary())showLogin();
 </script>
 </body>
 </html>
