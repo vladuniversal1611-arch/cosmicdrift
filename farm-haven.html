@@ -337,6 +337,7 @@ function genWorld(){
  const objs=[];
  objs.push({k:'house',x:HOUSE_POS.x,y:HOUSE_POS.y});
  objs.push({k:'barn',x:BARN_POS.x,y:BARN_POS.y});
+ objs.push({k:'board',x:898,y:506});
  for(let r=0;r<2;r++)for(let c=0;c<3;c++)objs.push({k:'soil',x:600+c*52,y:620+r*52});
  scatterZone(objs,'core',[['tree',7],['rock',6],['weed',9]]);
  for(const zk of ['west','east','north','south'])
@@ -647,14 +648,15 @@ function objEmoji(o){
  if(o.k==='house')return '🏡';
  if(o.k==='barn')return '🛖';
  if(o.k==='deco')return o.e;
+ if(o.k==='board')return '🪧';
  return '';
 }
 function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -702,6 +704,10 @@ function frame(ts){
   const sz=OBJ_SIZE[o.k]||28;
   drawShadow(cx,q.x,q.y+2,sz*.4);
   emoji(cx,objEmoji(o),q.x,q.y-sz*.3,sz);
+  if(o.k==='board'&&anyOrderReady()){
+   const bob=Math.sin(ts/220)*4;
+   emoji(cx,'❕',q.x,q.y-34+bob,20);
+  }
  }
  // animals wandering in the paddock
  S.animals.forEach((a,i)=>{
@@ -889,16 +895,16 @@ function removeObj(o){
 function handleObj(o){
  switch(o.k){
   case 'weed':
-   removeObj(o); addXp(2); sPop();
+   removeObj(o); addXp(2); sPop(); dg('clear',1); storyClear();
    if(Math.random()<.18){ give('flower',1); toast('🌿 Розчищено! Знайдено 🌸 квітку'); }
    else toast('🌿 Бур’ян розчищено (+2 досвіду)');
    break;
   case 'tree':{
-   const w=2+ri(2); give('wood',w); removeObj(o); addXp(3); sPop();
+   const w=2+ri(2); give('wood',w); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear();
    toast('🪓 Зрубано дерево: +'+w+' 🪵');
    break;}
   case 'rock':{
-   const st=2+ri(2); give('stone',st); removeObj(o); addXp(3); sPop();
+   const st=2+ri(2); give('stone',st); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear();
    toast('⛏️ Розбито камінь: +'+st+' 🪨');
    break;}
   case 'soil':{
@@ -912,7 +918,8 @@ function handleObj(o){
   case 'crop':{
    if(cropStage(o)==='ready'){
     const q=1+(Math.random()<.35?1:0);
-    give(o.crop,q); addXp(CROPS[o.crop].xp); sCoin();
+    give(o.crop,q); addXp(CROPS[o.crop].xp); sCoin(); dg('harvest',q);
+    if(!S.story.flags.h){ S.story.flags.h=1; awardPage(1); }
     toast(ITEMS[o.crop].e+' Зібрано ×'+q+' (+'+CROPS[o.crop].xp+' досвіду)');
     o.k='soil'; delete o.crop; delete o.at;
    }else{
@@ -931,6 +938,10 @@ function handleObj(o){
    break;
   case 'barn':
    showTab('shop');
+   break;
+  case 'board':
+   showTab('quests');
+   toast('📋 Дошка замовлень — угорі вкладки «Люди»');
    break;
   case 'deco':
    toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
@@ -992,7 +1003,7 @@ function feedAnimal(i){
  S.inv.feed--;
  a.hap=Math.min(100,a.hap+20);
  a.readyAt=now()+d.time*1000;
- sPop(); toast(d.e+' Нагодовано! Продукт буде за '+fmtT(d.time));
+ sPop(); dg('feed',1); toast(d.e+' Нагодовано! Продукт буде за '+fmtT(d.time));
  refresh();
 }
 function collectAnimal(i){
@@ -1053,7 +1064,7 @@ function renderShop(){
 }
 function sellItem(k,n){
  n=Math.min(n,invGet(k)); if(n<=0)return;
- S.inv[k]-=n; S.coins+=sellPrice(k)*n; sCoin();
+ S.inv[k]-=n; S.coins+=sellPrice(k)*n; sCoin(); dg('sell',n);
  toast('💰 Продано '+ITEMS[k].e+'×'+n+' за '+fmt(sellPrice(k)*n)+'🪙');
  refresh();
 }
@@ -1139,7 +1150,7 @@ function collectJob(k){
  if(!st.job||now()<st.job.end)return;
  const rc=d.recipes[st.job.r];
  for(const o in rc.out) give(o,rc.out[o]);
- st.job=null; addXp(8); sCoin();
+ st.job=null; addXp(8); sCoin(); dg('produce',1);
  toast('🏭 Готову продукцію додано до комори');
  refresh();
 }
@@ -1178,6 +1189,7 @@ function buyTerr(k){
  const t=TERRITORIES[k];
  if(S.coins<t.req.cost){ sErr(); toast('Не вистачає монет'); return; }
  S.coins-=t.req.cost; S.terr[k].unlocked=true; addXp(30); sUp();
+ if(k==='mine')awardPage(7);
  toast(t.e+' '+t.n+' — відкрито!');
  refresh();
 }
@@ -1187,6 +1199,8 @@ function gather(k){
  const loot=t.loot(); const parts=[];
  for(const it in loot){ if(loot[it]>0){ give(it,loot[it]); parts.push(ITEMS[it].e+'×'+loot[it]); } }
  S.terr[k].last=now(); addXp(6); sCoin();
+ if(k==='forest'&&!S.story.flags.gf){ S.story.flags.gf=1; awardPage(4); }
+ if(k==='mountains'&&!S.story.flags.gm){ S.story.flags.gm=1; awardPage(9); }
  toast(t.e+' Зібрано: '+(parts.length?parts.join(' '):'нічого не знайдено…'));
  refresh();
 }
@@ -1194,7 +1208,27 @@ function gather(k){
 /* ---------- quests ---------- */
 function renderQuests(){
  const el=$('tab-quests');
- let html='<div class="secTitle">🧑‍🌾 Мешканці долини</div>';
+ let html='';
+ // daily goals
+ ensureDaily();
+ html+='<div class="secTitle">📅 Щоденні цілі <span class="badge">серія: день '+S.daily.streak+'</span></div><div class="card">';
+ S.daily.goals.forEach((g,i)=>{
+  const ready=g.p>=g.n&&!g.done;
+  html+='<div class="rowline"><span>'+(g.done?'✅ ':'')+g.txt+': <b>'+g.p+'/'+g.n+'</b></span>'+
+   (g.done?'<span class="muted">+'+g.rw+'🪙</span>'
+   :'<button class="btn small'+(ready?' gold':'')+'" '+(ready?'':'disabled')+' onclick="claimGoal('+i+')">'+g.rw+'🪙</button>')+'</div>';
+ });
+ if(S.daily.bonus)html+='<p class="needok" style="margin-top:6px">🎉 Бонус дня отримано!</p>';
+ html+='</div>';
+ // order board
+ ensureOrders();
+ html+='<div class="secTitle">📋 Дошка замовлень</div>';
+ S.orders.forEach((o,i)=>{
+  html+='<div class="card"><div class="rowline"><span>'+needHTML(o.items)+'</span><span class="muted">+'+fmt(o.coins)+'🪙 +'+o.xp+'⭐</span></div>'+
+   '<div class="rowline"><button class="btn small ghost" onclick="rerollOrder('+i+')">🔄 Інше (5🪙)</button>'+
+   '<button class="btn small'+(hasAll(o.items)?' gold':'')+'" '+(hasAll(o.items)?'':'disabled')+' onclick="fulfillOrder('+i+')">Виконати</button></div></div>';
+ });
+ html+='<div class="secTitle">🧑‍🌾 Мешканці долини</div>';
  // festival card
  if(festActive()){
   const f=FESTIVALS[season().id];
@@ -1239,6 +1273,9 @@ function doQuest(k){
   if(q.unlock.terr){ S.terr[q.unlock.terr].unlocked=true; }
   if(q.unlock.bees){ S.beesUnlocked=true; }
  }
+ if(k==='carpenter'&&S.quests.carpenter===1)awardPage(2);
+ if(k==='fisherman'&&S.quests.fisherman===1)awardPage(6);
+ if(k==='baker'&&S.quests.baker===3)awardPage(5);
  sUp();
  modal(npc.e+' '+npc.n, '<p>'+(q.doneMsg||'«Дякую, фермере! Долина цього не забуде.»')+'</p><p class="needok">+'+fmt(q.rw.coins)+'🪙 +'+q.rw.xp+'⭐</p>');
  refresh();
@@ -1253,6 +1290,179 @@ function claimFest(){
  modal(f.e+' '+f.n,'<p>Вітаємо, переможцю фестивалю! 🎉</p><p class="needok">+'+fmt(f.rw.coins)+'🪙 +'+f.rw.xp+'⭐ +🏆</p>');
  refresh();
 }
+
+/* ---------- order board ---------- */
+function orderItemsPool(){
+ const pool=[];
+ for(const id in CROPS) if(S.level>=CROPS[id].lvl) pool.push(id);
+ for(const t of new Set(S.animals.map(a=>a.type))) pool.push(ANIMALS[t].product);
+ for(const b in S.buildings) if(S.buildings[b].owned)
+  for(const rc of BUILDINGS[b].recipes) pool.push(Object.keys(rc.out)[0]);
+ return [...new Set(pool)].filter(i=>i!=='feed');
+}
+function genOrder(){
+ const pool=orderItemsPool();
+ const kinds=1+ri(Math.min(3,pool.length));
+ const items={}; let val=0;
+ for(let i=0;i<kinds;i++){
+  const it=pool[ri(pool.length)];
+  items[it]=(items[it]||0)+1+ri(2+Math.floor(S.level*.8));
+ }
+ for(const k in items) val+=ITEMS[k].sell*items[k];
+ return {items,coins:Math.round(val*1.35),xp:10+Math.round(val/15)};
+}
+function ensureOrders(){
+ if(!S.orders)S.orders=[];
+ while(S.orders.length<3)S.orders.push(genOrder());
+}
+function fulfillOrder(i){
+ const o=S.orders[i];
+ if(!takeAll(o.items)){ sErr(); return; }
+ S.coins+=o.coins; addXp(o.xp); dg('order',1); sCoin();
+ S.orders[i]=genOrder();
+ toast('📋 Замовлення виконано: +'+fmt(o.coins)+'🪙');
+ refresh();
+}
+function rerollOrder(i){
+ if(S.coins<5){ sErr(); toast('Потрібно 5🪙'); return; }
+ S.coins-=5; S.orders[i]=genOrder(); sPop(); refresh();
+}
+function anyOrderReady(){ return (S.orders||[]).some(o=>hasAll(o.items)); }
+
+/* ---------- daily goals & login streak ---------- */
+const LOGIN_RW=[{coins:50},{feed:5},{coins:100},{crystal:1},{coins:200},{essence:1},{coins:500}];
+function todayKey(){ return new Date().toDateString(); }
+function genGoals(){
+ const defs=[
+  {t:'sell',n:10+S.level*2,txt:'Продай товарів'},
+  {t:'harvest',n:5+S.level,txt:'Збери врожаю'},
+  {t:'clear',n:4+Math.floor(S.level/2),txt:'Розчисть ділянок'},
+  {t:'order',n:1+ri(2),txt:'Виконай замовлень'},
+ ];
+ if(S.animals.length)defs.push({t:'feed',n:Math.min(3+Math.floor(S.level/2),S.animals.length*3),txt:'Нагодуй тварин'});
+ if(Object.keys(S.buildings).some(b=>S.buildings[b].owned))defs.push({t:'produce',n:2+Math.floor(S.level/3),txt:'Вироби товарів'});
+ for(let i=defs.length-1;i>0;i--){ const j=ri(i+1); [defs[i],defs[j]]=[defs[j],defs[i]]; }
+ return defs.slice(0,3).map(d=>({t:d.t,n:d.n,txt:d.txt,p:0,done:false,rw:20+S.level*10}));
+}
+function ensureDaily(){
+ if(!S.daily)S.daily={key:'',goals:[],bonus:false,streak:0,lastKey:'',loginPending:false};
+ const k=todayKey();
+ if(S.daily.key!==k){
+  const yest=new Date(Date.now()-864e5).toDateString();
+  S.daily.streak=(S.daily.lastKey===yest)?(S.daily.streak%7)+1:1;
+  S.daily.lastKey=k; S.daily.key=k; S.daily.bonus=false;
+  S.daily.goals=genGoals();
+  S.daily.loginPending=true;
+ }
+}
+function dg(type,n){ // daily goal progress
+ if(!S.daily||!S.daily.goals)return;
+ for(const g of S.daily.goals) if(g.t===type&&!g.done) g.p=Math.min(g.n,g.p+n);
+}
+function claimGoal(i){
+ const g=S.daily.goals[i];
+ if(!g||g.done||g.p<g.n)return;
+ g.done=true; S.coins+=g.rw; sCoin();
+ toast('📅 Ціль виконано: +'+g.rw+'🪙');
+ if(S.daily.goals.every(x=>x.done)&&!S.daily.bonus){
+  S.daily.bonus=true;
+  const b=50+S.level*20;
+  S.coins+=b; give('crystal',1); sUp();
+  modal('🎉 Всі щоденні цілі!','<p>Чудова робота, фермере!</p><p class="needok">+'+b+'🪙 та 💎 кристал</p>');
+ }
+ refresh();
+}
+function loginRewardText(rw){
+ return Object.entries(rw).map(([k,v])=>k==='coins'?fmt(v)+'🪙':ITEMS[k].e+' '+ITEMS[k].n+' ×'+v).join(', ');
+}
+function showLogin(){
+ if(!S.daily.loginPending)return;
+ const day=S.daily.streak, rw=LOGIN_RW[(day-1)%7];
+ modal('📅 День '+day+' поспіль!',
+  '<p>Долина рада тебе бачити! Щоденна нагорода:</p><p class="needok">'+loginRewardText(rw)+'</p><p class="muted">Заходь щодня — на 7-й день найбільший подарунок.</p>',
+  [{t:'Забрати',fn:()=>{
+   for(const k in rw){ if(k==='coins')S.coins+=rw[k]; else give(k,rw[k]); }
+   S.daily.loginPending=false; sCoin(); save(); refresh();
+  }}]);
+}
+
+/* ---------- story: grandfather's diary, acts, Mr. Kruk ---------- */
+const DIARY=[
+ {h:'Розчисти першу ділянку',tx:'«День перший. Земля тут тепла, наче жива. Сусіди сміються: старий Мирослав розмовляє з бур’янами. А я не з бур’янами. Я з тим, що під ними.»'},
+ {h:'Збери перший врожай',tx:'«Перший врожай — завжди обіцянка. Земля перевіряє: чи ти прийшов брати, чи ти прийшов дбати. Вона завжди відчуває різницю.»'},
+ {h:'Допоможи Тесляру з мостом',tx:'«Ми з Богданом будували цей міст ще хлопцями. По той бік лісу є те, що я мушу берегти. Тепер міст зруйнований... може, воно й на краще.»'},
+ {h:'Пробуди Дерево (рівень 1)',tx:'«Воно знову дихає! Я чув уночі, як гуде коріння під усією долиною. Дерево не померло — воно чекає. Але я винен йому борг, який не знаю, як віддати.»'},
+ {h:'Побувай у Густому лісі',tx:'«У лісі є галявина, де компас крутиться, мов скажений. Там я вперше почув Голос: “Хранителю, сила має ціну”. Я тоді ще не знав, про що воно.»'},
+ {h:'Принеси Пекарці борошно (3-тє завдання)',tx:'«Оленчина мати пекла хліб на розчині з медом і казала: “Хто годує село — той тримає його серце в теплих долонях”. Я запам’ятав.»'},
+ {h:'Відкрий Кришталеве озеро',tx:'«Того посушливого року озеро висохло до дна. І я побачив на дні двері. Так, двері. Наступного ранку вода повернулась, а я почав шукати ключ.»'},
+ {h:'Відкрий Покинуту шахту',tx:'«Шахтарі пішли звідси не через порожню жилу. Вони чули спів з глибини. Я спускався туди: на десятому горизонті лежить кристал, а в ньому — щось спить.»'},
+ {h:'Віднови Дерево до рівня 2',tx:'«Посуха забирала все. І я уклав угоду: сила Дерева — в обмін на дощ. Долина вижила. А Дерево почало згасати. Це мій борг. Мій — і того, хто прийде після мене.»'},
+ {h:'Побувай у Засніжених горах',tx:'«На вершині, вище хмар, повітря дзвенить. Там я знайшов другий кристал. Духи пір року — ось хто тримає рівновагу. Ось кого я мимоволі ув’язнив.»'},
+ {h:'Віднови Дерево до рівня 3',tx:'«Якщо ти читаєш це — значить, Дерево обрало тебе. Слухай уважно: коли воно розквітне повністю, відкриється шлях. Не бійся. Я пройшов ним першим.»'},
+ {h:'Віднови Дерево до рівня 4',tx:'«Останній запис. Я знайшов спосіб віддати борг: по той бік росте молоде Дерево, і йому потрібен Хранитель. Я йду. Доглянь ферму. Догляни долину. І приходь — я чекатиму на новому березі.»'},
+];
+const ACT_TX={
+ 1:'📜 <b>Акт II. «Пробудження»</b><br>Долиною ширяться дива: вночі над озером танцюють світляки, а квіти розквітають за одну ніч. Але старі казали: де прокидається сила — туди злітаються круки...',
+ 2:'📜 <b>Акт III. «Коріння»</b><br>Дерево шепоче уві сні про чотирьох Духів пір року, ув’язнених у кристалах — у шахті, в горах, за водоспадом. Знайди їх сліди у щоденнику дідуся.',
+ 3:'📜 <b>Акт IV. «Буря»</b><br>Долина майже ожила — і «АгроГігант» це помітив. Пан Крук більше не всміхається. Тримайся мешканців: разом ви сильніші за будь-яку корпорацію.',
+ 4:'📜 <b>Акт V. «Цвітіння»</b><br>Останній крок. Село збирає дари, Духи стали біля коріння. Коли Дерево засяє — відкриється шлях, яким колись пішов дідусь.',
+};
+function ensureStory(){
+ if(!S.story)S.story={diary:Array(DIARY.length).fill(false),flags:{},krukIntro:false,lastKruk:0};
+}
+function diaryCount(){ return S.story.diary.filter(Boolean).length; }
+function awardPage(n){
+ if(S.story.diary[n])return;
+ S.story.diary[n]=true; save();
+ const show=()=>{ sUp(); modal('📖 Щоденник дідуся — сторінка '+(n+1)+'/'+DIARY.length,
+  '<p><i>'+DIARY[n].tx+'</i></p><p class="muted">Знайдені сторінки можна перечитати у вкладці «Дерево».</p>'); };
+ if($('mback').classList.contains('on'))setTimeout(show,1300); else show();
+}
+function storyClear(){ if(!S.story.flags.c){ S.story.flags.c=1; awardPage(0); } }
+function readPage(n){
+ if(!S.story.diary[n])return;
+ modal('📖 Сторінка '+(n+1),'<p><i>'+DIARY[n].tx+'</i></p>');
+}
+function diaryHTML(){
+ let html='<div class="card"><h3>📖 Щоденник дідуся <span class="badge">'+diaryCount()+'/'+DIARY.length+'</span></h3>';
+ DIARY.forEach((d,i)=>{
+  if(S.story.diary[i])
+   html+='<div class="rowline"><span>📜 Сторінка '+(i+1)+'</span><button class="btn small ghost" onclick="readPage('+i+')">Читати</button></div>';
+  else
+   html+='<div class="rowline"><span class="muted">🔒 Сторінка '+(i+1)+'</span><span class="muted" style="font-size:11px">'+d.h+'</span></div>';
+ });
+ return html+'</div>';
+}
+function krukIntro(){
+ if(S.story.krukIntro)return;
+ S.story.krukIntro=true; save();
+ modal('🐦‍⬛ Незнайомець у чорному',
+  '<p>Біля воріт ферми зупиняється блискуче чорне авто. Чоловік у бездоганному костюмі простягає візитівку:</p>'+
+  '<p>«<b>Пан Крук, корпорація “АгроГігант”</b>. Чув, ця долина стає... перспективною. Я скуповую тут землю. Подумайте про це. А поки — може, поторгуємо? Я плачу одразу.»</p>'+
+  '<p class="muted">Старійшина Ганна дивиться йому вслід: «Не вір йому, дитино. Круки кружляють там, де пахне бідою».</p>');
+}
+function krukOffer(){
+ const have=Object.keys(S.inv).filter(k=>S.inv[k]>=8&&ITEMS[k].sell<=200);
+ if(!have.length)return;
+ const it=have[ri(have.length)], q=Math.min(S.inv[it],8+ri(8));
+ const price=Math.round(ITEMS[it].sell*q*.6);
+ S.story.lastKruk=now();
+ modal('🐦‍⬛ Пан Крук',
+  '<p>«Вітаю, фермере. Куплю ваші '+ITEMS[it].e+' '+ITEMS[it].n+' ×'+q+' — одразу, готівкою: <b>'+fmt(price)+'🪙</b>. Чудова ціна, чи не так?»</p>'+
+  '<p class="muted">(насправді це близько 60% ринкової вартості)</p>',
+  [
+   {t:'Продати',fn:()=>{ if(S.inv[it]>=q){ S.inv[it]-=q; S.coins+=price; toast('🐦‍⬛ «Приємно мати справу з розумними людьми»'); } refresh(); }},
+   {t:'Відмовитись',ghost:true,fn:()=>{ addXp(10); toast('Ганна схвально киває 👍 (+10⭐)'); refresh(); }},
+  ]);
+}
+function ensureBoard(){
+ if(S.world.objs.some(o=>o.k==='board'))return;
+ const cands=[[898,506],[866,472],[858,546],[930,655],[810,500]];
+ for(const [x,y] of cands)
+  if(posFree(S.world.objs,x,y,36)){ S.world.objs.push({k:'board',x,y}); return; }
+ S.world.objs.push({k:'board',x:898,y:506});
+}
+function initExtras(){ ensureStory(); ensureOrders(); ensureDaily(); ensureBoard(); }
 
 /* ---------- tree of life ---------- */
 function renderTree(){
@@ -1283,6 +1493,7 @@ function renderTree(){
  }else{
   html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
  }
+ html+=diaryHTML();
  el.innerHTML=html;
 }
 function donate(k){
@@ -1301,7 +1512,11 @@ function donate(k){
    S.continent=true;
    modal('🌟 Дерево Життя відроджено!','<p>Величне дерево засяяло магічним світлом, і вся долина розквітла. Далеко за океаном з’явилися обриси незвіданих земель…</p><p class="needok">🌍 Відкрито Новий континент (вкладка «Долина»)!<br>+25% до всіх цін продажу назавжди.</p>');
   }else{
-   modal('🌳 Дерево росте!','<p>Дерево Життя досягло рівня '+S.tree.lvl+' — «'+TREE_STAGES[S.tree.lvl]+'».</p><p class="needok">Дар дерева: '+TREE_LEVELS[S.tree.lvl-1].bonus+'</p>');
+   modal('🌳 Дерево росте!','<p>Дерево Життя досягло рівня '+S.tree.lvl+' — «'+TREE_STAGES[S.tree.lvl]+'».</p><p class="needok">Дар дерева: '+TREE_LEVELS[S.tree.lvl-1].bonus+'</p>'+(ACT_TX[S.tree.lvl]?'<p>'+ACT_TX[S.tree.lvl]+'</p>':''));
+   if(S.tree.lvl===1)awardPage(3);
+   if(S.tree.lvl===2){ awardPage(8); setTimeout(krukIntro,2800); }
+   if(S.tree.lvl===3)awardPage(10);
+   if(S.tree.lvl===4)awardPage(11);
   }
  }
  refresh();
@@ -1380,6 +1595,9 @@ let tickCount=0;
 function tick(){
  if(!S||!S.world)return;
  tickCount++;
+ ensureDaily();
+ if(S.story&&S.story.krukIntro&&!$('mback').classList.contains('on')
+    &&now()-(S.story.lastKruk||0)>240000&&Math.random()<1/180)krukOffer();
  // animal happiness decay
  S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-1/30); });
  // new day events
@@ -1410,14 +1628,19 @@ window.sellItem=sellItem; window.buyFeed=buyFeed; window.buyAnimal=buyAnimal; wi
 window.buyBuilding=buyBuilding; window.startJob=startJob; window.collectJob=collectJob;
 window.buyTerr=buyTerr; window.gather=gather; window.doQuest=doQuest; window.claimFest=claimFest;
 window.donate=donate; window.offerExpansion=offerExpansion;
+window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
+window.claimGoal=claimGoal; window.readPage=readPage;
 
-if(!load())newGame();
+const isNew=!load();
+if(isNew)newGame();
+initExtras();
 initCanvas();
 showTab('farm');
 refresh();
 setInterval(tick,1000);
 window.addEventListener('beforeunload',save);
-if(!S.intro){ S.intro=true; save(); showIntro(); }
+if(!S.intro){ S.intro=true; S.daily.loginPending=false; save(); showIntro(); }
+else showLogin();
 </script>
 </body>
 </html>
