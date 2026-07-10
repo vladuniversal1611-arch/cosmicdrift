@@ -918,36 +918,73 @@ const Render={
   this.c=this.cv.getContext('2d');this.c.scale(this.DPR,this.DPR);
   this.st=document.createElement('canvas');this.st.width=400*this.DPR;this.st.height=720*this.DPR;
   this.sc=this.st.getContext('2d');this.sc.scale(this.DPR,this.DPR);},
- /* ── статичний шар: небо + тайли + обʼєкти ── */
+ /* ── статичний шар: небо + суцільний острів + обʼєкти ──
+    Тайли не малюються окремими квадратами: однакові заокруглені
+    форми перекриваються й зливаються в один органічний острів. */
  drawStatic(){const c=this.sc,w=Isl.def(),isl=Isl.cur();
+  const T=GRID.T,ox=GRID.ox,oy=GRID.oy;
   c.clearRect(0,0,400,720);
+  /* небо */
   const g=c.createLinearGradient(0,0,0,720);g.addColorStop(0,w.sky[0]);g.addColorStop(1,w.sky[1]);
   c.fillStyle=g;c.fillRect(0,0,400,720);
-  /* далекі пагорби */
-  c.fillStyle='rgba(255,255,255,.14)';c.beginPath();c.arc(80,150,90,0,7);c.arc(310,140,70,0,7);c.fill();
-  isl.tiles.forEach(t=>{if(!t.a)return;const x=GRID.ox+t.x*GRID.T,y=GRID.oy+t.y*GRID.T;
-   if(t.gp){ /* прірва */
-    c.fillStyle='rgba(8,4,18,.85)';rr(c,x+1,y+1,GRID.T-2,GRID.T-2,6);c.fill();
-    if(t.o==='b:bridge'){c.fillStyle='#9a6a3a';rr(c,x+4,y+14,GRID.T-8,GRID.T-28,4);c.fill();
-     c.strokeStyle='#c89a5c';c.lineWidth=2;
-     for(let i=0;i<4;i++){c.beginPath();c.moveTo(x+8+i*10,y+14);c.lineTo(x+8+i*10,y+GRID.T-14);c.stroke();}}
-    return;}
-   if(t.s===0){ /* темрява */
-    c.fillStyle=w.dark;rr(c,x+1,y+1,GRID.T-2,GRID.T-2,8);c.fill();
-    c.fillStyle='rgba(120,80,200,.25)';
-    c.beginPath();c.moveTo(x+10,y+38);c.lineTo(x+16,y+16);c.lineTo(x+22,y+38);c.fill();
-    c.beginPath();c.moveTo(x+26,y+40);c.lineTo(x+33,y+22);c.lineTo(x+40,y+40);c.fill();
-    if(t.o==='boss'){c.fillStyle='#c22a5a';c.beginPath();
-     c.moveTo(x+24,y+34);c.bezierCurveTo(x+8,y+22,x+14,y+8,x+24,y+18);
-     c.bezierCurveTo(x+34,y+8,x+40,y+22,x+24,y+34);c.fill();}
-    return;}
-   if(t.w){ /* вода */
-    c.fillStyle=w.water;rr(c,x+1,y+1,GRID.T-2,GRID.T-2,8);c.fill();return;}
-   /* трава */
-   c.fillStyle=(t.x+t.y)%2?w.grass:w.grass2;rr(c,x+1,y+1,GRID.T-2,GRID.T-2,8);c.fill();
-   c.fillStyle='rgba(255,255,255,.08)';rr(c,x+1,y+1,GRID.T-2,6,4);c.fill();
-   /* обʼєкти */
-   const cx=x+GRID.T/2,cy=y+GRID.T/2;
+  /* мʼякі хмари/пагорби вдалині */
+  c.fillStyle='rgba(255,255,255,.12)';
+  c.beginPath();c.ellipse(78,132,84,60,0,0,7);c.ellipse(320,116,64,46,0,0,7);c.ellipse(200,90,70,40,0,0,7);c.fill();
+  const land=isl.tiles.filter(t=>t.a&&!t.gp);
+  const XY=t=>({x:ox+t.x*T,y:oy+t.y*T});
+  const key=(x,y)=>x+','+y;
+  const landSet=new Set(land.map(t=>key(t.x,t.y)));
+  /* заповнити внутрішні тайли суцільним квадратом → прибирає ромбики-шви;
+     краєві тайли лишаються заокругленими → мʼякий контур острова */
+  const fillInner=(list,inSet)=>list.forEach(t=>{
+   if([[1,0],[-1,0],[0,1],[0,-1]].every(d=>inSet.has(key(t.x+d[0],t.y+d[1])))){
+    const{x,y}=XY(t);c.fillRect(x-1,y-1,T+2,T+2);}});
+  /* «містки» між сусідніми тайлами одного типу — тонкі смуги зливаються */
+  const bridgeMerge=(list,inSet)=>list.forEach(t=>{const{x,y}=XY(t);
+   if(inSet.has(key(t.x+1,t.y)))c.fillRect(x+T/2,y+4,T,T-8);
+   if(inSet.has(key(t.x,t.y+1)))c.fillRect(x+4,y+T/2,T-8,T);});
+  const fuse=(list,inSet)=>{bridgeMerge(list,inSet);fillInner(list,inSet);};
+  /* 1) мʼяка тінь під островом */
+  c.fillStyle='rgba(10,26,14,.20)';
+  land.forEach(t=>{const{x,y}=XY(t);rr(c,x-4,y+6,T+8,T+8,22);c.fill();});
+  /* 2) берег (світліша облямівка по краю острова) */
+  c.fillStyle=w.dirt;
+  land.forEach(t=>{const{x,y}=XY(t);rr(c,x-5,y-5,T+10,T+10,22);c.fill();});
+  /* 3) суцільна трава: заокруглений контур + суцільна серцевина */
+  const gg=c.createLinearGradient(0,oy,0,oy+GRID.R*T);
+  gg.addColorStop(0,w.grass);gg.addColorStop(1,w.grass2);
+  c.fillStyle=gg;
+  land.forEach(t=>{const{x,y}=XY(t);rr(c,x-1,y-1,T+2,T+2,15);c.fill();});
+  fuse(land,landSet);
+  /* органічна текстура трави: мʼякі світлі й темні плями (детерміновано) */
+  land.forEach(t=>{const{x,y}=XY(t);const h=(t.x*73+t.y*131)%100;
+   if(h<45){c.fillStyle='rgba(255,255,255,.06)';c.beginPath();
+    c.ellipse(x+12+(h%3)*9,y+14+(h%5)*4,10,7,0,0,7);c.fill();}
+   if(h>=55){c.fillStyle='rgba(0,0,0,.05)';c.beginPath();
+    c.ellipse(x+16+(h%4)*7,y+30-(h%3)*4,11,7,0,0,7);c.fill();}});
+  /* 4) річка — суцільна стрічка (лише очищені водні тайли) */
+  const water=land.filter(t=>t.w&&t.s===1),waterSet=new Set(water.map(t=>key(t.x,t.y)));
+  if(water.length){c.fillStyle=w.water;
+   water.forEach(t=>{const{x,y}=XY(t);rr(c,x-2,y-2,T+4,T+4,15);c.fill();});
+   fuse(water,waterSet);
+   c.fillStyle='rgba(255,255,255,.10)';
+   water.forEach(t=>{const{x,y}=XY(t);rr(c,x+2,y+2,T-4,7,4);c.fill();});}
+  /* 5) темрява — суцільна мʼяка пляма поверх землі */
+  const dark=land.filter(t=>t.s===0),darkSet=new Set(dark.map(t=>key(t.x,t.y)));
+  if(dark.length){c.fillStyle=w.dark;
+   dark.forEach(t=>{const{x,y}=XY(t);rr(c,x-2,y-2,T+4,T+4,15);c.fill();});
+   fuse(dark,darkSet);
+   /* легкий фіолетовий туман */
+   c.fillStyle='rgba(120,80,200,.16)';
+   dark.forEach(t=>{if((t.x+t.y)%2)return;const{x,y}=XY(t);
+    c.beginPath();c.ellipse(x+T/2,y+T/2,13,10,0,0,7);c.fill();});
+   /* серце боса */
+   const bt=dark.find(t=>t.o==='boss');
+   if(bt){const{x,y}=XY(bt);c.fillStyle='#c22a5a';c.beginPath();
+    c.moveTo(x+24,y+34);c.bezierCurveTo(x+8,y+22,x+14,y+8,x+24,y+18);
+    c.bezierCurveTo(x+34,y+8,x+40,y+22,x+24,y+34);c.fill();}}
+  /* 6) обʼєкти на очищеній землі */
+  land.filter(t=>t.s===1).forEach(t=>{const{x,y}=XY(t);const cx=x+T/2,cy=y+T/2;
    if(t.o==='dead'){c.strokeStyle='#6a5240';c.lineWidth=4;c.lineCap='round';
     c.beginPath();c.moveTo(cx,y+40);c.lineTo(cx,y+14);c.moveTo(cx,y+24);c.lineTo(cx-9,y+15);c.moveTo(cx,y+28);c.lineTo(cx+9,y+18);c.stroke();}
    else if(t.o==='rock'){c.fillStyle='#8a9098';c.beginPath();
@@ -963,8 +1000,13 @@ const Render={
    else if(t.o==='tree')this.tree(c,cx,y,t.g,w);
    else if(t.o.startsWith('b:'))this.building(c,x,y,t.o.slice(2));
   });
-  /* берег острова — мʼяка тінь */
-  c.fillStyle='rgba(0,0,0,.08)';c.fillRect(GRID.ox-2,GRID.oy+GRID.R*GRID.T,GRID.C*GRID.T+4,5);
+  /* 7) прірви й мости */
+  isl.tiles.filter(t=>t.a&&t.gp).forEach(t=>{const{x,y}=XY(t);
+   c.fillStyle='rgba(6,3,16,.9)';rr(c,x-1,y-1,T+2,T+2,14);c.fill();
+   c.fillStyle='rgba(90,60,160,.12)';rr(c,x+4,y+4,T-8,T-8,10);c.fill();
+   if(t.o==='b:bridge'){c.fillStyle='#9a6a3a';rr(c,x+4,y+12,T-8,T-24,5);c.fill();
+    c.strokeStyle='#c89a5c';c.lineWidth=2;
+    for(let i=0;i<4;i++){c.beginPath();c.moveTo(x+8+i*10,y+13);c.lineTo(x+8+i*10,y+T-13);c.stroke();}}});
  },
  flower(c,cx,cy,w){const clrs=['#ffb8e0','#ffe066','#ff8a8a','#c8a8ff','#8ad8ff'];
   const clr=clrs[(cx*7+cy)%5|0];c.strokeStyle='#3d8a3a';c.lineWidth=2;
