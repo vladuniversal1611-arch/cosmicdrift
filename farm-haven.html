@@ -205,6 +205,7 @@ const ITEMS={
  cacao:{n:'Какао-боби',e:'🫘',sell:240}, coconut:{n:'Кокос',e:'🥥',sell:180},
  volctear:{n:'Вулканічна сльоза',e:'🔥',sell:120}, pearl:{n:'Перлина',e:'🦪',sell:130},
  chocolate:{n:'Шоколад',e:'🍫',sell:520},
+ ring:{n:'Обручка',e:'💍',sell:500},
  boot:{n:'Старий черевик',e:'🥾',sell:3}, perch:{n:'Окунь',e:'🐠',sell:28},
  crayfish:{n:'Рак',e:'🦞',sell:40}, trout:{n:'Форель',e:'🐡',sell:60},
  goldfish:{n:'Золота рибка',e:'🎏',sell:150}, catfish:{n:'Сом Балтазар',e:'🐋',sell:500},
@@ -481,6 +482,7 @@ function sellMult(){
  m+=Math.min(S.decoCount,5)*.02;
  if(S.continent)m+=.25;
  if(S.story&&S.story.flags&&S.story.flags.isleDone)m+=.1;
+ m+=.05*(gen()-1);
  return m;
 }
 function growMult(){ return S.tree.lvl>=2?0.9:1; }
@@ -534,6 +536,7 @@ $('mback').addEventListener('click',e=>{ if(e.target.id==='mback')closeModal(); 
 
 /* ---------- xp / level ---------- */
 function addXp(n){
+ n=Math.round(n*(1+.05*(gen()-1))*(childStage&&childStage()>=2?1.05:1));
  S.xp+=n;
  while(S.xp>=xpNeed(S.level)){
   S.xp-=xpNeed(S.level); S.level++;
@@ -724,6 +727,8 @@ function objEmoji(o){
  if(o.k==='weed')return curLoc()==='island'?'🌺':'🌿';
  if(o.k==='ship')return '⛵';
  if(o.k==='volcano')return '🌋';
+ if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
+ if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
  if(o.k==='barn')return '🛖';
  if(o.k==='deco')return o.e;
@@ -734,8 +739,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -1033,6 +1038,12 @@ function handleObj(o){
   case 'volcano':
    toast('🌋 Вулкан тихо дрімає. Вулканічні сльози — у вкладці «Долина»');
    break;
+  case 'spouse':
+   toast('💞 '+SPOUSE_PHRASES[ri(SPOUSE_PHRASES.length)]);
+   break;
+  case 'child':
+   toast((childStage()>=1?'🧒 ':'👶 ')+CHILD_PHRASES[ri(CHILD_PHRASES.length)]);
+   break;
   case 'ytree':{
    const st=S.quests.grandpa||0;
    const txts=['Крихітний паросток тремтить на вітрі. Дідусь просить ананасів...','Паросток зміцнів! Тепер йому потрібні сльози вулкана.','Деревце тягнеться вгору. Аромат какао і бананів кличе Духа...','Майже доросле! Останній крок — шоколад та есенція.','🌟 Молоде Дерево квітне! Два Хранителі — одна сім’я.'];
@@ -1154,6 +1165,9 @@ function renderShop(){
  }
  html+='</div>';
 
+ if(S.level>=8){
+  html+='<div class="secTitle">💍 Особливе</div><div class="card"><div class="rowline"><span>💍 Обручка <span class="muted">для того, хто став рідним</span></span><button class="btn small" onclick="buyRing()">2 500🪙</button></div></div>';
+ }
  html+='<div class="secTitle">🎀 Прикраси <span class="badge">+2% до цін кожна (до 5)</span></div><div class="card">';
  for(const k in DECOS){
   const d=DECOS[k];
@@ -1191,6 +1205,12 @@ function buyAnimal(k){
  S.animals.push({type:k,hap:50,readyAt:0});
  addXp(10); sCoin();
  toast(d.e+' '+d.n+' тепер живе на фермі!');
+ refresh();
+}
+function buyRing(){
+ if(S.coins<2500){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=2500; give('ring',1); sCoin();
+ toast('💍 Обручка сяє у кишені. Час для важливих слів... (вкладка «Дерево» → Родина)');
  refresh();
 }
 function buyDeco(k){
@@ -1489,6 +1509,7 @@ function ensureDaily(){
   S.daily.lastKey=k; S.daily.key=k; S.daily.bonus=false;
   S.daily.goals=genGoals();
   S.daily.loginPending=true;
+  if(S.family)familyNewDay();
  }
 }
 function dg(type,n){ // daily goal progress
@@ -1645,7 +1666,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
+ ensureStory(); ensureFamily(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
  if(S.arrived&&!S.island)S.island={objs:genIsland()};
@@ -1946,6 +1967,117 @@ function checkAnniversary(){
  return false;
 }
 
+/* ---------- dynasty: weddings, children, inheritance ---------- */
+const SPOUSE_GIFT={carpenter:{wood:5},baker:{flour:2},fisherman:{fish:3},beekeeper:{honey:2}};
+const SPOUSE_PHRASES=['«Гарного дня, серденько!»','«Я приготую щось смачне!»','«Наша ферма — найкраща в долині»','«Дивись, яке небо сьогодні!»'];
+const CHILD_PHRASES=['«Я сьогодні бачив жабку ось ТАКУ!»','«А коли виросту — теж буду фермером!»','«Дивись, що я знайшов!»','«Наввипередки до комори?»'];
+const CREST_POOL=['🌳','🐝','🌻','🐴','⭐','🔥','💎','🌊'];
+function gen(){ return (S.dynasty&&S.dynasty.gen)||1; }
+function ensureFamily(){
+ if(!S.family)S.family={spouse:null,marriedKey:'',child:null,childAt:0,giftKey:''};
+ if(!S.dynasty)S.dynasty={gen:1,crest:['🌾']};
+}
+function candidateReady(k){
+ return !NPCS[k].isle&&SPOUSE_GIFT[k]&&(S.quests[k]||0)>=NPCS[k].steps.length;
+}
+function propose(k){
+ if(S.family.spouse)return;
+ if(!candidateReady(k)){ sErr(); return; }
+ if(invGet('ring')<1){ sErr(); toast('Потрібна 💍 обручка (Крамниця → Особливе)'); return; }
+ S.inv.ring--;
+ S.family.spouse=k; S.family.marriedKey=todayKey();
+ addXp(50); sUp();
+ const spot=bedSpot(S.world.objs)||{x:640,y:500};
+ S.world.objs.push({k:'spouse',x:HOUSE_POS.x+55,y:HOUSE_POS.y+40});
+ modal('💒 Весілля!','<p>Уся долина гуляє на вашому весіллі! '+NPCS[k].e+' <b>'+NPCS[k].n+'</b> тепер — твоя родина.</p><p class="needok">Щодня на тебе чекатиме родинний подарунок (вкладка «Дерево» → Родина). Кажуть, скоро в домі стане ще веселіше...</p>');
+ save(); refresh();
+}
+function childStage(){ // 0 baby, 1 kid, 2 teen
+ if(!S||!S.family||!S.family.child)return -1;
+ const d=(now()-S.family.childAt)/864e5;
+ return d<2?0:d<5?1:2;
+}
+function familyNewDay(){ // called when the real date changes
+ if(S.family.spouse&&!S.family.child&&S.family.marriedKey&&S.family.marriedKey!==todayKey()){
+  S.family.child={}; S.family.childAt=now();
+  S.world.objs.push({k:'child',x:HOUSE_POS.x-50,y:HOUSE_POS.y+45});
+  modal('👶 Поповнення!','<p>У вашій родині народилася дитина! Уся долина приходить із вітаннями, а Старійшина Ганна витирає сльози: <i>«Рід Хранителів продовжується...»</i></p>');
+ }
+}
+function claimFamilyGift(){
+ if(!S.family.spouse)return;
+ if(S.family.giftKey===todayKey()){ toast('Сьогоднішній подарунок вже отримано 💝'); return; }
+ S.family.giftKey=todayKey();
+ const g=SPOUSE_GIFT[S.family.spouse];
+ const parts=[];
+ for(const k in g){ give(k,g[k]); parts.push(ITEMS[k].e+'×'+g[k]); }
+ if(childStage()>=1){ const it=orderItemsPool()[0]||'wheat'; give(it,2); parts.push(ITEMS[it].e+'×2 (від малечі)'); }
+ sCoin(); toast('💝 Родинний подарунок: '+parts.join(' '));
+ save(); refresh();
+}
+function canInherit(){ return S.tree.lvl>=5&&S.family.child&&childStage()>=1; }
+function inherit(){
+ if(!canInherit())return;
+ modal('🕊 Передати ферму у спадок?','<p>Минуть роки. Твій герой piде на заслужений спочинок, а ферму прийме наступне покоління роду.</p><p><b>Збережеться:</b> родовід і герб, щоденник дідуся, кубки, свята року, серія входів.<br><b>Почнеться заново:</b> ферма (заросте за 20 років), рівень, монети, Дерево Життя.</p><p class="needok">Вічний бонус династії: +5% до цін та досвіду за кожне покоління.</p>',[
+  {t:'Передати у спадок 🕊',fn:doInherit},
+  {t:'Ще не час',ghost:true},
+ ]);
+}
+function doInherit(){
+ const g=gen()+1;
+ const keep={
+  gen:g,
+  crest:(S.dynasty.crest||['🌾']).concat(CREST_POOL[(g-2)%CREST_POOL.length]),
+  diary:S.story.diary.slice(),
+  calDone:S.calDone||{}, annivYear:S.annivYear||0,
+  worldStart:S.worldStart, sound:S.sound,
+  streak:S.daily?S.daily.streak:0, lastKey:S.daily?S.daily.lastKey:'',
+  trophies:invGet('trophy'),
+ };
+ S=defaultState();
+ S.world={objs:genWorld()};
+ for(const k in NPCS)S.quests[k]=0;
+ for(const k in TERRITORIES)S.terr[k]={unlocked:false,last:0};
+ S.dynasty={gen:keep.gen,crest:keep.crest};
+ S.worldStart=keep.worldStart; S.sound=keep.sound;
+ S.calDone=keep.calDone; S.annivYear=keep.annivYear;
+ S.intro=true;
+ S.coins=100+250*(keep.gen-1);
+ initExtras();
+ S.story.diary=keep.diary;
+ S.daily.streak=keep.streak; S.daily.lastKey=keep.lastKey; S.daily.loginPending=false;
+ if(keep.trophies)give('trophy',keep.trophies);
+ bgSeason=null; recenterCam();
+ save(); refresh();
+ modal('🌅 Покоління '+keep.gen,
+  '<p>Минуло двадцять років...</p><p>Тепер уже <b>твій</b> лист лежить у поштовій скриньці нащадка: <i>«Ферма чекає на тебе. Дерево обере тебе, як колись обрало мене. З любов’ю — твій батько»</i>.</p>'+
+  '<p>Долина знову заросла, Дерево знову дрімає. Але тепер за спиною — сила всього роду!</p>'+
+  '<p class="needok">Бонус династії: +'+(5*(keep.gen-1))+'% до цін та досвіду · Герб: '+keep.crest.join('')+'</p>',
+  [{t:'До праці! 🚜'}]);
+}
+function familyHTML(){
+ ensureFamily();
+ let html='<div class="card"><h3>👨‍👩‍👧 Родина <span class="badge">покоління '+gen()+'</span></h3>';
+ html+='<p class="muted">Герб роду: '+(S.dynasty.crest||['🌾']).join('')+(gen()>1?' · бонус династії +'+(5*(gen()-1))+'%':'')+'</p>';
+ if(!S.family.spouse){
+  const cands=Object.keys(SPOUSE_GIFT).filter(candidateReady);
+  if(!cands.length)html+='<p class="muted">Заверши всі прохання когось із мешканців — і, можливо, дружба переросте у щось більше... (потрібна 💍 обручка з Крамниці)</p>';
+  else cands.forEach(k=>{
+   html+='<div class="rowline"><span>'+NPCS[k].e+' '+NPCS[k].n+'</span><button class="btn small'+(invGet('ring')?' gold':'')+'" '+(invGet('ring')?'':'disabled')+' onclick="propose(\''+k+'\')">💍 Освідчитись</button></div>';
+  });
+ }else{
+  const sp=NPCS[S.family.spouse];
+  html+='<div class="rowline"><span>'+sp.e+' <b>'+sp.n+'</b> — твоя пара 💞</span>'+
+   (S.family.giftKey===todayKey()?'<span class="muted">подарунок отримано</span>':'<button class="btn gold small" onclick="claimFamilyGift()">🎁 Подарунок</button>')+'</div>';
+  const cs=childStage();
+  if(cs<0)html+='<p class="muted">У домі затишно. Хтозна, може скоро стане ще веселіше...</p>';
+  else html+='<div class="rowline"><span>'+['👶 Немовля спить у колисці','🧒 Малеча бігає фермою і «допомагає»','🧑 Підліток — справжня опора родини (+5% досвіду)'][cs]+'</span></div>';
+  if(canInherit())html+='<div class="rowline"><span class="muted">Рід готовий до нової глави</span><button class="btn small" onclick="inherit()">🕊 Передати у спадок</button></div>';
+  else html+='<p class="muted">Спадок: потрібне сяюче Дерево (рів. 5) і підросла дитина.</p>';
+ }
+ return html+'</div>';
+}
+
 /* ---------- tree of life ---------- */
 function renderTree(){
  const el=$('tab-tree');
@@ -1975,6 +2107,7 @@ function renderTree(){
  }else{
   html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
  }
+ html+=familyHTML();
  html+=diaryHTML();
  el.innerHTML=html;
 }
@@ -2016,7 +2149,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.datas
 
 function renderHUD(){
  $('coins').textContent='🪙 '+fmt(S.coins);
- $('lvltxt').textContent='Рівень '+S.level;
+ $('lvltxt').textContent='Рівень '+S.level+(gen()>1?' · Покоління '+gen():'');
  $('xptxt').textContent=Math.floor(S.xp)+'/'+xpNeed(S.level);
  $('xpfill').style.width=Math.min(100,100*S.xp/xpNeed(S.level))+'%';
  const s=season();
@@ -2121,6 +2254,7 @@ window.donate=donate; window.offerExpansion=offerExpansion;
 window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
 window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
 window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
+window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
 $('castBtn').onclick=fishAction;
 $('fishClose').onclick=closeFishing;
 $('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
