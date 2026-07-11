@@ -62,6 +62,16 @@ button{font-family:inherit}
 /* ── mode hint ── */
 #modeHint{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);z-index:11;background:rgba(10,30,16,.92);border:1px solid rgba(120,220,140,.45);color:#bdf0c6;font-size:11px;letter-spacing:.5px;border-radius:20px;padding:6px 16px;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none}
 
+/* ── tutorial banner ── */
+#tut{position:absolute;bottom:92px;left:14px;right:14px;z-index:13;display:none;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+#tut.on{display:flex;animation:tutIn .3s ease}
+@keyframes tutIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#tutBody{background:linear-gradient(180deg,rgba(16,46,26,.97),rgba(10,32,18,.97));border:1px solid rgba(130,230,150,.55);border-radius:16px;padding:11px 18px;box-shadow:0 6px 24px rgba(0,0,0,.4),0 0 22px rgba(70,220,110,.18);max-width:340px;text-align:center}
+#tutStep{display:block;font-size:9px;letter-spacing:2px;color:#6fd08a;text-transform:uppercase;margin-bottom:4px}
+#tutMsg{font-size:12.5px;line-height:1.5;color:#e6ffe9}
+#tutSkip{pointer-events:auto;font-size:9px;letter-spacing:1px;color:#4c8a5c;background:rgba(8,20,12,.7);border-radius:12px;padding:3px 12px;cursor:pointer}
+#tut .pulse{color:#ffe066;font-weight:800}
+
 /* ── toast ── */
 #toast{position:absolute;top:118px;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap}
 #toastIn{background:rgba(8,24,12,.94);border:1px solid rgba(140,230,150,.4);border-radius:12px;padding:8px 18px;font-size:12px;color:#d6f7da;letter-spacing:.5px;box-shadow:0 0 20px #22cc5522}
@@ -182,6 +192,7 @@ button{font-family:inherit}
 </div>
 
 <div id="modeHint"></div>
+<div id="tut"><div id="tutBody"><span id="tutStep"></span><span id="tutMsg"></span></div><div id="tutSkip">пропустити навчання ✕</div></div>
 <div id="toast"><div id="toastIn"></div></div>
 <div id="achPop"><div id="achPopIn"></div></div>
 <div id="flash"></div>
@@ -521,7 +532,7 @@ function freshState(){return{
  light:75,cur:0,unlocked:1,isl:{},up:{power:0,cap:0,growth:0,luck:0},
  skins:['classic'],skin:'classic',col:[],ach:[],
  stats:{},daily:{d:'',q:[]},story:[],set:{snd:1,mus:1},
- prodAcc:{},t:now(),days:[],bossDown:0,fin:0,adT:0};}
+ prodAcc:{},t:now(),days:[],bossDown:0,fin:0,adT:0,tut:0};}
 const SaveSys={
  KEY:'lastseed_save',
  save(){S.t=now();try{localStorage.setItem(this.KEY,JSON.stringify(S))}catch(e){}},
@@ -1204,6 +1215,35 @@ const Story={
 };
 $('cut').addEventListener('pointerdown',()=>Story.next());
 
+/* ================= TUTOR (вбудоване навчання) ================= */
+const Tutor={
+ steps:[
+  {tip:'Торкнись <b class="pulse">темної плитки</b> поруч із лисичкою — світло ☀️ очистить її, і зʼявиться трава.',done:()=>(S.stats.cleansed||0)>=1},
+  {tip:'Чудово! Очищай <b class="pulse">темні плитки поруч із зеленими</b> — так острів росте. Очисти ще кілька.',done:()=>(S.stats.cleansed||0)>=4},
+  {tip:'На очищеній землі торкайся <b class="pulse">сухих дерев 🪵 та каміння 🪨</b> — вони дають ресурси для будівництва.',done:()=>(S.stats.gotwood||0)>=1||(S.stats.gotstone||0)>=1,timeout:60000},
+  {tip:'Натисни <b class="pulse">🌱 Садити</b> внизу, потім торкнись зеленої плитки (треба 1🌰 + 2💧) — виросте дерево.',done:()=>(S.stats.planted||0)>=1},
+  {tip:'Плитки з <b class="pulse">жовтими очима</b> — істоти темряви. Торкнись однієї й перемагай дотиками по монстру.',done:()=>(S.stats.defeated||0)>=1,timeout:50000},
+  {tip:'Головна ціль — <b class="pulse">очистити острів до 100%</b> (смуга життя вгорі). Тоді відкриється новий світ на 🗺️ Карті. Успіху, Хранителько! 🌱',last:true}
+ ],
+ t0:0,
+ active(){return S&&S.tut<this.steps.length},
+ start(){if(!this.active())return;this.show();},
+ show(){const st=this.steps[S.tut];if(!st){this.hide();return;}
+  $('tutStep').textContent='Крок '+(S.tut+1)+' / '+this.steps.length;
+  $('tutMsg').innerHTML=st.tip;$('tut').classList.add('on');this.t0=now();},
+ hide(){$('tut').classList.remove('on');},
+ advance(){S.tut++;if(Snd)Snd.p('pick');
+  if(S.tut>=this.steps.length){this.hide();SaveSys.save();return;}
+  this.show();SaveSys.save();},
+ skip(){S.tut=this.steps.length;this.hide();SaveSys.save();},
+ update(){if(!this.active())return;
+  if(!$('tut').classList.contains('on'))return;
+  const st=this.steps[S.tut];
+  if(st.last){if(now()-this.t0>15000)this.skip();return;}
+  if(st.timeout&&now()-this.t0>st.timeout){this.advance();return;}
+  if(st.done())this.advance();}
+};
+
 /* ================= UI ================= */
 const UI={
  toastT:null,achT:null,achQueue:[],
@@ -1406,6 +1446,7 @@ function bindInput(){
  $('bigBtn').onclick=()=>{$('bigOv').classList.remove('on');const cb=UI.bigCb;UI.bigCb=null;cb&&cb();};
  $('bCvWrap').addEventListener('pointerdown',e=>{e.preventDefault();Battle.hit();});
  $('bFlee').onclick=()=>Battle.flee(false);
+ $('tutSkip').onclick=()=>Tutor.skip();
  $('cv').addEventListener('pointerdown',e=>{
   const r=$('cv').getBoundingClientRect();
   const x=(e.clientX-r.left)/r.width*400,y=(e.clientY-r.top)/r.height*720;
@@ -1421,7 +1462,7 @@ function loop(ts){const dt=Math.min(.1,(ts-lastT)/1000);lastT=ts;
  if(S){Game.tick(dt);FX.tick(dt);
   Render.frame(ts/1000);
   if(Battle.on)Battle.draw();
-  hudTimer+=dt;if(hudTimer>.5){hudTimer=0;UI.hud();}
+  hudTimer+=dt;if(hudTimer>.5){hudTimer=0;UI.hud();Tutor.update();}
   saveTimer+=dt;if(saveTimer>10){saveTimer=0;SaveSys.save();}}
  requestAnimationFrame(loop);}
 let hudTimer=0,saveTimer=0;
@@ -1444,8 +1485,8 @@ function startGame(fresh){
  Critters.reset();Game.dirty=true;UI.hud();UI.qDot();
  const st=Isl.cur().tiles.find(t=>t.o==='sprout')||Isl.cur().tiles.find(t=>t.s===1);
  if(st){const p=tileCenter(st);Render.fox.x=Render.fox.tx=p.x;Render.fox.y=Render.fox.ty=p.y;}
- if(fresh)Story.play('intro',()=>UI.toast('Торкнись темної землі поруч із зеленою! 🌱'));
- else Game.offline();
+ if(fresh)Story.play('intro',()=>Tutor.start());
+ else{Game.offline();Tutor.start();}
  if(S.set.mus)Music.start();
  SaveSys.save();
 }
