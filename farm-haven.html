@@ -1512,7 +1512,7 @@ function doQuest(k){
  const q=npc.steps[step];
  if(q.treeReq!==undefined){ if(S.tree.lvl<q.treeReq)return; }
  else if(!takeAll(q.need)){ sErr(); return; }
- S.coins+=q.rw.coins; addXp(q.rw.xp); S.quests[k]++;
+ S.coins+=q.rw.coins; addXp(q.rw.xp); S.quests[k]++; dg('quest',1);
  if(q.unlock){
   if(q.unlock.terr){ S.terr[q.unlock.terr].unlocked=true; }
   if(q.unlock.bees){ S.beesUnlocked=true; }
@@ -1529,7 +1529,7 @@ function claimFest(){
  const f=FESTIVALS[season().id];
  if(S.fest[festKey()]||!festActive())return;
  if(!takeAll(f.need)){ sErr(); return; }
- S.fest[festKey()]=true;
+ S.fest[festKey()]=true; dg('fest',1);
  S.coins+=f.rw.coins; addXp(f.rw.xp); give('trophy',f.rw.trophy);
  sUp();
  modal(f.e+' '+f.n,'<p>Вітаємо, переможцю фестивалю! 🎉</p><p class="needok">+'+fmt(f.rw.coins)+'🪙 +'+f.rw.xp+'⭐ +🏆</p>');
@@ -1606,10 +1606,13 @@ function ensureDaily(){
   if(S.family)familyNewDay();
  }
 }
-function dg(type,n){ // daily goal progress
+function dg(type,n){ // daily goal progress + lifetime stats
+ if(!S.stats)S.stats={};
+ S.stats[type]=(S.stats[type]||0)+n;
  if(!S.daily||!S.daily.goals)return;
  for(const g of S.daily.goals) if(g.t===type&&!g.done) g.p=Math.min(g.n,g.p+n);
 }
+function st(k){ return (S.stats&&S.stats[k])||0; }
 function claimGoal(i){
  const g=S.daily.goals[i];
  if(!g||g.done||g.p<g.n)return;
@@ -1703,7 +1706,7 @@ function krukOffer(){
   '<p class="muted">(насправді це близько 60% ринкової вартості)</p>',
   [
    {t:'Продати',fn:()=>{ if(S.inv[it]>=q){ S.inv[it]-=q; S.coins+=price; toast('🐦‍⬛ «Приємно мати справу з розумними людьми»'); } refresh(); }},
-   {t:'Відмовитись',ghost:true,fn:()=>{ addXp(10); toast('Ганна схвально киває 👍 (+10⭐)'); refresh(); }},
+   {t:'Відмовитись',ghost:true,fn:()=>{ addXp(10); dg('refuse',1); toast('Ганна схвально киває 👍 (+10⭐)'); refresh(); }},
   ]);
 }
 function ensureBoard(){
@@ -1761,6 +1764,7 @@ function arriveIsland(){
 }
 function initExtras(){
  ensureStory(); ensureFamily(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
+ if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
  if(S.arrived&&!S.island)S.island={objs:genIsland()};
@@ -1850,6 +1854,7 @@ function fishCatch(){
  for(const f of tbl){ r-=f.w; if(r<=0){ pick=f; break; } }
  give(pick.id,1); dg('fish',1);
  const it=ITEMS[pick.id];
+ if(pick.id==='goldfish')dg('goldfish',1);
  if(pick.id==='boot'){
   fishUI('Старий черевик... Ну, буває 😅','🥾',false);
   addXp(1); sPop();
@@ -2044,7 +2049,7 @@ function claimCal(){
  const key=calKey(ev);
  if(S.calDone[key])return;
  if(ev.need&&!takeAll(ev.need)){ sErr(); return; }
- S.calDone[key]=true;
+ S.calDone[key]=true; dg('fest',1);
  for(const k in ev.rw){ if(k==='coins')S.coins+=ev.rw[k]; else give(k,ev.rw[k]); }
  addXp(60); sUp();
  modal(ev.e+' '+ev.n,'<p>'+ev.tx+'</p><p class="needok">Нагорода року: '+calRwText(ev.rw)+' +60⭐</p><p class="muted">Наступного року свято повернеться з новими дарами!</p>');
@@ -2061,6 +2066,83 @@ function checkAnniversary(){
   return true;
  }
  return false;
+}
+
+/* ---------- achievements ---------- */
+const ACH=[
+ {id:'clear10',e:'🌿',n:'Прибиральник',d:'Розчисть 10 ділянок',rw:{coins:50},p:()=>[st('clear'),10]},
+ {id:'clear100',e:'🪓',n:'Підкорювач хащів',d:'Розчисть 100 ділянок',rw:{coins:300},p:()=>[st('clear'),100]},
+ {id:'clear500',e:'⛰️',n:'Землевпорядник',d:'Розчисть 500 ділянок',rw:{coins:1000,crystal:1},p:()=>[st('clear'),500]},
+ {id:'harv25',e:'🌾',n:'Перші жнива',d:'Збери 25 врожаїв',rw:{coins:100},p:()=>[st('harvest'),25]},
+ {id:'harv250',e:'🚜',n:'Справжній фермер',d:'Збери 250 врожаїв',rw:{coins:500},p:()=>[st('harvest'),250]},
+ {id:'harv1000',e:'👑',n:'Король врожаю',d:'Збери 1000 врожаїв',rw:{coins:2000,crystal:2},p:()=>[st('harvest'),1000]},
+ {id:'sell50',e:'💰',n:'Крамар',d:'Продай 50 товарів',rw:{coins:100},p:()=>[st('sell'),50]},
+ {id:'sell500',e:'🏪',n:'Купець',d:'Продай 500 товарів',rw:{coins:600},p:()=>[st('sell'),500]},
+ {id:'sell2500',e:'🏦',n:'Магнат',d:'Продай 2500 товарів',rw:{coins:2500,crystal:2},p:()=>[st('sell'),2500]},
+ {id:'fish10',e:'🐟',n:'Рибалка-початківець',d:'Злови 10 рибин',rw:{coins:100},p:()=>[st('fish'),10]},
+ {id:'fish50',e:'🎣',n:'Майстер вудки',d:'Злови 50 рибин',rw:{coins:400},p:()=>[st('fish'),50]},
+ {id:'fish200',e:'🌊',n:'Володар глибин',d:'Злови 200 рибин',rw:{coins:1200,crystal:1},p:()=>[st('fish'),200]},
+ {id:'goldf',e:'🎏',n:'Золота удача',d:'Злови золоту рибку',rw:{coins:300},p:()=>[st('goldfish'),1]},
+ {id:'balt',e:'🐋',n:'Легенда озера',d:'Злови сома Балтазара',rw:{coins:500},p:()=>[S.story.flags.balt?1:0,1]},
+ {id:'ord5',e:'📋',n:'Надійний постачальник',d:'Виконай 5 замовлень',rw:{coins:150},p:()=>[st('order'),5]},
+ {id:'ord25',e:'📦',n:'Логіст долини',d:'Виконай 25 замовлень',rw:{coins:500},p:()=>[st('order'),25]},
+ {id:'ord100',e:'🚚',n:'Торговий дім',d:'Виконай 100 замовлень',rw:{coins:1500,crystal:2},p:()=>[st('order'),100]},
+ {id:'feed100',e:'🐮',n:'Друг тварин',d:'Нагодуй тварин 100 разів',rw:{coins:400},p:()=>[st('feed'),100]},
+ {id:'prod50',e:'🏭',n:'Промисловець',d:'Вироби 50 товарів',rw:{coins:400},p:()=>[st('produce'),50]},
+ {id:'wat100',e:'💧',n:'Дощовик',d:'Полий грядки 100 разів',rw:{coins:400},p:()=>[st('water'),100]},
+ {id:'lvl5',e:'⭐',n:'Господар',d:'Досягни 5 рівня',rw:{coins:200},p:()=>[S.level,5]},
+ {id:'lvl10',e:'🌟',n:'Пан фермер',d:'Досягни 10 рівня',rw:{coins:600},p:()=>[S.level,10]},
+ {id:'lvl15',e:'💫',n:'Легенда долини',d:'Досягни 15 рівня',rw:{coins:1500,crystal:1},p:()=>[S.level,15]},
+ {id:'tree1',e:'🌱',n:'Пробудження',d:'Пробуди Дерево Життя',rw:{coins:200},p:()=>[S.tree.lvl,1]},
+ {id:'tree5',e:'🌳',n:'Хранитель',d:'Повністю віднови Дерево',rw:{coins:1000},p:()=>[S.tree.lvl,5]},
+ {id:'diary',e:'📖',n:'Пам’ять роду',d:'Знайди всі 12 сторінок щоденника',rw:{coins:800,crystal:1},p:()=>[diaryCount(),12]},
+ {id:'isle',e:'🏝',n:'Мореплавець',d:'Досягни Острова Сонця',rw:{coins:500},p:()=>[S.arrived?1:0,1]},
+ {id:'fire',e:'🔥',n:'Друг Духа Вогню',d:'Поверни пам’ять Духу Вогню',rw:{coins:1000,crystal:1},p:()=>[S.story.flags.isleDone?1:0,1]},
+ {id:'wed',e:'💍',n:'Сімейне вогнище',d:'Одружись',rw:{coins:300},p:()=>[S.family&&S.family.spouse?1:0,1]},
+ {id:'gen2',e:'🕊',n:'Династія',d:'Передай ферму наступному поколінню',rw:{coins:2000,crystal:2},p:()=>[gen(),2]},
+ {id:'rich',e:'🤑',n:'Скарбничка',d:'Назбирай 10 000 монет',rw:{crystal:3},p:()=>[Math.min(S.coins,10000),10000]},
+ {id:'quest10',e:'🧑‍🌾',n:'Душа громади',d:'Виконай 10 прохань мешканців',rw:{coins:500},p:()=>[st('quest'),10]},
+ {id:'fest3',e:'🎪',n:'Зірка свят',d:'Відсвяткуй 3 свята',rw:{coins:400},p:()=>[st('fest'),3]},
+ {id:'honest',e:'🛡',n:'Незламний',d:'Відмов Круку 5 разів',rw:{coins:600},p:()=>[st('refuse'),5]},
+];
+function achDone(a){ const [c,m]=a.p(); return c>=m; }
+function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
+function achClaimed(){ return ACH.filter(a=>S.ach&&S.ach[a.id]).length; }
+function claimAch(){
+ const ready=achReady();
+ if(!ready.length)return;
+ if(!S.ach)S.ach={};
+ let coins=0,cryst=0;
+ const names=[];
+ for(const a of ready){
+  S.ach[a.id]=true;
+  coins+=a.rw.coins||0; cryst+=a.rw.crystal||0;
+  names.push(a.e+' '+a.n);
+ }
+ S.coins+=coins; if(cryst)give('crystal',cryst);
+ addXp(20*ready.length); sUp();
+ modal('🏅 Досягнення!','<p>'+names.join('<br>')+'</p><p class="needok">+'+fmt(coins)+'🪙'+(cryst?' + 💎×'+cryst:'')+' +'+(20*ready.length)+'⭐</p>');
+ S.achLastReady=0;
+ save(); refresh();
+}
+function showAchList(){
+ let html='';
+ for(const a of ACH){
+  const done=achDone(a), claimed=S.ach&&S.ach[a.id];
+  const [c,m]=a.p();
+  html+='<div class="rowline"><span>'+a.e+' <b>'+a.n+'</b><br><span class="muted" style="font-size:11px">'+a.d+'</span></span>'+
+   '<span class="'+(claimed?'needok':done?'needok':'muted')+'">'+(claimed?'✅':done?'🟡 готово':Math.min(c,m)+'/'+m)+'</span></div>';
+ }
+ modal('🏅 Досягнення ('+achClaimed()+'/'+ACH.length+')',html);
+}
+function achHTML(){
+ const ready=achReady().length;
+ let html='<div class="card"><h3>🏅 Досягнення <span class="badge">'+achClaimed()+'/'+ACH.length+'</span></h3>';
+ html+='<div class="rowline"><button class="btn small ghost" onclick="showAchList()">Список</button>';
+ if(ready)html+='<button class="btn gold small" onclick="claimAch()">Забрати нагороди ('+ready+')</button>';
+ else html+='<span class="muted">нових немає</span>';
+ html+='</div></div>';
+ return html;
 }
 
 /* ---------- dynasty: weddings, children, inheritance ---------- */
@@ -2203,6 +2285,7 @@ function renderTree(){
  }else{
   html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
  }
+ html+=achHTML();
  html+=familyHTML();
  html+=diaryHTML();
  el.innerHTML=html;
@@ -2340,8 +2423,13 @@ function tick(){
    }
   }
  }
+ if(tickCount%10===0){
+  save();
+  const r=achReady().length;
+  if(r>(S.achLastReady||0)){ sUp(); toast('🏅 Нове досягнення! Забери нагороду у вкладці «Дерево»'); }
+  S.achLastReady=r;
+ }
  refresh();
- if(tickCount%10===0)save();
 }
 
 /* ---------- boot ---------- */
@@ -2354,6 +2442,7 @@ window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
 window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
 window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
+window.claimAch=claimAch; window.showAchList=showAchList;
 $('castBtn').onclick=fishAction;
 $('fishClose').onclick=closeFishing;
 $('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
