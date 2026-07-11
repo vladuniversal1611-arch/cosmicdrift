@@ -864,7 +864,7 @@ function frame(ts){
  const dt=Math.min(.1,(ts-lastTs)/1000)||.016; lastTs=ts;
  const bgKey=curLoc()+season().id;
  if(bgSeason!==bgKey){ renderBG(season().id); bgSeason=bgKey; }
- stepAnimals(dt);
+ stepAnimals(dt); stepPets(dt);
  const w=cv.width/dpr, h=cv.height/dpr;
  clampCam(w,h);
  cx.setTransform(dpr,0,0,dpr,0,0);
@@ -961,6 +961,13 @@ function frame(ts){
    g.addColorStop(1,'rgba(255,200,90,0)');
    cx.fillStyle=g; cx.beginPath(); cx.arc(q.x,q.y-12,34,0,7); cx.fill();
   }
+ }
+ // pets roaming the farm
+ if(S.pets)for(let i=0;i<S.pets.length;i++){
+  const p=S.pets[i], q=isoP(p.x,p.y);
+  drawShadow(cx,q.x,q.y+2,10);
+  const hop=Math.abs(Math.sin(ts/200+i))*3;
+  emoji(cx,PETS[p.type].e,q.x,q.y-8-hop,26);
  }
  // fog + signposts over locked zones
  for(const k in ZONES){
@@ -1097,7 +1104,12 @@ function zoomAt(px,py,f){
 }
 /* --- tap actions (world coordinates) --- */
 function tapWorld(x,y){
- // animals first
+ // pets first
+ if(S.pets)for(let i=0;i<S.pets.length;i++){
+  const p=S.pets[i];
+  if(Math.hypot(p.x-x,p.y-y)<24){ petPet(i); return; }
+ }
+ // animals
  for(let i=0;i<S.animals.length;i++){
   const wd=wander[i]; if(!wd)continue;
   if(Math.hypot(wd.x-x,wd.y-y)<24){
@@ -1372,6 +1384,14 @@ function renderShop(){
   html+='<div class="secTitle">💍 Особливе</div><div class="card"><div class="rowline"><span>💍 Обручка <span class="muted">для того, хто став рідним</span></span><button class="btn small" onclick="buyRing()">2 500🪙</button></div>';
   html+='<div class="rowline"><span>🌱 Теплиця <span class="muted">будь-яка культура цілий рік</span></span>'+(S.gh&&S.gh.owned?'<span class="needok">збудовано ✅</span>':'<button class="btn small" onclick="buyGreenhouse()">1 800🪙</button>')+'</div></div>';
  }
+ html+='<div class="secTitle">🐾 Улюбленці</div><div class="card">';
+ for(const k in PETS){
+  const d=PETS[k], have=S.pets&&S.pets.some(p=>p.type===k);
+  if(have){ html+='<div class="rowline"><span>'+d.e+' '+d.n+' <span class="muted">'+d.perk+'</span></span><span class="needok">на фермі ✅</span></div>'; continue; }
+  if(S.level<d.lvl){ html+='<div class="rowline"><span>'+d.e+' '+d.n+'</span><span class="muted">🔒 рівень '+d.lvl+'</span></div>'; continue; }
+  html+='<div class="rowline"><span>'+d.e+' '+d.n+' <span class="muted">'+d.perk+'</span></span><button class="btn small" onclick="buyPet(\''+k+'\')">'+fmt(d.cost)+'🪙</button></div>';
+ }
+ html+='</div>';
  html+='<div class="secTitle">🎀 Прикраси <span class="badge">+2% до цін кожна (до 5)</span></div><div class="card">';
  for(const k in DECOS){
   const d=DECOS[k];
@@ -1720,6 +1740,7 @@ function ensureDaily(){
   S.daily.goals=genGoals();
   S.daily.loginPending=true;
   if(S.family)familyNewDay();
+  petsNewDay();
  }
 }
 function dg(type,n){ // daily goal progress + lifetime stats
@@ -1882,7 +1903,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensurePets(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2420,6 +2441,54 @@ function craftPick(){
  ]);
 }
 
+/* ---------- pets: dog & cat ---------- */
+const PETS={
+ dog:{e:'🐶',n:'Песик',cost:600,lvl:5,perk:'щодня знаходить подарунок'},
+ cat:{e:'🐱',n:'Котик',cost:600,lvl:9,perk:'відлякує ворон (менше бур’янів)'},
+};
+const PET_AREA={x:540,y:390,w:520,h:300};
+const PET_PHRASES={dog:['«Гав! 🐾»','виляє хвостом','приносить паличку','лащиться до тебе'],cat:['«Мур-мур… 😌»','треться об ногу','ліниво потягується','дивиться на тебе з гідністю']};
+function ensurePets(){ if(!S.pets)S.pets=[]; }
+function buyPet(type){
+ ensurePets();
+ const d=PETS[type];
+ if(S.pets.some(p=>p.type===type)){ toast('У тебе вже є '+d.n.toLowerCase()); return; }
+ if(S.level<d.lvl){ toast('🔒 '+d.n+': потрібен рівень '+d.lvl); return; }
+ if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=d.cost;
+ S.pets.push({type,x:HOUSE_POS.x,y:HOUSE_POS.y+45,tx:HOUSE_POS.x,ty:HOUSE_POS.y+45,wait:0,gk:''});
+ addXp(15); sCoin();
+ toast(d.e+' '+d.n+' оселився на фермі! Погладь його на карті 💚');
+ refresh();
+}
+function stepPets(dt){
+ if(!S.pets)return;
+ for(const p of S.pets){
+  if(p.wait>0){ p.wait-=dt; continue; }
+  const dx=p.tx-p.x, dy=p.ty-p.y, dd=Math.hypot(dx,dy);
+  if(dd<3){ p.tx=PET_AREA.x+ri(PET_AREA.w); p.ty=PET_AREA.y+ri(PET_AREA.h); p.wait=1+Math.random()*4; continue; }
+  const sp=26*dt; p.x+=dx/dd*sp; p.y+=dy/dd*sp;
+ }
+}
+function petPet(i){
+ const p=S.pets[i], d=PETS[p.type];
+ snd(700,.06); setTimeout(()=>snd(900,.05),80);
+ toast(d.e+' '+PET_PHRASES[p.type][ri(PET_PHRASES[p.type].length)]);
+}
+function petsNewDay(){
+ if(!S.pets)return;
+ for(const p of S.pets){
+  if(p.type!=='dog')continue;
+  if(p.gk===todayKey())continue;
+  p.gk=todayKey();
+  const roll=Math.random();
+  if(roll<.5){ const c=80+ri(120); S.coins+=c; toast('🐶 Песик приніс тобі '+c+'🪙!'); }
+  else if(roll<.8){ const its=['flower','wood','stone','fish']; const it=its[ri(its.length)]; give(it,2); toast('🐶 Песик приніс '+ITEMS[it].e+'×2!'); }
+  else { give('crystal',1); toast('🐶 Песик відкопав 💎 кристал!'); }
+ }
+}
+function hasCat(){ return S.pets&&S.pets.some(p=>p.type==='cat'); }
+
 /* ---------- the greenhouse (any crop, any season) ---------- */
 const GH_SLOTS=6;
 function ensureGreenhouse(){ if(!S.gh)S.gh={owned:false,beds:[]}; if(!S.gh.beds)S.gh.beds=[]; }
@@ -2655,6 +2724,7 @@ const ACH=[
  {id:'museumAll',e:'🎓',n:'Хранитель історії',d:'Заверши всі колекції музею',rw:{coins:3000,crystal:3},p:()=>[COLLECTIONS.filter(colDone).length,COLLECTIONS.length]},
  {id:'friend1',e:'💞',n:'Добрий сусід',d:'Здружись із кимось до 5 зірок',rw:{coins:600},p:()=>[Math.max(...FRIEND_NPCS.map(friendLevel)),5]},
  {id:'friendAll',e:'🤗',n:'Душа долини',d:'Здружись з усіма до 5 зірок',rw:{coins:3000,crystal:3},p:()=>[FRIEND_NPCS.filter(k=>friendLevel(k)>=5).length,FRIEND_NPCS.length]},
+ {id:'pets',e:'🐾',n:'Улюбленці',d:'Заведи песика і котика',rw:{coins:800},p:()=>[S.pets?S.pets.length:0,2]},
 ];
 function achDone(a){ const [c,m]=a.p(); return c>=m; }
 function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
@@ -2966,8 +3036,9 @@ function tick(){
   const days=d-S.lastDay;
   S.lastDay=d;
   const weeds=objsW().filter(o=>o.k==='weed').length;
+  const weedChance=hasCat()?.25:.5;
   for(let i=0;i<Math.min(days,5);i++){
-   if(weeds+i>=28||Math.random()>=.5)continue;
+   if(weeds+i>=28||Math.random()>=weedChance)continue;
    const owned=Object.keys(ZONES).filter(zoneOwned);
    const z=ZONES[owned[ri(owned.length)]];
    for(let tries=0;tries<15;tries++){
@@ -3001,6 +3072,7 @@ window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMi
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
+window.buyPet=buyPet;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
