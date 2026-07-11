@@ -518,11 +518,16 @@ function sellMult(){
  if(S.continent)m+=.25;
  if(S.story&&S.story.flags&&S.story.flags.isleDone)m+=.1;
  m+=.05*(gen()-1);
- return m;
+ if(S.story&&S.story.flags&&S.story.flags.krukPoison)m-=.1;
+ return Math.max(.4,m);
 }
 function growMult(){
  let m=S.tree.lvl>=2?0.9:1;
- if(S.story&&S.story.flags&&S.story.flags.spiritAutumn&&season().id==='autumn'&&curLoc()!=='island')m*=.9;
+ const fl=S.story&&S.story.flags;
+ if(fl&&curLoc()!=='island'){
+  const sp={spring:'spiritSpring',summer:'spiritSummer',autumn:'spiritAutumn',winter:'spiritWinter'}[season().id];
+  if(sp&&fl[sp])m*=.9;
+ }
  return m;
 }
 function sellPrice(id){ return Math.max(1,Math.round(ITEMS[id].sell*sellMult())); }
@@ -568,7 +573,9 @@ let AC=null;
 function snd(f,d,type){
  if(!S||!S.sound)return;
  try{
+  const fresh=!AC;
   AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  if(fresh&&!ambientT)ambientT=setInterval(ambientTick,2600);
   const o=AC.createOscillator(),g=AC.createGain();
   o.type=type||'triangle'; o.frequency.value=f;
   g.gain.setValueAtTime(.08,AC.currentTime);
@@ -577,6 +584,40 @@ function snd(f,d,type){
  }catch(e){}
 }
 const sPop=()=>snd(520,.09), sCoin=()=>{snd(880,.08);setTimeout(()=>snd(1320,.1),70);}, sUp=()=>{snd(440,.12);setTimeout(()=>snd(660,.12),110);setTimeout(()=>snd(880,.18),220);}, sErr=()=>snd(160,.15,'sawtooth');
+/* --- ambient soundscape: birds (day) & crickets (night) --- */
+function birdChirp(){
+ if(!S||!S.sound||!AC||document.hidden)return;
+ const n=2+ri(3), base=1600+ri(1400);
+ for(let i=0;i<n;i++)setTimeout(()=>{
+  try{
+   const o=AC.createOscillator(),g=AC.createGain();
+   o.type='sine'; o.frequency.value=base+(ri(400)-200);
+   o.frequency.linearRampToValueAtTime(o.frequency.value+300,AC.currentTime+.06);
+   g.gain.setValueAtTime(.035,AC.currentTime);
+   g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.09);
+   o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+.1);
+  }catch(e){}
+ },i*90);
+}
+function cricket(){
+ if(!S||!S.sound||!AC||document.hidden)return;
+ try{
+  for(let k=0;k<3;k++)setTimeout(()=>{
+   const o=AC.createOscillator(),g=AC.createGain();
+   o.type='square'; o.frequency.value=4200+ri(300);
+   g.gain.setValueAtTime(.014,AC.currentTime);
+   g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.03);
+   o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+.035);
+  },k*45);
+ }catch(e){}
+}
+let ambientT=0;
+function ambientTick(){
+ if(!S||!S.sound||!AC){ return; }
+ const f=dayFrac();
+ if(f>=.1&&f<.72){ if(Math.random()<.5)birdChirp(); }       // daytime birdsong
+ else if(f>=.78||f<.05){ cricket(); if(Math.random()<.5)setTimeout(cricket,1400); } // night crickets
+}
 
 /* ---------- toasts / modal ---------- */
 function toast(msg){
@@ -1905,6 +1946,7 @@ function fishCatch(){
  }
  const tbl=FISH_TABLE.map(f=>({...f}));
  if(weatherNow().id==='fog')tbl.find(f=>f.id==='goldfish').w*=3; // у тумані клює краще
+ if(S.story&&S.story.flags&&S.story.flags.krukPoison)tbl.find(f=>f.id==='boot').w*=5; // отруєна річка
  let total=0; for(const f of tbl)total+=f.w;
  let r=Math.random()*total, pick=tbl[0];
  for(const f of tbl){ r-=f.w; if(r<=0){ pick=f; break; } }
@@ -2122,6 +2164,97 @@ function checkAnniversary(){
   return true;
  }
  return false;
+}
+
+/* ---------- Acts III-V: season spirits, Kruk's storm, the valley finale ---------- */
+const SPIRITS=[
+ {id:'spiritSpring',e:'🌸',n:'Дух Весни',terr:'waterfall',terrN:'Водоспад',need:{flower:12,essence:1},
+  intro:'За водоспадом мерехтить рожевий кристал. Усередині спить постать із пелюсток.',
+  freed:'🌸 «Нарешті вільна! Весни в долині будуть ніжними та рясними». Весняні культури ростуть на 10% швидше!'},
+ {id:'spiritSummer',e:'☀️',n:'Дух Літа',terr:'mountains',terrN:'Засніжені гори',need:{crystal:2,sunflower:3},
+  intro:'На вершині гір, у бурштиновій кризі, палає золоте світло — Дух Літа.',
+  freed:'☀️ «Дякую, Хранителю! Літа будуть щедрими на сонце». Літні культури ростуть на 10% швидше!'},
+];
+function spiritCount(){ const f=(S.story&&S.story.flags)||{}; return ['spiritSpring','spiritSummer','spiritAutumn','spiritWinter'].filter(k=>f[k]).length; }
+function threeSpirits(){ const f=(S.story&&S.story.flags)||{}; return f.spiritSpring&&f.spiritSummer&&f.spiritAutumn; }
+function freeSpirit(sp){
+ const f=S.story.flags;
+ if(f[sp.id])return;
+ if(!S.terr[sp.terr]||!S.terr[sp.terr].unlocked){ toast('🔒 Спершу відкрий: '+sp.terrN+' (вкладка «Долина»)'); return; }
+ if(!takeAll(sp.need)){ sErr(); return; }
+ f[sp.id]=1; addXp(120); give('essence',2); S.coins+=800; sUp();
+ modal(sp.e+' '+sp.n+' звільнено!','<p>'+sp.freed+'</p><p class="needok">+800🪙, ✨×2, +120⭐</p>');
+ save(); refresh();
+}
+// Act IV — Kruk's sabotage
+function startStorm(){
+ const f=S.story.flags;
+ f.act4=1; f.krukPoison=1; save();
+ modal('🌩 Акт IV. «Буря»',
+  '<p>Уночі гуркоче не грім. На світанку річка стає бурою й смердить хімією — з труби, що веде до фургона «АгроГіганту».</p>'+
+  '<p>🐦‍⬛ Крук розводить руками: «Прикро. Промислові стоки... Продайте землю, поки не пізно, і я все владнаю».</p>'+
+  '<p class="muted">Риба погано ловиться, тварини сумують, ціни впали. Збери докази диверсії (вкладка «Дерево») і склич сільські збори!</p>');
+}
+function evidenceReady(){ return hasAll({fish:5,stone:5,flower:5}); }
+function villageCouncil(){
+ const f=S.story.flags;
+ if(!takeAll({fish:5,stone:5,flower:5})){ sErr(); return; }
+ f.krukPoison=0; f.krukBanished=1; f.spiritWinter=1; save();
+ sUp();
+ modal('⚖️ Сільські збори',
+  '<p>Уся долина зібралася на площі. Ти викладаєш докази: отруєну рибу, забруднений ґрунт, зів’ялі квіти — і слід від труби «АгроГіганту».</p>'+
+  '<p>🧓 Старійшина Ганна підводиться: «Круче, тобі тут не місце. Забирайся — назавжди».</p>'+
+  '<p>🐦‍⬛ Крук зникає без слова. А коли річка знову світлішає — над нею з першим снігом прокидається <b>❄️ Дух Зими</b>: «Ви захистили долину. Тепер і зима буде на вашому боці». <span class="needok">Зимові культури ростуть на 10% швидше!</span></p>');
+ refresh();
+}
+// Act V — the valley finale
+function canFinale(){ const f=(S.story&&S.story.flags)||{}; return S.tree.lvl>=5&&spiritCount()>=4&&f.krukBanished&&!f.finale; }
+function valleyFinale(){
+ const f=S.story.flags; f.finale=1; save();
+ modal('🌳 Акт V. «Цвітіння»',
+  '<p>Настав день, якого чекала вся долина. Дерево Життя сяє на повну силу, чотири Духи пір року стали довкола його коріння, а кожен мешканець приносить свій дар.</p>'+
+  '<p>Богдан — новий вітряк. Олена — святковий коровай. Петро — перлину з дна озера. Мирон — золотий мед. І ти — усе своє серце, вкладене в цю землю.</p>'+
+  '<p><i>Дерево спалахує світлом до небес. У сяйві на мить проступає усміхнене обличчя дідуся: «Ти впорався, дитино. Долина знову жива».</i></p>',
+  [{t:'✨ Далі',fn:()=>{
+   give('trophy',3); give('essence',5); S.coins+=5000; addXp(500);
+   modal('🎬 Долину врятовано!',
+    '<p class="needok">Вітаємо! Ти пройшов головну історію Farm Haven.</p>'+
+    '<p>Занедбана ферма стала серцем квітучої долини. Дерево Життя сяє, Духи вільні, мешканці щасливі, а лиходій вигнаний.</p>'+
+    '<p class="muted">Але це не кінець: попереду Острів Сонця 🏝, нові покоління твого роду 👨‍👩‍👧 і безліч історій долини. Дякуємо, що граєш! 💚</p>'+
+    '<p class="needok">Фінальна нагорода: +5000🪙, 🏆×3, ✨×5, +500⭐</p>');
+   sUp(); save(); refresh();
+  }}]);
+}
+function storyTick(){
+ if(!S.story||!S.story.flags)return;
+ const f=S.story.flags;
+ if($('mback').classList.contains('on'))return;
+ if(!f.act4&&!f.krukBanished&&S.tree.lvl>=4&&threeSpirits()){ startStorm(); return; }
+ if(canFinale()){ valleyFinale(); return; }
+}
+function spiritsHTML(){
+ const f=(S.story&&S.story.flags)||{};
+ // hidden until the player is deep enough into the story
+ if(S.tree.lvl<2&&!f.spiritAutumn&&!f.spiritSpring)return '';
+ let html='<div class="card"><h3>🌸☀️🍂❄️ Духи пір року <span class="badge">'+spiritCount()+'/4</span></h3>';
+ // Spring & Summer — offering-based
+ for(const sp of SPIRITS){
+  if(f[sp.id]){ html+='<div class="rowline"><span>'+sp.e+' '+sp.n+'</span><span class="needok">вільний ✅</span></div>'; continue; }
+  const unlocked=S.terr[sp.terr]&&S.terr[sp.terr].unlocked;
+  html+='<div class="rowline"><span>'+sp.e+' '+sp.n+' <span class="muted">('+sp.terrN+')</span><br><span class="muted" style="font-size:11px">'+needHTML(sp.need)+'</span></span>'+
+   (unlocked?'<button class="btn small'+(hasAll(sp.need)?' gold':'')+'" '+(hasAll(sp.need)?'':'disabled')+' onclick="freeSpirit(\''+sp.id+'\')">Звільнити</button>':'<span class="muted">🔒</span>')+'</div>';
+ }
+ // Autumn — from the mine
+ html+='<div class="rowline"><span>🍂 Дух Осені <span class="muted">(шахта, поверх 10)</span></span>'+(f.spiritAutumn?'<span class="needok">вільний ✅</span>':'<span class="muted">у глибинах шахти</span>')+'</div>';
+ // Winter — from Act IV
+ html+='<div class="rowline"><span>❄️ Дух Зими <span class="muted">(після Бурі)</span></span>'+(f.spiritWinter?'<span class="needok">вільний ✅</span>':'<span class="muted">спить під кригою</span>')+'</div>';
+ // Act IV panel
+ if(f.act4&&!f.krukBanished){
+  html+='<div class="rowline" style="border-top:2px solid #e4dcc4;margin-top:6px;padding-top:8px"><span>🌩 <b>Докази диверсії Крука</b><br><span class="muted" style="font-size:11px">'+needHTML({fish:5,stone:5,flower:5})+'</span></span>'+
+   '<button class="btn small'+(evidenceReady()?' gold':'')+'" '+(evidenceReady()?'':'disabled')+' onclick="villageCouncil()">⚖️ Збори</button></div>';
+ }
+ if(f.finale)html+='<p class="needok" style="margin-top:6px">🌳 Головну історію завершено — долину врятовано!</p>';
+ return html+'</div>';
 }
 
 /* ---------- museum of the valley ---------- */
@@ -2486,6 +2619,7 @@ function renderTree(){
  }else{
   html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
  }
+ html+=spiritsHTML();
  html+=achHTML();
  html+=familyHTML();
  html+=diaryHTML();
@@ -2534,7 +2668,8 @@ function renderHUD(){
  $('xpfill').style.width=Math.min(100,100*S.xp/xpNeed(S.level))+'%';
  const s=season();
  const wNow=weatherNow();
- $('seasonpill').textContent=(curLoc()==='island'?'🏝':s.e)+' '+wNow.e+' · день '+(dayOfSeason()+1);
+ const poison=S.story&&S.story.flags&&S.story.flags.krukPoison?' ☠️':'';
+ $('seasonpill').textContent=(curLoc()==='island'?'🏝':s.e)+' '+wNow.e+poison+' · день '+(dayOfSeason()+1);
  $('seasonpill').title=wNow.n;
  $('treemini').textContent='🌳'+S.tree.lvl+(S.continent?'🌍':'');
  document.getElementById('app').className='season-'+(curLoc()==='island'?'summer':s.id);
@@ -2600,11 +2735,13 @@ function tick(){
  if(!S||!S.world)return;
  tickCount++;
  ensureDaily();
+ storyTick();
  tickStories();
  if(S.story&&S.story.krukIntro&&!$('mback').classList.contains('on')
     &&now()-(S.story.lastKruk||0)>240000&&Math.random()<1/180)krukOffer();
  // animal happiness decay
- const hapDecay=weatherNow().id==='blizzard'?1/15:1/30;
+ let hapDecay=weatherNow().id==='blizzard'?1/15:1/30;
+ if(S.story&&S.story.flags&&S.story.flags.krukPoison)hapDecay*=2;
  S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-hapDecay); });
  // new day events
  const d=dayNum();
@@ -2645,6 +2782,7 @@ window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
+window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
