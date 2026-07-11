@@ -103,6 +103,21 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
 #castBtn.bite{background:#ef8f00;animation:glowp .4s infinite}
 #fishClose{width:54px;border-radius:16px}
 
+/* mine overlay */
+#mine{position:absolute;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:space-between;background:linear-gradient(#3a2f26 0%,#241c15 40%,#120d09 100%);color:#e8dcc8;overflow:hidden;touch-action:none;padding:calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom))}
+#mine.on{display:flex}
+#mineTop{text-align:center}
+#mineFloor{font-size:22px;font-weight:800}
+#minePick{font-size:13px;opacity:.8;margin-top:3px}
+#mineRock{font-size:110px;filter:drop-shadow(0 6px 14px #000);transition:transform .08s;cursor:pointer;user-select:none}
+#mineRock.hit{transform:scale(.9) rotate(-4deg)}
+#mineLog{min-height:44px;text-align:center;font-size:15px;font-weight:700;color:#ffd54f}
+#mineHint{text-align:center;font-size:12px;opacity:.75;margin-top:4px}
+#mineBtns{display:flex;gap:8px;width:100%;max-width:420px;flex-wrap:wrap;justify-content:center}
+#mineBtns .btn{flex:1;min-width:100px}
+#digBtn{background:#8d6034;font-size:16px;padding:13px}
+#digBtn:disabled{background:#5a4a38}
+
 /* toasts */
 #toasts{position:absolute;left:0;right:0;bottom:calc(150px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:50}
 .toast{background:rgba(30,45,25,.93);color:#fff;border-radius:12px;padding:8px 16px;font-size:13px;font-weight:600;max-width:88%;text-align:center;animation:tin .25s}
@@ -158,6 +173,21 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
     <button data-tab="quests"><span class="ni">🧑‍🌾</span>Люди</button>
     <button data-tab="tree"><span class="ni">🌳</span>Дерево</button>
   </nav>
+  <div id="mine">
+    <div id="mineTop"><div id="mineFloor"></div><div id="minePick"></div></div>
+    <div>
+      <div id="mineRock">🪨</div>
+      <div id="mineLog"></div>
+      <div id="mineHint"></div>
+    </div>
+    <div id="mineBtns">
+      <button class="btn" id="digBtn">⛏️ Копати</button>
+      <button class="btn" id="mineDownBtn">⬇️ Спуск</button>
+      <button class="btn ghost" id="mineUpBtn">⬆️ Вгору</button>
+      <button class="btn ghost" id="mineCraftBtn">🔨 Кирка</button>
+      <button class="btn ghost" id="mineExitBtn">✖</button>
+    </div>
+  </div>
   <div id="fishing">
     <div id="fishSun">☀️</div>
     <div id="fishMsg"></div>
@@ -205,6 +235,8 @@ const ITEMS={
  cacao:{n:'Какао-боби',e:'🫘',sell:240}, coconut:{n:'Кокос',e:'🥥',sell:180},
  volctear:{n:'Вулканічна сльоза',e:'🔥',sell:120}, pearl:{n:'Перлина',e:'🦪',sell:130},
  chocolate:{n:'Шоколад',e:'🍫',sell:520},
+ iron:{n:'Залізо',e:'🔩',sell:50}, silver:{n:'Срібло',e:'🥈',sell:80},
+ gold:{n:'Золото',e:'🥇',sell:120}, gem:{n:'Самоцвіт',e:'💠',sell:200},
  ring:{n:'Обручка',e:'💍',sell:500},
  boot:{n:'Старий черевик',e:'🥾',sell:3}, perch:{n:'Окунь',e:'🐠',sell:28},
  crayfish:{n:'Рак',e:'🦞',sell:40}, trout:{n:'Форель',e:'🐡',sell:60},
@@ -485,7 +517,11 @@ function sellMult(){
  m+=.05*(gen()-1);
  return m;
 }
-function growMult(){ return S.tree.lvl>=2?0.9:1; }
+function growMult(){
+ let m=S.tree.lvl>=2?0.9:1;
+ if(S.story&&S.story.flags&&S.story.flags.spiritAutumn&&season().id==='autumn'&&curLoc()!=='island')m*=.9;
+ return m;
+}
 function sellPrice(id){ return Math.max(1,Math.round(ITEMS[id].sell*sellMult())); }
 
 function dayNum(){ return Math.floor((now()-S.worldStart)/1000/SEC_PER_DAY); }
@@ -1406,6 +1442,7 @@ function renderMap(){
    if(cdLeft>0)html+=`<div class="rowline"><span class="muted">Відновлення…</span><span class="muted">${fmtT(cdLeft)}</span></div><div class="pbar"><div class="pfill" style="width:${100*(1-cdLeft/t.cd)}%"></div></div>`;
    else html+=`<div class="rowline"><span>Ресурси готові!</span><button class="btn gold small" onclick="gather('${k}')">Зібрати</button></div>`;
    if(k==='lake')html+=`<div class="rowline"><span>🎣 Половити рибу вудкою</span><button class="btn small" onclick="openFishing()">Рибалити</button></div>`;
+   if(k==='mine')html+=`<div class="rowline"><span>⛏️ Спуститись у глибини (поверх ${S.mine?S.mine.deepest:1}/10)</span><button class="btn small" onclick="openMine()">У шахту</button></div>`;
   }
   html+='</div>';
  }
@@ -1590,6 +1627,7 @@ function genGoals(){
  if(S.animals.length)defs.push({t:'feed',n:Math.min(3+Math.floor(S.level/2),S.animals.length*3),txt:'Нагодуй тварин'});
  if(S.terr.lake&&S.terr.lake.unlocked)defs.push({t:'fish',n:3+Math.floor(S.level/3),txt:'Злови рибу'});
  defs.push({t:'water',n:4+Math.floor(S.level/2),txt:'Полий грядки'});
+ if(S.terr.mine&&S.terr.mine.unlocked)defs.push({t:'dig',n:8+S.level,txt:'Копни в шахті'});
  if(Object.keys(S.buildings).some(b=>S.buildings[b].owned))defs.push({t:'produce',n:2+Math.floor(S.level/3),txt:'Вироби товарів'});
  for(let i=defs.length-1;i>0;i--){ const j=ri(i+1); [defs[i],defs[j]]=[defs[j],defs[i]]; }
  return defs.slice(0,3).map(d=>({t:d.t,n:d.n,txt:d.txt,p:0,done:false,rw:20+S.level*10}));
@@ -1763,7 +1801,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
+ ensureStory(); ensureFamily(); ensureMine(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2068,6 +2106,100 @@ function checkAnniversary(){
  return false;
 }
 
+/* ---------- the deep mine: 10 floors ---------- */
+const PICKS=[
+ {n:'Стара кирка ⛏️',max:3,cost:null},
+ {n:'Кам’яна кирка 🪨⛏️',max:6,cost:{stone:10,wood:5}},
+ {n:'Залізна кирка 🔩⛏️',max:9,cost:{iron:8,wood:5}},
+ {n:'Золота кирка 🥇⛏️',max:10,cost:{gold:5,crystal:2}},
+];
+let digCooling=false;
+function ensureMine(){ if(!S.mine)S.mine={floor:1,deepest:1,pick:0,digs:6,spirit:false}; }
+function pickMax(){ return PICKS[S.mine.pick].max; }
+function mineLoot(f){
+ const r=Math.random();
+ if(f<=3)return r<.5?{stone:1+ri(2)}:r<.85?{ore:1}:{iron:1};
+ if(f<=6)return r<.35?{stone:1}:r<.7?{iron:1}:r<.92?{ore:1+ri(2)}:{silver:1};
+ if(f<=9)return r<.3?{iron:1}:r<.6?{silver:1}:r<.85?{gold:1}:{crystal:1};
+ return r<.4?{gold:1}:r<.75?{gem:1}:r<.95?{crystal:1}:{gem:2};
+}
+function openMine(){
+ if(!S.terr.mine||!S.terr.mine.unlocked){ toast('⛏️ Спершу відкрий Покинуту шахту (вкладка «Долина»)'); return; }
+ ensureMine();
+ S.mine.floor=Math.min(S.mine.deepest,pickMax());
+ $('mine').classList.add('on');
+ renderMine('Темрява пахне вологим каменем...');
+}
+function closeMine(){ $('mine').classList.remove('on'); save(); refresh(); }
+function renderMine(log){
+ const m=S.mine;
+ $('mineFloor').textContent='Поверх '+m.floor+' / 10'+(m.floor>=7?' 💎':m.floor>=4?' 🔦':'');
+ $('minePick').textContent=PICKS[m.pick].n+(m.pick<3?' · глибина до '+pickMax():'');
+ $('mineRock').textContent=m.floor>=7?'🟪':m.floor>=4?'🟫':'🪨';
+ if(log!==undefined)$('mineLog').textContent=log;
+ const frontier=m.floor===m.deepest;
+ $('mineHint').textContent=frontier?(m.digs>0?'До спуску: ~'+m.digs+' змахів':'Спуск знайдено!'):'Спуск відомий — можна йти глибше';
+ $('mineDownBtn').disabled=!(m.floor<10&&m.floor<pickMax()&&(!frontier||m.digs<=0));
+ $('mineUpBtn').disabled=m.floor<=1;
+ $('mineCraftBtn').style.display=m.pick<3?'':'none';
+}
+function mineDig(){
+ if(digCooling)return;
+ const m=S.mine;
+ digCooling=true;
+ const btn=$('digBtn'); btn.disabled=true;
+ setTimeout(()=>{ digCooling=false; btn.disabled=false; },850);
+ $('mineRock').classList.add('hit');
+ setTimeout(()=>$('mineRock').classList.remove('hit'),90);
+ snd(180+ri(60),.08,'square');
+ // Autumn Spirit crystal on the deepest floor
+ if(m.floor===10&&!S.story.flags.spiritAutumn&&Math.random()<.12){
+  S.story.flags.spiritAutumn=1;
+  give('crystal',3); give('essence',3); S.coins+=1000; addXp(150); sUp();
+  renderMine('🍂 КРИСТАЛ ДУХА ОСЕНІ!');
+  modal('🍂 Дух Осені прокидається!','<p>Кирка дзвенить об щось тепле. У бурштиновому кристалі повільно розплющує очі постать із листя і золота...</p><p><i>«Дякую, Хранителю. Віднині осінь у долині буде щедрою».</i></p><p class="needok">+1000🪙, 💎×3, ✨×3, +150⭐<br>Осінні культури ростуть на 10% швидше — назавжди!</p>');
+  save(); return;
+ }
+ const loot=mineLoot(m.floor);
+ const parts=[];
+ for(const k in loot){ give(k,loot[k]); parts.push(ITEMS[k].e+'×'+loot[k]); }
+ if(m.floor===m.deepest&&m.digs>0)m.digs--;
+ addXp(2); dg('dig',1);
+ renderMine('⛏️ '+parts.join(' '));
+ if(m.floor===m.deepest&&m.digs===0){ sUp(); $('mineLog').textContent+='  · Спуск знайдено!'; }
+}
+function mineDown(){
+ const m=S.mine;
+ if(m.floor>=10||m.floor>=pickMax())return;
+ const frontier=m.floor===m.deepest;
+ if(frontier&&m.digs>0)return;
+ m.floor++;
+ if(m.floor>m.deepest){ m.deepest=m.floor; m.digs=5+ri(4); }
+ sPop(); renderMine('Ти спускаєшся глибше... Поверх '+m.floor);
+ save();
+}
+function mineUp(){
+ if(S.mine.floor<=1)return;
+ S.mine.floor--; sPop();
+ renderMine('Піднімаєшся до світла... Поверх '+S.mine.floor);
+}
+function craftPick(){
+ const next=S.mine.pick+1;
+ if(next>=PICKS.length)return;
+ const c=PICKS[next].cost;
+ const costTx=Object.entries(c).map(([k,v])=>ITEMS[k].e+'×'+v).join(' + ');
+ modal('🔨 Скувати '+PICKS[next].n,'<p>Міцніша кирка відкриє глибші поверхи (до '+PICKS[next].max+').</p><p>Потрібно: '+needHTML(c)+'</p>',[
+  {t:'Скувати',fn:()=>{
+   if(!takeAll(c)){ sErr(); toast('Бракує матеріалів: '+costTx); return; }
+   S.mine.pick=next; addXp(30); sUp();
+   toast('🔨 '+PICKS[next].n+' готова!');
+   if($('mine').classList.contains('on'))renderMine('Нова кирка аж сяє!');
+   save();
+  }},
+  {t:'Пізніше',ghost:true},
+ ]);
+}
+
 /* ---------- achievements ---------- */
 const ACH=[
  {id:'clear10',e:'🌿',n:'Прибиральник',d:'Розчисть 10 ділянок',rw:{coins:50},p:()=>[st('clear'),10]},
@@ -2104,6 +2236,9 @@ const ACH=[
  {id:'quest10',e:'🧑‍🌾',n:'Душа громади',d:'Виконай 10 прохань мешканців',rw:{coins:500},p:()=>[st('quest'),10]},
  {id:'fest3',e:'🎪',n:'Зірка свят',d:'Відсвяткуй 3 свята',rw:{coins:400},p:()=>[st('fest'),3]},
  {id:'honest',e:'🛡',n:'Незламний',d:'Відмов Круку 5 разів',rw:{coins:600},p:()=>[st('refuse'),5]},
+ {id:'dig100',e:'⛏️',n:'Шахтар',d:'Копни в шахті 100 разів',rw:{coins:400},p:()=>[st('dig'),100]},
+ {id:'dig500',e:'💠',n:'Гірничий барон',d:'Копни в шахті 500 разів',rw:{coins:1500,crystal:1},p:()=>[st('dig'),500]},
+ {id:'spirit',e:'🍂',n:'Пробуджувач',d:'Звільни Духа Осені (поверх 10)',rw:{coins:800},p:()=>[S.story.flags.spiritAutumn?1:0,1]},
 ];
 function achDone(a){ const [c,m]=a.p(); return c>=m; }
 function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
@@ -2442,8 +2577,14 @@ window.fulfillOrder=fulfillOrder; window.rerollOrder=rerollOrder;
 window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFishing;
 window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
-window.claimAch=claimAch; window.showAchList=showAchList;
+window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 $('castBtn').onclick=fishAction;
+$('digBtn').onclick=mineDig;
+$('mineRock').onclick=mineDig;
+$('mineDownBtn').onclick=mineDown;
+$('mineUpBtn').onclick=mineUp;
+$('mineCraftBtn').onclick=craftPick;
+$('mineExitBtn').onclick=closeMine;
 $('fishClose').onclick=closeFishing;
 $('fishing').addEventListener('pointerdown',e=>{ if(e.target.id!=='castBtn'&&e.target.id!=='fishClose')fishAction(); });
 
