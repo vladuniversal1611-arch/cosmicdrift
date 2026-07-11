@@ -841,6 +841,7 @@ function objEmoji(o){
  if(o.k==='volcano')return '🌋';
  if(o.k==='museum')return '🏛';
  if(o.k==='tractor')return '🚜';
+ if(o.k==='greenhouse')return '🏡';
  if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
  if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
@@ -853,8 +854,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46,greenhouse:56};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30,greenhouse:34};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -923,6 +924,10 @@ function frame(ts){
   if(o.k==='tractor'&&!(S.tractor&&S.tractor.repaired)){
    const bob=Math.sin(ts/260)*3;
    emoji(cx,'🔧',q.x+14,q.y-30+bob,18);
+  }
+  if(o.k==='greenhouse'){
+   emoji(cx,'🌱',q.x,q.y-34,20);
+   if(S.gh&&S.gh.beds&&S.gh.beds.some(b=>ghStage(b)==='ready')){ const bob=Math.sin(ts/220)*4; emoji(cx,'❕',q.x-16,q.y-40+bob,18); }
   }
  }
  // animals wandering in the paddock
@@ -1251,6 +1256,9 @@ function handleObj(o){
   case 'tractor':
    openTractor();
    break;
+  case 'greenhouse':
+   openGreenhouse();
+   break;
   case 'deco':
    toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
    break;
@@ -1361,7 +1369,8 @@ function renderShop(){
  html+='</div>';
 
  if(S.level>=8){
-  html+='<div class="secTitle">💍 Особливе</div><div class="card"><div class="rowline"><span>💍 Обручка <span class="muted">для того, хто став рідним</span></span><button class="btn small" onclick="buyRing()">2 500🪙</button></div></div>';
+  html+='<div class="secTitle">💍 Особливе</div><div class="card"><div class="rowline"><span>💍 Обручка <span class="muted">для того, хто став рідним</span></span><button class="btn small" onclick="buyRing()">2 500🪙</button></div>';
+  html+='<div class="rowline"><span>🌱 Теплиця <span class="muted">будь-яка культура цілий рік</span></span>'+(S.gh&&S.gh.owned?'<span class="needok">збудовано ✅</span>':'<button class="btn small" onclick="buyGreenhouse()">1 800🪙</button>')+'</div></div>';
  }
  html+='<div class="secTitle">🎀 Прикраси <span class="badge">+2% до цін кожна (до 5)</span></div><div class="card">';
  for(const k in DECOS){
@@ -1873,7 +1882,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2411,6 +2420,59 @@ function craftPick(){
  ]);
 }
 
+/* ---------- the greenhouse (any crop, any season) ---------- */
+const GH_SLOTS=6;
+function ensureGreenhouse(){ if(!S.gh)S.gh={owned:false,beds:[]}; if(!S.gh.beds)S.gh.beds=[]; }
+function buyGreenhouse(){
+ ensureGreenhouse();
+ if(S.gh.owned)return;
+ if(S.coins<1800){ sErr(); toast('Не вистачає монет (1800🪙)'); return; }
+ S.coins-=1800; S.gh.owned=true; S.gh.beds=Array(GH_SLOTS).fill(null);
+ const p=freeSpot(50)||{x:760,y:430};
+ S.world.objs.push({k:'greenhouse',x:p.x,y:p.y});
+ addXp(40); sUp();
+ toast('🌱 Теплицю збудовано! Знайди її на фермі — там ростуть будь-які культури цілий рік');
+ refresh();
+}
+function ghStage(b){
+ if(!b)return 'empty';
+ const cd=CROPS[b.crop];
+ const p=(now()-b.at)/(cd.time*1000*growMult()*0.85); // greenhouse: +15% faster
+ return p>=1?'ready':(p<.5?'sprout':'grow');
+}
+function openGreenhouse(){
+ ensureGreenhouse();
+ let html='<p class="muted">Скляні грядки: тут росте будь-яка культура долини незалежно від пори року, ще й на 15% швидше. Полив не потрібен.</p>';
+ for(let i=0;i<GH_SLOTS;i++){
+  const b=S.gh.beds[i], stg=ghStage(b);
+  html+='<div class="rowline"><span>Грядка '+(i+1)+': ';
+  if(stg==='empty')html+='<span class="muted">порожня</span>';
+  else if(stg==='ready')html+=ITEMS[b.crop].e+' <b>'+ITEMS[b.crop].n+'</b> — готово!';
+  else html+=ITEMS[b.crop].e+' '+ITEMS[b.crop].n+' <span class="muted">('+fmtT((CROPS[b.crop].time*growMult()*0.85-(now()-b.at)/1000))+')</span>';
+  html+='</span>';
+  if(stg==='empty')html+='<button class="btn small" onclick="ghPlant('+i+')">Посадити '+ITEMS[S.sel].e+'</button>';
+  else if(stg==='ready')html+='<button class="btn gold small" onclick="ghHarvest('+i+')">Зібрати</button>';
+  else html+='<span class="muted">росте…</span>';
+  html+='</div>';
+ }
+ modal('🌱 Теплиця',html);
+}
+function ghPlant(i){
+ const id=S.sel, cd=CROPS[id];
+ if(!cd||cd.isle){ toast('У теплиці ростуть лише культури долини'); return; }
+ if(S.level<cd.lvl){ toast('Спершу відкрий цю культуру (рівень '+cd.lvl+')'); return; }
+ if(S.coins<cd.cost){ sErr(); toast('Не вистачає монет'); return; }
+ S.coins-=cd.cost; S.gh.beds[i]={crop:id,at:now()}; sPop();
+ save(); openGreenhouse(); renderHUD();
+}
+function ghHarvest(i){
+ const b=S.gh.beds[i]; if(!b||ghStage(b)!=='ready')return;
+ const q=1+(Math.random()<.4?1:0); // greenhouse yields a touch more
+ give(b.crop,q); addXp(CROPS[b.crop].xp); dg('harvest',q); sCoin();
+ S.gh.beds[i]=null;
+ save(); openGreenhouse(); renderHUD();
+}
+
 /* ---------- Taras the mechanic & the tractor ---------- */
 const TRACTOR_CD=120000; // 2 real minutes
 function ensureTractor(){ if(!S.tractor)S.tractor={repaired:false,sower:false,lastH:0,lastP:0}; }
@@ -2938,6 +3000,7 @@ window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=i
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
+window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
