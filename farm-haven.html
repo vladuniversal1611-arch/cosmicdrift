@@ -235,6 +235,8 @@ const ITEMS={
  cacao:{n:'Какао-боби',e:'🫘',sell:240}, coconut:{n:'Кокос',e:'🥥',sell:180},
  volctear:{n:'Вулканічна сльоза',e:'🔥',sell:120}, pearl:{n:'Перлина',e:'🦪',sell:130},
  chocolate:{n:'Шоколад',e:'🍫',sell:520},
+ shard:{n:'Черепок глечика',e:'🏺',sell:60}, oldcoin:{n:'Древня монета',e:'🪙',sell:70},
+ fossil:{n:'Скам’янілість',e:'🦴',sell:90}, amulet:{n:'Амулет',e:'📿',sell:130}, idol:{n:'Кам’яний ідол',e:'🗿',sell:160},
  iron:{n:'Залізо',e:'🔩',sell:50}, silver:{n:'Срібло',e:'🥈',sell:80},
  gold:{n:'Золото',e:'🥇',sell:120}, gem:{n:'Самоцвіт',e:'💠',sell:200},
  ring:{n:'Обручка',e:'💍',sell:500},
@@ -426,6 +428,7 @@ function genWorld(){
  objs.push({k:'house',x:HOUSE_POS.x,y:HOUSE_POS.y});
  objs.push({k:'barn',x:BARN_POS.x,y:BARN_POS.y});
  objs.push({k:'board',x:898,y:506});
+ objs.push({k:'museum',x:690,y:430});
  for(let r=0;r<2;r++)for(let c=0;c<3;c++)objs.push({k:'soil',x:600+c*52,y:620+r*52});
  scatterZone(objs,'core',[['tree',7],['rock',6],['weed',9]]);
  for(const zk of ['west','east','north','south'])
@@ -793,6 +796,7 @@ function objEmoji(o){
  if(o.k==='weed')return curLoc()==='island'?'🌺':'🌿';
  if(o.k==='ship')return '⛵';
  if(o.k==='volcano')return '🌋';
+ if(o.k==='museum')return '🏛';
  if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
  if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
@@ -805,8 +809,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -1109,6 +1113,14 @@ function placeBuilding(bk){
  objsW().push({k:'bldg',b:bk,x:p.x,y:p.y});
  return true;
 }
+function maybeArtifact(){
+ if(curLoc()==='island')return;
+ if(Math.random()>=.05)return;
+ const arts=['shard','oldcoin','fossil','amulet','idol'];
+ const it=arts[ri(arts.length)];
+ give(it,1); sUp();
+ toast('✨ Знахідка! '+ITEMS[it].e+' '+ITEMS[it].n+' — віднеси в Музей 🏛');
+}
 function removeObj(o){
  const i=objsW().indexOf(o);
  if(i>=0)objsW().splice(i,1);
@@ -1121,12 +1133,12 @@ function handleObj(o){
    else toast((curLoc()==='island'?'🌺 Тропічний чагарник':'🌿 Бур’ян')+' розчищено (+2 досвіду)');
    break;
   case 'tree':{
-   const w=2+ri(2); give('wood',w); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear();
+   const w=2+ri(2); give('wood',w); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear(); maybeArtifact();
    toast('🪓 Зрубано дерево: +'+w+' 🪵');
    break;}
   case 'rock':{
-   const st=2+ri(2); give('stone',st); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear();
-   toast('⛏️ Розбито камінь: +'+st+' 🪨');
+   const stn=2+ri(2); give('stone',stn); removeObj(o); addXp(3); sPop(); dg('clear',1); storyClear(); maybeArtifact();
+   toast('⛏️ Розбито камінь: +'+stn+' 🪨');
    break;}
   case 'soil':{
    const id=S.sel, cd=CROPS[id];
@@ -1184,6 +1196,9 @@ function handleObj(o){
   case 'board':
    showTab('quests');
    toast('📋 Дошка замовлень — угорі вкладки «Люди»');
+   break;
+  case 'museum':
+   openMuseum();
    break;
   case 'deco':
    toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
@@ -1747,6 +1762,9 @@ function krukOffer(){
    {t:'Відмовитись',ghost:true,fn:()=>{ addXp(10); dg('refuse',1); toast('Ганна схвально киває 👍 (+10⭐)'); refresh(); }},
   ]);
 }
+function ensureMuseumObj(){
+ if(!S.world.objs.some(o=>o.k==='museum'))S.world.objs.push({k:'museum',x:690,y:430});
+}
 function ensureBoard(){
  if(S.world.objs.some(o=>o.k==='board'))return;
  const cands=[[898,506],[866,472],[858,546],[930,655],[810,500]];
@@ -1801,7 +1819,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureMine(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip();
+ ensureStory(); ensureFamily(); ensureMine(); ensureMuseum(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2106,6 +2124,52 @@ function checkAnniversary(){
  return false;
 }
 
+/* ---------- museum of the valley ---------- */
+const COLLECTIONS=[
+ {id:'fish',n:'Іхтіологія',e:'🐟',items:['fish','perch','crayfish','trout','goldfish','catfish'],rw:{coins:1200,crystal:2},deco:'🏆'},
+ {id:'mineral',n:'Мінералогія',e:'💎',items:['stone','ore','iron','silver','gold','gem','crystal'],rw:{coins:1500,crystal:3},deco:'💎'},
+ {id:'artifact',n:'Археологія',e:'🏺',items:['shard','oldcoin','fossil','amulet','idol'],rw:{coins:2000,crystal:3,essence:2},deco:'🗿'},
+ {id:'flora',n:'Ботаніка',e:'🌻',items:['wheat','carrot','potato','corn','tomato','strawberry','sunflower','pumpkin','grape','watermelon','winterberry'],rw:{coins:1800,crystal:2},deco:'🌻'},
+];
+function ensureMuseum(){ if(!S.museum)S.museum={}; }
+function donated(id){ return !!(S.museum&&S.museum[id]); }
+function colDone(c){ return c.items.every(donated); }
+function donateMuseum(id){
+ if(donated(id)||invGet(id)<1){ sErr(); return; }
+ S.inv[id]--; S.museum[id]=true; addXp(8); sCoin(); dg('donate',1);
+ toast('🏛 '+ITEMS[id].e+' '+ITEMS[id].n+' — у вітрині музею!');
+ // full collection reward
+ for(const c of COLLECTIONS){
+  if(c.items.includes(id)&&colDone(c)&&!(S.museum['_'+c.id])){
+   S.museum['_'+c.id]=true;
+   for(const k in c.rw){ if(k==='coins')S.coins+=c.rw[k]; else give(k,c.rw[k]); }
+   const spot=freeSpot(40);
+   if(spot)S.world.objs.push({k:'deco',x:spot.x,y:spot.y,e:c.deco});
+   S.decoCount++;
+   sUp();
+   modal('🏛 Колекцію завершено!','<p>'+c.e+' <b>«'+c.n+'»</b> — усі експонати зібрано!</p><p class="needok">Нагорода: '+fmt(c.rw.coins)+'🪙 + '+Object.entries(c.rw).filter(([k])=>k!=='coins').map(([k,v])=>ITEMS[k].e+'×'+v).join(' ')+'<br>'+c.deco+' пам’ятну прикрасу встановлено на фермі!</p>');
+  }
+ }
+ save(); refresh();
+}
+function museumProgress(){ let d=0,t=0; for(const c of COLLECTIONS){ t+=c.items.length; d+=c.items.filter(donated).length; } return [d,t]; }
+function openMuseum(){
+ ensureMuseum();
+ let html='';
+ for(const c of COLLECTIONS){
+  const have=c.items.filter(donated).length;
+  html+='<div class="secTitle">'+c.e+' '+c.n+' <span class="badge">'+have+'/'+c.items.length+'</span></div><div class="card">';
+  for(const id of c.items){
+   const has=donated(id), inv=invGet(id);
+   html+='<div class="rowline"><span>'+(has?'':'<span class="muted">')+ITEMS[id].e+' '+ITEMS[id].n+(has?' ✅':' <span class="muted">(маєш: '+inv+')</span></span>')+'</span>'+
+    (has?'<span class="needok">у вітрині</span>':'<button class="btn small'+(inv>0?'':' ')+'" '+(inv>0?'':'disabled')+' onclick="donateMuseum(\''+id+'\')">Передати</button>')+'</div>';
+  }
+  if(colDone(c))html+='<p class="needok">🏆 Колекцію завершено!</p>';
+  html+='</div>';
+ }
+ modal('🏛 Музей долини',html);
+}
+
 /* ---------- the deep mine: 10 floors ---------- */
 const PICKS=[
  {n:'Стара кирка ⛏️',max:3,cost:null},
@@ -2239,6 +2303,8 @@ const ACH=[
  {id:'dig100',e:'⛏️',n:'Шахтар',d:'Копни в шахті 100 разів',rw:{coins:400},p:()=>[st('dig'),100]},
  {id:'dig500',e:'💠',n:'Гірничий барон',d:'Копни в шахті 500 разів',rw:{coins:1500,crystal:1},p:()=>[st('dig'),500]},
  {id:'spirit',e:'🍂',n:'Пробуджувач',d:'Звільни Духа Осені (поверх 10)',rw:{coins:800},p:()=>[S.story.flags.spiritAutumn?1:0,1]},
+ {id:'museum1',e:'🏛',n:'Меценат',d:'Заверши колекцію в музеї',rw:{coins:600},p:()=>[COLLECTIONS.filter(colDone).length,1]},
+ {id:'museumAll',e:'🎓',n:'Хранитель історії',d:'Заверши всі колекції музею',rw:{coins:3000,crystal:3},p:()=>[COLLECTIONS.filter(colDone).length,COLLECTIONS.length]},
 ];
 function achDone(a){ const [c,m]=a.p(); return c>=m; }
 function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
@@ -2578,6 +2644,7 @@ window.claimGoal=claimGoal; window.readPage=readPage; window.openFishing=openFis
 window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
+window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
