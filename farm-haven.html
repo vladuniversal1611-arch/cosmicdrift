@@ -429,6 +429,7 @@ function genWorld(){
  objs.push({k:'barn',x:BARN_POS.x,y:BARN_POS.y});
  objs.push({k:'board',x:898,y:506});
  objs.push({k:'museum',x:690,y:430});
+ objs.push({k:'tractor',x:940,y:430});
  for(let r=0;r<2;r++)for(let c=0;c<3;c++)objs.push({k:'soil',x:600+c*52,y:620+r*52});
  scatterZone(objs,'core',[['tree',7],['rock',6],['weed',9]]);
  for(const zk of ['west','east','north','south'])
@@ -839,6 +840,7 @@ function objEmoji(o){
  if(o.k==='ship')return '⛵';
  if(o.k==='volcano')return '🌋';
  if(o.k==='museum')return '🏛';
+ if(o.k==='tractor')return '🚜';
  if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
  if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
@@ -851,8 +853,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -917,6 +919,10 @@ function frame(ts){
   if(o.k==='board'&&anyOrderReady()){
    const bob=Math.sin(ts/220)*4;
    emoji(cx,'❕',q.x,q.y-34+bob,20);
+  }
+  if(o.k==='tractor'&&!(S.tractor&&S.tractor.repaired)){
+   const bob=Math.sin(ts/260)*3;
+   emoji(cx,'🔧',q.x+14,q.y-30+bob,18);
   }
  }
  // animals wandering in the paddock
@@ -1241,6 +1247,9 @@ function handleObj(o){
    break;
   case 'museum':
    openMuseum();
+   break;
+  case 'tractor':
+   openTractor();
    break;
   case 'deco':
    toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
@@ -1864,7 +1873,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2402,6 +2411,72 @@ function craftPick(){
  ]);
 }
 
+/* ---------- Taras the mechanic & the tractor ---------- */
+const TRACTOR_CD=120000; // 2 real minutes
+function ensureTractor(){ if(!S.tractor)S.tractor={repaired:false,sower:false,lastH:0,lastP:0}; }
+function ensureTractorObj(){ if(!S.world.objs.some(o=>o.k==='tractor'))S.world.objs.push({k:'tractor',x:940,y:430}); }
+function openTractor(){
+ ensureTractor();
+ const t=S.tractor;
+ if(!t.repaired){
+  modal('🧑‍🔧 Механік Тарас',
+   '<p>Кремезний чолов’яга витирає руки ганчіркою: «О, а це ж дідів трактор! Іржавий, але серце ще б’ється. Дай залізо, деревину й золото — поверну його до життя, і збиратимеш урожай одним махом!»</p>'+
+   '<p>Потрібно: '+needHTML({iron:5,wood:10,gold:2})+'</p>',
+   [
+    {t:'Полагодити',fn:()=>{
+     if(!takeAll({iron:5,wood:10,gold:2})){ sErr(); toast('Бракує матеріалів (копай у шахті ⛏️)'); return; }
+     t.repaired=true; addXp(60); sUp();
+     toast('🚜 Трактор гуркоче! Тепер тисни на нього для швидкого збору');
+     save(); refresh();
+    }},
+    {t:'Пізніше',ghost:true},
+   ]);
+  return;
+ }
+ const hcd=Math.max(0,TRACTOR_CD-(now()-t.lastH))/1000;
+ const pcd=Math.max(0,TRACTOR_CD-(now()-t.lastP))/1000;
+ let body='<p>🚜 Дідів трактор гуде на повну. Що робимо?</p>';
+ const btns=[];
+ btns.push({t:hcd>0?('Збір: '+fmtT(hcd)):'🌾 Зібрати весь врожай',fn:()=>{ if(hcd<=0)harvestAll(); }});
+ if(t.sower)btns.push({t:pcd>0?('Сівба: '+fmtT(pcd)):'🌱 Засіяти все ('+ITEMS[S.sel].e+')',fn:()=>{ if(pcd<=0)sowAll(); }});
+ else btns.push({t:'🔧 Сівалка (5⚙️,3🥇)',fn:()=>{
+   if(!takeAll({ore:5,gold:3})){ sErr(); toast('Бракує: 5⚙️ руди, 3🥇 золота'); return; }
+   t.sower=true; sUp(); toast('🌱 Сівалку встановлено! Тепер можна засівати все поле'); save(); refresh();
+  }});
+ btns.push({t:'Закрити',ghost:true});
+ modal('🚜 Трактор',body,btns);
+}
+function harvestAll(){
+ let n=0,kinds={};
+ for(const o of objsW()){
+  if(o.k==='crop'&&cropStage(o)==='ready'){
+   const q=1+(Math.random()<.35?1:0);
+   give(o.crop,q); kinds[o.crop]=(kinds[o.crop]||0)+q; n+=q;
+   addXp(CROPS[o.crop].xp); o.k='soil'; delete o.crop; delete o.at; delete o.w;
+  }
+ }
+ S.tractor.lastH=now();
+ if(n){ dg('harvest',n); sCoin(); toast('🚜 Зібрано '+n+' врожаю: '+Object.keys(kinds).map(k=>ITEMS[k].e+'×'+kinds[k]).join(' ')); }
+ else toast('🚜 Стиглого врожаю немає');
+ save(); refresh();
+}
+function sowAll(){
+ const id=S.sel, cd=CROPS[id];
+ if(!cd){ toast('Оберіть насіння внизу 👇'); return; }
+ if(!!cd.isle!==(curLoc()==='island')){ sErr(); toast('🌍 Ця культура тут не приживеться'); return; }
+ if(!cd.isle&&!cd.seasons.includes(season().id)){ sErr(); toast('❄️ '+ITEMS[id].n+' не в сезон'); return; }
+ let n=0;
+ for(const o of objsW()){
+  if(o.k!=='soil')continue;
+  if(S.coins<cd.cost)break;
+  S.coins-=cd.cost; o.k='crop'; o.crop=id; o.at=now(); delete o.w; n++;
+ }
+ S.tractor.lastP=now();
+ if(n){ sPop(); toast('🌱 Засіяно '+n+' грядок ('+ITEMS[id].e+') за '+fmt(cd.cost*n)+'🪙'); }
+ else toast('🌱 Немає вільних грядок або монет');
+ save(); refresh();
+}
+
 /* ---------- friendship with the villagers ---------- */
 const FRIEND_NPCS=['carpenter','baker','fisherman','beekeeper','elder'];
 const FRIEND_FAV={
@@ -2862,7 +2937,7 @@ window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
-window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift;
+window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
