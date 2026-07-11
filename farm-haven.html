@@ -494,6 +494,34 @@ function season(){ return SEASONS[seasonIdx()]; }
 function yearNum(){ return Math.floor(dayNum()/(4*DAYS_PER_SEASON)); }
 function dayOfSeason(){ return dayNum()%DAYS_PER_SEASON; }
 function festActive(){ return dayOfSeason()>=5; }
+/* --- weather: deterministic per game-day --- */
+const WEATHERS={
+ sun:{e:'☀️',n:'Сонячно'}, rain:{e:'🌧',n:'Дощ'}, fog:{e:'🌫',n:'Туман'},
+ snow:{e:'🌨',n:'Сніжить'}, blizzard:{e:'❄️',n:'Хуртовина'}, rainbow:{e:'🌈',n:'Веселка'},
+};
+const WEATHER_TABLE={
+ spring:[['sun',45],['rain',35],['fog',12],['rainbow',8]],
+ summer:[['sun',60],['rain',22],['fog',8],['rainbow',10]],
+ autumn:[['sun',30],['rain',40],['fog',25],['rainbow',5]],
+ winter:[['snow',50],['blizzard',30],['fog',20]],
+ island:[['sun',70],['rain',20],['rainbow',10]],
+};
+function weatherNow(){
+ const d=dayNum();
+ const table=WEATHER_TABLE[curLoc()==='island'?'island':season().id];
+ let h=((d*2654435761)>>>0)%100;
+ for(const [id,w] of table){ h-=w; if(h<0)return {id,...WEATHERS[id]}; }
+ return {id:'sun',...WEATHERS.sun};
+}
+function raining(){ const w=weatherNow().id; return w==='rain'||w==='snow'; }
+function dayFrac(){ return ((now()-S.worldStart)/1000%SEC_PER_DAY)/SEC_PER_DAY; }
+function nightInfo(){ // returns {dark:0..1, dusk:0..1}
+ const f=dayFrac();
+ if(f<.08)return {dark:.32*(1-f/.08), dusk:0};        // dawn fades out
+ if(f<.7)return {dark:0, dusk:0};                     // day
+ if(f<.8)return {dark:.32*((f-.7)/.1)*.5, dusk:(f-.7)/.1}; // sunset
+ return {dark:.32, dusk:Math.max(0,1-(f-.8)/.06)};    // night
+}
 function festKey(){ return yearNum()+'-'+seasonIdx(); }
 
 /* ---------- audio ---------- */
@@ -559,9 +587,11 @@ function isoP(x,y){ return {x:x-y+ISO_OX, y:(x+y)*.5}; }
 function unIso(ix,iy){ const a=ix-ISO_OX; return {x:iy+a/2, y:iy-a/2}; }
 const cam={x:0,y:0,s:.5};
 const wander=[]; // transient animal walk targets, index-matched to S.animals
+function cropDuration(o){
+ return CROPS[o.crop].time*1000*growMult()*((o.w||raining())?1:1.4);
+}
 function cropStage(o){
- const cd=CROPS[o.crop];
- const p=(now()-o.at)/(cd.time*1000*growMult());
+ const p=(now()-o.at)/cropDuration(o);
  if(p>=1)return 'ready';
  return p<.5?'sprout':'grow';
 }
@@ -773,6 +803,11 @@ function frame(ts){
     emoji(cx,ITEMS[o.crop].e,q.x,q.y-11,Math.round(30*pulse));
     cx.restore();
    }
+   if(st!=='ready'&&!o.w&&!raining()){
+    cx.globalAlpha=.6+.35*Math.sin(ts/300);
+    emoji(cx,'💧',q.x+16,q.y-26,14);
+    cx.globalAlpha=1;
+   }
    continue;
   }
   if(o.k==='bldg'){
@@ -813,6 +848,27 @@ function frame(ts){
    emoji(cx,ITEMS[d.product].e,q.x,q.y-32+bob,17);
   }
  });
+ // night: fireflies & warm windows (world space)
+ const ni=nightInfo();
+ if(ni.dark>.12){
+  if(curLoc()!=='island'&&(season().id==='spring'||season().id==='summer')){
+   for(let i=0;i<9;i++){
+    const fx=520+(i*197)%560, fy=380+(i*263)%440;
+    const q=isoP(fx+Math.sin(ts/900+i)*14,fy+Math.cos(ts/1100+i*2)*10);
+    const a=(.3+.7*Math.abs(Math.sin(ts/500+i*1.7)))*ni.dark/.32;
+    cx.fillStyle='rgba(255,240,140,'+(a*.9)+')';
+    cx.beginPath(); cx.arc(q.x,q.y-14,2.2,0,7); cx.fill();
+   }
+  }
+  for(const o of objsW()){
+   if(o.k!=='house'&&o.k!=='barn')continue;
+   const q=isoP(o.x,o.y);
+   const g=cx.createRadialGradient(q.x,q.y-12,2,q.x,q.y-12,34);
+   g.addColorStop(0,'rgba(255,200,90,'+(.5*ni.dark/.32)+')');
+   g.addColorStop(1,'rgba(255,200,90,0)');
+   cx.fillStyle=g; cx.beginPath(); cx.arc(q.x,q.y-12,34,0,7); cx.fill();
+  }
+ }
  // fog + signposts over locked zones
  for(const k in ZONES){
   if(zoneOwned(k))continue;
@@ -827,6 +883,41 @@ function frame(ts){
   cx.fillText('🔒 '+ex.n,sq.x,sq.y-11);
   cx.font='15px sans-serif';
   cx.fillText(S.level>=exL?fmt(exC)+' 🪙 — торкнись, щоб купити':'потрібен рівень '+exL,sq.x,sq.y+13);
+ }
+ // --- screen-space: weather particles + day/night tint ---
+ cx.setTransform(dpr,0,0,dpr,0,0);
+ const wt=weatherNow().id;
+ if(wt==='rain'){
+  cx.strokeStyle='rgba(160,200,255,.5)'; cx.lineWidth=1.4;
+  for(let i=0;i<90;i++){
+   const px=(i*127)%w, py=(((ts*.55)+(i*211))%(h+40))-20;
+   cx.beginPath(); cx.moveTo(px,py); cx.lineTo(px-3,py+13); cx.stroke();
+  }
+ }else if(wt==='snow'||wt==='blizzard'){
+  cx.fillStyle='rgba(255,255,255,.85)';
+  const sp=wt==='blizzard'?.32:.12, drift=wt==='blizzard'?60:18;
+  for(let i=0;i<70;i++){
+   const px=((i*173)+Math.sin(ts/700+i)*drift+w)%w, py=(((ts*sp)+(i*197))%(h+30))-15;
+   cx.beginPath(); cx.arc(px,py,wt==='blizzard'?2.4:1.8,0,7); cx.fill();
+  }
+ }else if(wt==='fog'){
+  const g=cx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'rgba(235,240,245,.38)'); g.addColorStop(1,'rgba(235,240,245,.12)');
+  cx.fillStyle=g; cx.fillRect(0,0,w,h);
+ }else if(wt==='rainbow'){
+  cx.lineWidth=7;
+  ['rgba(255,80,80,.35)','rgba(255,200,60,.35)','rgba(120,220,120,.35)','rgba(110,160,255,.35)'].forEach((c,i)=>{
+   cx.strokeStyle=c;
+   cx.beginPath(); cx.arc(w*.5,h*.75,h*.55+i*8,Math.PI*1.05,Math.PI*1.95); cx.stroke();
+  });
+ }
+ if(ni.dusk>0){
+  cx.fillStyle='rgba(255,140,50,'+(.12*ni.dusk)+')';
+  cx.fillRect(0,0,w,h);
+ }
+ if(ni.dark>0){
+  cx.fillStyle='rgba(10,18,55,'+ni.dark+')';
+  cx.fillRect(0,0,w,h);
  }
 }
 function stepAnimals(dt){
@@ -990,7 +1081,7 @@ function handleObj(o){
  switch(o.k){
   case 'weed':
    removeObj(o); addXp(2); sPop(); dg('clear',1); storyClear();
-   if(Math.random()<(curLoc()==='island'?.5:.18)){ give('flower',1); toast((curLoc()==='island'?'🌺':'🌿')+' Розчищено! Знайдено 🌸 квітку'); }
+   if(weatherNow().id==='rainbow'||Math.random()<(curLoc()==='island'?.5:.18)){ give('flower',1); toast((curLoc()==='island'?'🌺':'🌿')+' Розчищено! Знайдено 🌸 квітку'+(weatherNow().id==='rainbow'?' (веселка щедра! 🌈)':'')); }
    else toast((curLoc()==='island'?'🌺 Тропічний чагарник':'🌿 Бур’ян')+' розчищено (+2 досвіду)');
    break;
   case 'tree':{
@@ -1017,10 +1108,12 @@ function handleObj(o){
     if(!S.story.flags.h){ S.story.flags.h=1; awardPage(1); }
     toast(ITEMS[o.crop].e+' Зібрано ×'+q+' (+'+CROPS[o.crop].xp+' досвіду)');
     o.k='soil'; delete o.crop; delete o.at;
+   }else if(!o.w&&!raining()){
+    o.w=1; addXp(1); sPop(); dg('water',1);
+    toast('💧 Полито! '+ITEMS[o.crop].n+' ростиме швидше');
    }else{
-    const cd=CROPS[o.crop];
-    const left=cd.time*growMult()-(now()-o.at)/1000;
-    toast(ITEMS[o.crop].e+' Ще росте: '+fmtT(left));
+    const left=(cropDuration(o)-(now()-o.at))/1000;
+    toast(ITEMS[o.crop].e+' Ще росте: '+fmtT(left)+(o.w||raining()?' 💧':''));
    }
    break;}
   case 'bldg':{
@@ -1496,6 +1589,7 @@ function genGoals(){
  ];
  if(S.animals.length)defs.push({t:'feed',n:Math.min(3+Math.floor(S.level/2),S.animals.length*3),txt:'Нагодуй тварин'});
  if(S.terr.lake&&S.terr.lake.unlocked)defs.push({t:'fish',n:3+Math.floor(S.level/3),txt:'Злови рибу'});
+ defs.push({t:'water',n:4+Math.floor(S.level/2),txt:'Полий грядки'});
  if(Object.keys(S.buildings).some(b=>S.buildings[b].owned))defs.push({t:'produce',n:2+Math.floor(S.level/3),txt:'Вироби товарів'});
  for(let i=defs.length-1;i>0;i--){ const j=ri(i+1); [defs[i],defs[j]]=[defs[j],defs[i]]; }
  return defs.slice(0,3).map(d=>({t:d.t,n:d.n,txt:d.txt,p:0,done:false,rw:20+S.level*10}));
@@ -1749,9 +1843,11 @@ function fishCatch(){
   modal('🐋 СОМ БАЛТАЗАР!','<p>Вода вирує — і на гачку велетенський вусатий сом! Він дивиться на тебе на диво розумними очима... наче впізнає.</p><p class="needok">Віднеси його Петру (вкладка «Люди»)!</p>');
   return;
  }
- let total=0; for(const f of FISH_TABLE)total+=f.w;
- let r=Math.random()*total, pick=FISH_TABLE[0];
- for(const f of FISH_TABLE){ r-=f.w; if(r<=0){ pick=f; break; } }
+ const tbl=FISH_TABLE.map(f=>({...f}));
+ if(weatherNow().id==='fog')tbl.find(f=>f.id==='goldfish').w*=3; // у тумані клює краще
+ let total=0; for(const f of tbl)total+=f.w;
+ let r=Math.random()*total, pick=tbl[0];
+ for(const f of tbl){ r-=f.w; if(r<=0){ pick=f; break; } }
  give(pick.id,1); dg('fish',1);
  const it=ITEMS[pick.id];
  if(pick.id==='boot'){
@@ -2153,7 +2249,9 @@ function renderHUD(){
  $('xptxt').textContent=Math.floor(S.xp)+'/'+xpNeed(S.level);
  $('xpfill').style.width=Math.min(100,100*S.xp/xpNeed(S.level))+'%';
  const s=season();
- $('seasonpill').textContent=curLoc()==='island'?'🏝 Вічне літо · день '+(dayOfSeason()+1):s.e+' '+s.name+' · день '+(dayOfSeason()+1);
+ const wNow=weatherNow();
+ $('seasonpill').textContent=(curLoc()==='island'?'🏝':s.e)+' '+wNow.e+' · день '+(dayOfSeason()+1);
+ $('seasonpill').title=wNow.n;
  $('treemini').textContent='🌳'+S.tree.lvl+(S.continent?'🌍':'');
  document.getElementById('app').className='season-'+(curLoc()==='island'?'summer':s.id);
  const cb=$('calbanner');
@@ -2222,7 +2320,8 @@ function tick(){
  if(S.story&&S.story.krukIntro&&!$('mback').classList.contains('on')
     &&now()-(S.story.lastKruk||0)>240000&&Math.random()<1/180)krukOffer();
  // animal happiness decay
- S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-1/30); });
+ const hapDecay=weatherNow().id==='blizzard'?1/15:1/30;
+ S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-hapDecay); });
  // new day events
  const d=dayNum();
  if(d!==S.lastDay){
