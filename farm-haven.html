@@ -389,7 +389,7 @@ function curLoc(){ return (S&&S.loc)||'valley'; }
 function objsW(){ return curLoc()==='island'?S.island.objs:S.world.objs; }
 function zonesBag(){ if(curLoc()==='island'){ S.zones2=S.zones2||{}; return S.zones2; } return S.zones; }
 function zoneOwned(k){ return k==='core'||!!zonesBag()[k]; }
-function exCost(z){ return EXPANSIONS[z].cost*(curLoc()==='island'?4:1); }
+function exCost(z){ return Math.round(EXPANSIONS[z].cost*(curLoc()==='island'?4:1)*(S.friend&&friendPerk('carpenter')?.9:1)); }
 function exLvl(z){ return EXPANSIONS[z].lvl+(curLoc()==='island'?6:0); }
 function inRect(x,y,r){ return x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h; }
 function inPond(x,y){ const dx=(x-POND.x)/(POND.rx+30), dy=(y-POND.y)/(POND.ry+30); return dx*dx+dy*dy<1; }
@@ -519,6 +519,7 @@ function sellMult(){
  if(S.story&&S.story.flags&&S.story.flags.isleDone)m+=.1;
  m+=.05*(gen()-1);
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)m-=.1;
+ if(S.friend&&friendPerk('beekeeper'))m+=.05;
  return Math.max(.4,m);
 }
 function growMult(){
@@ -644,7 +645,7 @@ $('mback').addEventListener('click',e=>{ if(e.target.id==='mback')closeModal(); 
 
 /* ---------- xp / level ---------- */
 function addXp(n){
- n=Math.round(n*(1+.05*(gen()-1))*(childStage&&childStage()>=2?1.05:1));
+ n=Math.round(n*(1+.05*(gen()-1))*(childStage&&childStage()>=2?1.05:1)*(S.friend&&friendPerk('elder')?1.05:1));
  S.xp+=n;
  while(S.xp>=xpNeed(S.level)){
   S.xp-=xpNeed(S.level); S.level++;
@@ -1458,7 +1459,8 @@ function buyBuilding(k){
 function startJob(k,i){
  const d=BUILDINGS[k], st=S.buildings[k], rc=d.recipes[i];
  if(st.job||!takeAll(rc.inp)){ sErr(); return; }
- st.job={r:i,end:now()+rc.time*1000}; sPop();
+ const tm=S.friend&&friendPerk('baker')?.9:1;
+ st.job={r:i,end:now()+rc.time*1000*tm}; sPop();
  refresh();
 }
 function collectJob(k){
@@ -1565,6 +1567,7 @@ function renderQuests(){
    '<button class="btn small'+(hasAll(o.items)?' gold':'')+'" '+(hasAll(o.items)?'':'disabled')+' onclick="fulfillOrder('+i+')">Виконати</button></div></div>';
  });
  html+='<div class="secTitle">🧑‍🌾 Мешканці долини</div>';
+ html+=friendHTML();
  // festival card
  if(festActive()){
   const f=FESTIVALS[season().id];
@@ -1606,6 +1609,7 @@ function doQuest(k){
  if(q.treeReq!==undefined){ if(S.tree.lvl<q.treeReq)return; }
  else if(!takeAll(q.need)){ sErr(); return; }
  S.coins+=q.rw.coins; addXp(q.rw.xp); S.quests[k]++; dg('quest',1);
+ if(S.friend&&S.friend[k]){ const b=friendLevel(k); S.friend[k].pts+=40; checkFriendLevel(k,b); }
  if(q.unlock){
   if(q.unlock.terr){ S.terr[q.unlock.terr].unlocked=true; }
   if(q.unlock.bees){ S.beesUnlocked=true; }
@@ -1860,7 +1864,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureMine(); ensureMuseum(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -1946,6 +1950,7 @@ function fishCatch(){
  }
  const tbl=FISH_TABLE.map(f=>({...f}));
  if(weatherNow().id==='fog')tbl.find(f=>f.id==='goldfish').w*=3; // у тумані клює краще
+ if(S.friend&&friendPerk('fisherman'))tbl.find(f=>f.id==='goldfish').w*=2;
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)tbl.find(f=>f.id==='boot').w*=5; // отруєна річка
  let total=0; for(const f of tbl)total+=f.w;
  let r=Math.random()*total, pick=tbl[0];
@@ -2397,6 +2402,79 @@ function craftPick(){
  ]);
 }
 
+/* ---------- friendship with the villagers ---------- */
+const FRIEND_NPCS=['carpenter','baker','fisherman','beekeeper','elder'];
+const FRIEND_FAV={
+ carpenter:['wood','stone','iron'], baker:['flour','egg','wheat'],
+ fisherman:['fish','crayfish','trout'], beekeeper:['honey','flower','jam'],
+ elder:['crystal','essence','gem'],
+};
+const FRIEND_PERK={
+ carpenter:'−10% до ціни розширень',
+ baker:'−10% до часу виробництва',
+ fisherman:'вдвічі більший шанс на золоту рибку',
+ beekeeper:'+5% до цін продажу',
+ elder:'+5% до досвіду',
+};
+const FRIEND_LETTERS={
+ carpenter:['«Ти вмієш працювати руками. Поважаю».','«Дідусь твій був мені як брат. Радий, що ти повернувся».','«Візьми — сам вирізьбив. Хай оберігає ферму».','«Міст, село, вітряк... ми з тобою відбудували півдолини».','«Ти мені як рідний, фермере. Дякую за все».'],
+ baker:['«Заходь на свіжий хліб, як пектиму!».','«З тобою навіть тісто підходить веселіше».','«Мій найкращий рецепт — тепер і твій».','«Ярмарок ми виграємо, я відчуваю!».','«Ти — родина, і крапка. Обіймашки!».'],
+ fisherman:['«...» (Петро мовчки киває — це багато значить).','«Риба любить терплячих. Ти вчишся».','«Кажуть, озеро говорить. З тобою — говорить».','«Балтазар би тобою пишався».','«Друже. Просто — друже».'],
+ beekeeper:['«Бджоли тебе прийняли. Це рідкість!».','«Мед найсолодший, коли ділишся, еге ж?».','«Я назвав новий вулик на твою честь».','«Разом ми виведемо золоту бджолу!».','«Ти світла людина. Бджоли брехати не вміють».'],
+ elder:['«У тобі є щось від нього. Від дідуся».','«Долина знову вірить. Завдяки тобі».','«Я розповім тобі те, чого не знає ніхто...».','«Дерево обрало правильно».','«Живи довго й щасливо, Хранителю. Ти заслужив».'],
+};
+function ensureFriend(){
+ if(!S.friend)S.friend={};
+ for(const k of FRIEND_NPCS) if(!S.friend[k])S.friend[k]={pts:0,giftKey:'',claimed:0};
+}
+function friendLevel(k){ return Math.min(5,Math.floor((S.friend[k].pts||0)/100)); }
+function friendHearts(k){ const l=friendLevel(k); return '❤️'.repeat(l)+'🤍'.repeat(5-l); }
+function bestGift(k){
+ for(const it of FRIEND_FAV[k]) if(invGet(it)>0)return it;
+ return null;
+}
+function giveGift(k){
+ ensureFriend();
+ const f=S.friend[k];
+ if(f.giftKey===todayKey()){ toast('Сьогодні '+NPCS[k].n.split(' ')[1]+' вже отримав(ла) подарунок 🎁'); return; }
+ const it=bestGift(k);
+ if(!it){ toast('Немає улюблених дарунків для '+NPCS[k].n+' ('+FRIEND_FAV[k].map(i=>ITEMS[i].e).join('')+')'); return; }
+ S.inv[it]--; f.giftKey=todayKey();
+ const before=friendLevel(k);
+ f.pts+=25; sCoin(); dg('gift',1);
+ toast(NPCS[k].e+' '+ITEMS[it].e+' «Дякую!» (+дружба)');
+ checkFriendLevel(k,before);
+ save(); refresh();
+}
+function checkFriendLevel(k,before){
+ const now=friendLevel(k);
+ if(now>before){
+  const f=S.friend[k];
+  const rw=200*now;
+  S.coins+=rw; addXp(30);
+  let extra='';
+  if(now===5){
+   const spot=freeSpot(40);
+   if(spot){ S.world.objs.push({k:'deco',x:spot.x,y:spot.y,e:NPCS[k].e}); S.decoCount++; }
+   extra='<br>🎁 Пам’ятну прикрасу встановлено на фермі!<br><b>Перк дружби: '+FRIEND_PERK[k]+'</b>';
+  }
+  sUp();
+  modal(NPCS[k].e+' '+NPCS[k].n+' — '+friendHearts(k),
+   '<p><i>'+FRIEND_LETTERS[k][now-1]+'</i></p><p class="needok">Дружба '+now+'/5 · +'+rw+'🪙 +30⭐'+extra+'</p>');
+ }
+}
+function friendPerk(k){ return friendLevel(k)>=5; }
+function friendHTML(){
+ ensureFriend();
+ let html='<div class="card"><h3>💞 Дружба з мешканцями</h3><p class="muted" style="font-size:11px">Даруй улюблені товари (1 подарунок на день кожному). 5 зірок — особливий перк!</p>';
+ for(const k of FRIEND_NPCS){
+  const canGift=S.friend[k].giftKey!==todayKey()&&bestGift(k);
+  html+='<div class="rowline"><span>'+NPCS[k].e+' <b>'+NPCS[k].n.split(' ')[1]+'</b> '+friendHearts(k)+'<br><span class="muted" style="font-size:10px">любить: '+FRIEND_FAV[k].map(i=>ITEMS[i].e).join(' ')+(friendPerk(k)?' · ⭐'+FRIEND_PERK[k]:'')+'</span></span>'+
+   '<button class="btn small'+(canGift?' gold':'')+'" '+(canGift?'':'disabled')+' onclick="giveGift(\''+k+'\')">🎁</button></div>';
+ }
+ return html+'</div>';
+}
+
 /* ---------- achievements ---------- */
 const ACH=[
  {id:'clear10',e:'🌿',n:'Прибиральник',d:'Розчисть 10 ділянок',rw:{coins:50},p:()=>[st('clear'),10]},
@@ -2438,6 +2516,8 @@ const ACH=[
  {id:'spirit',e:'🍂',n:'Пробуджувач',d:'Звільни Духа Осені (поверх 10)',rw:{coins:800},p:()=>[S.story.flags.spiritAutumn?1:0,1]},
  {id:'museum1',e:'🏛',n:'Меценат',d:'Заверши колекцію в музеї',rw:{coins:600},p:()=>[COLLECTIONS.filter(colDone).length,1]},
  {id:'museumAll',e:'🎓',n:'Хранитель історії',d:'Заверши всі колекції музею',rw:{coins:3000,crystal:3},p:()=>[COLLECTIONS.filter(colDone).length,COLLECTIONS.length]},
+ {id:'friend1',e:'💞',n:'Добрий сусід',d:'Здружись із кимось до 5 зірок',rw:{coins:600},p:()=>[Math.max(...FRIEND_NPCS.map(friendLevel)),5]},
+ {id:'friendAll',e:'🤗',n:'Душа долини',d:'Здружись з усіма до 5 зірок',rw:{coins:3000,crystal:3},p:()=>[FRIEND_NPCS.filter(k=>friendLevel(k)>=5).length,FRIEND_NPCS.length]},
 ];
 function achDone(a){ const [c,m]=a.p(); return c>=m; }
 function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
@@ -2782,7 +2862,7 @@ window.evAct=evAct; window.claimCal=claimCal; window.travel=travel;
 window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=inherit; window.buyRing=buyRing;
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
-window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil;
+window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
