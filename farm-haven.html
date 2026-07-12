@@ -33,6 +33,7 @@ header{padding:calc(10px + env(safe-area-inset-top)) 12px 8px;background:rgba(30
 #xpfill{height:100%;width:0;background:linear-gradient(90deg,#aed581,#ffd54f);border-radius:3px;transition:width .3s}
 #gear{background:none;border:none;font-size:20px;cursor:pointer;color:#fff}
 #calbanner{display:none;margin-top:8px;background:linear-gradient(90deg,#7b1fa2,#ab47bc);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer}
+#farmName{display:none;font-size:12px;font-weight:700;color:#ffe9b0;text-align:center;margin-top:4px;letter-spacing:.5px}
 #festbanner{display:none;margin-top:8px;background:linear-gradient(90deg,#ff8f00,#ffb300);color:#3d2600;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer;animation:glowp 1.6s infinite}
 @keyframes glowp{50%{filter:brightness(1.12)}}
 #treemini{cursor:pointer}
@@ -151,6 +152,7 @@ nav button .dot::after{content:'';position:absolute;top:-2px;right:-6px;width:8p
       <div class="hpill" id="treemini" title="Дерево Життя">🌳0</div>
       <button id="gear">⚙️</button>
     </div>
+    <div id="farmName"></div>
     <div id="festbanner"></div>
     <div id="calbanner"></div>
   </header>
@@ -1580,6 +1582,7 @@ function gather(k){
 function renderQuests(){
  const el=$('tab-quests');
  let html='';
+ html+=onboardHTML();
  // real-calendar event of the year
  const cev=calActive();
  if(cev){
@@ -2623,6 +2626,34 @@ function sowAll(){
  save(); refresh();
 }
 
+/* ---------- Sonia: onboarding for new players ---------- */
+const ONBOARD=[
+ {t:'clear',n:1,txt:'🌿 Розчисти бур’ян, камінь чи дерево'},
+ {t:'harvest',n:1,txt:'🌱 Посади насіння і збери врожай'},
+ {t:'sell',n:1,txt:'💰 Продай щось у Крамниці'},
+ {t:'quest',n:1,txt:'🧑‍🌾 Виконай прохання мешканця'},
+];
+function onboardDone(){ return ONBOARD.every(o=>st(o.t)>=o.n); }
+function onboardHTML(){
+ if(S.onboardClaimed)return '';
+ const all=onboardDone();
+ let html='<div class="secTitle">👧 Соня вчить тебе</div><div class="card" style="background:#eaf6ff">';
+ html+='<p class="muted" style="font-size:12px">«Привіт! Я Соня, твоя сусідка. Дідусь багато про тебе розповідав! Ось із чого почати:»</p>';
+ for(const o of ONBOARD){
+  const ok=st(o.t)>=o.n;
+  html+='<div class="rowline"><span class="'+(ok?'needok':'')+'">'+(ok?'✅ ':'⬜ ')+o.txt+'</span></div>';
+ }
+ if(all)html+='<div class="rowline"><span class="needok">Ти молодець!</span><button class="btn gold small" onclick="claimOnboard()">Отримати 🎁</button></div>';
+ else html+='<p class="muted" style="font-size:11px">Виконай усі кроки — і Соня дасть подарунок!</p>';
+ return html+'</div>';
+}
+function claimOnboard(){
+ if(!onboardDone()||S.onboardClaimed)return;
+ S.onboardClaimed=true; S.coins+=200; give('feed',5); addXp(30); sUp();
+ modal('👧 Соня','<p>«Ти справжній фермер, я знала! Тепер ти сам даси собі раду. Забігай, якщо що!»</p><p class="needok">+200🪙, 🌰×5, +30⭐</p>');
+ save(); refresh();
+}
+
 /* ---------- Lukas the travelling merchant ---------- */
 const LUKAS_DECOS=['🦩','⛲','🎠','🏰','🗿','🌈','🎡','🪺'];
 function lukasHere(){ return dayNum()%3===0; } // visits every 3rd game-day
@@ -3043,7 +3074,16 @@ function showTab(t){
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 
+function nameFarm(){
+ modal('🏷 Назва ферми',
+  '<p>Як назвеш свою ферму?</p><input id="fnIn" maxlength="22" value="'+(S.farmName||'')+'" placeholder="Напр., Сонячна долина" style="width:100%;padding:9px;border-radius:10px;border:1px solid #cdc4a4;font-size:15px">',
+  [{t:'Зберегти',fn:()=>{ const v=(document.getElementById('fnIn')||{}).value; if(v!==undefined){ S.farmName=v.trim().slice(0,22); save(); refresh(); toast('🏷 Ферму названо: '+(S.farmName||'—')); } }},{t:'Скасувати',ghost:true}]);
+ setTimeout(()=>{ const el=document.getElementById('fnIn'); if(el)el.focus(); },50);
+}
 function renderHUD(){
+ const fn=$('farmName');
+ if(S.farmName){ fn.style.display='block'; fn.textContent='🏡 '+S.farmName+(gen()>1?' · Покоління '+gen():''); }
+ else fn.style.display='none';
  $('coins').textContent='🪙 '+fmt(S.coins);
  $('lvltxt').textContent='Рівень '+S.level+(gen()>1?' · Покоління '+gen():'');
  $('xptxt').textContent=Math.floor(S.xp)+'/'+xpNeed(S.level);
@@ -3096,6 +3136,7 @@ $('gear').onclick=()=>{
   '<p><b>Farm Haven: Новий Початок</b></p><p class="muted">Гра зберігається автоматично на цьому пристрої. День триває '+SEC_PER_DAY+' с, сезон — '+DAYS_PER_SEASON+' днів. Фестивалі проходять наприкінці кожного сезону.</p>',
   [
    {t:S.sound?'🔊 Звук: увімк.':'🔇 Звук: вимк.',fn:()=>{S.sound=!S.sound;save();}},
+   {t:'🏷 Назва ферми',fn:nameFarm},
    {t:'📖 Історія',fn:showIntro},
    {t:'🗑️ Скинути прогрес',ghost:true,fn:()=>{
     modal('Скинути прогрес?','<p>Весь прогрес буде втрачено назавжди. Ти впевнений?</p>',[
@@ -3173,6 +3214,7 @@ window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveG
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
 window.buyPet=buyPet; window.brewPotion=brewPotion; window.animalTonic=animalTonic;
 window.openLukas=openLukas; window.lukasBuy=lukasBuy;
+window.nameFarm=nameFarm; window.claimOnboard=claimOnboard;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
@@ -3191,7 +3233,7 @@ showTab('farm');
 refresh();
 setInterval(tick,1000);
 window.addEventListener('beforeunload',save);
-if(!S.intro){ S.intro=true; S.daily.loginPending=false; save(); showIntro(); }
+if(!S.intro){ S.intro=true; S.daily.loginPending=false; save(); showIntro(); toast('👧 Соня лишила підказки у вкладці «Люди»'); }
 else if(!checkAnniversary())showLogin();
 </script>
 </body>
