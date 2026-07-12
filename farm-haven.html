@@ -270,8 +270,8 @@ const ITEMS={
 };
 
 const CROPS={
- wheat:{lvl:1,cost:10,time:40,xp:4,seasons:['spring','summer','autumn']},
- carrot:{lvl:2,cost:16,time:60,xp:6,seasons:['spring','summer','autumn']},
+ wheat:{lvl:1,cost:10,time:40,xp:4,seasons:['spring','summer','autumn','winter']},
+ carrot:{lvl:2,cost:16,time:60,xp:6,seasons:['spring','summer','autumn','winter']},
  potato:{lvl:3,cost:22,time:85,xp:8,seasons:['spring','summer','autumn']},
  winterberry:{lvl:3,cost:30,time:130,xp:11,seasons:['winter']},
  corn:{lvl:4,cost:30,time:110,xp:10,seasons:['spring','summer','autumn']},
@@ -471,6 +471,11 @@ function locObjs(loc){ if(loc==='island')return S.island.objs; if(loc==='fjord')
 function objsW(){ return locObjs(curLoc()); }
 function zonesBag(){ if(curLoc()==='island'){ S.zones2=S.zones2||{}; return S.zones2; } if(curLoc()==='fjord'){ S.zones3=S.zones3||{}; return S.zones3; } if(curLoc()==='desert'){ S.zones4=S.zones4||{}; return S.zones4; } if(curLoc()==='sky'){ S.zones5=S.zones5||{}; return S.zones5; } if(curLoc()==='city'){ S.zones6=S.zones6||{}; return S.zones6; } return S.zones; }
 function cropLoc(cd){ return cd.isle?'island':(cd.fjord?'fjord':(cd.desert?'desert':(cd.sky?'sky':(cd.city?'city':'valley')))); }
+function inSeasonCrops(){
+ const out=[];
+ for(const id in CROPS){ const cd=CROPS[id]; if(cropLoc(cd)==='valley'&&S.level>=cd.lvl&&cd.seasons.includes(season().id))out.push(ITEMS[id].e); }
+ return out.join('');
+}
 function locMatch(cd){ return cropLoc(cd)===curLoc(); }
 function zoneOwned(k){ return k==='core'||!!zonesBag()[k]; }
 function exCost(z){ const mul=curLoc()==='valley'?1:(curLoc()==='island'?4:6); return Math.round(EXPANSIONS[z].cost*mul*(S.friend&&friendPerk('carpenter')?.9:1)); }
@@ -1356,7 +1361,7 @@ function handleObj(o){
    const id=S.sel, cd=CROPS[id];
    if(!cd||(cropLoc(cd)==='valley'&&S.level<cd.lvl)){ toast('Оберіть насіння внизу 👇'); break; }
    if(!locMatch(cd)){ sErr(); toast('🌍 Ця культура тут не приживеться — інший клімат'); break; }
-   if(cropLoc(cd)==='valley'&&!cd.seasons.includes(season().id)){ sErr(); toast('❄️ '+ITEMS[id].n+' не росте: зараз '+season().name.toLowerCase()); break; }
+   if(cropLoc(cd)==='valley'&&!cd.seasons.includes(season().id)){ sErr(); toast(season().e+' '+ITEMS[id].n+' не в сезон. Зараз можна садити: '+inSeasonCrops()); break; }
    if(S.coins<cd.cost){ sErr(); toast('Не вистачає монет ('+cd.cost+'🪙)'); break; }
    S.coins-=cd.cost;
    o.k='crop'; o.crop=id; o.at=now(); sPop();
@@ -2992,7 +2997,7 @@ function sowAll(){
  const id=S.sel, cd=CROPS[id];
  if(!cd){ toast('Оберіть насіння внизу 👇'); return; }
  if(!locMatch(cd)){ sErr(); toast('🌍 Ця культура тут не приживеться'); return; }
- if(cropLoc(cd)==='valley'&&!cd.seasons.includes(season().id)){ sErr(); toast('❄️ '+ITEMS[id].n+' не в сезон'); return; }
+ if(cropLoc(cd)==='valley'&&!cd.seasons.includes(season().id)){ sErr(); toast(season().e+' '+ITEMS[id].n+' не в сезон. Зараз: '+inSeasonCrops()); return; }
  let n=0;
  for(const o of objsW()){
   if(o.k!=='soil')continue;
