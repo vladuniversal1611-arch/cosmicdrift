@@ -846,6 +846,7 @@ function objEmoji(o){
  if(o.k==='museum')return '🏛';
  if(o.k==='tractor')return '🚜';
  if(o.k==='greenhouse')return '🏡';
+ if(o.k==='lukas')return '⛺';
  if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
  if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
@@ -858,8 +859,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46,greenhouse:56};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30,greenhouse:34};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46,greenhouse:56,lukas:48};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30,greenhouse:34,lukas:32};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -928,6 +929,10 @@ function frame(ts){
   if(o.k==='tractor'&&!(S.tractor&&S.tractor.repaired)){
    const bob=Math.sin(ts/260)*3;
    emoji(cx,'🔧',q.x+14,q.y-30+bob,18);
+  }
+  if(o.k==='lukas'){
+   const bob=Math.sin(ts/240)*4;
+   emoji(cx,'🧙',q.x,q.y-38+bob,20);
   }
   if(o.k==='greenhouse'){
    emoji(cx,'🌱',q.x,q.y-34,20);
@@ -1274,6 +1279,9 @@ function handleObj(o){
    break;
   case 'greenhouse':
    openGreenhouse();
+   break;
+  case 'lukas':
+   openLukas();
    break;
   case 'deco':
    toast(o.e+' Гарна прикраса! (+2% до цін продажу)');
@@ -1746,6 +1754,8 @@ function ensureDaily(){
   S.daily.loginPending=true;
   if(S.family)familyNewDay();
   petsNewDay();
+  ensureLukasObj();
+  if(lukasHere())toast('🧙 Мандрівний торговець Лукас завітав до долини! (намет на фермі ⛺)');
  }
 }
 function dg(type,n){ // daily goal progress + lifetime stats
@@ -1908,7 +1918,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensurePets(); ensureBuffs(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensurePets(); ensureBuffs(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj(); ensureLukasObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2613,6 +2623,50 @@ function sowAll(){
  save(); refresh();
 }
 
+/* ---------- Lukas the travelling merchant ---------- */
+const LUKAS_DECOS=['🦩','⛲','🎠','🏰','🗿','🌈','🎡','🪺'];
+function lukasHere(){ return dayNum()%3===0; } // visits every 3rd game-day
+function lukasDeco(){ return LUKAS_DECOS[dayNum()%LUKAS_DECOS.length]; }
+function ensureLukasObj(){
+ const here=lukasHere(), has=S.world.objs.some(o=>o.k==='lukas');
+ if(here&&!has)S.world.objs.push({k:'lukas',x:820,y:560});
+ else if(!here&&has)S.world.objs=S.world.objs.filter(o=>o.k!=='lukas');
+}
+function openLukas(){
+ const deco=lukasDeco(), bk='lukasDeco'+dayNum();
+ let html='<p class="muted" style="font-size:11px">«Хо-хо! Мандрівний торговець Лукас до ваших послуг. Товар рідкісний — беріть, поки я тут!»</p>';
+ html+='<div class="rowline"><span>✨ Есенція <span class="muted">(2💎 → 3✨)</span></span><button class="btn small'+(invGet('crystal')>=2?' gold':'')+'" '+(invGet('crystal')>=2?'':'disabled')+' onclick="lukasBuy(\'essence\')">Обмін</button></div>';
+ html+='<div class="rowline"><span>🎁 Таємнича скринька <span class="muted">(1💎)</span></span><button class="btn small'+(invGet('crystal')>=1?' gold':'')+'" '+(invGet('crystal')>=1?'':'disabled')+' onclick="lukasBuy(\'mystery\')">Купити</button></div>';
+ html+='<div class="rowline"><span>'+deco+' Екзотична прикраса <span class="muted">(900🪙)</span></span>'+
+  (S.lukasBought===bk?'<span class="needok">куплено ✅</span>':'<button class="btn small'+(S.coins>=900?'':'')+'" '+(S.coins>=900?'':'disabled')+' onclick="lukasBuy(\'deco\')">Купити</button>')+'</div>';
+ modal('🧙 Мандрівний торговець',html);
+}
+function lukasBuy(kind){
+ if(kind==='essence'){
+  if(invGet('crystal')<2){ sErr(); return; }
+  S.inv.crystal-=2; give('essence',3); sCoin();
+  toast('✨ +3 есенції');
+ }else if(kind==='mystery'){
+  if(invGet('crystal')<1){ sErr(); return; }
+  S.inv.crystal--; sCoin();
+  const r=Math.random();
+  if(r<.35){ const c=300+ri(500); S.coins+=c; toast('🎁 Скринька: '+c+'🪙!'); }
+  else if(r<.6){ give('essence',3); toast('🎁 Скринька: ✨×3'); }
+  else if(r<.8){ give('crystal',2); toast('🎁 Скринька: 💎×2 (пощастило!)'); }
+  else if(r<.95){ give('gem',2); toast('🎁 Скринька: 💠×2'); }
+  else { give('trophy',1); toast('🎁 Скринька: 🏆 кубок!'); }
+ }else if(kind==='deco'){
+  const bk='lukasDeco'+dayNum();
+  if(S.lukasBought===bk)return;
+  if(S.coins<900){ sErr(); toast('Не вистачає монет'); return; }
+  S.coins-=900; S.lukasBought=bk;
+  const spot=freeSpot(40);
+  if(spot){ S.world.objs.push({k:'deco',x:spot.x,y:spot.y,e:lukasDeco()}); S.decoCount++; }
+  sCoin(); toast(lukasDeco()+' Екзотичну прикрасу встановлено!');
+ }
+ save(); openLukas();
+}
+
 /* ---------- Motrya the herbalist: temporary potions ---------- */
 const BUFF_DUR=8*60*1000;
 const POTIONS={
@@ -3118,6 +3172,7 @@ window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
 window.buyPet=buyPet; window.brewPotion=brewPotion; window.animalTonic=animalTonic;
+window.openLukas=openLukas; window.lukasBuy=lukasBuy;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
