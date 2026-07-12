@@ -511,6 +511,8 @@ function needHTML(need){
  }).join(' &nbsp;');
 }
 function xpNeed(l){ return 40+l*l*20; }
+function buffActive(k){ return S.buffs&&S.buffs[k]&&S.buffs[k]>now(); }
+function buffLeft(k){ return S.buffs&&S.buffs[k]?Math.max(0,(S.buffs[k]-now())/1000):0; }
 function sellMult(){
  let m=1;
  if(S.tree.lvl>=1)m+=.1;
@@ -521,6 +523,7 @@ function sellMult(){
  m+=.05*(gen()-1);
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)m-=.1;
  if(S.friend&&friendPerk('beekeeper'))m+=.05;
+ if(buffActive('sell'))m+=.25;
  return Math.max(.4,m);
 }
 function growMult(){
@@ -530,6 +533,7 @@ function growMult(){
   const sp={spring:'spiritSpring',summer:'spiritSummer',autumn:'spiritAutumn',winter:'spiritWinter'}[season().id];
   if(sp&&fl[sp])m*=.9;
  }
+ if(buffActive('grow'))m*=.5;
  return m;
 }
 function sellPrice(id){ return Math.max(1,Math.round(ITEMS[id].sell*sellMult())); }
@@ -1605,6 +1609,7 @@ function renderQuests(){
    '<button class="btn small'+(hasAll(o.items)?' gold':'')+'" '+(hasAll(o.items)?'':'disabled')+' onclick="fulfillOrder('+i+')">Виконати</button></div></div>';
  });
  html+='<div class="secTitle">🧑‍🌾 Мешканці долини</div>';
+ html+=motryaHTML();
  html+=friendHTML();
  // festival card
  if(festActive()){
@@ -1903,7 +1908,7 @@ function arriveIsland(){
   }}]);
 }
 function initExtras(){
- ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensurePets(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
+ ensureStory(); ensureFamily(); ensureFriend(); ensureMine(); ensureMuseum(); ensureTractor(); ensureGreenhouse(); ensurePets(); ensureBuffs(); ensureOrders(); ensureDaily(); ensureBoard(); ensureShip(); ensureMuseumObj(); ensureTractorObj();
  if(!S.stats)S.stats={}; if(!S.ach)S.ach={};
  for(const k in NPCS) if(S.quests[k]===undefined)S.quests[k]=0;
  for(const k in TERRITORIES) if(!S.terr[k])S.terr[k]={unlocked:false,last:0};
@@ -2608,6 +2613,42 @@ function sowAll(){
  save(); refresh();
 }
 
+/* ---------- Motrya the herbalist: temporary potions ---------- */
+const BUFF_DUR=8*60*1000;
+const POTIONS={
+ grow:{e:'🌱',n:'Зілля росту',d:'культури ростуть ×2, 8 хв',cost:{flower:10,essence:1}},
+ sell:{e:'💰',n:'Зілля торгівлі',d:'+25% до цін продажу, 8 хв',cost:{flower:8,essence:2}},
+};
+function ensureBuffs(){ if(!S.buffs)S.buffs={}; }
+function brewPotion(k){
+ const p=POTIONS[k];
+ if(buffActive(k)){ toast('Це зілля вже діє ('+fmtT(buffLeft(k))+')'); return; }
+ if(!takeAll(p.cost)){ sErr(); toast('Мотря: «Принеси '+Object.entries(p.cost).map(([i,v])=>ITEMS[i].e+'×'+v).join(', ')+'»'); return; }
+ ensureBuffs(); S.buffs[k]=now()+BUFF_DUR; addXp(10); sUp();
+ toast(p.e+' '+p.n+' активовано! ('+p.d+')');
+ save(); refresh();
+}
+function animalTonic(){
+ const cost={flower:6,honey:2};
+ if(!takeAll(cost)){ sErr(); toast('Мотря: «Потрібно 6🌸 і 2🍯»'); return; }
+ let n=0;
+ for(const a of S.animals){ if(a.readyAt&&a.readyAt>now()){ a.readyAt=now(); n++; } a.hap=Math.min(100,a.hap+10); }
+ sUp(); toast('⚡ Тонік готовий! '+(n?n+' тварин одразу дали продукт':'тварини повеселішали'));
+ save(); refresh();
+}
+function motryaHTML(){
+ if(!S.terr.forest||!S.terr.forest.unlocked)return '';
+ let html='<div class="card"><h3>👵 Травниця Мотря</h3><p class="muted" style="font-size:11px">«Ліс дає силу тому, хто вміє слухати. Приноси квіти й есенцію — зварю тобі диво».</p>';
+ for(const k in POTIONS){
+  const p=POTIONS[k], act=buffActive(k);
+  html+='<div class="rowline"><span>'+p.e+' <b>'+p.n+'</b><br><span class="muted" style="font-size:11px">'+p.d+' · '+needHTML(p.cost)+'</span></span>'+
+   (act?'<span class="needok">діє '+fmtT(buffLeft(k))+'</span>':'<button class="btn small'+(hasAll(p.cost)?' gold':'')+'" '+(hasAll(p.cost)?'':'disabled')+' onclick="brewPotion(\''+k+'\')">Зварити</button>')+'</div>';
+ }
+ html+='<div class="rowline"><span>⚡ <b>Тонік бадьорості</b><br><span class="muted" style="font-size:11px">тварини одразу дають продукт · '+needHTML({flower:6,honey:2})+'</span></span>'+
+  '<button class="btn small'+(hasAll({flower:6,honey:2})?' gold':'')+'" '+(hasAll({flower:6,honey:2})?'':'disabled')+' onclick="animalTonic()">Зварити</button></div>';
+ return html+'</div>';
+}
+
 /* ---------- friendship with the villagers ---------- */
 const FRIEND_NPCS=['carpenter','baker','fisherman','beekeeper','elder'];
 const FRIEND_FAV={
@@ -2959,6 +3000,10 @@ function renderHUD(){
  $('seasonpill').textContent=(curLoc()==='island'?'🏝':s.e)+' '+wNow.e+poison+' · день '+(dayOfSeason()+1);
  $('seasonpill').title=wNow.n;
  $('treemini').textContent='🌳'+S.tree.lvl+(S.continent?'🌍':'');
+ let buffTxt='';
+ if(buffActive('grow'))buffTxt+='🌱';
+ if(buffActive('sell'))buffTxt+='💰';
+ $('coins').textContent='🪙 '+fmt(S.coins)+buffTxt;
  document.getElementById('app').className='season-'+(curLoc()==='island'?'summer':s.id);
  const cb=$('calbanner');
  const cev=calActive();
@@ -3072,7 +3117,7 @@ window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMi
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
-window.buyPet=buyPet;
+window.buyPet=buyPet; window.brewPotion=brewPotion; window.animalTonic=animalTonic;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
