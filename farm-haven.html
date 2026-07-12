@@ -486,7 +486,7 @@ function load(){
    migrateGrid(objs);
    S.world={objs};
   }
-  if(typeof S.placing==='object')S.placing=null;
+  if(typeof S.placing!=='undefined')delete S.placing;
   // saves from before buildings appeared on the map: place owned ones
   for(const k in S.buildings)
    if(S.buildings[k].owned&&!S.world.objs.some(o=>o.k==='bldg'&&o.b===k))placeBuilding(k);
@@ -1147,11 +1147,11 @@ function tapWorld(x,y){
  if(!zoneOwned(zk)){ offerExpansion(zk); return; }
  if(inRect(x,y,PADDOCK)){ toast('🐮 Тут пасуться твої тварини'); return; }
  // empty owned land: place deco or till a new bed
- if(S.placing){
-  const d=DECOS[S.placing];
+ if(S.place){
+  const d=S.place;
   if(!posFree(objsW(),x,y,40)){ toast('Тут замало місця'); return; }
   objsW().push({k:'deco',x:Math.round(x),y:Math.round(y),e:d.e});
-  S.decoCount++; S.placing=null; sCoin();
+  S.decoCount++; if(d.guard)S.guardians=(S.guardians||0)+1; S.place=null; sCoin();
   toast(d.e+' '+d.n+' встановлено! Краса ферми зростає');
   refresh(); return;
  }
@@ -1406,6 +1406,13 @@ function renderShop(){
   html+='<div class="rowline"><span>'+d.e+' '+d.n+' <span class="muted">'+d.perk+'</span></span><button class="btn small" onclick="buyPet(\''+k+'\')">'+fmt(d.cost)+'🪙</button></div>';
  }
  html+='</div>';
+ html+='<div class="secTitle">🔨 Майстерня <span class="badge">крафт із дерева й каменю</span></div><div class="card">';
+ for(const k in WORKBENCH){
+  const d=WORKBENCH[k];
+  html+='<div class="rowline"><span>'+d.e+' '+d.n+' <span class="muted">'+needHTML(d.cost)+(d.guard?' · менше бур’янів':'')+'</span></span>'+
+   '<button class="btn small'+(hasAll(d.cost)?'':'')+'" '+(hasAll(d.cost)?'':'disabled')+' onclick="craftDeco(\''+k+'\')">Зробити</button></div>';
+ }
+ html+='</div>';
  html+='<div class="secTitle">🎀 Прикраси <span class="badge">+2% до цін кожна (до 5)</span></div><div class="card">';
  for(const k in DECOS){
   const d=DECOS[k];
@@ -1454,7 +1461,7 @@ function buyRing(){
 function buyDeco(k){
  const d=DECOS[k];
  if(S.coins<d.cost){ sErr(); toast('Не вистачає монет'); return; }
- S.coins-=d.cost; S.placing=k;
+ S.coins-=d.cost; S.place={e:d.e,n:d.n};
  toast(d.e+' Куплено! Торкніться вільного місця на фермі, щоб поставити');
  showTab('farm');
 }
@@ -2654,6 +2661,23 @@ function claimOnboard(){
  save(); refresh();
 }
 
+/* ---------- workbench: craft decorations from materials ---------- */
+const WORKBENCH={
+ fence:{e:'🪵',n:'Паркан',cost:{wood:4}},
+ bench:{e:'🪑',n:'Лавка',cost:{wood:3,stone:2}},
+ lantern:{e:'🏮',n:'Ліхтар',cost:{wood:2,stone:3}},
+ flag:{e:'🎏',n:'Прапорець',cost:{wood:2,flower:1}},
+ birdhouse:{e:'🏠',n:'Шпаківня',cost:{wood:3,flower:2}},
+ guardian:{e:'🎃',n:'Опудало-охоронець',cost:{wood:3,stone:3},guard:true},
+};
+function craftDeco(k){
+ const d=WORKBENCH[k];
+ if(!takeAll(d.cost)){ sErr(); toast('Бракує матеріалів: '+Object.entries(d.cost).map(([i,v])=>ITEMS[i].e+'×'+v).join(' ')); return; }
+ S.place={e:d.e,n:d.n,guard:d.guard}; addXp(5);
+ toast('🔨 '+d.e+' '+d.n+' зроблено! Торкнись вільного місця, щоб поставити'+(d.guard?' (менше бур’янів поруч)':''));
+ showTab('farm');
+}
+
 /* ---------- Lukas the travelling merchant ---------- */
 const LUKAS_DECOS=['🦩','⛲','🎠','🏰','🗿','🌈','🎡','🪺'];
 function lukasHere(){ return dayNum()%3===0; } // visits every 3rd game-day
@@ -2851,6 +2875,7 @@ const ACH=[
  {id:'friend1',e:'💞',n:'Добрий сусід',d:'Здружись із кимось до 5 зірок',rw:{coins:600},p:()=>[Math.max(...FRIEND_NPCS.map(friendLevel)),5]},
  {id:'friendAll',e:'🤗',n:'Душа долини',d:'Здружись з усіма до 5 зірок',rw:{coins:3000,crystal:3},p:()=>[FRIEND_NPCS.filter(k=>friendLevel(k)>=5).length,FRIEND_NPCS.length]},
  {id:'pets',e:'🐾',n:'Улюбленці',d:'Заведи песика і котика',rw:{coins:800},p:()=>[S.pets?S.pets.length:0,2]},
+ {id:'deco10',e:'🎀',n:'Прикрашай',d:'Постав 10 прикрас на фермі',rw:{coins:500},p:()=>[S.decoCount||0,10]},
 ];
 function achDone(a){ const [c,m]=a.p(); return c>=m; }
 function achReady(){ return ACH.filter(a=>achDone(a)&&!(S.ach&&S.ach[a.id])); }
@@ -3176,7 +3201,8 @@ function tick(){
   const days=d-S.lastDay;
   S.lastDay=d;
   const weeds=objsW().filter(o=>o.k==='weed').length;
-  const weedChance=hasCat()?.25:.5;
+  let weedChance=hasCat()?.25:.5;
+  if(S.guardians)weedChance*=Math.max(.3,1-.15*S.guardians);
   for(let i=0;i<Math.min(days,5);i++){
    if(weeds+i>=28||Math.random()>=weedChance)continue;
    const owned=Object.keys(ZONES).filter(zoneOwned);
@@ -3214,7 +3240,7 @@ window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveG
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
 window.buyPet=buyPet; window.brewPotion=brewPotion; window.animalTonic=animalTonic;
 window.openLukas=openLukas; window.lukasBuy=lukasBuy;
-window.nameFarm=nameFarm; window.claimOnboard=claimOnboard;
+window.nameFarm=nameFarm; window.claimOnboard=claimOnboard; window.craftDeco=craftDeco;
 $('castBtn').onclick=fishAction;
 $('digBtn').onclick=mineDig;
 $('mineRock').onclick=mineDig;
