@@ -608,6 +608,7 @@ function sellMult(){
  if(S.story&&S.story.flags&&S.story.flags.desertDone)m+=.1;
  if(S.story&&S.story.flags&&S.story.flags.skyDone)m+=.1;
  if(S.story&&S.story.flags&&S.story.flags.cityDone)m+=.1;
+ if(S.story&&S.story.flags&&S.story.flags.sagaDone)m+=.15;
  m+=.05*(gen()-1);
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)m-=.1;
  if(S.friend&&friendPerk('beekeeper'))m+=.05;
@@ -2148,6 +2149,11 @@ function travel(){
  }else if(S.skyArrived){
   opts.push({t:'🌆 Рідне місто 🔒',fn:()=>toast('🔒 Спершу здолай Барона Грозових Хмар на небесах (квести Аеліти)')});
  }
+ if(S.story.flags.cityDone){
+  opts.push({t:S.story.flags.sagaDone?'🌌 Першодерево (завершено)':'🌌 Першодерево — фінал саги',fn:openFinale});
+ }else if(S.cityArrived){
+  opts.push({t:'🌌 Першодерево 🔒',fn:()=>toast('🔒 Спершу озелени рідне місто (квести Крука)')});
+ }
  opts.push({t:'Лишитись',ghost:true});
  modal('⛵ Куди вирушаємо?','<p>Обери, куди прямувати через океан.</p>',opts);
 }
@@ -2540,6 +2546,65 @@ function checkAnniversary(){
   return true;
  }
  return false;
+}
+
+/* ---------- Chapter 7: the Primordial Tree, saga finale ---------- */
+const SAGA_OFFERING={essence:6,pearl:3,aurora:3,gem:3,stormpearl:3,neon:3,crystal:10};
+function openFinale(){
+ const f=S.story.flags;
+ if(!f.sagaStarted){
+  f.sagaStarted=1; save();
+  modal('🌌 Розділ 7. «Першодерево»',
+   '<p>Корабель пливе туди, де закінчуються всі мапи. Зорі згущуються в срібну ріку, і серед порожнечі, оповите світлом, височіє <b>Першодерево</b> — корінь усіх Дерев Життя, з якого колись почалося все.</p>'+
+   '<p>Біля нього, пліч-о-пліч, стоять усі, кого ти зустрів у мандрах: дідусь, Кая, Рашид, Аеліта, навіть Крук. І голос без вуст промовляє в самому серці...</p>',
+   [{t:'Слухати',fn:()=>{
+    modal('🌳 Голос Першодерева',
+     '<p><i>«Хранителю семи Дерев. Ти зцілив долину, острів, фіорди, пустелю, небеса й місто. Але корінь усіх бід — тут. Велика Посуха, що змусила твого дідуся укласти ту угоду, досі точить моє серце».</i></p>'+
+     '<p><i>«Принеси мені по реліквії з кожного зціленого світу — і разом ми загоїмо саму Посуху. Назавжди».</i></p>'+
+     '<p class="muted">Велике жертвоприношення — у вкладці «Дерево».</p>',
+     [{t:'Я готовий 🌟'}]);
+    refresh();
+   }}]);
+  return;
+ }
+ showTab('tree');
+ toast('🌌 Велике жертвоприношення — угорі вкладки «Дерево»');
+}
+function finaleHTML(){
+ const f=(S.story&&S.story.flags)||{};
+ if(!f.sagaStarted)return '';
+ if(f.sagaDone){
+  return '<div class="card" style="background:linear-gradient(135deg,#fff3d6,#e8ffe0)"><h3>🌌 Сага семи Дерев — завершена</h3><p class="needok">Велика Посуха переможена назавжди. Сім Дерев Життя сплелися корінням, і світ квітне від долини до небес.</p><p class="muted">Ти — Великий Хранитель. Але ферма чекає щодня, а попереду ще безліч поколінь твого роду. 💚</p></div>';
+ }
+ let html='<div class="secTitle">🌌 Велике жертвоприношення Першодереву</div><div class="card" style="background:#f3e6fa">';
+ html+='<p class="muted" style="font-size:12px">Реліквія з кожного зціленого світу — щоб загоїти Велику Посуху в самому корені.</p>';
+ html+='<div class="rowline"><span>'+needHTML(SAGA_OFFERING)+'</span></div>';
+ html+='<div class="rowline"><span class="muted">✨есенція · 🦪перлина · 🌌сяйво · 💠самоцвіт · 🔮перлина грози · 💡неон · 💎кристали</span>'+
+  '<button class="btn gold small" '+(hasAll(SAGA_OFFERING)?'':'disabled')+' onclick="doFinale()">Принести дар 🌟</button></div>';
+ return html+'</div>';
+}
+function doFinale(){
+ const f=S.story.flags;
+ if(f.sagaDone||!takeAll(SAGA_OFFERING))return;
+ f.sagaDone=1; save();
+ modal('🌌 Кінець Посухи',
+  '<p>Ти складаєш реліквії до коріння Першодерева. Кожна спалахує кольором свого світу — і промені зливаються в один сліпучий стовп світла, що б’є в саме серце Великої Посухи.</p>'+
+  '<p><i>Посуха — стара, зморена тінь — розсипається на теплий дощ, який уперше за тисячі років проливається над усіма сімома світами водночас.</i></p>',
+  [{t:'Далі',fn:()=>{
+   modal('🌳 Сім Дерев',
+    '<p>Сім Дерев Життя сплітаються корінням крізь простір: долина, острів, фіорди, пустеля, небеса, місто — і Першодерево в осерді. Світ дихає на повні груди.</p>'+
+    '<p>Дідусь кладе руку тобі на плече: <i>«Мій борг сплачено. Твоїми руками. Я більше ніколи не зникну — бо тепер Хранителів багато, і ти зробив їх сім’єю».</i></p>',
+    [{t:'Далі',fn:()=>{
+     give('trophy',7); give('essence',10); S.coins+=25000; addXp(2000);
+     modal('🎬 Сагу завершено!',
+      '<p class="needok">Вітаємо! Ти пройшов усю сагу семи Дерев Життя.</p>'+
+      '<p>Від занедбаної ферми — до Великого Хранителя, що загоїв світ у самому корені. Долина, острів, фіорди, пустеля, небеса й рідне місто квітнуть, а Велика Посуха більше ніколи не повернеться.</p>'+
+      '<p class="muted">Але справжня історія триває щодня: твоя ферма, твої мешканці, твій рід. Дякуємо, що зіграв цю історію разом із нами. 💚🌳</p>'+
+      '<p class="needok">Легендарна нагорода: +25 000🪙, 🏆×7, ✨×10, +2000⭐ · титул «Великий Хранитель» (+15% до цін назавжди)</p>',
+      [{t:'🌟 Грати далі'}]);
+     sUp(); save(); refresh();
+    }}]);
+  }}]);
 }
 
 /* ---------- Acts III-V: season spirits, Kruk's storm, the valley finale ---------- */
@@ -3172,6 +3237,7 @@ const ACH=[
  {id:'desertach',e:'🏜',n:'Приборкувач Джина',d:'Оживи Дерево-Кактус у пустелі',rw:{coins:2000,crystal:3},p:()=>[S.story.flags.desertDone?1:0,1]},
  {id:'skyach',e:'☁️',n:'Володар небес',d:'Оживи Небесне Дерево на архіпелазі',rw:{coins:2500,crystal:3},p:()=>[S.story.flags.skyDone?1:0,1]},
  {id:'cityach',e:'🌆',n:'Друге коло',d:'Озелени рідне місто героя',rw:{coins:3000,crystal:4},p:()=>[S.story.flags.cityDone?1:0,1]},
+ {id:'sagaach',e:'🌌',n:'Великий Хранитель',d:'Заверши сагу семи Дерев Життя',rw:{coins:10000,crystal:7,trophy:1},p:()=>[S.story.flags.sagaDone?1:0,1]},
  {id:'wed',e:'💍',n:'Сімейне вогнище',d:'Одружись',rw:{coins:300},p:()=>[S.family&&S.family.spouse?1:0,1]},
  {id:'gen2',e:'🕊',n:'Династія',d:'Передай ферму наступному поколінню',rw:{coins:2000,crystal:2},p:()=>[gen(),2]},
  {id:'rich',e:'🤑',n:'Скарбничка',d:'Назбирай 10 000 монет',rw:{crystal:3},p:()=>[Math.min(S.coins,10000),10000]},
@@ -3368,6 +3434,7 @@ function renderTree(){
  }else{
   html+='<div class="card" style="background:#e8ffe0"><h3>🌍 Новий континент відкрито!</h3><p>Дерево Життя сяє на всю долину. Ферма стала легендою, але пригоди тривають: досліджуй нові землі на мапі, вирощуй рідкісні культури та збирай екзотичні ресурси!</p></div>';
  }
+ html+=finaleHTML();
  html+=spiritsHTML();
  html+=achHTML();
  html+=familyHTML();
@@ -3563,6 +3630,7 @@ window.propose=propose; window.claimFamilyGift=claimFamilyGift; window.inherit=i
 window.claimAch=claimAch; window.showAchList=showAchList; window.openMine=openMine;
 window.openMuseum=openMuseum; window.donateMuseum=donateMuseum;
 window.freeSpirit=freeSpirit; window.villageCouncil=villageCouncil; window.giveGift=giveGift; window.openTractor=openTractor;
+window.openFinale=openFinale; window.doFinale=doFinale;
 window.buyGreenhouse=buyGreenhouse; window.openGreenhouse=openGreenhouse; window.ghPlant=ghPlant; window.ghHarvest=ghHarvest;
 window.buyPet=buyPet; window.brewPotion=brewPotion; window.animalTonic=animalTonic;
 window.openLukas=openLukas; window.lukasBuy=lukasBuy;
