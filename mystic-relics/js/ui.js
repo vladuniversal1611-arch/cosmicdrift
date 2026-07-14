@@ -112,8 +112,7 @@ const UI = {
 
   updateBoosterBar() {
     const bar = this.$('boosterBar');
-    const ids = ['shuffle', 'hint', 'magnet', 'hammer', 'freeze', 'double', 'wand', 'bomb', 'rainbow', 'undo'];
-    bar.innerHTML = ids.map(id => {
+    bar.innerHTML = CFG.GAME_BOOSTERS.map(id => {
       const n = Storage.data.boosters[id] || 0;
       return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${CFG.BOOSTERS[id].name}">
         ${CFG.BOOSTERS[id].g}<span class="cnt">${n}</span></button>`;
@@ -192,7 +191,7 @@ const UI = {
         </div>`).join('') + `</div>
         <p style="text-align:center;opacity:0.6;font-size:12px;padding:10px">Покупки активуються після публікації у Google Play</p>`;
     } else if (tab === 'boosters') {
-      box.innerHTML = Object.entries(CFG.BOOSTERS).map(([id, b]) => `
+      box.innerHTML = CFG.GAME_BOOSTERS.map(id => [id, CFG.BOOSTERS[id]]).map(([id, b]) => `
         <div class="shop-row glass">
           <div class="big">${b.g}</div>
           <div class="info"><b>${b.name}</b> <small>${b.desc}</small><small>У вас: ${d.boosters[id] || 0}</small></div>

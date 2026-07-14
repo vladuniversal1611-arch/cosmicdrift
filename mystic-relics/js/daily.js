@@ -138,7 +138,7 @@ const Chests = {
     const gems = Utils.ri(Math.random, c.gems[0], c.gems[1]);
     if (gems > 0) { rewards.push({ g: '💜', text: `+${gems} кристалів` }); Storage.addGems(gems); }
 
-    const boosterIds = Object.keys(CFG.BOOSTERS);
+    const boosterIds = CFG.GAME_BOOSTERS;
     for (let i = 0; i < c.boosters; i++) {
       const id = boosterIds[Math.floor(Math.random() * boosterIds.length)];
       d.boosters[id]++;

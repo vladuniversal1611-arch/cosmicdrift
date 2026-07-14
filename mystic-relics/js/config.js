@@ -68,6 +68,11 @@ const CFG = {
     { id: 'temple',  name: 'Храм',           scene: 'temple', bg: ['#1d0c21', '#421c47'], accent: '#f0abfc', tile: '#f8ecf6', scale: [0, 1, 4, 5, 8],  base: 147, cost: 750 }
   ],
 
+  /* ---- Бустери, доступні у геймплеї (панель, магазин, нагороди).
+   * Порядок = порядок кнопок. Щоб повернути інші бустери з BOOSTERS —
+   * достатньо додати id сюди. ---- */
+  GAME_BOOSTERS: ['shuffle', 'hint', 'hammer', 'freeze', 'wand'],
+
   /* ---- Бустери ---- */
   BOOSTERS: {
     shuffle: { g: '🔀', name: 'Перемішати',      desc: 'Перемішує всі плитки на полі (гарантовано прохідна розкладка)', cost: 120 },
@@ -112,7 +117,7 @@ const CFG = {
     { coins: 50,  label: '50 🪙' },  { gems: 3,   label: '3 💜' },
     { coins: 100, label: '100 🪙' }, { booster: 'shuffle', label: '🔀' },
     { coins: 200, label: '200 🪙' }, { gems: 8,   label: '8 💜' },
-    { booster: 'bomb', label: '💣' },{ coins: 500, label: '500 🪙' }
+    { booster: 'wand', label: '🪄' },{ coins: 500, label: '500 🪙' }
   ],
 
   /* ---- Шаблони щоденних місій ---- */
