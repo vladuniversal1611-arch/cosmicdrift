@@ -82,7 +82,8 @@ const Board = {
     }
     const spanX = maxX - minX, spanY = maxY - minY;
     const trayZone = Math.min(120, this.h * 0.18);         // місце під панель
-    const availW = this.w - 24, availH = this.h - trayZone - 24;
+    const gutter = Math.min(70, this.w * 0.16);            // жолоби під бічні бустери
+    const availW = this.w - gutter * 2, availH = this.h - trayZone - 24;
     const cell = Math.min(availW / spanX, availH / (spanY * 1.22), 42);
     this.cellX = cell; this.cellY = cell * 1.22;
     this.tileW = cell * 2; this.tileH = this.cellY * 2;

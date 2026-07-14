@@ -14,13 +14,17 @@
 const Ads = {
   _levelCounter: 0,
 
-  /** Банер знизу екрана (місце зарезервовано у CSS: --banner-h). */
+  /** Банер знизу ігрового екрана (плейсхолдер #adBanner). */
   showBanner() {
-    if (Storage.data.premium) return;
+    const el = document.getElementById('adBanner');
+    if (Storage.data.premium) { if (el) el.classList.add('hidden'); return; }
+    if (el) el.classList.remove('hidden');
     // TODO AdMob: AdMob.showBanner({ adId: 'ca-app-pub-XXX/banner', position: 'BOTTOM_CENTER' });
   },
 
   hideBanner() {
+    const el = document.getElementById('adBanner');
+    if (el) el.classList.add('hidden');
     // TODO AdMob: AdMob.hideBanner();
   },
 

@@ -57,15 +57,15 @@ const CFG = {
    *        'temple' (стародавній храм). Нові теми додаються одним рядком. */
   THEMES: [
     { id: 'forest',  name: 'Ліс',            scene: 'forest', bg: ['#071f12', '#134428'], accent: '#4ade80', tile: '#f5eede', scale: [0, 3, 5, 7, 10], base: 220, cost: 0 },
-    { id: 'desert',  name: 'Пустеля',        scene: 'temple', bg: ['#2e1f0a', '#6b4718'], accent: '#fbbf24', tile: '#fdf3dc', scale: [0, 2, 5, 7, 9],  base: 196, cost: 150 },
-    { id: 'ice',     name: 'Лід',            scene: 'cave',   bg: ['#081c2c', '#17405c'], accent: '#7dd3fc', tile: '#eef6fb', scale: [0, 2, 4, 7, 9],  base: 262, cost: 150 },
-    { id: 'volcano', name: 'Вулкан',         scene: 'cave',   bg: ['#20090a', '#4d150c'], accent: '#fb7185', tile: '#f8e8dc', scale: [0, 1, 5, 7, 8],  base: 175, cost: 250 },
-    { id: 'space',   name: 'Космос',         scene: 'cave',   bg: ['#070722', '#1f1242'], accent: '#a78bfa', tile: '#ece9f6', scale: [0, 3, 5, 8, 10], base: 208, cost: 250 },
-    { id: 'ocean',   name: 'Підводний світ', scene: 'cave',   bg: ['#032030', '#084258'], accent: '#22d3ee', tile: '#e6f4f6', scale: [0, 3, 5, 7, 9],  base: 233, cost: 350 },
-    { id: 'castle',  name: 'Замок',          scene: 'temple', bg: ['#171028', '#32234a'], accent: '#c084fc', tile: '#f1ebf8', scale: [0, 2, 3, 7, 8],  base: 185, cost: 350 },
-    { id: 'ruins',   name: 'Стародавні руїни', scene: 'temple', bg: ['#1f1c10', '#443c20'], accent: '#d9c26a', tile: '#f3eeda', scale: [0, 2, 5, 7, 10], base: 165, cost: 500 },
-    { id: 'sky',     name: 'Небо',           scene: 'forest', bg: ['#0d3050', '#336d9c'], accent: '#fde68a', tile: '#f7fbff', scale: [0, 4, 5, 9, 11], base: 294, cost: 500 },
-    { id: 'temple',  name: 'Храм',           scene: 'temple', bg: ['#1d0c21', '#421c47'], accent: '#f0abfc', tile: '#f8ecf6', scale: [0, 1, 4, 5, 8],  base: 147, cost: 750 }
+    { id: 'desert',  name: 'Пустеля',        scene: 'temple', bg: ['#2e1f0a', '#6b4718'], accent: '#fbbf24', tile: '#fdf3dc', scale: [0, 2, 5, 7, 9],  base: 196, cost: 25 },
+    { id: 'ice',     name: 'Лід',            scene: 'cave',   bg: ['#081c2c', '#17405c'], accent: '#7dd3fc', tile: '#eef6fb', scale: [0, 2, 4, 7, 9],  base: 262, cost: 25 },
+    { id: 'volcano', name: 'Вулкан',         scene: 'cave',   bg: ['#20090a', '#4d150c'], accent: '#fb7185', tile: '#f8e8dc', scale: [0, 1, 5, 7, 8],  base: 175, cost: 40 },
+    { id: 'space',   name: 'Космос',         scene: 'cave',   bg: ['#070722', '#1f1242'], accent: '#a78bfa', tile: '#ece9f6', scale: [0, 3, 5, 8, 10], base: 208, cost: 40 },
+    { id: 'ocean',   name: 'Підводний світ', scene: 'cave',   bg: ['#032030', '#084258'], accent: '#22d3ee', tile: '#e6f4f6', scale: [0, 3, 5, 7, 9],  base: 233, cost: 60 },
+    { id: 'castle',  name: 'Замок',          scene: 'temple', bg: ['#171028', '#32234a'], accent: '#c084fc', tile: '#f1ebf8', scale: [0, 2, 3, 7, 8],  base: 185, cost: 60 },
+    { id: 'ruins',   name: 'Стародавні руїни', scene: 'temple', bg: ['#1f1c10', '#443c20'], accent: '#d9c26a', tile: '#f3eeda', scale: [0, 2, 5, 7, 10], base: 165, cost: 80 },
+    { id: 'sky',     name: 'Небо',           scene: 'forest', bg: ['#0d3050', '#336d9c'], accent: '#fde68a', tile: '#f7fbff', scale: [0, 4, 5, 9, 11], base: 294, cost: 80 },
+    { id: 'temple',  name: 'Храм',           scene: 'temple', bg: ['#1d0c21', '#421c47'], accent: '#f0abfc', tile: '#f8ecf6', scale: [0, 1, 4, 5, 8],  base: 147, cost: 100 }
   ],
 
   /* ---- Бустери, доступні у геймплеї (панель, магазин, нагороди).
@@ -98,12 +98,13 @@ const CFG = {
     portal: { g: '🌀', name: 'Магічний портал', tier: 7, desc: 'Кожні 20 с два портали міняють плитки місцями' }
   },
 
-  /* ---- Скрині ---- */
+  /* ---- Скрині (дерев'яна — кожні 3 рівні, срібна — 10,
+   * золота — 25, легендарна — 100; лише перше проходження) ---- */
   CHESTS: {
     wood:      { g: '🪵', name: 'Дерев’яна', coins: [40, 90],   gems: [0, 1],  boosters: 1, themeChance: 0 },
-    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 2, themeChance: 0.05 },
-    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 3, themeChance: 0.15 },
-    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 5, themeChance: 0.5 }
+    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 1, themeChance: 0.05 },
+    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 2, themeChance: 0.15 },
+    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 3, themeChance: 0.5 }
   },
 
   /* ---- 7-денний календар нагород ---- */
@@ -112,12 +113,14 @@ const CFG = {
     { coins: 200 }, { gems: 5 }, { chest: 'gold' }
   ],
 
-  /* ---- Колесо фортуни (8 секторів) ---- */
+  /* ---- Колесо фортуни (10 секторів, 5 з бустерами).
+   * Безкоштовне крутіння раз на день, далі — за rewarded-рекламу. ---- */
   WHEEL: [
-    { coins: 50,  label: '50 🪙' },  { gems: 3,   label: '3 💜' },
+    { coins: 50,  label: '50 🪙' },  { booster: 'hint',    label: '💡' },
     { coins: 100, label: '100 🪙' }, { booster: 'shuffle', label: '🔀' },
-    { coins: 200, label: '200 🪙' }, { gems: 8,   label: '8 💜' },
-    { booster: 'wand', label: '🪄' },{ coins: 500, label: '500 🪙' }
+    { gems: 3,    label: '3 💜' },   { booster: 'hammer',  label: '🔨' },
+    { coins: 200, label: '200 🪙' }, { booster: 'freeze',  label: '🧊' },
+    { coins: 500, label: '500 🪙' }, { booster: 'wand',    label: '🪄' }
   ],
 
   /* ---- Шаблони щоденних місій ---- */

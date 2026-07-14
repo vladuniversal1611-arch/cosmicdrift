@@ -54,15 +54,12 @@ const Daily = {
   /* ---- Колесо фортуни ---- */
   canSpin() { return Storage.data.daily.lastSpin !== Utils.today(); },
 
-  /** Крутіння: повертає індекс сектора або -1, якщо не можна. */
-  spin(paid) {
-    if (!paid && !this.canSpin()) return -1;
-    if (paid) {
-      if (Storage.data.gems < 3) { UI.toast('Не вистачає кристалів 💜'); return -1; }
-      Storage.addGems(-3);
-    } else {
-      Storage.data.daily.lastSpin = Utils.today();
-    }
+  /** Крутіння: безкоштовне раз на день, далі — за rewarded-рекламу.
+   *  viaAd=true означає, що нагороду за перегляд уже підтверджено.
+   *  Повертає індекс сектора або -1, якщо крутити не можна. */
+  spin(viaAd) {
+    if (!viaAd && !this.canSpin()) return -1;
+    if (!viaAd) Storage.data.daily.lastSpin = Utils.today();
     Storage.data.stats.spins++;
     Storage.save();
     return Math.floor(Math.random() * CFG.WHEEL.length);

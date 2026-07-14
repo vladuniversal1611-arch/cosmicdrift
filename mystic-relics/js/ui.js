@@ -111,12 +111,29 @@ const UI = {
   },
 
   updateBoosterBar() {
-    const bar = this.$('boosterBar');
-    bar.innerHTML = CFG.GAME_BOOSTERS.map(id => {
+    const ids = CFG.GAME_BOOSTERS;
+    const render = list => list.map(id => {
       const n = Storage.data.boosters[id] || 0;
       return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${CFG.BOOSTERS[id].name}">
-        ${CFG.BOOSTERS[id].g}<span class="cnt">${n}</span></button>`;
+        ${CFG.BOOSTERS[id].g}<span class="cnt">${n}</span><span class="info" data-binfo="${id}">і</span></button>`;
     }).join('');
+    const half = Math.ceil(ids.length / 2);
+    this.$('boosterLeft').innerHTML = render(ids.slice(0, half));
+    this.$('boosterRight').innerHTML = render(ids.slice(half));
+  },
+
+  /** Інфо-вікно бустера (ⓘ). На час перегляду гра стає на паузу. */
+  boosterInfo(id) {
+    const b = CFG.BOOSTERS[id];
+    if (Game.state === 'playing') { Game.state = 'paused'; this._resumeOnClose = true; }
+    this.modal(`
+      <button class="modal-close" data-close>✕</button>
+      <div style="font-size:54px;filter:drop-shadow(0 4px 8px rgba(0,0,10,0.6))">${b.g}</div>
+      <h2>${b.name}</h2>
+      <p style="opacity:0.88;font-size:14.5px;line-height:1.45;margin:8px 0">${b.desc}</p>
+      <div class="reward-item" style="display:inline-block;margin-bottom:6px">У вас: <b>${Storage.data.boosters[id] || 0}</b> шт · ${b.cost} 🪙 у магазині</div>
+      <button class="btn-3d btn-green" data-close>Зрозуміло</button>
+    `);
   },
 
   setHammerCursor(on) { this.$('gameCanvas').classList.toggle('hammer', on); },
@@ -255,10 +272,15 @@ const UI = {
       <button class="modal-close" data-close>✕</button>
       <h2>🎡 Колесо фортуни</h2>
       <canvas id="wheelCanvas" width="260" height="260"></canvas>
-      <button class="btn-3d btn-green" id="btnSpin">${free ? 'Безкоштовне крутіння!' : 'Крутити за 3 💜'}</button>
+      <button class="btn-3d ${free ? 'btn-green' : 'btn-blue'}" id="btnSpin">
+        ${free ? 'Безкоштовне крутіння!' : '📺 Крутити за рекламу'}</button>
+      ${free ? '' : '<p style="opacity:0.6;font-size:12px">Безкоштовна спроба — щодня</p>'}
     `);
     this._drawWheel(0);
-    this.$('btnSpin').onclick = () => this._spinWheel(!free);
+    this.$('btnSpin').onclick = () => {
+      if (free) this._spinWheel(false);
+      else Ads.showRewarded(() => this._spinWheel(true));   // нагорода лише після перегляду
+    };
   },
 
   _drawWheel(angle) {
@@ -276,8 +298,8 @@ const UI = {
       g.strokeStyle = 'rgba(255,255,255,0.3)'; g.stroke();
       g.save();
       g.translate(cx, cy); g.rotate((a0 + a1) / 2);
-      g.fillStyle = '#fff'; g.font = 'bold 13px sans-serif'; g.textAlign = 'right';
-      g.fillText(CFG.WHEEL[i].label, r - 10, 5);
+      g.fillStyle = '#fff'; g.font = 'bold 11px sans-serif'; g.textAlign = 'right';
+      g.fillText(CFG.WHEEL[i].label, r - 8, 4);
       g.restore();
     }
     // Обід і стрілка
@@ -287,8 +309,8 @@ const UI = {
     g.beginPath(); g.moveTo(cx - 12, 4); g.lineTo(cx + 12, 4); g.lineTo(cx, 30); g.closePath(); g.fill();
   },
 
-  _spinWheel(paid) {
-    const idx = Daily.spin(paid);
+  _spinWheel(viaAd) {
+    const idx = Daily.spin(viaAd);
     if (idx < 0) { this.renderMain(); return; }
     const btn = this.$('btnSpin');
     btn.disabled = true;
@@ -542,6 +564,7 @@ const UI = {
   closeModal() {
     this.$('modalOverlay').classList.remove('show');
     this.$('modalOverlay').classList.remove('dark');
+    if (this._resumeOnClose) { this._resumeOnClose = false; Game.resume(); }
   },
 
   /* ---------------- Прив'язка подій ---------------- */
@@ -569,8 +592,9 @@ const UI = {
 
     // Делеговані кліки: рівні, магазин, місії, досягнення, скрині, бустери
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
+      const t = e.target.closest('[data-binfo],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
       if (!t) return;
+      if (t.dataset.binfo) { this.boosterInfo(t.dataset.binfo); return; }   // ⓘ перехоплює клік до кнопки
       if (t.dataset.close !== undefined) { this.closeModal(); return; }
       if (t.dataset.level) { Audio2.init(); Game.startLevel(+t.dataset.level); return; }
       if (t.dataset.booster) { Boosters.use(t.dataset.booster); this.updateBoosterBar(); return; }
