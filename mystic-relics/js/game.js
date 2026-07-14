@@ -176,9 +176,21 @@ const Game = {
   onLose(reason) {
     if (this.state !== 'playing' && this.state !== 'paused') return;
     this.state = 'lost';
+    this._loseReason = reason;
     Audio2.play('lose');
     Utils.vibrate(150);
     setTimeout(() => UI.showLose(reason), 500);
+  },
+
+  /** Другий шанс після поразки: повертає плитки/час і перемішує поле. */
+  secondChance() {
+    if (this.state !== 'lost') return;
+    if (this._loseReason === 'time') this.timeLeft = 45;
+    else Board.reviveClear(3);
+    Board.reshuffle();
+    this.state = 'playing';
+    this._last = performance.now();
+    UI.toast('✨ Другий шанс — вперед!');
   },
 
   pause() { if (this.state === 'playing') { this.state = 'paused'; UI.showPause(); } },

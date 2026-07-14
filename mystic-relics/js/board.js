@@ -45,6 +45,7 @@ const Board = {
     }));
     this.tray = [];
     this.undoStack = [];
+    this.texts = [];
     this.hammerMode = false;
     this.rainbowArmed = false;
     this.keysCollected = !cfg.tiles.some(t => t.isKey);
@@ -89,16 +90,84 @@ const Board = {
     this.offX = (this.w - spanX * this.cellX) / 2 - minX * this.cellX + maxZ * this.depth * 0.5;
     this.offY = (availH - spanY * this.cellY) / 2 + 12 - minY * this.cellY + maxZ * this.depth;
 
+    // Межі поля у пікселях — для об'ємної підкладки
+    const pad = this.cellX * 0.9;
+    this.boardRect = {
+      x: this.offX + minX * this.cellX - pad,
+      y: this.offY + minY * this.cellY - pad - maxZ * this.depth,
+      w: spanX * this.cellX + pad * 2,
+      h: spanY * this.cellY + pad * 2 + maxZ * this.depth
+    };
+
     // Слоти панелі
-    const slotW = Math.min(this.tileW * 0.98, (this.w - 20) / CFG.TRAY_SIZE - 4, 56);
-    const totalW = CFG.TRAY_SIZE * (slotW + 4);
+    const slotW = Math.min(this.tileW * 0.98, (this.w - 40) / CFG.TRAY_SIZE - 5, 56);
+    const totalW = CFG.TRAY_SIZE * (slotW + 5);
     const y0 = this.h - trayZone / 2 - slotW * 0.6;
     this.traySlots = [];
     for (let i = 0; i < CFG.TRAY_SIZE; i++) {
-      this.traySlots.push({ x: (this.w - totalW) / 2 + i * (slotW + 4) + slotW / 2, y: y0 + slotW * 0.6, w: slotW });
+      this.traySlots.push({ x: (this.w - totalW) / 2 + i * (slotW + 5) + slotW / 2, y: y0 + slotW * 0.6, w: slotW });
     }
+    this._renderTrayPanel(slotW, totalW);
     // Оновлюємо домашні позиції
     for (const t of this.tiles) if (t.state === 'board') { const p = this.homePos(t); t.px = p.x; t.py = p.y; }
+  },
+
+  /** Пре-рендер дерев'яної панелі із золотими вставками (offscreen). */
+  _renderTrayPanel(slotW, totalW) {
+    const padX = 16, padY = 13;
+    const w = totalW + padX * 2, h = slotW * 1.2 + padY * 2;
+    const c = document.createElement('canvas');
+    const s = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = (w + 24) * s; c.height = (h + 24) * s;
+    const g = c.getContext('2d');
+    g.scale(s, s);
+    g.translate(12, 12);
+
+    // Тінь під панеллю
+    g.shadowColor = 'rgba(0,0,10,0.55)'; g.shadowBlur = 14; g.shadowOffsetY = 6;
+    // Дерев'яна основа
+    const wood = g.createLinearGradient(0, 0, 0, h);
+    wood.addColorStop(0, '#9a6428');
+    wood.addColorStop(0.12, '#7c4c1c');
+    wood.addColorStop(0.55, '#5f3812');
+    wood.addColorStop(1, '#3f240a');
+    g.fillStyle = wood;
+    this._rr(g, 0, 0, w, h, 18); g.fill();
+    g.shadowBlur = 0; g.shadowOffsetY = 0;
+
+    // Волокна дерева — тонкі хвилясті лінії
+    g.strokeStyle = 'rgba(40,22,6,0.35)';
+    g.lineWidth = 1.2;
+    for (let i = 0; i < 7; i++) {
+      const y = 6 + (i / 7) * (h - 10);
+      g.beginPath();
+      g.moveTo(6, y);
+      for (let x = 6; x < w - 6; x += 26) {
+        g.quadraticCurveTo(x + 13, y + Math.sin(x * 0.11 + i * 2.4) * 2.6, x + 26, y);
+      }
+      g.stroke();
+    }
+    // Верхній світлий кант
+    g.strokeStyle = 'rgba(255,220,160,0.35)';
+    g.lineWidth = 2;
+    this._rr(g, 2, 2, w - 4, h - 4, 16); g.stroke();
+    // Золота рамка
+    const gold = g.createLinearGradient(0, 0, w, h);
+    gold.addColorStop(0, '#f3d27a'); gold.addColorStop(0.4, '#8a5f14');
+    gold.addColorStop(0.6, '#f7e3a1'); gold.addColorStop(1, '#7a5410');
+    g.strokeStyle = gold;
+    g.lineWidth = 3;
+    this._rr(g, 0, 0, w, h, 18); g.stroke();
+    // Золоті заклепки по кутах
+    for (const [rx, ry] of [[13, 13], [w - 13, 13], [13, h - 13], [w - 13, h - 13]]) {
+      const riv = g.createRadialGradient(rx - 1.5, ry - 1.5, 0.5, rx, ry, 5.5);
+      riv.addColorStop(0, '#fff3c4'); riv.addColorStop(0.5, '#e8b93a'); riv.addColorStop(1, '#8a5f14');
+      g.fillStyle = riv;
+      g.beginPath(); g.arc(rx, ry, 5, 0, Math.PI * 2); g.fill();
+    }
+    this._trayPanel = c;
+    this._trayPanelW = w + 24; this._trayPanelH = h + 24;
+    this._trayPadY = padY;
   },
 
   homePos(t) {
@@ -169,6 +238,16 @@ const Board = {
     if (t.rainbow !== true && byUser) Audio2.play('tap');
     Utils.vibrate(10);
 
+    // Ефект вибору: спалах + маленькі іскри
+    Particles.dust(t.px, t.py + this.tileH * 0.3, 'rgba(255,240,190,0.7)');
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2;
+      Particles.spawn({
+        x: t.px, y: t.py, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130,
+        life: 0.35, size: 2.5, color: UI.theme().accent
+      });
+    }
+
     t.state = 'fly';
     t.flyT = 0;
     t.from = { x: t.px, y: t.py };
@@ -187,9 +266,13 @@ const Board = {
     t.ctrl = { x: (t.px + slot.x) / 2 + (Math.random() - 0.5) * 80, y: Math.min(t.py, slot.y) - 60 };
   },
 
-  /** Після завершення польоту — перевірка матчів і поразки. */
-  onTrayLanded() {
+  /** Після завершення польоту — пил, звук, перевірка матчів і поразки. */
+  onTrayLanded(t) {
     Audio2.play('place');
+    if (t) {
+      Particles.dust(t.px, t.py + this.traySlots[0].w * 0.5, 'rgba(220,190,140,0.65)');
+      Particles.sparkle(t.px, t.py, UI.theme().accent);
+    }
     this.checkMatches();
   },
 
@@ -222,9 +305,18 @@ const Board = {
     if (settled >= CFG.TRAY_SIZE) Game.onTrayFull();
   },
 
-  /** Красивий вибух трійки. */
+  /** WOW-ефект збору трійки: плитки злітаються у точку над панеллю,
+   *  обертаються, стискаються і вибухають кільцем із частинками. */
   explodeGroup(group, type) {
-    for (const t of group) { t.state = 'merge'; t.mergeT = 0; }
+    const cx = group.reduce((a, t) => a + t.px, 0) / group.length;
+    const cy = this.traySlots[0].y - this.traySlots[0].w * 1.7;
+    for (const t of group) {
+      t.state = 'merge';
+      t.mergeT = 0;
+      t.mergeFrom = { x: t.px, y: t.py };
+      t.mergeTo = { x: cx, y: cy };
+      t.mergeSpin = (Math.random() - 0.5) * 9;
+    }
     this.matchesMade++;
     this.undoStack = this.undoStack.filter(t => !group.includes(t));
 
@@ -242,18 +334,35 @@ const Board = {
       }
     }
     setTimeout(() => {
-      const center = group.reduce((a, t) => ({ x: a.x + t.px / 3, y: a.y + t.py / 3 }), { x: 0, y: 0 });
       const theme = UI.theme();
-      Particles.burst(center.x, center.y, theme.accent);
-      this.shakeT = 0.25;
+      // Вибух: кільце + сплеск частинок + гліфи плитки, що розлітаються
+      Particles.burst(cx, cy, theme.accent, 30);
+      Particles.ring(cx, cy, theme.accent);
+      Particles.ring(cx, cy, '#ffffff');
+      if (type >= 0) {
+        for (let i = 0; i < 5; i++) {
+          const a = Math.random() * Math.PI * 2;
+          Particles.spawn({
+            x: cx, y: cy, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190 - 120,
+            life: 0.8, size: 15, glyph: CFG.TILES[type].g, grav: 420, spin: 6
+          });
+        }
+      }
+      this.shakeT = 0.32;                       // screen shake
       for (const t of group) t.state = 'gone';
       this.tray = this.tray.filter(t => t.state !== 'gone');
-      Game.onMatch(type);
+      const pts = Game.onMatch(type);
+      if (pts) this.addText(cx, cy - 24, `+${pts}`, '#ffe066');
       Utils.vibrate([20, 30, 20]);
       // Каскад: можливо, уже є наступний матч (магніт/бомба)
       this.checkMatches();
       this.checkWin();
-    }, 260);
+    }, 420);
+  },
+
+  /* ---- Літаючі тексти очок ---- */
+  addText(x, y, text, color) {
+    this.texts.push({ x, y, text, color: color || '#fff', t: 0, life: 1.1 });
   },
 
   checkWin() {
@@ -520,7 +629,7 @@ const Board = {
         const slot = this.traySlots[Math.max(0, Math.min(slotIdx, this.traySlots.length - 1))];
         if (t.flyT >= 1) {
           t.state = 'tray'; t.px = slot.x; t.py = slot.y;
-          this.onTrayLanded();
+          this.onTrayLanded(t);
         } else {
           const b = Utils.bezier(t.from, t.ctrl, slot, Utils.easeInCubic(Math.min(1, t.flyT)));
           t.px = b.x; t.py = b.y;
@@ -537,6 +646,15 @@ const Board = {
         t.mergeT += dt;
       }
     }
+
+    // Літаючі тексти очок
+    for (let i = this.texts.length - 1; i >= 0; i--) {
+      const tx = this.texts[i];
+      tx.t += dt;
+      tx.y -= 46 * dt;
+      if (tx.t >= tx.life) this.texts.splice(i, 1);
+    }
+
     Particles.update(dt);
   },
 
@@ -545,9 +663,10 @@ const Board = {
     ctx.clearRect(0, 0, this.w, this.h);
     ctx.save();
     if (this.shakeT > 0) {
-      ctx.translate((Math.random() - 0.5) * this.shakeT * 26, (Math.random() - 0.5) * this.shakeT * 26);
+      ctx.translate((Math.random() - 0.5) * this.shakeT * 30, (Math.random() - 0.5) * this.shakeT * 30);
     }
 
+    this.drawBoardPanel(ctx);
     this.drawTray(ctx);
 
     // Плитки на полі: знизу вгору
@@ -561,70 +680,176 @@ const Board = {
     }
 
     Particles.draw(ctx);
+
+    // Літаючі тексти очок — з пружною появою
+    for (const tx of this.texts) {
+      const inP = Math.min(1, tx.t / 0.22);
+      const sc = Utils.easeOutBack(inP);
+      const alpha = tx.t > tx.life - 0.35 ? (tx.life - tx.t) / 0.35 : 1;
+      ctx.save();
+      ctx.translate(tx.x, tx.y);
+      ctx.scale(sc, sc);
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.font = '900 26px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(70,30,0,0.85)';
+      ctx.strokeText(tx.text, 0, 0);
+      ctx.fillStyle = tx.color;
+      ctx.fillText(tx.text, 0, 0);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
+  },
+
+  /** Об'ємна підкладка поля: скляна плита з сяйвом і золотим кантом. */
+  drawBoardPanel(ctx) {
+    const r = this.boardRect;
+    if (!r) return;
+    const theme = UI.theme();
+    // М'яка тінь
+    ctx.fillStyle = 'rgba(0,0,10,0.35)';
+    this._rr(ctx, r.x + 4, r.y + 8, r.w, r.h, 26); ctx.fill();
+    // Скляна плита
+    const grad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    grad.addColorStop(0, 'rgba(255,255,255,0.10)');
+    grad.addColorStop(0.5, 'rgba(20,10,50,0.24)');
+    grad.addColorStop(1, 'rgba(0,0,15,0.34)');
+    ctx.fillStyle = grad;
+    this._rr(ctx, r.x, r.y, r.w, r.h, 26); ctx.fill();
+    // Пульсуюче внутрішнє світіння акцентом теми
+    const pulse = 0.10 + 0.05 * Math.sin(performance.now() / 900);
+    const glow = ctx.createRadialGradient(r.x + r.w / 2, r.y + r.h / 2, 10, r.x + r.w / 2, r.y + r.h / 2, Math.max(r.w, r.h) * 0.6);
+    glow.addColorStop(0, theme.accent + Math.round(pulse * 255).toString(16).padStart(2, '0'));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    this._rr(ctx, r.x, r.y, r.w, r.h, 26); ctx.fill();
+    // Верхній відблиск і золотий кант
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1.5;
+    this._rr(ctx, r.x + 2, r.y + 2, r.w - 4, r.h - 4, 24); ctx.stroke();
+    ctx.strokeStyle = 'rgba(220,178,90,0.45)';
+    ctx.lineWidth = 2;
+    this._rr(ctx, r.x, r.y, r.w, r.h, 26); ctx.stroke();
   },
 
   drawTray(ctx) {
     const theme = UI.theme();
-    for (const s of this.traySlots) {
-      ctx.fillStyle = 'rgba(0,0,0,0.42)';
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-      ctx.lineWidth = 1.5;
-      this._rr(ctx, s.x - s.w / 2, s.y - s.w * 0.6, s.w, s.w * 1.2, 8);
-      ctx.fill(); ctx.stroke();
-    }
-    // Легке сяйво панелі
     const s0 = this.traySlots[0], sn = this.traySlots[this.traySlots.length - 1];
-    if (s0) {
-      ctx.strokeStyle = theme.accent + '55';
-      ctx.lineWidth = 2;
-      this._rr(ctx, s0.x - s0.w / 2 - 6, s0.y - s0.w * 0.6 - 6, sn.x + sn.w / 2 - s0.x + s0.w / 2 + 12, s0.w * 1.2 + 12, 12);
+    if (!s0) return;
+    // Дерев'яна панель (пре-рендер)
+    const px = (this.w - this._trayPanelW) / 2;
+    const py = s0.y - s0.w * 0.6 - this._trayPadY - 12;
+    ctx.drawImage(this._trayPanel, px, py, this._trayPanelW, this._trayPanelH);
+
+    // Небезпека: панель майже повна — червоне пульсуюче світіння
+    const filled = this.tray.filter(t => t.state === 'tray' || t.state === 'fly').length;
+    if (filled >= CFG.TRAY_SIZE - 1) {
+      ctx.strokeStyle = `rgba(255,70,70,${0.4 + 0.4 * Math.sin(performance.now() / 160)})`;
+      ctx.lineWidth = 4;
+      this._rr(ctx, px + 10, py + 10, this._trayPanelW - 20, this._trayPanelH - 20, 18);
+      ctx.stroke();
+    }
+
+    // Слоти — тиснені гнізда у дереві
+    for (const s of this.traySlots) {
+      ctx.fillStyle = 'rgba(20,10,2,0.55)';
+      this._rr(ctx, s.x - s.w / 2, s.y - s.w * 0.6, s.w, s.w * 1.2, 9);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1.5;
+      this._rr(ctx, s.x - s.w / 2 + 1, s.y - s.w * 0.6 + 1, s.w - 2, s.w * 1.2 - 2, 8);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,215,150,0.16)';
+      this._rr(ctx, s.x - s.w / 2, s.y - s.w * 0.6, s.w, s.w * 1.2 + 1.5, 9);
       ctx.stroke();
     }
   },
 
-  /** Спрайт обличчя плитки (кешується на тип+розмір). */
+  /** Спрайт обличчя плитки: товста глянцева «цукерка» з фаскою,
+   *  подвійним боком, відблиском зверху та м'яким світінням гліфа.
+   *  Кешується на тип+розмір — у кадрі лише drawImage. */
   sprite(type, size) {
     const key = type + '_' + Math.round(size);
     let c = this.spriteCache.get(key);
     if (c) return c;
     const theme = UI.theme();
     const w = Math.round(size), h = Math.round(size * 1.22);
+    const r = Math.max(7, w * 0.2);                 // соковите заокруглення
+    const d = Math.max(3, w * 0.09);                // товщина плитки
     c = document.createElement('canvas');
     const s = Math.min(window.devicePixelRatio || 1, 2);
-    c.width = (w + 8) * s; c.height = (h + 8) * s;
+    c.width = (w + 12) * s; c.height = (h + 12) * s;
     const g = c.getContext('2d');
     g.scale(s, s);
-    g.translate(4, 4);
+    g.translate(6, 6);
 
-    // Товщина плитки (3D-бік)
-    g.fillStyle = 'rgba(90,70,50,0.9)';
-    this._rr(g, 2, 3, w, h, 9); g.fill();
-    // Обличчя з градієнтом
+    // Нижній темний бік (двошаровий — ефект товщини)
+    g.fillStyle = 'rgba(52,36,20,0.95)';
+    this._rr(g, d * 0.5, d + 1, w, h, r); g.fill();
+    const side = g.createLinearGradient(0, h * 0.5, 0, h + d);
+    side.addColorStop(0, this._shade(theme.tile, -70));
+    side.addColorStop(1, this._shade(theme.tile, -110));
+    g.fillStyle = side;
+    this._rr(g, d * 0.3, d * 0.7, w, h, r); g.fill();
+
+    // Обличчя: слонова кістка з теплим градієнтом і тінню до низу
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.12, theme.tile);
-    grad.addColorStop(1, this._shade(theme.tile, -18));
+    grad.addColorStop(0.1, this._shade(theme.tile, 14));
+    grad.addColorStop(0.62, theme.tile);
+    grad.addColorStop(1, this._shade(theme.tile, -26));
     g.fillStyle = grad;
-    this._rr(g, 0, 0, w, h, 9); g.fill();
-    // Блиск зверху
-    g.fillStyle = 'rgba(255,255,255,0.5)';
-    this._rr(g, 3, 2, w - 6, h * 0.16, 6); g.fill();
-    g.strokeStyle = 'rgba(120,95,60,0.55)';
-    g.lineWidth = 1.5;
-    this._rr(g, 0, 0, w, h, 9); g.stroke();
+    this._rr(g, 0, 0, w, h, r); g.fill();
 
-    // Гліф
+    // Внутрішня фаска: світло зверху-зліва, тінь знизу-справа
+    g.save();
+    this._rr(g, 1.2, 1.2, w - 2.4, h - 2.4, r - 1); g.clip();
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 2.4;
+    this._rr(g, 1.6, 1.6, w - 3.2, h - 3.2, r - 1); g.stroke();
+    g.strokeStyle = 'rgba(120,90,50,0.35)'; g.lineWidth = 3;
+    this._rr(g, 1, -1, w + 1, h + 1.6, r); g.stroke();
+    g.restore();
+
+    // Глянцевий відблиск-дуга у верхній частині
+    const gloss = g.createLinearGradient(0, 0, 0, h * 0.42);
+    gloss.addColorStop(0, 'rgba(255,255,255,0.55)');
+    gloss.addColorStop(1, 'rgba(255,255,255,0.02)');
+    g.fillStyle = gloss;
+    g.beginPath();
+    g.moveTo(r * 0.6, 2);
+    g.lineTo(w - r * 0.6, 2);
+    g.quadraticCurveTo(w - 3, 2, w - 3, r);
+    g.quadraticCurveTo(w * 0.72, h * 0.4, w * 0.5, h * 0.42);
+    g.quadraticCurveTo(w * 0.26, h * 0.44, 3, r * 1.2);
+    g.quadraticCurveTo(3, 2, r * 0.6, 2);
+    g.fill();
+    // Маленький круглий блік у куті
+    g.fillStyle = 'rgba(255,255,255,0.8)';
+    g.beginPath(); g.ellipse(w * 0.2, h * 0.12, w * 0.07, w * 0.045, -0.5, 0, Math.PI * 2); g.fill();
+
+    // Контур
+    g.strokeStyle = 'rgba(105,80,45,0.5)';
+    g.lineWidth = 1.4;
+    this._rr(g, 0, 0, w, h, r); g.stroke();
+
+    // Гліф із м'якою тінню
     if (type >= 0) {
-      g.font = `${Math.round(w * 0.62)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      g.shadowColor = 'rgba(60,30,0,0.35)';
+      g.shadowBlur = 3; g.shadowOffsetY = 2;
+      g.font = `${Math.round(w * 0.6)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(CFG.TILES[type].g, w / 2, h / 2 + h * 0.03);
+      g.fillText(CFG.TILES[type].g, w / 2, h / 2 + h * 0.04);
+      g.shadowBlur = 0; g.shadowOffsetY = 0;
     } else {
       // Райдужний джокер
       const rg = g.createLinearGradient(0, 0, w, h);
       ['#f87171', '#fbbf24', '#4ade80', '#60a5fa', '#c084fc'].forEach((col, i, a) => rg.addColorStop(i / (a.length - 1), col));
       g.fillStyle = rg;
-      this._rr(g, 4, 4, w - 8, h - 8, 7); g.fill();
+      this._rr(g, 4, 4, w - 8, h - 8, r - 3); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.35)';
+      this._rr(g, 6, 6, w - 12, h * 0.3, r - 4); g.fill();
       g.font = `${Math.round(w * 0.5)}px sans-serif`;
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('🌈', w / 2, h / 2);
@@ -636,7 +861,9 @@ const Board = {
   drawTile(ctx, t, inTray = false) {
     const size = inTray && t.state === 'tray' ? this.traySlots[0].w : this.tileW;
     const h = size * 1.22;
-    const sc = t.scale < 1 ? Utils.easeOutBack(t.scale) : 1;
+    let sc = t.scale < 1 ? Utils.easeOutBack(t.scale) : 1;
+    // Політ у панель: плитка «підстрибує» масштабом на старті
+    if (t.state === 'fly') sc *= 1.22 - 0.22 * Math.min(1, t.flyT);
     const shakeX = t.shake > 0 ? Math.sin(t.shake * 60) * 4 : 0;
 
     ctx.save();
@@ -739,15 +966,32 @@ const Board = {
   },
 
   drawMerge(ctx, t) {
-    // Анімація вибуху: масштаб угору + прозорість
-    const p = Math.min(1, t.mergeT / 0.26);
+    // Фаза 1 (0–0.55): плитки злітаються у центр, обертаючись і збільшуючись.
+    // Фаза 2 (0.55–1): стискаються та спалахують перед вибухом.
+    const p = Math.min(1, t.mergeT / 0.42);
     const size = this.traySlots[0].w;
+    const fly = Math.min(1, p / 0.55);
+    const e = Utils.easeInCubic(fly);
+    const x = Utils.lerp(t.mergeFrom.x, t.mergeTo.x, e);
+    const y = Utils.lerp(t.mergeFrom.y, t.mergeTo.y, e) - Math.sin(fly * Math.PI) * 26;
+    const squeeze = p > 0.55 ? (p - 0.55) / 0.45 : 0;
+    const sc = (1 + fly * 0.35) * (1 - squeeze * 0.5);
+
     ctx.save();
-    ctx.translate(t.px, t.py - p * 14);
-    ctx.scale(1 + p * 0.7, 1 + p * 0.7);
-    ctx.globalAlpha = 1 - p;
+    ctx.translate(x, y);
+    ctx.rotate(t.mergeSpin * p);
+    ctx.scale(sc, sc);
+    // Спалах перед вибухом
+    if (squeeze > 0) {
+      ctx.globalAlpha = squeeze * 0.8;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.7 + squeeze * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1 - squeeze * 0.55;
+    }
     const spr = this.sprite(t.rainbow ? -1 : t.type, size);
-    ctx.drawImage(spr, -size / 2 - 4, -size * 0.61 - 4, size + 8, size * 1.22 + 8);
+    ctx.drawImage(spr, -size / 2 - 6, -size * 0.61 - 6, size + 12, size * 1.22 + 12);
     ctx.restore();
     ctx.globalAlpha = 1;
   },

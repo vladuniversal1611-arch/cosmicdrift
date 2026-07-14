@@ -52,18 +52,20 @@ const CFG = {
     { g: '🧩', name: 'Головоломка' },{ g: '🎁', name: 'Дарунок' }
   ],
 
-  /* ---- 10 тем (фон, акцент, музична гама) ---- */
+  /* ---- 10 тем (фон, акцент, музична гама, сцена живого фону) ----
+   * scene: 'forest' (магічний ліс) | 'cave' (печера з кристалами) |
+   *        'temple' (стародавній храм). Нові теми додаються одним рядком. */
   THEMES: [
-    { id: 'forest',  name: 'Ліс',            bg: ['#0c2818', '#1a4a2e'], accent: '#4ade80', tile: '#f5eede', scale: [0, 3, 5, 7, 10], base: 220, cost: 0 },
-    { id: 'desert',  name: 'Пустеля',        bg: ['#3d2b12', '#7a5220'], accent: '#fbbf24', tile: '#fdf3dc', scale: [0, 2, 5, 7, 9],  base: 196, cost: 150 },
-    { id: 'ice',     name: 'Лід',            bg: ['#0c2233', '#1e4a66'], accent: '#7dd3fc', tile: '#eef6fb', scale: [0, 2, 4, 7, 9],  base: 262, cost: 150 },
-    { id: 'volcano', name: 'Вулкан',         bg: ['#2b0d0d', '#5c1a10'], accent: '#fb7185', tile: '#f8e8dc', scale: [0, 1, 5, 7, 8],  base: 175, cost: 250 },
-    { id: 'space',   name: 'Космос',         bg: ['#0b0b2b', '#25164d'], accent: '#a78bfa', tile: '#ece9f6', scale: [0, 3, 5, 8, 10], base: 208, cost: 250 },
-    { id: 'ocean',   name: 'Підводний світ', bg: ['#04263b', '#0a4c66'], accent: '#22d3ee', tile: '#e6f4f6', scale: [0, 3, 5, 7, 9],  base: 233, cost: 350 },
-    { id: 'castle',  name: 'Замок',          bg: ['#1d1530', '#3a2a55'], accent: '#c084fc', tile: '#f1ebf8', scale: [0, 2, 3, 7, 8],  base: 185, cost: 350 },
-    { id: 'ruins',   name: 'Стародавні руїни', bg: ['#262214', '#4d4426'], accent: '#d9c26a', tile: '#f3eeda', scale: [0, 2, 5, 7, 10], base: 165, cost: 500 },
-    { id: 'sky',     name: 'Небо',           bg: ['#12395c', '#3b78a8'], accent: '#fde68a', tile: '#f7fbff', scale: [0, 4, 5, 9, 11], base: 294, cost: 500 },
-    { id: 'temple',  name: 'Храм',           bg: ['#241028', '#4d2152'], accent: '#f0abfc', tile: '#f8ecf6', scale: [0, 1, 4, 5, 8],  base: 147, cost: 750 }
+    { id: 'forest',  name: 'Ліс',            scene: 'forest', bg: ['#071f12', '#134428'], accent: '#4ade80', tile: '#f5eede', scale: [0, 3, 5, 7, 10], base: 220, cost: 0 },
+    { id: 'desert',  name: 'Пустеля',        scene: 'temple', bg: ['#2e1f0a', '#6b4718'], accent: '#fbbf24', tile: '#fdf3dc', scale: [0, 2, 5, 7, 9],  base: 196, cost: 150 },
+    { id: 'ice',     name: 'Лід',            scene: 'cave',   bg: ['#081c2c', '#17405c'], accent: '#7dd3fc', tile: '#eef6fb', scale: [0, 2, 4, 7, 9],  base: 262, cost: 150 },
+    { id: 'volcano', name: 'Вулкан',         scene: 'cave',   bg: ['#20090a', '#4d150c'], accent: '#fb7185', tile: '#f8e8dc', scale: [0, 1, 5, 7, 8],  base: 175, cost: 250 },
+    { id: 'space',   name: 'Космос',         scene: 'cave',   bg: ['#070722', '#1f1242'], accent: '#a78bfa', tile: '#ece9f6', scale: [0, 3, 5, 8, 10], base: 208, cost: 250 },
+    { id: 'ocean',   name: 'Підводний світ', scene: 'cave',   bg: ['#032030', '#084258'], accent: '#22d3ee', tile: '#e6f4f6', scale: [0, 3, 5, 7, 9],  base: 233, cost: 350 },
+    { id: 'castle',  name: 'Замок',          scene: 'temple', bg: ['#171028', '#32234a'], accent: '#c084fc', tile: '#f1ebf8', scale: [0, 2, 3, 7, 8],  base: 185, cost: 350 },
+    { id: 'ruins',   name: 'Стародавні руїни', scene: 'temple', bg: ['#1f1c10', '#443c20'], accent: '#d9c26a', tile: '#f3eeda', scale: [0, 2, 5, 7, 10], base: 165, cost: 500 },
+    { id: 'sky',     name: 'Небо',           scene: 'forest', bg: ['#0d3050', '#336d9c'], accent: '#fde68a', tile: '#f7fbff', scale: [0, 4, 5, 9, 11], base: 294, cost: 500 },
+    { id: 'temple',  name: 'Храм',           scene: 'temple', bg: ['#1d0c21', '#421c47'], accent: '#f0abfc', tile: '#f8ecf6', scale: [0, 1, 4, 5, 8],  base: 147, cost: 750 }
   ],
 
   /* ---- Бустери ---- */

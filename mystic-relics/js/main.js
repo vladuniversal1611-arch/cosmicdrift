@@ -10,11 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
   Daily.onLogin();           // 3. Щоденний вхід + місії
   UI.applyTheme();           // 4. Тема (кольори, фон)
   UI.bind();                 // 5. Обробники подій
-  UI.startBgParticles();     // 6. Фонові частинки меню
-  Board.init(document.getElementById('gameCanvas'));   // 7. Ігрове поле
-  UI.showScreen('main');     // 8. Головне меню
-  Game.startLoop();          // 9. Головний цикл (60 FPS)
-  Ads.showBanner();          // 10. Місце під банер AdMob
+  Background.init(document.getElementById('bgFx'));    // 6. Живий фон з паралаксом
+  Fx.init();                 // 7. Святкові ефекти (конфеті, феєрверки)
+  Board.init(document.getElementById('gameCanvas'));   // 8. Ігрове поле
+  UI.showScreen('main');     // 9. Головне меню
+  Game.startLoop();          // 10. Головний цикл (60 FPS)
+  Ads.showBanner();          // 11. Місце під банер AdMob
 
   // WebAudio дозволено запускати лише після першого дотику користувача
   const unlock = () => { Audio2.init(); Audio2.resume(); };

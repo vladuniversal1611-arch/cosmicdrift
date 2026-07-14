@@ -7,6 +7,8 @@
 const UI = {
   lvlPage: 0,
   LVL_PER_PAGE: 40,
+  _dispScore: 0,         // плавний лічильник очок у HUD
+  _lastCoins: -1, _lastGems: -1,
 
   $(id) { return document.getElementById(id); },
 
@@ -19,6 +21,7 @@ const UI = {
     r.setProperty('--bg2', t.bg[1]);
     r.setProperty('--accent', t.accent);
     Board.spriteCache.clear();
+    if (Background.canvas) Background.build();   // перебудова живого фону
   },
 
   /* ---------------- Навігація ---------------- */
@@ -36,7 +39,11 @@ const UI = {
       case 'collection': this.renderCollection(); break;
       case 'profile': this.renderProfile(); break;
       case 'chests': this.renderChests(); break;
-      case 'game': Board.resize(); this.updateBoosterBar(); break;
+      case 'game':
+        Board.resize();
+        this.updateBoosterBar();
+        this._dispScore = 0; this._lastCoins = -1; this._lastGems = -1;
+        break;
     }
   },
 
@@ -68,7 +75,27 @@ const UI = {
   updateHUD() {
     if (Game.state !== 'playing' && Game.state !== 'paused') return;
     this.$('hudLevel').textContent = Game.levelNum;
-    this.$('hudScore').textContent = Utils.fmt(Game.score);
+
+    // Очки «набігають» плавно, з bump-анімацією панелі
+    if (this._dispScore !== Game.score) {
+      const diff = Game.score - this._dispScore;
+      this._dispScore += Math.abs(diff) < 2 ? diff : Math.round(diff * 0.16 + Math.sign(diff));
+      this.$('hudScore').textContent = Utils.fmt(this._dispScore);
+      if (Math.abs(diff) > 50) this._bump('hudScorePill');
+    }
+    // Валюти у HUD
+    const d = Storage.data;
+    if (d.coins !== this._lastCoins) {
+      this._lastCoins = d.coins;
+      this.$('hudCoins').querySelector('b').textContent = Utils.fmt(d.coins);
+      this._bump('hudCoins');
+    }
+    if (d.gems !== this._lastGems) {
+      this._lastGems = d.gems;
+      this.$('hudGems').querySelector('b').textContent = Utils.fmt(d.gems);
+      this._bump('hudGems');
+    }
+
     const timer = this.$('hudTimer');
     timer.textContent = (Game.freezeLeft > 0 ? '🧊 ' : '⏱️ ') + Utils.time(Game.timeLeft);
     timer.classList.toggle('low', Game.timeLeft < 30 && Game.freezeLeft <= 0);
@@ -94,6 +121,14 @@ const UI = {
   },
 
   setHammerCursor(on) { this.$('gameCanvas').classList.toggle('hammer', on); },
+
+  /** Bounce-анімація панелі при зміні значення. */
+  _bump(id) {
+    const el = this.$(id);
+    if (!el || el.classList.contains('bump')) return;
+    el.classList.add('bump');
+    setTimeout(() => el.classList.remove('bump'), 420);
+  },
 
   comboPopup(mult) {
     const el = this.$('comboPopup');
@@ -408,18 +443,35 @@ const UI = {
     this.modal(`
       <div class="win-stars">${starHtml}</div>
       <h2>Чудово!</h2>
-      <div>Рівень ${Game.levelNum}</div>
-      <div style="font-size:22px;font-weight:800;color:var(--gold);margin:8px 0">Очки: ${Utils.fmt(score)}</div>
+      <div style="font-weight:700;opacity:0.85">Рівень ${Game.levelNum}</div>
+      <div style="font-size:24px;font-weight:900;color:var(--gold);margin:8px 0;text-shadow:0 2px 6px rgba(0,0,10,0.7)">
+        Очки: <span id="winScore">0</span></div>
       <div class="reward-row">
         <div class="reward-item"><span class="ico">🪙</span>+${coins}</div>
         ${gems ? `<div class="reward-item"><span class="ico">💜</span>+${gems}</div>` : ''}
         <div class="reward-item"><span class="ico">⚡</span>+${xp} XP</div>
       </div>
-      <button class="btn-3d btn-green" id="btnNextLevel">Далі ▶</button>
+      <button class="btn-3d btn-green btn-big" style="font-size:20px;padding:15px 42px" id="btnNextLevel">Далі ▶</button>
       <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnWinMenu">У меню</button>
     `, true);
     this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.startLevel(Math.min(Game.levelNum + 1, CFG.TOTAL_LEVELS)); };
     this.$('btnWinMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
+
+    // Лічильник очок красиво набігає
+    const el = this.$('winScore');
+    const t0 = performance.now();
+    const count = (now) => {
+      const p = Math.min(1, (now - t0) / 1200);
+      el.textContent = Utils.fmt(Math.round(score * Utils.easeOutCubic(p)));
+      if (p < 1 && el.isConnected) requestAnimationFrame(count);
+    };
+    requestAnimationFrame(count);
+
+    // Свято: конфеті + феєрверки + дощ з монет (і кристали за 3 зірки)
+    Fx.confetti(130);
+    Fx.fireworksShow(stars + 2);
+    setTimeout(() => Fx.coinRain(18, '🪙'), 500);
+    if (gems) setTimeout(() => Fx.coinRain(6, '💜'), 900);
   },
 
   showRevive() {
@@ -428,7 +480,7 @@ const UI = {
       <p style="opacity:0.85;margin:8px 0">Поверніть 3 плитки на поле та продовжуйте гру</p>
       <button class="btn-3d btn-purple" id="btnReviveGems">Продовжити за 5 💜</button>
       <button class="btn-3d btn-blue" id="btnReviveAd">📺 Продовжити за рекламу</button>
-      <button class="btn-3d" style="background:#555;box-shadow:0 6px 0 #333;font-size:14px;padding:10px 22px" id="btnGiveUp">Здатися</button>
+      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnGiveUp">Здатися</button>
     `, true);
     this.$('btnReviveGems').onclick = () => { if (Game.revive()) this.closeModal(); };
     this.$('btnReviveAd').onclick = () => Game.reviveByAd();
@@ -438,13 +490,25 @@ const UI = {
   showLose(reason) {
     this.modal(`
       <h2>${reason === 'time' ? '⏱️ Час вичерпано!' : '💥 Поразка'}</h2>
-      <div style="margin:8px 0">Очки: <b>${Utils.fmt(Game.score)}</b></div>
-      <p style="opacity:0.8;font-size:13.5px">Порада: використовуйте бустери, коли панель майже повна</p>
-      <button class="btn-3d btn-green" id="btnRetry">🔄 Ще раз</button>
-      <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnLoseMenu">У меню</button>
+      <div style="margin:8px 0;font-weight:700">Очки: <b style="color:var(--gold)">${Utils.fmt(Game.score)}</b></div>
+      <p style="opacity:0.75;font-size:13.5px;margin-bottom:6px">Порада: використовуйте бустери, коли панель майже повна</p>
+      <button class="btn-3d btn-green" id="btnRetry">🔄 Повторити</button>
+      <button class="btn-3d btn-purple" style="font-size:15px" id="btnLoseShuffle">🔀 Перемішати і грати далі</button>
+      <button class="btn-3d btn-blue" style="font-size:15px" id="btnLoseAd">📺 Продовжити за рекламу</button>
+      <button class="btn-3d btn-gray" style="font-size:13px;padding:9px 20px" id="btnLoseMenu">У меню</button>
     `, true);
+    this.$('modalOverlay').classList.add('dark');   // плавне затемнення
     this.$('btnRetry').onclick = () => { this.closeModal(); Game.startLevel(Game.levelNum); };
     this.$('btnLoseMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
+    // Другий шанс: перемішування поля (+30 с) або перегляд реклами
+    this.$('btnLoseShuffle').onclick = () => {
+      if ((Storage.data.boosters.shuffle || 0) < 1) { this.toast('Немає бустера «Перемішати» 🔀'); return; }
+      Storage.data.boosters.shuffle--;
+      Storage.save();
+      this.closeModal();
+      Game.secondChance();
+    };
+    this.$('btnLoseAd').onclick = () => Ads.showRewarded(() => { this.closeModal(); Game.secondChance(); });
   },
 
   showPause() {
@@ -453,7 +517,7 @@ const UI = {
       <div style="margin:8px 0">Рівень ${Game.levelNum} • Очки: ${Utils.fmt(Game.score)}</div>
       <button class="btn-3d btn-green" id="btnResume">▶ Продовжити</button>
       <button class="btn-3d btn-blue" style="font-size:14px" id="btnRestart">🔄 Почати заново</button>
-      <button class="btn-3d" style="background:#555;box-shadow:0 6px 0 #333;font-size:14px;padding:10px 22px" id="btnQuit">У меню</button>
+      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnQuit">У меню</button>
     `, true);
     this.$('btnResume').onclick = () => { this.closeModal(); Game.resume(); };
     this.$('btnRestart').onclick = () => { this.closeModal(); Game.startLevel(Game.levelNum); };
@@ -465,7 +529,7 @@ const UI = {
       <h2>${title}</h2>
       <p style="margin:10px 0;opacity:0.85">${text}</p>
       <button class="btn-3d btn-green" id="btnYes">Так</button>
-      <button class="btn-3d" style="background:#555;box-shadow:0 6px 0 #333" data-close>Ні</button>
+      <button class="btn-3d btn-gray" data-close>Ні</button>
     `, true);
     this.$('btnYes').onclick = () => { this.closeModal(); onYes && onYes(); };
   },
@@ -476,40 +540,9 @@ const UI = {
     this._modalNoClose = !!noClose;
   },
 
-  closeModal() { this.$('modalOverlay').classList.remove('show'); },
-
-  /* ---------------- Фонові частинки меню ---------------- */
-  startBgParticles() {
-    const c = this.$('bgParticles');
-    const g = c.getContext('2d');
-    let stars = [];
-    const resize = () => {
-      c.width = innerWidth; c.height = innerHeight;
-      stars = Array.from({ length: 40 }, () => ({
-        x: Math.random() * c.width, y: Math.random() * c.height,
-        r: 0.5 + Math.random() * 1.8, s: 0.1 + Math.random() * 0.4,
-        p: Math.random() * Math.PI * 2
-      }));
-    };
-    resize();
-    window.addEventListener('resize', resize);
-    const draw = () => {
-      // Малюємо лише коли гра не активна (економія батареї)
-      if (!this.$('gameScreen').classList.contains('active')) {
-        g.clearRect(0, 0, c.width, c.height);
-        const t = performance.now() / 1000;
-        const accent = this.theme().accent;
-        for (const s of stars) {
-          s.y -= s.s; if (s.y < -5) s.y = c.height + 5;
-          g.globalAlpha = 0.3 + 0.3 * Math.sin(t * 2 + s.p);
-          g.fillStyle = accent;
-          g.beginPath(); g.arc(s.x, s.y, s.r, 0, Math.PI * 2); g.fill();
-        }
-        g.globalAlpha = 1;
-      }
-      requestAnimationFrame(draw);
-    };
-    draw();
+  closeModal() {
+    this.$('modalOverlay').classList.remove('show');
+    this.$('modalOverlay').classList.remove('dark');
   },
 
   /* ---------------- Прив'язка подій ---------------- */

@@ -24,7 +24,7 @@ const Particles = {
       life: opts.life || 0.8, maxLife: opts.life || 0.8,
       size: opts.size || 4, color: opts.color || '#ffd700',
       grav: opts.grav || 0, glyph: opts.glyph || null,
-      spin: opts.spin || 0, rot: 0
+      spin: opts.spin || 0, rot: 0, ring: opts.ring || false
     });
     this.active.push(p);
   },
@@ -48,6 +48,11 @@ const Particles = {
         life: 0.9, size: 14, glyph: '✦', color: '#fff8d0', grav: 200, spin: 4
       });
     }
+  },
+
+  /** Ударна хвиля — кільце, що розширюється. */
+  ring(x, y, color) {
+    this.spawn({ x, y, life: 0.45, size: 6, color, ring: true });
   },
 
   /** Пил при появі/падінні плитки. */
@@ -89,7 +94,16 @@ const Particles = {
     for (const p of this.active) {
       const a = Math.min(1, p.life / p.maxLife * 2);
       ctx.globalAlpha = a;
-      if (p.glyph) {
+      if (p.ring) {
+        // Ударна хвиля: радіус росте, товщина та прозорість спадають
+        const prog = 1 - p.life / p.maxLife;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = Math.max(1, 7 * (1 - prog));
+        ctx.globalAlpha = a * 0.8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size + prog * 70, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (p.glyph) {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
