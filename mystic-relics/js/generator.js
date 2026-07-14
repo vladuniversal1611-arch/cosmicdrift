@@ -25,9 +25,10 @@ const Generator = {
     const rnd = Utils.rng(n * 2654435761 % 2147483647 + 7);
 
     // Параметри складності
-    const tileCount = Math.min(24 + tier * 6 + (n % 10) * 3, 150);
+    const tileCount = Math.min(27 + tier * 6 + (n % 10) * 3, 150);
     const typeCount = Math.min(6 + Math.floor(tier / 2), 26);
-    const maxLayers = Math.min(2 + Math.floor(tier / 3), 6);
+    // Багатошарова «гірка» з першого рівня — як у референсних tile-matching ігор
+    const maxLayers = Math.min(3 + Math.floor(tier / 3), 6);
     const timeLimit = Utils.clamp(Math.round(tileCount * 3.2 - tier * 6), 75, 420);
 
     // 1. Форма рівня
@@ -72,25 +73,70 @@ const Generator = {
         if (mask(x + 1, y + 1)) base.push({ x, y, z: 0 });
       }
     }
+
+    // Обмежуємо «слід» основи так, щоб плитки ЗМУШЕНО складались у
+    // багатошарову гірку (а не розтікались одним плоским шаром):
+    // місткість піраміди = base * (1 + Σ добутків коефіцієнтів звуження)
+    let capacity = 1, cur = 1;
+    for (let z = 1; z < maxLayers; z++) { cur *= Math.max(0.3, 0.72 - z * 0.07); capacity += cur; }
+    const baseTarget = Math.min(base.length, Math.max(6, Math.ceil(count / capacity)));
+    if (base.length > baseTarget) {
+      // Лишаємо компактне ядро силуету — клітинки, ближчі до центру ваги
+      const bx = base.reduce((a, b) => a + b.x, 0) / base.length;
+      const by = base.reduce((a, b) => a + b.y, 0) / base.length;
+      base.forEach(b => b._d = Math.abs(b.x - bx) + Math.abs(b.y - by) + rnd() * 3);
+      base.sort((a, b) => a._d - b._d);
+      base = base.slice(0, baseTarget);
+      base.forEach(b => delete b._d);
+    }
     Utils.shuffle(base, rnd);
     layers.push(base);
 
-    // Верхні шари: тільки там, де є підтримка знизу (перекриття з нижнім шаром)
+    // Верхні шари — щільна «черепиця»: кандидати з півкроковими зсувами
+    // (±1 клітинка) над нижнім шаром, беруться лише позиції з достатньою
+    // опорою, пріоритет — ближче до центру ваги (пірамідальний силует).
     for (let z = 1; z < maxLayers; z++) {
       const below = layers[layers.length - 1];
-      if (!below || !below.length || below[0].z !== z - 1) break;
-      const next = [];
-      const density = 0.55 - z * 0.06;          // що вище, то менше плиток
+      if (!below || below.length < 2 || below[0].z !== z - 1) break;
+
+      // Центр ваги нижнього шару
+      const cx = below.reduce((a, b) => a + b.x, 0) / below.length;
+      const cy = below.reduce((a, b) => a + b.y, 0) / below.length;
+
+      // Усі можливі позиції над нижнім шаром (включно з зсувом на пів плитки)
+      const seen = new Set();
+      const cand = [];
       for (const b of below) {
-        if (rnd() > density) continue;
-        // Позиція над плиткою: точно зверху або з півкроковим зсувом
-        const dx = Utils.ri(rnd, -1, 1), dy = Utils.ri(rnd, -1, 1);
-        const p = { x: b.x + dx, y: b.y + dy, z };
-        if (p.x < 0 || p.y < 0 || p.x > W - 2 || p.y > H - 2) continue;
-        if (next.some(q => Math.abs(q.x - p.x) < 2 && Math.abs(q.y - p.y) < 2)) continue;
-        next.push(p);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const x = b.x + dx, y = b.y + dy;
+            if (x < 0 || y < 0 || x > W - 2 || y > H - 2) continue;
+            const key = x * 100 + y;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            // Площа опори: сума перекриттів 2×2-слідів з нижніми плитками
+            // (повна опора = 4, половина = 2, кут = 1)
+            let sup = 0;
+            for (const o of below) {
+              const ox = Math.abs(o.x - x), oy = Math.abs(o.y - y);
+              if (ox < 2 && oy < 2) sup += (2 - ox) * (2 - oy);
+            }
+            if (sup >= 2) cand.push({ x, y, score: Math.abs(x - cx) + Math.abs(y - cy) + rnd() * 4 });
+          }
+        }
       }
-      if (next.length) layers.push(next);
+      // Ближчі до центру — першими; легка випадковість для різноманіття
+      cand.sort((a, b) => a.score - b.score);
+
+      const target = Math.max(2, Math.round(below.length * (0.72 - z * 0.07)));
+      const next = [];
+      for (const c of cand) {
+        if (next.length >= target) break;
+        if (next.some(q => Math.abs(q.x - c.x) < 2 && Math.abs(q.y - c.y) < 2)) continue;
+        next.push({ x: c.x, y: c.y, z });
+      }
+      if (!next.length) break;
+      layers.push(next);
     }
 
     // Збираємо потрібну кількість: шари знизу вгору, кратно 3
