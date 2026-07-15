@@ -441,12 +441,54 @@ const UI = {
 
   /* ---------------- Колекція ---------------- */
   renderCollection() {
-    const coll = Storage.data.collection;
+    const d = Storage.data;
+    const coll = d.collection;
     this.$('collCount').textContent = `${coll.length}/${CFG.TILES.length}`;
-    this.$('collGrid').innerHTML = CFG.TILES.map((t, i) => {
-      const has = coll.includes(i);
-      return `<div class="coll-cell ${has ? '' : 'unknown'}" title="${has ? I18N.tile(i) : '???'}" style="animation-delay:${i * 12}ms">${has ? t.g : '?'}</div>`;
+
+    // Пояснення умови + віхи з нагородами + сітка з прогресом
+    const milestones = CFG.COLLECTION_MILESTONES.map(m => {
+      const done = coll.length >= m.n;
+      const claimed = d.collectionClaimed.includes(m.n);
+      const ico = m.coins ? '🪙' : m.gems ? '💜' : CFG.CHESTS[m.chest].g;
+      const val = m.coins || m.gems || I18N.chest(m.chest);
+      return `<div class="mission glass">
+        <div class="info">
+          <b>${I18N.t('a_coll', { n: m.n })}</b>
+          <div class="bar"><i style="width:${Math.min(100, coll.length / m.n * 100).toFixed(0)}%"></i></div>
+          <small>${Math.min(coll.length, m.n)}/${m.n}</small>
+        </div>
+        <button class="buy-btn" data-collmile="${m.n}" ${!done || claimed ? 'disabled' : ''}>
+          ${claimed ? '✓' : ico + ' ' + val}</button>
+      </div>`;
     }).join('');
+
+    const grid = CFG.TILES.map((t, i) => {
+      const has = coll.includes(i);
+      const prog = d.collectionCount[i] || 0;
+      const progBadge = !has && prog > 0
+        ? `<em class="coll-prog">${prog}/${CFG.COLLECTION_TRIPLES}</em>` : '';
+      return `<div class="coll-cell ${has ? '' : 'unknown'}" title="${has ? I18N.tile(i) : '???'}"
+        style="animation-delay:${i * 12}ms">${has ? t.g : '?'}${progBadge}</div>`;
+    }).join('');
+
+    this.$('collGrid').outerHTML = `<div id="collGrid" class="scroll">
+      <p class="coll-note">${I18N.t('coll_hint', { k: CFG.COLLECTION_TRIPLES, r: CFG.COLLECTION_REWARD })}</p>
+      <h3 class="section-title">${I18N.t('coll_rewards')}</h3>
+      ${milestones}
+      <div class="coll-grid" style="padding-top:10px">${grid}</div>
+    </div>`;
+  },
+
+  /** Отримання нагороди за віху колекції. */
+  claimCollectionMilestone(n) {
+    const d = Storage.data;
+    const m = CFG.COLLECTION_MILESTONES.find(x => x.n === +n);
+    if (!m || d.collection.length < m.n || d.collectionClaimed.includes(m.n)) return;
+    d.collectionClaimed.push(m.n);
+    Daily.giveReward(m);          // видає монети/кристали/скриню з тостами
+    Audio2.play('chest');
+    Storage.save();
+    this.renderCollection();
   },
 
   /* ---------------- Профіль ---------------- */
@@ -488,11 +530,30 @@ const UI = {
     const d = Storage.data;
     this.$('chestGrid').innerHTML = Object.entries(CFG.CHESTS).map(([id, c]) => `
       <div class="chest-card glass">
+        <button class="info-badge" data-chinfo="${id}">і</button>
         <div class="big">${c.g}</div>
         <h4>${I18N.chest(id)}</h4>
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
       </div>`).join('');
+  },
+
+  /** Спливаюча інформація про вміст скрині (кнопка ⓘ). */
+  chestInfo(id) {
+    const c = CFG.CHESTS[id];
+    const row = (ico, text) => `<div class="chest-info-row"><span>${ico}</span>${text}</div>`;
+    this.modal(`
+      <button class="modal-close" data-close>✕</button>
+      <div style="font-size:56px;filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${c.g}</div>
+      <h2>${I18N.t('chest_of', { name: I18N.chest(id) })}</h2>
+      <h3 class="section-title" style="margin:8px 0 6px">${I18N.t('contents')}</h3>
+      ${row('🪙', I18N.t('ch_coins', { a: c.coins[0], b: c.coins[1] }))}
+      ${c.gems[1] > 0 ? row('💜', I18N.t('ch_gems', { a: c.gems[0], b: c.gems[1] })) : ''}
+      ${row('⚡', I18N.t('ch_boost_n', { n: c.boosters }))}
+      ${c.themeChance > 0 ? row('🎨', I18N.t('ch_theme_chance', { p: Math.round(c.themeChance * 100) })) : ''}
+      <p style="opacity:0.7;font-size:12.5px;margin:10px 0 4px">${I18N.t('ch_source', { n: c.every })}</p>
+      <button class="btn-3d btn-green" data-close>${I18N.t('got_it')}</button>
+    `);
   },
 
   openChest(kind) {
@@ -692,11 +753,17 @@ const UI = {
 
     this.$('btnClaimDaily').onclick = () => { if (Daily.claim()) this.renderDaily(); };
 
+    // Вкладки магазину (перемикачі)
+    document.querySelectorAll('#shopTabs button').forEach(b =>
+      b.addEventListener('click', () => { Audio2.play('tap'); this.shopTab(b.dataset.tab); }));
+
     // Делеговані кліки: рівні, магазин, місії, досягнення, скрині, бустери
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-binfo],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
+      const t = e.target.closest('[data-binfo],[data-chinfo],[data-collmile],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
       if (!t) return;
       if (t.dataset.binfo) { this.boosterInfo(t.dataset.binfo); return; }   // ⓘ перехоплює клік до кнопки
+      if (t.dataset.chinfo) { this.chestInfo(t.dataset.chinfo); return; }   // ⓘ скрині
+      if (t.dataset.collmile) { this.claimCollectionMilestone(t.dataset.collmile); return; }
       if (t.dataset.close !== undefined) { this.closeModal(); return; }
       if (t.dataset.level) { Audio2.init(); Game.startLevel(+t.dataset.level); return; }
       if (t.dataset.booster) {

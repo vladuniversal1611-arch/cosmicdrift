@@ -101,11 +101,20 @@ const CFG = {
   /* ---- Скрині (дерев'яна — кожні 3 рівні, срібна — 10,
    * золота — 25, легендарна — 100; лише перше проходження) ---- */
   CHESTS: {
-    wood:      { g: '🪵', name: 'Дерев’яна', coins: [40, 90],   gems: [0, 1],  boosters: 1, themeChance: 0 },
-    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 1, themeChance: 0.05 },
-    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 2, themeChance: 0.15 },
-    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 3, themeChance: 0.5 }
+    wood:      { g: '🪵', name: 'Дерев’яна', coins: [40, 90],   gems: [0, 1],  boosters: 1, themeChance: 0,    every: 3 },
+    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 1, themeChance: 0.05, every: 10 },
+    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 2, themeChance: 0.15, every: 25 },
+    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 3, themeChance: 0.5,  every: 100 }
   },
+
+  /* ---- Нагорода за нову плитку колекції (умова: 3 зібрані трійки типу) ---- */
+  COLLECTION_TRIPLES: 3,      // скільки трійок типу відкривають плитку
+  COLLECTION_REWARD: 30,      // монет за кожну відкриту плитку
+  /* ---- Віхи колекції: приз за кожні 12 знайдених плиток ---- */
+  COLLECTION_MILESTONES: [
+    { n: 12, coins: 100 }, { n: 24, gems: 5 },  { n: 36, coins: 250 },
+    { n: 48, gems: 10 },   { n: 60, coins: 500 }, { n: 72, chest: 'legendary' }
+  ],
 
   /* ---- 7-денний календар нагород ---- */
   DAILY_CALENDAR: [

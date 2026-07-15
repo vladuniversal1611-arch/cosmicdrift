@@ -24,6 +24,8 @@ const Storage = {
       themes: ['forest'],             // куплені/знайдені теми
       theme: 'forest',
       collection: [],                 // індекси відкритих плиток
+      collectionCount: {},            // { type: зібрано трійок } — прогрес до відкриття
+      collectionClaimed: [],          // отримані віхи колекції (n)
       chests: { wood: 0, silver: 0, gold: 0, legendary: 0 },
       premium: false,
       tutorialDone: false,
@@ -44,7 +46,7 @@ const Storage = {
       this.data = raw ? Object.assign(def, JSON.parse(raw)) : def;
       // Глибоке злиття вкладених об'єктів після оновлень гри
       const d2 = this.defaults();
-      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests']) {
+      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount']) {
         this.data[k] = Object.assign(d2[k], this.data[k]);
       }
     } catch (e) {

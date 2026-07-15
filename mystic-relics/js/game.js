@@ -103,10 +103,20 @@ const Game = {
       Storage.data.stats.combos++;
       Missions.progress('combo', 1);
     }
-    // Колекція: відкриваємо іконку
+    // Колекція: плитка зараховується після COLLECTION_TRIPLES зібраних
+    // трійок цього типу; за відкриття — нагорода монетами
     if (type >= 0 && !Storage.data.collection.includes(type)) {
-      Storage.data.collection.push(type);
-      UI.toast(I18N.t('new_tile', { name: CFG.TILES[type].g + ' ' + I18N.tile(type) }));
+      const cc = Storage.data.collectionCount;
+      cc[type] = (cc[type] || 0) + 1;
+      if (cc[type] >= CFG.COLLECTION_TRIPLES) {
+        Storage.data.collection.push(type);
+        Storage.addCoins(CFG.COLLECTION_REWARD);
+        Audio2.play('gem');
+        UI.toast(I18N.t('coll_unlocked', {
+          name: CFG.TILES[type].g + ' ' + I18N.tile(type),
+          r: CFG.COLLECTION_REWARD
+        }));
+      }
     }
     Storage.data.stats.matches++;
     Missions.progress('matches', 1);
