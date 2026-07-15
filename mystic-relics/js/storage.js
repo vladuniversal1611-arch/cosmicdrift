@@ -30,7 +30,7 @@ const Storage = {
       premium: false,
       tutorialDone: false,
       settings: { music: true, sound: true, vibration: true, quality: 'high', lang: 'en' },
-      daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0 },
+      daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0, challengeDone: '' },
       stats: {                        // статистика для досягнень
         levelsCompleted: 0, totalStars: 0, matches: 0, combos: 0,
         coinsEarned: 0, boostersUsed: 0, chestsOpened: 0, perfectLevels: 0, spins: 0
@@ -69,6 +69,33 @@ const Storage = {
   flush() {
     clearTimeout(this._t);
     try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) {}
+  },
+
+  /* ---- Резервна копія прогресу ---- */
+
+  /** Експорт прогресу як компактний код (префікс MR1 + base64 JSON). */
+  exportCode() {
+    this.flush();
+    return 'MR1.' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data))));
+  },
+
+  /** Імпорт коду прогресу. Повертає true при успіху. */
+  importCode(code) {
+    try {
+      code = (code || '').trim();
+      if (!code.startsWith('MR1.')) return false;
+      const obj = JSON.parse(decodeURIComponent(escape(atob(code.slice(4)))));
+      // Санітарна перевірка ключових полів
+      if (typeof obj.coins !== 'number' || typeof obj.level !== 'number' || !obj.settings) return false;
+      const def = this.defaults();
+      this.data = Object.assign(def, obj);
+      const d2 = this.defaults();
+      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount']) {
+        this.data[k] = Object.assign(d2[k], this.data[k] || {});
+      }
+      this.flush();
+      return true;
+    } catch (e) { return false; }
   },
 
   addCoins(n) {

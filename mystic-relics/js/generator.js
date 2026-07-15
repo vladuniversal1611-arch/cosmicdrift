@@ -19,10 +19,12 @@
 
 const Generator = {
 
-  /** Головна точка входу: конфіг рівня № n (1..600). */
-  generate(n) {
+  /** Головна точка входу: конфіг рівня № n.
+   *  salt — необов'язкове зерно варіації: та сама складність,
+   *  але інша розкладка (дзен-режим, щоденний виклик). */
+  generate(n, salt = 0) {
     const tier = Math.floor((n - 1) / 10);           // кожні 10 рівнів складніше
-    const rnd = Utils.rng(n * 2654435761 % 2147483647 + 7);
+    const rnd = Utils.rng((n * 2654435761 + salt * 97003) % 2147483647 + 7);
 
     // Параметри складності
     const tileCount = Math.min(27 + tier * 6 + (n % 10) * 3, 150);
@@ -34,6 +36,7 @@ const Generator = {
     // 1. Форма рівня
     let positions = this._buildLayout(rnd, tileCount, maxLayers);
 
+    this._salt = salt;
     // 2. Призначення типів зворотним розв'язанням (з повторами при невдачі)
     let types = null;
     for (let attempt = 0; attempt < 30 && !types; attempt++) {
@@ -233,7 +236,7 @@ const Generator = {
    * ---------------------------------------------------------- */
   _assignTypes(positions, typeCount, rnd, levelNum) {
     // Сідовано обираємо підмножину типів плиток для цього рівня
-    const pool = Utils.shuffle([...Array(CFG.TILES.length).keys()], Utils.rng(levelNum * 7919 + 13)).slice(0, typeCount);
+    const pool = Utils.shuffle([...Array(CFG.TILES.length).keys()], Utils.rng(levelNum * 7919 + 13 + (this._salt || 0))).slice(0, typeCount);
 
     const remaining = new Set(positions);
     const map = new Map();          // position -> type

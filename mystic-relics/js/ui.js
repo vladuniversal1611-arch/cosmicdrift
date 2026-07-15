@@ -54,6 +54,7 @@ const UI = {
     this.$('playLevelNum').textContent = Storage.data.level;
     this.updateCurrency();
     this.setBadge('dailyBadge', Daily.canClaim() ? 1 : 0, '!');
+    this.setBadge('dailyChBadge', Storage.data.daily.challengeDone !== Utils.today() ? 1 : 0, '!');
     this.setBadge('wheelBadge', Daily.canSpin() ? 1 : 0, '!');
     const chestsTotal = Object.values(Storage.data.chests).reduce((a, b) => a + b, 0);
     this.setBadge('chestBadge', chestsTotal);
@@ -100,9 +101,14 @@ const UI = {
     }
 
     const timer = this.$('hudTimer');
-    timer.textContent = (Game.freezeLeft > 0 ? '🧊 ' : '⏱️ ') + Utils.time(Game.timeLeft);
-    timer.classList.toggle('low', Game.timeLeft < 30 && Game.freezeLeft <= 0);
-    timer.classList.toggle('frozen', Game.freezeLeft > 0);
+    if (Game.mode === 'zen') {
+      timer.textContent = '🧘 ∞';
+      timer.classList.remove('low', 'frozen');
+    } else {
+      timer.textContent = (Game.freezeLeft > 0 ? '🧊 ' : '⏱️ ') + Utils.time(Game.timeLeft);
+      timer.classList.toggle('low', Game.timeLeft < 30 && Game.freezeLeft <= 0);
+      timer.classList.toggle('frozen', Game.freezeLeft > 0);
+    }
 
     // Прогрес рівня: частка зібраних плиток
     if (Board.totalTiles) {
@@ -111,9 +117,9 @@ const UI = {
       const fill = this.$('progressFill');
       if (fill.style.width !== p + '%') fill.style.width = p + '%';
     }
-    // Прогноз зірок за поточним часом
+    // Прогноз зірок за поточним часом (у дзен — символ спокою)
     const ratio = Game.levelCfg ? Game.timeLeft / Game.levelCfg.timeLimit : 1;
-    const starStr = ratio > 0.5 ? '★★★' : ratio > 0.25 ? '★★' : '★';
+    const starStr = Game.mode === 'zen' ? '☮' : ratio > 0.5 ? '★★★' : ratio > 0.25 ? '★★' : '★';
     const hs = this.$('hudStars');
     if (hs.textContent !== starStr) hs.textContent = starStr;
     // Активні ефекти
@@ -160,10 +166,10 @@ const UI = {
     if (v.classList.contains('danger') !== on) v.classList.toggle('danger', on);
   },
 
-  /** Заставка «Рівень N — ВПЕРЕД!» на старті рівня. */
-  showLevelIntro(n) {
+  /** Заставка на старті рівня (кампанія / дзен / виклик дня). */
+  showLevelIntro(title) {
     const el = this.$('levelIntro');
-    this.$('introLevel').textContent = I18N.t('level_n', { n });
+    this.$('introLevel').textContent = title;
     this.$('introGo').textContent = I18N.t('go');
     el.classList.remove('show');
     void el.offsetWidth;                  // перезапуск CSS-анімації
@@ -628,6 +634,12 @@ const UI = {
           ${I18N.LANGS.map(l => `<option value="${l.id}" ${s.lang === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
         </select>
       </div>
+      <div class="setting-row"><span>💾 ${I18N.t('backup')}</span>
+        <span style="display:flex;gap:6px">
+          <button class="buy-btn" id="btnExport">${I18N.t('export_btn')}</button>
+          <button class="buy-btn" id="btnImport">${I18N.t('import_btn')}</button>
+        </span>
+      </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
         <button class="btn-3d btn-blue" style="font-size:13px;padding:10px 16px" id="btnSupport">${I18N.t('support')}</button>
         <button class="btn-3d btn-purple" style="font-size:13px;padding:10px 16px" id="btnAbout">${I18N.t('about')}</button>
@@ -649,6 +661,8 @@ const UI = {
       this.renderMain();
       this.showSettings();
     };
+    this.$('btnExport').onclick = () => this.showExport();
+    this.$('btnImport').onclick = () => this.showImport();
     this.$('btnSupport').onclick = () => this.toast('📧 support@mysticrelics.example');
     this.$('btnAbout').onclick = () => this.toast(I18N.t('about_text'));
   },
@@ -670,7 +684,13 @@ const UI = {
       <button class="btn-3d btn-green btn-big" style="font-size:20px;padding:15px 42px" id="btnNextLevel">${I18N.t('next')}</button>
       <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnWinMenu">${I18N.t('to_menu')}</button>
     `, true);
-    this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.startLevel(Math.min(Game.levelNum + 1, CFG.TOTAL_LEVELS)); };
+    if (Game.mode === 'daily') {
+      this.$('btnNextLevel').textContent = I18N.t('to_menu');
+      this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.quitToMenu(); };
+      this.toast(I18N.t('daily_done'));
+    } else {
+      this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.startLevel(Math.min(Game.levelNum + 1, CFG.TOTAL_LEVELS)); };
+    }
     this.$('btnWinMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
 
     // Лічильник очок красиво набігає
@@ -696,6 +716,54 @@ const UI = {
       if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), '💜', 4,
         () => { Audio2.play('gem'); this._bump('hudGems'); }), 400);
     }, 900);
+  },
+
+  /** Перемога у дзен-режимі: спокійне вікно без зірок. */
+  showZenWin(score, coins) {
+    this.modal(`
+      <div style="font-size:56px;filter:drop-shadow(0 0 18px var(--accent))">🧘</div>
+      <h2>${I18N.t('win_title')}</h2>
+      <div style="font-size:22px;font-weight:900;color:var(--gold);margin:8px 0">${I18N.t('score')}: ${Utils.fmt(score)}</div>
+      <div class="reward-row"><div class="reward-item"><span class="ico">🪙</span>+${coins}</div></div>
+      <button class="btn-3d btn-green" id="btnZenAgain">${I18N.t('play_again')}</button>
+      <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnZenMenu">${I18N.t('to_menu')}</button>
+    `, true);
+    Fx.confetti(60);
+    this.$('btnZenAgain').onclick = () => { this.closeModal(); Game.startZen(); };
+    this.$('btnZenMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
+  },
+
+  /* ---------------- Бекап прогресу ---------------- */
+  showExport() {
+    this.modal(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>💾 ${I18N.t('backup')}</h2>
+      <p style="opacity:0.8;font-size:13px;margin:8px 0">${I18N.t('export_note')}</p>
+      <textarea class="save-code" id="exportCode" readonly>${Storage.exportCode()}</textarea>
+      <button class="btn-3d btn-green" id="btnCopyCode">${I18N.t('copy')}</button>
+    `);
+    this.$('btnCopyCode').onclick = async (e) => {
+      const code = this.$('exportCode').value;
+      try { await navigator.clipboard.writeText(code); }
+      catch (err) { this.$('exportCode').select(); document.execCommand('copy'); }
+      e.target.textContent = I18N.t('copied');
+    };
+  },
+
+  showImport() {
+    this.modal(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>📥 ${I18N.t('backup')}</h2>
+      <p style="opacity:0.8;font-size:13px;margin:8px 0">${I18N.t('import_note')}</p>
+      <textarea class="save-code" id="importCode"></textarea>
+      <button class="btn-3d btn-green" id="btnApplyCode">${I18N.t('apply')}</button>
+    `);
+    this.$('btnApplyCode').onclick = () => {
+      if (Storage.importCode(this.$('importCode').value)) {
+        this.toast(I18N.t('import_ok'));
+        setTimeout(() => location.reload(), 900);
+      } else this.toast(I18N.t('import_bad'));
+    };
   },
 
   showRevive() {
@@ -779,6 +847,8 @@ const UI = {
       b.addEventListener('click', () => { Audio2.play('tap'); this.showScreen('main'); }));
 
     this.$('btnPlay').onclick = () => { Audio2.init(); this.showScreen('levels'); };
+    this.$('btnZen').onclick = () => { Audio2.init(); Game.startZen(); };
+    this.$('btnDailyCh').onclick = () => { Audio2.init(); Game.startDaily(); };
     this.$('btnSettings').onclick = () => { Audio2.init(); this.showSettings(); };
     this.$('btnDaily').onclick = () => { Audio2.init(); this.showScreen('daily'); };
     this.$('btnMissions').onclick = () => { Audio2.init(); this.showScreen('daily'); };

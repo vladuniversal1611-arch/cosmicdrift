@@ -7,6 +7,7 @@
 
 const Game = {
   state: 'menu',          // menu | playing | paused | won | lost
+  mode: 'level',          // level (кампанія) | zen (без таймера) | daily (виклик дня)
   levelNum: 1,
   levelCfg: null,
   score: 0,
@@ -21,22 +22,46 @@ const Game = {
 
   startLevel(n) {
     this.levelNum = n;
-    this.levelCfg = Generator.generate(n);
+    this._begin(Generator.generate(n), 'level', I18N.t('level_n', { n }));
+    if (n === 1 && !Storage.data.tutorialDone) setTimeout(() => UI.startTutorial(), 1600);
+    else UI.endTutorial();
+  },
+
+  /** Дзен-режим: без таймера, випадкова розкладка навколо прогресу гравця. */
+  startZen() {
+    const d = Storage.data;
+    const n = Utils.clamp(d.level - 5 + Math.floor(Math.random() * 20), 1, CFG.TOTAL_LEVELS);
+    this.levelNum = n;
+    this._begin(Generator.generate(n, 1 + Math.floor(Math.random() * 1e6)), 'zen', '🧘 ' + I18N.t('mode_zen'));
+    UI.endTutorial();
+  },
+
+  /** Виклик дня: один спільний рівень для всіх, подвійна нагорода раз на день. */
+  startDaily() {
+    const day = Math.floor(Date.now() / 864e5);
+    const n = 10 + (day * 7) % 140;          // рівні 10..149 — середня складність
+    this.levelNum = n;
+    this._begin(Generator.generate(n, day), 'daily', '📅 ' + I18N.t('mode_daily'));
+    UI.endTutorial();
+  },
+
+  /** Спільний старт будь-якого режиму. */
+  _begin(cfg, mode, introTitle) {
+    this.mode = mode;
+    this.levelCfg = cfg;
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
-    this.timeLeft = this.levelCfg.timeLimit;
+    this.timeLeft = mode === 'zen' ? Infinity : cfg.timeLimit;
     this.freezeLeft = 0;
     this.doubleLeft = 0;
     this.boostersUsedThisLevel = 0;
-    Board.setup(this.levelCfg);
+    Board.setup(cfg);
     this.state = 'playing';
     this._lastTick = -1;
     UI.showScreen('game');
     UI.updateHUD();
-    UI.showLevelIntro(n);
-    if (n === 1 && !Storage.data.tutorialDone) setTimeout(() => UI.startTutorial(), 1600);
-    else UI.endTutorial();
+    UI.showLevelIntro(introTitle);
     this.startLoop();
   },
 
@@ -57,8 +82,9 @@ const Game = {
   update(dt) {
     if (this.state !== 'playing') { Particles.update(dt); return; }
 
-    // Таймер (заморозка зупиняє)
-    if (this.freezeLeft > 0) this.freezeLeft -= dt;
+    // Таймер (заморозка зупиняє; у дзен-режимі час не йде)
+    if (this.mode === 'zen') { /* без таймера */ }
+    else if (this.freezeLeft > 0) this.freezeLeft -= dt;
     else {
       this.timeLeft -= dt;
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.onLose('time'); }
@@ -68,7 +94,7 @@ const Game = {
         if (sec !== this._lastTick) { this._lastTick = sec; Audio2.play('tick'); }
       }
     }
-    UI.setDanger(this.timeLeft <= 10 && this.timeLeft > 0 && this.freezeLeft <= 0);
+    UI.setDanger(this.mode !== 'zen' && this.timeLeft <= 10 && this.timeLeft > 0 && this.freezeLeft <= 0);
     if (this.doubleLeft > 0) this.doubleLeft -= dt;
 
     // Комбо згасає
@@ -133,6 +159,16 @@ const Game = {
     Audio2.play('win');
     Utils.vibrate([40, 60, 40, 60, 80]);
 
+    // Дзен: спокійна нагорода без зірок і прогресії
+    if (this.mode === 'zen') {
+      const coins = 40 + this.levelCfg.tier * 8;
+      Storage.addCoins(coins);
+      Storage.addXP(20);
+      Storage.save();
+      setTimeout(() => UI.showZenWin(this.score, coins), 700);
+      return;
+    }
+
     // Зірки за залишок часу
     const ratio = this.timeLeft / this.levelCfg.timeLimit;
     const stars = ratio > 0.5 ? 3 : ratio > 0.25 ? 2 : 1;
@@ -140,6 +176,25 @@ const Game = {
     this.addScore(timeBonus);
 
     const d = Storage.data;
+
+    // Виклик дня: подвійна нагорода + кристали за перше проходження
+    if (this.mode === 'daily') {
+      const today = Utils.today();
+      const first = d.daily.challengeDone !== today;
+      const coins = (50 + this.levelCfg.tier * 10 + stars * 25) * 2;
+      const gems = first ? 3 : 0;
+      Storage.addCoins(coins);
+      if (gems) Storage.addGems(gems);
+      Storage.addXP(60);
+      d.daily.challengeDone = today;
+      Missions.progress('levels', 1);
+      Missions.progress('stars', stars);
+      if (stars === 3) Missions.progress('perfect', 1);
+      Achievements.check();
+      Storage.save();
+      setTimeout(() => UI.showWin(stars, this.score, coins, gems, 60), 700);
+      return;
+    }
     const firstClear = !(d.stars[this.levelNum] > 0);
     const prevStars = d.stars[this.levelNum] || 0;
     d.stars[this.levelNum] = Math.max(prevStars, stars);
