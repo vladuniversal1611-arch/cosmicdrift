@@ -36,11 +36,15 @@ const Board = {
 
   /* ---------------- Налаштування рівня ---------------- */
   setup(cfg) {
+    // Хвильова поява: затримка залежить від відстані до центру поля
+    const cx = cfg.tiles.reduce((a, t) => a + t.x, 0) / cfg.tiles.length;
+    const cy = cfg.tiles.reduce((a, t) => a + t.y, 0) / cfg.tiles.length;
     this.tiles = cfg.tiles.map((t, i) => ({
       id: i, x: t.x, y: t.y, z: t.z, type: t.type,
       obst: t.obst ? { ...t.obst } : null,
       isKey: !!t.isKey, portal: !!t.portal,
-      state: 'board', px: 0, py: 0, scale: 0, spawnDelay: i * 0.012,
+      state: 'board', px: 0, py: 0, scale: 0,
+      spawnDelay: Math.hypot(t.x - cx, t.y - cy) * 0.045 + t.z * 0.12 + Math.random() * 0.05,
       flyT: -1, hintT: 0, mergeT: -1, trayAt: 0, cursed: false, rainbow: false
     }));
     this.tray = [];

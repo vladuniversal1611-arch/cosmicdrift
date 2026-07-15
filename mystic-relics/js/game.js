@@ -35,6 +35,8 @@ const Game = {
     UI.showScreen('game');
     UI.updateHUD();
     UI.showLevelIntro(n);
+    if (n === 1 && !Storage.data.tutorialDone) setTimeout(() => UI.startTutorial(), 1600);
+    else UI.endTutorial();
     this.startLoop();
   },
 
@@ -93,6 +95,7 @@ const Game = {
     let pts = 100 * this.combo;
     if (this.doubleLeft > 0) pts *= 2;
     this.addScore(pts);
+    this._lastPts = pts;
 
     if (!silent) Audio2.play('match', this.combo);
     if (this.combo >= 3) {
@@ -107,7 +110,9 @@ const Game = {
     }
     Storage.data.stats.matches++;
     Missions.progress('matches', 1);
+    if (UI.tutorial.active) UI.tutorialProgress();
     Storage.save();
+    return pts;
   },
 
   onWin() {

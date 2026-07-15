@@ -26,6 +26,7 @@ const Storage = {
       collection: [],                 // індекси відкритих плиток
       chests: { wood: 0, silver: 0, gold: 0, legendary: 0 },
       premium: false,
+      tutorialDone: false,
       settings: { music: true, sound: true, vibration: true, quality: 'high', lang: 'en' },
       daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0 },
       stats: {                        // статистика для досягнень

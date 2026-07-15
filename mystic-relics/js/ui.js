@@ -171,6 +171,54 @@ const UI = {
     Audio2.play('intro');
   },
 
+  /* ---------------- Міні-туторіал (перший запуск) ---------------- */
+  tutorial: { active: false, step: 0, _timer: null },
+
+  startTutorial() {
+    this.tutorial.active = true;
+    this.tutorial.step = 1;
+    const box = this.$('tutorialBox');
+    box.textContent = I18N.t('tut_1');
+    box.classList.add('show');
+    // Постійно підсвічуємо збирану трійку і ведемо палець 👆 до неї
+    this.tutorial._timer = setInterval(() => {
+      if (!this.tutorial.active || Game.state !== 'playing') return;
+      if (!Board.boardTiles().some(t => t.hintT > 0)) Board.showHint();
+      const target = Board.boardTiles().find(t => t.hintT > 0);
+      const hand = this.$('tutorialHand');
+      if (target) {
+        hand.style.left = target.px + 'px';
+        hand.style.top = (target.py + Board.tileH * 0.35) + 'px';
+        hand.classList.add('show');
+      } else hand.classList.remove('show');
+    }, 500);
+  },
+
+  /** Викликається після кожної зібраної трійки під час туторіалу. */
+  tutorialProgress() {
+    const t = this.tutorial;
+    if (!t.active) return;
+    if (t.step === 1) {
+      t.step = 2;
+      this.$('tutorialBox').textContent = I18N.t('tut_2');
+      this.$('tutorialHand').classList.remove('show');
+      clearInterval(t._timer);                     // палець більше не потрібен
+    } else {
+      this.endTutorial();
+    }
+  },
+
+  endTutorial() {
+    const t = this.tutorial;
+    if (!t.active) return;
+    t.active = false;
+    clearInterval(t._timer);
+    this.$('tutorialBox').classList.remove('show');
+    this.$('tutorialHand').classList.remove('show');
+    Storage.data.tutorialDone = true;
+    Storage.save();
+  },
+
   /** Bounce-анімація панелі при зміні значення. */
   _bump(id) {
     const el = this.$(id);
@@ -539,6 +587,14 @@ const UI = {
     Fx.fireworksShow(stars + 2);
     setTimeout(() => Fx.coinRain(18, '🪙'), 500);
     if (gems) setTimeout(() => Fx.coinRain(6, '💜'), 900);
+
+    // Нагороди летять дугою у лічильники валют HUD
+    setTimeout(() => {
+      Fx.flyTo(innerWidth / 2, innerHeight / 2 - 30, this.$('hudCoins'), '🪙', 8,
+        () => { Audio2.play('coin'); this._bump('hudCoins'); });
+      if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), '💜', 4,
+        () => { Audio2.play('gem'); this._bump('hudGems'); }), 400);
+    }, 900);
   },
 
   showRevive() {

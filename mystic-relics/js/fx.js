@@ -75,6 +75,27 @@ const Fx = {
     }
   },
 
+  /* ---- Політ нагород у лічильник валюти ----
+   * n гліфів летять дугою від (x0,y0) до центру елемента el;
+   * per(i) викликається на кожному прибутті (бамп лічильника, звук). */
+  flyTo(x0, y0, el, glyph, n = 8, per = null) {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const tx = r.left + r.width / 2, ty = r.top + r.height / 2;
+    for (let i = 0; i < n; i++) {
+      this._add(Object.assign(this._get(), {
+        kind: 'homing', glyph,
+        sx: x0 + (Math.random() - 0.5) * 60, sy: y0 + (Math.random() - 0.5) * 40,
+        cx: (x0 + tx) / 2 + (Math.random() - 0.5) * 180,
+        cy: Math.min(y0, ty) - 50 - Math.random() * 90,
+        tx, ty, x: x0, y: y0,
+        size: 20 + Math.random() * 6,
+        delay: i * 0.07, life: 0.75 + i * 0.07,
+        onDone: per, _done: false
+      }));
+    }
+  },
+
   /* ---- Дощ із монет / кристалів ---- */
   coinRain(n = 22, glyph = '🪙') {
     for (let i = 0; i < n; i++) {
@@ -124,6 +145,24 @@ const Fx = {
         // Слід
         g.globalAlpha = fade * 0.3;
         g.beginPath(); g.arc(p.x - p.vx * 0.02, p.y - p.vy * 0.02, p.size * fade * 1.8, 0, Math.PI * 2); g.fill();
+      } else if (p.kind === 'homing') {
+        // Політ дугою Безьє до цілі
+        const tt = (p.t - p.delay) / (p.life - p.delay);
+        if (tt >= 0) {
+          if (tt >= 1) {
+            if (!p._done && p.onDone) { p._done = true; p.onDone(); }
+            p.t = p.life;   // завершення на наступному кадрі
+            continue;
+          }
+          const u = 1 - tt, e = tt * tt * (3 - 2 * tt);   // smoothstep
+          const uu = 1 - e;
+          p.x = uu * uu * p.sx + 2 * uu * e * p.cx + e * e * p.tx;
+          p.y = uu * uu * p.sy + 2 * uu * e * p.cy + e * e * p.ty;
+          g.globalAlpha = 1;
+          g.font = `${p.size * (1 - e * 0.3)}px sans-serif`;
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(p.glyph, p.x, p.y);
+        }
       } else { // glyph — монети/кристали
         p.vy += 60 * dt;
         p.x += p.vx * dt; p.y += p.vy * dt;
