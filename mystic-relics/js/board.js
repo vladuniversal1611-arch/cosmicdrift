@@ -46,6 +46,9 @@ const Board = {
     this.tray = [];
     this.undoStack = [];
     this.texts = [];
+    this.totalTiles = cfg.tiles.length;   // для прогрес-бара рівня
+    this.idleT = 0;                       // авто-підказка при бездіяльності
+    this.shimmerTimer = 2.5;              // блиск-пробіг по відкритих плитках
     this.hammerMode = false;
     this.rainbowArmed = false;
     this.keysCollected = !cfg.tiles.some(t => t.isKey);
@@ -249,6 +252,7 @@ const Board = {
       });
     }
 
+    this.idleT = 0;                       // скидання таймера авто-підказки
     t.state = 'fly';
     t.flyT = 0;
     t.from = { x: t.px, y: t.py };
@@ -267,10 +271,11 @@ const Board = {
     t.ctrl = { x: (t.px + slot.x) / 2 + (Math.random() - 0.5) * 80, y: Math.min(t.py, slot.y) - 60 };
   },
 
-  /** Після завершення польоту — пил, звук, перевірка матчів і поразки. */
+  /** Після завершення польоту — squash, пил, звук, перевірка матчів. */
   onTrayLanded(t) {
     Audio2.play('place');
     if (t) {
+      t.squashT = 0.22;                   // squash-and-stretch при посадці
       Particles.dust(t.px, t.py + this.traySlots[0].w * 0.5, 'rgba(220,190,140,0.65)');
       Particles.sparkle(t.px, t.py, UI.theme().accent);
     }
@@ -601,14 +606,35 @@ const Board = {
 
     if (this.shakeT > 0) this.shakeT -= dt;
 
+    // Авто-підказка: після 8 с бездіяльності підсвічуємо збирану трійку
+    if (Game.state === 'playing' && this.boardTiles().length > 0) {
+      this.idleT += dt;
+      if (this.idleT > 8) { if (this.showHint()) this.idleT = 3.5; else this.idleT = 0; }
+    }
+    // Блиск-пробіг по випадковій відкритій плитці (жива картинка)
+    this.shimmerTimer -= dt;
+    if (this.shimmerTimer <= 0) {
+      this.shimmerTimer = 2 + Math.random() * 1.6;
+      const open = this.boardTiles().filter(t => t.open && t.scale >= 1);
+      if (open.length) open[Math.floor(Math.random() * open.length)].shimmerT = 0.7;
+    }
+
     for (const t of this.tiles) {
       if (t.state === 'gone') continue;
       if (t.hintT > 0) t.hintT -= dt;
       if (t.shake > 0) t.shake -= dt;
+      if (t.shimmerT > 0) t.shimmerT -= dt;
+      if (t.squashT > 0) t.squashT -= dt;
 
-      // Поява плитки (масштаб з пружиною)
+      // Поява плитки: падіння згори з пружиною і пилом при посадці
       if (t.spawnDelay > 0) { t.spawnDelay -= dt; continue; }
-      if (t.scale < 1) t.scale = Math.min(1, t.scale + dt * 4);
+      if (t.scale < 1) {
+        t.scale = Math.min(1, t.scale + dt * 4);
+        if (t.scale >= 1 && t.state === 'board' && !t.landed) {
+          t.landed = true;
+          if (Math.random() < 0.3) Particles.dust(t.px, t.py + this.tileH * 0.4, 'rgba(210,190,150,0.45)');
+        }
+      }
 
       if (t.state === 'board') {
         if (t.returnT !== undefined && t.returnT >= 0) {
@@ -866,10 +892,18 @@ const Board = {
     // Політ у панель: плитка «підстрибує» масштабом на старті
     if (t.state === 'fly') sc *= 1.22 - 0.22 * Math.min(1, t.flyT);
     const shakeX = t.shake > 0 ? Math.sin(t.shake * 60) * 4 : 0;
+    // Поява: плитка падає згори на своє місце
+    const dropY = t.scale < 1 && t.state === 'board' ? -(1 - Utils.easeOutCubic(t.scale)) * 44 : 0;
+    // Squash-and-stretch при посадці у панель
+    let sx = 1, sy = 1;
+    if (t.squashT > 0) {
+      const e = Math.sin((t.squashT / 0.22) * Math.PI);
+      sx = 1 + 0.2 * e; sy = 1 - 0.2 * e;
+    }
 
     ctx.save();
-    ctx.translate(t.px + shakeX, t.py);
-    ctx.scale(sc, sc);
+    ctx.translate(t.px + shakeX, t.py + dropY);
+    ctx.scale(sc * sx, sc * sy);
 
     // Тінь на полі
     if (t.state === 'board') {
@@ -886,6 +920,24 @@ const Board = {
     if (t.state === 'board' && !t.open) {
       ctx.fillStyle = 'rgba(10,10,30,0.4)';
       this._rr(ctx, -size / 2, -h / 2, size, h, 9); ctx.fill();
+    }
+
+    // Блиск-пробіг: діагональна світла смуга ковзає по плитці
+    if (t.shimmerT > 0 && t.state === 'board' && t.open) {
+      const p = 1 - t.shimmerT / 0.7;
+      ctx.save();
+      this._rr(ctx, -size / 2, -h / 2, size, h, 9);
+      ctx.clip();
+      ctx.globalAlpha = 0.5 * Math.sin(p * Math.PI);
+      ctx.rotate(-0.5);
+      const bx = -size + p * size * 2.2;
+      const grad = ctx.createLinearGradient(bx - size * 0.18, 0, bx + size * 0.18, 0);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(bx - size * 0.2, -h, size * 0.4, h * 2);
+      ctx.restore();
     }
 
     // Перепони

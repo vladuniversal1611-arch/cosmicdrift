@@ -31,8 +31,10 @@ const Game = {
     this.boostersUsedThisLevel = 0;
     Board.setup(this.levelCfg);
     this.state = 'playing';
+    this._lastTick = -1;
     UI.showScreen('game');
     UI.updateHUD();
+    UI.showLevelIntro(n);
     this.startLoop();
   },
 
@@ -58,7 +60,13 @@ const Game = {
     else {
       this.timeLeft -= dt;
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.onLose('time'); }
+      // Останні 10 секунд: тік-звук щосекунди + червона пульсація країв
+      if (this.timeLeft <= 10 && this.timeLeft > 0) {
+        const sec = Math.ceil(this.timeLeft);
+        if (sec !== this._lastTick) { this._lastTick = sec; Audio2.play('tick'); }
+      }
     }
+    UI.setDanger(this.timeLeft <= 10 && this.timeLeft > 0 && this.freezeLeft <= 0);
     if (this.doubleLeft > 0) this.doubleLeft -= dt;
 
     // Комбо згасає
@@ -105,6 +113,7 @@ const Game = {
   onWin() {
     if (this.state !== 'playing') return;
     this.state = 'won';
+    UI.setDanger(false);
     Audio2.play('win');
     Utils.vibrate([40, 60, 40, 60, 80]);
 
@@ -177,6 +186,7 @@ const Game = {
     if (this.state !== 'playing' && this.state !== 'paused') return;
     this.state = 'lost';
     this._loseReason = reason;
+    UI.setDanger(false);
     Audio2.play('lose');
     Utils.vibrate(150);
     setTimeout(() => UI.showLose(reason), 500);
@@ -198,6 +208,7 @@ const Game = {
 
   quitToMenu() {
     this.state = 'menu';
+    UI.setDanger(false);
     UI.showScreen('main');
   }
 };

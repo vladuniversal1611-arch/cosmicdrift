@@ -100,6 +100,8 @@ const Audio2 = {
       case 'portal':  this.tone(300, 0.5, 'sine', 0.15, 0, 900); this.tone(1200, 0.5, 'sine', 0.1, 0, -900); break;
       case 'curse':   this.tone(120, 0.4, 'sawtooth', 0.2, 0, -40); break;
       case 'freeze':  this.tone(2000, 0.4, 'sine', 0.15, 0, -1400); this.noise(0.3, 0.08, 0, 6000); break;
+      case 'tick':    this.tone(1150, 0.05, 'square', 0.14); this.tone(580, 0.07, 'sine', 0.1, 0.02); break;
+      case 'intro':   [0, 7, 12].forEach((s, i) => this.tone(392 * Math.pow(2, s / 12), 0.25, 'triangle', 0.25, i * 0.09)); break;
     }
   },
 

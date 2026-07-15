@@ -103,6 +103,19 @@ const UI = {
     timer.textContent = (Game.freezeLeft > 0 ? '🧊 ' : '⏱️ ') + Utils.time(Game.timeLeft);
     timer.classList.toggle('low', Game.timeLeft < 30 && Game.freezeLeft <= 0);
     timer.classList.toggle('frozen', Game.freezeLeft > 0);
+
+    // Прогрес рівня: частка зібраних плиток
+    if (Board.totalTiles) {
+      const left = Board.boardTiles().length + Board.tray.filter(t => t.state !== 'gone' && !t.rainbow).length;
+      const p = Math.round((1 - left / Board.totalTiles) * 100);
+      const fill = this.$('progressFill');
+      if (fill.style.width !== p + '%') fill.style.width = p + '%';
+    }
+    // Прогноз зірок за поточним часом
+    const ratio = Game.levelCfg ? Game.timeLeft / Game.levelCfg.timeLimit : 1;
+    const starStr = ratio > 0.5 ? '★★★' : ratio > 0.25 ? '★★' : '★';
+    const hs = this.$('hudStars');
+    if (hs.textContent !== starStr) hs.textContent = starStr;
     // Активні ефекти
     const fx = [];
     if (Game.freezeLeft > 0) fx.push(`🧊 ${Math.ceil(Game.freezeLeft)}s`);
@@ -140,6 +153,23 @@ const UI = {
   },
 
   setHammerCursor(on) { this.$('gameCanvas').classList.toggle('hammer', on); },
+
+  /** Червона пульсація країв на останніх секундах. */
+  setDanger(on) {
+    const v = this.$('vignette');
+    if (v.classList.contains('danger') !== on) v.classList.toggle('danger', on);
+  },
+
+  /** Заставка «Рівень N — ВПЕРЕД!» на старті рівня. */
+  showLevelIntro(n) {
+    const el = this.$('levelIntro');
+    this.$('introLevel').textContent = I18N.t('level_n', { n });
+    this.$('introGo').textContent = I18N.t('go');
+    el.classList.remove('show');
+    void el.offsetWidth;                  // перезапуск CSS-анімації
+    el.classList.add('show');
+    Audio2.play('intro');
+  },
 
   /** Bounce-анімація панелі при зміні значення. */
   _bump(id) {
@@ -613,7 +643,15 @@ const UI = {
       if (t.dataset.binfo) { this.boosterInfo(t.dataset.binfo); return; }   // ⓘ перехоплює клік до кнопки
       if (t.dataset.close !== undefined) { this.closeModal(); return; }
       if (t.dataset.level) { Audio2.init(); Game.startLevel(+t.dataset.level); return; }
-      if (t.dataset.booster) { Boosters.use(t.dataset.booster); this.updateBoosterBar(); return; }
+      if (t.dataset.booster) {
+        const used = Boosters.use(t.dataset.booster);
+        this.updateBoosterBar();
+        if (used) {          // пульс кнопки після успішного використання
+          const btn = document.querySelector(`.booster-btn[data-booster="${t.dataset.booster}"]`);
+          if (btn) btn.classList.add('pop');
+        }
+        return;
+      }
       if (t.dataset.buyBooster) { Boosters.buy(t.dataset.buyBooster); this.shopTab('boosters'); return; }
       if (t.dataset.mission !== undefined) { if (Missions.claim(+t.dataset.mission)) this.renderDaily(); return; }
       if (t.dataset.ach) {
