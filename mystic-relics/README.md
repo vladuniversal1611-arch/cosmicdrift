@@ -45,6 +45,8 @@ npx serve .            # або: python3 -m http.server 8080
 ```
 mystic-relics/
 ├── index.html            # Розмітка всіх екранів + порядок підключення модулів
+├── ART_PROMPTS.md        # Промпти для генерації PNG-спрайтів (GPT/DALL·E/MJ)
+├── assets/               # Необов'язкові PNG-спрайти (fallback — emoji)
 ├── css/
 │   └── style.css         # Скляні панелі, об'ємні кнопки, анімації, адаптивність
 └── js/

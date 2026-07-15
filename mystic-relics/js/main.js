@@ -6,6 +6,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   Storage.load();            // 1. Збереження
+  Assets.load();             // 1б. PNG-спрайти (необов'язкові, fallback — emoji)
   I18N.apply();              // 2. Мова інтерфейсу (за замовчуванням — англійська)
   Achievements.build();      // 3. 100 досягнень
   Daily.onLogin();           // 4. Щоденний вхід + місії

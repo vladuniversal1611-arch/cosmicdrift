@@ -514,7 +514,7 @@ const UI = {
       const progBadge = !has && prog > 0
         ? `<em class="coll-prog">${prog}/${CFG.COLLECTION_TRIPLES}</em>` : '';
       return `<div class="coll-cell ${has ? '' : 'unknown'}" title="${has ? I18N.tile(i) : '???'}"
-        style="animation-delay:${i * 12}ms">${has ? t.g : '?'}${progBadge}</div>`;
+        style="animation-delay:${i * 12}ms">${has ? Assets.tileHtml(i) : '?'}${progBadge}</div>`;
     }).join('');
 
     this.$('collGrid').outerHTML = `<div id="collGrid" class="scroll">

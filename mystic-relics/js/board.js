@@ -865,13 +865,18 @@ const Board = {
     g.lineWidth = 1.4;
     this._rr(g, 0, 0, w, h, r); g.stroke();
 
-    // Гліф із м'якою тінню
+    // Гліф: PNG-спрайт (якщо доданий у assets/tiles) або emoji з тінню
     if (type >= 0) {
       g.shadowColor = 'rgba(60,30,0,0.35)';
       g.shadowBlur = 3; g.shadowOffsetY = 2;
-      g.font = `${Math.round(w * 0.6)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(CFG.TILES[type].g, w / 2, h / 2 + h * 0.04);
+      if (Assets.hasTile(type)) {
+        const iw = w * 0.72;
+        g.drawImage(Assets.tiles[type], (w - iw) / 2, (h - iw) / 2 + h * 0.02, iw, iw);
+      } else {
+        g.font = `${Math.round(w * 0.6)}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(CFG.TILES[type].g, w / 2, h / 2 + h * 0.04);
+      }
       g.shadowBlur = 0; g.shadowOffsetY = 0;
     } else {
       // Райдужний джокер

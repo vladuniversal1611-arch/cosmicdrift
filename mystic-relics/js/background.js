@@ -255,10 +255,19 @@ const Background = {
     g.drawImage(this.gloSprite, w / 2 - this.gloSprite.width / 2, -this.gloSprite.height * 0.45);
     g.globalAlpha = 1;
 
-    // Паралакс: далекий шар пливе повільно, середній швидше
+    // Фон-картинка з assets/bg (якщо додана) або процедурні силуети
+    const bgImg = Assets.bg[th.scene || 'forest'];
     const px = Math.sin(this.t * 0.05) * 26;
-    g.drawImage(this.far, -60 + px * 0.4, 0);
-    g.drawImage(this.mid, -60 + px, 0);
+    if (bgImg) {
+      // Cover-заповнення з легким паралакс-дрейфом
+      const s = Math.max((w + 60) / bgImg.width, h / bgImg.height);
+      const iw = bgImg.width * s, ih = bgImg.height * s;
+      g.drawImage(bgImg, (w - iw) / 2 + px * 0.5, (h - ih) / 2, iw, ih);
+    } else {
+      // Паралакс: далекий шар пливе повільно, середній швидше
+      g.drawImage(this.far, -60 + px * 0.4, 0);
+      g.drawImage(this.mid, -60 + px, 0);
+    }
 
     const lowQ = Storage.data.settings.quality === 'low';
 
