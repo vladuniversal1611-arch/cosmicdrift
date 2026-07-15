@@ -110,6 +110,7 @@ const Game = {
       cc[type] = (cc[type] || 0) + 1;
       if (cc[type] >= CFG.COLLECTION_TRIPLES) {
         Storage.data.collection.push(type);
+        Missions.progress('coll', 1);
         Storage.addCoins(CFG.COLLECTION_REWARD);
         Audio2.play('gem');
         UI.toast(I18N.t('coll_unlocked', {
@@ -165,6 +166,7 @@ const Game = {
 
     Missions.progress('levels', 1);
     Missions.progress('stars', stars);
+    if (stars === 3) Missions.progress('perfect', 1);
     Achievements.check();
     Storage.save();
 

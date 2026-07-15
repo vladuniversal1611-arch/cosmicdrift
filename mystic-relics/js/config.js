@@ -132,14 +132,20 @@ const CFG = {
     { coins: 500, label: '500 🪙' }, { booster: 'wand',    label: '🪄' }
   ],
 
-  /* ---- Шаблони щоденних місій ---- */
+  /* ---- Шаблони щоденних місій (щодня випадає MISSIONS_PER_DAY з них).
+   * Тексти локалізуються ключами m_<id> у i18n.js. ---- */
+  MISSIONS_PER_DAY: 5,
   MISSIONS: [
-    { id: 'levels',   text: 'Пройти {n} рівні(в)',      n: [2, 3, 4],    reward: 150 },
-    { id: 'matches',  text: 'Зібрати {n} трійок',       n: [15, 25, 40], reward: 120 },
-    { id: 'combo',    text: 'Зробити {n} комбо x3+',    n: [3, 5, 8],    reward: 200 },
-    { id: 'boosters', text: 'Використати {n} бустери(ів)', n: [2, 3, 5], reward: 100 },
-    { id: 'coins',    text: 'Заробити {n} монет',       n: [300, 500, 800], reward: 130 },
-    { id: 'stars',    text: 'Здобути {n} зірок',        n: [5, 7, 9],    reward: 180 }
+    { id: 'levels',   n: [2, 3, 4],       reward: 150 },
+    { id: 'matches',  n: [15, 25, 40],    reward: 120 },
+    { id: 'combo',    n: [3, 5, 8],       reward: 200 },
+    { id: 'boosters', n: [2, 3, 5],       reward: 100 },
+    { id: 'coins',    n: [300, 500, 800], reward: 130 },
+    { id: 'stars',    n: [5, 7, 9],       reward: 180 },
+    { id: 'chests',   n: [1, 2, 3],       reward: 150 },
+    { id: 'perfect',  n: [1, 2, 3],       reward: 200 },
+    { id: 'spins',    n: [1, 2],          reward: 100 },
+    { id: 'coll',     n: [1, 2],          reward: 150 }
   ],
 
   /* ---- Магазин ---- */

@@ -61,6 +61,7 @@ const Daily = {
     if (!viaAd && !this.canSpin()) return -1;
     if (!viaAd) Storage.data.daily.lastSpin = Utils.today();
     Storage.data.stats.spins++;
+    Missions.progress('spins', 1);
     Storage.save();
     return Math.floor(Math.random() * CFG.WHEEL.length);
   }
@@ -77,13 +78,12 @@ const Missions = {
     if (d.missionsDate === today && d.missions.length) return;
     d.missionsDate = today;
     const rnd = Utils.rng(parseInt(today.replace(/-/g, '')) || 1);
-    const pool = Utils.shuffle([...CFG.MISSIONS], rnd).slice(0, 3);
+    const pool = Utils.shuffle([...CFG.MISSIONS], rnd).slice(0, CFG.MISSIONS_PER_DAY);
     d.missions = pool.map(m => ({
       id: m.id,
       goal: m.n[Utils.ri(rnd, 0, m.n.length - 1)],
       progress: 0,
       reward: m.reward,
-      text: m.text,
       claimed: false
     }));
     Storage.save();
@@ -125,6 +125,7 @@ const Chests = {
     if ((d.chests[kind] || 0) <= 0) return null;
     d.chests[kind]--;
     d.stats.chestsOpened++;
+    Missions.progress('chests', 1);
 
     const c = CFG.CHESTS[kind];
     const rewards = [];

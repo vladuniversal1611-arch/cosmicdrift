@@ -245,25 +245,65 @@ const UI = {
     while (box.children.length > 4) box.firstChild.remove();
   },
 
-  /* ---------------- Карта рівнів ---------------- */
+  /* ---------------- Карта рівнів: звивиста стежка ---------------- */
   renderLevels() {
     const d = Storage.data;
     this.$('starsTotal').textContent = d.stats.totalStars;
     const pages = Math.ceil(CFG.TOTAL_LEVELS / this.LVL_PER_PAGE);
     this.lvlPage = Utils.clamp(this.lvlPage, 0, pages - 1);
-    this.$('lvlPageLabel').textContent = `${this.lvlPage * this.LVL_PER_PAGE + 1} – ${(this.lvlPage + 1) * this.LVL_PER_PAGE}`;
-    const grid = this.$('levelGrid');
-    let html = '';
-    for (let i = 0; i < this.LVL_PER_PAGE; i++) {
+    this.$('lvlPageLabel').textContent = `${this.lvlPage * this.LVL_PER_PAGE + 1} – ${Math.min((this.lvlPage + 1) * this.LVL_PER_PAGE, CFG.TOTAL_LEVELS)}`;
+
+    const N = Math.min(this.LVL_PER_PAGE, CFG.TOTAL_LEVELS - this.lvlPage * this.LVL_PER_PAGE);
+    const stepY = 84, H = N * stepY + 70;
+    const rnd = Utils.rng(this.lvlPage * 7919 + 3);
+
+    // Точки стежки: плавна синусоїда згори донизу (x у %, y у px)
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      pts.push({ x: 50 + Math.sin(i * 0.75 + this.lvlPage * 2) * 30, y: 52 + i * stepY });
+    }
+
+    // Пунктирна золота стежка через вузли (координати: 1000 × H)
+    let path = `M ${pts[0].x * 10} ${pts[0].y}`;
+    for (let i = 1; i < N; i++) {
+      const midX = (pts[i - 1].x + pts[i].x) / 2 * 10;
+      const midY = (pts[i - 1].y + pts[i].y) / 2;
+      path += ` Q ${pts[i - 1].x * 10} ${midY - stepY * 0.22}, ${midX} ${midY}`;
+      path += ` Q ${pts[i].x * 10} ${midY + stepY * 0.22}, ${pts[i].x * 10} ${pts[i].y}`;
+    }
+    const svg = `<svg class="lvl-path" viewBox="0 0 1000 ${H}" preserveAspectRatio="none" style="height:${H}px">
+      <path d="${path}" class="lvl-path-shadow"/>
+      <path d="${path}" class="lvl-path-line"/>
+    </svg>`;
+
+    // Декорації узбіч стежки (за сценою активної теми)
+    const decoSets = { forest: ['🌿', '🍄', '🌸', '🦋', '✨'], cave: ['💎', '✨', '🪨', '🔮'], temple: ['🏺', '✨', '🗿', '🕯️'] };
+    const decos = decoSets[this.theme().scene] || decoSets.forest;
+    let decoHtml = '';
+    for (let i = 0; i < N; i += 2) {
+      const p = pts[i];
+      const side = p.x > 50 ? p.x - 38 - rnd() * 8 : p.x + 30 + rnd() * 8;
+      decoHtml += `<span class="lvl-deco" style="left:${side}%;top:${p.y + 26 + rnd() * 20}px;font-size:${18 + rnd() * 12}px;animation-delay:${rnd() * 3}s">${decos[Utils.ri(rnd, 0, decos.length - 1)]}</span>`;
+    }
+
+    // Вузли рівнів на стежці
+    let nodes = '';
+    for (let i = 0; i < N; i++) {
       const n = this.lvlPage * this.LVL_PER_PAGE + i + 1;
-      if (n > CFG.TOTAL_LEVELS) break;
       const stars = d.stars[n] || 0;
       const locked = n > d.level;
       const cls = locked ? 'locked' : n === d.level ? 'current' : stars ? 'done' : '';
       const starStr = stars ? '★'.repeat(stars) : (locked ? '🔒' : '');
-      html += `<button class="level-node ${cls}" data-level="${locked ? '' : n}">${n}<small>${starStr}</small></button>`;
+      nodes += `<button class="level-node path-node ${cls}" data-level="${locked ? '' : n}"
+        style="left:calc(${pts[i].x}% - 31px);top:${pts[i].y - 31}px">${n}<small>${starStr}</small></button>`;
     }
-    grid.innerHTML = html;
+
+    this.$('levelGrid').innerHTML =
+      `<div class="level-path-wrap" style="height:${H}px">${svg}${decoHtml}${nodes}</div>`;
+
+    // Прокрутка до поточного рівня
+    const cur = this.$('levelGrid').querySelector('.current, .path-node:not(.locked):last-of-type');
+    if (cur) setTimeout(() => cur.scrollIntoView({ block: 'center' }), 50);
   },
 
   /* ---------------- Магазин ---------------- */
