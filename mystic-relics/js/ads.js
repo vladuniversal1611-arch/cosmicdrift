@@ -57,6 +57,6 @@ const Ads = {
   purchase(productId, onSuccess) {
     // TODO IAP: Purchases.purchaseProduct({ productIdentifier: productId })
     console.info('[IAP] Purchase placeholder:', productId);
-    UI.confirm('Демо-покупка', 'У веб-версії покупки безкоштовні для тестування. Продовжити?', onSuccess);
+    UI.confirm(I18N.t('demo_purchase'), I18N.t('demo_purchase_text'), onSuccess);
   }
 };

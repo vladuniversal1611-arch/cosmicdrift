@@ -32,7 +32,10 @@ const UI = {
     // Рендер вмісту екрана при відкритті
     switch (name) {
       case 'main': this.renderMain(); break;
-      case 'levels': this.renderLevels(); break;
+      case 'levels':
+        this.lvlPage = Math.floor((Storage.data.level - 1) / this.LVL_PER_PAGE);
+        this.renderLevels();
+        break;
       case 'shop': this.renderShop(); break;
       case 'daily': this.renderDaily(); break;
       case 'achievements': this.renderAchievements(); break;
@@ -102,9 +105,9 @@ const UI = {
     timer.classList.toggle('frozen', Game.freezeLeft > 0);
     // Активні ефекти
     const fx = [];
-    if (Game.freezeLeft > 0) fx.push(`🧊 ${Math.ceil(Game.freezeLeft)}с`);
-    if (Game.doubleLeft > 0) fx.push(`✨ x2 ${Math.ceil(Game.doubleLeft)}с`);
-    if (Game.combo > 1) fx.push(`🔥 Комбо x${Game.combo}`);
+    if (Game.freezeLeft > 0) fx.push(`🧊 ${Math.ceil(Game.freezeLeft)}s`);
+    if (Game.doubleLeft > 0) fx.push(`✨ x2 ${Math.ceil(Game.doubleLeft)}s`);
+    if (Game.combo > 1) fx.push(`🔥 x${Game.combo}`);
     const bar = this.$('fxBar');
     const html = fx.map(f => `<span>${f}</span>`).join('');
     if (bar.innerHTML !== html) bar.innerHTML = html;
@@ -114,7 +117,7 @@ const UI = {
     const ids = CFG.GAME_BOOSTERS;
     const render = list => list.map(id => {
       const n = Storage.data.boosters[id] || 0;
-      return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${CFG.BOOSTERS[id].name}">
+      return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${I18N.booster(id).name}">
         ${CFG.BOOSTERS[id].g}<span class="cnt">${n}</span><span class="info" data-binfo="${id}">і</span></button>`;
     }).join('');
     const half = Math.ceil(ids.length / 2);
@@ -129,10 +132,10 @@ const UI = {
     this.modal(`
       <button class="modal-close" data-close>✕</button>
       <div style="font-size:54px;filter:drop-shadow(0 4px 8px rgba(0,0,10,0.6))">${b.g}</div>
-      <h2>${b.name}</h2>
-      <p style="opacity:0.88;font-size:14.5px;line-height:1.45;margin:8px 0">${b.desc}</p>
-      <div class="reward-item" style="display:inline-block;margin-bottom:6px">У вас: <b>${Storage.data.boosters[id] || 0}</b> шт · ${b.cost} 🪙 у магазині</div>
-      <button class="btn-3d btn-green" data-close>Зрозуміло</button>
+      <h2>${I18N.booster(id).name}</h2>
+      <p style="opacity:0.88;font-size:14.5px;line-height:1.45;margin:8px 0">${I18N.booster(id).desc}</p>
+      <div class="reward-item" style="display:inline-block;margin-bottom:6px">${I18N.t('you_have', { n: Storage.data.boosters[id] || 0 })} · ${b.cost} 🪙 ${I18N.t('in_shop')}</div>
+      <button class="btn-3d btn-green" data-close>${I18N.t('got_it')}</button>
     `);
   },
 
@@ -148,7 +151,7 @@ const UI = {
 
   comboPopup(mult) {
     const el = this.$('comboPopup');
-    el.textContent = `КОМБО x${mult}!`;
+    el.textContent = I18N.t('combo', { n: mult });
     el.classList.remove('show');
     void el.offsetWidth;          // перезапуск анімації
     el.classList.add('show');
@@ -206,12 +209,12 @@ const UI = {
           <div class="amount">${Utils.fmt(it.amount)}</div>
           <div class="price">${it.price}</div>
         </div>`).join('') + `</div>
-        <p style="text-align:center;opacity:0.6;font-size:12px;padding:10px">Покупки активуються після публікації у Google Play</p>`;
+        <p style="text-align:center;opacity:0.6;font-size:12px;padding:10px">${I18N.t('iap_note')}</p>`;
     } else if (tab === 'boosters') {
       box.innerHTML = CFG.GAME_BOOSTERS.map(id => [id, CFG.BOOSTERS[id]]).map(([id, b]) => `
         <div class="shop-row glass">
           <div class="big">${b.g}</div>
-          <div class="info"><b>${b.name}</b> <small>${b.desc}</small><small>У вас: ${d.boosters[id] || 0}</small></div>
+          <div class="info"><b>${I18N.booster(id).name}</b> <small>${I18N.booster(id).desc}</small><small>${I18N.t('you_have', { n: d.boosters[id] || 0 })}</small></div>
           <button class="buy-btn" data-buy-booster="${id}">${b.cost} 🪙</button>
         </div>`).join('');
     } else if (tab === 'themes') {
@@ -220,19 +223,19 @@ const UI = {
         const active = d.theme === t.id;
         return `<div class="shop-row glass" style="border-left:5px solid ${t.accent}">
           <div class="big" style="background:linear-gradient(${t.bg[0]},${t.bg[1]});border-radius:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center">🎨</div>
-          <div class="info"><b>${t.name}</b><small>Власна музика та кольори поля</small></div>
+          <div class="info"><b>${I18N.theme(t.id)}</b><small>${I18N.t('theme_desc')}</small></div>
           <button class="buy-btn" data-theme="${t.id}" ${active ? 'disabled' : ''}>
-            ${active ? '✓ Активна' : owned ? 'Обрати' : t.cost + ' 💜'}</button>
+            ${active ? I18N.t('active') : owned ? I18N.t('choose') : t.cost + ' 💜'}</button>
         </div>`;
       }).join('');
     } else if (tab === 'premium') {
       box.innerHTML = `
         <div class="shop-row glass" style="border:1px solid var(--gold)">
           <div class="big">👑</div>
-          <div class="info"><b>${CFG.SHOP.premium.name}</b>
-          <small>Назавжди вимикає всю рекламу + 1000 💜 кристалів</small></div>
+          <div class="info"><b>${I18N.t('premium_name')}</b>
+          <small>${I18N.t('premium_desc')}</small></div>
           <button class="buy-btn" data-iap="${CFG.SHOP.premium.id}" data-kind="premium" ${d.premium ? 'disabled' : ''}>
-            ${d.premium ? '✓ Придбано' : CFG.SHOP.premium.price}</button>
+            ${d.premium ? I18N.t('purchased') : CFG.SHOP.premium.price}</button>
         </div>`;
     }
   },
@@ -247,16 +250,16 @@ const UI = {
       const ico = r.coins ? '🪙' : r.gems ? '💜' : r.booster ? CFG.BOOSTERS[r.booster].g : '🧰';
       const val = r.coins || r.gems || '';
       const cls = i < idx || (i === idx && claimedToday) ? 'claimed' : i === idx ? 'today' : '';
-      return `<div class="cal-day ${cls}">День ${i + 1}<span class="ico">${ico}</span>${val}</div>`;
+      return `<div class="cal-day ${cls}">${I18N.t('day', { n: i + 1 })}<span class="ico">${ico}</span>${val}</div>`;
     }).join('');
     const btn = this.$('btnClaimDaily');
     btn.disabled = claimedToday;
-    btn.textContent = claimedToday ? 'Отримано ✓ (завтра нова нагорода)' : 'Отримати';
+    btn.textContent = claimedToday ? I18N.t('claimed_today') : I18N.t('claim');
 
     this.$('missionList').innerHTML = d.missions.map((m, i) => `
       <div class="mission glass">
         <div class="info">
-          <b>${m.text.replace('{n}', m.goal)}</b>
+          <b>${I18N.t('m_' + m.id, { n: m.goal })}</b>
           <div class="bar"><i style="width:${(m.progress / m.goal * 100).toFixed(0)}%"></i></div>
           <small>${m.progress}/${m.goal}</small>
         </div>
@@ -270,11 +273,11 @@ const UI = {
     const free = Daily.canSpin();
     this.modal(`
       <button class="modal-close" data-close>✕</button>
-      <h2>🎡 Колесо фортуни</h2>
+      <h2>${I18N.t('wheel_title')}</h2>
       <canvas id="wheelCanvas" width="260" height="260"></canvas>
       <button class="btn-3d ${free ? 'btn-green' : 'btn-blue'}" id="btnSpin">
-        ${free ? 'Безкоштовне крутіння!' : '📺 Крутити за рекламу'}</button>
-      ${free ? '' : '<p style="opacity:0.6;font-size:12px">Безкоштовна спроба — щодня</p>'}
+        ${free ? I18N.t('free_spin') : I18N.t('spin_ad')}</button>
+      ${free ? '' : `<p style="opacity:0.6;font-size:12px">${I18N.t('free_daily')}</p>`}
     `);
     this._drawWheel(0);
     this.$('btnSpin').onclick = () => {
@@ -349,7 +352,7 @@ const UI = {
       const done = Achievements.isDone(a), claimed = Achievements.isClaimed(a);
       return `<div class="ach glass ${done ? 'done' : 'locked'}">
         <div class="ico">${a.g}</div>
-        <div class="info"><b>${a.name}</b>
+        <div class="info"><b>${Achievements.name(a)}</b>
           <div class="bar"><i style="width:${(v / a.goal * 100).toFixed(0)}%"></i></div>
         </div>
         <button class="buy-btn" data-ach="${a.id}" ${!done || claimed ? 'disabled' : ''}>
@@ -364,7 +367,7 @@ const UI = {
     this.$('collCount').textContent = `${coll.length}/${CFG.TILES.length}`;
     this.$('collGrid').innerHTML = CFG.TILES.map((t, i) => {
       const has = coll.includes(i);
-      return `<div class="coll-cell ${has ? '' : 'unknown'}" title="${has ? t.name : '???'}" style="animation-delay:${i * 12}ms">${has ? t.g : '?'}</div>`;
+      return `<div class="coll-cell ${has ? '' : 'unknown'}" title="${has ? I18N.tile(i) : '???'}" style="animation-delay:${i * 12}ms">${has ? t.g : '?'}</div>`;
     }).join('');
   },
 
@@ -376,23 +379,23 @@ const UI = {
     this.$('profileContent').innerHTML = `
       <div class="profile-head glass">
         <div class="avatar" id="avatarBtn">${d.avatar}</div>
-        <h3 id="nameBtn">${d.profileName} ✏️</h3>
-        <div>Рівень профілю <b style="color:var(--gold)">${d.profileLevel}</b></div>
+        <h3 id="nameBtn">${d.profileName || I18N.t('default_name')} ✏️</h3>
+        <div>${I18N.t('profile_level')} <b style="color:var(--gold)">${d.profileLevel}</b></div>
         <div class="xp-bar"><i style="width:${(d.xp / need * 100).toFixed(0)}%"></i></div>
         <small>${d.xp} / ${need} XP</small>
       </div>
       <div class="stat-grid">
-        <div class="stat-cell glass"><b>${s.levelsCompleted}</b>Пройдено рівнів</div>
-        <div class="stat-cell glass"><b>${s.totalStars}</b>Зірок здобуто</div>
-        <div class="stat-cell glass"><b>${Utils.fmt(s.matches)}</b>Зібрано трійок</div>
-        <div class="stat-cell glass"><b>${s.combos}</b>Комбо x3+</div>
-        <div class="stat-cell glass"><b>${Utils.fmt(s.coinsEarned)}</b>Монет зароблено</div>
-        <div class="stat-cell glass"><b>${s.chestsOpened}</b>Скринь відкрито</div>
-        <div class="stat-cell glass"><b>${s.perfectLevels}</b>Ідеальних рівнів</div>
-        <div class="stat-cell glass"><b>${d.daily.loginDays}</b>Днів у грі</div>
+        <div class="stat-cell glass"><b>${s.levelsCompleted}</b>${I18N.t('s_levels')}</div>
+        <div class="stat-cell glass"><b>${s.totalStars}</b>${I18N.t('s_stars')}</div>
+        <div class="stat-cell glass"><b>${Utils.fmt(s.matches)}</b>${I18N.t('s_matches')}</div>
+        <div class="stat-cell glass"><b>${s.combos}</b>${I18N.t('s_combos')}</div>
+        <div class="stat-cell glass"><b>${Utils.fmt(s.coinsEarned)}</b>${I18N.t('s_coins')}</div>
+        <div class="stat-cell glass"><b>${s.chestsOpened}</b>${I18N.t('s_chests')}</div>
+        <div class="stat-cell glass"><b>${s.perfectLevels}</b>${I18N.t('s_perfect')}</div>
+        <div class="stat-cell glass"><b>${d.daily.loginDays}</b>${I18N.t('s_days')}</div>
       </div>`;
     this.$('nameBtn').onclick = () => {
-      const name = prompt('Ваше ім’я:', d.profileName);
+      const name = prompt(I18N.t('name_prompt'), d.profileName || I18N.t('default_name'));
       if (name && name.trim()) { d.profileName = name.trim().slice(0, 20); Storage.save(); this.renderProfile(); }
     };
     this.$('avatarBtn').onclick = () => {
@@ -408,9 +411,9 @@ const UI = {
     this.$('chestGrid').innerHTML = Object.entries(CFG.CHESTS).map(([id, c]) => `
       <div class="chest-card glass">
         <div class="big">${c.g}</div>
-        <h4>${c.name}</h4>
-        <span class="cnt">У вас: ${d.chests[id]}</span>
-        <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>Відкрити</button>
+        <h4>${I18N.chest(id)}</h4>
+        <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
+        <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
       </div>`).join('');
   },
 
@@ -418,9 +421,9 @@ const UI = {
     const rewards = Chests.open(kind);
     if (!rewards) return;
     this.modal(`
-      <h2>${CFG.CHESTS[kind].g} ${CFG.CHESTS[kind].name} скриня</h2>
+      <h2>${CFG.CHESTS[kind].g} ${I18N.t('chest_of', { name: I18N.chest(kind) })}</h2>
       <div class="reward-row">${rewards.map(r => `<div class="reward-item"><span class="ico">${r.g}</span>${r.text}</div>`).join('')}</div>
-      <button class="btn-3d btn-green" data-close>Чудово!</button>
+      <button class="btn-3d btn-green" data-close>${I18N.t('great')}</button>
     `);
     this.renderChests();
   },
@@ -434,16 +437,21 @@ const UI = {
       </div>`;
     this.modal(`
       <button class="modal-close" data-close>✕</button>
-      <h2>⚙️ Налаштування</h2>
-      ${row('setMusic', '🎵', 'Музика', s.music)}
-      ${row('setSound', '🔊', 'Звуки', s.sound)}
-      ${row('setVibra', '📳', 'Вібрація', s.vibration)}
-      <div class="setting-row"><span>🖼️ Якість графіки</span>
-        <button class="buy-btn" id="setQuality">${s.quality === 'high' ? 'Висока' : 'Низька'}</button>
+      <h2>⚙️</h2>
+      ${row('setMusic', '🎵', I18N.t('music'), s.music)}
+      ${row('setSound', '🔊', I18N.t('sounds'), s.sound)}
+      ${row('setVibra', '📳', I18N.t('vibration'), s.vibration)}
+      <div class="setting-row"><span>🖼️ ${I18N.t('quality')}</span>
+        <button class="buy-btn" id="setQuality">${s.quality === 'high' ? I18N.t('high') : I18N.t('low')}</button>
+      </div>
+      <div class="setting-row"><span>🌐 ${I18N.t('language')}</span>
+        <select id="setLang" class="lang-select">
+          ${I18N.LANGS.map(l => `<option value="${l.id}" ${s.lang === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+        </select>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
-        <button class="btn-3d btn-blue" style="font-size:13px;padding:10px 16px" id="btnSupport">Підтримка</button>
-        <button class="btn-3d btn-purple" style="font-size:13px;padding:10px 16px" id="btnAbout">Про гру</button>
+        <button class="btn-3d btn-blue" style="font-size:13px;padding:10px 16px" id="btnSupport">${I18N.t('support')}</button>
+        <button class="btn-3d btn-purple" style="font-size:13px;padding:10px 16px" id="btnAbout">${I18N.t('about')}</button>
       </div>
     `);
     this.$('setMusic').onchange = e => { s.music = e.target.checked; Audio2.toggleMusic(s.music); Storage.save(); };
@@ -451,11 +459,19 @@ const UI = {
     this.$('setVibra').onchange = e => { s.vibration = e.target.checked; Storage.save(); };
     this.$('setQuality').onclick = e => {
       s.quality = s.quality === 'high' ? 'low' : 'high';
-      e.target.textContent = s.quality === 'high' ? 'Висока' : 'Низька';
+      e.target.textContent = s.quality === 'high' ? I18N.t('high') : I18N.t('low');
       Storage.save();
     };
+    // Зміна мови: миттєво оновлюємо всі написи
+    this.$('setLang').onchange = e => {
+      s.lang = e.target.value;
+      Storage.save();
+      I18N.apply();
+      this.renderMain();
+      this.showSettings();
+    };
     this.$('btnSupport').onclick = () => this.toast('📧 support@mysticrelics.example');
-    this.$('btnAbout').onclick = () => this.toast('Mystic Relics v1.0 — магічна головоломка');
+    this.$('btnAbout').onclick = () => this.toast(I18N.t('about_text'));
   },
 
   /* ---------------- Ігрові модальні вікна ---------------- */
@@ -463,17 +479,17 @@ const UI = {
     const starHtml = [1, 2, 3].map(i => `<span class="${i <= stars ? '' : 'off'}">⭐</span>`).join('');
     this.modal(`
       <div class="win-stars">${starHtml}</div>
-      <h2>Чудово!</h2>
-      <div style="font-weight:700;opacity:0.85">Рівень ${Game.levelNum}</div>
+      <h2>${I18N.t('win_title')}</h2>
+      <div style="font-weight:700;opacity:0.85">${I18N.t('level_n', { n: Game.levelNum })}</div>
       <div style="font-size:24px;font-weight:900;color:var(--gold);margin:8px 0;text-shadow:0 2px 6px rgba(0,0,10,0.7)">
-        Очки: <span id="winScore">0</span></div>
+        ${I18N.t('score')}: <span id="winScore">0</span></div>
       <div class="reward-row">
         <div class="reward-item"><span class="ico">🪙</span>+${coins}</div>
         ${gems ? `<div class="reward-item"><span class="ico">💜</span>+${gems}</div>` : ''}
         <div class="reward-item"><span class="ico">⚡</span>+${xp} XP</div>
       </div>
-      <button class="btn-3d btn-green btn-big" style="font-size:20px;padding:15px 42px" id="btnNextLevel">Далі ▶</button>
-      <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnWinMenu">У меню</button>
+      <button class="btn-3d btn-green btn-big" style="font-size:20px;padding:15px 42px" id="btnNextLevel">${I18N.t('next')}</button>
+      <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnWinMenu">${I18N.t('to_menu')}</button>
     `, true);
     this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.startLevel(Math.min(Game.levelNum + 1, CFG.TOTAL_LEVELS)); };
     this.$('btnWinMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
@@ -497,11 +513,11 @@ const UI = {
 
   showRevive() {
     this.modal(`
-      <h2>😱 Панель переповнена!</h2>
-      <p style="opacity:0.85;margin:8px 0">Поверніть 3 плитки на поле та продовжуйте гру</p>
-      <button class="btn-3d btn-purple" id="btnReviveGems">Продовжити за 5 💜</button>
-      <button class="btn-3d btn-blue" id="btnReviveAd">📺 Продовжити за рекламу</button>
-      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnGiveUp">Здатися</button>
+      <h2>${I18N.t('tray_full')}</h2>
+      <p style="opacity:0.85;margin:8px 0">${I18N.t('tray_full_text')}</p>
+      <button class="btn-3d btn-purple" id="btnReviveGems">${I18N.t('revive_gems')}</button>
+      <button class="btn-3d btn-blue" id="btnReviveAd">${I18N.t('continue_ad')}</button>
+      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnGiveUp">${I18N.t('give_up')}</button>
     `, true);
     this.$('btnReviveGems').onclick = () => { if (Game.revive()) this.closeModal(); };
     this.$('btnReviveAd').onclick = () => Game.reviveByAd();
@@ -510,20 +526,20 @@ const UI = {
 
   showLose(reason) {
     this.modal(`
-      <h2>${reason === 'time' ? '⏱️ Час вичерпано!' : '💥 Поразка'}</h2>
-      <div style="margin:8px 0;font-weight:700">Очки: <b style="color:var(--gold)">${Utils.fmt(Game.score)}</b></div>
-      <p style="opacity:0.75;font-size:13.5px;margin-bottom:6px">Порада: використовуйте бустери, коли панель майже повна</p>
-      <button class="btn-3d btn-green" id="btnRetry">🔄 Повторити</button>
-      <button class="btn-3d btn-purple" style="font-size:15px" id="btnLoseShuffle">🔀 Перемішати і грати далі</button>
-      <button class="btn-3d btn-blue" style="font-size:15px" id="btnLoseAd">📺 Продовжити за рекламу</button>
-      <button class="btn-3d btn-gray" style="font-size:13px;padding:9px 20px" id="btnLoseMenu">У меню</button>
+      <h2>${reason === 'time' ? I18N.t('lose_time') : I18N.t('lose_title')}</h2>
+      <div style="margin:8px 0;font-weight:700">${I18N.t('score')}: <b style="color:var(--gold)">${Utils.fmt(Game.score)}</b></div>
+      <p style="opacity:0.75;font-size:13.5px;margin-bottom:6px">${I18N.t('lose_tip')}</p>
+      <button class="btn-3d btn-green" id="btnRetry">${I18N.t('retry')}</button>
+      <button class="btn-3d btn-purple" style="font-size:15px" id="btnLoseShuffle">${I18N.t('lose_shuffle')}</button>
+      <button class="btn-3d btn-blue" style="font-size:15px" id="btnLoseAd">${I18N.t('continue_ad')}</button>
+      <button class="btn-3d btn-gray" style="font-size:13px;padding:9px 20px" id="btnLoseMenu">${I18N.t('to_menu')}</button>
     `, true);
     this.$('modalOverlay').classList.add('dark');   // плавне затемнення
     this.$('btnRetry').onclick = () => { this.closeModal(); Game.startLevel(Game.levelNum); };
     this.$('btnLoseMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
     // Другий шанс: перемішування поля (+30 с) або перегляд реклами
     this.$('btnLoseShuffle').onclick = () => {
-      if ((Storage.data.boosters.shuffle || 0) < 1) { this.toast('Немає бустера «Перемішати» 🔀'); return; }
+      if ((Storage.data.boosters.shuffle || 0) < 1) { this.toast(I18N.t('b_out')); return; }
       Storage.data.boosters.shuffle--;
       Storage.save();
       this.closeModal();
@@ -534,11 +550,11 @@ const UI = {
 
   showPause() {
     this.modal(`
-      <h2>⏸️ Пауза</h2>
-      <div style="margin:8px 0">Рівень ${Game.levelNum} • Очки: ${Utils.fmt(Game.score)}</div>
-      <button class="btn-3d btn-green" id="btnResume">▶ Продовжити</button>
-      <button class="btn-3d btn-blue" style="font-size:14px" id="btnRestart">🔄 Почати заново</button>
-      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnQuit">У меню</button>
+      <h2>${I18N.t('pause')}</h2>
+      <div style="margin:8px 0">${I18N.t('level_n', { n: Game.levelNum })} • ${I18N.t('score')}: ${Utils.fmt(Game.score)}</div>
+      <button class="btn-3d btn-green" id="btnResume">${I18N.t('resume')}</button>
+      <button class="btn-3d btn-blue" style="font-size:14px" id="btnRestart">${I18N.t('restart')}</button>
+      <button class="btn-3d btn-gray" style="font-size:14px;padding:10px 22px" id="btnQuit">${I18N.t('to_menu')}</button>
     `, true);
     this.$('btnResume').onclick = () => { this.closeModal(); Game.resume(); };
     this.$('btnRestart').onclick = () => { this.closeModal(); Game.startLevel(Game.levelNum); };
@@ -549,8 +565,8 @@ const UI = {
     this.modal(`
       <h2>${title}</h2>
       <p style="margin:10px 0;opacity:0.85">${text}</p>
-      <button class="btn-3d btn-green" id="btnYes">Так</button>
-      <button class="btn-3d btn-gray" data-close>Ні</button>
+      <button class="btn-3d btn-green" id="btnYes">${I18N.t('yes')}</button>
+      <button class="btn-3d btn-gray" data-close>${I18N.t('no')}</button>
     `, true);
     this.$('btnYes').onclick = () => { this.closeModal(); onYes && onYes(); };
   },
@@ -610,7 +626,7 @@ const UI = {
         const th = CFG.THEMES.find(x => x.id === t.dataset.theme);
         const d = Storage.data;
         if (!d.themes.includes(th.id)) {
-          if (d.gems < th.cost) { this.toast('Не вистачає кристалів 💜'); return; }
+          if (d.gems < th.cost) { this.toast(I18N.t('not_enough_gems')); return; }
           Storage.addGems(-th.cost);
           d.themes.push(th.id);
         }
@@ -618,7 +634,7 @@ const UI = {
         Storage.save();
         this.applyTheme();
         if (Storage.data.settings.music) Audio2.startMusic();
-        this.toast(`🎨 Тема «${th.name}» активована`);
+        this.toast(I18N.t('theme_applied', { name: I18N.theme(th.id) }));
         this.shopTab('themes');
         return;
       }

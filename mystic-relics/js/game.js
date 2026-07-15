@@ -95,7 +95,7 @@ const Game = {
     // Колекція: відкриваємо іконку
     if (type >= 0 && !Storage.data.collection.includes(type)) {
       Storage.data.collection.push(type);
-      UI.toast(`🎴 Нова плитка в колекції: ${CFG.TILES[type].g} ${CFG.TILES[type].name}`);
+      UI.toast(I18N.t('new_tile', { name: CFG.TILES[type].g + ' ' + I18N.tile(type) }));
     }
     Storage.data.stats.matches++;
     Missions.progress('matches', 1);
@@ -157,7 +157,7 @@ const Game = {
 
   /** Порятунок: за кристали прибираємо 3 плитки з панелі назад на поле. */
   revive() {
-    if (Storage.data.gems < 5) { UI.toast('Не вистачає кристалів 💜'); return false; }
+    if (Storage.data.gems < 5) { UI.toast(I18N.t('not_enough_gems')); return false; }
     Storage.addGems(-5);
     Board.reviveClear(3);
     this.state = 'playing';
@@ -190,7 +190,7 @@ const Game = {
     Board.reshuffle();
     this.state = 'playing';
     this._last = performance.now();
-    UI.toast('✨ Другий шанс — вперед!');
+    UI.toast(I18N.t('second_chance'));
   },
 
   pause() { if (this.state === 'playing') { this.state = 'paused'; UI.showPause(); } },

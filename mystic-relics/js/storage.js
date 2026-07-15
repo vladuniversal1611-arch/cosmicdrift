@@ -16,7 +16,7 @@ const Storage = {
       gems: 10,
       xp: 0,
       profileLevel: 1,
-      profileName: 'Шукач реліквій',
+      profileName: '',              // порожнє = локалізоване ім'я за замовчуванням
       avatar: '🧙',
       level: 1,                       // поточний доступний рівень
       stars: {},                      // { levelNum: 0..3 }
@@ -26,7 +26,7 @@ const Storage = {
       collection: [],                 // індекси відкритих плиток
       chests: { wood: 0, silver: 0, gold: 0, legendary: 0 },
       premium: false,
-      settings: { music: true, sound: true, vibration: true, quality: 'high' },
+      settings: { music: true, sound: true, vibration: true, quality: 'high', lang: 'en' },
       daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0 },
       stats: {                        // статистика для досягнень
         levelsCompleted: 0, totalStars: 0, matches: 0, combos: 0,
@@ -82,7 +82,7 @@ const Storage = {
     while (d.xp >= CFG.xpForLevel(d.profileLevel)) {
       d.xp -= CFG.xpForLevel(d.profileLevel);
       d.profileLevel++;
-      UI.toast(`🎉 Рівень профілю ${d.profileLevel}!`);
+      UI.toast(I18N.t('profile_level_up', { n: d.profileLevel }));
       Audio2.play('levelup');
     }
     this.save();

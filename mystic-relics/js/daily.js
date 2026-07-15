@@ -42,11 +42,11 @@ const Daily = {
     if (r.gems) { Storage.addGems(r.gems); UI.toast(`+${r.gems} 💜`); Audio2.play('gem'); }
     if (r.booster) {
       Storage.data.boosters[r.booster]++;
-      UI.toast(`${CFG.BOOSTERS[r.booster].g} ${CFG.BOOSTERS[r.booster].name} +1`);
+      UI.toast(CFG.BOOSTERS[r.booster].g + ' ' + I18N.t('plus_one', { name: I18N.booster(r.booster).name }));
     }
     if (r.chest) {
       Storage.data.chests[r.chest]++;
-      UI.toast(`${CFG.CHESTS[r.chest].g} Скриня: ${CFG.CHESTS[r.chest].name}!`);
+      UI.toast(CFG.CHESTS[r.chest].g + ' ' + I18N.t('chest_of', { name: I18N.chest(r.chest) }) + '!');
     }
     Storage.save();
   },
@@ -98,7 +98,7 @@ const Missions = {
       if (m.id === id && !m.claimed && m.progress < m.goal) {
         m.progress = Math.min(m.goal, m.progress + n);
         changed = true;
-        if (m.progress >= m.goal) UI.toast('📜 Місію виконано! Заберіть нагороду');
+        if (m.progress >= m.goal) UI.toast(I18N.t('mission_done'));
       }
     }
     if (changed) Storage.save();
@@ -129,17 +129,17 @@ const Chests = {
     const c = CFG.CHESTS[kind];
     const rewards = [];
     const coins = Utils.ri(Math.random, c.coins[0], c.coins[1]);
-    rewards.push({ g: '🪙', text: `+${coins} монет` });
+    rewards.push({ g: '🪙', text: I18N.t('coins_plus', { n: coins }) });
     Storage.addCoins(coins);
 
     const gems = Utils.ri(Math.random, c.gems[0], c.gems[1]);
-    if (gems > 0) { rewards.push({ g: '💜', text: `+${gems} кристалів` }); Storage.addGems(gems); }
+    if (gems > 0) { rewards.push({ g: '💜', text: I18N.t('gems_plus', { n: gems }) }); Storage.addGems(gems); }
 
     const boosterIds = CFG.GAME_BOOSTERS;
     for (let i = 0; i < c.boosters; i++) {
       const id = boosterIds[Math.floor(Math.random() * boosterIds.length)];
       d.boosters[id]++;
-      rewards.push({ g: CFG.BOOSTERS[id].g, text: `${CFG.BOOSTERS[id].name} +1` });
+      rewards.push({ g: CFG.BOOSTERS[id].g, text: I18N.t('plus_one', { name: I18N.booster(id).name }) });
     }
 
     // Шанс нової теми
@@ -148,7 +148,7 @@ const Chests = {
       if (locked.length) {
         const t = locked[Math.floor(Math.random() * locked.length)];
         d.themes.push(t.id);
-        rewards.push({ g: '🎨', text: `Нова тема: ${t.name}!` });
+        rewards.push({ g: '🎨', text: I18N.t('new_theme', { name: I18N.theme(t.id) }) });
       }
     }
 

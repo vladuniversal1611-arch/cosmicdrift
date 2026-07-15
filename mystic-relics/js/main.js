@@ -6,10 +6,11 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   Storage.load();            // 1. Збереження
-  Achievements.build();      // 2. 100 досягнень
-  Daily.onLogin();           // 3. Щоденний вхід + місії
-  UI.applyTheme();           // 4. Тема (кольори, фон)
-  UI.bind();                 // 5. Обробники подій
+  I18N.apply();              // 2. Мова інтерфейсу (за замовчуванням — англійська)
+  Achievements.build();      // 3. 100 досягнень
+  Daily.onLogin();           // 4. Щоденний вхід + місії
+  UI.applyTheme();           // 5. Тема (кольори, фон)
+  UI.bind();                 // 6. Обробники подій
   Background.init(document.getElementById('bgFx'));    // 6. Живий фон з паралаксом
   Fx.init();                 // 7. Святкові ефекти (конфеті, феєрверки)
   Board.init(document.getElementById('gameCanvas'));   // 8. Ігрове поле
@@ -20,4 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // WebAudio дозволено запускати лише після першого дотику користувача
   const unlock = () => { Audio2.init(); Audio2.resume(); };
   document.addEventListener('pointerdown', unlock, { once: true });
+
+  // Авто-пауза, коли гру згорнуто (телефон заблоковано, інший додаток)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && Game.state === 'playing') Game.pause();
+  });
+
+  // Блокуємо контекстне меню на довгий дотик (мобільні браузери)
+  document.addEventListener('contextmenu', e => e.preventDefault());
 });

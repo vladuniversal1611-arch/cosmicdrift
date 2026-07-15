@@ -594,7 +594,7 @@ const Board = {
       if (t.state === 'tray' && t.obst && t.obst.kind === 'curse' && !t.cursed && now - t.trayAt > 12000) {
         t.cursed = true;
         Game.addScore(-200);
-        UI.toast('☠️ Проклята плитка забрала 200 очок!');
+        UI.toast(I18N.t('curse_toast'));
         Audio2.play('curse');
       }
     }
