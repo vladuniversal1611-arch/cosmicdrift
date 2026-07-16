@@ -57,40 +57,67 @@ const Generator = {
   },
 
   /* ------------------------------------------------------------
-   * ФОРМИ РІВНІВ. Кожен рівень отримує свій «силует» —
-   * піраміда, ромб, кільця, хрест, метелик, вежі, спіраль,
-   * випадкові острови. Форма обирається сідовано.
+   * ФОРМИ РІВНІВ — бібліотека впізнаваних силуетів (піксель-арт
+   * бітмапи 8×7 плиток): серце, коло, ведмедик, зірка, метелик,
+   * квітка, ромб, хрест, корона, ялинка, будиночок, місяць,
+   * рибка, перстень, блискавка, грибок. Кожен рівень сідовано
+   * отримує форму, що пасує його розміру; форми чергуються.
    * ---------------------------------------------------------- */
+  SHAPES: {
+    heart:     ['.XX..XX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..', '...XX...'],
+    circle:    ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'],
+    bear:      ['XX....XX', 'XXX..XXX', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'],
+    star:      ['...XX...', '.XXXXXX.', 'XXXXXXXX', '..XXXX..', '.XX..XX.', 'XX....XX'],
+    butterfly: ['XX....XX', 'XXX..XXX', 'XXXXXXXX', '.XXXXXX.', 'XXXXXXXX', 'XX....XX'],
+    flower:    ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', '.XXXXXX.', '..XXXX..', '...XX...', '...XX...'],
+    diamond:   ['...XX...', '..XXXX..', '.XXXXXX.', '.XXXXXX.', '..XXXX..', '...XX...'],
+    cross:     ['..XXXX..', '..XXXX..', 'XXXXXXXX', 'XXXXXXXX', '..XXXX..', '..XXXX..'],
+    crown:     ['X..XX..X', 'XX.XX.XX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.'],
+    tree:      ['...XX...', '..XXXX..', '.XXXXXX.', '..XXXX..', '.XXXXXX.', 'XXXXXXXX', '...XX...'],
+    house:     ['...XX...', '..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', 'XX.XX.XX'],
+    moon:      ['..XXXX..', '.XXX....', '.XXX....', '.XXX....', '.XXXX...', '..XXXXX.'],
+    fish:      ['.XXXX..X', 'XXXXXX.X', 'XXXXXXXX', 'XXXXXX.X', '.XXXX..X'],
+    ring:      ['..XXXX..', '.XXXXXX.', 'XXX..XXX', 'XXX..XXX', '.XXXXXX.', '..XXXX..'],
+    bolt:      ['....XXX.', '...XXX..', '..XXXXX.', '.XXXX...', '..XXX...', '.XXX....'],
+    mushroom:  ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', '...XX...', '...XX...', '..XXXX..']
+  },
+
   _buildLayout(rnd, count, maxLayers) {
-    const shapes = ['pyramid', 'diamond', 'rings', 'cross', 'butterfly', 'towers', 'spiral', 'islands'];
-    const shape = shapes[Utils.ri(rnd, 0, shapes.length - 1)];
     const W = 16, H = 14;                       // поле у клітинках (плитка = 2×2)
-    const mask = this._shapeMask(shape, W, H, rnd);
 
-    // Базовий шар: розставляємо плитки по масці з кроком 2 (+ інколи півкрок)
-    const layers = [];
-    let base = [];
-    for (let y = 0; y <= H - 2; y += 2) {
-      const rowOff = rnd() < 0.3 ? 1 : 0;       // півкроковий зсув рядка — різні силуети
-      for (let x = rowOff; x <= W - 2; x += 2) {
-        if (mask(x + 1, y + 1)) base.push({ x, y, z: 0 });
-      }
-    }
-
-    // Обмежуємо «слід» основи так, щоб плитки ЗМУШЕНО складались у
-    // багатошарову гірку (а не розтікались одним плоским шаром):
-    // місткість піраміди = base * (1 + Σ добутків коефіцієнтів звуження)
+    // Місткість стеку над основою (та сама формула, що у стекінгу)
     let capacity = 1, cur = 1;
     for (let z = 1; z < maxLayers; z++) { cur *= Math.max(0.3, 0.72 - z * 0.07); capacity += cur; }
-    const baseTarget = Math.min(base.length, Math.max(6, Math.ceil(count / capacity)));
-    if (base.length > baseTarget) {
-      // Лишаємо компактне ядро силуету — клітинки, ближчі до центру ваги
-      const bx = base.reduce((a, b) => a + b.x, 0) / base.length;
-      const by = base.reduce((a, b) => a + b.y, 0) / base.length;
-      base.forEach(b => b._d = Math.abs(b.x - bx) + Math.abs(b.y - by) + rnd() * 3);
-      base.sort((a, b) => a._d - b._d);
-      base = base.slice(0, baseTarget);
-      base.forEach(b => delete b._d);
+
+    // Розміри форм (кешуємо один раз)
+    if (!this._shapeSizes) {
+      this._shapeSizes = {};
+      for (const k in this.SHAPES) {
+        this._shapeSizes[k] = this.SHAPES[k].join('').split('').filter(c => c === 'X').length;
+      }
+    }
+    // Кандидати: основа вміщується у count, а стек здатен добрати до count
+    const names = Object.keys(this.SHAPES);
+    let eligible = names.filter(k => this._shapeSizes[k] <= count && this._shapeSizes[k] * capacity >= count * 0.8);
+    if (!eligible.length) eligible = names.filter(k => this._shapeSizes[k] <= count);
+    if (!eligible.length) eligible = ['bolt'];
+    const shapeName = eligible[Utils.ri(rnd, 0, eligible.length - 1)];
+    const bmp = this.SHAPES[shapeName];
+    const mirror = rnd() < 0.4;                 // дзеркальний варіант для різноманіття
+
+    // Базовий шар — точний силует бітмапи, відцентрований на полі
+    const bw = Math.max(...bmp.map(r => r.length)) * 2;
+    const bh = bmp.length * 2;
+    const offX = Math.floor((W - bw) / 4) * 2;
+    const offY = Math.floor((H - bh) / 4) * 2;
+    const layers = [];
+    const base = [];
+    for (let row = 0; row < bmp.length; row++) {
+      for (let col = 0; col < bmp[row].length; col++) {
+        if (bmp[row][col] !== 'X') continue;
+        const c = mirror ? bmp[row].length - 1 - col : col;
+        base.push({ x: offX + c * 2, y: offY + row * 2, z: 0 });
+      }
     }
     Utils.shuffle(base, rnd);
     layers.push(base);
@@ -154,34 +181,6 @@ const Generator = {
     // Верхній шар без підтримки після обрізання — опускаємо
     this._fixSupport(all);
     return all;
-  },
-
-  /** Маска-предикат силуету (координати центру клітинки). */
-  _shapeMask(shape, W, H, rnd) {
-    const cx = W / 2, cy = H / 2;
-    switch (shape) {
-      case 'pyramid':   return (x, y) => Math.abs(x - cx) <= (y / H) * cx + 1.5;
-      case 'diamond':   return (x, y) => Math.abs(x - cx) / cx + Math.abs(y - cy) / cy <= 1.05;
-      case 'rings': {
-        const r1 = 2 + rnd() * 1.5;
-        return (x, y) => {
-          const d = Math.hypot(x - cx, y - cy);
-          return d <= cx * 0.95 && (d >= r1 || d <= r1 - 2.2);
-        };
-      }
-      case 'cross':     return (x, y) => Math.abs(x - cx) <= 2.6 || Math.abs(y - cy) <= 2.6;
-      case 'butterfly': return (x, y) => Math.abs(y - cy) <= Math.abs(x - cx) * 0.8 + 1.6 && Math.abs(x - cx) <= cx * 0.95;
-      case 'towers':    return (x, y) => (x < cx - 1.2 || x > cx + 1.2) && Math.abs(y - cy) <= cy * 0.9;
-      case 'spiral':    return (x, y) => {
-        const a = Math.atan2(y - cy, x - cx), d = Math.hypot(x - cx, y - cy);
-        return d <= cx * 0.95 && ((a + Math.PI + d * 0.7) % 2.4) > 0.5;
-      };
-      default: { // islands — випадкові плями
-        const blobs = [];
-        for (let i = 0; i < 4; i++) blobs.push({ x: 2 + rnd() * (W - 4), y: 2 + rnd() * (H - 4), r: 2.5 + rnd() * 2.5 });
-        return (x, y) => blobs.some(b => Math.hypot(x - b.x, y - b.y) <= b.r);
-      }
-    }
   },
 
   /** Простий плоский резервний рівень. */

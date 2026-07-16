@@ -43,8 +43,10 @@ const UI = {
       case 'profile': this.renderProfile(); break;
       case 'chests': this.renderChests(); break;
       case 'game':
-        Board.resize();
+        // Спершу панель бустерів (вона впливає на висоту поля), тоді розмір
         this.updateBoosterBar();
+        Board.resize();
+        requestAnimationFrame(() => Board.resize());
         this._dispScore = 0; this._lastCoins = -1; this._lastGems = -1;
         break;
     }
@@ -133,15 +135,11 @@ const UI = {
   },
 
   updateBoosterBar() {
-    const ids = CFG.GAME_BOOSTERS;
-    const render = list => list.map(id => {
+    this.$('boosterBar').innerHTML = CFG.GAME_BOOSTERS.map(id => {
       const n = Storage.data.boosters[id] || 0;
       return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${I18N.booster(id).name}">
         ${Assets.boosterHtml(id, 'bicon')}<span class="cnt">${n}</span><span class="info" data-binfo="${id}">і</span></button>`;
     }).join('');
-    const half = Math.ceil(ids.length / 2);
-    this.$('boosterLeft').innerHTML = render(ids.slice(0, half));
-    this.$('boosterRight').innerHTML = render(ids.slice(half));
   },
 
   /** Інфо-вікно бустера (ⓘ). На час перегляду гра стає на паузу. */

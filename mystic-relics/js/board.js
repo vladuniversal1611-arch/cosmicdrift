@@ -69,9 +69,11 @@ const Board = {
   /* ---------------- Геометрія ---------------- */
   resize() {
     if (!this.canvas) return;
-    const rect = this.canvas.parentElement.getBoundingClientRect();
+    // clientWidth/Height ігнорують CSS-трансформації (анімацію появи екрана)
+    const parent = this.canvas.parentElement;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.w = rect.width; this.h = rect.height;
+    this.w = parent.clientWidth; this.h = parent.clientHeight;
+    if (!this.w || !this.h) return;            // екран ще прихований
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.canvas.style.width = this.w + 'px';
@@ -89,9 +91,11 @@ const Board = {
     }
     const spanX = maxX - minX, spanY = maxY - minY;
     const trayZone = Math.min(120, this.h * 0.18);         // місце під панель
-    const gutter = Math.min(70, this.w * 0.16);            // жолоби під бічні бустери
-    const availW = this.w - gutter * 2, availH = this.h - trayZone - 24;
-    const cell = Math.min(availW / spanX, availH / (spanY * 1.22), 42);
+    const availW = this.w - 16, availH = this.h - trayZone - 20;
+    // ФІКСОВАНИЙ розмір плитки: нормуємо на повну сітку 16×14 клітинок,
+    // а не на розмах конкретного рівня — іконки однакові на всіх рівнях
+    const GRID_X = 16, GRID_Y = 14;
+    const cell = Math.min(availW / GRID_X, availH / (GRID_Y * 1.22), 42);
     this.cellX = cell; this.cellY = cell * 1.22;
     this.tileW = cell * 2; this.tileH = this.cellY * 2;
     this.depth = Math.max(3, cell * 0.22);
