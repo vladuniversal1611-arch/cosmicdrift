@@ -10,6 +10,9 @@
 const Assets = {
   tiles: [],        // Image | null для кожного з 72 типів
   bg: {},           // { forest|cave|temple: Image }
+  boosters: {},     // { shuffle|hint|hammer|freeze|wand|bomb: Image }
+  chests: {},       // { wood|silver|gold|legendary: Image }
+  ui: {},           // { coin|gem|star|heart: Image }
   _tilesLoaded: 0,
 
   load() {
@@ -36,6 +39,34 @@ const Assets = {
       img.onerror = () => {};
       img.src = (emb.bg && emb.bg[scene]) || `assets/bg/${scene}.png`;
     }
+    // Іменовані групи: бустери, скрині, валюти UI
+    const groups = {
+      boosters: ['shuffle', 'hint', 'hammer', 'freeze', 'wand', 'bomb'],
+      chests: ['wood', 'silver', 'gold', 'legendary'],
+      ui: ['coin', 'gem', 'star', 'heart']
+    };
+    for (const g in groups) {
+      for (const id of groups[g]) {
+        const img = new Image();
+        img.onload = () => { this[g][id] = img; UI.updateBoosterBar && Game.state === 'playing' && UI.updateBoosterBar(); };
+        img.onerror = () => {};
+        img.src = (emb[g] && emb[g][id]) || `assets/${g}/${id}.png`;
+      }
+    }
+  },
+
+  /** HTML іконки бустера: <img> або emoji. */
+  boosterHtml(id, cls = '') {
+    return this.boosters[id]
+      ? `<img class="${cls}" src="${this.boosters[id].src}" alt="">`
+      : CFG.BOOSTERS[id].g;
+  },
+
+  /** HTML іконки скрині: <img> або emoji. */
+  chestHtml(id, cls = '') {
+    return this.chests[id]
+      ? `<img class="${cls}" src="${this.chests[id].src}" alt="">`
+      : CFG.CHESTS[id].g;
   },
 
   /** Чи є спрайт для плитки типу i. */

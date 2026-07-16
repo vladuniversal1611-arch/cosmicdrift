@@ -137,7 +137,7 @@ const UI = {
     const render = list => list.map(id => {
       const n = Storage.data.boosters[id] || 0;
       return `<button class="booster-btn ${n ? '' : 'empty'}" data-booster="${id}" title="${I18N.booster(id).name}">
-        ${CFG.BOOSTERS[id].g}<span class="cnt">${n}</span><span class="info" data-binfo="${id}">і</span></button>`;
+        ${Assets.boosterHtml(id, 'bicon')}<span class="cnt">${n}</span><span class="info" data-binfo="${id}">і</span></button>`;
     }).join('');
     const half = Math.ceil(ids.length / 2);
     this.$('boosterLeft').innerHTML = render(ids.slice(0, half));
@@ -150,7 +150,7 @@ const UI = {
     if (Game.state === 'playing') { Game.state = 'paused'; this._resumeOnClose = true; }
     this.modal(`
       <button class="modal-close" data-close>✕</button>
-      <div style="font-size:54px;filter:drop-shadow(0 4px 8px rgba(0,0,10,0.6))">${b.g}</div>
+      <div style="font-size:54px;filter:drop-shadow(0 4px 8px rgba(0,0,10,0.6))">${Assets.boosterHtml(id, 'modal-icon')}</div>
       <h2>${I18N.booster(id).name}</h2>
       <p style="opacity:0.88;font-size:14.5px;line-height:1.45;margin:8px 0">${I18N.booster(id).desc}</p>
       <div class="reward-item" style="display:inline-block;margin-bottom:6px">${I18N.t('you_have', { n: Storage.data.boosters[id] || 0 })} · ${b.cost} 🪙 ${I18N.t('in_shop')}</div>
@@ -337,7 +337,7 @@ const UI = {
     } else if (tab === 'boosters') {
       box.innerHTML = CFG.GAME_BOOSTERS.map(id => [id, CFG.BOOSTERS[id]]).map(([id, b]) => `
         <div class="shop-row glass">
-          <div class="big">${b.g}</div>
+          <div class="big">${Assets.boosterHtml(id, 'row-icon')}</div>
           <div class="info"><b>${I18N.booster(id).name}</b> <small>${I18N.booster(id).desc}</small><small>${I18N.t('you_have', { n: d.boosters[id] || 0 })}</small></div>
           <button class="buy-btn" data-buy-booster="${id}">${b.cost} 🪙</button>
         </div>`).join('');
@@ -577,7 +577,7 @@ const UI = {
     this.$('chestGrid').innerHTML = Object.entries(CFG.CHESTS).map(([id, c]) => `
       <div class="chest-card glass">
         <button class="info-badge" data-chinfo="${id}">і</button>
-        <div class="big">${c.g}</div>
+        <div class="big">${Assets.chestHtml(id, 'chest-img')}</div>
         <h4>${I18N.chest(id)}</h4>
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
@@ -590,7 +590,7 @@ const UI = {
     const row = (ico, text) => `<div class="chest-info-row"><span>${ico}</span>${text}</div>`;
     this.modal(`
       <button class="modal-close" data-close>✕</button>
-      <div style="font-size:56px;filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${c.g}</div>
+      <div style="filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${Assets.chestHtml(id, 'modal-icon') || c.g}</div>
       <h2>${I18N.t('chest_of', { name: I18N.chest(id) })}</h2>
       <h3 class="section-title" style="margin:8px 0 6px">${I18N.t('contents')}</h3>
       ${row('🪙', I18N.t('ch_coins', { a: c.coins[0], b: c.coins[1] }))}
@@ -606,7 +606,8 @@ const UI = {
     const rewards = Chests.open(kind);
     if (!rewards) return;
     this.modal(`
-      <h2>${CFG.CHESTS[kind].g} ${I18N.t('chest_of', { name: I18N.chest(kind) })}</h2>
+      <div style="filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${Assets.chestHtml(kind, 'modal-icon')}</div>
+      <h2>${I18N.t('chest_of', { name: I18N.chest(kind) })}</h2>
       <div class="reward-row">${rewards.map(r => `<div class="reward-item"><span class="ico">${r.g}</span>${r.text}</div>`).join('')}</div>
       <button class="btn-3d btn-green" data-close>${I18N.t('great')}</button>
     `);
