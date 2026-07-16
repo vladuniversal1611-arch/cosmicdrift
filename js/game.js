@@ -866,6 +866,9 @@ const Game = (() => {
       Meta.trackMax('maxCombo', combo);
     }
 
+    // Компаньйон радіє
+    UI.companionReact(lineCount >= 3 ? 'mega' : combo >= 2 ? 'combo' : 'clear');
+
     // ---- Цілі ----
     for (const g of goalProgress) {
       if (g.type === 'lines') g.progress += lineCount;
@@ -913,6 +916,7 @@ const Game = (() => {
   function endGame(won, reason) {
     if (state !== 'playing') return;
     state = won ? 'won' : 'lost';
+    UI.companionReact(won ? 'win' : 'lose');
     setTimeout(() => {
       if (won) {
         AudioFX.sfx.win();

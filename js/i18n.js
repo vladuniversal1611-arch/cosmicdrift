@@ -62,6 +62,13 @@ const I18N = (() => {
       tut_1: 'Перетягни фігуру на поле',
       tut_2: 'Заповни рядок або стовпець повністю — він вибухне! 💥',
       tut_3: 'Чудово! Ти освоїв основи! 🎉',
+      comp_clear: 'Так!|Клас!|Є!',
+      comp_combo: 'Вау!|Круто!|Так тримати!|Ще раз!',
+      comp_mega: 'НЕЙМОВІРНО!|ТИ ЛЕГЕНДА!|ВОГОНЬ! 🔥',
+      comp_win: 'Перемога! 🎉|Ми молодці!',
+      comp_lose: 'Наступного разу вийде…|Не здавайся!',
+      comp_tap: 'Привіт!|Я вірю в тебе!|Грай-грай!|Р-р-р!',
+      comp_evolved: 'Я виріс! ✨',
     },
     en: {
       adventure: 'Adventure', daily: 'Daily', events: 'Events', shop: 'Shop',
@@ -122,6 +129,13 @@ const I18N = (() => {
       tut_1: 'Drag a piece onto the board',
       tut_2: 'Fill a whole row or column — it explodes! 💥',
       tut_3: 'Awesome! You got the basics! 🎉',
+      comp_clear: 'Yes!|Nice!|Got it!',
+      comp_combo: 'Wow!|Cool!|Keep going!|Again!',
+      comp_mega: 'INCREDIBLE!|LEGENDARY!|ON FIRE! 🔥',
+      comp_win: 'Victory! 🎉|We did it!',
+      comp_lose: 'Next time…|Never give up!',
+      comp_tap: 'Hi!|I believe in you!|Play-play!|Rawr!',
+      comp_evolved: 'I grew up! ✨',
     },
   };
 

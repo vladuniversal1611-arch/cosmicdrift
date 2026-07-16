@@ -17,7 +17,13 @@
   UI.applyI18n();
   UI.bindActions();
   UI.spawnBgParticles();
+  UI.initCompanion();
   Ads.refreshBanner();
+
+  // PWA: офлайн-кеш (працює лише на http/https, у WebView не заважає)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* не критично */ });
+  }
 
   // 5. Красивий екран завантаження (короткий, з прогрес-баром)
   const fill = document.getElementById('loading-fill');
@@ -31,10 +37,13 @@
     }
   }, 120);
 
-  // 6. Пауза гри при згортанні застосунку
+  // 6. Пауза при згортанні + пуш-нагадування, що повернуть гравця
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && Game.state === 'playing') {
-      UI.showPauseModal();
+    if (document.hidden) {
+      if (Game.state === 'playing') UI.showPauseModal();
+      Notify.onAppHide();
+    } else {
+      Notify.onAppShow();
     }
   });
 

@@ -15,6 +15,7 @@ const UI = (() => {
     el.classList.add('active');
     currentScreen = id;
     if (id === 'menu') refreshMenu();
+    if (id === 'game') refreshCompanion();
     if (id !== 'game') Game.stopLoop(); else Game.startLoop();
   }
 
@@ -156,6 +157,72 @@ const UI = (() => {
   }
   function hideCombo() {
     document.getElementById('combo-pop').classList.remove('show');
+  }
+
+  /* ---------- Компаньйон: дух-дракончик ----------
+     Живе в кутку ігрового екрана, реагує на події,
+     росте з прогресом гравця (4 стадії еволюції) */
+  const COMP_STAGES = [
+    { min: 1, icon: '🐣' },
+    { min: 25, icon: '🐲' },
+    { min: 75, icon: '🐉' },
+    { min: 200, icon: '🐉', gold: true },
+  ];
+  let compEl = null, compBubbleTimer = null, compAnimTimer = null, compStageIcon = '';
+
+  function initCompanion() {
+    const wrap = document.getElementById('game-canvas-wrap');
+    compEl = document.createElement('div');
+    compEl.id = 'companion';
+    compEl.innerHTML = '<span class="comp-emoji"></span>';
+    wrap.appendChild(compEl);
+    compEl.addEventListener('pointerdown', () => companionReact('tap'));
+    refreshCompanion();
+  }
+
+  /** Стадія еволюції за поточним рівнем пригод */
+  function refreshCompanion() {
+    if (!compEl) return;
+    let stage = COMP_STAGES[0];
+    for (const s of COMP_STAGES) if (Storage.s.currentLevel >= s.min) stage = s;
+    const emoji = compEl.querySelector('.comp-emoji');
+    const evolved = compStageIcon && (compStageIcon !== stage.icon || stage.gold && !emoji.classList.contains('gold'));
+    compStageIcon = stage.icon;
+    emoji.textContent = stage.icon;
+    emoji.classList.toggle('gold', !!stage.gold);
+    if (evolved) companionSay(I18N.t('comp_evolved'));
+  }
+
+  /** Реакція на ігрову подію: анімація + інколи фраза */
+  function companionReact(type) {
+    if (!compEl || currentScreen !== 'game') return;
+    const emoji = compEl.querySelector('.comp-emoji');
+    const animCls = type === 'lose' ? 'comp-sad' : (type === 'mega' || type === 'win') ? 'comp-mega' : 'comp-happy';
+    emoji.classList.remove('comp-happy', 'comp-sad', 'comp-mega');
+    void emoji.offsetWidth; // перезапуск анімації
+    emoji.classList.add(animCls);
+    clearTimeout(compAnimTimer);
+    compAnimTimer = setTimeout(() => emoji.classList.remove(animCls), 1200);
+
+    // Фрази: рідше для звичайних клірів, завжди для великих подій
+    const chance = { clear: 0.25, combo: 0.6, mega: 1, win: 1, lose: 1, tap: 1 }[type] || 0;
+    if (Math.random() < chance) {
+      const pool = I18N.t('comp_' + type).split('|');
+      companionSay(pool[Math.floor(Math.random() * pool.length)]);
+    }
+    if (type === 'tap') AudioFX.sfx.pickup();
+  }
+
+  function companionSay(text) {
+    if (!compEl) return;
+    let bubble = compEl.querySelector('.comp-bubble');
+    if (bubble) bubble.remove();
+    bubble = document.createElement('div');
+    bubble.className = 'comp-bubble';
+    bubble.textContent = text;
+    compEl.appendChild(bubble);
+    clearTimeout(compBubbleTimer);
+    compBubbleTimer = setTimeout(() => bubble.remove(), 1600);
   }
 
   /* ---------- Туторіал перших кроків ---------- */
@@ -329,6 +396,7 @@ const UI = (() => {
 
   function showWinModal({ stars, score, reward }) {
     AudioFX.vibrate([30, 40, 60]);
+    Notify.requestPermission(); // питаємо після позитивної емоції, не на старті
     const starsHtml = [1, 2, 3].map(i =>
       `<span class="${i <= stars ? 'star-on' : 'star-off'}">★</span>`).join('');
     const gemsRow = reward.gems ? `<div class="modal-sub">💎 +${reward.gems}</div>` : '';
@@ -949,6 +1017,7 @@ const UI = (() => {
   return {
     show, applyI18n, refreshMenu, bindActions, spawnBgParticles,
     updateHUD, setScore, showCombo, hideCombo, renderBoosters, toast, showTutorial, clearTutorial,
+    initCompanion, companionReact, refreshCompanion,
     showWinModal, showLoseModal, showPauseModal, openShop, openMap,
     tryStartAdventure, startMode, closeAllModals,
   };
