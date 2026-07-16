@@ -13,6 +13,8 @@ const Assets = {
   _tilesLoaded: 0,
 
   load() {
+    // Вбудовані асети (однофайловий білд інжектить window.EMBEDDED_ASSETS)
+    const emb = (typeof window !== 'undefined' && window.EMBEDDED_ASSETS) || { tiles: {}, bg: {} };
     // Плитки: assets/tiles/tile_00.png … tile_71.png
     for (let i = 0; i < CFG.TILES.length; i++) {
       const img = new Image();
@@ -22,7 +24,7 @@ const Assets = {
         Board.spriteCache.clear();            // перерендер облич плиток
       };
       img.onerror = () => { this.tiles[i] = null; };
-      img.src = `assets/tiles/tile_${String(i).padStart(2, '0')}.png`;
+      img.src = (emb.tiles && emb.tiles[i]) || `assets/tiles/tile_${String(i).padStart(2, '0')}.png`;
     }
     // Фони сцен: assets/bg/forest.png | cave.png | temple.png
     for (const scene of ['forest', 'cave', 'temple']) {
@@ -32,7 +34,7 @@ const Assets = {
         if (Background.canvas) Background.build();
       };
       img.onerror = () => {};
-      img.src = `assets/bg/${scene}.png`;
+      img.src = (emb.bg && emb.bg[scene]) || `assets/bg/${scene}.png`;
     }
   },
 
