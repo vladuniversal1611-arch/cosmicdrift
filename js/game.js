@@ -72,8 +72,11 @@ const Game = (() => {
   let reviveUsed = false;
   let wobbleT = 0;
   let placeAnims = [];      // поява блоків
-  let clearAnims = [];      // зникнення блоків
+  let clearAnims = [];      // зникнення блоків (хвиля від точки розміщення)
   let hcCounter = 0;        // лічильник ходів хардкору
+  let dryStreak = 0;        // ходи поспіль без очищення (для "розумної" видачі)
+  let slowmoT = 0;          // залишок slow-motion після мега-комбо
+  let lastDt = 1 / 60;
 
   // Розкладка канвасу (у CSS-пікселях)
   const L = { bx: 0, by: 0, cell: 0, bsize: 0, trayY: 0, trayH: 0, slotW: 0 };
@@ -104,6 +107,7 @@ const Game = (() => {
     drag = null; armedBooster = null; magnetPick = null;
     undoStack = []; reviveUsed = false; hcCounter = 0;
     placeAnims = []; clearAnims = [];
+    dryStreak = 0; slowmoT = 0;
     Particles.clear();
     refillPieces();
     Storage.s.stats.gamesPlayed++;
@@ -111,6 +115,9 @@ const Game = (() => {
     resize();
     UI.updateHUD();
     UI.renderBoosters();
+    // Інтерактивний туторіал на першому рівні
+    UI.clearTutorial();
+    if (cfg.tutorial && !Storage.s.tutorialSeen) UI.showTutorial(1);
     startLoop();
   }
 
@@ -118,8 +125,62 @@ const Game = (() => {
     for (let i = 0; i < 3; i++) {
       pieces[i] = Shapes.createPiece(config.pieceLevel, rng, config.unlocked);
     }
+    improveTray();
   }
   function piecesLeft() { return pieces.filter(p => p && !p.used).length; }
+
+  /* ---------- "Розумна" видача фігур ----------
+     1. Гарантія виживання: поки поле не переповнене, гравець ніколи
+        не отримує трійку, з якої нічого не поміщається.
+     2. Допомога: з високим шансом у лотку є фігура, яка МОЖЕ закрити
+        лінію прямо зараз. Після серії ходів без очищень шанс росте
+        (драма-менеджер, як у топових match-3). */
+  function improveTray() {
+    if (!board) return;
+
+    // 1) Виживання: перегенерувати, якщо ніщо не влазить, а місце ще є
+    const fillRatio = board.filledCount() / (board.size * board.size);
+    if (fillRatio < 0.7) {
+      let tries = 0;
+      while (tries++ < 15 && !pieces.some(p => p && !p.used && board.canPlaceAnywhere(p))) {
+        for (let i = 0; i < 3; i++) pieces[i] = Shapes.createPiece(config.pieceLevel, rng, config.unlocked);
+      }
+      // Крайній випадок: даємо одиночний блок — він влазить завжди, поки є клітинка
+      if (!pieces.some(p => p && !p.used && board.canPlaceAnywhere(p))) {
+        pieces[2] = Shapes.materialize(Shapes.DEFS[0], Math.floor(rng() * Shapes.COLOR_COUNT));
+      }
+    }
+
+    // 2) Допомога з лінією: базовий шанс 65%, після 3 "сухих" ходів — 95%
+    const helpChance = dryStreak >= 3 ? 0.95 : 0.65;
+    if (rng() < helpChance && !pieces.some(p => p && !p.used && pieceCanClear(p))) {
+      const defs = Shapes.available(config.pieceLevel).slice();
+      // Тасування Фішера-Єйтса тим самим rng (детермінізм у daily/tournament)
+      for (let i = defs.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [defs[i], defs[j]] = [defs[j], defs[i]];
+      }
+      for (const def of defs) {
+        const candidate = Shapes.materialize(def, Math.floor(rng() * Shapes.COLOR_COUNT));
+        if (pieceCanClear(candidate)) {
+          pieces[Math.floor(rng() * 3)] = candidate;
+          break;
+        }
+      }
+    }
+  }
+
+  /** Чи існує розміщення фігури, яке завершує рядок/стовпець */
+  function pieceCanClear(p) {
+    for (let y = 0; y <= board.size - p.h; y++) {
+      for (let x = 0; x <= board.size - p.w; x++) {
+        if (!board.canPlaceAt(p, x, y)) continue;
+        const sim = simulateLines(p, x, y);
+        if (sim.rows.length + sim.cols.length > 0) return true;
+      }
+    }
+    return false;
+  }
 
   /* ================= РОЗКЛАДКА / РЕСАЙЗ ================= */
 
@@ -159,8 +220,12 @@ const Game = (() => {
 
   function tick(t) {
     if (!running) return;
-    const dt = Math.min(0.05, (t - lastT) / 1000);
+    const rawDt = Math.min(0.05, (t - lastT) / 1000);
     lastT = t;
+    // Slow-motion після мега-очищення (3+ ліній)
+    slowmoT = Math.max(0, slowmoT - rawDt);
+    const dt = rawDt * (slowmoT > 0 ? 0.35 : 1);
+    lastDt = dt;
     update(dt);
     render();
     rafId = requestAnimationFrame(tick);
@@ -188,9 +253,31 @@ const Game = (() => {
       placeAnims[i].t += dt * 4;
       if (placeAnims[i].t >= 1) placeAnims.splice(i, 1);
     }
+    // Хвиля очищення: блок "вибухає", коли до нього доходить хвиля (t перетинає 0)
     for (let i = clearAnims.length - 1; i >= 0; i--) {
-      clearAnims[i].t += dt * 3.5;
-      if (clearAnims[i].t >= 1) clearAnims.splice(i, 1);
+      const a = clearAnims[i];
+      a.t += dt * 3.5;
+      if (!a.fired && a.t >= 0) {
+        a.fired = true;
+        fireClearFX(a);
+      }
+      if (a.t >= 1) clearAnims.splice(i, 1);
+    }
+  }
+
+  /** Ефекти одного блоку в хвилі очищення */
+  function fireClearFX(a) {
+    const px = L.bx + (a.x + 0.5) * L.cell;
+    const py = L.by + (a.y + 0.5) * L.cell;
+    const extras = fxColors();
+    const col = Math.random() < 0.35 ? extras[a.note % extras.length] : colorOf(a.color);
+    Particles.burst(px, py, col, 7, 240);
+    if (a.note % 2 === 0) AudioFX.sfx.clearTick(a.note);
+    if (a.mod === 'crystal') { Particles.sparkle(px, py, 14, '#8be9fd'); AudioFX.sfx.crystal(); }
+    if (a.mod === 'gold') {
+      Particles.sparkle(px, py, 10, '#ffd166');
+      AudioFX.sfx.coin();
+      Particles.flyText(px, py - 10, '+8🪙', { color: '#ffd166', size: 16 });
     }
   }
 
@@ -198,7 +285,7 @@ const Game = (() => {
 
   function render() {
     const ctx = ctx2d;
-    const shake = Particles.update(1 / 60);
+    const shake = Particles.update(lastDt);
     ctx.clearRect(0, 0, cssW, cssH);
     ctx.save();
     ctx.translate(shake.x, shake.y);
@@ -250,8 +337,11 @@ const Game = (() => {
         const pad = Math.max(1, L.cell * 0.045);
         // Фонова клітинка
         rr(ctx, px + pad, py + pad, L.cell - pad * 2, L.cell - pad * 2, L.cell * 0.18);
+        // Передчуття: лінія, що заповниться, пульсує золотом
         const hl = hlRows.includes(y) || hlCols.includes(x);
-        ctx.fillStyle = hl ? 'rgba(94, 234, 212, 0.22)' : th.boardCell;
+        ctx.fillStyle = hl
+          ? `rgba(255, 209, 102, ${0.22 + Math.sin(wobbleT * 8) * 0.10})`
+          : th.boardCell;
         ctx.fill();
 
         // Портали
@@ -294,13 +384,17 @@ const Game = (() => {
       }
     }
 
-    // Анімації зникнення блоків
+    // Хвиля зникнення: до приходу хвилі блок стоїть цілий, потім стискається
     for (const a of clearAnims) {
       const px = L.bx + a.x * L.cell, py = L.by + a.y * L.cell;
-      const s = 1 - a.t;
-      ctx.globalAlpha = s;
-      drawBlockShape(ctx, px + L.cell * (1 - s) / 2, py + L.cell * (1 - s) / 2, L.cell * s, colorOf(a.color));
-      ctx.globalAlpha = 1;
+      if (a.t < 0) {
+        drawBlockShape(ctx, px, py, L.cell, colorOf(a.color), a.mod);
+      } else {
+        const s = Math.max(0, 1 - a.t);
+        ctx.globalAlpha = s;
+        drawBlockShape(ctx, px + L.cell * (1 - s) / 2, py + L.cell * (1 - s) / 2, L.cell * s, colorOf(a.color));
+        ctx.globalAlpha = 1;
+      }
     }
 
     // Примара фігури
@@ -513,6 +607,11 @@ const Game = (() => {
     const cellS = L.cell;
     const { ox, oy } = dragOrigin(p);
     ctx.save();
+    // Легкий нахил у бік руху — фігура "жива" в руці
+    const cx = ox + (p.w * cellS) / 2, cy = oy + (p.h * cellS) / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(drag.tilt || 0);
+    ctx.translate(-cx, -cy);
     ctx.shadowColor = colorOf(p.color);
     ctx.shadowBlur = 22;
     p.cells.forEach(([dx, dy], ci) => {
@@ -608,6 +707,10 @@ const Game = (() => {
   function onMove(e) {
     if (!drag) return;
     const pos = evtPos(e);
+    // Нахил від горизонтальної швидкості (згладжений, обмежений)
+    const vx = pos.x - drag.px;
+    const target = Math.max(-0.12, Math.min(0.12, vx * 0.012));
+    drag.tilt = (drag.tilt || 0) * 0.8 + target * 0.2;
     drag.px = pos.x; drag.py = pos.y;
   }
 
@@ -660,10 +763,23 @@ const Game = (() => {
     const { rows, cols } = board.findFullLines();
     const lineCount = rows.length + cols.length;
     if (lineCount > 0) {
-      resolveClears(rows, cols, lineCount);
+      dryStreak = 0;
+      resolveClears(rows, cols, lineCount, { x: gx + (p.w - 1) / 2, y: gy + (p.h - 1) / 2 });
     } else {
+      dryStreak++;
       combo = 0;
       UI.hideCombo();
+    }
+
+    // Туторіал: підказки за прогресом першого рівня
+    if (config.tutorial && !Storage.s.tutorialSeen) {
+      if (lineCount > 0) {
+        Storage.s.tutorialSeen = true;
+        Storage.save();
+        UI.showTutorial(3);
+      } else {
+        UI.showTutorial(2);
+      }
     }
 
     // Хардкор: перешкода кожні 2 ходи
@@ -685,8 +801,9 @@ const Game = (() => {
     checkEndConditions();
   }
 
-  /** Обробка очищення ліній: очки, комбо, ефекти, цілі */
-  function resolveClears(rows, cols, lineCount) {
+  /** Обробка очищення ліній: очки, комбо, ефекти, цілі.
+      origin — точка розміщення: від неї розходиться хвиля зникнення */
+  function resolveClears(rows, cols, lineCount, origin) {
     const events = board.clearLines(rows, cols);
     combo++;
     maxComboRun = Math.max(maxComboRun, combo);
@@ -703,17 +820,15 @@ const Game = (() => {
     if (combo >= 3) coins += 5;
     coinsEarned += coins;
 
-    // ---- Ефекти ----
-    const extras = fxColors();
-    let di = 0;
+    // ---- Хвиля зникнення: затримка блоку = відстань від origin ----
+    let note = 0;
     for (const rcell of events.removed) {
-      const px = L.bx + (rcell.x + 0.5) * L.cell;
-      const py = L.by + (rcell.y + 0.5) * L.cell;
-      const col = Math.random() < 0.35 ? extras[di++ % extras.length] : colorOf(rcell.color);
-      Particles.burst(px, py, col, 7, 240);
-      clearAnims.push({ x: rcell.x, y: rcell.y, color: rcell.color, t: 0 });
-      if (rcell.mod === 'crystal') { Particles.sparkle(px, py, 14, '#8be9fd'); AudioFX.sfx.crystal(); }
-      if (rcell.mod === 'gold') { Particles.sparkle(px, py, 10, '#ffd166'); AudioFX.sfx.coin(); Particles.flyText(px, py - 10, '+8🪙', { color: '#ffd166', size: 16 }); }
+      const dist = origin ? Math.abs(rcell.x - origin.x) + Math.abs(rcell.y - origin.y) : 0;
+      clearAnims.push({
+        x: rcell.x, y: rcell.y, color: rcell.color, mod: rcell.mod,
+        t: -dist * 0.035 * 3.5, // t доходить до 0 через dist*35мс
+        fired: false, note: note++,
+      });
     }
     for (const ih of events.iceHit) {
       Particles.sparkle(L.bx + (ih.x + 0.5) * L.cell, L.by + (ih.y + 0.5) * L.cell, 6, '#bfe9ff');
@@ -731,7 +846,10 @@ const Game = (() => {
     AudioFX.sfx.clear(lineCount);
     AudioFX.vibrate(lineCount >= 2 ? [20, 30, 40] : 25);
     Particles.shake(4 + lineCount * 3, 0.25);
-    if (lineCount >= 3) Particles.flash();
+    if (lineCount >= 3) {
+      Particles.flash();
+      slowmoT = 0.45; // мить slow-motion — смакуємо мега-очищення
+    }
 
     // Летючий напис очок у центрі очищення
     if (events.removed.length) {
@@ -930,7 +1048,7 @@ const Game = (() => {
       AudioFX.sfx.place();
       // Магніт може завершити лінію
       const { rows, cols } = board.findFullLines();
-      if (rows.length + cols.length > 0) resolveClears(rows, cols, rows.length + cols.length);
+      if (rows.length + cols.length > 0) resolveClears(rows, cols, rows.length + cols.length, { x, y });
       finishBoosterUse();
     }
   }

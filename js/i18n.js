@@ -59,6 +59,9 @@ const I18N = (() => {
       energy_full: 'Енергія повна!', get_energy_ad: '+1 ⚡ за рекламу',
       quest_progress: 'Прогрес', all_done: 'Все виконано! Повертайся завтра',
       remove_ads_owned: 'Реклама вимкнена 🎉',
+      tut_1: 'Перетягни фігуру на поле',
+      tut_2: 'Заповни рядок або стовпець повністю — він вибухне! 💥',
+      tut_3: 'Чудово! Ти освоїв основи! 🎉',
     },
     en: {
       adventure: 'Adventure', daily: 'Daily', events: 'Events', shop: 'Shop',
@@ -116,6 +119,9 @@ const I18N = (() => {
       energy_full: 'Energy is full!', get_energy_ad: '+1 ⚡ for an ad',
       quest_progress: 'Progress', all_done: 'All done! Come back tomorrow',
       remove_ads_owned: 'Ads removed 🎉',
+      tut_1: 'Drag a piece onto the board',
+      tut_2: 'Fill a whole row or column — it explodes! 💥',
+      tut_3: 'Awesome! You got the basics! 🎉',
     },
   };
 

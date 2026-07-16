@@ -158,6 +158,57 @@ const UI = (() => {
     document.getElementById('combo-pop').classList.remove('show');
   }
 
+  /* ---------- Туторіал перших кроків ---------- */
+  let tutStep = 0;
+
+  /** Прибрати всі підказки туторіалу (новий запуск гри) */
+  function clearTutorial() {
+    tutStep = 0;
+    document.querySelectorAll('#game-canvas-wrap .tut-banner, #game-canvas-wrap .tut-hand')
+      .forEach(el => el.remove());
+  }
+
+  /** Показати крок туторіалу: 1 — тягни фігуру, 2 — заповни лінію, 3 — готово */
+  function showTutorial(step) {
+    if (step === tutStep) return;
+    tutStep = step;
+    const wrap = document.getElementById('game-canvas-wrap');
+    wrap.querySelectorAll('.tut-banner, .tut-hand').forEach(el => el.remove());
+
+    const banner = document.createElement('div');
+    banner.className = 'tut-banner';
+    banner.textContent = I18N.t('tut_' + step);
+    wrap.appendChild(banner);
+
+    if (step < 3) {
+      // Рука-підказка: над лотком (крок 1) або над проломом у рядку (крок 2)
+      const hand = document.createElement('div');
+      hand.className = 'tut-hand';
+      hand.textContent = '👆';
+      const rect = wrap.getBoundingClientRect();
+      try {
+        const L = Game.layout;
+        if (step === 1) {
+          hand.style.left = (L.slotW * 0.5 - 20) + 'px';
+          hand.style.top = (L.trayY - 10) + 'px';
+        } else {
+          hand.style.left = (L.bx + 3.0 * L.cell) + 'px';
+          hand.style.top = (L.by + 6.6 * L.cell) + 'px';
+        }
+      } catch (e) {
+        hand.style.left = '45%';
+        hand.style.bottom = '90px';
+      }
+      wrap.appendChild(hand);
+    } else {
+      // Фінальний крок зникає сам
+      setTimeout(() => {
+        banner.remove();
+        tutStep = 0;
+      }, 2400);
+    }
+  }
+
   /* ---------- Панель бустерів ---------- */
   const BOOSTER_ICONS = { hammer: '🔨', bomb: '💣', shuffle: '🔀', magnet: '🧲', undo: '↩️', freeze: '🧊' };
 
@@ -897,7 +948,7 @@ const UI = (() => {
 
   return {
     show, applyI18n, refreshMenu, bindActions, spawnBgParticles,
-    updateHUD, setScore, showCombo, hideCombo, renderBoosters, toast,
+    updateHUD, setScore, showCombo, hideCombo, renderBoosters, toast, showTutorial, clearTutorial,
     showWinModal, showLoseModal, showPauseModal, openShop, openMap,
     tryStartAdventure, startMode, closeAllModals,
   };

@@ -84,34 +84,35 @@ const Shapes = (() => {
     return pool[pool.length - 1];
   }
 
+  /** Побудувати ігровий об'єкт фігури з визначення (без модифікаторів) */
+  function materialize(def, color) {
+    let maxX = 0, maxY = 0;
+    for (const [x, y] of def.cells) { if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
+    return {
+      id: def.id,
+      cells: def.cells,
+      color,
+      mod: null, modIndex: -1,
+      w: maxX + 1, h: maxY + 1,
+      used: false,
+    };
+  }
+
   /**
    * Створити ігрову фігуру: клітинки + колір + модифікатор.
    * Спец-блоки (gold/rainbow/bomb) з'являються з шансом залежно від рівня.
    */
   function createPiece(level, rng, unlocked) {
     const def = pick(level, rng);
-    const color = Math.floor(rng() * COLOR_COUNT);
+    const piece = materialize(def, Math.floor(rng() * COLOR_COUNT));
     // Модифікатор для однієї клітинки фігури
-    let mod = null;
     const roll = rng();
-    if (unlocked.rainbow && def.cells.length === 1 && roll < 0.10) mod = 'rainbow';
-    else if (unlocked.gold && roll < 0.08) mod = 'gold';
-    else if (unlocked.bomb && roll >= 0.08 && roll < 0.13) mod = 'bomb';
-    const modIndex = mod ? Math.floor(rng() * def.cells.length) : -1;
-
-    // Розмір bounding box — для рендера
-    let maxX = 0, maxY = 0;
-    for (const [x, y] of def.cells) { if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
-
-    return {
-      id: def.id,
-      cells: def.cells,
-      color,
-      mod, modIndex,
-      w: maxX + 1, h: maxY + 1,
-      used: false,
-    };
+    if (unlocked.rainbow && def.cells.length === 1 && roll < 0.10) piece.mod = 'rainbow';
+    else if (unlocked.gold && roll < 0.08) piece.mod = 'gold';
+    else if (unlocked.bomb && roll >= 0.08 && roll < 0.13) piece.mod = 'bomb';
+    if (piece.mod) piece.modIndex = Math.floor(rng() * def.cells.length);
+    return piece;
   }
 
-  return { DEFS, COLOR_COUNT, available, pick, createPiece };
+  return { DEFS, COLOR_COUNT, available, pick, createPiece, materialize };
 })();

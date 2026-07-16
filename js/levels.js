@@ -68,6 +68,22 @@ const Levels = (() => {
    * Повертає: goals, розмір поля, стартові клітинки, ліміт ходів, механіки
    */
   function generate(level) {
+    // Рівень 1 — ручний туторіал: два майже повні рядки,
+    // перше очищення гарантовано трапляється за пару ходів
+    if (level === 1) {
+      const cells = [];
+      for (let x = 0; x < 8; x++) {
+        if (x < 2 || x > 4) cells.push({ x, y: 7, kind: 'block', color: x % Shapes.COLOR_COUNT });
+        if (x !== 3 && x !== 4) cells.push({ x, y: 6, kind: 'block', color: (x + 3) % Shapes.COLOR_COUNT });
+      }
+      return {
+        level: 1, world: 0, size: 8,
+        goals: [{ type: 'lines', target: 2 }],
+        moves: 18, cells, fog: [], portals: [],
+        unlocked: unlockedAt(1), pieceLevel: 1,
+        newMechanic: null, tutorial: true,
+      };
+    }
     const rng = mulberry32(level * 7919 + 13);
     const u = unlockedAt(level);
     const world = worldOf(level);

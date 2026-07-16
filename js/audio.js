@@ -68,6 +68,10 @@ const AudioFX = (() => {
     pickup()  { tone({ freq: 520, type: 'sine', dur: 0.09, vol: 0.35, slide: 140 }); },
     place()   { tone({ freq: 240, type: 'triangle', dur: 0.1, vol: 0.5 }); tone({ freq: 480, type: 'sine', dur: 0.08, vol: 0.25, delay: 0.02 }); },
     badPlace(){ tone({ freq: 160, type: 'sawtooth', dur: 0.14, vol: 0.25, slide: -60 }); },
+    /** Коротка нота хвилі очищення: тон росте з кожним блоком */
+    clearTick(i) {
+      tone({ freq: 480 * Math.pow(1.059, Math.min(i, 16)), type: 'sine', dur: 0.09, vol: 0.14 });
+    },
     /** Очищення ліній: чим більше ліній — тим соковитіший акорд */
     clear(n = 1) {
       const base = 392;
