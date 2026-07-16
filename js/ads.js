@@ -22,6 +22,7 @@ const Ads = (() => {
     simulateAd('REWARDED AD', 1200, () => {
       Storage.s.stats.adsWatched++;
       Storage.save();
+      Analytics.log('ad_rewarded');
       onReward && onReward();
     }, onFail);
   }
@@ -81,6 +82,7 @@ const Ads = (() => {
     if (item.gems) Storage.s.gems += item.gems;
     if (item.removeAds) { Storage.s.removeAds = true; refreshBanner(); }
     Storage.save();
+    Analytics.log('iap_purchase', { id: productId });
     onSuccess && onSuccess(item);
   }
 

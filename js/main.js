@@ -25,6 +25,8 @@
     navigator.serviceWorker.register('sw.js').catch(() => { /* не критично */ });
   }
 
+  Analytics.log('session_start', { level: Storage.s.currentLevel, lang: I18N.getLang() });
+
   // 5. Красивий екран завантаження (короткий, з прогрес-баром)
   const fill = document.getElementById('loading-fill');
   let progress = 0;

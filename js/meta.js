@@ -358,6 +358,7 @@ const Meta = (() => {
     // Бонус серії: +25% монет за кожен день серії
     if (prize.coins) prize.coins = Math.round(prize.coins * (1 + (s.dailyStreak - 1) * 0.25));
     applyPrize(prize);
+    Analytics.log('daily_spin', { streak: s.dailyStreak });
     Storage.saveNow();
     return { index, prize };
   }
@@ -372,7 +373,12 @@ const Meta = (() => {
   }
 
   /* ================= ТУРНІР ТИЖНЯ (локальна таблиця) ================= */
-  /** Боти-суперники: детерміновані сідом тижня, "грають" протягом тижня */
+  /**
+   * Боти-суперники: детерміновані сідом тижня, "грають" протягом тижня.
+   * Двоє ботів — живі суперники: тримаються біля результату гравця
+   * і потроху наздоганяють його щогодини. Обганяти когось —
+   * сильніша мотивація, ніж абстрактний рекорд.
+   */
   function tournamentBoard() {
     const week = Levels.getWeekId();
     const rng = Levels.mulberry32(Levels.hashStr('tb-' + week));
@@ -384,8 +390,20 @@ const Meta = (() => {
       name: n,
       score: Math.round((2000 + rng() * 9000) * (0.25 + progress * 0.75)),
     }));
+
     const s = Storage.s;
     const mine = s.tournamentWeek === week ? s.bests.tournament : 0;
+
+    // Живі суперники: оновлюються раз на годину (детерміновано)
+    if (mine > 0) {
+      const hourTick = Math.floor(Date.now() / 3600000);
+      const rvRng = Levels.mulberry32(Levels.hashStr('rv-' + week + '-' + hourTick));
+      // "Тінь попереду": на 4–14% вище — є кого наздоганяти
+      bots[0].score = Math.round(mine * (1.04 + rvRng() * 0.10));
+      // "Дихає в спину": на 3–10% нижче, з кожною годиною ближче
+      bots[1].score = Math.round(mine * (0.90 + rvRng() * 0.07));
+    }
+
     const all = [...bots, { name: 'You', score: mine, me: true }];
     all.sort((a, b) => b.score - a.score);
     return all;

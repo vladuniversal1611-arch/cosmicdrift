@@ -3,7 +3,7 @@
    Кеш-перший підхід: гра повністю працює без інтернету.
    При оновленні гри підніміть версію CACHE.
    ============================================================ */
-const CACHE = 'block-kingdom-v2';
+const CACHE = 'block-kingdom-v3';
 const ASSETS = [
   './',
   'index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   'js/audio.js',
   'js/ads.js',
   'js/notify.js',
+  'js/analytics.js',
   'js/shapes.js',
   'js/levels.js',
   'js/particles.js',

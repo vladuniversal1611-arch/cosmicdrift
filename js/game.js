@@ -77,6 +77,8 @@ const Game = (() => {
   let dryStreak = 0;        // ходи поспіль без очищення (для "розумної" видачі)
   let slowmoT = 0;          // залишок slow-motion після мега-комбо
   let lastDt = 1 / 60;
+  let worldDeco = [];       // "оживання світу": декор навколо дошки
+  let worldHue = 220;
 
   // Розкладка канвасу (у CSS-пікселях)
   const L = { bx: 0, by: 0, cell: 0, bsize: 0, trayY: 0, trayH: 0, slotW: 0 };
@@ -108,10 +110,12 @@ const Game = (() => {
     undoStack = []; reviveUsed = false; hcCounter = 0;
     placeAnims = []; clearAnims = [];
     dryStreak = 0; slowmoT = 0;
+    buildWorldDeco();
     Particles.clear();
     refillPieces();
     Storage.s.stats.gamesPlayed++;
     Storage.save();
+    Analytics.log('game_start', { mode: modeName, level: cfg.level || 0 });
     resize();
     UI.updateHUD();
     UI.renderBoosters();
@@ -128,6 +132,67 @@ const Game = (() => {
     improveTray();
   }
   function piecesLeft() { return pieces.filter(p => p && !p.used).length; }
+
+  /* ---------- "Оживання світу" ----------
+     Декорації поточного світу проростають навколо дошки
+     в міру проходження рівнів: прогрес видно щогри. */
+  function buildWorldDeco() {
+    worldDeco = [];
+    const world = mode === 'adventure'
+      ? Levels.WORLDS[config.world]
+      : Levels.WORLDS[Levels.worldOf(Storage.s.currentLevel)];
+    worldHue = world.hue;
+    // Прогрес у поточному світі: 0..1
+    let progress;
+    if (mode === 'adventure') {
+      const from = config.world * Levels.LEVELS_PER_WORLD + 1;
+      let done = 0;
+      for (let i = from; i < from + Levels.LEVELS_PER_WORLD; i++) if (Storage.s.levels[i]) done++;
+      progress = done / Levels.LEVELS_PER_WORLD;
+    } else {
+      progress = Math.min(1, (Storage.s.currentLevel % Levels.LEVELS_PER_WORLD) / Levels.LEVELS_PER_WORLD);
+    }
+    // Слоти навколо дошки: зверху та знизу (там вільний простір)
+    const slots = [
+      { fx: 0.05, zone: 'top' }, { fx: 0.22, zone: 'top' }, { fx: 0.40, zone: 'top' },
+      { fx: 0.58, zone: 'top' }, { fx: 0.05, zone: 'bottom' }, { fx: 0.25, zone: 'bottom' },
+      { fx: 0.45, zone: 'bottom' }, { fx: 0.65, zone: 'bottom' }, { fx: 0.85, zone: 'bottom' },
+      { fx: 0.75, zone: 'top' }, { fx: 0.93, zone: 'bottom' }, { fx: 0.15, zone: 'bottom' },
+    ];
+    const drng = Levels.mulberry32((config.world + 1) * 4241);
+    const count = Math.max(1, Math.round(progress * slots.length));
+    for (let i = 0; i < count; i++) {
+      worldDeco.push({
+        fx: slots[i].fx, zone: slots[i].zone,
+        icon: world.deco[Math.floor(drng() * world.deco.length)],
+        phase: drng() * Math.PI * 2,
+        size: 15 + drng() * 8,
+      });
+    }
+  }
+
+  /** Малює декор світу і тінт навколо дошки */
+  function drawWorldDeco(ctx) {
+    // М'який кольоровий подих світу за дошкою
+    const g = ctx.createRadialGradient(cssW / 2, L.by + L.bsize / 2, L.bsize * 0.2, cssW / 2, L.by + L.bsize / 2, L.bsize * 0.85);
+    g.addColorStop(0, `hsla(${worldHue}, 70%, 55%, 0.06)`);
+    g.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, cssW, L.trayY);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < worldDeco.length; i++) {
+      const d = worldDeco[i];
+      const px = L.bx + d.fx * L.bsize;
+      const py = d.zone === 'top' ? L.by - 24 : L.by + L.bsize + 26;
+      const sway = Math.sin(wobbleT * 1.4 + d.phase) * 3;
+      ctx.font = `${d.size}px sans-serif`;
+      ctx.globalAlpha = 0.85;
+      ctx.fillText(d.icon, px, py + sway);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   /* ---------- "Розумна" видача фігур ----------
      1. Гарантія виживання: поки поле не переповнене, гравець ніколи
@@ -151,8 +216,9 @@ const Game = (() => {
       }
     }
 
-    // 2) Допомога з лінією: базовий шанс 65%, після 3 "сухих" ходів — 95%
-    const helpChance = dryStreak >= 3 ? 0.95 : 0.65;
+    // 2) Допомога з лінією: базовий шанс 65%, після 3 "сухих" ходів — 95%,
+    //    на туторіальному рівні — завжди (перший "вибух" має статися швидко)
+    const helpChance = config.tutorial ? 1 : dryStreak >= 3 ? 0.95 : 0.65;
     if (rng() < helpChance && !pieces.some(p => p && !p.used && pieceCanClear(p))) {
       const defs = Shapes.available(config.pieceLevel).slice();
       // Тасування Фішера-Єйтса тим самим rng (детермінізм у daily/tournament)
@@ -312,6 +378,7 @@ const Game = (() => {
     if (!board) return;
     const th = theme();
     const size = board.size;
+    drawWorldDeco(ctx);
     // Підкладка поля — скло
     rr(ctx, L.bx - 6, L.by - 6, L.bsize + 12, L.bsize + 12, 18);
     ctx.fillStyle = 'rgba(10, 14, 40, 0.55)';
@@ -917,6 +984,10 @@ const Game = (() => {
     if (state !== 'playing') return;
     state = won ? 'won' : 'lost';
     UI.companionReact(won ? 'win' : 'lose');
+    Analytics.log('level_result', {
+      won, reason: reason || '', mode, level: config.level || 0,
+      score, movesUsed: movesTotal === Infinity ? -1 : movesTotal - movesLeft, maxCombo: maxComboRun,
+    });
     setTimeout(() => {
       if (won) {
         AudioFX.sfx.win();
@@ -976,6 +1047,7 @@ const Game = (() => {
       inv.shuffle--;
       refillPieces();
       Meta.track('boostersUsed', 1);
+      Analytics.log('booster_used', { kind: 'shuffle' });
       AudioFX.sfx.unlock();
       Storage.save();
       UI.renderBoosters();
@@ -984,6 +1056,7 @@ const Game = (() => {
     if (kind === 'undo') {
       if (undoStack.length === 0) { AudioFX.sfx.error(); return; }
       inv.undo--;
+      Analytics.log('booster_used', { kind: 'undo' });
       const snap = undoStack.pop();
       board.restore(snap.board);
       pieces = snap.pieces.map(x => x ? { ...x } : null);
@@ -1002,6 +1075,7 @@ const Game = (() => {
       if (!config.timeLimit) { AudioFX.sfx.error(); return; }
       inv.freeze--;
       freezeTime = 15;
+      Analytics.log('booster_used', { kind: 'freeze' });
       Meta.track('boostersUsed', 1);
       AudioFX.sfx.ice();
       Storage.save();
@@ -1078,6 +1152,7 @@ const Game = (() => {
   }
 
   function finishBoosterUse() {
+    Analytics.log('booster_used', { kind: armedBooster });
     armedBooster = null;
     magnetPick = null;
     Meta.track('boostersUsed', 1);
