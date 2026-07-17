@@ -757,7 +757,7 @@ const UI = {
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
         ${c.price ? `<button class="buy-btn chest-buy" data-buychest="${id}" ${d.coins >= c.price ? '' : 'disabled'}>${Utils.fmt(c.price)} ${Utils.ic('coin')}</button>` : ''}
-        ${c.ads ? `<button class="buy-btn btn-ad chest-ad" data-adchest="${id}">📺 ${I18N.t('ad_chest', { x: Daily.adChestProgress(id), n: c.ads })}</button>` : ''}
+        ${c.ads ? `<button class="buy-btn btn-ad chest-ad" data-adchest="${id}" ${Daily.adChestLeft() > 0 ? '' : 'disabled'}>📺 ${Daily.adChestLeft() > 0 ? I18N.t('ad_chest', { x: Daily.adChestProgress(id), n: c.ads }) : I18N.t('ad_chest_done')}</button>` : ''}
       </div>`).join('');
   },
 
@@ -1094,9 +1094,11 @@ const UI = {
       }
       if (t.dataset.adchest) {
         const id = t.dataset.adchest;
+        if (Daily.adChestLeft() <= 0) { this.toast(I18N.t('ad_chest_limit')); return; }
         Ads.showRewarded(() => {
           const r = Daily.addAdChest(id);
           if (r.granted) { Audio2.play('chest'); this.toast(I18N.t('chest_earned', { name: I18N.chest(id) })); }
+          else if (r.blocked) this.toast(I18N.t('ad_chest_limit'));
           else this.toast(I18N.t('ad_chest_progress', { x: r.progress, n: r.need }));
           this.renderChests();
         });
