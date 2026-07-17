@@ -70,6 +70,13 @@ const UI = {
     document.querySelectorAll('.coinsVal').forEach(el => el.textContent = Utils.fmt(d.coins));
   },
 
+  /** Малює векторні іконки валют у всі статичні [data-ico] контейнери. */
+  paintIcons() {
+    document.querySelectorAll('[data-ico]').forEach(el => {
+      if (!el.firstChild) el.innerHTML = Utils.ICON[el.dataset.ico] || '';
+    });
+  },
+
   setBadge(id, n, symbol) {
     const el = this.$(id);
     if (!el) return;
@@ -151,7 +158,7 @@ const UI = {
       <div style="font-size:54px;filter:drop-shadow(0 4px 8px rgba(0,0,10,0.6))">${Assets.boosterHtml(id, 'modal-icon')}</div>
       <h2>${I18N.booster(id).name}</h2>
       <p style="opacity:0.88;font-size:14.5px;line-height:1.45;margin:8px 0">${I18N.booster(id).desc}</p>
-      <div class="reward-item" style="display:inline-block;margin-bottom:6px">${I18N.t('you_have', { n: Storage.data.boosters[id] || 0 })} · ${b.cost} 🪙 ${I18N.t('in_shop')}</div>
+      <div class="reward-item" style="display:inline-block;margin-bottom:6px">${I18N.t('you_have', { n: Storage.data.boosters[id] || 0 })} · ${b.cost} ${Utils.ic('coin')} ${I18N.t('in_shop')}</div>
       <button class="btn-3d btn-green" data-close>${I18N.t('got_it')}</button>
     `);
   },
@@ -324,14 +331,14 @@ const UI = {
     const d = Storage.data;
     if (tab === 'coins' || tab === 'gems') {
       const items = CFG.SHOP[tab];
-      const ico = tab === 'coins' ? '🪙' : '💎';
+      const ico = Utils.ic(tab === 'coins' ? 'coin' : 'gem', 'big-ico');
       // Безкоштовна нагорода за rewarded-рекламу (ліміт на день)
       const ar = CFG.AD_REWARDS[tab];
       const left = Daily.adLeft(tab);
       const adCard = `
         <div class="shop-row glass ad-card">
           <div class="big">📺</div>
-          <div class="info"><b>+${ar.amount} ${tab === 'coins' ? '🪙' : '💜'} — ${I18N.t('free_label')}</b>
+          <div class="info"><b>+${ar.amount} ${Utils.ic(tab === 'coins' ? 'coin' : 'gem')} — ${I18N.t('free_label')}</b>
           <small>${I18N.t('left_today', { n: left })}</small></div>
           <button class="buy-btn btn-ad" data-adreward="${tab}" ${left ? '' : 'disabled'}>${I18N.t('watch_ad')}</button>
         </div>`;
@@ -347,7 +354,7 @@ const UI = {
         <div class="shop-row glass">
           <div class="big">${Assets.boosterHtml(id, 'row-icon')}</div>
           <div class="info"><b>${I18N.booster(id).name}</b> <small>${I18N.booster(id).desc}</small><small>${I18N.t('you_have', { n: d.boosters[id] || 0 })}</small></div>
-          <button class="buy-btn" data-buy-booster="${id}">${b.cost} 🪙</button>
+          <button class="buy-btn" data-buy-booster="${id}">${b.cost} ${Utils.ic('coin')}</button>
         </div>`).join('');
     } else if (tab === 'themes') {
       box.innerHTML = CFG.THEMES.map(t => {
@@ -357,7 +364,7 @@ const UI = {
           <div class="big" style="background:linear-gradient(${t.bg[0]},${t.bg[1]});border-radius:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center">🎨</div>
           <div class="info"><b>${I18N.theme(t.id)}</b><small>${I18N.t('theme_desc')}</small></div>
           <button class="buy-btn" data-theme="${t.id}" ${active ? 'disabled' : ''}>
-            ${active ? I18N.t('active') : owned ? I18N.t('choose') : t.cost + ' 💜'}</button>
+            ${active ? I18N.t('active') : owned ? I18N.t('choose') : t.cost + ' ' + Utils.ic('gem')}</button>
         </div>`;
       }).join('');
     } else if (tab === 'premium') {
@@ -379,7 +386,7 @@ const UI = {
     const idx = Daily.streakIndex();
     const claimedToday = !Daily.canClaim();
     this.$('calendar').innerHTML = CFG.DAILY_CALENDAR.map((r, i) => {
-      const ico = r.coins ? '🪙' : r.gems ? '💜' : r.booster ? CFG.BOOSTERS[r.booster].g : '🧰';
+      const ico = r.coins ? Utils.ic('coin') : r.gems ? Utils.ic('gem') : r.booster ? CFG.BOOSTERS[r.booster].g : '🧰';
       const val = r.coins || r.gems || '';
       const cls = i < idx || (i === idx && claimedToday) ? 'claimed' : i === idx ? 'today' : '';
       return `<div class="cal-day ${cls}">${I18N.t('day', { n: i + 1 })}<span class="ico">${ico}</span>${val}</div>`;
@@ -396,7 +403,7 @@ const UI = {
           <small>${m.progress}/${m.goal}</small>
         </div>
         <button class="buy-btn" data-mission="${i}" ${m.claimed || m.progress < m.goal ? 'disabled' : ''}>
-          ${m.claimed ? '✓' : m.reward + ' 🪙'}</button>
+          ${m.claimed ? '✓' : m.reward + ' ' + Utils.ic('coin')}</button>
       </div>`).join('');
   },
 
@@ -406,13 +413,17 @@ const UI = {
     this.modal(`
       <button class="modal-close" data-close>✕</button>
       <h2>${I18N.t('wheel_title')}</h2>
-      <canvas id="wheelCanvas" width="260" height="260"></canvas>
+      <div class="wheel-stage">
+        <div class="wheel-pointer"></div>
+        <canvas id="wheelCanvas" width="300" height="300"></canvas>
+      </div>
       <button class="btn-3d ${free ? 'btn-green' : 'btn-blue'}" id="btnSpin">
         ${free ? I18N.t('free_spin') : I18N.t('spin_ad')}</button>
       ${free ? '' : `<button class="btn-3d btn-purple" style="font-size:15px" id="btnSpinCoins" ${Storage.data.coins >= 250 ? '' : 'disabled'}>${I18N.t('spin_coins', { n: 250 })}</button>
       <p style="opacity:0.6;font-size:12px">${I18N.t('free_daily')}</p>`}
     `);
-    this._drawWheel(0);
+    this._wheelAngle = -Math.PI / 2;   // старт: перший сектор під стрілкою
+    this._drawWheel(this._wheelAngle);
     this.$('btnSpin').onclick = () => {
       if (free) this._spinWheel(false);
       else Ads.showRewarded(() => this._spinWheel(true));   // нагорода лише після перегляду
@@ -426,55 +437,179 @@ const UI = {
     };
   },
 
+  /** Дані сектора у зручному вигляді для рендеру. */
+  _wheelSector(s) {
+    if (s.coins) return { img: Utils.img.coin, amount: '' + s.coins };
+    if (s.gems) return { img: Utils.img.gem, amount: '' + s.gems };
+    return { emoji: CFG.BOOSTERS[s.booster].g, amount: '' };
+  },
+
   _drawWheel(angle) {
     const c = this.$('wheelCanvas');
     if (!c) return;
     const g = c.getContext('2d');
-    const cx = 130, cy = 130, r = 118;
-    g.clearRect(0, 0, 260, 260);
+    const cx = 150, cy = 150, R = 130;
+    g.clearRect(0, 0, 300, 300);
     const n = CFG.WHEEL.length;
+
+    // Зовнішнє світіння
+    g.save();
+    g.shadowColor = 'rgba(180,110,255,0.55)'; g.shadowBlur = 26;
+    g.beginPath(); g.arc(cx, cy, R + 8, 0, Math.PI * 2);
+    g.fillStyle = '#2a0f52'; g.fill();
+    g.restore();
+
+    // Сектори
+    const cols = [['#8b3fe8', '#5f21b6'], ['#c05bff', '#7a2fd6']];
     for (let i = 0; i < n; i++) {
-      const a0 = angle + (i / n) * Math.PI * 2, a1 = angle + ((i + 1) / n) * Math.PI * 2;
-      g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, a0, a1); g.closePath();
-      g.fillStyle = i % 2 ? '#5b21b6' : '#7c3aed';
-      g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.3)'; g.stroke();
+      const a0 = angle + (i / n) * Math.PI * 2, a1 = angle + ((i + 1) / n) * Math.PI * 2, mid = (a0 + a1) / 2;
+      const grad = g.createRadialGradient(cx, cy, 20, cx, cy, R);
+      const cc = cols[i % 2];
+      grad.addColorStop(0, cc[0]); grad.addColorStop(1, cc[1]);
+      g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, a0, a1); g.closePath();
+      g.fillStyle = grad; g.fill();
+      // Золотий роздільник
+      g.strokeStyle = '#ffd873'; g.lineWidth = 2; g.stroke();
+
+      // Вміст сектора
+      const sec = this._wheelSector(CFG.WHEEL[i]);
       g.save();
-      g.translate(cx, cy); g.rotate((a0 + a1) / 2);
-      g.fillStyle = '#fff'; g.font = 'bold 11px sans-serif'; g.textAlign = 'right';
-      g.fillText(CFG.WHEEL[i].label, r - 8, 4);
+      g.translate(cx, cy); g.rotate(mid);
+      const dist = R * 0.66;
+      if (sec.img && sec.img.complete) {
+        const s = 40;
+        g.save(); g.translate(dist, 0); g.rotate(Math.PI / 2);
+        g.drawImage(sec.img, -s / 2, -s / 2, s, s); g.restore();
+      } else if (sec.emoji) {
+        g.save(); g.translate(dist, 0); g.rotate(Math.PI / 2);
+        g.font = '30px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(sec.emoji, 0, 0); g.restore();
+      }
+      if (sec.amount) {
+        g.save(); g.translate(R * 0.92, 0); g.rotate(Math.PI / 2);
+        g.font = '900 17px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.lineWidth = 3; g.strokeStyle = 'rgba(30,0,50,0.8)'; g.strokeText(sec.amount, 0, 0);
+        g.fillStyle = '#fff'; g.fillText(sec.amount, 0, 0); g.restore();
+      }
       g.restore();
     }
-    // Обід і стрілка
-    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2);
-    g.lineWidth = 6; g.strokeStyle = '#f5b800'; g.stroke(); g.lineWidth = 1;
-    g.fillStyle = '#f5b800';
-    g.beginPath(); g.moveTo(cx - 12, 4); g.lineTo(cx + 12, 4); g.lineTo(cx, 30); g.closePath(); g.fill();
+
+    // Золотий обід із «лампочками»
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2);
+    g.lineWidth = 8; g.strokeStyle = '#f5b800'; g.stroke();
+    g.lineWidth = 2; g.strokeStyle = '#7a4a00'; g.stroke();
+    for (let i = 0; i < n * 2; i++) {
+      const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+      const lx = cx + Math.cos(a) * R, ly = cy + Math.sin(a) * R;
+      g.beginPath(); g.arc(lx, ly, 3.4, 0, Math.PI * 2);
+      g.fillStyle = i % 2 ? '#fff7d0' : '#ffcf3f';
+      g.shadowColor = '#ffdd66'; g.shadowBlur = 6; g.fill(); g.shadowBlur = 0;
+    }
+
+    // Центральна маточина
+    const hub = g.createRadialGradient(cx - 6, cy - 8, 4, cx, cy, 26);
+    hub.addColorStop(0, '#fff4c0'); hub.addColorStop(0.5, '#ffce46'); hub.addColorStop(1, '#c67a0a');
+    g.beginPath(); g.arc(cx, cy, 24, 0, Math.PI * 2); g.fillStyle = hub; g.fill();
+    g.lineWidth = 3; g.strokeStyle = '#8f5200'; g.stroke();
+    g.font = '22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('🎡', cx, cy + 1);
   },
 
   _spinWheel(viaAd) {
     const idx = Daily.spin(viaAd);
     if (idx < 0) { this.renderMain(); return; }
     const btn = this.$('btnSpin');
-    btn.disabled = true;
+    const coinBtn = this.$('btnSpinCoins');
+    btn.disabled = true; if (coinBtn) coinBtn.disabled = true;
+    const stage = document.querySelector('.wheel-stage');
     const n = CFG.WHEEL.length;
-    // Кут: сектор idx має опинитися під стрілкою (зверху, -90°)
-    const target = -Math.PI / 2 - (idx + 0.5) / n * Math.PI * 2 - Math.PI * 2 * 5;
-    const dur = 3200;
+    const start = this._wheelAngle;
+    // Сектор idx має зупинитися під стрілкою (зверху, -90°)
+    const target = -Math.PI / 2 - (idx + 0.5) / n * Math.PI * 2 - Math.PI * 2 * 6;
+    const dur = 3800;
     const t0 = performance.now();
+    let lastTick = 0;
     const tick = (now) => {
       const p = Math.min(1, (now - t0) / dur);
-      this._drawWheel(target * Utils.easeOutCubic(p));
-      if (p < 0.9 && Math.random() < 0.3) Audio2.play('wheel');
+      const ang = start + (target - start) * Utils.easeOutCubic(p);
+      this._wheelAngle = ang;
+      this._drawWheel(ang);
+      // Клацання на кожному новому секторі
+      const cur = Math.floor(ang / (Math.PI * 2) * n);
+      if (cur !== lastTick) { lastTick = cur; if (p < 0.97) Audio2.play('wheel'); }
       if (p < 1) requestAnimationFrame(tick);
       else {
-        Daily.giveReward(CFG.WHEEL[idx]);
-        Audio2.play('chest');
-        Achievements.check();
-        setTimeout(() => { this.closeModal(); this.renderMain(); }, 800);
+        Utils.vibrate(30);
+        if (stage) { stage.classList.add('wheel-pulse'); setTimeout(() => stage.classList.remove('wheel-pulse'), 500); }
+        const s = CFG.WHEEL[idx];
+        const sec = this._wheelSector(s);
+        const icon = sec.img ? Utils.ic(s.coins ? 'coin' : 'gem', 'reveal-big') : `<span class="reveal-emoji">${sec.emoji}</span>`;
+        const label = s.coins ? '+' + s.coins : s.gems ? '+' + s.gems : I18N.booster(s.booster).name;
+        setTimeout(() => {
+          Daily.giveReward(s);
+          Achievements.check();
+          this.revealReward({
+            icon, title: I18N.t('you_won'),
+            items: [{ ico: sec.img ? Utils.moneyIco(s.coins ? '🪙' : '💜') : sec.emoji, text: label }],
+            anticipation: false,
+            onClose: () => this.renderMain()
+          });
+        }, 450);
       }
     };
     requestAnimationFrame(tick);
+  },
+
+  /* ============================================================
+   * Brawl-Stars-стиль: відкриття з передчуттям, спалахом і
+   * послідовною появою нагород. Використовується скринями/колесом.
+   * ============================================================ */
+  revealReward({ icon, title, items, onClose, anticipation = true }) {
+    this.modal(`
+      <div class="reveal ${anticipation ? 'anticipate' : ''}">
+        <div class="reveal-rays"></div>
+        <div class="reveal-flash"></div>
+        <div class="reveal-icon">${icon}</div>
+        <h2 class="reveal-title">${title}</h2>
+        <div class="reveal-items reward-row"></div>
+        <button class="btn-3d btn-green reveal-cta" data-close>${I18N.t('great')}</button>
+      </div>
+    `, true);
+    const box = this.$('modalBox');
+    const reveal = box.querySelector('.reveal');
+    const iconEl = box.querySelector('.reveal-icon');
+    const itemsEl = box.querySelector('.reveal-items');
+
+    const burstDelay = anticipation ? 850 : 250;
+    if (anticipation) { Audio2.play('wheel'); Utils.vibrate(20); }
+
+    // Спалах + промені
+    setTimeout(() => {
+      reveal.classList.add('burst');
+      Audio2.play('chest');
+      Utils.vibrate(40);
+      Fx.confetti(70);
+    }, burstDelay);
+
+    // Поява нагород по черзі
+    setTimeout(() => {
+      iconEl.classList.add('done');
+      box.querySelector('.reveal-title').classList.add('show');
+      items.forEach((r, i) => {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'reward-item pop';
+          el.innerHTML = `<span class="ico">${r.ico}</span>${r.text}`;
+          itemsEl.appendChild(el);
+          Audio2.play(i === 0 ? 'gem' : 'coin');
+          Utils.vibrate(15);
+        }, i * 260);
+      });
+      setTimeout(() => box.querySelector('.reveal-cta').classList.add('show'), items.length * 260 + 200);
+    }, burstDelay + 260);
+
+    this._modalNoClose = false;
+    box.querySelector('.reveal-cta').addEventListener('click', () => { this.closeModal(); onClose && onClose(); }, { once: true });
   },
 
   /* ---------------- Досягнення ---------------- */
@@ -496,7 +631,7 @@ const UI = {
           <div class="bar"><i style="width:${(v / a.goal * 100).toFixed(0)}%"></i></div>
         </div>
         <button class="buy-btn" data-ach="${a.id}" ${!done || claimed ? 'disabled' : ''}>
-          ${claimed ? '✓' : a.reward + ' 🪙'}</button>
+          ${claimed ? '✓' : a.reward + ' ' + Utils.ic('coin')}</button>
       </div>`;
     }).join('');
   },
@@ -511,7 +646,7 @@ const UI = {
     const milestones = CFG.COLLECTION_MILESTONES.map(m => {
       const done = coll.length >= m.n;
       const claimed = d.collectionClaimed.includes(m.n);
-      const ico = m.coins ? '🪙' : m.gems ? '💜' : CFG.CHESTS[m.chest].g;
+      const ico = m.coins ? Utils.ic('coin') : m.gems ? Utils.ic('gem') : CFG.CHESTS[m.chest].g;
       const val = m.coins || m.gems || I18N.chest(m.chest);
       return `<div class="mission glass">
         <div class="info">
@@ -597,7 +732,7 @@ const UI = {
         <h4>${I18N.chest(id)}</h4>
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
-        ${c.price ? `<button class="buy-btn chest-buy" data-buychest="${id}" ${d.coins >= c.price ? '' : 'disabled'}>${Utils.fmt(c.price)} 🪙</button>` : ''}
+        ${c.price ? `<button class="buy-btn chest-buy" data-buychest="${id}" ${d.coins >= c.price ? '' : 'disabled'}>${Utils.fmt(c.price)} ${Utils.ic('coin')}</button>` : ''}
       </div>`).join('');
   },
 
@@ -610,8 +745,8 @@ const UI = {
       <div style="filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${Assets.chestHtml(id, 'modal-icon') || c.g}</div>
       <h2>${I18N.t('chest_of', { name: I18N.chest(id) })}</h2>
       <h3 class="section-title" style="margin:8px 0 6px">${I18N.t('contents')}</h3>
-      ${row('🪙', I18N.t('ch_coins', { a: c.coins[0], b: c.coins[1] }))}
-      ${c.gems[1] > 0 ? row('💜', I18N.t('ch_gems', { a: c.gems[0], b: c.gems[1] })) : ''}
+      ${row(Utils.ic('coin'), I18N.t('ch_coins', { a: c.coins[0], b: c.coins[1] }))}
+      ${c.gems[1] > 0 ? row(Utils.ic('gem'), I18N.t('ch_gems', { a: c.gems[0], b: c.gems[1] })) : ''}
       ${row('⚡', I18N.t('ch_boost_n', { n: c.boosters }))}
       ${c.themeChance > 0 ? row('🎨', I18N.t('ch_theme_chance', { p: Math.round(c.themeChance * 100) })) : ''}
       <p style="opacity:0.7;font-size:12.5px;margin:10px 0 4px">${I18N.t('ch_source', { n: c.every })}</p>
@@ -622,12 +757,13 @@ const UI = {
   openChest(kind) {
     const rewards = Chests.open(kind);
     if (!rewards) return;
-    this.modal(`
-      <div style="filter:drop-shadow(0 4px 10px rgba(0,0,10,0.6))">${Assets.chestHtml(kind, 'modal-icon')}</div>
-      <h2>${I18N.t('chest_of', { name: I18N.chest(kind) })}</h2>
-      <div class="reward-row">${rewards.map(r => `<div class="reward-item"><span class="ico">${r.g}</span>${r.text}</div>`).join('')}</div>
-      <button class="btn-3d btn-green" data-close>${I18N.t('great')}</button>
-    `);
+    this.revealReward({
+      icon: `<span class="reveal-chest">${Assets.chestHtml(kind, 'modal-icon')}</span>`,
+      title: I18N.t('chest_of', { name: I18N.chest(kind) }),
+      items: rewards.map(r => ({ ico: Utils.moneyIco(r.g), text: r.text })),
+      anticipation: true,
+      onClose: () => {}
+    });
     this.renderChests();
   },
 
@@ -695,8 +831,8 @@ const UI = {
       <div style="font-size:24px;font-weight:900;color:var(--gold);margin:8px 0;text-shadow:0 2px 6px rgba(0,0,10,0.7)">
         ${I18N.t('score')}: <span id="winScore">0</span></div>
       <div class="reward-row">
-        <div class="reward-item"><span class="ico">🪙</span>+${coins}</div>
-        ${gems ? `<div class="reward-item"><span class="ico">💜</span>+${gems}</div>` : ''}
+        <div class="reward-item"><span class="ico">${Utils.ic('coin')}</span>+${coins}</div>
+        ${gems ? `<div class="reward-item"><span class="ico">${Utils.ic('gem')}</span>+${gems}</div>` : ''}
         <div class="reward-item"><span class="ico">⚡</span>+${xp} XP</div>
       </div>
       <button class="btn-3d btn-green btn-big" style="font-size:20px;padding:15px 42px" id="btnNextLevel">${I18N.t('next')}</button>
@@ -724,14 +860,14 @@ const UI = {
     // Свято: конфеті + феєрверки + дощ з монет (і кристали за 3 зірки)
     Fx.confetti(130);
     Fx.fireworksShow(stars + 2);
-    setTimeout(() => Fx.coinRain(18, '🪙'), 500);
-    if (gems) setTimeout(() => Fx.coinRain(6, '💜'), 900);
+    setTimeout(() => Fx.coinRain(18, Utils.img.coin), 500);
+    if (gems) setTimeout(() => Fx.coinRain(6, Utils.img.gem), 900);
 
     // Нагороди летять дугою у лічильники валют HUD
     setTimeout(() => {
-      Fx.flyTo(innerWidth / 2, innerHeight / 2 - 30, this.$('hudCoins'), '🪙', 8,
+      Fx.flyTo(innerWidth / 2, innerHeight / 2 - 30, this.$('hudCoins'), Utils.img.coin, 8,
         () => { Audio2.play('coin'); this._bump('hudCoins'); });
-      if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), '💜', 4,
+      if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), Utils.img.gem, 4,
         () => { Audio2.play('gem'); this._bump('hudGems'); }), 400);
     }, 900);
   },
@@ -742,7 +878,7 @@ const UI = {
       <div style="font-size:56px;filter:drop-shadow(0 0 18px var(--accent))">🧘</div>
       <h2>${I18N.t('win_title')}</h2>
       <div style="font-size:22px;font-weight:900;color:var(--gold);margin:8px 0">${I18N.t('score')}: ${Utils.fmt(score)}</div>
-      <div class="reward-row"><div class="reward-item"><span class="ico">🪙</span>+${coins}</div></div>
+      <div class="reward-row"><div class="reward-item"><span class="ico">${Utils.ic('coin')}</span>+${coins}</div></div>
       <button class="btn-3d btn-green" id="btnZenAgain">${I18N.t('play_again')}</button>
       <button class="btn-3d btn-blue" style="font-size:14px;padding:10px 22px" id="btnZenMenu">${I18N.t('to_menu')}</button>
     `, true);
@@ -858,6 +994,8 @@ const UI = {
 
   /* ---------------- Прив'язка подій ---------------- */
   bind() {
+    Utils.buildIcons();
+    this.paintIcons();
     // Навігація
     document.querySelectorAll('[data-nav]').forEach(b =>
       b.addEventListener('click', () => { Audio2.init(); Audio2.play('tap'); this.showScreen(b.dataset.nav); }));

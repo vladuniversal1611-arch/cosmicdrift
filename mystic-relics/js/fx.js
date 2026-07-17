@@ -159,9 +159,14 @@ const Fx = {
           p.x = uu * uu * p.sx + 2 * uu * e * p.cx + e * e * p.tx;
           p.y = uu * uu * p.sy + 2 * uu * e * p.cy + e * e * p.ty;
           g.globalAlpha = 1;
-          g.font = `${p.size * (1 - e * 0.3)}px sans-serif`;
-          g.textAlign = 'center'; g.textBaseline = 'middle';
-          g.fillText(p.glyph, p.x, p.y);
+          const sz = p.size * (1 - e * 0.3);
+          if (p.glyph instanceof HTMLImageElement) {
+            g.drawImage(p.glyph, p.x - sz / 2, p.y - sz / 2, sz, sz);
+          } else {
+            g.font = `${sz}px sans-serif`;
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillText(p.glyph, p.x, p.y);
+          }
         }
       } else { // glyph — монети/кристали
         p.vy += 60 * dt;
@@ -170,9 +175,13 @@ const Fx = {
         g.save();
         g.translate(p.x, p.y); g.rotate(p.rot);
         g.globalAlpha = fade;
-        g.font = `${p.size}px sans-serif`;
-        g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText(p.glyph, 0, 0);
+        if (p.glyph instanceof HTMLImageElement) {
+          g.drawImage(p.glyph, -p.size / 2, -p.size / 2, p.size, p.size);
+        } else {
+          g.font = `${p.size}px sans-serif`;
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(p.glyph, 0, 0);
+        }
         g.restore();
       }
     }

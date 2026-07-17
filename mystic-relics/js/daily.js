@@ -39,7 +39,7 @@ const Daily = {
 
   giveReward(r) {
     if (r.coins) { Storage.addCoins(r.coins); UI.toast(`+${r.coins} 🪙`); }
-    if (r.gems) { Storage.addGems(r.gems); UI.toast(`+${r.gems} 💜`); Audio2.play('gem'); }
+    if (r.gems) { Storage.addGems(r.gems); UI.toast(`+${r.gems} 💎`); Audio2.play('gem'); }
     if (r.booster) {
       Storage.data.boosters[r.booster]++;
       UI.toast(CFG.BOOSTERS[r.booster].g + ' ' + I18N.t('plus_one', { name: I18N.booster(r.booster).name }));
@@ -157,7 +157,7 @@ const Chests = {
     Storage.addCoins(coins);
 
     const gems = Utils.ri(Math.random, c.gems[0], c.gems[1]);
-    if (gems > 0) { rewards.push({ g: '💜', text: I18N.t('gems_plus', { n: gems }) }); Storage.addGems(gems); }
+    if (gems > 0) { rewards.push({ g: '💎', text: I18N.t('gems_plus', { n: gems }) }); Storage.addGems(gems); }
 
     const boosterIds = CFG.GAME_BOOSTERS;
     for (let i = 0; i < c.boosters; i++) {

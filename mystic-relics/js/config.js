@@ -127,7 +127,7 @@ const CFG = {
   WHEEL: [
     { coins: 50,  label: '50 🪙' },  { booster: 'hint',    label: '💡' },
     { coins: 100, label: '100 🪙' }, { booster: 'shuffle', label: '🔀' },
-    { gems: 3,    label: '3 💜' },   { booster: 'hammer',  label: '🔨' },
+    { gems: 3,    label: '3 💎' },   { booster: 'hammer',  label: '🔨' },
     { coins: 200, label: '200 🪙' }, { booster: 'freeze',  label: '🧊' },
     { coins: 500, label: '500 🪙' }, { booster: 'wand',    label: '🪄' }
   ],
@@ -150,7 +150,7 @@ const CFG = {
 
   /* ---- Нагороди за rewarded-рекламу в магазині (ліміт на день) ---- */
   AD_REWARDS: {
-    coins: { amount: 100, perDay: 5 },
+    coins: { amount: 100, perDay: 10 },
     gems:  { amount: 2,   perDay: 3 }
   },
 
