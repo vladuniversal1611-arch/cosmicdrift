@@ -87,26 +87,31 @@ mystic-relics/
 
 ### 2. Ініціалізація Capacitor
 
+`package.json` та `capacitor.config.json` уже готові в репозиторії (appId `com.yourstudio.mysticrelics`, `webDir: "."`, portrait-friendly сплеш і темний status bar). Достатньо встановити залежності й додати платформу:
+
 ```bash
 cd mystic-relics
-npm init -y
-npm install @capacitor/core @capacitor/cli @capacitor/android
-
-# webDir вказуємо на корінь проєкту (index.html лежить тут)
-npx cap init "Mystic Relics" "com.yourstudio.mysticrelics" --web-dir .
-
-npx cap add android
-npx cap sync
+npm install
+npm run cap:add      # npx cap add android
+npm run cap:sync     # npx cap sync
 ```
 
-> Якщо хочете чистішу структуру — перенесіть `index.html`, `css/`, `js/` у папку `www/` і вкажіть `--web-dir www`.
+> `webDir` вказує на корінь проєкту (тут лежить `index.html`). Хочете чистішу структуру — перенесіть `index.html`, `css/`, `js/`, `assets/` у `www/` і змініть `webDir` у `capacitor.config.json`.
 
 ### 3. Іконка та сплеш-скрін
 
+Джерела вже підготовані: `assets/icon.png` (1024×1024) та `assets/splash.png` (2732×2732, безшовний темний фон). Генерація всіх щільностей:
+
 ```bash
-npm install @capacitor/assets --save-dev
-# покладіть assets/icon.png (1024×1024) та assets/splash.png (2732×2732)
-npx capacitor-assets generate --android
+npm run assets       # npx capacitor-assets generate --android ...
+```
+
+### 3.1. Блокування орієнтації (портрет)
+
+Гра — вертикальна. У `android/app/src/main/AndroidManifest.xml` додайте до `<activity>` головного екрана:
+
+```xml
+android:screenOrientation="portrait"
 ```
 
 ### 4. Підпис релізу
@@ -121,10 +126,10 @@ keytool -genkey -v -keystore mystic-relics.keystore \
 ### 5. Збірка .aab
 
 ```bash
-npx cap open android          # відкриє Android Studio
+npm run cap:open              # npx cap open android — відкриє Android Studio
 # Build → Generate Signed Bundle / APK → Android App Bundle → release
 # АБО з консолі:
-cd android && ./gradlew bundleRelease
+npm run build:aab             # cd android && ./gradlew bundleRelease
 # → android/app/build/outputs/bundle/release/app-release.aab
 ```
 
