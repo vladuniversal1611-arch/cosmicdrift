@@ -101,10 +101,10 @@ const CFG = {
   /* ---- Скрині (дерев'яна — кожні 3 рівні, срібна — 10,
    * золота — 25, легендарна — 100; лише перше проходження) ---- */
   CHESTS: {
-    wood:      { g: '🪵', name: 'Дерев’яна', coins: [40, 90],   gems: [0, 1],  boosters: 1, themeChance: 0,    every: 3 },
-    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 1, themeChance: 0.05, every: 10 },
-    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 2, themeChance: 0.15, every: 25 },
-    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 3, themeChance: 0.5,  every: 100 }
+    wood:      { g: '🪵', name: 'Дерев’яна', coins: [40, 90],   gems: [0, 1],  boosters: 1, themeChance: 0,    every: 3,  price: 350 },
+    silver:    { g: '🥈', name: 'Срібна',         coins: [120, 240], gems: [1, 3],  boosters: 1, themeChance: 0.05, every: 10, price: 1000 },
+    gold:      { g: '🥇', name: 'Золота',         coins: [300, 600], gems: [4, 8],  boosters: 2, themeChance: 0.15, every: 25, price: 2500 },
+    legendary: { g: '🏆', name: 'Легендарна',     coins: [800, 1500],gems: [10, 20],boosters: 3, themeChance: 0.5,  every: 100, price: 0 }
   },
 
   /* ---- Нагорода за нову плитку колекції (умова: 3 зібрані трійки типу) ---- */
@@ -147,6 +147,12 @@ const CFG = {
     { id: 'spins',    n: [1, 2],          reward: 100 },
     { id: 'coll',     n: [1, 2],          reward: 150 }
   ],
+
+  /* ---- Нагороди за rewarded-рекламу в магазині (ліміт на день) ---- */
+  AD_REWARDS: {
+    coins: { amount: 100, perDay: 5 },
+    gems:  { amount: 2,   perDay: 3 }
+  },
 
   /* ---- Магазин ---- */
   SHOP: {

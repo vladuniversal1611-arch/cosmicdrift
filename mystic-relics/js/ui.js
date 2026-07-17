@@ -325,7 +325,17 @@ const UI = {
     if (tab === 'coins' || tab === 'gems') {
       const items = CFG.SHOP[tab];
       const ico = tab === 'coins' ? '🪙' : '💎';
-      box.innerHTML = `<div class="shop-grid">` + items.map(it => `
+      // Безкоштовна нагорода за rewarded-рекламу (ліміт на день)
+      const ar = CFG.AD_REWARDS[tab];
+      const left = Daily.adLeft(tab);
+      const adCard = `
+        <div class="shop-row glass ad-card">
+          <div class="big">📺</div>
+          <div class="info"><b>+${ar.amount} ${tab === 'coins' ? '🪙' : '💜'} — ${I18N.t('free_label')}</b>
+          <small>${I18N.t('left_today', { n: left })}</small></div>
+          <button class="buy-btn btn-ad" data-adreward="${tab}" ${left ? '' : 'disabled'}>${I18N.t('watch_ad')}</button>
+        </div>`;
+      box.innerHTML = adCard + `<div class="shop-grid">` + items.map(it => `
         <div class="shop-card glass" data-iap="${it.id}" data-kind="${tab}" data-amount="${it.amount}">
           <div class="big">${ico}</div>
           <div class="amount">${Utils.fmt(it.amount)}</div>
@@ -399,12 +409,20 @@ const UI = {
       <canvas id="wheelCanvas" width="260" height="260"></canvas>
       <button class="btn-3d ${free ? 'btn-green' : 'btn-blue'}" id="btnSpin">
         ${free ? I18N.t('free_spin') : I18N.t('spin_ad')}</button>
-      ${free ? '' : `<p style="opacity:0.6;font-size:12px">${I18N.t('free_daily')}</p>`}
+      ${free ? '' : `<button class="btn-3d btn-purple" style="font-size:15px" id="btnSpinCoins" ${Storage.data.coins >= 250 ? '' : 'disabled'}>${I18N.t('spin_coins', { n: 250 })}</button>
+      <p style="opacity:0.6;font-size:12px">${I18N.t('free_daily')}</p>`}
     `);
     this._drawWheel(0);
     this.$('btnSpin').onclick = () => {
       if (free) this._spinWheel(false);
       else Ads.showRewarded(() => this._spinWheel(true));   // нагорода лише після перегляду
+    };
+    const coinBtn = this.$('btnSpinCoins');
+    if (coinBtn) coinBtn.onclick = () => {
+      if (Storage.data.coins < 250) { this.toast(I18N.t('not_enough_coins')); return; }
+      Storage.addCoins(-250);
+      coinBtn.disabled = true;
+      this._spinWheel(true);
     };
   },
 
@@ -579,6 +597,7 @@ const UI = {
         <h4>${I18N.chest(id)}</h4>
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
+        ${c.price ? `<button class="buy-btn chest-buy" data-buychest="${id}" ${d.coins >= c.price ? '' : 'disabled'}>${Utils.fmt(c.price)} 🪙</button>` : ''}
       </div>`).join('');
   },
 
@@ -868,7 +887,7 @@ const UI = {
 
     // Делеговані кліки: рівні, магазин, місії, досягнення, скрині, бустери
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-binfo],[data-chinfo],[data-collmile],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
+      const t = e.target.closest('[data-binfo],[data-chinfo],[data-collmile],[data-adreward],[data-buychest],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
       if (!t) return;
       if (t.dataset.binfo) { this.boosterInfo(t.dataset.binfo); return; }   // ⓘ перехоплює клік до кнопки
       if (t.dataset.chinfo) { this.chestInfo(t.dataset.chinfo); return; }   // ⓘ скрині
@@ -892,6 +911,23 @@ const UI = {
         return;
       }
       if (t.dataset.chest) { this.openChest(t.dataset.chest); return; }
+      if (t.dataset.adreward) {
+        const kind = t.dataset.adreward;
+        if (Daily.adLeft(kind) <= 0) return;
+        Ads.showRewarded(() => { Daily.useAdReward(kind); this.renderShop(); });
+        return;
+      }
+      if (t.dataset.buychest) {
+        const id = t.dataset.buychest;
+        const price = CFG.CHESTS[id].price;
+        if (Storage.data.coins < price) { this.toast(I18N.t('not_enough_coins')); return; }
+        Storage.addCoins(-price);
+        Storage.data.chests[id]++;
+        Storage.save();
+        Audio2.play('coin');
+        this.renderChests();
+        return;
+      }
       if (t.dataset.theme) {
         const th = CFG.THEMES.find(x => x.id === t.dataset.theme);
         const d = Storage.data;

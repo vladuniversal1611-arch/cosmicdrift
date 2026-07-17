@@ -51,6 +51,29 @@ const Daily = {
     Storage.save();
   },
 
+  /* ---- Rewarded-реклама у магазині: ліміт на день ---- */
+  _adReset() {
+    const d = Storage.data.daily;
+    if (d.adDate !== Utils.today()) { d.adDate = Utils.today(); d.adCoins = 0; d.adGems = 0; }
+  },
+
+  /** Скільки переглядів типу kind ('coins'|'gems') лишилось сьогодні. */
+  adLeft(kind) {
+    this._adReset();
+    const used = kind === 'coins' ? Storage.data.daily.adCoins : Storage.data.daily.adGems;
+    return Math.max(0, CFG.AD_REWARDS[kind].perDay - used);
+  },
+
+  /** Зарахування нагороди за перегляд (викликати ПІСЛЯ реклами). */
+  useAdReward(kind) {
+    if (this.adLeft(kind) <= 0) return false;
+    const d = Storage.data.daily;
+    if (kind === 'coins') { d.adCoins++; Storage.addCoins(CFG.AD_REWARDS.coins.amount); UI.toast(I18N.t('coins_plus', { n: CFG.AD_REWARDS.coins.amount })); }
+    else { d.adGems++; Storage.addGems(CFG.AD_REWARDS.gems.amount); UI.toast(I18N.t('gems_plus', { n: CFG.AD_REWARDS.gems.amount })); Audio2.play('gem'); }
+    Storage.save();
+    return true;
+  },
+
   /* ---- Колесо фортуни ---- */
   canSpin() { return Storage.data.daily.lastSpin !== Utils.today(); },
 

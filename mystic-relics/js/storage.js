@@ -30,7 +30,7 @@ const Storage = {
       premium: false,
       tutorialDone: false,
       settings: { music: true, sound: true, vibration: true, quality: 'high', lang: 'en' },
-      daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0, challengeDone: '' },
+      daily: { lastClaim: '', streak: 0, lastSpin: '', missionsDate: '', missions: [], loginDays: 0, challengeDone: '', adDate: '', adCoins: 0, adGems: 0 },
       stats: {                        // статистика для досягнень
         levelsCompleted: 0, totalStars: 0, matches: 0, combos: 0,
         coinsEarned: 0, boostersUsed: 0, chestsOpened: 0, perfectLevels: 0, spins: 0
