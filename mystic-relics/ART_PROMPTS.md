@@ -193,6 +193,46 @@ background, equal cells, no borders: {6 описів через ";"}. + Style bl
 
 ---
 
+## Іконки меню (кнопки нижньої та середньої панелі)
+
+Кладуться у `assets/icons/<id>.png`. Кожна іконка сидить усередині кольорового
+круглого диска (диск малює CSS), тому **сам об'єкт — на прозорому фоні, по центру**.
+Стиль — той самий, що монета/кристал/скриня: соковитий 3D-мультяшний, глянець,
+товста темна обводка, світло згори-зліва.
+
+Файли (9): `shop`, `collection`, `home`, `achievements`, `profile`, `daily`,
+`wheel`, `missions`, `chests`.
+
+### Спрайт-лист 1 (6 об'єктів)
+> Create a single 1024×1024 PNG sprite sheet with a fully transparent background,
+> containing 6 mobile-game UI icons arranged in a clean 3×2 grid, evenly spaced,
+> each centered in its own cell with generous padding and NOT touching.
+> Style: premium casual mobile game (like Royal Match / Toon Blast) — glossy,
+> chunky 3D, thick dark outline, soft top-left light, vibrant saturated colors,
+> subtle inner glow. No text, no background, no drop shadow onto the canvas
+> (transparent alpha only). The 6 icons, left-to-right, top-to-bottom:
+> 1) a wrapped GIFT BOX with a golden ribbon and bow;
+> 2) a colorful FORTUNE WHEEL (prize wheel) seen straight-on with a top pointer;
+> 3) an old QUEST SCROLL (parchment) partly unrolled with a small check mark;
+> 4) a wooden TREASURE CHEST with gold trim, slightly open with glow inside;
+> 5) a cozy MARKET / SHOP stall or a shopping bag with a coin;
+> 6) a FAN OF THREE PLAYING CARDS (collection), glossy with a star.
+> All icons same visual weight and size, consistent lighting and outline.
+
+### Спрайт-лист 2 (3 об'єкти)
+> Same style and rules as before — single 1024×1024 PNG, transparent background,
+> 3 icons in one row, centered, generous padding, glossy chunky 3D casual-game UI,
+> thick dark outline, top-left light, no text, no background:
+> 1) a fairy-tale CASTLE with purple turrets and flags (home);
+> 2) a golden TROPHY cup with a star (achievements);
+> 3) a friendly WIZARD avatar bust (round face, blue pointed hat with stars) —
+>    head-and-shoulders, centered (profile).
+
+Коли згенеруєш — кинь мені готові листи, я поріжу, відцентрую, приберу фон і
+розкладу у `assets/icons/` (гра підхопить автоматично, емодзі лишаються як fallback).
+
+---
+
 ## Куди класти файли
 
 ```
