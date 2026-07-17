@@ -228,6 +228,17 @@ background, equal cells, no borders: {6 описів через ";"}. + Style bl
 > 3) a friendly WIZARD avatar bust (round face, blue pointed hat with stars) —
 >    head-and-shoulders, centered (profile).
 
+### Спрайт-лист 3 (3 об'єкти) — кнопки режимів + налаштування
+Файли: `zen`, `challenge`, `settings`.
+> Same style and rules — single 1024×1024 PNG, transparent background, 3 icons
+> in one row, centered, generous padding, glossy chunky 3D casual-game UI, thick
+> dark outline, soft top-left light, no text, no background:
+> 1) a calm ZEN icon — a glowing LOTUS FLOWER (pink/teal) with a soft aura (zen mode);
+> 2) a DAILY CHALLENGE icon — a tear-off CALENDAR page with a golden star and a
+>    small red flag/marker;
+> 3) a SETTINGS GEAR — a single glossy golden cog/gear wheel, slight 3D bevel.
+> Keep the same visual weight, lighting and outline as the matching UI icon set.
+
 Коли згенеруєш — кинь мені готові листи, я поріжу, відцентрую, приберу фон і
 розкладу у `assets/icons/` (гра підхопить автоматично, емодзі лишаються як fallback).
 

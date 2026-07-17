@@ -45,7 +45,7 @@ const Assets = {
       boosters: ['shuffle', 'hint', 'hammer', 'freeze', 'wand', 'bomb'],
       chests: ['wood', 'silver', 'gold', 'legendary'],
       ui: ['coin', 'gem', 'star', 'heart'],
-      icons: ['shop', 'collection', 'home', 'achievements', 'profile', 'daily', 'wheel', 'missions', 'chests']
+      icons: ['shop', 'collection', 'home', 'achievements', 'profile', 'daily', 'wheel', 'missions', 'chests', 'zen', 'challenge', 'settings']
     };
     for (const g in groups) {
       for (const id of groups[g]) {

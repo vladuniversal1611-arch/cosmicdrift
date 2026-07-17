@@ -94,6 +94,11 @@ const UI = {
     };
     document.querySelectorAll('.bottom-nav [data-nav]').forEach(b => set(b, this._MENU_ICONS['nav-' + b.dataset.nav]));
     ['btnDaily', 'btnWheel', 'btnMissions', 'btnChests'].forEach(id => set(this.$(id), this._MENU_ICONS[id]));
+    // Кнопки режимів + шестерня: емодзі у span[data-micon] → PNG
+    document.querySelectorAll('[data-micon]').forEach(sp => {
+      const im = Assets.icons[sp.dataset.micon];
+      if (im && im.complete && !sp.querySelector('img')) sp.innerHTML = `<img class="btn-ico" src="${im.src}" alt="">`;
+    });
   },
 
   setBadge(id, n, symbol) {
