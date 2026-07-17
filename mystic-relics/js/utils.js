@@ -100,8 +100,19 @@ const Utils = {
     }
   },
 
-  /** Inline-іконка як «гліф» тексту: <span class="ico-svg ...">SVG</span>. */
-  ic(name, cls = '') { return `<span class="ico-svg ${cls}">${this.ICON[name] || ''}</span>`; },
+  /** Inline-іконка як «гліф» тексту. Якщо є PNG-спрайт (Assets.ui) —
+   *  використовує його, інакше — вбудований SVG (гарантований fallback). */
+  ic(name, cls = '') {
+    const im = (typeof Assets !== 'undefined' && Assets.ui && Assets.ui[name]);
+    if (im && im.complete) return `<img class="ico-svg ${cls}" src="${im.src}" alt="">`;
+    return `<span class="ico-svg ${cls}">${this.ICON[name] || ''}</span>`;
+  },
+
+  /** Найкраще джерело для canvas: PNG-спрайт, якщо готовий, інакше SVG-Image. */
+  iconImg(name) {
+    const im = (typeof Assets !== 'undefined' && Assets.ui && Assets.ui[name]);
+    return (im && im.complete) ? im : this.img[name];
+  },
 
   /** Перетворює емодзі-валюту у власну векторну іконку (для нагород). */
   moneyIco(g) {

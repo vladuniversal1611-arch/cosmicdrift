@@ -13,6 +13,7 @@ const Assets = {
   boosters: {},     // { shuffle|hint|hammer|freeze|wand|bomb: Image }
   chests: {},       // { wood|silver|gold|legendary: Image }
   ui: {},           // { coin|gem|star|heart: Image }
+  icons: {},        // іконки меню { shop|collection|home|achievements|profile|daily|wheel|missions|chests: Image }
   _tilesLoaded: 0,
 
   load() {
@@ -43,12 +44,18 @@ const Assets = {
     const groups = {
       boosters: ['shuffle', 'hint', 'hammer', 'freeze', 'wand', 'bomb'],
       chests: ['wood', 'silver', 'gold', 'legendary'],
-      ui: ['coin', 'gem', 'star', 'heart']
+      ui: ['coin', 'gem', 'star', 'heart'],
+      icons: ['shop', 'collection', 'home', 'achievements', 'profile', 'daily', 'wheel', 'missions', 'chests']
     };
     for (const g in groups) {
       for (const id of groups[g]) {
         const img = new Image();
-        img.onload = () => { this[g][id] = img; UI.updateBoosterBar && Game.state === 'playing' && UI.updateBoosterBar(); };
+        img.onload = () => {
+          this[g][id] = img;
+          if (g === 'ui') { UI.paintIcons && UI.paintIcons(); UI.updateCurrency && UI.updateCurrency(); }
+          else if (g === 'icons') { UI.paintMenuIcons && UI.paintMenuIcons(); }
+          else if (Game.state === 'playing') UI.updateBoosterBar && UI.updateBoosterBar();
+        };
         img.onerror = () => {};
         img.src = (emb[g] && emb[g][id]) || `assets/${g}/${id}.png`;
       }

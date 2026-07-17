@@ -70,11 +70,30 @@ const UI = {
     document.querySelectorAll('.coinsVal').forEach(el => el.textContent = Utils.fmt(d.coins));
   },
 
-  /** Малює векторні іконки валют у всі статичні [data-ico] контейнери. */
+  /** Малює іконки валют у всі статичні [data-ico] контейнери
+   *  (PNG-спрайт, якщо завантажений, інакше вбудований SVG). */
   paintIcons() {
     document.querySelectorAll('[data-ico]').forEach(el => {
-      if (!el.firstChild) el.innerHTML = Utils.ICON[el.dataset.ico] || '';
+      el.innerHTML = Utils.ic(el.dataset.ico);
     });
+  },
+
+  /** Підміняє емодзі в кнопках меню на PNG-іконки, коли ті завантажені.
+   *  Емодзі лишаються запасним варіантом, доки спрайтів немає. */
+  _MENU_ICONS: {
+    'nav-shop': 'shop', 'nav-collection': 'collection', 'nav-main': 'home',
+    'nav-achievements': 'achievements', 'nav-profile': 'profile',
+    'btnDaily': 'daily', 'btnWheel': 'wheel', 'btnMissions': 'missions', 'btnChests': 'chests'
+  },
+  paintMenuIcons() {
+    const set = (el, id) => {
+      const im = Assets.icons[id];
+      if (!el || !im || !im.complete) return;
+      const span = el.querySelector('span');
+      if (span && !span.querySelector('img')) span.innerHTML = `<img class="menu-ico" src="${im.src}" alt="">`;
+    };
+    document.querySelectorAll('.bottom-nav [data-nav]').forEach(b => set(b, this._MENU_ICONS['nav-' + b.dataset.nav]));
+    ['btnDaily', 'btnWheel', 'btnMissions', 'btnChests'].forEach(id => set(this.$(id), this._MENU_ICONS[id]));
   },
 
   setBadge(id, n, symbol) {
@@ -439,8 +458,8 @@ const UI = {
 
   /** Дані сектора у зручному вигляді для рендеру. */
   _wheelSector(s) {
-    if (s.coins) return { img: Utils.img.coin, amount: '' + s.coins };
-    if (s.gems) return { img: Utils.img.gem, amount: '' + s.gems };
+    if (s.coins) return { img: Utils.iconImg('coin'), amount: '' + s.coins };
+    if (s.gems) return { img: Utils.iconImg('gem'), amount: '' + s.gems };
     return { emoji: CFG.BOOSTERS[s.booster].g, amount: '' };
   },
 
@@ -860,14 +879,14 @@ const UI = {
     // Свято: конфеті + феєрверки + дощ з монет (і кристали за 3 зірки)
     Fx.confetti(130);
     Fx.fireworksShow(stars + 2);
-    setTimeout(() => Fx.coinRain(18, Utils.img.coin), 500);
-    if (gems) setTimeout(() => Fx.coinRain(6, Utils.img.gem), 900);
+    setTimeout(() => Fx.coinRain(18, Utils.iconImg('coin')), 500);
+    if (gems) setTimeout(() => Fx.coinRain(6, Utils.iconImg('gem')), 900);
 
     // Нагороди летять дугою у лічильники валют HUD
     setTimeout(() => {
-      Fx.flyTo(innerWidth / 2, innerHeight / 2 - 30, this.$('hudCoins'), Utils.img.coin, 8,
+      Fx.flyTo(innerWidth / 2, innerHeight / 2 - 30, this.$('hudCoins'), Utils.iconImg('coin'), 8,
         () => { Audio2.play('coin'); this._bump('hudCoins'); });
-      if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), Utils.img.gem, 4,
+      if (gems) setTimeout(() => Fx.flyTo(innerWidth / 2, innerHeight / 2, this.$('hudGems'), Utils.iconImg('gem'), 4,
         () => { Audio2.play('gem'); this._bump('hudGems'); }), 400);
     }, 900);
   },
@@ -996,6 +1015,7 @@ const UI = {
   bind() {
     Utils.buildIcons();
     this.paintIcons();
+    this.paintMenuIcons();
     // Навігація
     document.querySelectorAll('[data-nav]').forEach(b =>
       b.addEventListener('click', () => { Audio2.init(); Audio2.play('tap'); this.showScreen(b.dataset.nav); }));
