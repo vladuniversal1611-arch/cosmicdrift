@@ -74,6 +74,27 @@ const Daily = {
     return true;
   },
 
+  /* ---- Скрині за перегляд реклами (wood:1, silver:2, gold:3) ---- */
+  adChestNeed(kind) { return CFG.CHESTS[kind].ads || 0; },
+  adChestProgress(kind) { return Storage.data.adChestProgress[kind] || 0; },
+
+  /** Зарахувати один перегляд реклами до скрині kind (викликати ПІСЛЯ реклами).
+   *  Повертає { granted, progress, need }. */
+  addAdChest(kind) {
+    const need = this.adChestNeed(kind);
+    if (!need) return { granted: false, progress: 0, need: 0 };
+    const p = Storage.data.adChestProgress;
+    p[kind] = (p[kind] || 0) + 1;
+    if (p[kind] >= need) {
+      p[kind] = 0;
+      Storage.data.chests[kind]++;
+      Storage.save();
+      return { granted: true, progress: 0, need };
+    }
+    Storage.save();
+    return { granted: false, progress: p[kind], need };
+  },
+
   /* ---- Колесо фортуни ---- */
   canSpin() { return Storage.data.daily.lastSpin !== Utils.today(); },
 

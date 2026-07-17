@@ -757,6 +757,7 @@ const UI = {
         <span class="cnt">${I18N.t('you_have', { n: d.chests[id] })}</span>
         <button class="btn-3d btn-purple" style="font-size:14px;padding:9px 18px" data-chest="${id}" ${d.chests[id] ? '' : 'disabled'}>${I18N.t('open')}</button>
         ${c.price ? `<button class="buy-btn chest-buy" data-buychest="${id}" ${d.coins >= c.price ? '' : 'disabled'}>${Utils.fmt(c.price)} ${Utils.ic('coin')}</button>` : ''}
+        ${c.ads ? `<button class="buy-btn btn-ad chest-ad" data-adchest="${id}">📺 ${I18N.t('ad_chest', { x: Daily.adChestProgress(id), n: c.ads })}</button>` : ''}
       </div>`).join('');
   },
 
@@ -1050,7 +1051,7 @@ const UI = {
 
     // Делеговані кліки: рівні, магазин, місії, досягнення, скрині, бустери
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-binfo],[data-chinfo],[data-collmile],[data-adreward],[data-buychest],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
+      const t = e.target.closest('[data-binfo],[data-chinfo],[data-collmile],[data-adreward],[data-buychest],[data-adchest],[data-level],[data-buy-booster],[data-mission],[data-ach],[data-chest],[data-booster],[data-theme],[data-iap],[data-close]');
       if (!t) return;
       if (t.dataset.binfo) { this.boosterInfo(t.dataset.binfo); return; }   // ⓘ перехоплює клік до кнопки
       if (t.dataset.chinfo) { this.chestInfo(t.dataset.chinfo); return; }   // ⓘ скрині
@@ -1089,6 +1090,16 @@ const UI = {
         Storage.save();
         Audio2.play('coin');
         this.renderChests();
+        return;
+      }
+      if (t.dataset.adchest) {
+        const id = t.dataset.adchest;
+        Ads.showRewarded(() => {
+          const r = Daily.addAdChest(id);
+          if (r.granted) { Audio2.play('chest'); this.toast(I18N.t('chest_earned', { name: I18N.chest(id) })); }
+          else this.toast(I18N.t('ad_chest_progress', { x: r.progress, n: r.need }));
+          this.renderChests();
+        });
         return;
       }
       if (t.dataset.theme) {

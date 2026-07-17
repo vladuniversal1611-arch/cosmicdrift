@@ -27,6 +27,7 @@ const Storage = {
       collectionCount: {},            // { type: зібрано трійок } — прогрес до відкриття
       collectionClaimed: [],          // отримані віхи колекції (n)
       chests: { wood: 0, silver: 0, gold: 0, legendary: 0 },
+      adChestProgress: { wood: 0, silver: 0, gold: 0 },   // перегляди реклами до отримання скрині
       premium: false,
       tutorialDone: false,
       settings: { music: true, sound: true, vibration: true, quality: 'high', lang: 'en' },
@@ -46,7 +47,7 @@ const Storage = {
       this.data = raw ? Object.assign(def, JSON.parse(raw)) : def;
       // Глибоке злиття вкладених об'єктів після оновлень гри
       const d2 = this.defaults();
-      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount']) {
+      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount', 'adChestProgress']) {
         this.data[k] = Object.assign(d2[k], this.data[k]);
       }
     } catch (e) {
@@ -90,7 +91,7 @@ const Storage = {
       const def = this.defaults();
       this.data = Object.assign(def, obj);
       const d2 = this.defaults();
-      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount']) {
+      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount', 'adChestProgress']) {
         this.data[k] = Object.assign(d2[k], this.data[k] || {});
       }
       this.flush();
