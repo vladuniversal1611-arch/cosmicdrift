@@ -22,11 +22,11 @@ const Ads = {
   _initDone: false,
   _iapReady: false,
 
-  /* ⚠️ ТЕСТОВІ рекламні одиниці Google — замінити на власні перед публікацією. */
+  /* Рекламні одиниці AdMob (Mystic Relics tile-matching, Android). */
   AD_IDS: {
-    banner:       'ca-app-pub-3940256099942544/6300978111',
-    interstitial: 'ca-app-pub-3940256099942544/1033173712',
-    rewarded:     'ca-app-pub-3940256099942544/5224354917'
+    banner:       'ca-app-pub-5816871059908402/7709152948',
+    interstitial: 'ca-app-pub-5816871059908402/2456826267',
+    rewarded:     'ca-app-pub-5816871059908402/1143744597'
   },
 
   /* ⚠️ Ключ RevenueCat для Google (починається з 'goog_') — вставити свій.
