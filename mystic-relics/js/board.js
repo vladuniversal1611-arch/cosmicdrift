@@ -71,9 +71,14 @@ const Board = {
     if (!this.canvas) return;
     // clientWidth/Height ігнорують CSS-трансформації (анімацію появи екрана)
     const parent = this.canvas.parentElement;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.w = parent.clientWidth; this.h = parent.clientHeight;
     if (!this.w || !this.h) return;            // екран ще прихований
+    // DPR з «пікселевим бюджетом»: телефони лишаються чіткими (×2),
+    // великі екрани (планшет/десктоп) не роздувають полотно → стабільний FPS.
+    const rawDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const maxPixels = Storage.data.settings.quality === 'low' ? 900000 : 1600000;
+    const budgetDpr = Math.sqrt(maxPixels / (this.w * this.h));
+    this.dpr = Math.max(1, Math.min(rawDpr, budgetDpr));
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.canvas.style.width = this.w + 'px';

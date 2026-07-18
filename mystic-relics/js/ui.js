@@ -831,6 +831,7 @@ const UI = {
       s.quality = s.quality === 'high' ? 'low' : 'high';
       e.target.textContent = s.quality === 'high' ? I18N.t('high') : I18N.t('low');
       Storage.save();
+      if (Game.state === 'playing') Board.resize();   // застосувати новий пікселевий бюджет одразу
     };
     // Зміна мови: миттєво оновлюємо всі написи
     this.$('setLang').onchange = e => {
