@@ -841,7 +841,7 @@ const UI = {
       this.renderMain();
       this.showSettings();
     };
-    this.$('btnSupport').onclick = () => this.toast('📧 support@mysticrelics.example');
+    this.$('btnSupport').onclick = () => this.toast('📧 nexissupportgame@gmail.com');
     this.$('btnAbout').onclick = () => this.toast(I18N.t('about_text'));
   },
 
