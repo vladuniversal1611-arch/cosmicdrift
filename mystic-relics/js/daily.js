@@ -81,13 +81,15 @@ const Daily = {
 
   _adChestReset() {
     const d = Storage.data.daily;
-    if (d.adChestDate !== Utils.today()) { d.adChestDate = Utils.today(); d.adChestCount = 0; }
+    if (d.adChestDate !== Utils.today()) { d.adChestDate = Utils.today(); d.adChestClaimed = {}; }
   },
 
-  /** Скільки скринь за рекламу ще можна отримати сьогодні. */
-  adChestLeft() {
+  /** Скільки скринь ТИПУ kind ще можна отримати за рекламу сьогодні
+   *  (ліміт CFG.AD_CHEST_PER_DAY на КОЖЕН тип окремо). */
+  adChestLeft(kind) {
     this._adChestReset();
-    return Math.max(0, CFG.AD_CHEST_PER_DAY - Storage.data.daily.adChestCount);
+    const used = Storage.data.daily.adChestClaimed[kind] || 0;
+    return Math.max(0, CFG.AD_CHEST_PER_DAY - used);
   },
 
   /** Зарахувати один перегляд реклами до скрині kind (викликати ПІСЛЯ реклами).
@@ -95,13 +97,14 @@ const Daily = {
   addAdChest(kind) {
     const need = this.adChestNeed(kind);
     if (!need) return { granted: false, progress: 0, need: 0 };
-    if (this.adChestLeft() <= 0) return { granted: false, progress: this.adChestProgress(kind), need, blocked: true };
+    if (this.adChestLeft(kind) <= 0) return { granted: false, progress: this.adChestProgress(kind), need, blocked: true };
     const p = Storage.data.adChestProgress;
     p[kind] = (p[kind] || 0) + 1;
     if (p[kind] >= need) {
       p[kind] = 0;
       Storage.data.chests[kind]++;
-      Storage.data.daily.adChestCount++;      // скриня зараховується у денний ліміт
+      const c = Storage.data.daily.adChestClaimed;
+      c[kind] = (c[kind] || 0) + 1;            // цей тип зараховано у денний ліміт
       Storage.save();
       return { granted: true, progress: 0, need };
     }
