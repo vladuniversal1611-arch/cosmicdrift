@@ -3,7 +3,10 @@
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 const WWW = path.join(ROOT, 'www');
-const INCLUDE = ['index.html', 'css', 'js', 'assets'];
+const INCLUDE = ['index.html', 'css', 'js'];
+// У застосунок кладемо ЗМЕНШЕНІ асети (assets-min), щоб APK був легким.
+// Якщо assets-min нема — fallback на повнорозмірні assets.
+const ASSETS_SRC = fs.existsSync(path.join(ROOT, 'assets-min')) ? 'assets-min' : 'assets';
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }
 function copy(src, dst) {
@@ -18,4 +21,5 @@ for (const item of INCLUDE) {
   const src = path.join(ROOT, item);
   if (fs.existsSync(src)) copy(src, path.join(WWW, item));
 }
-console.log('www/ ready:', INCLUDE.join(', '));
+copy(path.join(ROOT, ASSETS_SRC), path.join(WWW, 'assets'));   // → www/assets
+console.log('www/ ready:', INCLUDE.join(', '), '+', ASSETS_SRC, '→ assets');
