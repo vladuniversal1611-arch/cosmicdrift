@@ -72,33 +72,6 @@ const Storage = {
     try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) {}
   },
 
-  /* ---- Резервна копія прогресу ---- */
-
-  /** Експорт прогресу як компактний код (префікс MR1 + base64 JSON). */
-  exportCode() {
-    this.flush();
-    return 'MR1.' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data))));
-  },
-
-  /** Імпорт коду прогресу. Повертає true при успіху. */
-  importCode(code) {
-    try {
-      code = (code || '').trim();
-      if (!code.startsWith('MR1.')) return false;
-      const obj = JSON.parse(decodeURIComponent(escape(atob(code.slice(4)))));
-      // Санітарна перевірка ключових полів
-      if (typeof obj.coins !== 'number' || typeof obj.level !== 'number' || !obj.settings) return false;
-      const def = this.defaults();
-      this.data = Object.assign(def, obj);
-      const d2 = this.defaults();
-      for (const k of ['boosters', 'settings', 'daily', 'stats', 'chests', 'collectionCount', 'adChestProgress']) {
-        this.data[k] = Object.assign(d2[k], this.data[k] || {});
-      }
-      this.flush();
-      return true;
-    } catch (e) { return false; }
-  },
-
   addCoins(n) {
     this.data.coins += n;
     if (n > 0) { this.data.stats.coinsEarned += n; Missions.progress('coins', n); }

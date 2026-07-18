@@ -446,6 +446,10 @@ const UI = {
       ${free ? '' : `<button class="btn-3d btn-purple" style="font-size:15px" id="btnSpinCoins" ${Storage.data.coins >= 250 ? '' : 'disabled'}>${I18N.t('spin_coins', { n: 250 })}</button>
       <p style="opacity:0.6;font-size:12px">${I18N.t('free_daily')}</p>`}
     `);
+    // Рендеримо у високій роздільності (DPR) для чіткого краю
+    const c = this.$('wheelCanvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = c.height = Math.round(300 * dpr);
     this._wheelAngle = -Math.PI / 2;   // старт: перший сектор під стрілкою
     this._drawWheel(this._wheelAngle);
     this.$('btnSpin').onclick = () => {
@@ -472,6 +476,8 @@ const UI = {
     const c = this.$('wheelCanvas');
     if (!c) return;
     const g = c.getContext('2d');
+    const S = (c.width / 300) || 1;             // масштаб DPR: малюємо в координатах 300×300
+    g.setTransform(S, 0, 0, S, 0, 0);
     const cx = 150, cy = 150, R = 130;
     g.clearRect(0, 0, 300, 300);
     const n = CFG.WHEEL.length;
@@ -813,12 +819,6 @@ const UI = {
           ${I18N.LANGS.map(l => `<option value="${l.id}" ${s.lang === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
         </select>
       </div>
-      <div class="setting-row"><span>💾 ${I18N.t('backup')}</span>
-        <span style="display:flex;gap:6px">
-          <button class="buy-btn" id="btnExport">${I18N.t('export_btn')}</button>
-          <button class="buy-btn" id="btnImport">${I18N.t('import_btn')}</button>
-        </span>
-      </div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
         <button class="btn-3d btn-blue" style="font-size:13px;padding:10px 16px" id="btnSupport">${I18N.t('support')}</button>
         <button class="btn-3d btn-purple" style="font-size:13px;padding:10px 16px" id="btnAbout">${I18N.t('about')}</button>
@@ -840,8 +840,6 @@ const UI = {
       this.renderMain();
       this.showSettings();
     };
-    this.$('btnExport').onclick = () => this.showExport();
-    this.$('btnImport').onclick = () => this.showImport();
     this.$('btnSupport').onclick = () => this.toast('📧 support@mysticrelics.example');
     this.$('btnAbout').onclick = () => this.toast(I18N.t('about_text'));
   },
@@ -910,39 +908,6 @@ const UI = {
     Fx.confetti(60);
     this.$('btnZenAgain').onclick = () => { this.closeModal(); Game.startZen(); };
     this.$('btnZenMenu').onclick = () => { this.closeModal(); Game.quitToMenu(); };
-  },
-
-  /* ---------------- Бекап прогресу ---------------- */
-  showExport() {
-    this.modal(`
-      <button class="modal-close" data-close>✕</button>
-      <h2>💾 ${I18N.t('backup')}</h2>
-      <p style="opacity:0.8;font-size:13px;margin:8px 0">${I18N.t('export_note')}</p>
-      <textarea class="save-code" id="exportCode" readonly>${Storage.exportCode()}</textarea>
-      <button class="btn-3d btn-green" id="btnCopyCode">${I18N.t('copy')}</button>
-    `);
-    this.$('btnCopyCode').onclick = async (e) => {
-      const code = this.$('exportCode').value;
-      try { await navigator.clipboard.writeText(code); }
-      catch (err) { this.$('exportCode').select(); document.execCommand('copy'); }
-      e.target.textContent = I18N.t('copied');
-    };
-  },
-
-  showImport() {
-    this.modal(`
-      <button class="modal-close" data-close>✕</button>
-      <h2>📥 ${I18N.t('backup')}</h2>
-      <p style="opacity:0.8;font-size:13px;margin:8px 0">${I18N.t('import_note')}</p>
-      <textarea class="save-code" id="importCode"></textarea>
-      <button class="btn-3d btn-green" id="btnApplyCode">${I18N.t('apply')}</button>
-    `);
-    this.$('btnApplyCode').onclick = () => {
-      if (Storage.importCode(this.$('importCode').value)) {
-        this.toast(I18N.t('import_ok'));
-        setTimeout(() => location.reload(), 900);
-      } else this.toast(I18N.t('import_bad'));
-    };
   },
 
   showRevive() {

@@ -207,5 +207,19 @@ const Audio2 = {
 
   stopMusic() { clearTimeout(this._musicTimer); this._musicTimer = null; },
 
-  toggleMusic(on) { on ? this.startMusic() : this.stopMusic(); }
+  toggleMusic(on) { on ? this.startMusic() : this.stopMusic(); },
+
+  /** Пауза всього звуку, коли гру згорнули у фон; відновлення при поверненні. */
+  onVisibility() {
+    if (document.hidden) {
+      this.stopMusic();
+      if (this.ctx && this.ctx.state === 'running') this.ctx.suspend();
+    } else if (this.ctx) {
+      this.ctx.resume();
+      if (Storage.data.settings.music) this.startMusic();
+    }
+  }
 };
+
+document.addEventListener('visibilitychange', () => Audio2.onVisibility());
+window.addEventListener('pagehide', () => { Audio2.stopMusic(); if (Audio2.ctx && Audio2.ctx.state === 'running') Audio2.ctx.suspend(); });
