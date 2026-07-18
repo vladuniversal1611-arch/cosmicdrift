@@ -20,6 +20,7 @@
 const Ads = {
   _levelCounter: 0,
   _initDone: false,
+  _iapReady: false,
 
   /* ⚠️ ТЕСТОВІ рекламні одиниці Google — замінити на власні перед публікацією. */
   AD_IDS: {
@@ -27,6 +28,10 @@ const Ads = {
     interstitial: 'ca-app-pub-3940256099942544/1033173712',
     rewarded:     'ca-app-pub-3940256099942544/5224354917'
   },
+
+  /* ⚠️ Ключ RevenueCat для Google (починається з 'goog_') — вставити свій.
+   * RevenueCat сам валідує чеки й «споживає» витратні товари. */
+  IAP_KEY: 'goog_XXXXXXXXXXXXXXXXXXXXXXXXX',
 
   /** Плагін AdMob, якщо застосунок запущено нативно; інакше null (веб). */
   _plugin() {
@@ -102,14 +107,51 @@ const Ads = {
     } catch (e) { console.warn('[Ads] rewarded', e); }
   },
 
+  /** Плагін RevenueCat (@revenuecat/purchases-capacitor), якщо застосунок нативний. */
+  _iapPlugin() {
+    const C = (typeof window !== 'undefined') && window.Capacitor;
+    if (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.Purchases) return C.Plugins.Purchases;
+    return null;
+  },
+
+  async _iapEnsure() {
+    const P = this._iapPlugin();
+    if (!P || this._iapReady) return P;
+    try { await P.configure({ apiKey: this.IAP_KEY }); this._iapReady = true; } catch (e) { console.warn('[IAP] configure', e); }
+    return P;
+  },
+
   /**
-   * In-App Purchase. У веб-демо покупка «успішна» через підтвердження.
-   * Нативно — підключити @capacitor/purchases / RevenueCat тут.
+   * Реальна покупка. productId — з CFG.SHOP (coins_s/m/l, gems_s/m/l, premium_noads).
+   * Веб-демо: «успішно» через підтвердження. Нативно: Google Play Billing (RevenueCat).
+   * onSuccess() викликається ЛИШЕ після успішної, підтвердженої покупки.
    */
-  purchase(productId, onSuccess) {
-    // TODO IAP: const { Purchases } = window.Capacitor.Plugins;
-    //           Purchases.purchaseProduct({ productIdentifier: productId }).then(onSuccess);
-    console.info('[IAP] Purchase placeholder:', productId);
-    UI.confirm(I18N.t('demo_purchase'), I18N.t('demo_purchase_text'), onSuccess);
+  async purchase(productId, onSuccess) {
+    const P = await this._iapEnsure();
+    if (!P) {   // веб-демо
+      console.info('[IAP] Purchase placeholder:', productId);
+      UI.confirm(I18N.t('demo_purchase'), I18N.t('demo_purchase_text'), onSuccess);
+      return;
+    }
+    try {
+      const { products } = await P.getProducts({ productIdentifiers: [productId] });
+      if (!products || !products.length) { UI.toast('Product unavailable'); return; }
+      // RevenueCat сам підтверджує/споживає транзакцію після успіху
+      await P.purchaseStoreProduct({ product: products[0] });
+      onSuccess();
+    } catch (e) {
+      if (!(e && e.userCancelled)) { console.warn('[IAP] purchase', e); UI.toast('Purchase failed'); }
+    }
+  },
+
+  /** Відновлення покупок (напр. Premium) — виклич із налаштувань за потреби. */
+  async restore() {
+    const P = await this._iapEnsure();
+    if (!P) return;
+    try {
+      const { customerInfo } = await P.restorePurchases();
+      const ent = customerInfo && customerInfo.entitlements && customerInfo.entitlements.active;
+      if (ent && ent.premium) { Storage.data.premium = true; Storage.save(); this.hideBanner(); UI.toast('✓ Premium restored'); }
+    } catch (e) { console.warn('[IAP] restore', e); }
   }
 };
