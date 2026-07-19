@@ -542,7 +542,7 @@
       const old = s.querySelector('.hud');
       if (old) old.remove();
       const oldDr = s.querySelector('.dragon-bars'); if (oldDr) oldDr.remove();
-      const oldTop = s.querySelector('.game-top'); if (oldTop) oldTop.remove();
+      const oldTop = s.querySelector('.game-topbar'); if (oldTop) oldTop.remove();
       const oldBo = s.querySelector('.booster-bar'); if (oldBo) oldBo.remove();
       const oldSyn = s.querySelector('.synergy-btn'); if (oldSyn) oldSyn.remove();
       const oldTut = s.querySelector('.tutorial-layer'); if (oldTut) oldTut.remove();
@@ -550,24 +550,28 @@
       const oldIntro = s.querySelector('.level-intro'); if (oldIntro) oldIntro.remove();
       s.classList.remove('fever-mode'); // clear any ember tint left from a prior level's fever
 
+      // Single top row: back · score · moves · pause (with a slim level caption).
       const top = document.createElement('div');
-      top.className = 'game-top';
+      top.className = 'game-topbar';
       top.innerHTML =
         '<button class="btn-back">‹</button>' +
-        '<div class="lvl-name">' + this.levelName(lv) + '</div>' +
+        '<div class="topbar-center">' +
+          '<div class="lvl-name">' + this.levelName(lv) + '</div>' +
+          '<div class="topbar-stats">' +
+            '<div class="hud-pill"><div class="hp-l">' + T('obj_score') + '</div><div class="hp-v" id="hud-score">0</div></div>' +
+            '<div class="hud-pill"><div class="hp-l" id="hud-moves-label">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
+          '</div>' +
+        '</div>' +
         '<button class="btn-pause">⏸</button>';
       s.appendChild(top);
       const self = this;
       top.querySelector('.btn-back').addEventListener('click', function () { global.Audio2.play('click'); self.confirmQuit(); });
       top.querySelector('.btn-pause').addEventListener('click', function () { global.Audio2.play('click'); self.pause(); });
 
+      // Objective + fever meter sit just under the top row.
       const hud = document.createElement('div');
       hud.className = 'hud';
       hud.innerHTML =
-        '<div class="hud-stats">' +
-          '<div class="hud-pill"><div class="hp-l">' + T('obj_score') + '</div><div class="hp-v" id="hud-score">0</div></div>' +
-          '<div class="hud-pill"><div class="hp-l" id="hud-moves-label">' + T('b_moves') + '</div><div class="hp-v" id="hud-moves">' + lv.moves + '</div></div>' +
-        '</div>' +
         '<div class="hud-obj">' +
           '<div class="obj-top"><span id="hud-obj-label">—</span><span id="hud-obj-val">0 / 0</span></div>' +
           '<div class="bar"><div class="bar-fill" id="hud-obj-bar" style="background:#ffd24d"></div></div>' +
@@ -578,10 +582,9 @@
         '</div>';
       s.appendChild(hud);
 
-      // Ad banner slot — sits at the top, directly above the booster row.
-      // On a native build this reserves the strip for the real AdMob banner;
-      // in the browser (and while the banner is still under review) it shows a
-      // subtle placeholder so the layout looks the same.
+      // Ad banner slot — pinned to the very bottom of the screen. On a native
+      // build this reserves the strip for the real AdMob banner; in the browser
+      // (and until AdMob approves the unit) it shows a subtle placeholder.
       const banner = document.createElement('div');
       banner.className = 'ad-banner';
       banner.innerHTML = '<span class="ad-banner-tag">' + (T('ad_label') || 'Ad') + '</span>';
@@ -687,7 +690,7 @@
           '<div class="boss-info"><div class="boss-name"></div>' +
           '<div class="bar boss-hp"><div class="bar-fill boss-hp-fill"></div></div></div>';
         // place just under the top bar
-        const top = this.gameScreen.querySelector('.game-top');
+        const top = this.gameScreen.querySelector('.game-topbar');
         if (top && top.nextSibling) this.gameScreen.insertBefore(panel, top.nextSibling);
         else this.gameScreen.appendChild(panel);
       }
@@ -966,30 +969,35 @@
         const margin = Math.max(10, w * 0.04);
         // On boss levels the themed boss HP panel sits just above the board (in
         // the strip under the boosters), so reserve extra top space for it.
-        const bossExtra = this.engine.isBoss ? 82 : 0;
+        const bossExtra = this.engine.isBoss ? 72 : 0;
         // Fold in device safe-area insets (notch / home indicator) so the board
         // clears the chrome on every phone.
         let sat = 0, sab = 0;
         try { const cs = getComputedStyle(document.documentElement); sat = parseFloat(cs.getPropertyValue('--sat')) || 0; sab = parseFloat(cs.getPropertyValue('--sab')) || 0; } catch (e) {}
-        // Top chrome now stacks: title + score/objective/fever HUD + ad banner +
-        // booster row. Bottom holds only the dragon ability bar (raised to hug
-        // the board), so the reserve there is much smaller than before.
-        const topReserve = Math.max(322 + bossExtra + sat, h * 0.30);
-        const bottomReserve = 104 + sab;                 // dragon bar + synergy button
+        // Top chrome now stacks compactly: one-row bar (back·score·moves·pause) +
+        // objective/fever + booster row. The board is raised right under them.
+        // The ad banner is pinned to the very bottom; the dragon ability bar is
+        // centred in the gap between the board and that banner.
+        const bannerH = 50, bannerGap = 10 + sab;        // bottom ad banner strip
+        const topReserve = Math.max(238 + bossExtra + sat, h * 0.20);
+        const bottomReserve = bannerH + bannerGap + 60;  // banner + dragon bar room
         const zoneH = Math.max(120, h - topReserve - bottomReserve);
         const size = Math.max(120, Math.min(w - margin * 2, zoneH));
         const left = Math.round((w - size) / 2);
-        const top = Math.round(topReserve + Math.max(0, (zoneH - size) / 2));
+        const top = Math.round(topReserve);              // top-aligned → board raised
         this.engine.setViewport(left, top, size);
-        // Anchor the dragon ability bar + synergy button just beneath the board
-        // so they hug it instead of floating low with a dead gap above them.
+        // Place the dragon bar (and synergy button) centred in the space between
+        // the bottom of the board and the top of the bottom banner.
         const boardBottom = top + size;
+        const bannerTop = h - bannerGap - bannerH;
+        const dragCenter = (boardBottom + bannerTop) / 2;
+        const dragTop = Math.max(boardBottom + 8, Math.round(dragCenter - 20));
         if (this.hud && this.hud.dragonBars) {
-          this.hud.dragonBars.style.top = Math.round(boardBottom + 10) + 'px';
+          this.hud.dragonBars.style.top = dragTop + 'px';
           this.hud.dragonBars.style.bottom = 'auto';
         }
         if (this.synBtn) {
-          this.synBtn.style.top = Math.round(boardBottom + 52) + 'px';
+          this.synBtn.style.top = Math.max(boardBottom + 6, dragTop - 48) + 'px';
           this.synBtn.style.bottom = 'auto';
         }
       }
