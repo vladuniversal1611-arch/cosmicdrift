@@ -598,13 +598,9 @@
       boBar.className = 'booster-bar';
       s.appendChild(boBar);
 
-      const synBtn = document.createElement('button');
-      synBtn.className = 'synergy-btn hidden';
-      synBtn.innerHTML = '<span class="syn-lbl">⚡ ' + T('synergy') + '</span><span class="syn-bar"><span class="syn-fill"></span></span>';
-      const selfG = this;
-      synBtn.addEventListener('click', function (ev) { ev.stopPropagation(); selfG.useSynergy(); });
-      s.appendChild(synBtn);
-      this.synBtn = synBtn;
+      // Synergy button removed (mechanic retired) — all synergy UI is guarded by
+      // `if (this.synBtn)`, so leaving it null disables it cleanly.
+      this.synBtn = null;
 
       this.hud = {
         // score / moves / their label now live in the top bar (`top`), not `hud`
