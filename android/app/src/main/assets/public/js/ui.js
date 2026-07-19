@@ -969,10 +969,11 @@
       s.appendChild(this.currencyBar());
       s.appendChild(el('div', 'section-h center', T('pass_title')));
 
-      const tier = Math.min(50, Math.floor(p.pass.xp / 100) + 1);
+      const maxTier = D.BATTLE_PASS.length;
+      const tier = Math.min(maxTier, Math.floor(p.pass.xp / 100) + 1);
       const into = p.pass.xp % 100;
       const head = el('div', 'pass-head');
-      head.innerHTML = '<div>' + T('pass_level', { n: tier }) + '</div>' +
+      head.innerHTML = '<div>' + T('pass_level', { n: tier, total: maxTier }) + '</div>' +
         '<div class="bar"><div class="bar-fill" style="width:' + into + '%;background:#ffd24d"></div></div>' +
         '<div class="muted small">' + T('xp_to_next', { n: into }) + '</div>';
       if (!p.pass.premium) {

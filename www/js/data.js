@@ -266,10 +266,10 @@
     { id: 'q_special', text: 'Створіть 6 особливих кристалів', goal: 6, stat: 'specialsMade',reward: 170 }
   ];
 
-  // ---- Battle pass tiers (50 tiers) ---------------------------------------
+  // ---- Battle pass tiers (100 tiers) --------------------------------------
   function buildPass() {
     const tiers = [];
-    for (let i = 1; i <= 50; i++) {
+    for (let i = 1; i <= 100; i++) {
       const free = i % 5 === 0
         ? { type: 'gems', amount: 20 }
         : { type: 'gold', amount: 80 + i * 10 };
