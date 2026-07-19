@@ -6502,11 +6502,11 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       this.engine.init(lv, p.equipped, {
         onScore: function (s) {
           if (self.tutorialActive && !self._tutScored && s > 0) { self._tutScored = true; self.tutorialAdvance(); }
-          if (!self.hud) return; self.hud.score.textContent = s;
+          if (!self.hud || !self.hud.score) return; self.hud.score.textContent = s;
         },
-        onMoves: function (m) { if (!self.hud) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
+        onMoves: function (m) { if (!self.hud || !self.hud.moves) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
         onObjective: function (cur, goal, label) {
-          if (!self.hud) return;
+          if (!self.hud || !self.hud.objLabel) return;
           self.hud.objLabel.textContent = label;
           self.hud.objVal.textContent = cur + ' / ' + goal;
           self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
@@ -6972,9 +6972,10 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       this.synBtn = synBtn;
 
       this.hud = {
-        score: hud.querySelector('#hud-score'),
-        moves: hud.querySelector('#hud-moves'),
-        movesLabel: hud.querySelector('#hud-moves-label'),
+        // score / moves / their label now live in the top bar (`top`), not `hud`
+        score: top.querySelector('#hud-score'),
+        moves: top.querySelector('#hud-moves'),
+        movesLabel: top.querySelector('#hud-moves-label'),
         objLabel: hud.querySelector('#hud-obj-label'),
         objVal: hud.querySelector('#hud-obj-val'),
         objBar: hud.querySelector('#hud-obj-bar'),
@@ -7391,33 +7392,39 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 
     // ---- Loop -------------------------------------------------------------
     loop: function (ts) {
-      const dt = Math.min(0.05, (ts - this.last) / 1000) || 0;
-      this.last = ts;
-      const g = this.ctx;
-      if (this.inLevel && this.engine) {
-        g.clearRect(0, 0, this.viewW, this.viewH);
-        const lv = this.currentLevelObj || D.LEVELS[0];
-        const isl = D.ISLANDS[lv.island] || D.ISLANDS[0];
-        this.drawBackground(g, isl, dt);
-        this.engine.update(dt);
-        this.engine.draw(g);
-        this.drawVignette(g);
-        // Adaptive quality: if we run slow for a sustained window on a real
-        // device, permanently drop to the lightweight render path this session.
-        if (!this._perfLocked && dt > 0) {
-          this._ftSum += dt; this._ftCount++;
-          if (this._ftCount >= 120) {
-            const avg = this._ftSum / this._ftCount; // seconds/frame
-            if (avg > 0.026 && !global.__perf) { global.__perf = true; this.resize(); } // < ~38fps → simplify
-            this._perfLocked = global.__perf; // lock once downgraded (avoid oscillation)
-            this._ftSum = 0; this._ftCount = 0;
+      // The whole frame is wrapped so a stray error can never kill the rAF
+      // chain (which would freeze the game). We always reschedule at the end.
+      try {
+        const dt = Math.min(0.05, (ts - this.last) / 1000) || 0;
+        this.last = ts;
+        const g = this.ctx;
+        if (this.inLevel && this.engine) {
+          g.clearRect(0, 0, this.viewW, this.viewH);
+          const lv = this.currentLevelObj || D.LEVELS[0];
+          const isl = D.ISLANDS[lv.island] || D.ISLANDS[0];
+          this.drawBackground(g, isl, dt);
+          this.engine.update(dt);
+          this.engine.draw(g);
+          this.drawVignette(g);
+          // Adaptive quality: if we run slow for a sustained window on a real
+          // device, permanently drop to the lightweight render path this session.
+          if (!this._perfLocked && dt > 0) {
+            this._ftSum += dt; this._ftCount++;
+            if (this._ftCount >= 120) {
+              const avg = this._ftSum / this._ftCount; // seconds/frame
+              if (avg > 0.026 && !global.__perf) { global.__perf = true; this.resize(); } // < ~38fps → simplify
+              this._perfLocked = global.__perf; // lock once downgraded (avoid oscillation)
+              this._ftSum = 0; this._ftCount = 0;
+            }
           }
+        } else {
+          // On menus the canvas is idle — clear once, then let DOM/CSS drive visuals.
+          if (!this._cleared) { g.clearRect(0, 0, this.viewW, this.viewH); this._cleared = true; }
         }
-      } else {
-        // On menus the canvas is idle — clear once, then let DOM/CSS drive visuals.
-        if (!this._cleared) { g.clearRect(0, 0, this.viewW, this.viewH); this._cleared = true; }
+        if (this.inLevel) this._cleared = false;
+      } catch (e) {
+        if (global.console && console.error) console.error('loop frame error', e);
       }
-      if (this.inLevel) this._cleared = false;
       requestAnimationFrame(this._loop);
     },
 
