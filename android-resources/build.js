@@ -19,6 +19,14 @@ let css = fs.readFileSync(path.join(ROOT, 'www/css/style.css'), 'utf8');
     css = css.split('assets/panels/' + nm + '.webp').join(uri);
   }
 });
+// Ornate gold gem frames (border-image) for the HUD panels/bars.
+['panel_frame', 'progress_frame'].forEach(function (nm) {
+  const p = path.join(ROOT, 'www/assets/ui2/' + nm + '.webp');
+  if (fs.existsSync(p)) {
+    const uri = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
+    css = css.split('../assets/ui2/' + nm + '.webp').join(uri);
+  }
+});
 const js = ORDER.map(f => fs.readFileSync(path.join(ROOT, 'www/js/' + f + '.js'), 'utf8')).join('\n//----\n');
 
 // Inline dragon sprites as data URIs so the single file works offline.

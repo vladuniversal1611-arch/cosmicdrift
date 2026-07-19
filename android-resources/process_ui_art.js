@@ -53,26 +53,16 @@ const [bgSrc, panelSrc, progSrc] = process.argv.slice(2);
       const c = document.getElementById('c'); c.width = W; c.height = H;
       const g = c.getContext('2d'); g.drawImage(img, 0, 0);
       const id = g.getImageData(0, 0, W, H); const d = id.data;
-      const seen = new Uint8Array(W * H);
-      // seed from all border pixels; BFS removing pixels close to the local
-      // background (flat gray + soft glow). Stops at the crisp gold/gem edges.
-      const stack = [];
-      const push = (x, y, r0, g0, b0) => { const i = y * W + x; if (!seen[i]) { seen[i] = 1; stack.push(i, r0, g0, b0); } };
-      for (let x = 0; x < W; x++) { push(x, 0, d[(x) * 4], d[(x) * 4 + 1], d[(x) * 4 + 2]); push(x, H - 1, d[((H - 1) * W + x) * 4], d[((H - 1) * W + x) * 4 + 1], d[((H - 1) * W + x) * 4 + 2]); }
-      for (let y = 0; y < H; y++) { push(0, y, d[(y * W) * 4], d[(y * W) * 4 + 1], d[(y * W) * 4 + 2]); push(W - 1, y, d[(y * W + W - 1) * 4], d[(y * W + W - 1) * 4 + 1], d[(y * W + W - 1) * 4 + 2]); }
-      while (stack.length) {
-        const b0 = stack.pop(), g0 = stack.pop(), r0 = stack.pop(), i = stack.pop();
-        const x = i % W, y = (i / W) | 0, p = i * 4;
-        const dr = d[p] - r0, dg = d[p + 1] - g0, db = d[p + 2] - b0;
-        if (dr * dr + dg * dg + db * db > tol * tol) continue; // hit an edge
-        d[p + 3] = 0; // transparent
-        const nr = d[p], ng = d[p + 1], nb = d[p + 2];
-        if (x > 0) push(x - 1, y, nr, ng, nb);
-        if (x < W - 1) push(x + 1, y, nr, ng, nb);
-        if (y > 0) push(x, y - 1, nr, ng, nb);
-        if (y < H - 1) push(x, y + 1, nr, ng, nb);
+      // Luminance key for gold-on-black art: bright gold/gems stay opaque, the
+      // black field fades to transparent. Preserves thin ornate filigree that a
+      // flood-fill would nibble away. `tol` is the low cutoff.
+      const lo = tol, hi = tol + 46;
+      for (let p = 0; p < d.length; p += 4) {
+        const v = Math.max(d[p], d[p + 1], d[p + 2]);
+        let a = (v - lo) / (hi - lo);
+        a = a < 0 ? 0 : a > 1 ? 1 : a;
+        d[p + 3] = Math.round(a * 255);
       }
-      // feather: soften 1px alpha at the boundary
       g.putImageData(id, 0, 0);
       // tight crop to non-transparent bbox
       let minx = W, miny = H, maxx = 0, maxy = 0;
@@ -83,11 +73,21 @@ const [bgSrc, panelSrc, progSrc] = process.argv.slice(2);
       return o.toDataURL('image/png');
     }, { tol });
     save(uri, path.join(OUTDIR, name + '.png'));
-    console.log(name, '->', (fs.statSync(path.join(OUTDIR, name + '.png')).size / 1024 | 0) + 'KB');
+    // also a WebP-with-alpha (smaller, used by the served build)
+    await load(path.join(OUTDIR, name + '.png'));
+    const wuri = await page.evaluate(() => {
+      const img = window.__img; const c = document.getElementById('c');
+      c.width = img.width; c.height = img.height; const g = c.getContext('2d');
+      g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+      return c.toDataURL('image/webp', 0.92);
+    });
+    save(wuri, path.join(OUTDIR, name + '.webp'));
+    console.log(name, '-> png', (fs.statSync(path.join(OUTDIR, name + '.png')).size / 1024 | 0) + 'KB',
+      'webp', (fs.statSync(path.join(OUTDIR, name + '.webp')).size / 1024 | 0) + 'KB');
   }
 
-  if (panelSrc) await frame(panelSrc, 'panel_frame', 78);
-  if (progSrc) await frame(progSrc, 'progress_frame', 78);
+  if (panelSrc) await frame(panelSrc, 'panel_frame', 60);
+  if (progSrc) await frame(progSrc, 'progress_frame', 60);
 
   await browser.close();
 })().catch(e => { console.error(e); process.exit(1); });
