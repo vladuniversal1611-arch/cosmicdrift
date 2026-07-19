@@ -339,7 +339,7 @@
     { id: 'volcano', ic: '🌋', res: 'gold',   rate: 70,  build: 0,    buildCur: 'gold', up: 450 },
     { id: 'garden',  ic: '🌳', res: 'energy', rate: 9,   build: 600,  buildCur: 'gold', up: 45 },
     { id: 'forge',   ic: '🔨', res: 'gold',   rate: 180, build: 2500, buildCur: 'gold', up: 1300 },
-    { id: 'mine',    ic: '💎', res: 'gems',   rate: 2,   build: 250,  buildCur: 'gems', up: 40 }
+    { id: 'mine',    ic: '💎', res: 'gems',   rate: 2,   build: 2500, buildCur: 'gold', up: 40 }
   ];
   function farmById(id) { return FARM.find(function (b) { return b.id === id; }); }
 
