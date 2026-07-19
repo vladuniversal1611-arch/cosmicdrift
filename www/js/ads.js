@@ -23,7 +23,7 @@
     android: {
       rewarded:     'ca-app-pub-5816871059908402/7577566678',
       interstitial: 'ca-app-pub-5816871059908402/7265741333',
-      banner:       '' // not used (no banner shown in-game)
+      banner:       'ca-app-pub-5816871059908402/2889885190' // top banner during levels
     },
     interstitialEveryLevels: 3,        // at most one interstitial per N level completions
     interstitialMinGapMs: 90 * 1000,   // and never more often than every 90s
@@ -139,12 +139,18 @@
     if (!isNative() || !CONFIG.android.banner) return; // need a real banner unit
     const AdMob = plugin(); if (!AdMob || typeof AdMob.showBanner !== 'function') return;
     if (bannerShown) return;
+    // The native banner overlays the WebView at a top-margin (dp). Line it up
+    // with the reserved ".ad-banner" strip so it lands above the boosters and
+    // below the score HUD, instead of covering them. Measure the slot so it
+    // stays aligned if the layout ever shifts; fall back to the CSS position.
+    let topMargin = 210;
+    try { const slot = document.querySelector('.ad-banner'); if (slot) { const t = Math.round(slot.getBoundingClientRect().top); if (t > 0) topMargin = t; } } catch (e) {}
     ensureInit().then(function () {
       return AdMob.showBanner({
         adId: CONFIG.android.banner,
         adSize: 'ADAPTIVE_BANNER',
         position: 'TOP_CENTER',
-        margin: 56,               // clear our title bar
+        margin: topMargin,
         isTesting: CONFIG.testing
       });
     }).then(function () {
