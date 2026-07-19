@@ -1060,20 +1060,37 @@
 
     drawBackground: function (g, isl, dt) {
       const W = this.viewW, H = this.viewH;
-      // Cache the gradients — they only change when the size or island changes,
-      // so we avoid rebuilding two gradient objects every single frame.
-      const key = W + 'x' + H + '|' + isl.bg1 + isl.bg2 + isl.theme;
-      if (!this._bgCache || this._bgCache.key !== key) {
-        const grd = g.createLinearGradient(0, 0, 0, H);
-        grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
-        const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
-        glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
-        this._bgCache = { key: key, grd: grd, glow: glow };
+      // Painted background image (cover-fit) when available; the per-island
+      // gradient is the fallback while it loads / on low-end perf mode.
+      const bg = global.BgSprites && global.BgSprites.ready() ? global.BgSprites.img() : null;
+      if (bg) {
+        const s = Math.max(W / bg.naturalWidth, H / bg.naturalHeight);
+        const dw = bg.naturalWidth * s, dh = bg.naturalHeight * s;
+        g.drawImage(bg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        // Slight dark scrim so crystals/UI stay readable over the artwork.
+        if (!this._bgScrim || this._bgScrim.h !== H) {
+          const sc = g.createLinearGradient(0, 0, 0, H);
+          sc.addColorStop(0, 'rgba(10,4,24,0.34)'); sc.addColorStop(0.5, 'rgba(10,4,24,0.14)'); sc.addColorStop(1, 'rgba(10,4,24,0.42)');
+          this._bgScrim = { h: H, grad: sc };
+        }
+        g.fillStyle = this._bgScrim.grad; g.fillRect(0, 0, W, H);
+        if (this.perfOn()) return;
+      } else {
+        // Cache the gradients — they only change when the size or island changes,
+        // so we avoid rebuilding two gradient objects every single frame.
+        const key = W + 'x' + H + '|' + isl.bg1 + isl.bg2 + isl.theme;
+        if (!this._bgCache || this._bgCache.key !== key) {
+          const grd = g.createLinearGradient(0, 0, 0, H);
+          grd.addColorStop(0, isl.bg1); grd.addColorStop(1, isl.bg2);
+          const glow = g.createRadialGradient(W / 2, H * 0.12, 10, W / 2, H * 0.12, H * 0.6);
+          glow.addColorStop(0, this.hexA(isl.theme, 0.22)); glow.addColorStop(1, this.hexA(isl.theme, 0));
+          this._bgCache = { key: key, grd: grd, glow: glow };
+        }
+        g.fillStyle = this._bgCache.grd; g.fillRect(0, 0, W, H);
+        if (this.perfOn()) return; // skip heavy effects on low-end devices
+        // god-ray glow at the top (cached)
+        g.fillStyle = this._bgCache.glow; g.fillRect(0, 0, W, H);
       }
-      g.fillStyle = this._bgCache.grd; g.fillRect(0, 0, W, H);
-      if (this.perfOn()) return; // skip heavy effects on low-end devices
-      // god-ray glow at the top (cached)
-      g.fillStyle = this._bgCache.glow; g.fillRect(0, 0, W, H);
       // drifting bokeh
       if (!this.bokeh) {
         this.bokeh = [];

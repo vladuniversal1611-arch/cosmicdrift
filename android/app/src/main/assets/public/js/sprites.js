@@ -118,4 +118,15 @@
     // guards the CSS fallback path in the map renderer.
     has: function (id) { return !!(mapInline && mapInline[id]); }
   };
+
+  // ---- Painted in-game background (behind the board) ------------------------
+  const bgUrl = global.BG_SPRITE || 'assets/ui2/game_bg.webp';
+  let bgImg = null;
+  if (typeof global.Image === 'function') {
+    try { bgImg = new global.Image(); bgImg.src = bgUrl; } catch (e) { bgImg = null; }
+  }
+  global.BgSprites = {
+    img: function () { return bgImg; },
+    ready: function () { return !!(bgImg && bgImg.complete && bgImg.naturalWidth); }
+  };
 })(window);

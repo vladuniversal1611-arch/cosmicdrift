@@ -72,7 +72,12 @@ const mapSprites = {};
 const waterP = path.join(ROOT, 'www/assets/map/water_tile.webp');
 if (fs.existsSync(waterP)) mapSprites['water'] = 'data:image/webp;base64,' + fs.readFileSync(waterP).toString('base64');
 
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';</script>\n';
+// Painted in-game background
+let bgSprite = '';
+const bgP = path.join(ROOT, 'www/assets/ui2/game_bg.webp');
+if (fs.existsSync(bgP)) bgSprite = 'data:image/webp;base64,' + fs.readFileSync(bgP).toString('base64');
+
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';window.BG_SPRITE=' + JSON.stringify(bgSprite) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');
