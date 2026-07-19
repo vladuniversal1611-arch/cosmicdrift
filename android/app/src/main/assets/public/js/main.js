@@ -979,7 +979,8 @@
         // The ad banner is pinned to the very bottom; the dragon ability bar is
         // centred in the gap between the board and that banner.
         const bannerH = 50, bannerGap = 10 + sab;        // bottom ad banner strip
-        const topReserve = Math.max(238 + bossExtra + sat, h * 0.20);
+        // Board sits a bit lower so there's a clear gap under the booster row.
+        const topReserve = Math.max(264 + bossExtra + sat, h * 0.20);
         const bottomReserve = bannerH + bannerGap + 60;  // banner + dragon bar room
         const zoneH = Math.max(120, h - topReserve - bottomReserve);
         const size = Math.max(120, Math.min(w - margin * 2, zoneH));
