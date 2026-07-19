@@ -129,6 +129,36 @@
     }).catch(fallback);
   }
 
+  // ---- Banner --------------------------------------------------------------
+  // Shows a small adaptive banner pinned to the top of the screen, positioned
+  // just under our title bar so it lands in the reserved ".ad-banner" strip
+  // above the boosters. No-op until a banner ad unit ID is set in
+  // CONFIG.android.banner (until then the in-page placeholder stays visible).
+  let bannerShown = false;
+  function showBanner() {
+    if (!isNative() || !CONFIG.android.banner) return; // need a real banner unit
+    const AdMob = plugin(); if (!AdMob || typeof AdMob.showBanner !== 'function') return;
+    if (bannerShown) return;
+    ensureInit().then(function () {
+      return AdMob.showBanner({
+        adId: CONFIG.android.banner,
+        adSize: 'ADAPTIVE_BANNER',
+        position: 'TOP_CENTER',
+        margin: 56,               // clear our title bar
+        isTesting: CONFIG.testing
+      });
+    }).then(function () {
+      bannerShown = true;
+      // Real banner is up — hide the placeholder text so it doesn't peek through.
+      try { document.querySelectorAll('.ad-banner').forEach(function (b) { b.classList.add('ad-live'); }); } catch (e) {}
+    }).catch(function () {});
+  }
+  function hideBanner() {
+    if (!isNative() || !bannerShown) return;
+    const AdMob = plugin(); if (!AdMob || typeof AdMob.hideBanner !== 'function') return;
+    AdMob.hideBanner().then(function () { bannerShown = false; }).catch(function () {});
+  }
+
   // ---- Interstitial --------------------------------------------------------
   // Returns true if an ad was (or will be) shown. Frequency-capped.
   function interstitial(force) {
@@ -196,6 +226,8 @@
     init: ensureInit,
     rewarded: rewarded,
     interstitial: interstitial,
+    showBanner: showBanner,
+    hideBanner: hideBanner,
     isNative: isNative,
     CONFIG: CONFIG
   };

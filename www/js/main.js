@@ -101,6 +101,7 @@
     go: function (id) {
       this.inLevel = false;
       this.gameScreen.classList.add('hidden');
+      try { if (global.Ads && global.Ads.hideBanner) global.Ads.hideBanner(); } catch (e) {}
       global.UI.closeModal();
       // Clear any lingering in-game dialogue / tip bubbles when leaving a level.
       const dp = this.root.querySelector('.dialogue-pop'); if (dp) dp.remove();
@@ -577,6 +578,15 @@
         '</div>';
       s.appendChild(hud);
 
+      // Ad banner slot — sits at the top, directly above the booster row.
+      // On a native build this reserves the strip for the real AdMob banner;
+      // in the browser (and while the banner is still under review) it shows a
+      // subtle placeholder so the layout looks the same.
+      const banner = document.createElement('div');
+      banner.className = 'ad-banner';
+      banner.innerHTML = '<span class="ad-banner-tag">' + (T('ad_label') || 'Ad') + '</span>';
+      s.appendChild(banner);
+
       const drBars = document.createElement('div');
       drBars.className = 'dragon-bars';
       s.appendChild(drBars);
@@ -603,8 +613,12 @@
         fever: hud.querySelector('#hud-fever'),
         feverFill: hud.querySelector('#hud-fever-fill'),
         dragonBars: drBars,
-        boosterBar: boBar
+        boosterBar: boBar,
+        banner: banner
       };
+      // Try to place a real AdMob banner in the slot (no-op in browser / until a
+      // banner ad unit is configured — the placeholder stays visible then).
+      try { if (global.Ads && global.Ads.showBanner) global.Ads.showBanner(); } catch (e) {}
       // booster-use callbacks from the engine
       this.engine.cb.onShuffle = function () { global.UI.toast(T('shuffled')); };
       this.engine.cb.onMerge = function () { global.UI.toast('🔮 ' + T('merge_toast')); self.tip('merge', 200); };
@@ -950,18 +964,34 @@
         // dragon/booster bars (bottom), then centre it. Works for every aspect
         // ratio — tall phones are width-limited, short/wide ones height-limited.
         const margin = Math.max(10, w * 0.04);
-        const bossExtra = this.engine.isBoss ? 44 : 0;
+        // On boss levels the themed boss HP panel sits just above the board (in
+        // the strip under the boosters), so reserve extra top space for it.
+        const bossExtra = this.engine.isBoss ? 82 : 0;
         // Fold in device safe-area insets (notch / home indicator) so the board
         // clears the chrome on every phone.
         let sat = 0, sab = 0;
         try { const cs = getComputedStyle(document.documentElement); sat = parseFloat(cs.getPropertyValue('--sat')) || 0; sab = parseFloat(cs.getPropertyValue('--sab')) || 0; } catch (e) {}
-        const topReserve = Math.max(176 + bossExtra + sat, h * 0.24);
-        const bottomReserve = 150 + sab;                 // dragon bars + boosters
+        // Top chrome now stacks: title + score/objective/fever HUD + ad banner +
+        // booster row. Bottom holds only the dragon ability bar (raised to hug
+        // the board), so the reserve there is much smaller than before.
+        const topReserve = Math.max(322 + bossExtra + sat, h * 0.30);
+        const bottomReserve = 104 + sab;                 // dragon bar + synergy button
         const zoneH = Math.max(120, h - topReserve - bottomReserve);
         const size = Math.max(120, Math.min(w - margin * 2, zoneH));
         const left = Math.round((w - size) / 2);
         const top = Math.round(topReserve + Math.max(0, (zoneH - size) / 2));
         this.engine.setViewport(left, top, size);
+        // Anchor the dragon ability bar + synergy button just beneath the board
+        // so they hug it instead of floating low with a dead gap above them.
+        const boardBottom = top + size;
+        if (this.hud && this.hud.dragonBars) {
+          this.hud.dragonBars.style.top = Math.round(boardBottom + 10) + 'px';
+          this.hud.dragonBars.style.bottom = 'auto';
+        }
+        if (this.synBtn) {
+          this.synBtn.style.top = Math.round(boardBottom + 52) + 'px';
+          this.synBtn.style.bottom = 'auto';
+        }
       }
     },
 

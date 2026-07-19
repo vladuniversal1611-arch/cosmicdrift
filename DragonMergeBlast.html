@@ -105,7 +105,7 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 
 /* ---- Boss panel ---- */
 .boss-panel {
-  position: absolute; top: 152px; left: 14px; right: 14px; z-index: 10;
+  position: absolute; top: 326px; left: 14px; right: 14px; z-index: 10;
   display: flex; align-items: center; gap: 10px;
   background: var(--panel); border: 1px solid rgba(255,90,90,0.4); border-radius: 14px; padding: 8px 12px;
 }
@@ -373,20 +373,38 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 }
 @keyframes feverGlow { from { opacity: 0.55; } to { opacity: 1; } }
 
+/* Dragon ability bar — its vertical position is set dynamically in resize() so
+   it hugs the bottom of the board; this bottom is just a fallback. */
 .dragon-bars { position: absolute; bottom: 78px; left: 0; right: 0; z-index: 10; display: flex; gap: 8px; justify-content: center; padding: 0 14px; }
 
-/* ---- Booster bar ---- */
-.booster-bar { position: absolute; bottom: 16px; left: 0; right: 0; z-index: 11; display: flex; gap: 12px; justify-content: center; padding: 0 14px; }
+/* ---- Ad banner slot (top, above the boosters) ---- */
+.ad-banner {
+  position: absolute; top: 210px; left: 14px; right: 14px; height: 50px; z-index: 10;
+  border-radius: 12px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.12));
+  border: 1px dashed rgba(255,255,255,0.16);
+}
+.ad-banner-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); opacity: 0.7;
+}
+/* Once a real native banner is overlaid in the strip, drop the placeholder look. */
+.ad-banner.ad-live { background: transparent; border: none; }
+.ad-banner.ad-live .ad-banner-tag { display: none; }
+
+/* ---- Booster bar (moved to the top, compact, under the banner) ---- */
+.booster-bar { position: absolute; top: 270px; left: 0; right: 0; z-index: 11; display: flex; gap: 10px; justify-content: center; padding: 0 14px; }
 .booster {
-  position: relative; width: 56px; height: 56px; border-radius: 16px; border: none; cursor: pointer;
+  position: relative; width: 48px; height: 48px; border-radius: 14px; border: none; cursor: pointer;
   background: var(--panel); border: 1px solid rgba(255,255,255,0.12); color: var(--ink);
   display: flex; align-items: center; justify-content: center; font-family: inherit;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.08s;
 }
 .booster:active { transform: scale(0.9); }
-.booster .bo-ic { font-size: 24px; }
+.booster .bo-ic { font-size: 21px; }
 .booster .bo-n {
-  position: absolute; bottom: -4px; right: -4px; min-width: 20px; height: 20px; border-radius: 10px;
+  position: absolute; bottom: -4px; right: -4px; min-width: 19px; height: 19px; border-radius: 10px;
   background: var(--gold); color: #3a1e00; font-size: 11px; font-weight: 900;
   display: flex; align-items: center; justify-content: center; padding: 0 5px;
 }
@@ -730,9 +748,9 @@ canvas#board { position: absolute; inset: 0; z-index: 1; display: block; }
 .currency-bar { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
 .game-top { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
 .nav-bar { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
-.booster-bar { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
-.dragon-bars { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
-.synergy-btn { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+/* Boosters now sit in the top strip; the dragon bar + synergy button are placed
+   dynamically in resize() (they hug the board and already fold in the bottom
+   safe-area via the board's bottom reserve), so no fixed bottom offsets here. */
 /* Very short viewports (small phones / split-screen): tighten the incubator so
    the home screen never clips its action grid. */
 @media (max-height: 620px) {
@@ -3090,6 +3108,36 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     }).catch(fallback);
   }
 
+  // ---- Banner --------------------------------------------------------------
+  // Shows a small adaptive banner pinned to the top of the screen, positioned
+  // just under our title bar so it lands in the reserved ".ad-banner" strip
+  // above the boosters. No-op until a banner ad unit ID is set in
+  // CONFIG.android.banner (until then the in-page placeholder stays visible).
+  let bannerShown = false;
+  function showBanner() {
+    if (!isNative() || !CONFIG.android.banner) return; // need a real banner unit
+    const AdMob = plugin(); if (!AdMob || typeof AdMob.showBanner !== 'function') return;
+    if (bannerShown) return;
+    ensureInit().then(function () {
+      return AdMob.showBanner({
+        adId: CONFIG.android.banner,
+        adSize: 'ADAPTIVE_BANNER',
+        position: 'TOP_CENTER',
+        margin: 56,               // clear our title bar
+        isTesting: CONFIG.testing
+      });
+    }).then(function () {
+      bannerShown = true;
+      // Real banner is up — hide the placeholder text so it doesn't peek through.
+      try { document.querySelectorAll('.ad-banner').forEach(function (b) { b.classList.add('ad-live'); }); } catch (e) {}
+    }).catch(function () {});
+  }
+  function hideBanner() {
+    if (!isNative() || !bannerShown) return;
+    const AdMob = plugin(); if (!AdMob || typeof AdMob.hideBanner !== 'function') return;
+    AdMob.hideBanner().then(function () { bannerShown = false; }).catch(function () {});
+  }
+
   // ---- Interstitial --------------------------------------------------------
   // Returns true if an ad was (or will be) shown. Frequency-capped.
   function interstitial(force) {
@@ -3157,6 +3205,8 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     init: ensureInit,
     rewarded: rewarded,
     interstitial: interstitial,
+    showBanner: showBanner,
+    hideBanner: hideBanner,
     isNative: isNative,
     CONFIG: CONFIG
   };
@@ -6373,6 +6423,7 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     go: function (id) {
       this.inLevel = false;
       this.gameScreen.classList.add('hidden');
+      try { if (global.Ads && global.Ads.hideBanner) global.Ads.hideBanner(); } catch (e) {}
       global.UI.closeModal();
       // Clear any lingering in-game dialogue / tip bubbles when leaving a level.
       const dp = this.root.querySelector('.dialogue-pop'); if (dp) dp.remove();
@@ -6849,6 +6900,15 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         '</div>';
       s.appendChild(hud);
 
+      // Ad banner slot — sits at the top, directly above the booster row.
+      // On a native build this reserves the strip for the real AdMob banner;
+      // in the browser (and while the banner is still under review) it shows a
+      // subtle placeholder so the layout looks the same.
+      const banner = document.createElement('div');
+      banner.className = 'ad-banner';
+      banner.innerHTML = '<span class="ad-banner-tag">' + (T('ad_label') || 'Ad') + '</span>';
+      s.appendChild(banner);
+
       const drBars = document.createElement('div');
       drBars.className = 'dragon-bars';
       s.appendChild(drBars);
@@ -6875,8 +6935,12 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         fever: hud.querySelector('#hud-fever'),
         feverFill: hud.querySelector('#hud-fever-fill'),
         dragonBars: drBars,
-        boosterBar: boBar
+        boosterBar: boBar,
+        banner: banner
       };
+      // Try to place a real AdMob banner in the slot (no-op in browser / until a
+      // banner ad unit is configured — the placeholder stays visible then).
+      try { if (global.Ads && global.Ads.showBanner) global.Ads.showBanner(); } catch (e) {}
       // booster-use callbacks from the engine
       this.engine.cb.onShuffle = function () { global.UI.toast(T('shuffled')); };
       this.engine.cb.onMerge = function () { global.UI.toast('🔮 ' + T('merge_toast')); self.tip('merge', 200); };
@@ -7222,18 +7286,34 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         // dragon/booster bars (bottom), then centre it. Works for every aspect
         // ratio — tall phones are width-limited, short/wide ones height-limited.
         const margin = Math.max(10, w * 0.04);
-        const bossExtra = this.engine.isBoss ? 44 : 0;
+        // On boss levels the themed boss HP panel sits just above the board (in
+        // the strip under the boosters), so reserve extra top space for it.
+        const bossExtra = this.engine.isBoss ? 82 : 0;
         // Fold in device safe-area insets (notch / home indicator) so the board
         // clears the chrome on every phone.
         let sat = 0, sab = 0;
         try { const cs = getComputedStyle(document.documentElement); sat = parseFloat(cs.getPropertyValue('--sat')) || 0; sab = parseFloat(cs.getPropertyValue('--sab')) || 0; } catch (e) {}
-        const topReserve = Math.max(176 + bossExtra + sat, h * 0.24);
-        const bottomReserve = 150 + sab;                 // dragon bars + boosters
+        // Top chrome now stacks: title + score/objective/fever HUD + ad banner +
+        // booster row. Bottom holds only the dragon ability bar (raised to hug
+        // the board), so the reserve there is much smaller than before.
+        const topReserve = Math.max(322 + bossExtra + sat, h * 0.30);
+        const bottomReserve = 104 + sab;                 // dragon bar + synergy button
         const zoneH = Math.max(120, h - topReserve - bottomReserve);
         const size = Math.max(120, Math.min(w - margin * 2, zoneH));
         const left = Math.round((w - size) / 2);
         const top = Math.round(topReserve + Math.max(0, (zoneH - size) / 2));
         this.engine.setViewport(left, top, size);
+        // Anchor the dragon ability bar + synergy button just beneath the board
+        // so they hug it instead of floating low with a dead gap above them.
+        const boardBottom = top + size;
+        if (this.hud && this.hud.dragonBars) {
+          this.hud.dragonBars.style.top = Math.round(boardBottom + 10) + 'px';
+          this.hud.dragonBars.style.bottom = 'auto';
+        }
+        if (this.synBtn) {
+          this.synBtn.style.top = Math.round(boardBottom + 52) + 'px';
+          this.synBtn.style.bottom = 'auto';
+        }
       }
     },
 
