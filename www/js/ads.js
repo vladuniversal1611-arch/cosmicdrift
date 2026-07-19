@@ -139,18 +139,20 @@
     if (!isNative() || !CONFIG.android.banner) return; // need a real banner unit
     const AdMob = plugin(); if (!AdMob || typeof AdMob.showBanner !== 'function') return;
     if (bannerShown) return;
-    // The native banner overlays the WebView at a top-margin (dp). Line it up
-    // with the reserved ".ad-banner" strip so it lands above the boosters and
-    // below the score HUD, instead of covering them. Measure the slot so it
-    // stays aligned if the layout ever shifts; fall back to the CSS position.
-    let topMargin = 210;
-    try { const slot = document.querySelector('.ad-banner'); if (slot) { const t = Math.round(slot.getBoundingClientRect().top); if (t > 0) topMargin = t; } } catch (e) {}
+    // The banner is pinned to the very bottom of the screen, so use a bottom
+    // overlay. Measure the reserved ".ad-banner" strip's distance from the
+    // bottom so the native view lands exactly in it; fall back to the CSS gap.
+    let bottomMargin = 10;
+    try {
+      const slot = document.querySelector('.ad-banner');
+      if (slot) { const r = slot.getBoundingClientRect(); const m = Math.round(global.innerHeight - r.bottom); if (m >= 0) bottomMargin = m; }
+    } catch (e) {}
     ensureInit().then(function () {
       return AdMob.showBanner({
         adId: CONFIG.android.banner,
         adSize: 'ADAPTIVE_BANNER',
-        position: 'TOP_CENTER',
-        margin: topMargin,
+        position: 'BOTTOM_CENTER',
+        margin: bottomMargin,
         isTesting: CONFIG.testing
       });
     }).then(function () {
