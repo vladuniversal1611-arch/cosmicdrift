@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐉 Dragon Collector</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0d0518;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+:root{--gold:#ffd700;--purple:#7b2d8b;--purple-light:#a855f7;--card:#1a0a2e;--card2:#251040;--common:#9ca3af;--rare:#3b82f6;--epic:#a855f7;--legendary:#f59e0b;--gem:#60a5fa}
+#app{flex:1;display:flex;flex-direction:column;max-width:500px;margin:0 auto;width:100%}
+.screen{display:none;flex:1;flex-direction:column;overflow-y:auto}
+.screen.active{display:flex}
+.top-bar{background:linear-gradient(135deg,#1a0a2e,#251040);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #7b2d8b44}
+.res-chip{background:#251040;border:1px solid #7b2d8b55;border-radius:20px;padding:4px 10px;font-size:13px;display:flex;align-items:center;gap:4px}
+.page-title{padding:14px 16px 6px;font-size:20px;font-weight:700;color:var(--gold)}
+.subtitle{padding:0 16px 10px;font-size:12px;color:#ffffff88}
+.btn{background:linear-gradient(135deg,var(--purple),var(--purple-light));color:#fff;border:none;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;transition:transform .1s,opacity .1s}
+.btn:active{transform:scale(.95)}
+.btn:disabled{opacity:.4}
+.btn-gold{background:linear-gradient(135deg,#b8860b,var(--gold));color:#1a0a2e}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px}
+.btn-outline{background:transparent;border:1px solid var(--purple-light);color:var(--purple-light)}
+.card{background:var(--card);border:1px solid #7b2d8b44;border-radius:16px;padding:14px;margin:8px 12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 12px}
+.dragon-tile{background:var(--card2);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;border:2px solid transparent;transition:border-color .2s,transform .1s;position:relative}
+.dragon-tile:active{transform:scale(.95)}
+.dragon-tile.owned{border-color:#7b2d8b66}
+.dragon-tile.locked{opacity:.45;filter:grayscale(0.6)}
+.dragon-tile .d-emoji{font-size:28px;line-height:1.2}
+.dragon-tile .d-name{font-size:9px;color:#ddd;margin-top:3px;line-height:1.2;word-break:break-word}
+.dragon-tile .d-rarity{font-size:8px;margin-top:2px;font-weight:700}
+.rarity-common{color:var(--common)}
+.rarity-rare{color:var(--rare)}
+.rarity-epic{color:var(--epic)}
+.rarity-legendary{color:var(--legendary);text-shadow:0 0 6px #f59e0b66}
+.badge{position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;background:#22c55e}
+.badge-hat{background:#f59e0b}
+.badge-exp{background:#3b82f6}
+.filter-row{display:flex;gap:6px;padding:6px 12px;overflow-x:auto}
+.filter-chip{background:var(--card2);border:1px solid #7b2d8b55;border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap;transition:background .2s}
+.filter-chip.sel{background:var(--purple-light);border-color:var(--purple-light)}
+.progress-bar{height:6px;background:#251040;border-radius:3px;overflow:hidden;margin:4px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--gold));border-radius:3px;transition:width .5s}
+.modal-overlay{display:none;position:fixed;inset:0;background:#00000088;z-index:100;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:linear-gradient(180deg,#1a0a2e,#0d0518);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:18px;font-weight:700;color:var(--gold);margin-bottom:12px}
+.info-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #ffffff11;font-size:13px}
+.info-row span:first-child{color:#ffffff88}
+.building-card{background:var(--card2);border-radius:12px;padding:12px;margin:6px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .1s}
+.building-card:active{transform:scale(.98)}
+.building-icon{font-size:32px;width:48px;text-align:center}
+.building-info{flex:1}
+.building-info h3{font-size:14px;font-weight:600}
+.building-info p{font-size:11px;color:#ffffff77;margin-top:2px}
+.level-badge{background:var(--purple);border-radius:8px;padding:3px 8px;font-size:12px;font-weight:700}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a2e;border:1px solid var(--gold);border-radius:12px;padding:10px 18px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;max-width:320px;text-align:center}
+.toast.show{opacity:1}
+nav{background:linear-gradient(180deg,#1a0a2e,#0d0518);border-top:1px solid #7b2d8b44;display:flex;justify-content:space-around;padding:8px 0 12px}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s;color:#ffffff66;font-size:10px;border:none;background:transparent}
+.nav-btn.active{color:var(--gold)}
+.nav-btn span:first-child{font-size:20px}
+.hatch-item{background:var(--card2);border-radius:12px;padding:12px;margin:6px 12px;display:flex;align-items:center;gap:12px}
+.hatch-info{flex:1}
+.hatch-info h3{font-size:14px}
+.hatch-info p{font-size:11px;color:#ffffff77;margin-top:2px}
+.exp-card{background:var(--card2);border-radius:12px;padding:14px;margin:6px 12px;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
+.exp-card.sel{border-color:var(--purple-light)}
+.exp-card h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.exp-card p{font-size:11px;color:#ffffff77}
+.ach-card{background:var(--card2);border-radius:12px;padding:12px;margin:6px 12px;display:flex;align-items:center;gap:12px}
+.ach-icon{font-size:28px;width:40px;text-align:center}
+.ach-info{flex:1}
+.ach-info h3{font-size:13px;font-weight:600}
+.ach-info p{font-size:11px;color:#ffffff77;margin-top:2px}
+.ach-locked{opacity:.5}
+.arena-enemy{background:var(--card2);border-radius:12px;padding:14px;margin:6px 12px;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
+.arena-enemy.sel{border-color:#ef4444}
+.arena-enemy h3{font-size:15px}
+.arena-enemy p{font-size:12px;color:#ef4444;margin-top:2px}
+.team-slot{background:#251040;border:2px dashed #7b2d8b55;border-radius:12px;padding:14px;text-align:center;cursor:pointer;font-size:22px;min-height:70px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.team-slot.filled{border-style:solid;border-color:#7b2d8b}
+.merge-select{background:var(--card2);border-radius:12px;padding:10px;cursor:pointer;text-align:center;border:2px solid transparent;transition:border-color .2s;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.merge-select.sel{border-color:var(--purple-light)}
+.daily-day{background:var(--card2);border-radius:12px;padding:12px;text-align:center;border:2px solid transparent}
+.daily-day.claimed{border-color:#22c55e;background:#052a0e}
+.daily-day.today{border-color:var(--gold)}
+.day-num{font-size:11px;color:#ffffff77}
+.day-reward{font-size:18px;margin:4px 0}
+.section-title{font-size:14px;font-weight:700;color:var(--purple-light);padding:8px 16px 4px;margin-top:4px}
+canvas{display:block;margin:0 auto}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOP BAR -->
+  <div class="top-bar" id="topBar">
+    <div class="res-chip">🪙 <span id="goldTxt">0</span></div>
+    <div class="res-chip">💎 <span id="gemsTxt">0</span></div>
+    <div class="res-chip">✨ <span id="essenceTxt">0</span></div>
+    <div class="res-chip" style="margin-left:auto;cursor:pointer" onclick="openScreen('daily')">🎁 <span id="streakTxt">0</span></div>
+  </div>
+
+  <!-- ISLAND SCREEN -->
+  <div class="screen active" id="screen-island">
+    <div class="page-title">🏝️ Мій Острів</div>
+    <div class="subtitle" id="islandSubtitle">Розвивай острів дракона</div>
+    <div id="buildingsList"></div>
+    <div class="card" style="margin-top:8px">
+      <div style="font-size:13px;color:#ffffff88;margin-bottom:8px">📊 Статистика острова</div>
+      <div class="info-row"><span>Дракони у колекції</span><span id="statOwned" style="color:var(--gold)">0</span></div>
+      <div class="info-row"><span>Виконано експедицій</span><span id="statExp" style="color:var(--gem)">0</span></div>
+      <div class="info-row"><span>Злиттів виконано</span><span id="statMerge" style="color:var(--epic)">0</span></div>
+      <div class="info-row"><span>Перемог на арені</span><span id="statArena" style="color:#ef4444">0</span></div>
+    </div>
+  </div>
+
+  <!-- COLLECTION SCREEN -->
+  <div class="screen" id="screen-collection">
+    <div class="page-title">📚 Колекція Драконів</div>
+    <div id="collProgress" class="card" style="margin:6px 12px;padding:10px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+        <span>Зібрано</span><span id="collCountTxt" style="color:var(--gold)">0/100</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="collProgressBar" style="width:0%"></div></div>
+    </div>
+    <div class="filter-row" id="rarityFilters">
+      <div class="filter-chip sel" onclick="setFilter(null,this)">Всі</div>
+      <div class="filter-chip rarity-common" onclick="setFilter('common',this)">Звичайні</div>
+      <div class="filter-chip rarity-rare" onclick="setFilter('rare',this)">Рідкісні</div>
+      <div class="filter-chip rarity-epic" onclick="setFilter('epic',this)">Епічні</div>
+      <div class="filter-chip rarity-legendary" onclick="setFilter('legendary',this)">Легендарні</div>
+    </div>
+    <div class="grid3" id="dragonGrid"></div>
+  </div>
+
+  <!-- HATCHERY SCREEN -->
+  <div class="screen" id="screen-hatchery">
+    <div class="page-title">🥚 Інкубатор</div>
+    <div class="subtitle">Виводи нових драконів</div>
+    <div class="section-title">В інкубаторі</div>
+    <div id="hatchingList"></div>
+    <div class="section-title">Доступні яйця</div>
+    <div class="grid3" id="hatchableGrid"></div>
+  </div>
+
+  <!-- EXPEDITION SCREEN -->
+  <div class="screen" id="screen-expedition">
+    <div class="page-title">🗺️ Експедиції</div>
+    <div class="subtitle">Відправ дракона за ресурсами</div>
+    <div class="section-title">Дракони в дорозі</div>
+    <div id="activeExpeditions"></div>
+    <div class="section-title">Виберіть локацію</div>
+    <div id="locationsList"></div>
+    <div class="section-title">Виберіть дракона</div>
+    <div class="grid3" id="expDragonGrid"></div>
+    <div style="padding:10px 12px">
+      <button class="btn btn-gold" style="width:100%" onclick="sendExpedition()">🗺️ Вирушити в експедицію</button>
+    </div>
+  </div>
+
+  <!-- ARENA SCREEN -->
+  <div class="screen" id="screen-arena">
+    <div class="page-title">⚔️ Арена</div>
+    <div class="subtitle">Битви та нагороди</div>
+    <div class="section-title">Ворог</div>
+    <div id="enemyList"></div>
+    <div class="section-title">Твоя команда (до 3)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 12px" id="teamSlots"></div>
+    <div class="section-title">Вибери драконів</div>
+    <div class="grid3" id="arenaGrid"></div>
+    <div style="padding:10px 12px">
+      <button class="btn" style="width:100%;background:linear-gradient(135deg,#7f1d1d,#ef4444)" onclick="startBattle()">⚔️ В бій!</button>
+    </div>
+    <div id="battleResult" style="padding:10px 12px;display:none"></div>
+  </div>
+
+  <!-- MERGE SCREEN -->
+  <div class="screen" id="screen-merge">
+    <div class="page-title">✨ Злиття Драконів</div>
+    <div class="subtitle">З'єднай двох однакових драконів</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;padding:8px 12px;align-items:center">
+      <div class="merge-select" id="merge1" onclick="openMergeSelect(1)"><span style="font-size:28px">🥚</span><span style="font-size:11px;color:#ffffff66">Виберіть</span></div>
+      <div style="font-size:24px;color:var(--gold)">+</div>
+      <div class="merge-select" id="merge2" onclick="openMergeSelect(2)"><span style="font-size:28px">🥚</span><span style="font-size:11px;color:#ffffff66">Виберіть</span></div>
+    </div>
+    <div style="padding:4px 12px 10px">
+      <button class="btn btn-gold" style="width:100%" onclick="doMerge()">✨ Злити!</button>
+    </div>
+    <div class="card" id="mergeInfo">
+      <div style="font-size:13px;color:#ffffff88">Злиття двох однакових драконів (рідкість + елемент) дає шанс підвищити рідкість:<br><br>
+      🔄 Звичайний → Рідкісний: 40%<br>
+      🔄 Рідкісний → Епічний: 25%<br>
+      🔄 Епічний → Легендарний: 10%</div>
+    </div>
+    <div class="section-title">Ваші дракони</div>
+    <div class="grid3" id="mergeGrid"></div>
+  </div>
+
+  <!-- DAILY SCREEN -->
+  <div class="screen" id="screen-daily">
+    <div class="page-title">🎁 Щоденні нагороди</div>
+    <div class="section-title">7-денний календар</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 12px" id="dailyCalendar"></div>
+    <div style="padding:8px 12px">
+      <button class="btn btn-gold" style="width:100%" onclick="claimDaily()">🎁 Отримати нагороду</button>
+    </div>
+    <div class="section-title">Колесо удачі</div>
+    <canvas id="wheelCanvas" width="280" height="280"></canvas>
+    <div style="padding:8px 12px 4px">
+      <button class="btn" style="width:100%" onclick="spinWheel()">🎡 Крутити (1 раз/день)</button>
+    </div>
+    <div class="card" style="margin-top:4px">
+      <div class="info-row"><span>Серія днів</span><span style="color:var(--gold)" id="dailyStreakDisplay">0</span></div>
+      <div class="info-row"><span>Сьогоднішня нагорода</span><span id="todayRewardDisplay" style="color:#22c55e">-</span></div>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENTS SCREEN -->
+  <div class="screen" id="screen-achievements">
+    <div class="page-title">🏆 Досягнення</div>
+    <div style="padding:4px 12px 10px;display:flex;justify-content:space-between;align-items:center">
+      <span id="achCountTxt" style="font-size:13px;color:#ffffff88">0/50</span>
+      <span id="achPointsTxt" style="font-size:13px;color:var(--gold)">0 очок</span>
+    </div>
+    <div id="achievementsList"></div>
+  </div>
+
+  <!-- NAV -->
+  <nav>
+    <button class="nav-btn active" onclick="openScreen('island')" id="nav-island"><span>🏝️</span><span>Острів</span></button>
+    <button class="nav-btn" onclick="openScreen('collection')" id="nav-collection"><span>📚</span><span>Дракони</span></button>
+    <button class="nav-btn" onclick="openScreen('hatchery')" id="nav-hatchery"><span>🥚</span><span>Інкубатор</span></button>
+    <button class="nav-btn" onclick="openScreen('expedition')" id="nav-expedition"><span>🗺️</span><span>Квест</span></button>
+    <button class="nav-btn" onclick="openScreen('arena')" id="nav-arena"><span>⚔️</span><span>Арена</span></button>
+  </nav>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== DATA =====================
+const DRAGONS = [
+  // COMMON (30)
+  {id:"fire_drake",name:"Вогняний Дракон",r:"common",el:"🔥",color:"#ff4500",pwr:10,desc:"Найпоширеніший дракон вогню"},
+  {id:"water_sprite",name:"Водяний Спрайт",r:"common",el:"💧",color:"#1e90ff",pwr:9,desc:"Живе в річках та озерах"},
+  {id:"stone_guardian",name:"Кам'яний Страж",r:"common",el:"🪨",color:"#8b7355",pwr:11,desc:"Повільний але міцний"},
+  {id:"wind_dancer",name:"Танцюрист Вітру",r:"common",el:"🌬️",color:"#87ceeb",pwr:8,desc:"Легкий як перо"},
+  {id:"leaf_hopper",name:"Листяний Стрибун",r:"common",el:"🌿",color:"#32cd32",pwr:9,desc:"Ховається в лісі"},
+  {id:"spark_lizard",name:"Блискавична Ящірка",r:"common",el:"⚡",color:"#ffd700",pwr:10,desc:"Маленький але шустрий"},
+  {id:"frost_pup",name:"Крижане Цуценя",r:"common",el:"❄️",color:"#b0e0e6",pwr:9,desc:"Залишає крижані сліди"},
+  {id:"earth_slug",name:"Земляний Слимак",r:"common",el:"🌍",color:"#8b4513",pwr:8,desc:"Повільно але вірно"},
+  {id:"shadow_pup",name:"Тіньове Щеня",r:"common",el:"🌑",color:"#2d2d2d",pwr:10,desc:"Зникає у темряві"},
+  {id:"sun_hatch",name:"Сонячне Хатчення",r:"common",el:"☀️",color:"#ffa500",pwr:9,desc:"Любить грітись на сонці"},
+  {id:"mud_crawler",name:"Болотяний Повзун",r:"common",el:"🌿",color:"#6b4226",pwr:8,desc:"Майстер маскування"},
+  {id:"pebble_claw",name:"Гальковий Кіготь",r:"common",el:"🪨",color:"#a0a0a0",pwr:9,desc:"Збирає каміння"},
+  {id:"drizzle_fin",name:"Морозяний Плавець",r:"common",el:"💧",color:"#4169e1",pwr:8,desc:"Плаває у холодних водах"},
+  {id:"ember_mouse",name:"Жаровий Мишун",r:"common",el:"🔥",color:"#cd5c5c",pwr:9,desc:"Маленький але гарячий"},
+  {id:"breeze_tail",name:"Вітряний Хвіст",r:"common",el:"🌬️",color:"#e0f0ff",pwr:8,desc:"Завжди в русі"},
+  {id:"clay_wing",name:"Глиняне Крило",r:"common",el:"🌍",color:"#cc8844",pwr:9,desc:"Крила з глини"},
+  {id:"candle_puff",name:"Свічковий Пуфик",r:"common",el:"🔥",color:"#ff8c00",pwr:8,desc:"Вогонь не більший за свічку"},
+  {id:"puddle_duck",name:"Калюжна Качечка",r:"common",el:"💧",color:"#87cefa",pwr:8,desc:"Плескається в калюжах"},
+  {id:"gravel_back",name:"Гравійний Хрящ",r:"common",el:"🪨",color:"#696969",pwr:9,desc:"Спина з каменю"},
+  {id:"gust_chick",name:"Вітряне Пташеня",r:"common",el:"🌬️",color:"#f0f8ff",pwr:8,desc:"Народилося під час бурі"},
+  {id:"sprout_wing",name:"Паросткове Крило",r:"common",el:"🌿",color:"#228b22",pwr:9,desc:"Крила як листя"},
+  {id:"static_tick",name:"Статичний Кліщ",r:"common",el:"⚡",color:"#f5f5dc",pwr:8,desc:"Завжди наелектризований"},
+  {id:"sleet_nip",name:"Снігова Лапка",r:"common",el:"❄️",color:"#b0c4de",pwr:8,desc:"Гуляє по снігу"},
+  {id:"loam_worm",name:"Ґрунтовий Хробак",r:"common",el:"🌍",color:"#8b7355",pwr:8,desc:"Живе під землею"},
+  {id:"dusk_paw",name:"Сутінкова Лапа",r:"common",el:"🌑",color:"#3d3d3d",pwr:9,desc:"Активний вночі"},
+  {id:"glimmer_scale",name:"Мерехтлива Луска",r:"common",el:"☀️",color:"#ffd700",pwr:8,desc:"Луска відбиває сонце"},
+  {id:"thorn_snout",name:"Колючий Рильце",r:"common",el:"🌿",color:"#3c7a3c",pwr:9,desc:"Ніс вкритий шипами"},
+  {id:"char_foot",name:"Вугільна Стопа",r:"common",el:"🔥",color:"#333",pwr:9,desc:"Залишає вогняні сліди"},
+  {id:"ripple_fin",name:"Хвилястий Плавець",r:"common",el:"💧",color:"#00bfff",pwr:8,desc:"Ковзає по воді"},
+  {id:"flint_cub",name:"Кременеве Ведмежа",r:"common",el:"🪨",color:"#808080",pwr:10,desc:"Тверде як кремінь"},
+
+  // RARE (25)
+  {id:"magma_wing",name:"Магматичне Крило",r:"rare",el:"🔥",color:"#ff6600",pwr:25,desc:"Крила покриті лавою"},
+  {id:"tide_rider",name:"Вершник Хвиль",r:"rare",el:"💧",color:"#006994",pwr:23,desc:"Скаче по морських хвилях"},
+  {id:"quake_back",name:"Землетрусний Спинар",r:"rare",el:"🪨",color:"#5d4037",pwr:26,desc:"Спричиняє мікроземлетруси"},
+  {id:"gale_soarer",name:"Буревій Парун",r:"rare",el:"🌬️",color:"#4682b4",pwr:22,desc:"Ширяє у штормах"},
+  {id:"thorn_bark",name:"Шипова Кора",r:"rare",el:"🌿",color:"#2e7d32",pwr:24,desc:"Тіло покрите корою"},
+  {id:"thunder_horn",name:"Громовий Ріг",r:"rare",el:"⚡",color:"#b8860b",pwr:27,desc:"Ріг збирає блискавки"},
+  {id:"glacier_mane",name:"Льодовикова Грива",r:"rare",el:"❄️",color:"#7ec8e3",pwr:23,desc:"Грива із кристалів льоду"},
+  {id:"terra_crest",name:"Земляний Гребінь",r:"rare",el:"🌍",color:"#a0522d",pwr:24,desc:"Гребінь з землі"},
+  {id:"umbra_fang",name:"Тіньовий Ікло",r:"rare",el:"🌑",color:"#1c1c2e",pwr:26,desc:"Іклі з тіні"},
+  {id:"solar_mane",name:"Сонячна Грива",r:"rare",el:"☀️",color:"#ff8c00",pwr:25,desc:"Грива як полум'я сонця"},
+  {id:"cinder_back",name:"Попільна Спина",r:"rare",el:"🔥",color:"#cc4400",pwr:24,desc:"Спина у попелі"},
+  {id:"brine_scale",name:"Морська Луска",r:"rare",el:"💧",color:"#008080",pwr:23,desc:"Луска пахне морем"},
+  {id:"boulder_jaw",name:"Скельна Щелепа",r:"rare",el:"🪨",color:"#666666",pwr:26,desc:"Жує каміння"},
+  {id:"sirocco_wing",name:"Сирокове Крило",r:"rare",el:"🌬️",color:"#daa520",pwr:22,desc:"Крила із гарячого вітру"},
+  {id:"fern_drake",name:"Папоротевий Дракон",r:"rare",el:"🌿",color:"#006400",pwr:24,desc:"Ховається у папороті"},
+  {id:"volt_crest",name:"Вольтовий Гребінь",r:"rare",el:"⚡",color:"#ffee00",pwr:27,desc:"Гребінь заряджений"},
+  {id:"permafrost",name:"Вічна Мерзлота",r:"rare",el:"❄️",color:"#a8d8ea",pwr:23,desc:"Вічно замерзлий"},
+  {id:"silt_wing",name:"Мулисте Крило",r:"rare",el:"🌍",color:"#c68642",pwr:22,desc:"Крила вкриті мулом"},
+  {id:"nightshade",name:"Нічна Тінь",r:"rare",el:"🌑",color:"#0d0d2b",pwr:26,desc:"Непомітний вночі"},
+  {id:"aurora_back",name:"Сяюча Спина",r:"rare",el:"☀️",color:"#ffd700",pwr:25,desc:"Спина сяє як зоря"},
+  {id:"scorched_tail",name:"Спалений Хвіст",r:"rare",el:"🔥",color:"#ff5500",pwr:24,desc:"Хвіст у полум'ї"},
+  {id:"sea_serpent",name:"Морський Змій",r:"rare",el:"💧",color:"#005f73",pwr:25,desc:"Повзає у глибинах"},
+  {id:"iron_claw",name:"Залізний Кіготь",r:"rare",el:"🪨",color:"#595959",pwr:26,desc:"Кіготь твердий як залізо"},
+  {id:"whirlwind_pup",name:"Вихровий Щеня",r:"rare",el:"🌬️",color:"#b0c4de",pwr:22,desc:"Завжди в центрі вихору"},
+  {id:"mushroom_wyvern",name:"Грибний Вайверн",r:"rare",el:"🌿",color:"#8d6e63",pwr:23,desc:"Любить темні ліси"},
+
+  // EPIC (25)
+  {id:"inferno_lord",name:"Лорд Пекла",r:"epic",el:"🔥",color:"#cc0000",pwr:60,desc:"Повелитель вогняних земель"},
+  {id:"ocean_titan",name:"Океанський Титан",r:"epic",el:"💧",color:"#003d99",pwr:57,desc:"Правитель морських глибин"},
+  {id:"mountain_king",name:"Гірський Цар",r:"epic",el:"🪨",color:"#3e2723",pwr:63,desc:"Цар усіх гір"},
+  {id:"storm_herald",name:"Вісник Бурі",r:"epic",el:"🌬️",color:"#1565c0",pwr:55,desc:"Приносить шторми"},
+  {id:"jungle_emperor",name:"Джунглевий Імператор",r:"epic",el:"🌿",color:"#1b5e20",pwr:58,desc:"Імператор джунглів"},
+  {id:"lightning_sage",name:"Блискавичний Мудрець",r:"epic",el:"⚡",color:"#827717",pwr:65,desc:"Мудрець блискавок"},
+  {id:"blizzard_queen",name:"Королева Заметілі",r:"epic",el:"❄️",color:"#0288d1",pwr:57,desc:"Повелителька снігу"},
+  {id:"continent_guardian",name:"Страж Континенту",r:"epic",el:"🌍",color:"#6d4c41",pwr:60,desc:"Охоронець землі"},
+  {id:"void_walker",name:"Мандрівник Пустоти",r:"epic",el:"🌑",color:"#212121",pwr:62,desc:"Ходить між світами"},
+  {id:"solaris_prime",name:"Соляріс Прайм",r:"epic",el:"☀️",color:"#f57f17",pwr:60,desc:"Народжений зі сонця"},
+  {id:"pyroclast",name:"Пірокласт",r:"epic",el:"🔥",color:"#bf360c",pwr:61,desc:"Тіло з вулканічної породи"},
+  {id:"leviathan_deep",name:"Левіафан Глибин",r:"epic",el:"💧",color:"#01579b",pwr:58,desc:"Жахіття морських глибин"},
+  {id:"peak_titan",name:"Гірськовершинний Титан",r:"epic",el:"🪨",color:"#4e342e",pwr:62,desc:"Вища точка гір"},
+  {id:"cyclone_master",name:"Майстер Циклонів",r:"epic",el:"🌬️",color:"#0d47a1",pwr:54,desc:"Керує циклонами"},
+  {id:"elder_tree",name:"Стародавнє Дерево",r:"epic",el:"🌿",color:"#33691e",pwr:57,desc:"Дракон-дерево тисяч років"},
+  {id:"plasma_wraith",name:"Плазмовий Примара",r:"epic",el:"⚡",color:"#f9a825",pwr:64,desc:"Зітканий із плазми"},
+  {id:"frozen_colossus",name:"Крижаний Колос",r:"epic",el:"❄️",color:"#80deea",pwr:58,desc:"Гігантський колос льоду"},
+  {id:"terra_ancient",name:"Стародавній Терра",r:"epic",el:"🌍",color:"#795548",pwr:59,desc:"Найстаріший земляний дракон"},
+  {id:"eclipse_horror",name:"Жах Затемнення",r:"epic",el:"🌑",color:"#311b92",pwr:61,desc:"З'являється при затемненні"},
+  {id:"helios_champion",name:"Чемпіон Геліосу",r:"epic",el:"☀️",color:"#ff8f00",pwr:60,desc:"Захисник сонця"},
+  {id:"ash_specter",name:"Попільний Привид",r:"epic",el:"🔥",color:"#757575",pwr:59,desc:"Дракон що повернувся з попелу"},
+  {id:"abyss_warden",name:"Страж Безодні",r:"epic",el:"💧",color:"#002171",pwr:57,desc:"Охоронець океанських безодень"},
+  {id:"stone_colossus",name:"Кам'яний Колос",r:"epic",el:"🪨",color:"#546e7a",pwr:63,desc:"Монументальна статура"},
+  {id:"tempest_king",name:"Цар Бурі",r:"epic",el:"🌬️",color:"#283593",pwr:55,desc:"Правитель усіх штормів"},
+  {id:"canopy_sage",name:"Мудрець Крон",r:"epic",el:"🌿",color:"#2e7d32",pwr:56,desc:"Найстаріший лісовий дракон"},
+
+  // LEGENDARY (20)
+  {id:"phoenix_king",name:"Цар Фенікс",r:"legendary",el:"🔥",color:"#ff0000",pwr:150,desc:"Безсмертний цар вогню, що відроджується з попелу"},
+  {id:"poseidon_wyrm",name:"Посейдон Вурм",r:"legendary",el:"💧",color:"#0000cd",pwr:145,desc:"Змій глибин, що контролює океани"},
+  {id:"terra_titan",name:"Землетрусний Титан",r:"legendary",el:"🪨",color:"#5d4037",pwr:155,desc:"Дракон-острів, що спить у землі"},
+  {id:"tempest_leviathan",name:"Левіафан Шторму",r:"legendary",el:"🌬️",color:"#1565c0",pwr:140,desc:"Повелитель усіх стихій повітря"},
+  {id:"world_tree_dragon",name:"Дракон Світового Дерева",r:"legendary",el:"🌿",color:"#1b5e20",pwr:148,desc:"Вічний охоронець природи"},
+  {id:"zeus_wyrm",name:"Вурм Зевса",r:"legendary",el:"⚡",color:"#f9a825",pwr:160,desc:"Дракон блискавок, рівний богам"},
+  {id:"eternal_frost",name:"Вічний Мороз",r:"legendary",el:"❄️",color:"#00bcd4",pwr:145,desc:"Дракон що заморозив цілий континент"},
+  {id:"gaia_elder",name:"Старійшина Гея",r:"legendary",el:"🌍",color:"#795548",pwr:150,desc:"Найстаріший дракон на Землі"},
+  {id:"void_emperor",name:"Імператор Пустоти",r:"legendary",el:"🌑",color:"#0a0a2e",pwr:158,desc:"Правитель темного виміру"},
+  {id:"cosmic_herald",name:"Вісник Космосу",r:"legendary",el:"☀️",color:"#ff8f00",pwr:165,desc:"Дракон із зірками в очах"},
+  {id:"ragnarok_dragon",name:"Дракон Рагнарок",r:"legendary",el:"🔥",color:"#b71c1c",pwr:153,desc:"Дракон кінця світу"},
+  {id:"atlantis_lord",name:"Лорд Атлантиди",r:"legendary",el:"💧",color:"#00695c",pwr:147,desc:"Правитель затопленого міста"},
+  {id:"elder_mountain",name:"Гора Стародавніх",r:"legendary",el:"🪨",color:"#37474f",pwr:152,desc:"Живий гірський хребет"},
+  {id:"hurricane_prime",name:"Ураган Прайм",r:"legendary",el:"🌬️",color:"#0d47a1",pwr:142,desc:"Сама буря у вигляді дракона"},
+  {id:"yggdrasil_wyrm",name:"Вурм Іґґдрасіль",r:"legendary",el:"🌿",color:"#2e7d32",pwr:149,desc:"Дракон що обвиває Світове Дерево"},
+  {id:"thunder_god",name:"Бог Грому",r:"legendary",el:"⚡",color:"#ffc107",pwr:162,desc:"Сам гром і блискавки"},
+  {id:"permafrost_ancient",name:"Стародавня Мерзлота",r:"legendary",el:"❄️",color:"#e3f2fd",pwr:146,desc:"Заморожений з початку часів"},
+  {id:"pangaea_lord",name:"Лорд Пангеї",r:"legendary",el:"🌍",color:"#6d4c41",pwr:151,desc:"Правитель первинного континенту"},
+  {id:"shadow_prime",name:"Тіньовий Прайм",r:"legendary",el:"🌑",color:"#1a1a2e",pwr:157,desc:"Тінь що поглинає світло"},
+  {id:"aurora_ancient",name:"Стародавня Аврора",r:"legendary",el:"☀️",color:"#ffd700",pwr:163,desc:"Дракон northern lights, живий"},
+];
+
+const BUILDINGS = [
+  {id:"hatchery",name:"Інкубатор",emoji:"🏠",desc:"Пришвидшує виведення яєць",baseBonus:"Швидкість -10% за рівень",baseCost:100},
+  {id:"goldmine",name:"Золотий Рудник",emoji:"⛏️",desc:"Пасивний дохід золота",baseBonus:"+5 🪙/хв за рівень",baseCost:200},
+  {id:"library",name:"Бібліотека Знань",emoji:"📖",desc:"Збільшує досвід драконів",baseBonus:"+5% досвіду за рівень",baseCost:150},
+  {id:"arena_hall",name:"Зал Арени",emoji:"⚔️",desc:"Бонус до сили в бою",baseBonus:"+5% сили за рівень",baseCost:300},
+  {id:"essence_lab",name:"Лабораторія Есенції",emoji:"⚗️",desc:"Виробляє магічну есенцію",baseBonus:"+2 ✨/год за рівень",baseCost:500},
+  {id:"expedition_camp",name:"Табір Експедицій",emoji:"⛺",desc:"Пришвидшує повернення",baseBonus:"Час -5% за рівень",baseCost:250},
+  {id:"dragon_shrine",name:"Святиня Драконів",emoji:"🏯",desc:"Підвищує шанс злиття",baseBonus:"+2% шансу за рівень",baseCost:1000},
+];
+
+const LOCATIONS = [
+  {id:"forest",name:"Чарівний Ліс",emoji:"🌲",dur:60000,gold:[10,30],gems:[0,1],ess:[0,5],desc:"1 хвилина"},
+  {id:"mountains",name:"Кришталеві Гори",emoji:"⛰️",dur:300000,gold:[30,80],gems:[0,2],ess:[5,20],desc:"5 хвилин"},
+  {id:"swamp",name:"Отруйне Болото",emoji:"🌊",dur:900000,gold:[80,200],gems:[1,3],ess:[20,50],desc:"15 хвилин"},
+  {id:"volcano",name:"Вогняний Вулкан",emoji:"🌋",dur:1800000,gold:[200,500],gems:[2,5],ess:[50,120],desc:"30 хвилин"},
+  {id:"ruins",name:"Стародавні Руїни",emoji:"🏛️",dur:3600000,gold:[500,1200],gems:[5,10],ess:[100,250],desc:"1 година"},
+  {id:"dungeon",name:"Темне Підземілля",emoji:"🕳️",dur:14400000,gold:[1200,3000],gems:[8,20],ess:[250,600],desc:"4 години"},
+  {id:"cosmos",name:"Зіркова Безодня",emoji:"🌌",dur:28800000,gold:[3000,8000],gems:[20,50],ess:[600,1500],desc:"8 годин"},
+];
+
+const ACHIEVEMENTS = [
+  {id:"first_dragon",name:"Перший Дракон",desc:"Отримай першого дракона",emoji:"🐉",cat:"Колекція",req:1,type:"owned",reward:{gold:100}},
+  {id:"five_dragons",name:"П'ять Драконів",desc:"Зібери 5 драконів",emoji:"🐲",cat:"Колекція",req:5,type:"owned",reward:{gold:300}},
+  {id:"ten_dragons",name:"Десятка",desc:"Зібери 10 драконів",emoji:"📚",cat:"Колекція",req:10,type:"owned",reward:{gold:500,gems:5}},
+  {id:"twenty_dragons",name:"Двадцять Драконів",desc:"Зібери 20 драконів",emoji:"🏆",cat:"Колекція",req:20,type:"owned",reward:{gold:1000,gems:10}},
+  {id:"fifty_dragons",name:"Колекціонер",desc:"Зібери 50 драконів",emoji:"👑",cat:"Колекція",req:50,type:"owned",reward:{gold:5000,gems:50}},
+  {id:"all_dragons",name:"Майстер Колекції",desc:"Зібери всіх 100 драконів",emoji:"🌟",cat:"Колекція",req:100,type:"owned",reward:{gold:50000,gems:500,essence:1000}},
+  {id:"rare_first",name:"Рідкість",desc:"Отримай рідкісного дракона",emoji:"💎",cat:"Рідкість",req:1,type:"rare",reward:{gold:200,gems:2}},
+  {id:"epic_first",name:"Епічна Знахідка",desc:"Отримай епічного дракона",emoji:"💜",cat:"Рідкість",req:1,type:"epic",reward:{gold:500,gems:5}},
+  {id:"legendary_first",name:"Легенда!",desc:"Отримай легендарного дракона",emoji:"⭐",cat:"Рідкість",req:1,type:"legendary",reward:{gold:2000,gems:20,essence:100}},
+  {id:"five_rare",name:"П'ять Рідкісних",desc:"Зібери 5 рідкісних драконів",emoji:"🔷",cat:"Рідкість",req:5,type:"rare",reward:{gold:500,gems:5}},
+  {id:"five_epic",name:"П'ять Епічних",desc:"Зібери 5 епічних драконів",emoji:"🔮",cat:"Рідкість",req:5,type:"epic",reward:{gold:2000,gems:20}},
+  {id:"first_exp",name:"Перша Експедиція",desc:"Заверши першу експедицію",emoji:"🗺️",cat:"Експедиції",req:1,type:"expeditions",reward:{gold:150,gems:1}},
+  {id:"ten_exp",name:"Дослідник",desc:"Заверши 10 експедицій",emoji:"🧭",cat:"Експедиції",req:10,type:"expeditions",reward:{gold:400,gems:4}},
+  {id:"fifty_exp",name:"Мандрівник",desc:"Заверши 50 експедицій",emoji:"🌍",cat:"Експедиції",req:50,type:"expeditions",reward:{gold:1500,gems:15}},
+  {id:"hundred_exp",name:"Ветеран Подорожей",desc:"Заверши 100 експедицій",emoji:"🏅",cat:"Експедиції",req:100,type:"expeditions",reward:{gold:5000,gems:50,essence:200}},
+  {id:"first_merge",name:"Перше Злиття",desc:"Злий двох драконів",emoji:"✨",cat:"Злиття",req:1,type:"merges",reward:{gold:200,gems:2}},
+  {id:"ten_merges",name:"Алхімік",desc:"Виконай 10 злиттів",emoji:"⚗️",cat:"Злиття",req:10,type:"merges",reward:{gold:600,gems:6}},
+  {id:"fifty_merges",name:"Майстер Злиттів",desc:"Виконай 50 злиттів",emoji:"🔮",cat:"Злиття",req:50,type:"merges",reward:{gold:3000,gems:30,essence:150}},
+  {id:"first_win",name:"Перша Перемога",desc:"Виграй бій на арені",emoji:"⚔️",cat:"Арена",req:1,type:"wins",reward:{gold:100,gems:1}},
+  {id:"ten_wins",name:"Боєць",desc:"Виграй 10 боїв",emoji:"🛡️",cat:"Арена",req:10,type:"wins",reward:{gold:400,gems:4}},
+  {id:"fifty_wins",name:"Чемпіон",desc:"Виграй 50 боїв",emoji:"🥇",cat:"Арена",req:50,type:"wins",reward:{gold:2000,gems:20}},
+  {id:"hundred_wins",name:"Легенда Арени",desc:"Виграй 100 боїв",emoji:"👑",cat:"Арена",req:100,type:"wins",reward:{gold:8000,gems:80,essence:400}},
+  {id:"daily_7",name:"Тижнева серія",desc:"Увійди 7 днів поспіль",emoji:"📅",cat:"Щоденні",req:7,type:"streak",reward:{gold:500,gems:5}},
+  {id:"daily_30",name:"Місячна серія",desc:"Увійди 30 днів поспіль",emoji:"🗓️",cat:"Щоденні",req:30,type:"streak",reward:{gold:3000,gems:30}},
+  {id:"bld_lvl5",name:"Будівник",desc:"Підніми будівлю до 5 рівня",emoji:"🏗️",cat:"Острів",req:5,type:"building_max",reward:{gold:800,gems:8}},
+  {id:"bld_lvl10",name:"Архітектор",desc:"Підніми будівлю до 10 рівня",emoji:"🏰",cat:"Острів",req:10,type:"building_max",reward:{gold:5000,gems:50,essence:250}},
+  {id:"gold_1000",name:"Тисячник",desc:"Накопич 1000 золота",emoji:"🪙",cat:"Багатство",req:1000,type:"gold_total",reward:{gems:5}},
+  {id:"gold_10000",name:"Багатій",desc:"Накопич 10000 золота",emoji:"💰",cat:"Багатство",req:10000,type:"gold_total",reward:{gems:20,essence:50}},
+  {id:"gold_100000",name:"Мільйонер",desc:"Накопич 100000 золота",emoji:"🤑",cat:"Багатство",req:100000,type:"gold_total",reward:{gems:100,essence:500}},
+  {id:"cosmos_exp",name:"Зоряний Мандрівник",desc:"Відправ дракона в Зіркову Безодню",emoji:"🌌",cat:"Спеціальні",req:1,type:"cosmos",reward:{gold:5000,gems:50,essence:200}},
+];
+
+const ENEMIES = [
+  {name:"Болотяний Тролль",emoji:"👹",power:20,reward:50},
+  {name:"Вогняний Гоблін",emoji:"👺",power:50,reward:120},
+  {name:"Лісовий Велетень",emoji:"🌲",power:100,reward:250},
+  {name:"Крижаний Змій",emoji:"🐍",power:200,reward:500},
+  {name:"Темний Рицар",emoji:"🗡️",power:400,reward:1000},
+  {name:"Дракон-Нежить",emoji:"💀",power:800,reward:2000},
+  {name:"Вулканічний Колос",emoji:"🌋",power:1500,reward:4000},
+  {name:"Космічний Жах",emoji:"👽",power:3000,reward:10000},
+];
+
+const DAILY_REWARDS = [
+  {gold:100,gems:0,essence:0},
+  {gold:200,gems:1,essence:0},
+  {gold:300,gems:0,essence:10},
+  {gold:500,gems:2,essence:0},
+  {gold:300,gems:0,essence:20},
+  {gold:800,gems:3,essence:30},
+  {gold:1000,gems:5,essence:50},
+];
+
+const WHEEL = [
+  {label:"100🪙",gold:100,gems:0,ess:0,color:"#cc0000"},
+  {label:"500🪙",gold:500,gems:0,ess:0,color:"#e65c00"},
+  {label:"5💎",gold:0,gems:5,ess:0,color:"#7b2d8b"},
+  {label:"1000🪙",gold:1000,gems:0,ess:0,color:"#b8860b"},
+  {label:"2💎",gold:0,gems:2,ess:0,color:"#4b0082"},
+  {label:"50✨",gold:0,gems:0,ess:50,color:"#006994"},
+  {label:"200🪙",gold:200,gems:0,ess:0,color:"#8b0000"},
+  {label:"10💎",gold:0,gems:10,ess:0,color:"#4a0080"},
+];
+
+// ===================== STATE =====================
+function defaultState(){
+  const owned={};
+  owned["fire_drake"]={level:1,exp:0};
+  const blds={};
+  BUILDINGS.forEach(b=>blds[b.id]=1);
+  return {
+    gold:500,gems:30,essence:0,
+    owned,hatching:{},expeditions:{},
+    buildings:blds,
+    totalExp:0,totalMerges:0,totalWins:0,
+    lastLogin:Date.now(),lastDaily:0,lastWheel:0,
+    streak:0,achProgress:{},achClaimed:{},
+    achPoints:0,
+    mergeSlot:[null,null],
+    selEnemy:0,arenaTeam:[],selExpLoc:null,selExpDragon:null,
+    cosmosCount:0,
+  };
+}
+
+let G=loadGame();
+
+function loadGame(){
+  try{const s=localStorage.getItem("dc2_save");if(s)return JSON.parse(s);}catch(e){}
+  return defaultState();
+}
+function saveGame(){
+  try{localStorage.setItem("dc2_save",JSON.stringify(G));}catch(e){}
+}
+
+// ===================== UTILS =====================
+let currentScreen="island";
+let collFilter=null;
+let toastTimer=null;
+
+function openScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+  const nb=document.getElementById("nav-"+name);
+  if(nb)nb.classList.add("active");
+  currentScreen=name;
+  renderScreen(name);
+}
+
+function renderScreen(name){
+  if(name==="island")renderIsland();
+  else if(name==="collection")renderCollection();
+  else if(name==="hatchery")renderHatchery();
+  else if(name==="expedition")renderExpedition();
+  else if(name==="arena")renderArena();
+  else if(name==="merge")renderMerge();
+  else if(name==="daily")renderDaily();
+  else if(name==="achievements")renderAchievements();
+}
+
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.classList.add("show");
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),3000);
+}
+
+function openModal(html){
+  document.getElementById("modalContent").innerHTML=html;
+  document.getElementById("modalOverlay").classList.add("open");
+}
+function closeModal(e){
+  if(e.target.id==="modalOverlay")document.getElementById("modalOverlay").classList.remove("open");
+}
+function closeModalForce(){
+  document.getElementById("modalOverlay").classList.remove("open");
+}
+
+function rng(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function fmtTime(ms){
+  if(ms<=0)return "Готово!";
+  const s=Math.floor(ms/1000);
+  if(s<60)return s+"с";
+  const m=Math.floor(s/60);if(m<60)return m+"хв "+pad(s%60)+"с";
+  const h=Math.floor(m/60);return h+"год "+pad(m%60)+"хв";
+}
+function pad(n){return n<10?"0"+n:n;}
+function ownedList(){return DRAGONS.filter(d=>G.owned[d.id]);}
+function rarityClass(r){return "rarity-"+r;}
+function rarityOrder(r){return {common:0,rare:1,epic:2,legendary:3}[r]||0;}
+
+// ===================== TOP BAR =====================
+function updateTopBar(){
+  document.getElementById("goldTxt").textContent=fmt(G.gold);
+  document.getElementById("gemsTxt").textContent=fmt(G.gems);
+  document.getElementById("essenceTxt").textContent=fmt(G.essence);
+  document.getElementById("streakTxt").textContent="🔥"+G.streak;
+  document.getElementById("statOwned").textContent=ownedList().length;
+  document.getElementById("statExp").textContent=G.totalExp;
+  document.getElementById("statMerge").textContent=G.totalMerges;
+  document.getElementById("statArena").textContent=G.totalWins;
+}
+function fmt(n){if(n>=1e6)return (n/1e6).toFixed(1)+"M";if(n>=1e3)return (n/1e3).toFixed(1)+"k";return Math.floor(n);}
+
+// ===================== OFFLINE =====================
+function checkOffline(){
+  const now=Date.now();
+  const diff=Math.min(now-G.lastLogin,12*3600000);
+  G.lastLogin=now;
+  if(diff>60000){
+    const bld=G.buildings["goldmine"]||1;
+    const perMin=5*bld;
+    const earned=Math.floor((diff/60000)*perMin);
+    if(earned>0){
+      G.gold+=earned;
+      showToast("⏰ Офлайн бонус: +"+fmt(earned)+"🪙 за "+fmtTime(diff));
+    }
+  }
+  saveGame();
+}
+
+// ===================== ISLAND =====================
+function renderIsland(){
+  const list=document.getElementById("buildingsList");
+  list.innerHTML="";
+  BUILDINGS.forEach(b=>{
+    const lvl=G.buildings[b.id]||1;
+    const cost=Math.floor(b.baseCost*Math.pow(1.5,lvl-1));
+    const div=document.createElement("div");
+    div.className="building-card";
+    div.innerHTML=`
+      <div class="building-icon">${b.emoji}</div>
+      <div class="building-info">
+        <h3>${b.name}</h3>
+        <p>${b.desc}</p>
+        <p style="color:var(--purple-light);margin-top:3px">${b.baseBonus}</p>
+        <div class="progress-bar" style="margin-top:6px"><div class="progress-fill" style="width:${lvl*10}%"></div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="level-badge">Рівень ${lvl}</div>
+        ${lvl<10?`<button class="btn btn-sm btn-gold" style="margin-top:8px" onclick="upgradeBuilding('${b.id}')">🔨 ${fmt(cost)}🪙</button>`:'<div style="font-size:11px;color:var(--gold);margin-top:8px">МАКС</div>'}
+      </div>`;
+    list.appendChild(div);
+  });
+  updateTopBar();
+  checkAchievements();
+}
+
+function upgradeBuilding(id){
+  const lvl=G.buildings[id]||1;
+  if(lvl>=10){showToast("Будівля вже максимального рівня!");return;}
+  const b=BUILDINGS.find(x=>x.id===id);
+  const cost=Math.floor(b.baseCost*Math.pow(1.5,lvl-1));
+  if(G.gold<cost){showToast("Недостатньо золота! Потрібно "+fmt(cost)+"🪙");return;}
+  G.gold-=cost;
+  G.buildings[id]=lvl+1;
+  saveGame();
+  showToast("🏗️ "+b.name+" покращено до "+(lvl+1)+" рівня!");
+  renderIsland();
+  checkAchievements();
+}
+
+// ===================== COLLECTION =====================
+function setFilter(r,el){
+  collFilter=r;
+  document.querySelectorAll(".filter-chip").forEach(c=>c.classList.remove("sel"));
+  el.classList.add("sel");
+  renderCollection();
+}
+
+function renderCollection(){
+  const owned=ownedList().length;
+  document.getElementById("collCountTxt").textContent=owned+"/"+DRAGONS.length;
+  document.getElementById("collProgressBar").style.width=(owned/DRAGONS.length*100)+"%";
+  const grid=document.getElementById("dragonGrid");
+  grid.innerHTML="";
+  const list=DRAGONS.filter(d=>!collFilter||d.r===collFilter)
+    .sort((a,b)=>rarityOrder(b.r)-rarityOrder(a.r));
+  list.forEach(d=>{
+    const isOwned=!!G.owned[d.id];
+    const isHatching=!!G.hatching[d.id];
+    const isExp=Object.values(G.expeditions).some(e=>e.dragonId===d.id);
+    const div=document.createElement("div");
+    div.className="dragon-tile"+(isOwned?" owned":(!isHatching?" locked":""));
+    div.onclick=()=>openDragonModal(d);
+    let badge="";
+    if(isHatching)badge=`<div class="badge badge-hat" title="Виводиться"></div>`;
+    else if(isExp)badge=`<div class="badge badge-exp" title="В експедиції"></div>`;
+    else if(isOwned)badge=`<div class="badge" title="Власний"></div>`;
+    div.innerHTML=`${badge}<div class="d-emoji">${d.el}</div><div class="d-name">${d.name}</div><div class="d-rarity ${rarityClass(d.r)}">${rarityLabel(d.r)}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function rarityLabel(r){
+  return {common:"★ Звичайний",rare:"★★ Рідкісний",epic:"★★★ Епічний",legendary:"★★★★ Легендарний"}[r];
+}
+
+function openDragonModal(d){
+  const isOwned=!!G.owned[d.id];
+  const o=G.owned[d.id]||{level:1,exp:0};
+  const isHatching=!!G.hatching[d.id];
+  const isExp=Object.values(G.expeditions).some(e=>e.dragonId===d.id);
+  const hatchMs=hatchDuration(d.r);
+  const html=`
+    <div class="modal-title">${d.el} ${d.name}</div>
+    <div class="info-row"><span>Рідкість</span><span class="${rarityClass(d.r)}">${rarityLabel(d.r)}</span></div>
+    <div class="info-row"><span>Елемент</span><span>${d.el}</span></div>
+    <div class="info-row"><span>Базова сила</span><span style="color:#ef4444">${dragonPower(d,o.level||1)} ⚔️</span></div>
+    ${isOwned?`<div class="info-row"><span>Рівень</span><span style="color:var(--gold)">${o.level||1}</span></div>
+    <div class="info-row"><span>Досвід</span><span style="color:var(--gem)">${o.exp||0} / ${(o.level||1)*100}</span></div>`:""}
+    <div class="info-row"><span>Статус</span><span>${isExp?"🌍 В експедиції":isHatching?"🥚 Виводиться":isOwned?"✅ Власний":"🔒 Не зібраний"}</span></div>
+    <p style="font-size:12px;color:#ffffff88;margin-top:10px">${d.desc}</p>
+    ${!isOwned&&!isHatching?`<button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="startHatch('${d.id}');closeModalForce()">🥚 Починати виводити (${fmtTime(hatchMs)})</button>`:""}
+    <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="closeModalForce()">Закрити</button>`;
+  openModal(html);
+}
+
+function hatchDuration(r){
+  return {common:30000,rare:300000,epic:1800000,legendary:7200000}[r]||30000;
+}
+function dragonPower(d,lvl){return Math.floor(d.pwr*(1+0.2*(lvl-1)));}
+
+// ===================== HATCHERY =====================
+function renderHatchery(){
+  const now=Date.now();
+  // Active
+  const activeDiv=document.getElementById("hatchingList");
+  activeDiv.innerHTML="";
+  let hasHatching=false;
+  Object.entries(G.hatching).forEach(([id,h])=>{
+    const d=DRAGONS.find(x=>x.id===id);if(!d)return;
+    hasHatching=true;
+    const rem=Math.max(0,h.end-now);
+    const done=rem===0;
+    const div=document.createElement("div");
+    div.className="hatch-item";
+    div.innerHTML=`
+      <div style="font-size:36px">${d.el}</div>
+      <div class="hatch-info">
+        <h3>${d.name}</h3>
+        <p class="${rarityClass(d.r)}">${rarityLabel(d.r)}</p>
+        <p style="margin-top:4px">${done?"✅ Готово!":"⏱️ "+fmtTime(rem)}</p>
+      </div>
+      <div>
+        ${done?`<button class="btn btn-gold btn-sm" onclick="collectHatch('${id}')">Зібрати!</button>`:
+        `<button class="btn btn-sm" onclick="instantHatch('${id}')">💎 10</button>`}
+      </div>`;
+    activeDiv.appendChild(div);
+  });
+  if(!hasHatching){
+    activeDiv.innerHTML=`<div style="padding:12px 16px;color:#ffffff44;font-size:13px">Жодного яйця в інкубаторі</div>`;
+  }
+  // Available to hatch
+  const grid=document.getElementById("hatchableGrid");
+  grid.innerHTML="";
+  DRAGONS.filter(d=>!G.owned[d.id]&&!G.hatching[d.id])
+    .sort((a,b)=>rarityOrder(a.r)-rarityOrder(b.r))
+    .forEach(d=>{
+      const div=document.createElement("div");
+      div.className="dragon-tile";
+      div.onclick=()=>openDragonModal(d);
+      div.innerHTML=`<div class="d-emoji">${d.el}</div><div class="d-name">${d.name}</div><div class="d-rarity ${rarityClass(d.r)}">${rarityLabel(d.r)}</div>`;
+      grid.appendChild(div);
+    });
+}
+
+function startHatch(id){
+  if(G.owned[id]){showToast("Цей дракон вже у вашій колекції!");return;}
+  if(G.hatching[id]){showToast("Цей дракон вже виводиться!");return;}
+  const d=DRAGONS.find(x=>x.id===id);
+  const dur=hatchDuration(d.r);
+  G.hatching[id]={end:Date.now()+dur};
+  saveGame();
+  showToast("🥚 "+d.name+" починає вилуплюватись! ("+fmtTime(dur)+")");
+  if(currentScreen==="hatchery")renderHatchery();
+}
+
+function collectHatch(id){
+  if(!G.hatching[id])return;
+  if(Date.now()<G.hatching[id].end){showToast("Ще не готово!");return;}
+  delete G.hatching[id];
+  G.owned[id]={level:1,exp:0};
+  saveGame();
+  const d=DRAGONS.find(x=>x.id===id);
+  showToast("🐉 "+d.name+" вилупився!");
+  checkAchievements();
+  if(currentScreen==="hatchery")renderHatchery();
+}
+
+function instantHatch(id){
+  if(!G.hatching[id])return;
+  if(G.gems<10){showToast("Недостатньо 💎! Потрібно 10");return;}
+  G.gems-=10;
+  G.hatching[id].end=Date.now()-1;
+  saveGame();
+  showToast("✨ Яйце моментально вилупилось!");
+  if(currentScreen==="hatchery")renderHatchery();
+}
+
+// ===================== EXPEDITION =====================
+function renderExpedition(){
+  const now=Date.now();
+  // Active expeditions
+  const activeDiv=document.getElementById("activeExpeditions");
+  activeDiv.innerHTML="";
+  const activeExps=Object.entries(G.expeditions);
+  if(activeExps.length===0){
+    activeDiv.innerHTML=`<div style="padding:12px 16px;color:#ffffff44;font-size:13px">Немає активних експедицій</div>`;
+  } else {
+    activeExps.forEach(([locId,e])=>{
+      const d=DRAGONS.find(x=>x.id===e.dragonId);
+      const loc=LOCATIONS.find(l=>l.id===locId);
+      if(!d||!loc)return;
+      const rem=Math.max(0,e.end-now);
+      const done=rem===0;
+      const div=document.createElement("div");
+      div.className="hatch-item";
+      div.innerHTML=`
+        <div style="font-size:32px">${loc.emoji}</div>
+        <div class="hatch-info">
+          <h3>${d.el} ${d.name}</h3>
+          <p style="color:#ffffff77">${loc.name}</p>
+          <p style="margin-top:4px">${done?"✅ Готово!":"⏱️ "+fmtTime(rem)}</p>
+        </div>
+        <div>
+          ${done?`<button class="btn btn-gold btn-sm" onclick="collectExp('${locId}','${e.dragonId}')">Зібрати!</button>`:`<span style="font-size:11px;color:#ffffff55">В дорозі...</span>`}
+        </div>`;
+      activeDiv.appendChild(div);
+    });
+  }
+  // Locations
+  const locDiv=document.getElementById("locationsList");
+  locDiv.innerHTML="";
+  LOCATIONS.forEach(loc=>{
+    const taken=!!G.expeditions[loc.id];
+    const div=document.createElement("div");
+    div.className="exp-card"+(G.selExpLoc===loc.id?" sel":"");
+    div.onclick=()=>{if(!taken){G.selExpLoc=loc.id;renderExpedition();}};
+    div.innerHTML=`
+      <h3>${loc.emoji} ${loc.name} ${taken?"<span style='color:#ef4444;font-size:11px'>[Зайнято]</span>":""}</h3>
+      <p>⏱️ ${loc.desc} &nbsp;|&nbsp; 🪙 ${loc.gold[0]}-${loc.gold[1]} &nbsp;|&nbsp; ${loc.gems[1]>0?"💎 "+loc.gems[0]+"-"+loc.gems[1]+" &nbsp;|&nbsp; ":""}✨ ${loc.ess[0]}-${loc.ess[1]}</p>`;
+    locDiv.appendChild(div);
+  });
+  // Dragon selection
+  const grid=document.getElementById("expDragonGrid");
+  grid.innerHTML="";
+  ownedList().filter(d=>{
+    return !Object.values(G.expeditions).some(e=>e.dragonId===d.id);
+  }).forEach(d=>{
+    const div=document.createElement("div");
+    div.className="dragon-tile"+(G.selExpDragon===d.id?" owned":"");
+    div.onclick=()=>{G.selExpDragon=d.id;renderExpedition();};
+    div.innerHTML=`<div class="d-emoji">${d.el}</div><div class="d-name">${d.name}</div><div class="d-rarity ${rarityClass(d.r)}">${rarityLabel(d.r)}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function sendExpedition(){
+  if(!G.selExpLoc){showToast("Оберіть локацію!");return;}
+  if(!G.selExpDragon){showToast("Оберіть дракона!");return;}
+  if(G.expeditions[G.selExpLoc]){showToast("Ця локація вже зайнята!");return;}
+  const loc=LOCATIONS.find(l=>l.id===G.selExpLoc);
+  const d=DRAGONS.find(x=>x.id===G.selExpDragon);
+  G.expeditions[G.selExpLoc]={dragonId:G.selExpDragon,end:Date.now()+loc.dur};
+  G.selExpLoc=null;G.selExpDragon=null;
+  saveGame();
+  showToast(loc.emoji+" "+d.name+" вирушив до "+loc.name+"!");
+  renderExpedition();
+}
+
+function collectExp(locId,dragonId){
+  const e=G.expeditions[locId];
+  if(!e||Date.now()<e.end){showToast("Ще не повернувся!");return;}
+  const loc=LOCATIONS.find(l=>l.id===locId);
+  const gold=rng(loc.gold[0],loc.gold[1]);
+  const gems=rng(loc.gems[0],loc.gems[1]);
+  const ess=rng(loc.ess[0],loc.ess[1]);
+  G.gold+=gold;G.gems+=gems;G.essence+=ess;
+  const d=DRAGONS.find(x=>x.id===dragonId);
+  if(G.owned[dragonId]){
+    G.owned[dragonId].exp=(G.owned[dragonId].exp||0)+rng(10,30);
+    const o=G.owned[dragonId];
+    if(o.exp>=(o.level||1)*100){o.exp=0;o.level=(o.level||1)+1;showToast("⬆️ "+d.name+" підвищив рівень до "+o.level+"!");}
+  }
+  delete G.expeditions[locId];
+  G.totalExp++;
+  if(locId==="cosmos")G.cosmosCount=(G.cosmosCount||0)+1;
+  saveGame();
+  let msg=`✅ Повернувся з ${loc.name}! +${fmt(gold)}🪙`;
+  if(gems>0)msg+=` +${gems}💎`;
+  if(ess>0)msg+=` +${ess}✨`;
+  showToast(msg);
+  checkAchievements();
+  renderExpedition();
+  updateTopBar();
+}
+
+// ===================== ARENA =====================
+let arenaAnim=null;
+function renderArena(){
+  // Enemies
+  const eDiv=document.getElementById("enemyList");
+  eDiv.innerHTML="";
+  ENEMIES.forEach((e,i)=>{
+    const div=document.createElement("div");
+    div.className="arena-enemy"+(G.selEnemy===i?" sel":"");
+    div.onclick=()=>{G.selEnemy=i;renderArena();};
+    div.innerHTML=`<h3>${e.emoji} ${e.name}</h3><p>Сила: ${e.power} ⚔️ &nbsp;|&nbsp; Нагорода: ${fmt(e.reward)} 🪙</p>`;
+    eDiv.appendChild(div);
+  });
+  // Team slots
+  const sDiv=document.getElementById("teamSlots");
+  sDiv.innerHTML="";
+  for(let i=0;i<3;i++){
+    const id=G.arenaTeam[i];
+    const d=id?DRAGONS.find(x=>x.id===id):null;
+    const div=document.createElement("div");
+    div.className="team-slot"+(d?" filled":"");
+    div.onclick=()=>{if(d){G.arenaTeam.splice(i,1);renderArena();}};
+    div.innerHTML=d?`<span style="font-size:24px">${d.el}</span><span style="font-size:10px;color:#ddd">${d.name}</span>`:"+";
+    sDiv.appendChild(div);
+  }
+  // Dragon selection
+  const grid=document.getElementById("arenaGrid");
+  grid.innerHTML="";
+  ownedList().forEach(d=>{
+    const inTeam=G.arenaTeam.includes(d.id);
+    const o=G.owned[d.id]||{level:1};
+    const div=document.createElement("div");
+    div.className="dragon-tile"+(inTeam?" owned":"");
+    div.onclick=()=>toggleTeam(d.id);
+    div.innerHTML=`<div class="d-emoji">${d.el}</div><div class="d-name">${d.name}</div><div class="d-rarity ${rarityClass(d.r)}">${dragonPower(d,o.level||1)}⚔</div>`;
+    grid.appendChild(div);
+  });
+  document.getElementById("battleResult").style.display="none";
+}
+
+function toggleTeam(id){
+  const i=G.arenaTeam.indexOf(id);
+  if(i>=0){G.arenaTeam.splice(i,1);}
+  else if(G.arenaTeam.length<3){G.arenaTeam.push(id);}
+  else{showToast("Команда вже повна (3 дракони)");}
+  renderArena();
+}
+
+function startBattle(){
+  if(G.arenaTeam.length===0){showToast("Вибери хоча б одного дракона!");return;}
+  const enemy=ENEMIES[G.selEnemy||0];
+  let teamPower=0;
+  G.arenaTeam.forEach(id=>{
+    const d=DRAGONS.find(x=>x.id===id);
+    const o=G.owned[id]||{level:1};
+    teamPower+=dragonPower(d,o.level||1);
+  });
+  const bldBonus=1+(0.05*(G.buildings["arena_hall"]||1));
+  teamPower=Math.floor(teamPower*bldBonus);
+  const win=teamPower>=enemy.power;
+  const resDiv=document.getElementById("battleResult");
+  resDiv.style.display="block";
+  if(win){
+    G.gold+=enemy.reward;
+    G.totalWins++;
+    resDiv.innerHTML=`<div class="card" style="border-color:#22c55e"><div style="font-size:20px;font-weight:700;color:#22c55e">⚔️ ПЕРЕМОГА!</div><div style="font-size:13px;margin-top:8px">Твоя сила: ${teamPower} vs Ворог: ${enemy.power}</div><div style="font-size:13px;color:var(--gold)">+${fmt(enemy.reward)} 🪙</div></div>`;
+    showToast("⚔️ Перемога! +"+fmt(enemy.reward)+"🪙");
+  } else {
+    resDiv.innerHTML=`<div class="card" style="border-color:#ef4444"><div style="font-size:20px;font-weight:700;color:#ef4444">💀 ПОРАЗКА</div><div style="font-size:13px;margin-top:8px">Твоя сила: ${teamPower} vs Ворог: ${enemy.power}</div><div style="font-size:13px;color:#ffffff77">Посили своїх драконів!</div></div>`;
+    showToast("💀 Поразка! Сила: "+teamPower+" vs "+enemy.power);
+  }
+  saveGame();
+  checkAchievements();
+  updateTopBar();
+}
+
+// ===================== MERGE =====================
+function renderMerge(){
+  renderMergeSlot(1);
+  renderMergeSlot(2);
+  const grid=document.getElementById("mergeGrid");
+  grid.innerHTML="";
+  ownedList().forEach(d=>{
+    const div=document.createElement("div");
+    div.className="dragon-tile";
+    div.onclick=()=>selectMerge(d.id);
+    div.innerHTML=`<div class="d-emoji">${d.el}</div><div class="d-name">${d.name}</div><div class="d-rarity ${rarityClass(d.r)}">${rarityLabel(d.r)}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function renderMergeSlot(n){
+  const id=G.mergeSlot[n-1];
+  const el=document.getElementById("merge"+n);
+  if(id){
+    const d=DRAGONS.find(x=>x.id===id);
+    el.innerHTML=`<span style="font-size:28px">${d.el}</span><span style="font-size:10px;color:#ddd">${d.name}</span>`;
+    el.classList.add("sel");
+  } else {
+    el.innerHTML=`<span style="font-size:28px">🥚</span><span style="font-size:11px;color:#ffffff66">Виберіть</span>`;
+    el.classList.remove("sel");
+  }
+}
+
+let mergePicking=0;
+function openMergeSelect(n){mergePicking=n;showToast("Вибери дракона зі списку нижче");}
+
+function selectMerge(id){
+  if(mergePicking===0)return;
+  G.mergeSlot[mergePicking-1]=id;
+  mergePicking=0;
+  renderMergeSlot(1);renderMergeSlot(2);
+}
+
+function doMerge(){
+  const [id1,id2]=G.mergeSlot;
+  if(!id1||!id2){showToast("Вибери обох драконів!");return;}
+  if(id1===id2){showToast("Не можна злити дракона сам із собою!");return;}
+  const d1=DRAGONS.find(x=>x.id===id1);
+  const d2=DRAGONS.find(x=>x.id===id2);
+  if(d1.el!==d2.el){showToast("Дракони мають бути одного елементу!");return;}
+  if(d1.r!==d2.r){showToast("Дракони мають бути однієї рідкості!");return;}
+  const upgradeChance={common:0.4,rare:0.25,epic:0.10,legendary:0}[d1.r];
+  const bonusPct=(G.buildings["dragon_shrine"]||1)*0.02;
+  const finalChance=Math.min(upgradeChance+bonusPct,1);
+  delete G.owned[id1];delete G.owned[id2];
+  G.mergeSlot=[null,null];
+  G.totalMerges++;
+  if(finalChance>0&&Math.random()<finalChance){
+    const higherR={common:"rare",rare:"epic",epic:"legendary"}[d1.r];
+    const candidates=DRAGONS.filter(d=>d.r===higherR&&d.el===d1.el&&!G.owned[d.id]);
+    if(candidates.length>0){
+      const newD=candidates[Math.floor(Math.random()*candidates.length)];
+      G.owned[newD.id]={level:1,exp:0};
+      saveGame();
+      showToast("✨ УСПІХ! Отримано: "+newD.name+" ("+rarityLabel(higherR)+")!");
+    } else {
+      G.owned[id1]={level:1,exp:0};
+      saveGame();
+      showToast("✨ Злиття! Але нових вищих драконів цього елементу немає");
+    }
+  } else {
+    const same=DRAGONS.filter(d=>d.r===d1.r&&d.el===d1.el&&!G.owned[d.id]&&d.id!==id1&&d.id!==id2);
+    if(same.length>0){
+      const newD=same[Math.floor(Math.random()*same.length)];
+      G.owned[newD.id]={level:1,exp:0};
+      saveGame();
+      showToast("🔄 Злиття! Отримано: "+newD.name);
+    } else {
+      G.gold+=500;
+      saveGame();
+      showToast("💰 Немає нових варіантів. +500 🪙 компенсація");
+    }
+  }
+  checkAchievements();
+  renderMerge();
+  updateTopBar();
+}
+
+// ===================== DAILY =====================
+let wheelAngle=0;let wheelSpinning=false;
+function renderDaily(){
+  const now=Date.now();
+  const today=new Date().toDateString();
+  const cal=document.getElementById("dailyCalendar");
+  cal.innerHTML="";
+  for(let i=0;i<7;i++){
+    const r=DAILY_REWARDS[i];
+    const claimed=G.streak>i;
+    const isToday=G.streak===i;
+    const div=document.createElement("div");
+    div.className="daily-day"+(claimed?" claimed":isToday?" today":"");
+    let rtext="";
+    if(r.gold)rtext+=r.gold+"🪙";
+    if(r.gems)rtext+=" "+r.gems+"💎";
+    if(r.essence)rtext+=" "+r.essence+"✨";
+    div.innerHTML=`<div class="day-num">День ${i+1}</div><div class="day-reward">${claimed?"✅":"🎁"}</div><div style="font-size:10px;color:#ffffff88">${rtext}</div>`;
+    cal.appendChild(div);
+  }
+  document.getElementById("dailyStreakDisplay").textContent=G.streak+" днів 🔥";
+  const todayR=DAILY_REWARDS[Math.min(G.streak,6)];
+  let rtext="";
+  if(todayR.gold)rtext+=todayR.gold+"🪙 ";
+  if(todayR.gems)rtext+=todayR.gems+"💎 ";
+  if(todayR.essence)rtext+=todayR.essence+"✨";
+  document.getElementById("todayRewardDisplay").textContent=rtext||"-";
+  drawWheel(wheelAngle);
+}
+
+function claimDaily(){
+  const today=new Date().toDateString();
+  if(G.lastDaily===today){showToast("Нагорода вже отримана сьогодні! Повертайся завтра 🌙");return;}
+  const r=DAILY_REWARDS[Math.min(G.streak%7,6)];
+  G.gold+=r.gold||0;G.gems+=r.gems||0;G.essence+=r.essence||0;
+  G.streak++;G.lastDaily=today;
+  saveGame();
+  let msg="🎁 Нагорода дня "+G.streak+": ";
+  if(r.gold)msg+="+"+r.gold+"🪙 ";
+  if(r.gems)msg+="+"+r.gems+"💎 ";
+  if(r.essence)msg+="+"+r.essence+"✨";
+  showToast(msg);
+  checkAchievements();
+  renderDaily();
+  updateTopBar();
+}
+
+function spinWheel(){
+  const today=new Date().toDateString();
+  if(G.lastWheel===today){showToast("Колесо вже кручено сьогодні! Повертайся завтра 🌙");return;}
+  if(wheelSpinning)return;
+  wheelSpinning=true;
+  G.lastWheel=today;
+  const seg=Math.floor(Math.random()*8);
+  const targetAngle=wheelAngle+Math.PI*6+(seg/8)*Math.PI*2+Math.random()*0.3;
+  const dur=3000;const start=performance.now();const startA=wheelAngle;
+  function frame(now2){
+    const t=Math.min((now2-start)/dur,1);
+    const ease=1-Math.pow(1-t,3);
+    wheelAngle=startA+(targetAngle-startA)*ease;
+    drawWheel(wheelAngle);
+    if(t<1){requestAnimationFrame(frame);}
+    else{
+      wheelSpinning=false;
+      const prize=WHEEL[seg];
+      G.gold+=prize.gold;G.gems+=prize.gems;G.essence+=prize.ess;
+      saveGame();
+      showToast("🎡 Виграш: "+prize.label+"!");
+      updateTopBar();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function drawWheel(angle){
+  const canvas=document.getElementById("wheelCanvas");
+  if(!canvas)return;
+  const ctx=canvas.getContext("2d");
+  const cx=140,cy=140,r=120;
+  ctx.clearRect(0,0,280,280);
+  const n=WHEEL.length;
+  for(let i=0;i<n;i++){
+    const a0=angle+i/n*Math.PI*2;const a1=angle+(i+1)/n*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,a0,a1);ctx.closePath();
+    ctx.fillStyle=WHEEL[i].color;ctx.fill();
+    ctx.strokeStyle="#ffffff22";ctx.lineWidth=1;ctx.stroke();
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(a0+(a1-a0)/2);
+    ctx.textAlign="right";ctx.fillStyle="#fff";ctx.font="bold 12px Segoe UI";
+    ctx.fillText(WHEEL[i].label,r-8,5);ctx.restore();
+  }
+  // Center
+  ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);
+  ctx.fillStyle="#0d0518";ctx.fill();ctx.strokeStyle=var_gold();ctx.lineWidth=2;ctx.stroke();
+  // Pointer
+  ctx.beginPath();ctx.moveTo(cx+r+8,cy);ctx.lineTo(cx+r-10,cy-10);ctx.lineTo(cx+r-10,cy+10);ctx.closePath();
+  ctx.fillStyle=var_gold();ctx.fill();
+}
+function var_gold(){return "#ffd700";}
+
+// ===================== ACHIEVEMENTS =====================
+function renderAchievements(){
+  const list=document.getElementById("achievementsList");
+  list.innerHTML="";
+  let unlocked=0;let points=0;
+  ACHIEVEMENTS.forEach(a=>{
+    const prog=G.achProgress[a.id]||0;
+    const done=prog>=a.req;
+    const claimed=G.achClaimed[a.id];
+    if(done)unlocked++;
+    if(claimed)points+=(a.reward.gold||0)+(a.reward.gems||0)*100+(a.reward.essence||0)*10;
+    const pct=Math.min(prog/a.req*100,100);
+    const div=document.createElement("div");
+    div.className="ach-card"+(done?"":" ach-locked");
+    div.innerHTML=`
+      <div class="ach-icon">${a.emoji}</div>
+      <div class="ach-info">
+        <h3>${a.name}</h3>
+        <p>${a.desc}</p>
+        <div class="progress-bar" style="margin-top:6px;margin-bottom:4px"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <p>${prog}/${a.req} ${a.cat}</p>
+      </div>
+      <div style="text-align:right;min-width:60px">
+        ${claimed?`<div style="color:#22c55e;font-size:12px">✅</div>`:done?`<button class="btn btn-gold btn-sm" onclick="claimAch('${a.id}')">Отримати</button>`:`<div style="font-size:10px;color:#ffffff44">${a.cat}</div>`}
+      </div>`;
+    list.appendChild(div);
+  });
+  document.getElementById("achCountTxt").textContent=unlocked+"/"+ACHIEVEMENTS.length;
+  document.getElementById("achPointsTxt").textContent=points+" очок";
+}
+
+function claimAch(id){
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a)return;
+  if(G.achClaimed[id]){showToast("Вже отримано!");return;}
+  if((G.achProgress[id]||0)<a.req){showToast("Ще не виконано!");return;}
+  G.achClaimed[id]=true;
+  G.gold+=a.reward.gold||0;
+  G.gems+=a.reward.gems||0;
+  G.essence+=a.reward.essence||0;
+  saveGame();
+  let msg="🏆 "+a.name+"! ";
+  if(a.reward.gold)msg+="+"+a.reward.gold+"🪙 ";
+  if(a.reward.gems)msg+="+"+a.reward.gems+"💎 ";
+  if(a.reward.essence)msg+="+"+a.reward.essence+"✨";
+  showToast(msg);
+  updateTopBar();
+  renderAchievements();
+}
+
+function checkAchievements(){
+  const owned=ownedList();
+  updateAP("first_dragon",owned.length>=1?1:0);
+  updateAP("five_dragons",owned.length);
+  updateAP("ten_dragons",owned.length);
+  updateAP("twenty_dragons",owned.length);
+  updateAP("fifty_dragons",owned.length);
+  updateAP("all_dragons",owned.length);
+  const rares=owned.filter(d=>d.r==="rare").length;
+  const epics=owned.filter(d=>d.r==="epic").length;
+  const legs=owned.filter(d=>d.r==="legendary").length;
+  updateAP("rare_first",rares);
+  updateAP("epic_first",epics);
+  updateAP("legendary_first",legs);
+  updateAP("five_rare",rares);
+  updateAP("five_epic",epics);
+  updateAP("first_exp",G.totalExp);
+  updateAP("ten_exp",G.totalExp);
+  updateAP("fifty_exp",G.totalExp);
+  updateAP("hundred_exp",G.totalExp);
+  updateAP("first_merge",G.totalMerges);
+  updateAP("ten_merges",G.totalMerges);
+  updateAP("fifty_merges",G.totalMerges);
+  updateAP("first_win",G.totalWins);
+  updateAP("ten_wins",G.totalWins);
+  updateAP("fifty_wins",G.totalWins);
+  updateAP("hundred_wins",G.totalWins);
+  updateAP("daily_7",G.streak);
+  updateAP("daily_30",G.streak);
+  const maxBld=Math.max(...Object.values(G.buildings));
+  updateAP("bld_lvl5",maxBld);
+  updateAP("bld_lvl10",maxBld);
+  updateAP("gold_1000",Math.floor(G.gold));
+  updateAP("gold_10000",Math.floor(G.gold));
+  updateAP("gold_100000",Math.floor(G.gold));
+  updateAP("cosmos_exp",G.cosmosCount||0);
+  saveGame();
+}
+
+function updateAP(id,val){
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a)return;
+  G.achProgress[id]=Math.min(val,a.req);
+}
+
+// ===================== PASSIVE GOLD =====================
+setInterval(()=>{
+  const lvl=G.buildings["goldmine"]||1;
+  G.gold+=lvl*5/12; // per 5s tick = 5*lvl/min
+  updateTopBar();
+  // check hatching
+  const now=Date.now();
+  Object.entries(G.hatching).forEach(([id,h])=>{
+    if(now>=h.end&&currentScreen==="hatchery")renderHatchery();
+  });
+  if(currentScreen==="expedition")renderExpedition();
+  saveGame();
+},5000);
+
+// ===================== BOOT =====================
+checkOffline();
+updateTopBar();
+openScreen("island");
+
+// Handle nav items not in nav bar
+document.querySelectorAll("[data-screen]").forEach(el=>{
+  el.addEventListener("click",()=>openScreen(el.dataset.screen));
+});
+
+// extra nav for secondary screens
+const extraNav=document.createElement("div");
+extraNav.style.cssText="display:flex;justify-content:center;gap:12px;padding:6px;border-top:1px solid #7b2d8b22";
+extraNav.innerHTML=`
+  <button class="nav-btn" onclick="openScreen('merge')" id="nav-merge"><span>✨</span><span>Злиття</span></button>
+  <button class="nav-btn" onclick="openScreen('daily')" id="nav-daily"><span>🎁</span><span>Нагороди</span></button>
+  <button class="nav-btn" onclick="openScreen('achievements')" id="nav-achievements"><span>🏆</span><span>Досяг.</span></button>`;
+document.querySelector("nav").after(extraNav);
+</script>
+</body>
+</html>
