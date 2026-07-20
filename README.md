@@ -6,11 +6,12 @@ on a board, grow your companion dragon, and ascend through cosmic zones.
 Built with **HTML5 + CSS + vanilla ES6 + Canvas 2D** — no external libraries,
 targeting a stable **60 FPS** and clean **Android WebView** export.
 
-> This repository currently contains the **project foundation only**: a clean,
-> production-quality, object-oriented architecture with every system wired up
-> and independent. Gameplay rules (placement, matching, scoring, progression)
-> are intentionally not implemented yet — the foundation is built to make adding
-> them straightforward.
+> On top of the clean, independent-systems foundation, the **core gameplay** is
+> now implemented and heavily polished: drag crystal relics from the tray onto
+> an engraved stone board, complete rows/columns to send a travelling-energy
+> clear rippling through them, and chain clears to build combos that charge the
+> Dragon Energy meter. Dragons and the world map are deliberately still out of
+> scope — the focus here is on making the moment-to-moment placement feel great.
 
 ## Quick start
 

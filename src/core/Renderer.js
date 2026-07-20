@@ -18,6 +18,9 @@ export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.ctx;
+    /** Per-frame screen-shake offset (logical px), set by gameplay each frame. */
+    this.shakeX = 0;
+    this.shakeY = 0;
   }
 
   /** Begin a frame: apply the logical transform and clear the backing store. */
@@ -27,6 +30,9 @@ export class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.el.width, this.canvas.el.height);
     this.canvas.applyTransform();
+    // Apply screen shake to the whole scene. The WorldSystem overfills its
+    // gradient so the shifted viewport never reveals bare edges.
+    if (this.shakeX || this.shakeY) ctx.translate(this.shakeX, this.shakeY);
   }
 
   /** End a frame. Reserved for future post-processing / present logic. */
@@ -68,6 +74,44 @@ export class Renderer {
   }
 
   /**
+   * Build a linear gradient from stops `[[offset,color], ...]`. Returned value
+   * can be passed anywhere a colour string is accepted (fillRoundRect etc.).
+   */
+  linearGradient(x0, y0, x1, y1, stops) {
+    const g = this.ctx.createLinearGradient(x0, y0, x1, y1);
+    for (const [offset, color] of stops) g.addColorStop(offset, color);
+    return g;
+  }
+
+  /** Build a radial gradient from stops (see linearGradient). */
+  radialGradient(x, y, r, stops) {
+    const g = this.ctx.createRadialGradient(x, y, 0, x, y, r);
+    for (const [offset, color] of stops) g.addColorStop(offset, color);
+    return g;
+  }
+
+  /** Draw a 4-point sparkle/star — used for clear sparks and specular pops. */
+  sparkle(x, y, r, color) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    // Concave 4-point star.
+    const inner = r * 0.28;
+    for (let i = 0; i < 8; i++) {
+      const ang = (Math.PI / 4) * i;
+      const rad = i % 2 === 0 ? r : inner;
+      const px = Math.cos(ang) * rad;
+      const py = Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
    * Draw text. `opts` accepts { font, color, align, baseline }.
    * Fonts are described in logical pixels.
    */
@@ -106,6 +150,12 @@ export class Renderer {
     stops.forEach((c, i) => g.addColorStop(i * step, c));
     this.fillRect(0, 0, this.canvas.width, this.canvas.height, g);
   }
+
+  /**
+   * Trace a rounded-rect sub-path without filling/stroking it, so callers can
+   * clip to it (e.g. faceting a crystal). Leaves the path current on the ctx.
+   */
+  roundRectPath(x, y, w, h, r) { this._roundRectPath(x, y, w, h, r); }
 
   // --- Internal --------------------------------------------------------------
   _roundRectPath(x, y, w, h, r) {

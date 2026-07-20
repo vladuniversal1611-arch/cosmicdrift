@@ -76,8 +76,13 @@ export class WorldSystem extends System {
   }
 
   render(renderer) {
-    // Base gradient.
-    renderer.fillBackgroundGradient(Palette.background);
+    // Base gradient, overscanned so global screen-shake never reveals bare
+    // edges as the whole scene is nudged around.
+    const { width, height } = this.game.canvas;
+    const m = 48;
+    const g = renderer.linearGradient(0, -m, 0, height + m,
+      Palette.background.map((c, i) => [i / (Palette.background.length - 1), c]));
+    renderer.fillRect(-m, -m, width + m * 2, height + m * 2, g);
 
     // Stars.
     const ctx = renderer.ctx;

@@ -28,6 +28,7 @@ import { SettingsSystem } from '../systems/settings/SettingsSystem.js';
 import { AudioSystem } from '../systems/audio/AudioSystem.js';
 import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
+import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
 import { PieceSystem } from '../systems/pieces/PieceSystem.js';
 import { WorldSystem } from '../systems/world/WorldSystem.js';
@@ -104,7 +105,9 @@ export class Game {
     if (f.shop) this.systems.register(new ShopSystem(this));
     if (f.dragon) this.systems.register(new DragonSystem(this));
 
-    // Core gameplay containers (logic added in later updates).
+    // Core gameplay: the rules brain updates before the board/pieces so its
+    // screen-shake offset is set before anything renders this frame.
+    this.systems.register(new GameplaySystem(this));
     this.systems.register(new WorldSystem(this));
     this.systems.register(new BoardSystem(this));
     this.systems.register(new PieceSystem(this));

@@ -54,6 +54,55 @@ export const Config = Object.freeze({
     cellRadius: 10,
   }),
 
+  /**
+   * Core gameplay tuning. Scoring, combo pacing and the Dragon Energy meter.
+   * These are balance knobs — never hard-code these numbers elsewhere.
+   */
+  gameplay: Object.freeze({
+    traySize: 3,
+    /** Points awarded per block placed. */
+    scorePerBlock: 5,
+    /** Base points for clearing one line (row or column). */
+    lineClearBase: 60,
+    /** Each simultaneous line beyond the first multiplies the line payout. */
+    multiLineBonus: 0.75,
+    /** Combo multiplier growth per consecutive clearing placement. */
+    comboStep: 0.5,
+    /** Dragon Energy gained per line cleared (before combo scaling). */
+    energyPerLine: 9,
+    /** Full Dragon Energy bar value. */
+    energyMax: 100,
+  }),
+
+  /**
+   * Game-feel tuning: animation timings (seconds) and effect intensities.
+   * This is where the "juice" is dialled in.
+   */
+  fx: Object.freeze({
+    /** Idle crystal glow pulse period, seconds. */
+    idleGlowPeriod: 2.4,
+    /** Scale a piece grows to while held. */
+    dragScale: 1.0,
+    /** Lift (logical px) so the held piece sits above the finger. */
+    dragLift: 90,
+    /** Duration of the pick-up grow / drop-return tween. */
+    pickupTime: 0.14,
+    /** Landing squash-and-settle duration per placed block. */
+    landTime: 0.34,
+    /** Invalid-drop shake duration. */
+    shakeTime: 0.3,
+    /** Clear wave: seconds between each cell igniting along the line. */
+    clearStagger: 0.045,
+    /** How long a single cell's ignite→burst→empty takes. */
+    clearCellTime: 0.42,
+    /** Screen-shake base magnitude (px) for a single-line clear. */
+    shakeBase: 5,
+    /** Extra shake px added per combo level. */
+    shakePerCombo: 3,
+    /** Shake magnitude decay per second. */
+    shakeDecay: 26,
+  }),
+
   /** Input tuning shared by the InputManager. */
   input: Object.freeze({
     /** Movement (in logical px) before a press is treated as a drag. */

@@ -18,6 +18,7 @@
  */
 import { System } from '../core/System.js';
 import { BootScreen } from './screens/BootScreen.js';
+import { HudScreen } from './screens/HudScreen.js';
 
 export class UISystem extends System {
   constructor(game) {
@@ -29,6 +30,9 @@ export class UISystem extends System {
 
   onInit() {
     this.listen('input:tap', ({ x, y }) => this._routeTap(x, y));
+    // Once a run begins, swap the title for the in-game HUD. A restart fires
+    // 'game:started' again; replacing rebuilds a fresh HUD each time.
+    this.listen('game:started', () => this.replace(new HudScreen(this.game)));
     // Start on the boot/title screen.
     this.push(new BootScreen(this.game));
   }

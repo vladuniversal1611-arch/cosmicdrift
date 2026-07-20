@@ -8,9 +8,7 @@
  */
 import { Piece } from './Piece.js';
 import { Shapes, ShapeKeys } from './Shapes.js';
-import { Palette } from '../../config/Palette.js';
-
-const COLOR_KEYS = Object.keys(Palette.pieces);
+import { MaterialKeys } from '../../config/Palette.js';
 
 export class PieceFactory {
   /**
@@ -27,17 +25,17 @@ export class PieceFactory {
     }
   }
 
-  /** Create a piece of a specific shape and (optional) colour. */
-  create(shapeKey, colorKey = null) {
+  /** Create a piece of a specific shape and (optional) material. */
+  create(shapeKey, materialKey = null) {
     const def = Shapes[shapeKey];
     if (!def) throw new Error(`Unknown shape "${shapeKey}"`);
-    const color = colorKey ?? this.rng.pick(COLOR_KEYS);
+    const material = materialKey ?? this.rng.pick(MaterialKeys);
     // Clone the blocks so instances never share the catalogue arrays.
     const blocks = def.blocks.map((b) => [b[0], b[1]]);
-    return new Piece(shapeKey, blocks, color);
+    return new Piece(shapeKey, blocks, material);
   }
 
-  /** Create a weighted-random piece with a random colour. */
+  /** Create a weighted-random piece with a random material. */
   createRandom() {
     return this.create(this.rng.pick(this._weighted));
   }
