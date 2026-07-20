@@ -75,6 +75,7 @@ const Game = (() => {
   let clearAnims = [];      // зникнення блоків (хвиля від точки розміщення)
   let hcCounter = 0;        // лічильник ходів хардкору
   let dryStreak = 0;        // ходи поспіль без очищення (для "розумної" видачі)
+  let comboGrace = 0;       // "прощення" комбо: переживає один сухий хід
   let slowmoT = 0;          // залишок slow-motion після мега-комбо
   let lastDt = 1 / 60;
   let worldDeco = [];       // "оживання світу": декор навколо дошки
@@ -109,7 +110,7 @@ const Game = (() => {
     drag = null; armedBooster = null; magnetPick = null;
     undoStack = []; reviveUsed = false; hcCounter = 0;
     placeAnims = []; clearAnims = [];
-    dryStreak = 0; slowmoT = 0;
+    dryStreak = 0; comboGrace = 0; slowmoT = 0;
     buildWorldDeco();
     Particles.clear();
     refillPieces();
@@ -132,6 +133,64 @@ const Game = (() => {
     improveTray();
   }
   function piecesLeft() { return pieces.filter(p => p && !p.used).length; }
+
+  /* ---------- Збереження/відновлення поточної партії ----------
+     Android агресивно вбиває фонові вкладки — без цього гравець
+     втрачає прогрес рівня (і витрачену енергію) при дзвінку/згортанні. */
+  function serializeGame() {
+    if (state !== 'playing') return null;
+    return {
+      mode, config,
+      grid: board.grid,
+      fog: [...board.fog],
+      pieces,
+      score, coinsEarned, combo, maxComboRun,
+      movesLeft: movesLeft === Infinity ? -1 : movesLeft,
+      movesTotal: movesTotal === Infinity ? -1 : movesTotal,
+      timeLeft, freezeTime, goalProgress, reviveUsed, hcCounter,
+    };
+  }
+  function saveGameState() {
+    const snap = serializeGame();
+    Storage.s.savedGame = snap;
+    if (snap) Storage.saveNow(); else Storage.save();
+  }
+  function clearSavedGame() { Storage.s.savedGame = null; Storage.save(); }
+  function hasSavedGame() { return !!Storage.s.savedGame; }
+  function savedGameInfo() {
+    const sg = Storage.s.savedGame;
+    if (!sg) return null;
+    return { mode: sg.mode, level: sg.config ? sg.config.level : 0 };
+  }
+
+  function resumeSaved() {
+    const sg = Storage.s.savedGame;
+    if (!sg) return false;
+    config = sg.config; mode = sg.mode;
+    board = new Board(config);         // ставить портали/туман зі спецом конфіга
+    board.grid = sg.grid;
+    board.fog = new Set(sg.fog);
+    rng = (mode === 'daily' || mode === 'tournament') && config.seed ? Levels.mulberry32(config.seed) : Math.random;
+    state = 'playing';
+    score = sg.score; displayScore = sg.score; coinsEarned = sg.coinsEarned;
+    combo = sg.combo; maxComboRun = sg.maxComboRun;
+    movesLeft = sg.movesLeft < 0 ? Infinity : sg.movesLeft;
+    movesTotal = sg.movesTotal < 0 ? Infinity : sg.movesTotal;
+    timeLeft = sg.timeLeft; freezeTime = sg.freezeTime || 0;
+    goalProgress = sg.goalProgress;
+    pieces = sg.pieces;
+    drag = null; armedBooster = null; magnetPick = null;
+    undoStack = []; reviveUsed = sg.reviveUsed; hcCounter = sg.hcCounter || 0;
+    placeAnims = []; clearAnims = []; dryStreak = 0; slowmoT = 0;
+    buildWorldDeco();
+    Particles.clear();
+    resize();
+    UI.updateHUD();
+    UI.renderBoosters();
+    UI.clearTutorial();
+    startLoop();
+    return true;
+  }
 
   /* ---------- "Оживання світу" ----------
      Декорації поточного світу проростають навколо дошки
@@ -834,8 +893,13 @@ const Game = (() => {
       resolveClears(rows, cols, lineCount, { x: gx + (p.w - 1) / 2, y: gy + (p.h - 1) / 2 });
     } else {
       dryStreak++;
-      combo = 0;
-      UI.hideCombo();
+      // Комбо-прощення: перший сухий хід не рве серію (шанс на Combo x10)
+      if (comboGrace > 0 && combo > 0) {
+        comboGrace--;
+      } else {
+        combo = 0;
+        UI.hideCombo();
+      }
     }
 
     // Туторіал: підказки за прогресом першого рівня
@@ -866,6 +930,7 @@ const Game = (() => {
 
     UI.updateHUD();
     checkEndConditions();
+    if (state === 'playing') saveGameState(); // зберігаємо партію після кожного ходу
   }
 
   /** Обробка очищення ліній: очки, комбо, ефекти, цілі.
@@ -873,14 +938,22 @@ const Game = (() => {
   function resolveClears(rows, cols, lineCount, origin) {
     const events = board.clearLines(rows, cols);
     combo++;
+    // Веселковий блок ПІДСИЛЮЄ комбо (+1 за кожен) — як обіцяє механіка
+    if (events.rainbow > 0) combo += events.rainbow;
+    comboGrace = 1; // одне "прощення" сухого ходу після очищення
     maxComboRun = Math.max(maxComboRun, combo);
 
     // ---- Очки ----
     let pts = 100 * lineCount * lineCount;
     const comboMult = 1 + Math.max(0, combo - 1) * 0.5;
     pts = Math.round(pts * comboMult);
-    if (events.rainbow > 0) pts += events.rainbow * 150;
+    // ...і дає БОНУС: подвоює очки цієї лінії за кожен веселковий блок
+    if (events.rainbow > 0) pts *= (1 + events.rainbow);
     addScore(pts);
+    if (events.rainbow > 0) {
+      const rc = events.removed.find(r => r.mod === 'rainbow') || events.removed[0];
+      if (rc) Particles.flyText(L.bx + (rc.x + 0.5) * L.cell, L.by + rc.y * L.cell - 14, '🌈 x2', { color: '#ff8ce0', size: 20 });
+    }
 
     // ---- Монети ----
     let coins = lineCount * 2 + events.gold * 8;
@@ -983,6 +1056,7 @@ const Game = (() => {
   function endGame(won, reason) {
     if (state !== 'playing') return;
     state = won ? 'won' : 'lost';
+    clearSavedGame(); // партія завершена; revive re-збереже на наступному ході
     UI.companionReact(won ? 'win' : 'lose');
     Analytics.log('level_result', {
       won, reason: reason || '', mode, level: config.level || 0,
@@ -1174,6 +1248,7 @@ const Game = (() => {
   return {
     THEMES, BLOCK_STYLES, FX_STYLES,
     init, start, resize, stopLoop, startLoop, revive, armBooster,
+    saveGameState, clearSavedGame, hasSavedGame, savedGameInfo, resumeSaved,
     get state() { return state; },
     get score() { return score; },
     get coinsEarned() { return coinsEarned; },

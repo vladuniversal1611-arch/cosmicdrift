@@ -44,6 +44,8 @@ const Storage = (() => {
       settings: { sound: true, music: true, vibration: true, lang: null },
       tutorialSeen: false,
       seenMechanics: [],
+      savedGame: null,        // серіалізована незавершена партія (для "Продовжити")
+      lastTournamentReward: '', // тиждень, за який уже видано нагороду турніру
     };
   }
 

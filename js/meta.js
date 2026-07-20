@@ -420,6 +420,53 @@ const Meta = (() => {
     return Math.max(0, weekStartTs() + 7 * 86400000 - Date.now());
   }
 
+  /** Фінальний ранг гравця в завершеному тижні (боти на 100% прогресу) */
+  function finalTournamentRank(week, myScore) {
+    const rng = Levels.mulberry32(Levels.hashStr('tb-' + week));
+    const names = ['Nova', 'Zorro', 'Luna', 'Maks', 'Kira', 'Orion', 'Alex', 'Mila', 'Dex', 'Rita'];
+    const scores = names.map(() => Math.round(2000 + rng() * 9000)); // фінал: повний прогрес
+    let rank = 1;
+    for (const sc of scores) if (sc > myScore) rank++;
+    return rank;
+  }
+
+  /** Нагорода за місце в турнірі */
+  function tournamentPrize(rank) {
+    if (rank === 1) return { coins: 600, gems: 6 };
+    if (rank <= 3) return { coins: 350, gems: 3 };
+    if (rank <= 6) return { coins: 180, gems: 1 };
+    return { coins: 60, gems: 0 };
+  }
+
+  /**
+   * Незаявлена нагорода за ЗАВЕРШЕНИЙ тиждень, у якому гравець грав.
+   * Повертає { week, rank, score, prize } або null.
+   */
+  function pendingTournamentReward() {
+    const s = Storage.s;
+    const curWeek = Levels.getWeekId();
+    // Гравець має збережений результат за тиждень, який уже НЕ поточний
+    if (!s.tournamentWeek || s.tournamentWeek === curWeek) return null;
+    if (s.bests.tournament <= 0) return null;
+    if (s.lastTournamentReward === s.tournamentWeek) return null;
+    const rank = finalTournamentRank(s.tournamentWeek, s.bests.tournament);
+    return { week: s.tournamentWeek, rank, score: s.bests.tournament, prize: tournamentPrize(rank) };
+  }
+
+  /** Забрати нагороду турніру: виплата + скидання під новий тиждень */
+  function claimTournamentReward() {
+    const r = pendingTournamentReward();
+    if (!r) return null;
+    const s = Storage.s;
+    s.lastTournamentReward = r.week;
+    applyPrize(r.prize);
+    // Готуємо новий тиждень: обнуляємо результат
+    s.tournamentWeek = '';
+    s.bests.tournament = 0;
+    Storage.saveNow();
+    return r;
+  }
+
   return {
     syncEnergy, energyTimeLeft, spendEnergy, addEnergy,
     addCoins, addGems, spendCoins,
@@ -429,5 +476,6 @@ const Meta = (() => {
     getDailyQuests, claimQuest, questsClaimable, questNames,
     WHEEL_PRIZES, dailyAvailable, spinWheel,
     tournamentBoard, tournamentTimeLeft, todayKey,
+    pendingTournamentReward, claimTournamentReward, finalTournamentRank, tournamentPrize,
   };
 })();

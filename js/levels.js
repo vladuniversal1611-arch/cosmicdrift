@@ -100,33 +100,38 @@ const Levels = (() => {
     if (u.gold) goalTypes.push('gold');
     const mainType = goalTypes[Math.floor(rng() * goalTypes.length)];
 
-    if (mainType === 'lines') goals.push({ type: 'lines', target: 4 + Math.floor(level / 12) + Math.floor(rng() * 4) });
-    else if (mainType === 'score') goals.push({ type: 'score', target: (8 + Math.floor(level / 5)) * 100 + Math.floor(rng() * 5) * 100 });
-    else if (mainType === 'crystals') goals.push({ type: 'crystals', target: 3 + Math.floor(rng() * 4) + Math.floor(t * 5) });
-    else if (mainType === 'ice') goals.push({ type: 'ice', target: 4 + Math.floor(rng() * 4) + Math.floor(t * 6) });
-    else if (mainType === 'chains') goals.push({ type: 'chains', target: 3 + Math.floor(rng() * 3) + Math.floor(t * 5) });
-    else if (mainType === 'gold') goals.push({ type: 'gold', target: 3 + Math.floor(rng() * 3) });
+    // Цілі калібровані під реальну продуктивність гравця (див. бот-плейтестер):
+    // ~3.5 ходи на очищення лінії, ~50 очок/хід, спец-клітинки звільняються лініями
+    if (mainType === 'lines') goals.push({ type: 'lines', target: 3 + Math.floor(level / 20) + Math.floor(rng() * 2) });
+    else if (mainType === 'score') goals.push({ type: 'score', target: 400 + level * 12 + Math.floor(rng() * 3) * 100 });
+    else if (mainType === 'crystals') goals.push({ type: 'crystals', target: 3 + Math.floor(t * 4) + Math.floor(rng() * 2) });
+    else if (mainType === 'ice') goals.push({ type: 'ice', target: 2 + Math.floor(t * 3) + Math.floor(rng() * 2) }); // лід важчий: 2 удари
+    else if (mainType === 'chains') goals.push({ type: 'chains', target: 3 + Math.floor(t * 3) + Math.floor(rng() * 2) });
+    else if (mainType === 'gold') goals.push({ type: 'gold', target: 2 + Math.floor(rng() * 2) });
 
-    // Друга ціль на пізніх рівнях
-    if (level > 45 && rng() < 0.5) {
+    // Друга ціль на пізніх рівнях (легка, щоб не подвоювати складність)
+    if (level > 55 && rng() < 0.45) {
       const second = mainType === 'lines'
-        ? { type: 'score', target: (6 + Math.floor(level / 8)) * 100 }
-        : { type: 'lines', target: 3 + Math.floor(level / 20) };
+        ? { type: 'score', target: 300 + level * 8 }
+        : { type: 'lines', target: 2 + Math.floor(level / 40) };
       goals.push(second);
     }
 
-    /* --- Ліміт ходів (фігур) --- */
+    /* --- Ліміт ходів (фігур) ---
+       Бюджет калібрований бот-плейтестером: щедрий на старті,
+       звужується з рівнем. Кожен тип цілі має свою "ціну" в ходах. */
     let moveBudget = 0;
     for (const g of goals) {
-      if (g.type === 'lines') moveBudget += g.target * 3;
-      else if (g.type === 'score') moveBudget += Math.ceil(g.target / 240);
-      else moveBudget += g.target * 3.2;
+      if (g.type === 'lines') moveBudget += g.target * 4;
+      else if (g.type === 'score') moveBudget += Math.ceil(g.target / 45);
+      else if (g.type === 'ice') moveBudget += g.target * 6; // лід: два очищення однієї лінії
+      else moveBudget += g.target * 4;
     }
-    const moves = Math.max(12, Math.ceil(moveBudget * (1.35 - t * 0.30)));
+    const moves = Math.max(15, Math.ceil(moveBudget * (1.5 - t * 0.25)));
 
     /* --- Стартова розстановка спец-клітинок --- */
     const cells = []; // {x, y, kind, hp?, color?}
-    const density = 0.06 + t * 0.14 + rng() * 0.05;
+    const density = 0.05 + t * 0.065 + rng() * 0.035;
     const count = Math.floor(size * size * density);
     const taken = new Set();
     const put = (kind, extra) => {
@@ -140,13 +145,35 @@ const Levels = (() => {
       }
       return false;
     };
+    // Кластерна розстановка ЦІЛЬОВИХ клітинок: заповнюємо нижні рядки зліва направо,
+    // лишаючи 2 порожні колонки, щоб рядок можна було добудувати й очистити.
+    // Так одне очищення рядка збирає багато цілей одразу (для льоду — двічі).
+    let clX = 0, clY = size - 1;
+    const putClustered = (kind, extra) => {
+      for (let tries = 0; tries < size * size; tries++) {
+        if (clX >= size - 2) { clX = 0; clY--; }
+        if (clY < Math.floor(size / 2)) return put(kind, extra); // не нижче середини — фолбек
+        const x = clX++, y = clY;
+        const k = x + ',' + y;
+        if (taken.has(k)) continue;
+        taken.add(k);
+        cells.push(Object.assign({ x, y, kind }, extra));
+        return true;
+      }
+      return false;
+    };
 
-    // Гарантуємо клітинки під цілі
+    // Гарантуємо клітинки під цілі; підганяємо ціль під ФАКТИЧНО розставлене,
+    // щоб рівень ніколи не був математично непрохідним (ціль > клітинок на полі)
     for (const g of goals) {
-      if (g.type === 'crystals') for (let i = 0; i < g.target; i++) put('crystal');
-      if (g.type === 'ice') for (let i = 0; i < g.target; i++) put('ice', { hp: 2, color: Math.floor(rng() * Shapes.COLOR_COUNT) });
-      if (g.type === 'chains') for (let i = 0; i < g.target; i++) put('chain', { color: Math.floor(rng() * Shapes.COLOR_COUNT) });
-      if (g.type === 'gold') for (let i = 0; i < g.target; i++) put('goldcell', { color: Math.floor(rng() * Shapes.COLOR_COUNT) });
+      let placed = 0;
+      if (g.type === 'crystals') for (let i = 0; i < g.target; i++) { if (putClustered('crystal')) placed++; }
+      else if (g.type === 'ice') for (let i = 0; i < g.target; i++) { if (putClustered('ice', { hp: 2, color: Math.floor(rng() * Shapes.COLOR_COUNT) })) placed++; }
+      else if (g.type === 'chains') for (let i = 0; i < g.target; i++) { if (putClustered('chain', { color: Math.floor(rng() * Shapes.COLOR_COUNT) })) placed++; }
+      else if (g.type === 'gold') for (let i = 0; i < g.target; i++) { if (putClustered('goldcell', { color: Math.floor(rng() * Shapes.COLOR_COUNT) })) placed++; }
+      else continue;
+      // Ціль не може перевищувати кількість реально розставлених спец-клітинок
+      if (placed > 0 && placed < g.target) g.target = placed;
     }
 
     // Декоративні перешкоди для складності

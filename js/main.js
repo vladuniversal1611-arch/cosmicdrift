@@ -39,10 +39,10 @@
     }
   }, 120);
 
-  // 6. Пауза при згортанні + пуш-нагадування, що повернуть гравця
+  // 6. Пауза при згортанні + збереження партії + пуш-нагадування
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      if (Game.state === 'playing') UI.showPauseModal();
+      if (Game.state === 'playing') { Game.saveGameState(); UI.showPauseModal(); }
       Notify.onAppHide();
     } else {
       Notify.onAppShow();

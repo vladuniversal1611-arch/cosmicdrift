@@ -73,6 +73,8 @@ const UI = (() => {
     document.getElementById('daily-badge').classList.toggle('hidden', !Meta.dailyAvailable());
     document.getElementById('quest-badge').classList.toggle('hidden', !(Meta.questsClaimable() || Meta.unclaimedCount() > 0));
     Ads.refreshBanner();
+    renderResumeButton();
+    checkTournamentReward();
 
     // Таймер відновлення енергії
     clearInterval(energyInterval);
@@ -84,6 +86,59 @@ const UI = (() => {
       document.getElementById('energy-timer').textContent = left > 0
         ? `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}` : '';
     }, 1000);
+  }
+
+  let tournamentModalShown = false;
+  /** Показати нагороду за завершений тиждень турніру (раз за візит у меню) */
+  function checkTournamentReward() {
+    if (tournamentModalShown) return;
+    if (document.querySelector('.modal-overlay')) return; // не накладати на інші модалки
+    const r = Meta.pendingTournamentReward();
+    if (!r) return;
+    tournamentModalShown = true;
+    const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : '🏅';
+    const gemsRow = r.prize.gems ? `<div class="modal-sub">💎 +${r.prize.gems}</div>` : '';
+    const ov = modal(`
+      <h2>🏆 ${I18N.t('tournament_over')}</h2>
+      <div style="text-align:center;font-size:60px" class="float">${medal}</div>
+      <div class="modal-big-num">${I18N.t('rank_place', { n: r.rank })}</div>
+      <div class="modal-sub">${I18N.t('your_best')}: ${fmtNum(r.score)}</div>
+      <div class="modal-sub">🪙 +${r.prize.coins}</div>${gemsRow}
+      <button class="btn btn-primary" data-a="claim">${I18N.t('claim')}</button>
+    `, { noClose: true });
+    AudioFX.sfx.reward();
+    Particles.flash();
+    ov.querySelector('[data-a="claim"]').addEventListener('click', () => {
+      Meta.claimTournamentReward();
+      AudioFX.sfx.coin();
+      ov.remove();
+      Analytics.log('tournament_reward', { rank: r.rank });
+      refreshMenu();
+    });
+  }
+
+  /** Кнопка "Продовжити" над PLAY, якщо є незавершена партія */
+  function renderResumeButton() {
+    const menu = document.getElementById('screen-menu');
+    let btn = document.getElementById('resume-btn');
+    const info = Game.hasSavedGame() ? Game.savedGameInfo() : null;
+    if (!info) { if (btn) btn.remove(); return; }
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'resume-btn';
+      btn.className = 'btn-resume';
+      const playBtn = menu.querySelector('.btn-play');
+      playBtn.parentNode.insertBefore(btn, playBtn);
+      btn.addEventListener('click', () => {
+        AudioFX.sfx.click();
+        show('game');
+        if (!Game.resumeSaved()) show('menu');
+      });
+    }
+    const label = info.mode === 'adventure'
+      ? `${I18N.t('level')} ${info.level}`
+      : I18N.t('mode_' + info.mode);
+    btn.innerHTML = `<span>▶ ${I18N.t('resume')}</span><small>${label}</small>`;
   }
 
   /* ================= ЗАПУСК ІГОР ================= */
