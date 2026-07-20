@@ -7,11 +7,16 @@
 
 ## 1. Visual Identity
 
-**Theme:** *luminous sky-fantasy.* Shattered floating islands of a lost kingdom, held aloft by
-glowing aether crystals. Everything reads as **light-made-solid** — boards, trails, wings and
-crystals emit; the world receives.
+**Theme:** *bright cartoon sky-fantasy.* Sunny daytime skies, fluffy clouds, and lush grassy
+floating islands drifting over a candy-colored world. Clean, chunky, toy-like shapes with soft
+shading — the mood of Stumble Guys / Subway Surfers / Dream Games, **not** a dark neon look.
+Boards, trails, wings and crystals still glow, but they sit on a **light, cheerful** backdrop.
 
-**Three words:** *Radiant · Weightless · Premium.*
+**Three words:** *Bright · Playful · Premium.*
+
+> **Style rule:** daytime and colorful by default. No near-black backgrounds in gameplay — every
+> world reads as a happy, sunny place. Contrast comes from saturated candy hues on light skies,
+> not from darkness.
 
 **Silhouette-first rule:** every gameplay object must be identifiable in pure black silhouette.
 The player, hazards, pickups, and platforms each own a distinct shape language:
@@ -24,13 +29,14 @@ The player, hazards, pickups, and platforms each own a distinct shape language:
 
 ## 2. Color
 
-**Global principles:** high saturation, high value; deep near-black backdrops so emissive
-elements pop; each **World owns a signature palette** so players instantly know where they are.
+**Global principles:** high saturation, **high value/brightness**; light, sunny backdrops (no
+near-black); focal elements pop through hue and warm glow rather than darkness; each **World owns a
+signature palette** so players instantly know where they are.
 
 | Role | Guidance |
 |---|---|
-| Background sky | deep gradient, world-tinted (2–3 stops) into near-black at the base |
-| Track/platform | mid-value world hue, brighter emissive rim |
+| Background sky | bright daytime gradient (light top → lighter horizon) + soft sun + fluffy clouds |
+| Track/platform | bright candy world hue, white lane lines, crisp rim |
 | Player board | white-hot core + world-contrast accent |
 | Pickups — Orbs | warm gold `#ffd24d` (consistent across all worlds = learnable) |
 | Pickups — Crystals | cyan-white `#8ff5ff` |
@@ -137,5 +143,5 @@ Consistent 8-pt spacing grid, one type family, generous safe-area padding for no
 
 ## 10. Do / Don't
 
-**Do:** emissive focal points, deep contrast, readable silhouettes, constant subtle motion, world-distinct palettes, telegraphed danger.
-**Don't:** muddy mid-tones, color-only signaling, static screens, realistic textures, visual clutter near the player lane, anything that hurts 60 FPS.
+**Do:** bright sunny skies, soft cartoon shading, readable chunky silhouettes, warm glow on focal points, constant subtle motion, world-distinct candy palettes, telegraphed danger.
+**Don't:** near-black gameplay backgrounds, dark/edgy neon-on-black moods, muddy mid-tones, color-only signaling, static screens, realistic textures, clutter near the player lane, anything that hurts 60 FPS.
