@@ -30,6 +30,7 @@ import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
 import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
 import { LevelSystem } from '../systems/progression/LevelSystem.js';
+import { WorldProgressionSystem } from '../systems/world/WorldProgressionSystem.js';
 import { TileSystem } from '../systems/tiles/TileSystem.js';
 import { StructureSystem } from '../systems/structures/StructureSystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
@@ -107,6 +108,8 @@ export class Game {
     if (f.events) this.systems.register(new EventsSystem(this));
     if (f.shop) this.systems.register(new ShopSystem(this));
     if (f.dragon) this.systems.register(new DragonSystem(this));
+    // Long-term meta: rewards, restorations and biome unlocks.
+    this.systems.register(new WorldProgressionSystem(this));
 
     // Core gameplay: the rules brain updates before the board/pieces so its
     // screen-shake offset is set before anything renders this frame. The

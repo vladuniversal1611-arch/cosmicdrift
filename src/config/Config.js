@@ -124,6 +124,21 @@ export const Config = Object.freeze({
     frozenClears: 2,
     /** Chance per turn a Treasure tile spawns once the mechanic is unlocked. */
     treasureSpawnChance: 0.18,
+
+    /** A restoration task unlocks every N completed levels. */
+    restorationEvery: 5,
+
+    /**
+     * Per-level completion rewards, scaled by level: amount = base + perLevel*L.
+     * These feed the World Progression economy (essence/gold/materials) plus a
+     * flat Dragon Energy top-up.
+     */
+    rewards: Object.freeze({
+      essence: { base: 4, perLevel: 1 },
+      gold: { base: 10, perLevel: 2 },
+      materials: { base: 3, perLevel: 0.5 },
+      energy: 10,
+    }),
   }),
 
   /** Input tuning shared by the InputManager. */

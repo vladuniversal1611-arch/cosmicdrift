@@ -24,8 +24,17 @@ targeting a stable **60 FPS** and clean **Android WebView** export.
 > Magic Crystal, Tower Foundation, Dragon Shrine, Bridge or Energy Core —
 > granting a permanent per-level score multiplier, charging Dragon Energy and
 > evolving the board's look. The board highlights the one cell that completes a
-> nearby shape, so it teaches itself. The controls stay pure drag-and-place;
-> dragons and the world map are still out of scope.
+> nearby shape, so it teaches itself. The controls stay pure drag-and-place.
+>
+> Long-term, a *World Progression* meta layer turns every cleared level into
+> visible growth. Levels reward **Magic Essence, Gold, Building Materials** and
+> Dragon Energy; every 5 levels unlocks a **restoration** (Ancient Bridge, World
+> Tree, Crystal Tower, Dragon Nest, …) that the player rebuilds through staged
+> visuals (broken → half → restored) with a cinematic — camera zoom, particles,
+> celebrating NPCs and a biome dragon flyby. Progress opens six themed **biomes**
+> (Forest, Crystal Valley, Frozen Peaks, Volcano Lands, Sky Islands, Ancient
+> Ruins), each reskinning the world and its music. All content is data-driven,
+> so it scales to thousands of levels. No monetization.
 
 ## Quick start
 

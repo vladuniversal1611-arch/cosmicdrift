@@ -21,6 +21,11 @@ import { Wallet } from './Wallet.js';
 export const Currencies = Object.freeze({
   stardust: { id: 'stardust', name: 'Stardust', premium: false, icon: '✦' },
   crystal: { id: 'crystal', name: 'Crystal', premium: true, icon: '◆' },
+  // World Progression resources, earned by completing levels and spent to
+  // restore the floating world.
+  essence: { id: 'essence', name: 'Magic Essence', premium: false, icon: '✧' },
+  gold: { id: 'gold', name: 'Gold', premium: false, icon: '⬤' },
+  materials: { id: 'materials', name: 'Building Materials', premium: false, icon: '▲' },
 });
 
 export class EconomySystem extends System {
@@ -32,7 +37,8 @@ export class EconomySystem extends System {
 
   onInit() {
     const save = this.game.getSystem('save');
-    const slice = save.registerSlice('wallet', () => ({ stardust: 0, crystal: 0 }));
+    const slice = save.registerSlice('wallet',
+      () => ({ stardust: 0, crystal: 0, essence: 0, gold: 0, materials: 0 }));
     this._wallet.deserialize(slice);
   }
 

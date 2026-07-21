@@ -19,6 +19,7 @@
 import { System } from '../core/System.js';
 import { BootScreen } from './screens/BootScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
+import { WorldMapScreen } from './screens/WorldMapScreen.js';
 
 export class UISystem extends System {
   constructor(game) {
@@ -33,6 +34,11 @@ export class UISystem extends System {
     // Once a run begins, swap the title for the in-game HUD. A restart fires
     // 'game:started' again; replacing rebuilds a fresh HUD each time.
     this.listen('game:started', () => this.replace(new HudScreen(this.game)));
+    // The World Map is a modal pushed over the HUD.
+    this.listen('ui:openWorldMap', () => {
+      if (this.top?.name !== 'worldmap') this.push(new WorldMapScreen(this.game));
+    });
+    this.listen('ui:closeWorldMap', () => { if (this.top?.name === 'worldmap') this.pop(); });
     // Start on the boot/title screen.
     this.push(new BootScreen(this.game));
   }

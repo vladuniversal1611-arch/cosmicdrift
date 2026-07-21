@@ -51,6 +51,14 @@ const SFX = {
       a._tone({ freq: f, type: 'triangle', dur: 0.26, gain: 0.14, delay: i * 0.06 }));
   },
   structureActivate: (a) => a._tone({ freq: 660, type: 'sine', dur: 0.2, sweep: 1.6, gain: 0.16 }),
+  // World Progression hooks.
+  reward: (a) => { [784, 988].forEach((f, i) => a._tone({ freq: f, type: 'triangle', dur: 0.12, gain: 0.12, delay: i * 0.05 })); },
+  biome: (a) => { [392, 523, 659].forEach((f, i) => a._tone({ freq: f, type: 'sine', dur: 0.5, gain: 0.1, delay: i * 0.12 })); },
+  restoreStage: (a) => a._tone({ freq: 587, type: 'triangle', dur: 0.2, sweep: 1.4, gain: 0.16 }),
+  restore: (a) => { // triumphant fanfare
+    [523, 659, 784, 1046, 1319, 1568].forEach((f, i) =>
+      a._tone({ freq: f, type: 'triangle', dur: 0.4, gain: 0.15, delay: i * 0.09 }));
+  },
 };
 
 export class AudioSystem extends System {

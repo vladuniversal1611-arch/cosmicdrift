@@ -63,6 +63,10 @@ export class PieceSystem extends System {
     this.listen('input:down', this._onDown);
     this.listen('input:move', this._onMove);
     this.listen('input:up', this._onUp);
+
+    // A modal (e.g. the World Map) blocks board input while open.
+    this.listen('ui:modalOpen', () => { this._modal = true; this._drag = null; });
+    this.listen('ui:modalClose', () => { this._modal = false; });
   }
 
   // --- Tray management -------------------------------------------------------
@@ -104,6 +108,7 @@ export class PieceSystem extends System {
 
   /** Only draggable while a game is in progress and nothing is mid-clear. */
   get _canDrag() {
+    if (this._modal) return false;
     const gameplay = this.game.getSystem('gameplay');
     if (gameplay && !gameplay.isPlaying) return false;
     if (this.game.getSystem('board')?.isClearing) return false;

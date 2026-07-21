@@ -14,6 +14,7 @@ import { Label } from '../widgets/Label.js';
 import { ProgressBar } from '../widgets/ProgressBar.js';
 import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
+import { Rect } from '../../utils/Rect.js';
 
 export class HudScreen extends Screen {
   constructor(game) {
@@ -37,6 +38,8 @@ export class HudScreen extends Screen {
     this._lines = 0;
     this._banner = null;      // { title, sub, t } discovery/world callout
     this._structToast = null; // { name, t } structure-built callout
+    this._toast = null;       // { text, color, t } reward / biome toast
+    this._worldBtn = new Rect(16, this.bounds.h * 0.05 + 38, 118, 34);
 
     const w = this.bounds.w;
 
@@ -89,6 +92,19 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('structure:completed', ({ name }) => {
       this._structToast = { name, t: 1.8 };
     }));
+    // World Progression feedback.
+    this._subs.push(this.events.on('reward:granted', ({ essence, gold, materials }) => {
+      this._toast = { text: `+${essence} ✧   +${gold} ⬤   +${materials} ▲`, color: Palette.warning, t: 2.4 };
+    }));
+    this._subs.push(this.events.on('biome:changed', ({ biome }) => {
+      this._toast = { text: `ENTERING ${biome.name.toUpperCase()}`, color: Palette.accentAlt, t: 2.6 };
+    }));
+    this._subs.push(this.events.on('world:taskUnlocked', ({ task }) => {
+      this._banner = { title: 'NEW RESTORATION', sub: `${task.name} — open the World Map ◈`, t: 3.6 };
+    }));
+    this._subs.push(this.events.on('world:restored', ({ task }) => {
+      this._banner = { title: `${task.name.toUpperCase()} RESTORED`, sub: 'A new part of the world awakens', t: 3.4 };
+    }));
   }
 
   /** Detach listeners when the HUD is torn down (e.g. on restart/replace). */
@@ -103,6 +119,7 @@ export class HudScreen extends Screen {
     if (this._comboT > 0) this._comboT = Math.max(0, this._comboT - dt);
     if (this._banner && (this._banner.t -= dt) <= 0) this._banner = null;
     if (this._structToast && (this._structToast.t -= dt) <= 0) this._structToast = null;
+    if (this._toast && (this._toast.t -= dt) <= 0) this._toast = null;
     if (this._state === 'over') this._overlayT = Math.min(1, this._overlayT + dt * 3);
   }
 
@@ -110,11 +127,37 @@ export class HudScreen extends Screen {
     this._drawScore(renderer);
     this._drawLevel(renderer);
     this._drawMultiplier(renderer);
+    this._drawWorldButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawCombo(renderer);
+    if (this._toast) this._drawToast(renderer);
     if (this._structToast) this._drawStructToast(renderer);
     if (this._banner) this._drawBanner(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
+  }
+
+  /** Button that opens the floating-world restoration map. */
+  _drawWorldButton(renderer) {
+    const r = this._worldBtn;
+    renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
+    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.accent, 1.5);
+    renderer.text('◈ WORLD MAP', r.centerX, r.centerY, {
+      font: '700 13px system-ui, sans-serif', color: Palette.textPrimary,
+      align: 'center', baseline: 'middle',
+    });
+  }
+
+  /** Brief reward / biome toast just above the board. */
+  _drawToast(renderer) {
+    const t = clamp(Math.min(this._toast.t * 2, 1), 0, 1);
+    renderer.setAlpha(t);
+    renderer.withGlow(this._toast.color, 12, () => {
+      renderer.text(this._toast.text, this.bounds.centerX, this.bounds.h * 0.135, {
+        font: '800 18px system-ui, sans-serif', color: this._toast.color,
+        align: 'center', baseline: 'middle',
+      });
+    });
+    renderer.setAlpha(1);
   }
 
   /** Permanent structure score multiplier, shown beneath the score. */
@@ -257,9 +300,13 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
   }
 
-  onTap() {
+  onTap(px, py) {
     if (this._state === 'over' && this._overlayT > 0.6) {
       this.events.emit('ui:restart');
+      return true;
+    }
+    if (this._worldBtn.contains(px, py)) {
+      this.events.emit('ui:openWorldMap');
       return true;
     }
     return false;
