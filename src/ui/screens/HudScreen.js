@@ -41,6 +41,7 @@ export class HudScreen extends Screen {
     this._structToast = null; // { name, t } structure-built callout
     this._toast = null;       // { text, color, t } reward / biome toast
     this._worldBtn = new Rect(this.bounds.w - 134, 22, 118, 32);
+    this._pauseBtn = new Rect(16, 20, 40, 40);
 
     const w = this.bounds.w;
 
@@ -127,6 +128,7 @@ export class HudScreen extends Screen {
     this._drawLevel(renderer);
     this._drawMultiplier(renderer);
     this._drawWorldButton(renderer);
+    this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
     this._drawCombo(renderer);
@@ -145,6 +147,15 @@ export class HudScreen extends Screen {
       font: '700 13px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle',
     });
+  }
+
+  /** Round pause button (top-left). */
+  _drawPauseButton(renderer) {
+    const r = this._pauseBtn;
+    renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
+    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.accentAlt, 1.5);
+    renderer.fillRoundRect(r.centerX - 8, r.centerY - 8, 5, 16, 2, Palette.textPrimary);
+    renderer.fillRoundRect(r.centerX + 3, r.centerY - 8, 5, 16, 2, Palette.textPrimary);
   }
 
   /** Brief reward / biome toast just above the board. */
@@ -360,6 +371,10 @@ export class HudScreen extends Screen {
     }
     if (this._worldBtn.contains(px, py)) {
       this.events.emit('ui:openWorldMap');
+      return true;
+    }
+    if (this._pauseBtn.contains(px, py)) {
+      this.events.emit('ui:openPause');
       return true;
     }
     return false;

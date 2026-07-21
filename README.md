@@ -1,5 +1,13 @@
 # Cosmic Drift
 
+A **premium, handcrafted UI** wraps the whole game — a living floating-island
+main menu (drifting clouds, flying dragons, waterfalls, falling leaves), glossy
+gold-framed buttons, glass panels, a rolling-number top bar, a full celebratory
+Level Complete (confetti, fireworks, coin-raining reward chest, dragon flyby),
+plus Shop, Collection, Events, Settings and Pause screens — all canvas-drawn,
+portrait-first and 60 FPS. No flat, dark or generic UI.
+
+
 A premium, mobile-first **cosmic shape-placement puzzle**. Place drifting shapes
 on a board, grow your companion dragon, and ascend through cosmic zones.
 

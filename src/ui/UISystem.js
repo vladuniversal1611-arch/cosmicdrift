@@ -1,25 +1,30 @@
 /**
  * UISystem.js
  * -----------------------------------------------------------------------------
- * Owns the screen stack and routes input to it. Screens are pushed/popped so
- * overlays (settings, shop, pause) compose naturally over the base screen.
+ * Owns the screen stack and routes input to it. Screens push/pop so overlays
+ * (shop, settings, pause, level-complete) compose over the base screen. Renders
+ * last (registered last) so UI sits above gameplay.
  *
- * The UISystem renders last (registered last in Game) so UI always sits on top
- * of gameplay and particles. It subscribes to 'input:tap' and forwards taps to
- * the topmost screen, which walks its widget tree.
+ * Navigation is entirely event-driven: screens emit `ui:*` intents and this
+ * system maps them to push/pop/replace. The app opens on the premium MenuScreen
+ * and swaps to the HUD when a run begins.
  *
- * Foundation scope: the stack, routing, update/render plumbing, and a starting
- * BootScreen. Concrete gameplay screens are added as features land.
- *
- * Events:
- *   listens 'input:tap'
- *   emits   'ui:screenChanged' ({ name })
+ * Events (in): input:tap, game:started, ui:playPressed(→handled by gameplay),
+ *   ui:openWorldMap|Shop|Settings|Collection|Events|Pause, ui:back,
+ *   ui:closeWorldMap, ui:mainMenu, reward:granted, level:complete
+ * Events (out): ui:screenChanged, game:toMenu
  * -----------------------------------------------------------------------------
  */
 import { System } from '../core/System.js';
-import { BootScreen } from './screens/BootScreen.js';
+import { MenuScreen } from './screens/MenuScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
 import { WorldMapScreen } from './screens/WorldMapScreen.js';
+import { ShopScreen } from './screens/ShopScreen.js';
+import { SettingsScreen } from './screens/SettingsScreen.js';
+import { CollectionScreen } from './screens/CollectionScreen.js';
+import { EventsScreen } from './screens/EventsScreen.js';
+import { PauseScreen } from './screens/PauseScreen.js';
+import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
 
 export class UISystem extends System {
   constructor(game) {
@@ -27,26 +32,36 @@ export class UISystem extends System {
     this.name = 'ui';
     /** @type {import('./Screen.js').Screen[]} */
     this._stack = [];
+    this._lastReward = {};
   }
 
   onInit() {
     this.listen('input:tap', ({ x, y }) => this._routeTap(x, y));
-    // Once a run begins, swap the title for the in-game HUD. A restart fires
-    // 'game:started' again; replacing rebuilds a fresh HUD each time.
     this.listen('game:started', () => this.replace(new HudScreen(this.game)));
-    // The World Map is a modal pushed over the HUD.
-    this.listen('ui:openWorldMap', () => {
-      if (this.top?.name !== 'worldmap') this.push(new WorldMapScreen(this.game));
-    });
+
+    // Modal navigation (only push if not already the top screen).
+    const open = (name, factory) => { if (this.top?.name !== name) this.push(factory()); };
+    this.listen('ui:openWorldMap', () => open('worldmap', () => new WorldMapScreen(this.game)));
+    this.listen('ui:openShop', () => open('shop', () => new ShopScreen(this.game)));
+    this.listen('ui:openSettings', () => open('settings', () => new SettingsScreen(this.game)));
+    this.listen('ui:openCollection', () => open('collection', () => new CollectionScreen(this.game)));
+    this.listen('ui:openEvents', () => open('events', () => new EventsScreen(this.game)));
+    this.listen('ui:openPause', () => open('pause', () => new PauseScreen(this.game)));
+
+    this.listen('ui:back', () => this.pop());
     this.listen('ui:closeWorldMap', () => { if (this.top?.name === 'worldmap') this.pop(); });
-    // Start on the boot/title screen.
-    this.push(new BootScreen(this.game));
+    this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new MenuScreen(this.game)); });
+
+    // Level-complete celebration: capture the granted reward, then present it.
+    this.listen('reward:granted', (rw) => { this._lastReward = rw; });
+    this.listen('level:complete', () => this.push(new LevelCompleteScreen(this.game, this._lastReward)));
+
+    // Boot into the premium main menu.
+    this.push(new MenuScreen(this.game));
   }
 
-  /** The screen currently receiving input and drawn on top. */
   get top() { return this._stack[this._stack.length - 1] ?? null; }
 
-  /** Push a new screen onto the stack. */
   push(screen) {
     this.top?.onExit();
     this._stack.push(screen);
@@ -54,7 +69,6 @@ export class UISystem extends System {
     this.events.emit('ui:screenChanged', { name: screen.name });
   }
 
-  /** Pop the top screen, returning to the one beneath. */
   pop() {
     const screen = this._stack.pop();
     screen?.onExit();
@@ -63,23 +77,16 @@ export class UISystem extends System {
     return screen;
   }
 
-  /** Replace the whole stack with a single screen. */
   replace(screen) {
     while (this._stack.length) this._stack.pop()?.onExit();
     this.push(screen);
   }
 
-  _routeTap(x, y) {
-    // Only the topmost screen handles input (modal semantics).
-    this.top?.handleTap(x, y);
-  }
+  _routeTap(x, y) { this.top?.handleTap(x, y); }
 
-  update(dt) {
-    this.top?.update(dt);
-  }
+  update(dt) { this.top?.update(dt); }
 
   render(renderer) {
-    // Render the full stack so screens beneath an overlay remain visible.
     for (const screen of this._stack) screen.render(renderer);
   }
 }

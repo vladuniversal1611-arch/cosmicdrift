@@ -65,6 +65,8 @@ export class GameplaySystem extends System {
     this.listen('fx:flash', ({ color, strength }) => this.flash(color, strength));
     // A new level keeps score/energy but resets the combo chain.
     this.listen('level:changed', () => { this.combo = 0; });
+    // Returning to the main menu leaves the 'playing' state (blocks board input).
+    this.listen('game:toMenu', () => { this.state = 'menu'; });
   }
 
   /** Add Dragon Energy directly (Dragon Rune tiles, bonuses). */

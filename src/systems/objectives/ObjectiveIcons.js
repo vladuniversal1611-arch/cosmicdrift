@@ -92,6 +92,22 @@ const ICONS = {
     r.fillCircle(cx, cy, s * 0.5, '#1a0510');
     r.fillCircle(cx, cy, s * 0.2, color);
   },
+  coins(r, cx, cy, s, color) {
+    r.fillCircle(cx, cy, s, color);
+    r.ctx.globalAlpha = 0.5; r.fillCircle(cx, cy, s * 0.7, '#fff'); r.ctx.globalAlpha = 1;
+    r.fillCircle(cx, cy, s * 0.6, color);
+    r.sparkle(cx - s * 0.2, cy - s * 0.2, s * 0.35, '#fff');
+  },
+  gem(r, cx, cy, s, color) {
+    const ctx = r.ctx; ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.9, cy - s * 0.2);
+    ctx.lineTo(cx + s * 0.55, cy + s); ctx.lineTo(cx - s * 0.55, cy + s);
+    ctx.lineTo(cx - s * 0.9, cy - s * 0.2); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.45; ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.9, cy - s * 0.2); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+  },
   default(r, cx, cy, s, color) { r.fillCircle(cx, cy, s * 0.7, color); },
 };
 
