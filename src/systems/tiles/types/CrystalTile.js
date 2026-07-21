@@ -24,6 +24,7 @@ export class CrystalTile extends Tile {
     this._shake(9);
     this._burst(Palette.tiles.crystalCore.glow, 20);
     this.sys.igniteCrossFrom(this.cell);
+    this.sys.events.emit('tile:crystal', { cell: this.cell });
   }
 
   renderBelow(renderer, x, y, size, time) {

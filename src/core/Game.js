@@ -30,6 +30,7 @@ import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
 import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
 import { LevelSystem } from '../systems/progression/LevelSystem.js';
+import { ObjectivesSystem } from '../systems/objectives/ObjectivesSystem.js';
 import { WorldProgressionSystem } from '../systems/world/WorldProgressionSystem.js';
 import { TileSystem } from '../systems/tiles/TileSystem.js';
 import { StructureSystem } from '../systems/structures/StructureSystem.js';
@@ -116,6 +117,8 @@ export class Game {
     // LevelSystem drives progression; the TileSystem is the Living Board.
     this.systems.register(new GameplaySystem(this));
     this.systems.register(new LevelSystem(this));
+    // Objectives drive level completion; built from each level's unlocks.
+    this.systems.register(new ObjectivesSystem(this));
     this.systems.register(new WorldSystem(this));
     this.systems.register(new BoardSystem(this));
     this.systems.register(new TileSystem(this));

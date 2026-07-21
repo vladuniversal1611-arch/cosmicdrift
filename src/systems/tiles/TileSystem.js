@@ -93,6 +93,50 @@ export class TileSystem extends System {
     return this.addTile(cell, type);
   }
 
+  /** Count active tiles of a given type (used by the ObjectivesSystem). */
+  countType(type) {
+    let n = 0;
+    for (const t of this._tiles) if (t.type === type && !t.dead) n++;
+    return n;
+  }
+
+  /** A free cell that still has an empty orthogonal neighbour (keeps the board playable). */
+  _freeCellWithSpace() {
+    const free = [];
+    this.grid.forEach((cell) => {
+      if (cell.tile || cell.filled || cell.isClearing) return;
+      const { col, row } = cell;
+      const openNbr = [[col, row - 1], [col, row + 1], [col - 1, row], [col + 1, row]]
+        .some(([c, r]) => { const n = this.grid.get(c, r); return n && !n.tile && !n.filled; });
+      if (openNbr) free.push(cell);
+    });
+    return free.length ? this._rng.pick(free) : null;
+  }
+
+  /** Ensure at least `target` tiles of `type` exist, spawning the shortfall. */
+  ensureType(type, target) {
+    if (!this.grid) return;
+    let need = target - this.countType(type);
+    let guard = 0;
+    while (need > 0 && guard++ < 40) {
+      const cell = this._freeCellWithSpace();
+      if (!cell) break;
+      this.spawnTile(cell, type);
+      need--;
+    }
+  }
+
+  /** Spawn (and link) a fresh portal pair so portal objectives stay solvable. */
+  ensurePortalPair() {
+    const cellA = this._freeCellWithSpace();
+    if (!cellA) return;
+    const a = this.spawnTile(cellA, 'portal');
+    const cellB = this._freeCellWithSpace();
+    if (!a || !cellB) return;
+    const b = this.spawnTile(cellB, 'portal');
+    if (b) { a.partner = b; b.partner = a; a.variant = 'A'; b.variant = 'B'; }
+  }
+
   // --- Per-frame -------------------------------------------------------------
 
   update(dt) {

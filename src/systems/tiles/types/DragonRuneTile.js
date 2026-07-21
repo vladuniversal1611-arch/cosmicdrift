@@ -24,6 +24,7 @@ export class DragonRuneTile extends Tile {
       this._energy(ENERGY_BONUS);
       this._burst(Palette.tiles.dragon.glow, 12);
       this._sound('dragonrune');
+      this.sys.events.emit('tile:runeActivated', { cell: this.cell });
     }
   }
 

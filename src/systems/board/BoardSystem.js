@@ -70,7 +70,8 @@ export class BoardSystem extends System {
     const w = this.game.canvas.width;
     const h = this.game.canvas.height;
     const margin = w * 0.07;
-    const top = h * 0.14;
+    // Leave headroom up top for the score, energy bar and objectives checklist.
+    const top = h * 0.205;
     const size = w - margin * 2;
     this._area.set(margin, top, size, size);
     this.grid.layout(this._area, Config.board.gutter);

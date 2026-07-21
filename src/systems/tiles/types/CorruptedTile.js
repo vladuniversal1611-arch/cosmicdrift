@@ -39,6 +39,7 @@ export class CorruptedTile extends Tile {
       this.destroy();
       this._sound('corrupt');
       this._burst(Palette.tiles.corruption.glow, 16);
+      this.sys.events.emit('tile:corruptionDestroyed', { cell: this.cell });
     }
   }
 

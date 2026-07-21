@@ -27,7 +27,10 @@ export class FrozenTile extends Tile {
     this.activate();
     this._sound('ice');
     this._burst(Palette.tiles.ice.glow, 8);
-    if (this.cracks >= this.need) this.destroy();   // shatter → slot freed
+    if (this.cracks >= this.need) {                 // shatter → slot freed
+      this.destroy();
+      this.sys.events.emit('tile:frozenFreed', { cell: this.cell });
+    }
   }
 
   onDestroy() { this._burst(Palette.tiles.ice.fill, 14); }

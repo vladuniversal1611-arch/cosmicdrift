@@ -55,6 +55,7 @@ const SFX = {
   reward: (a) => { [784, 988].forEach((f, i) => a._tone({ freq: f, type: 'triangle', dur: 0.12, gain: 0.12, delay: i * 0.05 })); },
   biome: (a) => { [392, 523, 659].forEach((f, i) => a._tone({ freq: f, type: 'sine', dur: 0.5, gain: 0.1, delay: i * 0.12 })); },
   restoreStage: (a) => a._tone({ freq: 587, type: 'triangle', dur: 0.2, sweep: 1.4, gain: 0.16 }),
+  objectiveComplete: (a) => { [659, 880, 1174].forEach((f, i) => a._tone({ freq: f, type: 'triangle', dur: 0.18, gain: 0.14, delay: i * 0.05 })); },
   restore: (a) => { // triumphant fanfare
     [523, 659, 784, 1046, 1319, 1568].forEach((f, i) =>
       a._tone({ freq: f, type: 'triangle', dur: 0.4, gain: 0.15, delay: i * 0.09 }));

@@ -64,7 +64,8 @@ export class LevelSystem extends System {
     this.level = this._progress.level ?? 1;
 
     this.listen('game:started', () => this.beginLevel(this.level));
-    this.listen('game:linesCleared', ({ count }) => this._onCleared(count));
+    // A level is now cleared when its OBJECTIVES are all met (not a score goal).
+    this.listen('objectives:allComplete', () => this._completeLevel());
     this.listen('board:clearComplete', () => this._maybeAdvance());
   }
 
@@ -88,9 +89,7 @@ export class LevelSystem extends System {
   beginLevel(level) {
     this.level = level;
     this._pending = 0;
-    this.cleared = 0;
     const world = this.namedWorld;
-    this.goal = Config.progression.goalBase + world * Config.progression.goalPerWorld;
 
     const unlocked = this.unlockedMechanics();
     const placements = this._generateLayout(unlocked);
@@ -103,26 +102,27 @@ export class LevelSystem extends System {
       ? { id: mech, label: TileRegistry[mech].label, blurb: TileRegistry[mech].blurb }
       : null;
 
+    // The ObjectivesSystem builds this level's goals from `unlocked` + level.
     this.events.emit('level:changed', {
       level: this.level,
       world: world + 1,
       worldName: WORLDS[world].name,
-      goal: this.goal,
       levelInWorld: this.levelInWorld,
       newMechanic,
       unlocked: [...unlocked],
     });
-    this.events.emit('level:progress', { cleared: 0, goal: this.goal });
   }
 
-  _onCleared(count) {
+  /** Objectives all met → queue the next level (advances after the clear settles). */
+  _completeLevel() {
     if (this._pending) return;
-    this.cleared += count;
-    this.events.emit('level:progress', { cleared: this.cleared, goal: this.goal });
-    if (this.cleared >= this.goal) {
-      this._pending = this.level + 1;
-      this.game.getSystem('audio')?.play('levelup');
-      this.events.emit('level:complete', { level: this.level });
+    this._pending = this.level + 1;
+    this.game.getSystem('audio')?.play('levelup');
+    this.events.emit('level:complete', { level: this.level });
+    // If nothing is mid-clear, advance on the next tick; otherwise wait for
+    // 'board:clearComplete' so a triggering clear finishes its animation first.
+    if (!this.game.getSystem('board')?.isClearing) {
+      Promise.resolve().then(() => this._maybeAdvance());
     }
   }
 

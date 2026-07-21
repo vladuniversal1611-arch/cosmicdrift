@@ -34,6 +34,7 @@ export class PortalTile extends Tile {
     this._burst(this._palette.glow, 10);
     const { x, y } = grid.cellCenter(dest.col, dest.row);
     this.sys.events.emit('fx:burst', { x, y, color: p._palette.glow, count: 10 });
+    this.sys.events.emit('tile:portalUsed', { cell: this.cell });
     return dest;
   }
 

@@ -15,6 +15,7 @@ import { ProgressBar } from '../widgets/ProgressBar.js';
 import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Rect } from '../../utils/Rect.js';
+import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
 
 export class HudScreen extends Screen {
   constructor(game) {
@@ -31,24 +32,20 @@ export class HudScreen extends Screen {
     this._overlayT = 0;       // game-over fade-in
     this._subs = [];          // event unsubscribers, cleaned up on exit
 
-    // Progression state (mirrored from LevelSystem).
+    // Progression state (mirrored from LevelSystem / ObjectivesSystem).
     this._level = 1;
     this._worldName = '';
-    this._goal = 0;
-    this._lines = 0;
+    this._objectives = [];    // live Objective instances for the current level
     this._banner = null;      // { title, sub, t } discovery/world callout
     this._structToast = null; // { name, t } structure-built callout
     this._toast = null;       // { text, color, t } reward / biome toast
-    this._worldBtn = new Rect(16, this.bounds.h * 0.05 + 38, 118, 34);
+    this._worldBtn = new Rect(this.bounds.w - 134, 22, 118, 32);
 
     const w = this.bounds.w;
 
-    // Dragon Energy meter, just under the score.
-    this._energyLabel = this.add(new Label('DRAGON ENERGY', 0, this.bounds.h * 0.105, {
-      w, align: 'center', font: '700 13px system-ui, sans-serif', color: Palette.textMuted,
-    }));
+    // Dragon Energy meter (thin, above the objectives checklist).
     const bw = w * 0.6;
-    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.105 + 22, bw, 12, {
+    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.075, bw, 8, {
       value: 0, fill: Palette.energy[0], track: 'rgba(255,255,255,0.08)',
     }));
 
@@ -74,8 +71,6 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('level:changed', (d) => {
       this._level = d.level;
       this._worldName = d.worldName;
-      this._goal = d.goal;
-      this._lines = 0;
       if (d.newMechanic) {
         this._banner = {
           title: `WORLD ${d.world} · ${d.worldName}`,
@@ -86,8 +81,8 @@ export class HudScreen extends Screen {
         this._banner = { title: `WORLD ${d.world} · ${d.worldName}`, sub: '', t: 2.2 };
       }
     }));
-    this._subs.push(this.events.on('level:progress', ({ cleared, goal }) => {
-      this._lines = cleared; this._goal = goal;
+    this._subs.push(this.events.on('objectives:set', ({ objectives }) => {
+      this._objectives = objectives;
     }));
     this._subs.push(this.events.on('structure:completed', ({ name }) => {
       this._structToast = { name, t: 1.8 };
@@ -129,6 +124,7 @@ export class HudScreen extends Screen {
     this._drawMultiplier(renderer);
     this._drawWorldButton(renderer);
     for (const child of this.children) child.render(renderer);
+    this._drawObjectives(renderer);
     this._drawCombo(renderer);
     if (this._toast) this._drawToast(renderer);
     if (this._structToast) this._drawStructToast(renderer);
@@ -152,7 +148,7 @@ export class HudScreen extends Screen {
     const t = clamp(Math.min(this._toast.t * 2, 1), 0, 1);
     renderer.setAlpha(t);
     renderer.withGlow(this._toast.color, 12, () => {
-      renderer.text(this._toast.text, this.bounds.centerX, this.bounds.h * 0.135, {
+      renderer.text(this._toast.text, this.bounds.centerX, this.bounds.h * 0.185, {
         font: '800 18px system-ui, sans-serif', color: this._toast.color,
         align: 'center', baseline: 'middle',
       });
@@ -185,7 +181,7 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
   }
 
-  /** Level number + world name (left) and line-goal progress (right). */
+  /** Level number + world name (top-left). */
   _drawLevel(renderer) {
     const y = this.bounds.h * 0.05;
     renderer.text(`LEVEL ${this._level}`, 18, y, {
@@ -194,12 +190,65 @@ export class HudScreen extends Screen {
     renderer.text(this._worldName.toUpperCase(), 18, y + 20, {
       font: '700 11px system-ui, sans-serif', color: Palette.textMuted, baseline: 'middle',
     });
-    const gx = this.bounds.w - 18;
-    renderer.text('LINES', gx, y - 6, {
-      font: '700 11px system-ui, sans-serif', color: Palette.textMuted, align: 'right', baseline: 'middle',
-    });
-    renderer.text(`${this._lines} / ${this._goal}`, gx, y + 14, {
-      font: '800 20px system-ui, sans-serif', color: Palette.accentAlt, align: 'right', baseline: 'middle',
+  }
+
+  /**
+   * The objectives checklist — the player's live goals for this level. Each row
+   * shows an icon, label, progress bar and count, with a green completion pop.
+   */
+  _drawObjectives(renderer) {
+    const rows = this._objectives;
+    if (!rows.length) return;
+    const w = this.bounds.w;
+    const rowW = w * 0.9;
+    const x0 = (w - rowW) / 2;
+    const rowH = 40;
+    const baseY = this.bounds.h * 0.088;
+
+    rows.forEach((o, i) => {
+      const y = baseY + i * rowH;
+      const cyc = y + (rowH - 6) / 2;
+      const done = o.complete;
+      const accent = done ? Palette.success : o.color;
+      const pop = o.completeT >= 0 ? Math.sin(Math.min(o.completeT / 0.3, 1) * Math.PI) * 0.05 : 0;
+
+      renderer.save();
+      renderer.translate(x0 + rowW / 2, cyc);
+      renderer.scale(1 + pop, 1 + pop);
+      renderer.translate(-(x0 + rowW / 2), -cyc);
+
+      // Row background.
+      renderer.fillRoundRect(x0, y, rowW, rowH - 6, 10,
+        done ? 'rgba(56,224,138,0.14)' : 'rgba(20,18,42,0.72)');
+      renderer.strokeRoundRect(x0, y, rowW, rowH - 6, 10, accent, done ? 1.5 : 1);
+
+      // Icon.
+      drawObjectiveIcon(renderer, o.icon, x0 + 22, cyc, 11, accent);
+
+      // Label.
+      renderer.text(o.label, x0 + 42, cyc - 7, {
+        font: '700 14px system-ui, sans-serif', color: Palette.textPrimary, baseline: 'middle',
+      });
+
+      // Progress bar.
+      const barX = x0 + 42;
+      const barW = rowW - 42 - 62;
+      const barY = cyc + 9;
+      renderer.fillRoundRect(barX, barY, barW, 5, 2.5, 'rgba(255,255,255,0.08)');
+      renderer.fillRoundRect(barX, barY, barW * o.displayProgress, 5, 2.5, accent);
+
+      // Count / check.
+      const rx = x0 + rowW - 14;
+      if (done) {
+        renderer.text('✓', rx, cyc, {
+          font: '800 18px system-ui, sans-serif', color: Palette.success, align: 'right', baseline: 'middle',
+        });
+      } else {
+        renderer.text(`${o.progress}/${o.goal}`, rx, cyc, {
+          font: '800 13px system-ui, sans-serif', color: Palette.textMuted, align: 'right', baseline: 'middle',
+        });
+      }
+      renderer.restore();
     });
   }
 
