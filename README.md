@@ -26,7 +26,16 @@ targeting a stable **60 FPS** and clean **Android WebView** export.
 > evolving the board's look. The board highlights the one cell that completes a
 > nearby shape, so it teaches itself. The controls stay pure drag-and-place.
 >
-> Every level sets **objectives** (1–3 combined goals like "Grow 5 Magic Flowers ·
+> Every interaction is wrapped in a premium **juice** layer (Royal Match / Dream
+Games feel): dragged relics enlarge, glow, cast a shadow and tilt toward your
+finger; valid targets pulse blue with sparkles, invalid ones flash red and
+shake; placements land with a ripple, dust and a micro-shake; line clears throw
+a screen flash; and combos escalate x2 → x3 → x5 (dragon roar) → x8 (slow-motion
++ camera zoom + golden lighting + a storm of particles). Buttons bounce and
+spark, numbers roll, meters glow — all eased, all 60 FPS, and all muted when the
+reduced-motion setting is on.
+
+Every level sets **objectives** (1–3 combined goals like "Grow 5 Magic Flowers ·
 Destroy 7 Corruption · Collect 38 Crystal Energy") that must be met to advance —
 so the game is goal-driven, not endless. The tray is filled by an **intelligent
 piece generator**: it reads the live board, tunes shape difficulty to the level

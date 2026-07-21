@@ -107,6 +107,8 @@ export class BoardSystem extends System {
     // (moss, crystal, frozen, dragon rune, treasure, tree, fog, corruption)
     // can react in sync with the clear.
     this.events.emit('board:linesResolved', { lines, cells: [...cells], grid: this.grid });
+    // Premium punch: a quick screen flash accompanies the energy wave.
+    this.events.emit('fx:flash', { color: '#ffffff', strength: 0.14 + 0.05 * lines.length });
     this.game.getSystem('audio')?.play('clear');
   }
 
@@ -195,6 +197,14 @@ export class BoardSystem extends System {
     const pad = this.grid.cellSize * 0.34;
     const outer = gb.inflate(pad);
     const R = 26;
+
+    // Ambient "breathing" halo — the artifact softly inhales and exhales light.
+    const breathe = 0.5 + 0.5 * Math.sin(this._time * 0.9);
+    renderer.setAlpha(0.05 + breathe * 0.06);
+    const halo = renderer.radialGradient(outer.centerX, outer.centerY, outer.w * 0.75,
+      [[0, Palette.accent], [1, 'rgba(0,0,0,0)']]);
+    renderer.fillRect(outer.x - pad, outer.y - pad, outer.w + pad * 2, outer.h + pad * 2, halo);
+    renderer.setAlpha(1);
 
     // Grounding shadow.
     renderer.withGlow('rgba(0,0,0,0.6)', 40, () => {
@@ -303,21 +313,25 @@ export class BoardSystem extends System {
     renderer.setAlpha(1);
   }
 
-  /** Placement preview outline: green when valid, red when not. */
+  /**
+   * Placement preview: valid cells glow blue with a smooth pulse; invalid cells
+   * glow red. The pulse makes the target feel alive and reads instantly.
+   */
   _drawGhost(renderer) {
     const { piece, col, row, valid } = this._hover;
     const size = this.grid.cellSize;
     const r = Config.board.cellRadius;
-    const color = valid ? Palette.success : Palette.danger;
+    const color = valid ? '#3d7bff' : Palette.danger;
+    const pulse = 0.5 + 0.5 * Math.sin(this._time * 6);   // smooth breathing
     for (const [bc, br] of piece.blocks) {
       const c = col + bc;
       const rr = row + br;
       if (!this.grid.inRange(c, rr)) continue;
       const { x, y } = this.grid.cellToPixel(c, rr);
-      renderer.setAlpha(0.18);
+      renderer.setAlpha(0.14 + pulse * 0.14);
       renderer.fillRoundRect(x, y, size, size, r, color);
-      renderer.setAlpha(0.9);
-      renderer.withGlow(color, 12, () => {
+      renderer.setAlpha(0.8 + pulse * 0.2);
+      renderer.withGlow(color, 10 + pulse * 10, () => {
         renderer.strokeRoundRect(x + 1, y + 1, size - 2, size - 2, r, color, 2.5);
       });
       renderer.setAlpha(1);

@@ -24,6 +24,7 @@ export class HudScreen extends Screen {
 
     this._state = 'playing';
     this._score = 0;
+    this._displayScore = 0;   // eased "rolling" number toward _score
     this._best = 0;
     this._final = 0;
     this._scorePop = 0;       // decays 1 → 0 for the score bump
@@ -110,6 +111,9 @@ export class HudScreen extends Screen {
 
   update(dt) {
     this._energy.update(dt);
+    // Rolling score: ease the displayed number toward the real one.
+    this._displayScore += (this._score - this._displayScore) * Math.min(1, dt * 8);
+    if (Math.abs(this._score - this._displayScore) < 0.5) this._displayScore = this._score;
     if (this._scorePop > 0) this._scorePop = Math.max(0, this._scorePop - dt * 3.5);
     if (this._comboT > 0) this._comboT = Math.max(0, this._comboT - dt);
     if (this._banner && (this._banner.t -= dt) <= 0) this._banner = null;
@@ -284,7 +288,7 @@ export class HudScreen extends Screen {
     renderer.translate(cx, y);
     renderer.scale(scale, scale);
     renderer.withGlow(Palette.accent, 14 * (0.4 + this._scorePop), () => {
-      renderer.text(String(this._score), 0, 0, {
+      renderer.text(String(Math.round(this._displayScore)), 0, 0, {
         font: '800 46px system-ui, sans-serif', color: Palette.textPrimary,
         align: 'center', baseline: 'middle',
       });

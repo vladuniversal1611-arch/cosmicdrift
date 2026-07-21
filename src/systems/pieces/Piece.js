@@ -33,6 +33,8 @@ export class Piece {
     this.dragging = false;
     /** Invalid-drop shake amplitude (px); tweened back to 0 by the system. */
     this.shake = 0;
+    /** Tilt (radians) following finger movement while dragging. */
+    this.tilt = 0;
     /** Home position/scale in the tray, to spring back to on invalid drops. */
     this.homeX = 0;
     this.homeY = 0;
@@ -63,14 +65,32 @@ export class Piece {
     const glow = this.dragging ? 0.9 + 0.2 * pulse : 0.45 + 0.35 * pulse;
     // Fast horizontal jitter while a rejected relic springs home.
     const shakeX = this.shake ? Math.sin(time * 46) * this.shake : 0;
+    const ctx = renderer.ctx;
+    const radius = Config.board.cellRadius * this.scale;
+
+    // Tilt the held relic toward finger movement, pivoting on its centre.
+    const tilt = this.dragging ? this.tilt : 0;
+    const pcx = this.x + (this.width * size) / 2 + shakeX;
+    const pcy = this.y + (this.height * size) / 2;
+    ctx.save();
+    if (tilt) { ctx.translate(pcx, pcy); ctx.rotate(tilt); ctx.translate(-pcx, -pcy); }
+
+    // Soft drop-shadow beneath a lifted relic gives it weight.
+    if (this.dragging) {
+      renderer.setAlpha(0.3);
+      for (const [bc, br] of this.blocks) {
+        const bx = this.x + bc * size + shakeX;
+        const by = this.y + br * size;
+        renderer.fillRoundRect(bx + size * 0.12, by + size * 0.22, size - 2, size - 2, radius, 'rgba(0,0,0,1)');
+      }
+      renderer.setAlpha(1);
+    }
 
     for (const [bc, br] of this.blocks) {
       const bx = this.x + bc * size + shakeX;
       const by = this.y + br * size;
-      drawCrystal(renderer, bx, by, size, this.material, {
-        glow,
-        radius: Config.board.cellRadius * this.scale,
-      });
+      drawCrystal(renderer, bx, by, size, this.material, { glow, radius });
     }
+    ctx.restore();
   }
 }

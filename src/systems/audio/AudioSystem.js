@@ -56,6 +56,11 @@ const SFX = {
   biome: (a) => { [392, 523, 659].forEach((f, i) => a._tone({ freq: f, type: 'sine', dur: 0.5, gain: 0.1, delay: i * 0.12 })); },
   restoreStage: (a) => a._tone({ freq: 587, type: 'triangle', dur: 0.2, sweep: 1.4, gain: 0.16 }),
   objectiveComplete: (a) => { [659, 880, 1174].forEach((f, i) => a._tone({ freq: f, type: 'triangle', dur: 0.18, gain: 0.14, delay: i * 0.05 })); },
+  // A guttural dragon roar for big combos: a low sawtooth that snarls downward.
+  dragonRoar: (a) => {
+    a._tone({ freq: 150, type: 'sawtooth', dur: 0.6, sweep: 0.55, gain: 0.22 });
+    a._tone({ freq: 90, type: 'square', dur: 0.55, sweep: 0.6, gain: 0.14, delay: 0.03 });
+  },
   restore: (a) => { // triumphant fanfare
     [523, 659, 784, 1046, 1319, 1568].forEach((f, i) =>
       a._tone({ freq: f, type: 'triangle', dur: 0.4, gain: 0.15, delay: i * 0.09 }));

@@ -27,6 +27,7 @@
 import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { Easing } from '../../utils/Easing.js';
+import { clamp } from '../../utils/MathUtils.js';
 import { Random } from '../../utils/Random.js';
 import { PieceFactory } from './PieceFactory.js';
 import { PieceGenerator } from './PieceGenerator.js';
@@ -145,6 +146,9 @@ export class PieceSystem extends System {
     this._drag = { piece, col: 0, row: 0, valid: false };
     piece.dragging = true;
     piece.shake = 0;
+    piece.tilt = 0;
+    this._lastX = x;
+    this._hoverKey = null;
     piece.storeHome();
 
     // Springy grow to full board size.
@@ -157,6 +161,12 @@ export class PieceSystem extends System {
 
   _onMove({ id, x, y }) {
     if (!this._drag || id !== this._pointerId) return;
+    // Tilt the relic toward horizontal finger movement (eased, clamped).
+    if (this._lastX != null) {
+      const target = clamp((x - this._lastX) * 0.03, -0.22, 0.22);
+      this._drag.piece.tilt += (target - this._drag.piece.tilt) * 0.35;
+    }
+    this._lastX = x;
     this._positionDrag(x, y);
   }
 
@@ -194,6 +204,16 @@ export class PieceSystem extends System {
     this._drag.row = row;
     this._drag.valid = valid;
     this.events.emit('board:hover', { piece, col, row, valid });
+
+    // Magical sparkles when the snap target changes to a valid spot.
+    const key = `${valid ? 1 : 0}:${col},${row}`;
+    if (key !== this._hoverKey) {
+      this._hoverKey = key;
+      if (valid && grid.inRange(col, row)) {
+        const c = grid.cellCenter(col, row);
+        this.events.emit('fx:burst', { x: c.x, y: c.y, color: '#5fa8ff', count: 5 });
+      }
+    }
   }
 
   _commitPlacement(piece, col, row) {
@@ -209,6 +229,15 @@ export class PieceSystem extends System {
     if (idx !== -1) this.tray.splice(idx, 1);
 
     this.game.getSystem('audio')?.play('place');
+
+    // Satisfying impact: micro screen-shake, a ripple shockwave and magical
+    // dust bursting from the landing point.
+    const mat = piece.material;
+    const ctr = this._grid.cellCenter(col + (piece.width - 1) / 2, row + (piece.height - 1) / 2);
+    this.events.emit('fx:shake', { mag: 3 });
+    this.events.emit('fx:ripple', { x: ctr.x, y: ctr.y, color: mat.glow, radius: this._grid.cellSize * 2 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: mat.spark, count: 9 });
+
     this.events.emit('game:piecePlaced', {
       amount: 1, blocks: piece.blockCount, material: piece.materialKey,
     });
@@ -233,6 +262,12 @@ export class PieceSystem extends System {
     anim?.to(piece, 'y', piece.homeY, t, { ease: Easing.backOut });
     anim?.to(piece, 'scale', piece.homeScale, t, { ease: Easing.backOut });
     this.game.getSystem('audio')?.play('invalid');
+
+    // A soft red flash and a puff of grey dust sell the rejection.
+    const cs = this._grid.cellSize;
+    const ctr = { x: piece.x + piece.width * cs * piece.scale / 2, y: piece.y + piece.height * cs * piece.scale / 2 };
+    this.events.emit('fx:flash', { color: '#ff4d6d', strength: 0.12 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: '#9a90b0', count: 6 });
   }
 
   /** Hit-test the tray (generously) and return the relic under (x,y). */
@@ -262,6 +297,8 @@ export class PieceSystem extends System {
 
   update(dt) {
     this._time += dt;
+    // Relax the held relic's tilt back toward upright when the finger is still.
+    if (this._drag) this._drag.piece.tilt *= 0.88;
   }
 
   render(renderer) {

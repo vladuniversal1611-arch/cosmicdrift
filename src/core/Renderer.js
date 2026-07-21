@@ -21,6 +21,8 @@ export class Renderer {
     /** Per-frame screen-shake offset (logical px), set by gameplay each frame. */
     this.shakeX = 0;
     this.shakeY = 0;
+    /** Cinematic camera zoom about the screen centre (1 = none). */
+    this.zoom = 1;
   }
 
   /** Begin a frame: apply the logical transform and clear the backing store. */
@@ -33,6 +35,14 @@ export class Renderer {
     // Apply screen shake to the whole scene. The WorldSystem overfills its
     // gradient so the shifted viewport never reveals bare edges.
     if (this.shakeX || this.shakeY) ctx.translate(this.shakeX, this.shakeY);
+    // Cinematic zoom about the logical centre (combo finales).
+    if (this.zoom !== 1) {
+      const cx = this.canvas.width / 2;
+      const cy = this.canvas.height / 2;
+      ctx.translate(cx, cy);
+      ctx.scale(this.zoom, this.zoom);
+      ctx.translate(-cx, -cy);
+    }
   }
 
   /** End a frame. Reserved for future post-processing / present logic. */

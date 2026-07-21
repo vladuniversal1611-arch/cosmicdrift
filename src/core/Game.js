@@ -143,6 +143,8 @@ export class Game {
     const r = this.renderer;
     r.begin();
     this.systems.renderAll(r);
+    // Full-screen juice (flash / golden finale overlay) sits above everything.
+    this.getSystem('gameplay')?.renderOverlay(r);
     r.end();
 
     if (Config.debug.showFps) this._drawFps(r);

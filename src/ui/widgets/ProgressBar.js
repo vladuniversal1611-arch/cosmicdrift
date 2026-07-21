@@ -33,7 +33,14 @@ export class ProgressBar extends Widget {
     renderer.fillRoundRect(b.x, b.y, b.w, b.h, this.radius, this.track);
     const fw = b.w * this._display;
     if (fw > 1) {
-      renderer.fillRoundRect(b.x, b.y, fw, b.h, this.radius, this.fill);
+      // Glowing fill with a bright, pulsing leading edge — reads as "charged".
+      renderer.withGlow(this.fill, 8, () => {
+        renderer.fillRoundRect(b.x, b.y, fw, b.h, this.radius, this.fill);
+      });
+      const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 260);
+      renderer.setAlpha(pulse);
+      renderer.fillCircle(b.x + fw, b.y + b.h / 2, b.h * 0.7, '#ffffff');
+      renderer.setAlpha(1);
     }
   }
 }

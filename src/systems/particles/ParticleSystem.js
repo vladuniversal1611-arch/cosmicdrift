@@ -28,6 +28,8 @@ export class ParticleSystem extends System {
     this._active = [];
     this._pool = new ObjectPool(() => new Particle(), (p) => p.reset(), 128);
     this._reducedMotion = false;
+    /** Expanding ripple rings (impact/combo shockwaves), capped + cheap. */
+    this._rings = [];
   }
 
   onInit() {
@@ -37,10 +39,17 @@ export class ParticleSystem extends System {
       if (key === 'reducedMotion') this._reducedMotion = value;
     });
     this.listen('fx:burst', this._onBurst);
+    this.listen('fx:ripple', ({ x, y, color = '#7c5cff', radius = 90 }) => this.ripple(x, y, color, radius));
   }
 
   _onBurst({ x, y, color = '#fff', count = 12 }) {
     this.burst(x, y, color, count);
+  }
+
+  /** Emit an expanding, fading shockwave ring (placement/impact/combo juice). */
+  ripple(x, y, color = '#7c5cff', maxRadius = 90) {
+    if (this._reducedMotion || this._rings.length >= 16) return;
+    this._rings.push({ x, y, color, t: 0, dur: 0.5, maxRadius });
   }
 
   /**
@@ -75,11 +84,27 @@ export class ParticleSystem extends System {
         this._pool.release(p);
       }
     }
+    for (let i = this._rings.length - 1; i >= 0; i--) {
+      this._rings[i].t += dt;
+      if (this._rings[i].t >= this._rings[i].dur) this._rings.splice(i, 1);
+    }
   }
 
   render(renderer) {
-    if (this._active.length === 0) return;
     const ctx = renderer.ctx;
+
+    // Shockwave rings (eased expansion, fading stroke).
+    for (const ring of this._rings) {
+      const k = ring.t / ring.dur;           // 0 -> 1
+      const eased = 1 - (1 - k) * (1 - k);   // quadratic ease-out
+      ctx.globalAlpha = (1 - k) * 0.8;
+      ctx.strokeStyle = ring.color;
+      ctx.lineWidth = 4 * (1 - k) + 1;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.maxRadius * eased, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     for (const p of this._active) {
       ctx.globalAlpha = p.alpha;
       ctx.fillStyle = p.color;
@@ -92,5 +117,6 @@ export class ParticleSystem extends System {
 
   onDestroy() {
     this._active.length = 0;
+    this._rings.length = 0;
   }
 }
