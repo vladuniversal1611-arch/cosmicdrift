@@ -10,6 +10,7 @@ import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 const FEATURED = { name: 'Dragon Festival', icon: 'dragon', color: UI.btn.pink, sub: 'Clear levels to earn festival tokens!', ends: '2d 14h' };
 const TILES = [
@@ -18,7 +19,7 @@ const TILES = [
 ];
 
 export class EventsScreen extends PanelScreen {
-  constructor(game) { super(game, 'EVENTS', { showTopBar: true }); this.name = 'events'; }
+  constructor(game) { super(game, t('titles.events'), { showTopBar: true }); this.name = 'events'; }
 
   drawContent(r, p) {
     const pad = 24;

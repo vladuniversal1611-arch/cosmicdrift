@@ -9,7 +9,7 @@
  * logical units (see Canvas).
  * -----------------------------------------------------------------------------
  */
-import { Config } from '../config/Config.js';
+import { Quality } from '../config/Quality.js';
 
 export class Renderer {
   /**
@@ -144,7 +144,7 @@ export class Renderer {
    * weak devices can skip the expensive shadow blur.
    */
   withGlow(color, blur, drawFn) {
-    if (!Config.render.highQuality) return drawFn();
+    if (!Quality.highQuality) return drawFn();
     const { ctx } = this;
     ctx.save();
     ctx.shadowColor = color;

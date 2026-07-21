@@ -15,6 +15,7 @@
  * -----------------------------------------------------------------------------
  */
 import { Config } from '../config/Config.js';
+import { Quality } from '../config/Quality.js';
 
 /**
  * @param {import('../core/Renderer.js').Renderer} renderer
@@ -40,7 +41,7 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   const r = Math.max(2, radius * scale);
 
   // --- Outer magical aura ---------------------------------------------------
-  if (glow > 0 && Config.render.highQuality) {
+  if (glow > 0 && Quality.highQuality) {
     ctx.save();
     ctx.shadowColor = material.glow;
     ctx.shadowBlur = 16 * glow;
@@ -88,10 +89,32 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   renderer.sparkle(px + s * 0.3, py + s * 0.3, s * 0.13, material.spark);
   ctx.globalAlpha = 1;
 
+  // --- Colour-blind aid: a distinct centre symbol per material --------------
+  if (Quality.colorBlind && material.symbol) {
+    drawSymbol(ctx, material.symbol, px + s / 2, py + s / 2, s * 0.24);
+  }
+
   // --- Ignite overlay (clear dissolve) --------------------------------------
   if (ignite > 0) {
     ctx.globalAlpha = Math.min(1, ignite);
     renderer.fillRoundRect(px, py, s, s, r, '#ffffff');
     ctx.globalAlpha = 1;
   }
+}
+
+/** Small high-contrast glyphs so materials stay distinguishable without colour. */
+function drawSymbol(ctx, sym, cx, cy, s) {
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (sym === 'circle') { ctx.arc(cx, cy, s, 0, Math.PI * 2); }
+  else if (sym === 'square') { ctx.rect(cx - s, cy - s, s * 2, s * 2); }
+  else if (sym === 'triangle') { ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy + s); ctx.lineTo(cx - s, cy + s); ctx.closePath(); }
+  else if (sym === 'diamond') { ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s, cy); ctx.closePath(); }
+  else { ctx.moveTo(cx - s, cy); ctx.lineTo(cx + s, cy); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); } // plus/cross
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
 }

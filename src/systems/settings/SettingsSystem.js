@@ -1,18 +1,22 @@
 /**
  * SettingsSystem.js
  * -----------------------------------------------------------------------------
- * Player-facing preferences (audio volumes, haptics, reduced motion, theme).
+ * Player-facing preferences: separate audio volumes, haptics/vibration, plus
+ * the full accessibility suite (reduced motion, colour-blind mode, low
+ * performance mode, large UI, animation intensity) and language.
  *
- * Settings are a persistent save slice. When a value changes the system emits a
- * granular `settings:changed` event so interested systems (Audio, Animation)
- * react without polling. Reduced-motion is surfaced because premium games must
- * respect accessibility preferences.
+ * Settings are a persistent save slice. Changing one emits a granular
+ * `settings:changed` event AND re-derives the runtime Quality flags (glow,
+ * particle cap, motion, UI scale, colour-blind) that the renderer/particles/
+ * crystals read — so accessibility toggles take effect instantly everywhere.
  *
  * Events:
  *   emits  'settings:changed' ({ key, value })
  * -----------------------------------------------------------------------------
  */
 import { System } from '../../core/System.js';
+import { applyQuality } from '../../config/Quality.js';
+import { L } from '../../i18n/Localization.js';
 
 export class SettingsSystem extends System {
   constructor(game) {
@@ -25,13 +29,25 @@ export class SettingsSystem extends System {
     const save = this.game.getSystem('save');
     // Declare defaults; SaveSystem returns persisted values if they exist.
     this._settings = save.registerSlice('settings', () => ({
+      // Audio (separate buses).
       musicVolume: 0.7,
       sfxVolume: 0.9,
       muted: false,
+      // Haptics / vibration.
       haptics: true,
+      // Accessibility.
       reducedMotion: false,
+      animationIntensity: 1,
+      colorBlind: false,
+      lowPerformance: false,
+      largeUI: false,
+      // Presentation / locale.
       theme: 'deepspace',
+      language: 'en',
     }));
+
+    L.setLanguage(this._settings.language ?? 'en');
+    applyQuality(this);
   }
 
   /** Read a single setting. */
@@ -41,11 +57,14 @@ export class SettingsSystem extends System {
   all() { return this._settings; }
 
   /**
-   * Update a setting, persist it, and notify listeners. No-ops if unchanged.
+   * Update a setting, persist it, refresh runtime quality, and notify. No-ops
+   * if unchanged.
    */
   set(key, value) {
     if (this._settings[key] === value) return;
     this._settings[key] = value;
+    if (key === 'language') L.setLanguage(value);
+    applyQuality(this);
     this.game.getSystem('save').markDirty();
     this.events.emit('settings:changed', { key, value });
   }

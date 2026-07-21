@@ -14,6 +14,7 @@ import { TopBar } from '../components/TopBar.js';
 import { MenuBackground } from '../theme/MenuBackground.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 // --- Small procedural icons for the nav buttons ------------------------------
 const Icons = {
@@ -52,15 +53,15 @@ export class MenuScreen extends Screen {
     const ph = 112;
     this.add(new PremiumButton(w / 2 - pw / 2, h * 0.56, pw, ph,
       () => this.events.emit('ui:playPressed'),
-      { label: 'PLAY', colors: UI.btn.play, radius: 34, font: '900 46px system-ui, sans-serif' }));
+      { label: t('common.play'), colors: UI.btn.play, radius: 34, font: '900 46px system-ui, sans-serif' }));
 
     // Bottom nav row of round icon buttons.
     this._nav = [
-      { key: 'events', label: 'EVENTS', colors: UI.btn.orange, event: 'ui:openEvents' },
-      { key: 'dragons', label: 'DRAGONS', colors: UI.btn.pink, event: 'ui:openCollection' },
-      { key: 'island', label: 'ISLAND', colors: UI.btn.teal, event: 'ui:openWorldMap' },
-      { key: 'shop', label: 'SHOP', colors: UI.btn.purple, event: 'ui:openShop' },
-      { key: 'settings', label: 'SETTINGS', colors: UI.btn.blue, event: 'ui:openSettings' },
+      { key: 'events', label: t('menu.events'), colors: UI.btn.orange, event: 'ui:openEvents' },
+      { key: 'dragons', label: t('menu.dragons'), colors: UI.btn.pink, event: 'ui:openCollection' },
+      { key: 'island', label: t('menu.island'), colors: UI.btn.teal, event: 'ui:openWorldMap' },
+      { key: 'shop', label: t('menu.shop'), colors: UI.btn.purple, event: 'ui:openShop' },
+      { key: 'settings', label: t('menu.settings'), colors: UI.btn.blue, event: 'ui:openSettings' },
     ];
     const n = this._nav.length;
     const bs = 88;
@@ -99,7 +100,7 @@ export class MenuScreen extends Screen {
     // Ribbon subtitle.
     const rw = 260, rh = 34, rx = cx - rw / 2, ry = y + 96 + bob;
     UITheme.button(r, rx, ry, rw, rh, rh / 2, UI.btn.purple, { shadow: true });
-    r.text('A MAGICAL PUZZLE SAGA', cx, ry + rh / 2, { font: '800 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(t('menu.tagline'), cx, ry + rh / 2, { font: '800 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
   }
 
   _drawNavLabels(r) {

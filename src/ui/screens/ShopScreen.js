@@ -11,6 +11,7 @@ import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 const PACKS = [
   { id: 'pouch', icon: 'coins', color: UI.btn.orange, label: 'Coin Pouch', amount: '500', reward: { gold: 500 }, tag: 'FREE' },
@@ -21,7 +22,7 @@ const PACKS = [
 
 export class ShopScreen extends PanelScreen {
   constructor(game) {
-    super(game, 'SHOP', { showTopBar: true });
+    super(game, t('titles.shop'), { showTopBar: true });
     this.name = 'shop';
     this._chestT = -1;      // daily-gift chest open animation
     this._coins = [];       // local coin-burst particles

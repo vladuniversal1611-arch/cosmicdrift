@@ -169,10 +169,15 @@ export class BoardSystem extends System {
     this._drawFrame(renderer);
     const size = this.grid.cellSize;
 
+    // One cell-local socket gradient reused for all cells (via translate),
+    // instead of allocating one gradient per cell every frame.
+    const socketGrad = renderer.linearGradient(0, 0, 0, size,
+      [[0, Palette.socket.faceTop], [1, Palette.socket.faceBottom]]);
+
     const t = this._time;
     this.grid.forEach((cell) => {
       const { x, y } = this.grid.cellToPixel(cell.col, cell.row);
-      this._drawSocket(renderer, x, y, size, cell);
+      this._drawSocket(renderer, x, y, size, socketGrad);
 
       // Living Board terrain draws beneath the crystal (moss, ice, portal,
       // crystal-core, corruption, dragon rune, treasure, tree base).
@@ -247,15 +252,21 @@ export class BoardSystem extends System {
     ctx.globalAlpha = 1;
   }
 
-  /** Engraved socket (depth) drawn under every cell, filled or not. */
-  _drawSocket(renderer, x, y, size, cell) {
+  /**
+   * Engraved socket (depth) drawn under every cell. Uses a shared cell-local
+   * gradient (see render) painted through a translate, so the whole grid costs
+   * one gradient allocation per frame rather than 64.
+   */
+  _drawSocket(renderer, x, y, size, socketGrad) {
     const r = Config.board.cellRadius;
     renderer.fillRoundRect(x - 1, y - 1, size + 2, size + 2, r + 1, Palette.socket.rim);
-    const face = renderer.linearGradient(x, y, x, y + size, [
-      [0, Palette.socket.faceTop],
-      [1, Palette.socket.faceBottom],
-    ]);
-    renderer.fillRoundRect(x, y, size, size, r, face);
+    const ctx = renderer.ctx;
+    ctx.save();
+    ctx.translate(x, y);
+    renderer.roundRectPath(0, 0, size, size, r);
+    ctx.fillStyle = socketGrad;
+    ctx.fill();
+    ctx.restore();
   }
 
   /** Empty-but-alive cell: pulsing rune + a drifting glowing mote. */

@@ -71,11 +71,11 @@ export const Palette = Object.freeze({
    *   spark  — bright particle + specular colour
    */
   materials: Object.freeze({
-    emerald: Object.freeze({ light: '#b8ffdf', core: '#1fd67e', deep: '#06603c', glow: '#25e88a', spark: '#d6ffe9' }),
-    ruby: Object.freeze({ light: '#ffb3c6', core: '#ff2d6b', deep: '#7c0a2c', glow: '#ff3d75', spark: '#ffd6e2' }),
-    sapphire: Object.freeze({ light: '#aecbff', core: '#2f6bff', deep: '#0a2a80', glow: '#3d7bff', spark: '#d6e4ff' }),
-    amber: Object.freeze({ light: '#ffe1a3', core: '#ffb020', deep: '#805206', glow: '#ffc23d', spark: '#fff0d6' }),
-    amethyst: Object.freeze({ light: '#e0c3ff', core: '#a24dff', deep: '#421680', glow: '#b76dff', spark: '#f0e2ff' }),
+    emerald: Object.freeze({ light: '#b8ffdf', core: '#1fd67e', deep: '#06603c', glow: '#25e88a', spark: '#d6ffe9', symbol: 'circle' }),
+    ruby: Object.freeze({ light: '#ffb3c6', core: '#ff2d6b', deep: '#7c0a2c', glow: '#ff3d75', spark: '#ffd6e2', symbol: 'triangle' }),
+    sapphire: Object.freeze({ light: '#aecbff', core: '#2f6bff', deep: '#0a2a80', glow: '#3d7bff', spark: '#d6e4ff', symbol: 'square' }),
+    amber: Object.freeze({ light: '#ffe1a3', core: '#ffb020', deep: '#805206', glow: '#ffc23d', spark: '#fff0d6', symbol: 'diamond' }),
+    amethyst: Object.freeze({ light: '#e0c3ff', core: '#a24dff', deep: '#421680', glow: '#b76dff', spark: '#f0e2ff', symbol: 'cross' }),
   }),
 
   /**

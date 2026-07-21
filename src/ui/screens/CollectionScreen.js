@@ -13,12 +13,13 @@ import { UITheme, UI } from '../theme/UITheme.js';
 import { Biomes } from '../../config/Biomes.js';
 import { Restorations } from '../../config/Restorations.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 const TABS = ['DRAGONS', 'BUILDINGS', 'ARTIFACTS', 'AWARDS'];
 
 export class CollectionScreen extends PanelScreen {
   constructor(game) {
-    super(game, 'COLLECTION', { showTopBar: true });
+    super(game, t('titles.collection'), { showTopBar: true });
     this.name = 'collection';
     this._tab = 0;
     this._tabRects = [];

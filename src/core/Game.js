@@ -25,6 +25,8 @@ import { GameLoop } from './GameLoop.js';
 // knows the full roster. Feature flags in Config gate optional systems.
 import { SaveSystem } from '../systems/save/SaveSystem.js';
 import { SettingsSystem } from '../systems/settings/SettingsSystem.js';
+import { AnalyticsSystem } from '../systems/analytics/AnalyticsSystem.js';
+import { MonetizationSystem } from '../systems/monetization/MonetizationSystem.js';
 import { AudioSystem } from '../systems/audio/AudioSystem.js';
 import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
@@ -101,6 +103,8 @@ export class Game {
     // Foundational state — no dependencies on visuals.
     this.systems.register(new SaveSystem(this));
     this.systems.register(new SettingsSystem(this));
+    // Vendor-agnostic analytics hooks (listens to everything, no provider).
+    this.systems.register(new AnalyticsSystem(this));
 
     // Simulation-support systems.
     if (f.audio) this.systems.register(new AudioSystem(this));
@@ -111,6 +115,8 @@ export class Game {
     if (f.dragon) this.systems.register(new DragonSystem(this));
     // Long-term meta: rewards, restorations and biome unlocks.
     this.systems.register(new WorldProgressionSystem(this));
+    // Store / ads / entitlements architecture (player-first, nothing shown).
+    this.systems.register(new MonetizationSystem(this));
 
     // Core gameplay: the rules brain updates before the board/pieces so its
     // screen-shake offset is set before anything renders this frame. The

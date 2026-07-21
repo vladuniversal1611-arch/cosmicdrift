@@ -12,6 +12,15 @@
  *     localStorage write is coalesced, protecting frame time.
  *   - A migration hook upgrades old schema versions on load.
  *
+ * Robustness (production):
+ *   - Every write updates a PRIMARY slot and a BACKUP slot, so a crash mid-write
+ *     can never brick a save — load falls back to the backup if the primary is
+ *     missing or corrupt.
+ *   - The document is validated on load; anything unparseable/invalid falls
+ *     back gracefully to backup, then to a fresh document.
+ *   - Cloud-ready: an optional async CloudProvider is pushed to on flush and can
+ *     be pulled from on boot. None ships; the seam is here.
+ *
  * Events:
  *   emits  'save:loaded'  ({ data })     after the document is ready
  *   emits  'save:written' ({ data })     after a successful flush
@@ -22,6 +31,8 @@ import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { Logger } from '../../utils/Logger.js';
 import { Storage } from './Storage.js';
+
+const BACKUP_KEY = `${Config.save.storageKey}.bak`;
 
 export class SaveSystem extends System {
   constructor(game) {
@@ -34,7 +45,15 @@ export class SaveSystem extends System {
     this._flushTimer = 0;
     /** Registered slice default factories, keyed by slice name. */
     this._sliceDefaults = new Map();
+    /** Optional async cloud backend: { pull(): Promise<obj|null>, push(obj) }. */
+    this._cloud = null;
   }
+
+  /** True when writes survive a reload (localStorage available). */
+  get isPersistent() { return this._storage.isPersistent; }
+
+  /** Inject a cloud sync backend (architecture only; none ships). */
+  setCloudProvider(provider) { this._cloud = provider; }
 
   onInit() {
     this._data = this._load();
@@ -67,12 +86,20 @@ export class SaveSystem extends System {
     this._flushTimer = Config.save.autosaveDebounceMs / 1000;
   }
 
-  /** Force an immediate synchronous write (e.g. on pause / app background). */
+  /**
+   * Force an immediate write (e.g. on pause / app background). Writes the backup
+   * slot first, then the primary, so an interrupted write always leaves at
+   * least one valid document. Pushes to the cloud provider if one is attached.
+   */
   flush() {
     if (!this._dirty) return;
+    this._data.savedAt = Date.now();
+    this._storage.write(BACKUP_KEY, this._data);
     this._storage.write(Config.save.storageKey, this._data);
     this._dirty = false;
     this._flushTimer = 0;
+    // Fire-and-forget cloud push; failures never affect local play.
+    this._cloud?.push?.(this._data)?.catch?.((e) => Logger.warn('SaveSystem', 'cloud push failed', e));
     this.events.emit('save:written', { data: this._data });
   }
 
@@ -85,6 +112,7 @@ export class SaveSystem extends System {
   /** Wipe all progress. Used by the settings "reset" action. */
   reset() {
     this._storage.remove(Config.save.storageKey);
+    this._storage.remove(BACKUP_KEY);
     this._data = this._freshDocument();
     for (const [name, factory] of this._sliceDefaults) {
       this._data[name] = factory();
@@ -94,10 +122,20 @@ export class SaveSystem extends System {
   }
 
   // --- Internal --------------------------------------------------------------
+  _valid(doc) {
+    return doc && typeof doc === 'object' && typeof doc.schemaVersion === 'number';
+  }
+
+  /** Load primary; on missing/corrupt data, recover from the backup slot. */
   _load() {
-    const stored = this._storage.read(Config.save.storageKey, null);
-    if (!stored) return this._freshDocument();
-    return this._migrate(stored);
+    const primary = this._storage.read(Config.save.storageKey, null);
+    if (this._valid(primary)) return this._migrate(primary);
+    const backup = this._storage.read(BACKUP_KEY, null);
+    if (this._valid(backup)) {
+      Logger.warn('SaveSystem', 'primary save missing/corrupt — recovered from backup');
+      return this._migrate(backup);
+    }
+    return this._freshDocument();
   }
 
   _freshDocument() {

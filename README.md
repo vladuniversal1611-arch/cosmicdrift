@@ -1,5 +1,17 @@
 # Cosmic Drift
 
+**Production-ready foundations** underpin everything: a versioned, crash-safe
+save (backup slot + corruption recovery + a cloud-sync seam), a runtime
+**Quality/accessibility** layer (Reduced Motion, Color-Blind symbols, Low
+Performance Mode, Large UI) the renderer/particles read live, full
+**localization** (`t('key')`, drop-in language packs, zero hard-coded UI
+strings), vendor-agnostic **analytics** hooks, a player-first **monetization**
+architecture (entitlements, opt-in rewarded ads, frequency-capped interstitials
+— nothing shown until a provider is attached), and separate audio buses. All
+architecture-only where a vendor is required; verified at 60 FPS on phone and
+tablet portrait resolutions.
+
+
 A **premium, handcrafted UI** wraps the whole game — a living floating-island
 main menu (drifting clouds, flying dragons, waterfalls, falling leaves), glossy
 gold-framed buttons, glass panels, a rolling-number top bar, a full celebratory

@@ -14,6 +14,7 @@ import { UITheme, UI, Rolling } from '../theme/UITheme.js';
 import { Easing } from '../../utils/Easing.js';
 import { Random } from '../../utils/Random.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 export class LevelCompleteScreen extends Screen {
   constructor(game, reward = {}) {
@@ -31,7 +32,7 @@ export class LevelCompleteScreen extends Screen {
     const w = this.bounds.w, h = this.bounds.h;
     this._continue = this.add(new PremiumButton(w / 2 - w * 0.3, h * 0.8, w * 0.6, 92,
       () => this.events.emit('ui:back'),
-      { label: 'CONTINUE', colors: UI.btn.play, radius: 30, font: '900 34px system-ui, sans-serif' }));
+      { label: t('common.continue'), colors: UI.btn.play, radius: 30, font: '900 34px system-ui, sans-serif' }));
     this._continue.visible = false;
     this._continue.enabled = false;
   }
@@ -98,8 +99,8 @@ export class LevelCompleteScreen extends Screen {
     // Banner drops in with a bounce.
     const drop = Easing.backOut(Math.min(1, this._t / 0.5));
     const by = -60 + drop * (b.h * 0.2 + 60);
-    UITheme.heading(r, 'LEVEL', b.centerX, by, 40, '#fff');
-    r.withGlow('#ffcf5e', 24, () => UITheme.heading(r, 'COMPLETE!', b.centerX, by + 46, 52, '#ffe08a'));
+    UITheme.heading(r, t('levelComplete.line1'), b.centerX, by, 40, '#fff');
+    r.withGlow('#ffcf5e', 24, () => UITheme.heading(r, t('levelComplete.line2'), b.centerX, by + 46, 52, '#ffe08a'));
 
     this._drawStars(r, b.centerX, b.h * 0.34);
     this._drawChest(r, b.centerX, b.h * 0.42);

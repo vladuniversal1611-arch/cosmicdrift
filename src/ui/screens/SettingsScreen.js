@@ -10,16 +10,20 @@ import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
 import { UI } from '../theme/UITheme.js';
 import { clamp } from '../../utils/MathUtils.js';
+import { t } from '../../i18n/Localization.js';
 
 const ROWS = [
-  { key: 'muted', label: 'Music & Sound', invert: true },
-  { key: 'haptics', label: 'Haptics' },
-  { key: 'reducedMotion', label: 'Reduced Motion' },
+  { key: 'muted', labelKey: 'settings.audio', invert: true },
+  { key: 'haptics', labelKey: 'settings.haptics' },
+  { key: 'reducedMotion', labelKey: 'settings.reducedMotion' },
+  { key: 'colorBlind', labelKey: 'settings.colorBlind' },
+  { key: 'lowPerformance', labelKey: 'settings.lowPerformance' },
+  { key: 'largeUI', labelKey: 'settings.largeUI' },
 ];
 
 export class SettingsScreen extends PanelScreen {
   constructor(game) {
-    super(game, 'SETTINGS');
+    super(game, t('titles.settings'));
     this.name = 'settings';
     this._anim = {};                 // eased 0..1 per row
     const s = game.getSystem('settings');
@@ -48,7 +52,7 @@ export class SettingsScreen extends PanelScreen {
       // Row card.
       r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, 16, 'rgba(255,255,255,0.6)');
       r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, 16, 'rgba(120,140,200,0.4)', 1.5);
-      r.text(row.label, rect.x + 20, rect.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+      r.text(t(row.labelKey), rect.x + 20, rect.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
       this._toggle(r, rect.right - 82, rect.centerY - 17, 66, 34, this._anim[row.key]);
     }
     // Reset progress button area (drawn text; tap handled in onContentTap).
@@ -57,7 +61,7 @@ export class SettingsScreen extends PanelScreen {
     this._resetRect = new Rect(bx, by, 180, 46);
     r.fillRoundRect(bx, by, 180, 46, 23, 'rgba(224,67,63,0.14)');
     r.strokeRoundRect(bx, by, 180, 46, 23, UI.btn.red[1], 1.5);
-    r.text('RESET PROGRESS', p.centerX, by + 23, { font: '800 14px system-ui, sans-serif', color: UI.btn.red[1], align: 'center', baseline: 'middle' });
+    r.text(t('settings.reset'), p.centerX, by + 23, { font: '800 14px system-ui, sans-serif', color: UI.btn.red[1], align: 'center', baseline: 'middle' });
   }
 
   _toggle(r, x, y, w, h, t) {

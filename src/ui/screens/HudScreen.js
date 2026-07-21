@@ -16,6 +16,7 @@ import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { t } from '../../i18n/Localization.js';
 
 export class HudScreen extends Screen {
   constructor(game) {
@@ -143,7 +144,7 @@ export class HudScreen extends Screen {
     const r = this._worldBtn;
     renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
     renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.accent, 1.5);
-    renderer.text('◈ WORLD MAP', r.centerX, r.centerY, {
+    renderer.text(`◈ ${t('hud.worldMap')}`, r.centerX, r.centerY, {
       font: '700 13px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle',
     });
@@ -337,12 +338,12 @@ export class HudScreen extends Screen {
     const rise = (1 - this._overlayT) * 30;
     renderer.setAlpha(this._overlayT);
     renderer.withGlow(Palette.accent, 22, () => {
-      renderer.text('GAME OVER', b.centerX, cy - 90 - rise, {
+      renderer.text(t('gameOver.title'), b.centerX, cy - 90 - rise, {
         font: '900 44px system-ui, sans-serif', color: Palette.textPrimary,
         align: 'center', baseline: 'middle',
       });
     });
-    renderer.text('SCORE', b.centerX, cy - 26 - rise, {
+    renderer.text(t('gameOver.score'), b.centerX, cy - 26 - rise, {
       font: '700 15px system-ui, sans-serif', color: Palette.textMuted,
       align: 'center', baseline: 'middle',
     });
@@ -350,14 +351,14 @@ export class HudScreen extends Screen {
       font: '800 40px system-ui, sans-serif', color: Palette.accentAlt,
       align: 'center', baseline: 'middle',
     });
-    renderer.text(`BEST  ${this._best}`, b.centerX, cy + 48 - rise, {
+    renderer.text(`${t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
       font: '700 16px system-ui, sans-serif', color: Palette.textMuted,
       align: 'center', baseline: 'middle',
     });
     // Pulsing call to action.
     const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 300);
     renderer.setAlpha(this._overlayT * pulse);
-    renderer.text('TAP TO PLAY AGAIN', b.centerX, cy + 110, {
+    renderer.text(t('gameOver.retry'), b.centerX, cy + 110, {
       font: '700 18px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle',
     });

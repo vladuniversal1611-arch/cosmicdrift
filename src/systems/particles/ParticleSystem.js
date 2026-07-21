@@ -18,8 +18,7 @@
 import { System } from '../../core/System.js';
 import { ObjectPool } from '../../utils/ObjectPool.js';
 import { Particle } from './Particle.js';
-
-const MAX_PARTICLES = 400;
+import { Quality } from '../../config/Quality.js';
 
 export class ParticleSystem extends System {
   constructor(game) {
@@ -48,7 +47,7 @@ export class ParticleSystem extends System {
 
   /** Emit an expanding, fading shockwave ring (placement/impact/combo juice). */
   ripple(x, y, color = '#7c5cff', maxRadius = 90) {
-    if (this._reducedMotion || this._rings.length >= 16) return;
+    if (Quality.animationScale <= 0 || this._rings.length >= 16) return;
     this._rings.push({ x, y, color, t: 0, dur: 0.5, maxRadius });
   }
 
@@ -57,9 +56,10 @@ export class ParticleSystem extends System {
    * can call it directly as well as via the event.
    */
   burst(x, y, color, count = 12) {
-    if (this._reducedMotion) return;
+    if (Quality.animationScale <= 0) return;          // reduced motion
+    count = Math.max(1, Math.round(count * Quality.animationScale));
     for (let i = 0; i < count; i++) {
-      if (this._active.length >= MAX_PARTICLES) break;
+      if (this._active.length >= Quality.maxParticles) break;
       const p = this._pool.acquire();
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
       const speed = 60 + Math.random() * 140;
