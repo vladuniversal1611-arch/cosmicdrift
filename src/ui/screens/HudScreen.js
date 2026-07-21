@@ -32,6 +32,7 @@ export class HudScreen extends Screen {
     this._comboText = '';
     this._comboT = 0;         // seconds remaining on the combo callout
     this._overlayT = 0;       // game-over fade-in
+    this._consolation = null; // { reward, tip } shown on the game-over panel
     this._subs = [];          // event unsubscribers, cleaned up on exit
 
     // Progression state (mirrored from LevelSystem / ObjectivesSystem).
@@ -103,6 +104,8 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('world:restored', ({ task }) => {
       this._banner = { title: `${task.name.toUpperCase()} RESTORED`, sub: 'A new part of the world awakens', t: 3.4 };
     }));
+    // Failure loop: a consolation reward + a friendly tip, never a scolding.
+    this._subs.push(this.events.on('retention:consolation', (c) => { this._consolation = c; }));
   }
 
   /** Detach listeners when the HUD is torn down (e.g. on restart/replace). */
@@ -355,10 +358,29 @@ export class HudScreen extends Screen {
       font: '700 16px system-ui, sans-serif', color: Palette.textMuted,
       align: 'center', baseline: 'middle',
     });
+
+    // Consolation: reward the attempt (never punish) + a helpful, non-blaming
+    // tip. Progress is always kept, so a lost run still moves the player forward.
+    if (this._consolation) {
+      renderer.setAlpha(this._overlayT);
+      const gold = this._consolation.reward?.coins ?? 0;
+      renderer.withGlow(Palette.warning, 10, () => {
+        renderer.text(`${t('gameOver.consolation')}  +${gold} ⬤`, b.centerX, cy + 84, {
+          font: '800 15px system-ui, sans-serif', color: Palette.warning,
+          align: 'center', baseline: 'middle',
+        });
+      });
+      renderer.text(this._consolation.tip, b.centerX, cy + 110, {
+        font: '600 13px system-ui, sans-serif', color: Palette.textMuted,
+        align: 'center', baseline: 'middle',
+      });
+      renderer.setAlpha(1);
+    }
+
     // Pulsing call to action.
     const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 300);
     renderer.setAlpha(this._overlayT * pulse);
-    renderer.text(t('gameOver.retry'), b.centerX, cy + 110, {
+    renderer.text(t('gameOver.retry'), b.centerX, cy + 142, {
       font: '700 18px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle',
     });

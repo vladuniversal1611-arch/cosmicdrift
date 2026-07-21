@@ -73,6 +73,19 @@ Long-term, a *World Progression* meta layer turns every cleared level into
 > Ruins), each reskinning the world and its music. All content is data-driven,
 > so it scales to thousands of levels. No monetization.
 
+A player-first **Retention Engine** gives every session a reason to return —
+> built on excitement and visible progress, *not* manipulation (no FOMO timers,
+> no punishment, nothing you own is ever taken away). A "welcome back" **Daily
+> Hub** greets each login with an escalating 7-day reward calendar + streak, a
+> rotating daily quest, a free chest and a mystery gift, plus a cumulative
+> **weekly challenge** — all free, all claimable in seconds. Every 10 levels
+> **unlocks something NEW** (a dragon, board theme, soundtrack, collectible …)
+> revealed in a celebratory reward screen, and a rare post-level **surprise**
+> (Treasure Goblin, Golden Dragon, Hidden Chest …) keeps the loop delightful.
+> A collection counter keeps you "almost there", and losing a run is never
+> punished — it hands back a small consolation reward and a friendly tip, with
+> all progress kept.
+
 ## Quick start
 
 ES modules need an HTTP origin (not `file://`):

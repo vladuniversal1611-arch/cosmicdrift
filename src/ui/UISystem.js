@@ -25,6 +25,8 @@ import { CollectionScreen } from './screens/CollectionScreen.js';
 import { EventsScreen } from './screens/EventsScreen.js';
 import { PauseScreen } from './screens/PauseScreen.js';
 import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
+import { DailyHubScreen } from './screens/DailyHubScreen.js';
+import { RewardScreen } from './screens/RewardScreen.js';
 
 export class UISystem extends System {
   constructor(game) {
@@ -47,10 +49,17 @@ export class UISystem extends System {
     this.listen('ui:openCollection', () => open('collection', () => new CollectionScreen(this.game)));
     this.listen('ui:openEvents', () => open('events', () => new EventsScreen(this.game)));
     this.listen('ui:openPause', () => open('pause', () => new PauseScreen(this.game)));
+    this.listen('ui:openDaily', () => open('daily', () => new DailyHubScreen(this.game)));
 
     this.listen('ui:back', () => this.pop());
     this.listen('ui:closeWorldMap', () => { if (this.top?.name === 'worldmap') this.pop(); });
     this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new MenuScreen(this.game)); });
+
+    // Retention: celebrate a claimed reward, and auto-open the daily hub once
+    // per boot when free rewards are waiting (a welcome, never a nag).
+    this.listen('ui:showReward', (rw) => this.push(new RewardScreen(this.game, rw, { done: 'ui:back' })));
+    this.listen('ui:reveal-next', () => this._advanceReveal());
+    this.listen('retention:dailyAvailable', () => { if (this.top?.name === 'menu') this.events.emit('ui:openDaily'); });
 
     // Level-complete celebration: capture the granted reward, then present it.
     this.listen('reward:granted', (rw) => { this._lastReward = rw; });
@@ -61,6 +70,18 @@ export class UISystem extends System {
   }
 
   get top() { return this._stack[this._stack.length - 1] ?? null; }
+
+  /**
+   * Drive the post-level celebration chain: close the current celebration and,
+   * if the RetentionSystem has another reveal queued (a rare surprise or a
+   * 10-level unlock), present it too. When the queue empties we simply land back
+   * on the HUD.
+   */
+  _advanceReveal() {
+    this.pop();
+    const reveal = this.game.getSystem('retention')?.consumeReveal();
+    if (reveal) this.push(new RewardScreen(this.game, reveal, { done: 'ui:reveal-next' }));
+  }
 
   push(screen) {
     this.top?.onExit();

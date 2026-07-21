@@ -75,7 +75,15 @@ export class MenuScreen extends Screen {
         { colors: item.colors, round: true, icon: Icons[item.key] }));
       item.cx = cx;
     });
+
+    // Daily hub button — the "welcome back" gift, top-left below the top bar.
+    this._dailyBtn = this.add(new PremiumButton(20, h * 0.16, 80, 80,
+      () => this.events.emit('ui:openDaily'),
+      { colors: UI.btn.orange, round: true,
+        icon: (r, cx, cy, s) => drawObjectiveIcon(r, 'chest', cx, cy, s, '#fff') }));
   }
+
+  _retention() { return this.game.getSystem('retention'); }
 
   update(dt) {
     this._t += dt;
@@ -89,6 +97,31 @@ export class MenuScreen extends Screen {
     this._drawLogo(r);
     for (const child of this.children) child.render(r);
     this._drawNavLabels(r);
+    this._drawDaily(r);
+  }
+
+  /** "DAILY" label, a pulsing badge when rewards wait, and a collection nudge. */
+  _drawDaily(r) {
+    const b = this._dailyBtn.bounds;
+    r.text(t('menu.daily'), b.centerX + 1, b.bottom + 15, { font: '800 11px system-ui, sans-serif', color: 'rgba(10,20,50,0.4)', align: 'center', baseline: 'middle' });
+    r.text(t('menu.daily'), b.centerX, b.bottom + 14, { font: '800 11px system-ui, sans-serif', color: UI.white, align: 'center', baseline: 'middle' });
+
+    const ret = this._retention();
+    if (ret?.hasUnclaimedDaily()) {
+      const pulse = 0.7 + 0.3 * Math.sin(this._t * 5);
+      r.withGlow('#ff5c94', 10, () => r.fillCircle(b.right - 8, b.top + 8, 11 * pulse + 2, '#ff5c94'));
+      r.text('!', b.right - 8, b.top + 8, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    }
+
+    // Collection nudge — always "one away" from something (top-right corner).
+    if (ret) {
+      const c = ret.collection();
+      const label = t('menu.collection', { a: c.owned, b: c.total });
+      const x = this.bounds.w - 20;
+      const y = this.bounds.h * 0.16 + 40;
+      r.text(label, x + 1, y + 1, { font: '800 12px system-ui, sans-serif', color: 'rgba(10,20,50,0.4)', align: 'right', baseline: 'middle' });
+      r.text(label, x, y, { font: '800 12px system-ui, sans-serif', color: UI.white, align: 'right', baseline: 'middle' });
+    }
   }
 
   _drawLogo(r) {

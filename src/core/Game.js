@@ -34,6 +34,7 @@ import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
 import { LevelSystem } from '../systems/progression/LevelSystem.js';
 import { ObjectivesSystem } from '../systems/objectives/ObjectivesSystem.js';
 import { WorldProgressionSystem } from '../systems/world/WorldProgressionSystem.js';
+import { RetentionSystem } from '../systems/retention/RetentionSystem.js';
 import { TileSystem } from '../systems/tiles/TileSystem.js';
 import { StructureSystem } from '../systems/structures/StructureSystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
@@ -115,6 +116,8 @@ export class Game {
     if (f.dragon) this.systems.register(new DragonSystem(this));
     // Long-term meta: rewards, restorations and biome unlocks.
     this.systems.register(new WorldProgressionSystem(this));
+    // Retention: daily/weekly loops, surprises, unlock reveals, failure comfort.
+    this.systems.register(new RetentionSystem(this));
     // Store / ads / entitlements architecture (player-first, nothing shown).
     this.systems.register(new MonetizationSystem(this));
 

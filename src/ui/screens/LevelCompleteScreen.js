@@ -30,8 +30,10 @@ export class LevelCompleteScreen extends Screen {
     this._rng = new Random(Date.now() >>> 0);
 
     const w = this.bounds.w, h = this.bounds.h;
+    // Continue chains into any queued reward reveals (rare surprises, 10-level
+    // unlocks) before returning to the level; the UISystem drives that chain.
     this._continue = this.add(new PremiumButton(w / 2 - w * 0.3, h * 0.8, w * 0.6, 92,
-      () => this.events.emit('ui:back'),
+      () => this.events.emit('ui:reveal-next'),
       { label: t('common.continue'), colors: UI.btn.play, radius: 30, font: '900 34px system-ui, sans-serif' }));
     this._continue.visible = false;
     this._continue.enabled = false;

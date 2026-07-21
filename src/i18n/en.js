@@ -16,6 +16,22 @@ export default {
   menu: {
     tagline: 'A MAGICAL PUZZLE SAGA',
     events: 'EVENTS', dragons: 'DRAGONS', island: 'ISLAND', shop: 'SHOP', settings: 'SETTINGS',
+    daily: 'DAILY', collection: 'Collection {a}/{b}',
+  },
+  daily: {
+    title: 'DAILY REWARDS',
+    streak: '{n}-DAY STREAK',
+    day: 'DAY {n}',
+    claimReward: 'CLAIM TODAY',
+    claimed: 'COME BACK TOMORROW',
+    rewardTitle: 'DAILY REWARD!',
+    quest: 'DAILY QUEST',
+    weekly: 'WEEKLY CHALLENGE',
+    chest: 'FREE CHEST',
+    mystery: 'MYSTERY GIFT',
+    collection: 'Collection {a}/{b} — almost there!',
+    questDone: 'QUEST COMPLETE!',
+    weeklyDone: 'WEEKLY COMPLETE!',
   },
   titles: {
     shop: 'SHOP', settings: 'SETTINGS', collection: 'COLLECTION', events: 'EVENTS',
@@ -23,7 +39,7 @@ export default {
   },
   hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'DRAGON ENERGY' },
   levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!' },
-  gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN' },
+  gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {
     audio: 'Music & Sound', haptics: 'Haptics', reducedMotion: 'Reduced Motion',
     colorBlind: 'Color-Blind Mode', lowPerformance: 'Low Performance Mode', largeUI: 'Large UI',
