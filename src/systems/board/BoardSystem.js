@@ -176,8 +176,10 @@ export class BoardSystem extends System {
       if (cell.tile) cell.tile.renderBelow(renderer, x, y, size, t);
 
       if (cell.isClearing) this._drawClearingCell(renderer, x, y, size, cell);
-      else if (cell.filled) this._drawPlacedCell(renderer, x, y, size, cell);
-      else if (!cell.tile) this._drawAlive(renderer, x, y, size, cell);
+      // Structured cells are drawn by the StructureSystem (as the risen
+      // structure), so skip the plain-crystal draw for them here.
+      else if (cell.filled && !cell.structure) this._drawPlacedCell(renderer, x, y, size, cell);
+      else if (!cell.filled && !cell.tile) this._drawAlive(renderer, x, y, size, cell);
 
       // Overlays that must sit above the crystal (fog, ice sheen, energy beams).
       if (cell.tile) cell.tile.renderAbove(renderer, x, y, size, t);
@@ -214,10 +216,12 @@ export class BoardSystem extends System {
     ]);
     renderer.fillRoundRect(recess.x, recess.y, recess.w, recess.h, R - 8, inner);
 
-    // Rune engravings around the frame.
+    // Rune engravings around the frame. As Structure Patterns are completed
+    // the board "evolves": its runes glow progressively brighter.
     const ctx = renderer.ctx;
     const glyphSize = pad * 0.9;
-    const lit = 0.12 + 0.08 * Math.sin(this._time * 0.9);
+    const evolution = this.game.getSystem('structures')?.evolution ?? 0;
+    const lit = 0.12 + 0.08 * Math.sin(this._time * 0.9) + evolution * 0.4;
     ctx.globalAlpha = lit;
     ctx.strokeStyle = Palette.rune.lit;
     ctx.lineWidth = 2;

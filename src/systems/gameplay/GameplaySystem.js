@@ -101,14 +101,17 @@ export class GameplaySystem extends System {
     this.combo += 1;
     const g = Config.gameplay;
 
-    // Base line payout grows with simultaneous lines; combo multiplies it.
+    // Base line payout grows with simultaneous lines; combo multiplies it, and
+    // the permanent Structure Patterns multiplier stacks on top — rewarding the
+    // player for pursuing both goals (clears AND structures) at once.
     const lineScore = g.lineClearBase * count * (1 + (count - 1) * g.multiLineBonus);
-    const multiplier = 1 + (this.combo - 1) * g.comboStep;
-    const gained = Math.round(lineScore * multiplier);
+    const combo = 1 + (this.combo - 1) * g.comboStep;
+    const structure = this.game.getSystem('structures')?.scoreMultiplier ?? 1;
+    const gained = Math.round(lineScore * combo * structure);
     this.score += gained;
 
     // Dragon Energy charges faster on bigger combos.
-    this.energy = clamp(this.energy + g.energyPerLine * count * multiplier, 0, g.energyMax);
+    this.energy = clamp(this.energy + g.energyPerLine * count * combo, 0, g.energyMax);
 
     // Shake scales with combo depth and simultaneous lines.
     const shake = Config.fx.shakeBase

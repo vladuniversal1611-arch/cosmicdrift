@@ -31,6 +31,13 @@ export class Cell {
      */
     this.tile = null;
 
+    /**
+     * The Structure this cell belongs to (Structure Patterns), or null. Set by
+     * the StructureSystem when placed crystals form a recognised shape; the
+     * cell stays `filled` while it's part of a structure.
+     */
+    this.structure = null;
+
     /** True when a crystal block occupies this cell. */
     this.filled = false;
     /** Material key (see Palette.materials) when filled, else null. */

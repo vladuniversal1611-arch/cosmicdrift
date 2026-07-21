@@ -45,6 +45,12 @@ const SFX = {
     [440, 349, 262].forEach((f, i) =>
       a._tone({ freq: f, type: 'sine', dur: 0.3, gain: 0.18, delay: i * 0.14 }));
   },
+  // A structure rising: a bright ascending arpeggio that resolves upward.
+  structure: (a) => {
+    [523, 659, 784, 1046, 1319].forEach((f, i) =>
+      a._tone({ freq: f, type: 'triangle', dur: 0.26, gain: 0.14, delay: i * 0.06 }));
+  },
+  structureActivate: (a) => a._tone({ freq: 660, type: 'sine', dur: 0.2, sweep: 1.6, gain: 0.16 }),
 };
 
 export class AudioSystem extends System {

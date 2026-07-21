@@ -36,6 +36,7 @@ export class HudScreen extends Screen {
     this._goal = 0;
     this._lines = 0;
     this._banner = null;      // { title, sub, t } discovery/world callout
+    this._structToast = null; // { name, t } structure-built callout
 
     const w = this.bounds.w;
 
@@ -85,6 +86,9 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('level:progress', ({ cleared, goal }) => {
       this._lines = cleared; this._goal = goal;
     }));
+    this._subs.push(this.events.on('structure:completed', ({ name }) => {
+      this._structToast = { name, t: 1.8 };
+    }));
   }
 
   /** Detach listeners when the HUD is torn down (e.g. on restart/replace). */
@@ -98,16 +102,44 @@ export class HudScreen extends Screen {
     if (this._scorePop > 0) this._scorePop = Math.max(0, this._scorePop - dt * 3.5);
     if (this._comboT > 0) this._comboT = Math.max(0, this._comboT - dt);
     if (this._banner && (this._banner.t -= dt) <= 0) this._banner = null;
+    if (this._structToast && (this._structToast.t -= dt) <= 0) this._structToast = null;
     if (this._state === 'over') this._overlayT = Math.min(1, this._overlayT + dt * 3);
   }
 
   render(renderer) {
     this._drawScore(renderer);
     this._drawLevel(renderer);
+    this._drawMultiplier(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawCombo(renderer);
+    if (this._structToast) this._drawStructToast(renderer);
     if (this._banner) this._drawBanner(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
+  }
+
+  /** Permanent structure score multiplier, shown beneath the score. */
+  _drawMultiplier(renderer) {
+    const mult = this.game.getSystem('structures')?.scoreMultiplier ?? 1;
+    if (mult <= 1.0001) return;
+    renderer.text(`×${mult.toFixed(2)}`, this.bounds.centerX, this.bounds.h * 0.055 + 30, {
+      font: '800 16px system-ui, sans-serif', color: Palette.warning,
+      align: 'center', baseline: 'middle',
+    });
+  }
+
+  /** "<NAME> BUILT" callout when a structure rises. */
+  _drawStructToast(renderer) {
+    const t = this._structToast.t / 1.8;                 // 1 → 0
+    const alpha = clamp(Math.min(t * 3, (1 - t) * 3 + 0.2, 1), 0, 1);
+    const board = this.game.getSystem('board').area;
+    renderer.setAlpha(alpha);
+    renderer.withGlow(Palette.accentAlt, 18, () => {
+      renderer.text(`${this._structToast.name.toUpperCase()} BUILT`, board.centerX, board.top - 26, {
+        font: '900 26px system-ui, sans-serif', color: Palette.accentAlt,
+        align: 'center', baseline: 'middle',
+      });
+    });
+    renderer.setAlpha(1);
   }
 
   /** Level number + world name (left) and line-goal progress (right). */

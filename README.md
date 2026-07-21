@@ -17,8 +17,15 @@ targeting a stable **60 FPS** and clean **Android WebView** export.
 > Rune, Treasure, Ancient Tree and Magic Fog — each with idle, activation and
 > destroy animations, particles and sound hooks. Play is organised into themed
 > **worlds** that each introduce one new mechanic, so hundreds of levels stay
-> fresh and early levels are never overloaded. The controls stay pure
-> drag-and-place; dragons and the world map are still out of scope.
+> fresh and early levels are never overloaded.
+>
+> A second goal layer, *Structure Patterns*, turns placed crystals into
+> architecture: form a 2×2, L, T, long line or cross and it **rises** into a
+> Magic Crystal, Tower Foundation, Dragon Shrine, Bridge or Energy Core —
+> granting a permanent per-level score multiplier, charging Dragon Energy and
+> evolving the board's look. The board highlights the one cell that completes a
+> nearby shape, so it teaches itself. The controls stay pure drag-and-place;
+> dragons and the world map are still out of scope.
 
 ## Quick start
 

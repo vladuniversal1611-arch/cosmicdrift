@@ -94,6 +94,18 @@ export const Palette = Object.freeze({
     fog: Object.freeze({ a: 'rgba(188,192,214,0.92)', b: 'rgba(150,158,196,0.7)' }),
     crystalCore: Object.freeze({ core: '#7c5cff', glow: '#c3b3ff' }),
   }),
+
+  /**
+   * Structure Patterns. When placed crystals form a known shape they rise into
+   * one of these magical structures; each type reads its colours here.
+   */
+  structures: Object.freeze({
+    magicCrystal: Object.freeze({ core: '#7c5cff', glow: '#c3b3ff' }),
+    towerFoundation: Object.freeze({ core: '#ffb020', glow: '#ffe1a3' }),
+    dragonShrine: Object.freeze({ core: '#ff6a3d', glow: '#ffb08a' }),
+    bridge: Object.freeze({ core: '#28e0d0', glow: '#9ff5ee' }),
+    energyCore: Object.freeze({ core: '#38e08a', glow: '#a4f2c8' }),
+  }),
 });
 
 /** Ordered list of material keys, for random selection. */

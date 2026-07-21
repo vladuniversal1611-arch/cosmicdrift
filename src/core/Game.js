@@ -31,6 +31,7 @@ import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
 import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
 import { LevelSystem } from '../systems/progression/LevelSystem.js';
 import { TileSystem } from '../systems/tiles/TileSystem.js';
+import { StructureSystem } from '../systems/structures/StructureSystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
 import { PieceSystem } from '../systems/pieces/PieceSystem.js';
 import { WorldSystem } from '../systems/world/WorldSystem.js';
@@ -115,6 +116,8 @@ export class Game {
     this.systems.register(new WorldSystem(this));
     this.systems.register(new BoardSystem(this));
     this.systems.register(new TileSystem(this));
+    // Structures render above the board crystals but below the held piece.
+    this.systems.register(new StructureSystem(this));
     this.systems.register(new PieceSystem(this));
 
     // Presentation — updated after gameplay, drawn on top.
