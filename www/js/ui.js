@@ -1017,8 +1017,11 @@
     claimPass: function (tier, track) {
       const p = global.Save.get();
       const t = D.BATTLE_PASS[tier - 1];
+      if (!t) return;
       const r = track === 'free' ? t.free : t.premium;
-      if (track === 'free') p.pass.claimedFree.push(tier); else p.pass.claimedPremium.push(tier);
+      const arr = track === 'free' ? p.pass.claimedFree : p.pass.claimedPremium;
+      if (arr.indexOf(tier) !== -1) return; // already claimed — guard double-click
+      arr.push(tier);
       if (r.type === 'gold') p.gold += r.amount;
       else if (r.type === 'gems') p.gems += r.amount;
       else if (r.type === 'dragon') p.gems += 50;
@@ -1348,6 +1351,7 @@
         const btn = el('button', 'btn btn-mini ' + (entry.claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
           entry.claimed ? '✓' : (done ? T('claim') : '...'));
         if (done && !entry.claimed) click(btn, function () {
+          if (entry.claimed) return; // guard double-click
           entry.claimed = true; p.gold += q.reward; UI.addPassXp(50); global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('+' + q.reward + '🪙'); UI.showQuests();
         });
@@ -1373,6 +1377,7 @@
         const btn = el('button', 'btn btn-mini ' + (claimed ? 'btn-ghost' : (done ? 'btn-primary' : 'btn-ghost')),
           claimed ? '✓' : (done ? T('claim') : '🔒'));
         if (done && !claimed) click(btn, function () {
+          if (p.achievements[a.id]) return; // guard double-click
           p.achievements[a.id] = true; p.gems += a.reward; global.Save.save();
           global.Audio2.play('coin'); UI.refreshCurrencies(); UI.toast('🏆 +' + a.reward + '💎'); UI.showAchievements();
         });

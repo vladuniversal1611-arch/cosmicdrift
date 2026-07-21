@@ -142,7 +142,9 @@
       let placed = 0, jg = 0;
       while (placed < lv.jellyCount && jg++ < 600) {
         const r = rnd(this.rows), c = rnd(this.cols);
-        const layers = (rnd(3) === 0) ? 2 : 1;
+        // Don't let a 2-layer cell overshoot the goal (kept the progress bar
+        // from starting negative and needing one extra layer cleared).
+        const layers = (rnd(3) === 0 && placed + 2 <= lv.jellyCount) ? 2 : 1;
         if (this.jellyGrid[r][c] === 0 && !this.grid[r][c].ice) { this.jellyGrid[r][c] = layers; placed += layers; }
       }
       this.jellyLeft = placed;
