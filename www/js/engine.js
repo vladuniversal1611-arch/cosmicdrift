@@ -484,9 +484,15 @@
     const recurse = function (rr, cc) {
       const key = rr + ',' + cc;
       if (set[key]) return;
-      set[key] = { r: rr, c: cc };
       const nt = self.grid[rr] && self.grid[rr][cc];
-      if (nt && nt.special !== SP.NONE) self.addSpecialEffect(set, rr, cc);
+      if (!nt) return;
+      // A direct blast (line/bomb) damages a blocker IN PLACE — like an adjacent
+      // match — instead of deleting it as a crystal. Deleting it would remove the
+      // blocker without decrementing iceLeft, which can make ICE levels unwinnable
+      // and destroys crates in one hit / unlocks chained gems for free.
+      if (nt.ice || nt.chain) { self.crackBlockerAt(rr, cc); return; }
+      set[key] = { r: rr, c: cc };
+      if (nt.special !== SP.NONE) self.addSpecialEffect(set, rr, cc);
     };
     if (sp === SP.LINE_H) { for (let cc = 0; cc < this.cols; cc++) recurse(r, cc); this.shake = 0.5; }
     else if (sp === SP.LINE_V) { for (let rr = 0; rr < this.rows; rr++) recurse(rr, c); this.shake = 0.5; }
@@ -599,25 +605,32 @@
     });
   };
 
+  // Crack (damage) the blocker on a single cell: ice/crate loses one HP and,
+  // when it breaks, frees the tile and decrements iceLeft; a chained crystal is
+  // unlocked. No-op if the cell has no blocker.
+  Engine.prototype.crackBlockerAt = function (r, c) {
+    const t = this.grid[r] && this.grid[r][c];
+    if (!t) return;
+    if (t.ice) {
+      t.blockHp = Math.max(0, (t.blockHp || 1) - 1);
+      const col = t.crate ? '#c79a5c' : '#bff0ff';
+      this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, col, 8);
+      if (t.blockHp <= 0) {
+        t.ice = false; t.crate = false;
+        this.iceLeft = Math.max(0, this.iceLeft - 1);
+      }
+    } else if (t.chain) {
+      t.chain = false; // a blast frees the locked crystal
+      this.spawnBurst(this.cellX(c) + this.tile / 2, this.cellY(r) + this.tile / 2, '#ffd24d', 8);
+    }
+  };
+
   Engine.prototype.crackAdjacentIce = function (r, c) {
     const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
     for (let i = 0; i < dirs.length; i++) {
       const rr = r + dirs[i][0], cc = c + dirs[i][1];
       if (rr < 0 || rr >= this.rows || cc < 0 || cc >= this.cols) continue;
-      const t = this.grid[rr][cc];
-      if (!t) continue;
-      if (t.ice) {
-        t.blockHp = Math.max(0, (t.blockHp || 1) - 1);
-        const col = t.crate ? '#c79a5c' : '#bff0ff';
-        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, col, 8);
-        if (t.blockHp <= 0) {
-          t.ice = false; t.crate = false;
-          this.iceLeft = Math.max(0, this.iceLeft - 1);
-        }
-      } else if (t.chain) {
-        t.chain = false; // adjacent match frees the locked crystal
-        this.spawnBurst(this.cellX(cc) + this.tile / 2, this.cellY(rr) + this.tile / 2, '#ffd24d', 8);
-      }
+      this.crackBlockerAt(rr, cc);
     }
   };
 
