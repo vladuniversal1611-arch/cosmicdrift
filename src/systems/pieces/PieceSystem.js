@@ -29,6 +29,8 @@ import { Config } from '../../config/Config.js';
 import { Easing } from '../../utils/Easing.js';
 import { Random } from '../../utils/Random.js';
 import { PieceFactory } from './PieceFactory.js';
+import { PieceGenerator } from './PieceGenerator.js';
+import { DifficultyDirector } from './DifficultyDirector.js';
 
 export class PieceSystem extends System {
   constructor(game) {
@@ -36,9 +38,13 @@ export class PieceSystem extends System {
     this.name = 'pieces';
     this._rng = new Random();
     this._factory = new PieceFactory(this._rng);
+    // The intelligent generator + its dynamic-difficulty brain.
+    this._director = new DifficultyDirector(game);
+    this._generator = new PieceGenerator(this._rng, this._factory);
     /** @type {import('./Piece.js').Piece[]} */
     this.tray = [];
     this._grid = null;
+    this._level = 1;
     this._time = 0;
 
     // Active drag: { piece, col, row, valid } | null.
@@ -47,13 +53,18 @@ export class PieceSystem extends System {
   }
 
   onInit() {
+    this._director.init();
+
     this.listen('board:ready', ({ grid }) => {
       this._grid = grid;
       this.refill();
     });
     // Each level (including the first, and every advance) hands us a fresh
     // board; refill the tray to match. The LevelSystem builds tiles first.
-    this.listen('level:changed', () => this.refill());
+    this.listen('level:changed', ({ level }) => { if (level) this._level = level; this.refill(); });
+    // Feed the dynamic-difficulty director: losing => kinder, clearing => tougher.
+    this.listen('game:over', () => this._director.recordLoss());
+    this.listen('level:complete', () => this._director.recordWin());
     // After a clear resolves, freed cells (or melted tiles) may unstick a
     // game-over, so re-check.
     this.listen('board:clearComplete', () => this._checkGameOver());
@@ -71,10 +82,20 @@ export class PieceSystem extends System {
 
   // --- Tray management -------------------------------------------------------
 
-  /** Replace the tray with a fresh set of relics. */
+  /**
+   * Replace the tray with a fresh set of relics. When the board is known and
+   * the smart generator is enabled, the tray is board-aware, difficulty-tuned
+   * and guaranteed solvable; otherwise it falls back to weighted-random.
+   */
   refill() {
     this._drag = null;
-    this.tray = this._factory.createBatch(Config.gameplay.traySize);
+    const size = Config.gameplay.traySize;
+    if (Config.generator.enabled && this._grid) {
+      const target = this._director.targetHardness(this._level);
+      this.tray = this._generator.generateTray(this._grid, size, target, this._director.generosity);
+    } else {
+      this.tray = this._factory.createBatch(size);
+    }
     this._layoutTray();
     this.events.emit('pieces:refilled', { tray: this.tray });
     this._checkGameOver();

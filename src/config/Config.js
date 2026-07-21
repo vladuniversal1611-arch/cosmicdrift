@@ -141,6 +141,34 @@ export const Config = Object.freeze({
     }),
   }),
 
+  /**
+   * Intelligent piece generator. Instead of pure random, the generator scores
+   * shapes against the live board, tunes difficulty to the level + player, and
+   * guarantees the tray is solvable so losses feel earned, never unlucky. All
+   * knobs live here so the feel is fully configurable; set `enabled:false` to
+   * fall back to plain weighted-random generation.
+   */
+  generator: Object.freeze({
+    enabled: true,
+    /** Attempts to assemble a difficulty-matched, provably-solvable tray. */
+    solveAttempts: 14,
+    /** Base chance to slip in a piece that enables an immediate line clear. */
+    giftBaseChance: 0.12,
+    /** Extra gift chance scaled by how much the player is struggling (DDA). */
+    giftStruggleBonus: 0.5,
+    /** Chance (late game) to offer a big, exciting, still-solvable piece. */
+    excitingChance: 0.09,
+    /** Difficulty curve: target shape "hardness" 0..1 = base + perLevel*level. */
+    difficulty: Object.freeze({ base: 0.12, perLevel: 0.012, max: 0.9 }),
+    /** Dynamic difficulty adjustment (generosity: + = easier, - = harder). */
+    dda: Object.freeze({
+      lossGenerosity: 0.15,   // per loss (ramps with a losing streak)
+      winGenerosity: -0.04,   // per cleared level (ramps with a winning streak)
+      min: -0.25,
+      max: 1.0,
+    }),
+  }),
+
   /** Input tuning shared by the InputManager. */
   input: Object.freeze({
     /** Movement (in logical px) before a press is treated as a drag. */

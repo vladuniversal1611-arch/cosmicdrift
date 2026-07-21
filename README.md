@@ -26,7 +26,15 @@ targeting a stable **60 FPS** and clean **Android WebView** export.
 > evolving the board's look. The board highlights the one cell that completes a
 > nearby shape, so it teaches itself. The controls stay pure drag-and-place.
 >
-> Long-term, a *World Progression* meta layer turns every cleared level into
+> Every level sets **objectives** (1–3 combined goals like "Grow 5 Magic Flowers ·
+Destroy 7 Corruption · Collect 38 Crystal Energy") that must be met to advance —
+so the game is goal-driven, not endless. The tray is filled by an **intelligent
+piece generator**: it reads the live board, tunes shape difficulty to the level
+and the player, guarantees every hand is solvable (no unlucky losses), and
+occasionally offers a satisfying line-clear "save" — with invisible dynamic
+difficulty that eases up after losses and firms up after wins.
+
+Long-term, a *World Progression* meta layer turns every cleared level into
 > visible growth. Levels reward **Magic Essence, Gold, Building Materials** and
 > Dragon Energy; every 5 levels unlocks a **restoration** (Ancient Bridge, World
 > Tree, Crystal Tower, Dragon Nest, …) that the player rebuilds through staged
