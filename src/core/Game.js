@@ -29,6 +29,8 @@ import { AudioSystem } from '../systems/audio/AudioSystem.js';
 import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
 import { GameplaySystem } from '../systems/gameplay/GameplaySystem.js';
+import { LevelSystem } from '../systems/progression/LevelSystem.js';
+import { TileSystem } from '../systems/tiles/TileSystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
 import { PieceSystem } from '../systems/pieces/PieceSystem.js';
 import { WorldSystem } from '../systems/world/WorldSystem.js';
@@ -106,10 +108,13 @@ export class Game {
     if (f.dragon) this.systems.register(new DragonSystem(this));
 
     // Core gameplay: the rules brain updates before the board/pieces so its
-    // screen-shake offset is set before anything renders this frame.
+    // screen-shake offset is set before anything renders this frame. The
+    // LevelSystem drives progression; the TileSystem is the Living Board.
     this.systems.register(new GameplaySystem(this));
+    this.systems.register(new LevelSystem(this));
     this.systems.register(new WorldSystem(this));
     this.systems.register(new BoardSystem(this));
+    this.systems.register(new TileSystem(this));
     this.systems.register(new PieceSystem(this));
 
     // Presentation — updated after gameplay, drawn on top.

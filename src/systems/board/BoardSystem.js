@@ -102,6 +102,10 @@ export class BoardSystem extends System {
     this._clearing = true;
     // `amount` mirrors `count` so the generic MissionSystem can accrue progress.
     this.events.emit('game:linesCleared', { count: lines.length, amount: lines.length });
+    // Living Board: hand the resolved lines/cells to the TileSystem so tiles
+    // (moss, crystal, frozen, dragon rune, treasure, tree, fog, corruption)
+    // can react in sync with the clear.
+    this.events.emit('board:linesResolved', { lines, cells: [...cells], grid: this.grid });
     this.game.getSystem('audio')?.play('clear');
   }
 
@@ -162,13 +166,21 @@ export class BoardSystem extends System {
     this._drawFrame(renderer);
     const size = this.grid.cellSize;
 
+    const t = this._time;
     this.grid.forEach((cell) => {
       const { x, y } = this.grid.cellToPixel(cell.col, cell.row);
       this._drawSocket(renderer, x, y, size, cell);
 
+      // Living Board terrain draws beneath the crystal (moss, ice, portal,
+      // crystal-core, corruption, dragon rune, treasure, tree base).
+      if (cell.tile) cell.tile.renderBelow(renderer, x, y, size, t);
+
       if (cell.isClearing) this._drawClearingCell(renderer, x, y, size, cell);
       else if (cell.filled) this._drawPlacedCell(renderer, x, y, size, cell);
-      else this._drawAlive(renderer, x, y, size, cell);
+      else if (!cell.tile) this._drawAlive(renderer, x, y, size, cell);
+
+      // Overlays that must sit above the crystal (fog, ice sheen, energy beams).
+      if (cell.tile) cell.tile.renderAbove(renderer, x, y, size, t);
     });
 
     if (this._hover) this._drawGhost(renderer);

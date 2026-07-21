@@ -30,6 +30,13 @@ export class HudScreen extends Screen {
     this._overlayT = 0;       // game-over fade-in
     this._subs = [];          // event unsubscribers, cleaned up on exit
 
+    // Progression state (mirrored from LevelSystem).
+    this._level = 1;
+    this._worldName = '';
+    this._goal = 0;
+    this._lines = 0;
+    this._banner = null;      // { title, sub, t } discovery/world callout
+
     const w = this.bounds.w;
 
     // Dragon Energy meter, just under the score.
@@ -60,6 +67,24 @@ export class HudScreen extends Screen {
       this._best = best ?? this._best;
       if (state === 'over') { this._final = score ?? this._score; this._overlayT = 0; }
     }));
+    this._subs.push(this.events.on('level:changed', (d) => {
+      this._level = d.level;
+      this._worldName = d.worldName;
+      this._goal = d.goal;
+      this._lines = 0;
+      if (d.newMechanic) {
+        this._banner = {
+          title: `WORLD ${d.world} · ${d.worldName}`,
+          sub: `NEW — ${d.newMechanic.label}: ${d.newMechanic.blurb}`,
+          t: 3.6,
+        };
+      } else if (d.levelInWorld === 0) {
+        this._banner = { title: `WORLD ${d.world} · ${d.worldName}`, sub: '', t: 2.2 };
+      }
+    }));
+    this._subs.push(this.events.on('level:progress', ({ cleared, goal }) => {
+      this._lines = cleared; this._goal = goal;
+    }));
   }
 
   /** Detach listeners when the HUD is torn down (e.g. on restart/replace). */
@@ -72,14 +97,59 @@ export class HudScreen extends Screen {
     this._energy.update(dt);
     if (this._scorePop > 0) this._scorePop = Math.max(0, this._scorePop - dt * 3.5);
     if (this._comboT > 0) this._comboT = Math.max(0, this._comboT - dt);
+    if (this._banner && (this._banner.t -= dt) <= 0) this._banner = null;
     if (this._state === 'over') this._overlayT = Math.min(1, this._overlayT + dt * 3);
   }
 
   render(renderer) {
     this._drawScore(renderer);
+    this._drawLevel(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawCombo(renderer);
+    if (this._banner) this._drawBanner(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
+  }
+
+  /** Level number + world name (left) and line-goal progress (right). */
+  _drawLevel(renderer) {
+    const y = this.bounds.h * 0.05;
+    renderer.text(`LEVEL ${this._level}`, 18, y, {
+      font: '800 18px system-ui, sans-serif', color: Palette.textPrimary, baseline: 'middle',
+    });
+    renderer.text(this._worldName.toUpperCase(), 18, y + 20, {
+      font: '700 11px system-ui, sans-serif', color: Palette.textMuted, baseline: 'middle',
+    });
+    const gx = this.bounds.w - 18;
+    renderer.text('LINES', gx, y - 6, {
+      font: '700 11px system-ui, sans-serif', color: Palette.textMuted, align: 'right', baseline: 'middle',
+    });
+    renderer.text(`${this._lines} / ${this._goal}`, gx, y + 14, {
+      font: '800 20px system-ui, sans-serif', color: Palette.accentAlt, align: 'right', baseline: 'middle',
+    });
+  }
+
+  /** Transient world / new-mechanic discovery callout. */
+  _drawBanner(renderer) {
+    const b = this._banner;
+    const life = b.sub ? 3.6 : 2.2;
+    const t = b.t / life;                          // 1 → 0
+    const alpha = clamp(Math.min(t * 4, (1 - t) * 4 + 0.2, 1), 0, 1);
+    const cx = this.bounds.centerX;
+    const y = this.bounds.h * 0.3;
+    renderer.setAlpha(alpha);
+    renderer.withGlow(Palette.accent, 20, () => {
+      renderer.text(b.title, cx, y, {
+        font: '900 30px system-ui, sans-serif', color: Palette.textPrimary,
+        align: 'center', baseline: 'middle',
+      });
+    });
+    if (b.sub) {
+      renderer.text(b.sub, cx, y + 34, {
+        font: '700 14px system-ui, sans-serif', color: Palette.accentAlt,
+        align: 'center', baseline: 'middle',
+      });
+    }
+    renderer.setAlpha(1);
   }
 
   _drawScore(renderer) {

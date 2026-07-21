@@ -24,6 +24,13 @@ export class Cell {
     this.runeId = runeId;
     this.phase = phase;
 
+    /**
+     * The Living Board tile occupying this slot (terrain), or null for plain
+     * Ancient Stone. Set/managed by the TileSystem; it persists across crystal
+     * clears (clearing a line empties the crystal, not the tile beneath it).
+     */
+    this.tile = null;
+
     /** True when a crystal block occupies this cell. */
     this.filled = false;
     /** Material key (see Palette.materials) when filled, else null. */

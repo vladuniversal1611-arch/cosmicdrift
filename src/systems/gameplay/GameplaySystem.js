@@ -50,6 +50,18 @@ export class GameplaySystem extends System {
     this.listen('game:linesCleared', this._onLinesCleared);
     this.listen('game:noClears', this._onNoClears);
     this.listen('game:over', this._onGameOver);
+    // Living Board tiles feed the meter and shake through these generic hooks.
+    this.listen('gameplay:addEnergy', ({ amount }) => this.addEnergy(amount));
+    this.listen('fx:shake', ({ mag }) => this.addShake(mag));
+    // A new level keeps score/energy but resets the combo chain.
+    this.listen('level:changed', () => { this.combo = 0; });
+  }
+
+  /** Add Dragon Energy directly (Dragon Rune tiles, bonuses). */
+  addEnergy(amount) {
+    if (!amount) return;
+    this.energy = clamp(this.energy + amount, 0, Config.gameplay.energyMax);
+    this.events.emit('gameplay:energy', { energy: this.energy, max: Config.gameplay.energyMax });
   }
 
   get isPlaying() { return this.state === 'playing'; }

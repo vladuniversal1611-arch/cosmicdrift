@@ -51,8 +51,11 @@ export class PieceSystem extends System {
       this._grid = grid;
       this.refill();
     });
-    this.listen('game:started', () => this.refill());
-    // After a clear resolves, open cells may have unstuck a game-over.
+    // Each level (including the first, and every advance) hands us a fresh
+    // board; refill the tray to match. The LevelSystem builds tiles first.
+    this.listen('level:changed', () => this.refill());
+    // After a clear resolves, freed cells (or melted tiles) may unstick a
+    // game-over, so re-check.
     this.listen('board:clearComplete', () => this._checkGameOver());
 
     window.addEventListener('resize', () => this._layoutTray());

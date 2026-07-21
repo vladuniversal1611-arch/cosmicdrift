@@ -77,6 +77,23 @@ export const Palette = Object.freeze({
     amber: Object.freeze({ light: '#ffe1a3', core: '#ffb020', deep: '#805206', glow: '#ffc23d', spark: '#fff0d6' }),
     amethyst: Object.freeze({ light: '#e0c3ff', core: '#a24dff', deep: '#421680', glow: '#b76dff', spark: '#f0e2ff' }),
   }),
+
+  /**
+   * Living Board tile palettes. Each interactive tile type reads its colours
+   * from here so the whole board can be re-themed per world in one place.
+   */
+  tiles: Object.freeze({
+    moss: Object.freeze({ base: '#26331f', leaf: '#3fae5a', glow: '#6bef86' }),
+    ice: Object.freeze({ fill: '#cdebff', edge: '#8fc4ff', glow: '#aee0ff', crack: '#4d7ab0' }),
+    corruption: Object.freeze({ core: '#3a0f5c', ooze: '#8a2be2', glow: '#c04dff' }),
+    portalA: Object.freeze({ ring: '#28e0d0', glow: '#28e0d0' }),
+    portalB: Object.freeze({ ring: '#ff4d9d', glow: '#ff4d9d' }),
+    dragon: Object.freeze({ rune: '#ff9a2e', glow: '#ffb020' }),
+    treasure: Object.freeze({ gold: '#ffd23d', deep: '#b8860b', glow: '#ffe89a' }),
+    tree: Object.freeze({ trunk: '#6b4a2b', leaf: '#2f9e4f', glow: '#6bef86' }),
+    fog: Object.freeze({ a: 'rgba(188,192,214,0.92)', b: 'rgba(150,158,196,0.7)' }),
+    crystalCore: Object.freeze({ core: '#7c5cff', glow: '#c3b3ff' }),
+  }),
 });
 
 /** Ordered list of material keys, for random selection. */

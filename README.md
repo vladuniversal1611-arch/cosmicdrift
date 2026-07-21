@@ -7,11 +7,18 @@ Built with **HTML5 + CSS + vanilla ES6 + Canvas 2D** — no external libraries,
 targeting a stable **60 FPS** and clean **Android WebView** export.
 
 > On top of the clean, independent-systems foundation, the **core gameplay** is
-> now implemented and heavily polished: drag crystal relics from the tray onto
-> an engraved stone board, complete rows/columns to send a travelling-energy
-> clear rippling through them, and chain clears to build combos that charge the
-> Dragon Energy meter. Dragons and the world map are deliberately still out of
-> scope — the focus here is on making the moment-to-moment placement feel great.
+> implemented and heavily polished: drag crystal relics from the tray onto an
+> engraved stone board, complete rows/columns to send a travelling-energy clear
+> rippling through them, and chain clears to build combos that charge the Dragon
+> Energy meter.
+>
+> The board is also **alive**: the *Living Board* adds ten modular interactive
+> tile types — Ancient Stone, Moss, Crystal, Frozen, Corrupted, Portal, Dragon
+> Rune, Treasure, Ancient Tree and Magic Fog — each with idle, activation and
+> destroy animations, particles and sound hooks. Play is organised into themed
+> **worlds** that each introduce one new mechanic, so hundreds of levels stay
+> fresh and early levels are never overloaded. The controls stay pure
+> drag-and-place; dragons and the world map are still out of scope.
 
 ## Quick start
 

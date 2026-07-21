@@ -102,6 +102,8 @@ export class Grid {
     for (const [bc, br] of piece.blocks) {
       const cell = this.get(col + bc, row + br);
       if (!cell || cell.filled || cell.isClearing) return false;
+      // Living Board: some tiles (frozen, corruption, tree, fog) block placement.
+      if (cell.tile && cell.tile.blocksPlacement) return false;
     }
     return true;
   }
@@ -114,7 +116,11 @@ export class Grid {
   place(piece, col, row, landDuration) {
     const filled = [];
     for (const [bc, br] of piece.blocks) {
-      const cell = this.get(col + bc, row + br);
+      let cell = this.get(col + bc, row + br);
+      // Living Board: a tile may redirect where this block actually lands
+      // (Portal tiles teleport the block to their linked partner cell).
+      const redirect = cell.tile && cell.tile.redirectPlacement(cell, this);
+      if (redirect) cell = redirect;
       cell.fill(piece.materialKey, landDuration);
       filled.push(cell);
     }

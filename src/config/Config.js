@@ -103,6 +103,29 @@ export const Config = Object.freeze({
     shakeDecay: 26,
   }),
 
+  /**
+   * Progression + Living Board tuning. Controls how fast worlds/levels roll
+   * out new tile mechanics and how dense special tiles get. Early levels are
+   * deliberately sparse so mechanics are discovered gradually, never dumped.
+   */
+  progression: Object.freeze({
+    /** Levels per world; a new tile mechanic unlocks each world. */
+    levelsPerWorld: 6,
+    /** Lines to clear to complete a level: base + world * perWorld. */
+    goalBase: 4,
+    goalPerWorld: 2,
+    /** Special tiles scale slowly with level, capped so the board stays fair. */
+    maxSpecialTiles: 12,
+    /** Turns (placements) a Treasure tile survives before vanishing. */
+    treasureLifetimeTurns: 6,
+    /** How often (in turns) Corruption spreads to a neighbour. */
+    corruptionSpreadTurns: 3,
+    /** Nearby clears needed to melt a Frozen tile. */
+    frozenClears: 2,
+    /** Chance per turn a Treasure tile spawns once the mechanic is unlocked. */
+    treasureSpawnChance: 0.18,
+  }),
+
   /** Input tuning shared by the InputManager. */
   input: Object.freeze({
     /** Movement (in logical px) before a press is treated as a drag. */

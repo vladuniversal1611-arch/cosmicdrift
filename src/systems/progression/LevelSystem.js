@@ -1,0 +1,208 @@
+/**
+ * LevelSystem.js
+ * -----------------------------------------------------------------------------
+ * Drives progression across hundreds of levels grouped into themed worlds.
+ * Each world introduces one new Living Board mechanic, so the player keeps
+ * discovering fresh gameplay instead of repeating one puzzle forever. Early
+ * levels are deliberately sparse; density and variety grow with depth.
+ *
+ * Responsibilities:
+ *   - track the current level / world / goal (persisted so runs continue)
+ *   - generate each level's tile layout (which mechanics, how many, where) and
+ *     hand it to the TileSystem, biasing brand-new worlds toward teaching their
+ *     new tile before mixing older ones back in
+ *   - count cleared lines toward the level goal and advance when it's met
+ *     (after the clear animation finishes, so it never cuts a clear short)
+ *
+ * Events:
+ *   listens 'game:started', 'game:linesCleared', 'board:clearComplete', 'save:loaded'
+ *   emits   'level:changed' ({ level, world, worldName, goal, newMechanic, ... })
+ *           'level:progress' ({ cleared, goal })
+ *           'level:complete' ({ level })
+ * -----------------------------------------------------------------------------
+ */
+import { System } from '../../core/System.js';
+import { Config } from '../../config/Config.js';
+import { Random } from '../../utils/Random.js';
+import { clamp } from '../../utils/MathUtils.js';
+import { TileRegistry } from '../tiles/TileRegistry.js';
+
+/**
+ * The world table. `mech` is the tile mechanic introduced by that world (null
+ * for the tutorial world of pure placement). Order defines the unlock schedule.
+ */
+const WORLDS = [
+  { name: 'Stoneplain', mech: null },
+  { name: 'Mosswood', mech: 'moss' },
+  { name: 'Crystal Caverns', mech: 'crystal' },
+  { name: 'Frostreach', mech: 'frozen' },
+  { name: 'The Blight', mech: 'corrupted' },
+  { name: 'Portal Rifts', mech: 'portal' },
+  { name: 'Dragon Spire', mech: 'dragonrune' },
+  { name: 'Treasure Vaults', mech: 'treasure' },
+  { name: 'Elderwood', mech: 'ancienttree' },
+  { name: 'Mistlands', mech: 'fog' },
+];
+
+/** Safety caps so a level never becomes unfair or unplayable. */
+const CAPS = { ancienttree: 2, corrupted: 3, frozen: 4, fog: 5, portal: 4, crystal: 4, dragonrune: 4, treasure: 2, moss: 10 };
+
+export class LevelSystem extends System {
+  constructor(game) {
+    super(game);
+    this.name = 'level';
+    this.level = 1;
+    this.goal = 0;
+    this.cleared = 0;
+    this._pending = 0;         // next level queued until the clear finishes
+    this._progress = null;
+  }
+
+  onInit() {
+    const save = this.game.getSystem('save');
+    this._progress = save.registerSlice('progress', () => ({ level: 1, highest: 1 }));
+    this.level = this._progress.level ?? 1;
+
+    this.listen('game:started', () => this.beginLevel(this.level));
+    this.listen('game:linesCleared', ({ count }) => this._onCleared(count));
+    this.listen('board:clearComplete', () => this._maybeAdvance());
+  }
+
+  // --- World / goal maths ----------------------------------------------------
+  get worldIndex() { return Math.floor((this.level - 1) / Config.progression.levelsPerWorld); }
+  get levelInWorld() { return (this.level - 1) % Config.progression.levelsPerWorld; }
+  /** Capped index used for naming + goal once past the last defined world. */
+  get namedWorld() { return Math.min(this.worldIndex, WORLDS.length - 1); }
+
+  /** Set of mechanic ids unlocked at the current depth. */
+  unlockedMechanics() {
+    const set = new Set();
+    for (let i = 0; i <= Math.min(this.worldIndex, WORLDS.length - 1); i++) {
+      if (WORLDS[i].mech) set.add(WORLDS[i].mech);
+    }
+    return set;
+  }
+
+  // --- Level lifecycle -------------------------------------------------------
+
+  beginLevel(level) {
+    this.level = level;
+    this._pending = 0;
+    this.cleared = 0;
+    const world = this.namedWorld;
+    this.goal = Config.progression.goalBase + world * Config.progression.goalPerWorld;
+
+    const unlocked = this.unlockedMechanics();
+    const placements = this._generateLayout(unlocked);
+    this.game.getSystem('tiles').buildLevel(placements, unlocked, level * 2654435761);
+
+    // A discovery callout only on the first level of a world that adds a mechanic.
+    const mech = WORLDS[world].mech;
+    const isNew = this.levelInWorld === 0 && mech;
+    const newMechanic = isNew
+      ? { id: mech, label: TileRegistry[mech].label, blurb: TileRegistry[mech].blurb }
+      : null;
+
+    this.events.emit('level:changed', {
+      level: this.level,
+      world: world + 1,
+      worldName: WORLDS[world].name,
+      goal: this.goal,
+      levelInWorld: this.levelInWorld,
+      newMechanic,
+      unlocked: [...unlocked],
+    });
+    this.events.emit('level:progress', { cleared: 0, goal: this.goal });
+  }
+
+  _onCleared(count) {
+    if (this._pending) return;
+    this.cleared += count;
+    this.events.emit('level:progress', { cleared: this.cleared, goal: this.goal });
+    if (this.cleared >= this.goal) {
+      this._pending = this.level + 1;
+      this.game.getSystem('audio')?.play('levelup');
+      this.events.emit('level:complete', { level: this.level });
+    }
+  }
+
+  /** Advance to the queued level once the triggering clear has finished. */
+  _maybeAdvance() {
+    if (!this._pending) return;
+    const next = this._pending;
+    this._pending = 0;
+    this._progress.level = next;
+    this._progress.highest = Math.max(this._progress.highest ?? 1, next);
+    this.game.getSystem('save')?.markDirty();
+    this.beginLevel(next);
+  }
+
+  // --- Layout generation -----------------------------------------------------
+
+  /**
+   * Produce a list of { type, col, row } tile placements for the current level.
+   * The tutorial world places nothing; later worlds scale count with depth and
+   * teach their newest mechanic first before reintroducing older ones.
+   */
+  _generateLayout(unlocked) {
+    if (unlocked.size === 0) return [];       // World 1: pure placement.
+
+    const grid = this.game.getSystem('board').grid;
+    const rng = new Random(this.level * 0x9e3779b1);
+    const world = this.namedWorld;
+    const newMech = WORLDS[world].mech;
+    const teaching = this.levelInWorld <= 1;  // bias the first two levels of a world
+
+    // How many special tiles this level wants — grows slowly, hard-capped.
+    const target = clamp(2 + this.levelInWorld + Math.floor(this.worldIndex * 0.75),
+      1, Config.progression.maxSpecialTiles);
+
+    // Weighted mechanic pool.
+    const pool = [];
+    for (const m of unlocked) {
+      let w = 1;
+      if (teaching && m === newMech) w = 6;   // teach the new mechanic first
+      else if (m === newMech) w = 2;
+      for (let i = 0; i < w; i++) pool.push(m);
+    }
+
+    // Collect distinct free cells to place onto.
+    const free = [];
+    grid.forEach((cell) => { if (!cell.tile && !cell.filled) free.push(cell); });
+    for (let i = free.length - 1; i > 0; i--) {        // shuffle
+      const j = rng.int(0, i);[free[i], free[j]] = [free[j], free[i]];
+    }
+
+    const counts = {};
+    const placements = [];
+    let fi = 0;
+    const take = (type) => {
+      if (fi >= free.length) return false;
+      if ((counts[type] ?? 0) >= (CAPS[type] ?? 99)) return false;
+      const cell = free[fi++];
+      counts[type] = (counts[type] ?? 0) + 1;
+      placements.push({ type, col: cell.col, row: cell.row });
+      return true;
+    };
+
+    let placed = 0;
+    let guard = 0;
+    while (placed < target && guard++ < target * 6) {
+      const type = rng.pick(pool);
+      if (type === 'portal') {
+        // Portals only make sense in pairs.
+        if ((counts.portal ?? 0) + 2 > (CAPS.portal ?? 99)) continue;
+        if (take('portal') && take('portal')) placed += 2;
+      } else if (take(type)) {
+        placed += 1;
+      }
+    }
+
+    // Guarantee the new mechanic actually appears while it's being taught.
+    if (teaching && newMech && !(counts[newMech] > 0)) {
+      if (newMech === 'portal') { take('portal'); take('portal'); }
+      else take(newMech);
+    }
+    return placements;
+  }
+}
