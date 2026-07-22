@@ -12,6 +12,9 @@
  * -----------------------------------------------------------------------------
  */
 
+import { Theme } from './Theme.js';
+import { drawFrame } from '../render/NineSlice.js';
+
 /** Bright, premium palette (deliberately NOT the dark in-game board colours). */
 export const UI = Object.freeze({
   sky: ['#7fc9ff', '#a9e0ff', '#dff4ff'],
@@ -52,7 +55,14 @@ export const UITheme = {
    * A glossy, golden-framed button body (no text). `colors` is a [top,base]
    * ramp from UI.btn. Draws shadow → gradient body → glass gloss → gold frame.
    */
-  button(r, x, y, w, h, rad, colors, { shadow = true, frame = true } = {}) {
+  button(r, x, y, w, h, rad, colors, { shadow = true, frame = true, style = 'button' } = {}) {
+    // Asset seam: use final nine-slice art when registered, else draw the
+    // procedural placeholder below. Label/icon are drawn by the caller on top.
+    const fr = Theme.frame(style);
+    if (drawFrame(r, fr.key, x, y, w, h, fr.inset, () => this._buttonProcedural(r, x, y, w, h, rad, colors, shadow, frame))) return;
+  },
+
+  _buttonProcedural(r, x, y, w, h, rad, colors, shadow, frame) {
     if (shadow) this.shadow(r, x, y, w, h, rad, h * 0.09);
     const body = r.linearGradient(x, y, x, y + h, [[0, colors[0]], [0.5, colors[1]], [1, colors[1]]]);
     r.fillRoundRect(x, y, w, h, rad, body);
@@ -68,6 +78,11 @@ export const UITheme = {
 
   /** Translucent glass panel with a bright top highlight + gold trim. */
   glassPanel(r, x, y, w, h, rad = 22, { gold = true } = {}) {
+    const fr = Theme.frame('panel.glass');
+    if (drawFrame(r, fr.key, x, y, w, h, fr.inset, () => this._glassPanelProcedural(r, x, y, w, h, rad, gold))) return;
+  },
+
+  _glassPanelProcedural(r, x, y, w, h, rad, gold) {
     this.shadow(r, x, y, w, h, rad, 10, 0.42);
     const g = r.linearGradient(x, y, x, y + h, [[0, UI.panel[0]], [1, UI.panel[1]]]);
     r.fillRoundRect(x, y, w, h, rad, g);

@@ -8,6 +8,7 @@
  * -----------------------------------------------------------------------------
  */
 import { drawRune } from '../board/Runes.js';
+import { AssetManager } from '../../ui/assets/AssetManager.js';
 
 const ICONS = {
   crystal(r, cx, cy, s, color) { // diamond gem
@@ -111,6 +112,13 @@ const ICONS = {
   default(r, cx, cy, s, color) { r.fillCircle(cx, cy, s * 0.7, color); },
 };
 
+/**
+ * Draw an icon by key. Uses registered art (`icon:<key>`) via the AssetManager
+ * when present; otherwise falls back to the procedural glyph. This single seam
+ * makes every icon in the game swappable for final PNG art with no caller
+ * changes.
+ */
 export function drawObjectiveIcon(renderer, key, cx, cy, r, color) {
-  (ICONS[key] ?? ICONS.default)(renderer, cx, cy, r, color);
+  AssetManager.drawIcon(renderer, key, cx, cy, r, color,
+    (rr, x, y, s, c) => (ICONS[key] ?? ICONS.default)(rr, x, y, s, c));
 }
