@@ -151,8 +151,8 @@ export class GameplaySystem extends System {
 
     if (combo >= 2) {
       audio?.play('combo', { rate: 1 + combo * 0.05 });
-      this.events.emit('fx:ripple', { x: cx, y: cy, color: '#7c5cff' });
-      this.flash('#7c5cff', 0.1);
+      this.events.emit('fx:ripple', { x: cx, y: cy, color: '#22b7ff' });
+      this.flash('#22b7ff', 0.1);
     }
     if (combo >= 3) {
       this.events.emit('fx:burst', { x: cx, y: cy, color: '#28e0d0', count: 24 });

@@ -211,9 +211,9 @@ export class BoardSystem extends System {
     renderer.fillRect(outer.x - pad, outer.y - pad, outer.w + pad * 2, outer.h + pad * 2, halo);
     renderer.setAlpha(1);
 
-    // Grounding shadow.
-    renderer.withGlow('rgba(0,0,0,0.6)', 40, () => {
-      renderer.fillRoundRect(outer.x, outer.y + 6, outer.w, outer.h, R, Palette.stone.frameBottom);
+    // Soft grounding shadow (gentle and cool — never a hard black edge).
+    renderer.withGlow('rgba(40,74,130,0.35)', 34, () => {
+      renderer.fillRoundRect(outer.x, outer.y + 8, outer.w, outer.h, R, Palette.stone.frameBottom);
     });
 
     // Beveled slab: light rim, stone face, carved recess.
@@ -288,7 +288,7 @@ export class BoardSystem extends System {
     const mx = cx + Math.sin((this._time + cell.phase) * 1.4) * size * 0.14;
     const myy = y + size * (0.86 - 0.72 * m);
     ctx.globalAlpha = Math.sin(m * Math.PI) * 0.5;
-    renderer.fillCircle(mx, myy, size * 0.05, '#c9b8ff');
+    renderer.fillCircle(mx, myy, size * 0.05, '#7fd6ff');
     ctx.globalAlpha = 1;
   }
 

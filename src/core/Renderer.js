@@ -131,11 +131,21 @@ export class Renderer {
       color = '#fff',
       align = 'left',
       baseline = 'alphabetic',
+      // Optional soft dark outline — keeps white text readable over the bright
+      // sky/board. Pass `outline` a colour and `outlineWidth` a px width.
+      outline = null,
+      outlineWidth = 3,
     } = opts;
     this.ctx.font = font;
-    this.ctx.fillStyle = color;
     this.ctx.textAlign = align;
     this.ctx.textBaseline = baseline;
+    if (outline) {
+      this.ctx.lineJoin = 'round';
+      this.ctx.lineWidth = outlineWidth;
+      this.ctx.strokeStyle = outline;
+      this.ctx.strokeText(str, x, y);
+    }
+    this.ctx.fillStyle = color;
     this.ctx.fillText(str, x, y);
   }
 

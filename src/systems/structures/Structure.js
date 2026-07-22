@@ -53,7 +53,7 @@ export class Structure {
 
       // Shadow on the board beneath the risen block.
       renderer.setAlpha(0.35 * e);
-      renderer.fillRoundRect(x + 3, y + 5, size - 6, size - 6, Config.board.cellRadius, 'rgba(0,0,0,0.6)');
+      renderer.fillRoundRect(x + 3, y + 5, size - 6, size - 6, Config.board.cellRadius, 'rgba(40,74,130,0.35)');
       renderer.setAlpha(1);
 
       const g = renderer.linearGradient(ox, oy, ox + s, oy + s,

@@ -3,63 +3,73 @@
  * -----------------------------------------------------------------------------
  * Centralised colour + theme tokens for Cosmic Drift.
  *
+ * ART DIRECTION: bright, warm, premium-casual — the sunny, magical, friendly
+ * world of a top-tier mobile game. Sky blues, warm-white clouds, fresh green,
+ * golden decorations, turquoise magic and crystal blue; warm-orange highlights;
+ * red reserved strictly for warnings. NEVER dark purple, dark grey, black UI or
+ * muddy browns. Everything reads as sunlit and touchable.
+ *
  * Keeping colours here (rather than inline in draw calls) means the entire
- * game can be re-skinned — or given seasonal / event themes — by swapping a
- * single object. The board, crystals, particles and UI all read from tokens.
+ * game can be re-skinned by swapping a single object. The board, crystals,
+ * particles and UI all read from these tokens.
  * -----------------------------------------------------------------------------
  */
 
 export const Palette = Object.freeze({
-  /** Background gradient stops, top -> bottom. */
-  background: Object.freeze(['#05010f', '#0a0524', '#04010c']),
+  /** Bright sky gradient, top -> bottom (used as a safe fallback backdrop). */
+  background: Object.freeze(['#5bb4ff', '#9ad7ff', '#e6f6ff']),
 
-  /** Neutral surfaces (panels, cards). */
-  surface: '#0e0a24',
-  surfaceRaised: '#171235',
-  surfaceStroke: 'rgba(120,110,220,0.25)',
+  /** Neutral surfaces (panels, cards) — glossy warm white glass. */
+  surface: 'rgba(255,255,255,0.92)',
+  surfaceRaised: 'rgba(255,255,255,0.96)',
+  surfaceStroke: 'rgba(255,255,255,0.9)',
 
-  /** Text ramp. */
-  textPrimary: '#eaf0ff',
-  textMuted: '#8b8bc0',
-  textInverse: '#0a0518',
+  /**
+   * Text ramp. Primary is white (pair with `outline` for the soft dark edge the
+   * art direction calls for); ink tones read on the bright glass panels.
+   */
+  textPrimary: '#ffffff',
+  textMuted: '#2f5487',
+  textInverse: '#173a72',
+  /** Soft dark outline colour for white text sitting over bright scenes. */
+  textOutline: 'rgba(20,44,92,0.55)',
 
   /** Brand accents used for highlights, glows and CTAs. */
-  accent: '#7c5cff',
-  accentAlt: '#28e0d0',
-  warning: '#ffb020',
-  danger: '#ff4d6d',
-  success: '#38e08a',
+  accent: '#22b7ff',       // crystal blue magic
+  accentAlt: '#18d0c0',    // turquoise magic
+  warning: '#ff9d2e',      // warm orange highlight
+  danger: '#ff4d5e',       // red — warnings only
+  success: '#3fc86a',      // fresh green
+  gold: '#ffcf5e',         // golden decorations
 
   /**
-   * The stone board — an ancient magical artifact. Each token is a stop in a
-   * lighting model (top-lit bevel over a dark carved slab).
+   * The magical stone board — BRIGHT sunlit stone decorated with gold. Each
+   * token is a stop in a lighting model (top-lit bevel over a soft carved slab).
    */
   stone: Object.freeze({
-    frameTop: '#332b47',
-    frameBottom: '#100d1a',
-    bevelLight: '#4a4066',
-    bevelDark: '#080610',
-    inlay: '#1a1526',
+    frameTop: '#fbfdff',
+    frameBottom: '#c6ddf6',
+    bevelLight: '#ffffff',
+    bevelDark: '#aecbea',
+    inlay: '#dcecfb',
   }),
 
-  /**
-   * Engraved empty cell "sockets" — carved holes in the stone that feel alive.
-   */
+  /** Engraved empty cell "sockets" — soft light insets with a gentle blue glow. */
   socket: Object.freeze({
-    rim: '#2a2440',
-    faceTop: '#151122',
-    faceBottom: '#0c0a15',
-    innerGlow: 'rgba(124,92,255,0.10)',
+    rim: '#cfe0f4',
+    faceTop: '#eef6ff',
+    faceBottom: '#d3e6fa',
+    innerGlow: 'rgba(34,183,255,0.14)',
   }),
 
-  /** Rune engravings etched into stone and cells. */
+  /** Rune engravings etched into stone and cells — warm glowing gold. */
   rune: Object.freeze({
-    dim: 'rgba(140,120,210,0.16)',
-    lit: 'rgba(160,140,255,0.55)',
+    dim: 'rgba(255,196,90,0.22)',
+    lit: 'rgba(255,205,94,0.80)',
   }),
 
-  /** Dragon Energy meter gradient. */
-  energy: Object.freeze(['#7c5cff', '#28e0d0']),
+  /** Dragon Energy meter gradient — crystal blue into turquoise. */
+  energy: Object.freeze(['#22b7ff', '#18d0c0']),
 
   /**
    * Crystal relic MATERIALS. Shapes are carved gems, not coloured cubes. Each
@@ -69,13 +79,16 @@ export const Palette = Object.freeze({
    *   deep   — bottom-right shadowed facet
    *   glow   — outer aura / energy colour
    *   spark  — bright particle + specular colour
+   * Kept vivid and high-contrast so they pop against the bright board.
    */
   materials: Object.freeze({
-    emerald: Object.freeze({ light: '#b8ffdf', core: '#1fd67e', deep: '#06603c', glow: '#25e88a', spark: '#d6ffe9', symbol: 'circle' }),
-    ruby: Object.freeze({ light: '#ffb3c6', core: '#ff2d6b', deep: '#7c0a2c', glow: '#ff3d75', spark: '#ffd6e2', symbol: 'triangle' }),
-    sapphire: Object.freeze({ light: '#aecbff', core: '#2f6bff', deep: '#0a2a80', glow: '#3d7bff', spark: '#d6e4ff', symbol: 'square' }),
-    amber: Object.freeze({ light: '#ffe1a3', core: '#ffb020', deep: '#805206', glow: '#ffc23d', spark: '#fff0d6', symbol: 'diamond' }),
-    amethyst: Object.freeze({ light: '#e0c3ff', core: '#a24dff', deep: '#421680', glow: '#b76dff', spark: '#f0e2ff', symbol: 'cross' }),
+    emerald: Object.freeze({ light: '#c4ffe4', core: '#25d986', deep: '#0f8a52', glow: '#3bf29a', spark: '#e2fff0', symbol: 'circle' }),
+    ruby: Object.freeze({ light: '#ffc0d0', core: '#ff3d6f', deep: '#c11844', glow: '#ff5c86', spark: '#ffe0e8', symbol: 'triangle' }),
+    sapphire: Object.freeze({ light: '#bfe0ff', core: '#2f8bff', deep: '#1257c4', glow: '#54a6ff', spark: '#e2f0ff', symbol: 'square' }),
+    amber: Object.freeze({ light: '#ffe6ad', core: '#ffb020', deep: '#d98307', glow: '#ffc84d', spark: '#fff3d6', symbol: 'diamond' }),
+    // Kept under the legacy `amethyst` key (saves + fallbacks reference it) but
+    // recoloured to a bright, sunny turquoise so nothing reads as dark violet.
+    amethyst: Object.freeze({ light: '#c2fff4', core: '#1fd6c4', deep: '#0f9488', glow: '#3ff0dd', spark: '#e2fffb', symbol: 'cross' }),
   }),
 
   /**
@@ -83,16 +96,16 @@ export const Palette = Object.freeze({
    * from here so the whole board can be re-themed per world in one place.
    */
   tiles: Object.freeze({
-    moss: Object.freeze({ base: '#26331f', leaf: '#3fae5a', glow: '#6bef86' }),
-    ice: Object.freeze({ fill: '#cdebff', edge: '#8fc4ff', glow: '#aee0ff', crack: '#4d7ab0' }),
-    corruption: Object.freeze({ core: '#3a0f5c', ooze: '#8a2be2', glow: '#c04dff' }),
-    portalA: Object.freeze({ ring: '#28e0d0', glow: '#28e0d0' }),
-    portalB: Object.freeze({ ring: '#ff4d9d', glow: '#ff4d9d' }),
-    dragon: Object.freeze({ rune: '#ff9a2e', glow: '#ffb020' }),
-    treasure: Object.freeze({ gold: '#ffd23d', deep: '#b8860b', glow: '#ffe89a' }),
-    tree: Object.freeze({ trunk: '#6b4a2b', leaf: '#2f9e4f', glow: '#6bef86' }),
-    fog: Object.freeze({ a: 'rgba(188,192,214,0.92)', b: 'rgba(150,158,196,0.7)' }),
-    crystalCore: Object.freeze({ core: '#7c5cff', glow: '#c3b3ff' }),
+    moss: Object.freeze({ base: '#5aa85f', leaf: '#6fd07f', glow: '#a8f0b0' }),
+    ice: Object.freeze({ fill: '#dcf2ff', edge: '#9fd0ff', glow: '#c6ecff', crack: '#7aa8dd' }),
+    corruption: Object.freeze({ core: '#8a3fd0', ooze: '#b96dff', glow: '#dca6ff' }),
+    portalA: Object.freeze({ ring: '#18d0c0', glow: '#3ff0dd' }),
+    portalB: Object.freeze({ ring: '#ff6aa8', glow: '#ff9ac6' }),
+    dragon: Object.freeze({ rune: '#ff9d2e', glow: '#ffc84d' }),
+    treasure: Object.freeze({ gold: '#ffd23d', deep: '#e0a41e', glow: '#fff0b0' }),
+    tree: Object.freeze({ trunk: '#9a6b3f', leaf: '#3fc06a', glow: '#a8f0b0' }),
+    fog: Object.freeze({ a: 'rgba(236,244,255,0.94)', b: 'rgba(198,224,255,0.78)' }),
+    crystalCore: Object.freeze({ core: '#3aa8ff', glow: '#bfe4ff' }),
   }),
 
   /**
@@ -100,11 +113,11 @@ export const Palette = Object.freeze({
    * one of these magical structures; each type reads its colours here.
    */
   structures: Object.freeze({
-    magicCrystal: Object.freeze({ core: '#7c5cff', glow: '#c3b3ff' }),
-    towerFoundation: Object.freeze({ core: '#ffb020', glow: '#ffe1a3' }),
-    dragonShrine: Object.freeze({ core: '#ff6a3d', glow: '#ffb08a' }),
-    bridge: Object.freeze({ core: '#28e0d0', glow: '#9ff5ee' }),
-    energyCore: Object.freeze({ core: '#38e08a', glow: '#a4f2c8' }),
+    magicCrystal: Object.freeze({ core: '#3aa8ff', glow: '#bfe4ff' }),
+    towerFoundation: Object.freeze({ core: '#ffb020', glow: '#ffe6ad' }),
+    dragonShrine: Object.freeze({ core: '#ff7a4d', glow: '#ffc0a0' }),
+    bridge: Object.freeze({ core: '#18d0c0', glow: '#a8f5ee' }),
+    energyCore: Object.freeze({ core: '#3fc86a', glow: '#b0f2cc' }),
   }),
 });
 

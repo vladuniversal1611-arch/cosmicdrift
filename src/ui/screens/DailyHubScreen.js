@@ -66,7 +66,7 @@ export class DailyHubScreen extends PanelScreen {
       r.text(String(def[key]), cx + cw / 2, y + ch - 12, {
         font: '900 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
       });
-      if (claimed) { r.setAlpha(0.55); r.fillRoundRect(cx, y, cw, ch, 12, 'rgba(4,8,20,0.6)'); r.setAlpha(1);
+      if (claimed) { r.setAlpha(0.55); r.fillRoundRect(cx, y, cw, ch, 12, 'rgba(60,96,150,0.5)'); r.setAlpha(1);
         r.text('✓', cx + cw / 2, y + ch / 2, { font: '900 26px system-ui, sans-serif', color: UI.white, align: 'center', baseline: 'middle' }); }
     }
     y += ch + 22;
@@ -100,7 +100,7 @@ export class DailyHubScreen extends PanelScreen {
   /** A single full-width action button; returns its rect (null when disabled). */
   _actionBar(r, x, y, w, h, label, enabled, colors) {
     UITheme.button(r, x, y, w, h, h / 2, enabled ? colors : UI.btn.blue, { shadow: enabled });
-    if (!enabled) { r.setAlpha(0.45); r.fillRoundRect(x, y, w, h, h / 2, 'rgba(4,8,20,0.5)'); r.setAlpha(1); }
+    if (!enabled) { r.setAlpha(0.45); r.fillRoundRect(x, y, w, h, h / 2, 'rgba(60,96,150,0.42)'); r.setAlpha(1); }
     r.text(label, x + w / 2, y + h / 2, {
       font: '900 18px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
     });
@@ -135,7 +135,7 @@ export class DailyHubScreen extends PanelScreen {
   _giftCard(r, x, y, w, label, icon, color, enabled) {
     const h = 104;
     UITheme.button(r, x, y, w, h, 16, enabled ? UI.btn.teal : UI.btn.blue, { shadow: enabled });
-    if (!enabled) { r.setAlpha(0.5); r.fillRoundRect(x, y, w, h, 16, 'rgba(4,8,20,0.55)'); r.setAlpha(1); }
+    if (!enabled) { r.setAlpha(0.5); r.fillRoundRect(x, y, w, h, 16, 'rgba(60,96,150,0.46)'); r.setAlpha(1); }
     drawObjectiveIcon(r, icon, x + w / 2, y + 36, 20, enabled ? color : 'rgba(255,255,255,0.6)');
     r.text(label, x + w / 2, y + 68, { font: '800 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
     r.text(enabled ? t('common.free') : '✓', x + w / 2, y + 88, {

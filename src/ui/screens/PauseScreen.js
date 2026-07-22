@@ -31,7 +31,7 @@ export class PauseScreen extends Screen {
 
   render(r) {
     const b = this.bounds;
-    r.setAlpha(0.62); r.fillRect(0, 0, b.w, b.h, '#0a1030'); r.setAlpha(1);
+    r.setAlpha(0.55); r.fillRect(0, 0, b.w, b.h, '#1e5aa0'); r.setAlpha(1);
     const p = this.panel;
     UITheme.glassPanel(r, p.x, p.y, p.w, p.h, 26);
     const rw = 200, rh = 46, rx = p.x + (p.w - rw) / 2, ry = p.y - rh * 0.5;

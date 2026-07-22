@@ -55,7 +55,7 @@ export const SurpriseChance = 0.06;
  */
 export const Unlocks = Object.freeze([
   { kind: 'Dragon', name: 'A New Dragon Appears', icon: 'dragon', color: '#ff5c94', reward: { gems: 10 } },
-  { kind: 'Board Theme', name: 'New Board Theme', icon: 'crystal', color: '#7c5cff', reward: { coins: 400 } },
+  { kind: 'Board Theme', name: 'New Board Theme', icon: 'crystal', color: '#3aa8ff', reward: { coins: 400 } },
   { kind: 'Soundtrack', name: 'New Soundtrack', icon: 'rune', color: '#28e0d0', reward: { coins: 400 } },
   { kind: 'Collectible', name: 'New Collectible', icon: 'gem', color: '#ffb020', reward: { gems: 8 } },
   { kind: 'Building', name: 'New Building Style', icon: 'statue', color: '#c8b48a', reward: { materials: 40 } },

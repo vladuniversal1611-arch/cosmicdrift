@@ -38,7 +38,7 @@ export class ParticleSystem extends System {
       if (key === 'reducedMotion') this._reducedMotion = value;
     });
     this.listen('fx:burst', this._onBurst);
-    this.listen('fx:ripple', ({ x, y, color = '#7c5cff', radius = 90 }) => this.ripple(x, y, color, radius));
+    this.listen('fx:ripple', ({ x, y, color = '#22b7ff', radius = 90 }) => this.ripple(x, y, color, radius));
   }
 
   _onBurst({ x, y, color = '#fff', count = 12 }) {
@@ -46,7 +46,7 @@ export class ParticleSystem extends System {
   }
 
   /** Emit an expanding, fading shockwave ring (placement/impact/combo juice). */
-  ripple(x, y, color = '#7c5cff', maxRadius = 90) {
+  ripple(x, y, color = '#22b7ff', maxRadius = 90) {
     if (Quality.animationScale <= 0 || this._rings.length >= 16) return;
     this._rings.push({ x, y, color, t: 0, dur: 0.5, maxRadius });
   }

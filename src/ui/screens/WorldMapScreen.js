@@ -153,11 +153,11 @@ export class WorldMapScreen extends Screen {
     this._layout();
     const b = this.bounds;
 
-    // Opaque biome-tinted backdrop so gameplay is hidden behind the map.
+    // Opaque bright biome sky so gameplay is hidden behind the map.
     const biome = this._wp.biome;
     renderer.fillBackgroundGradient(biome.background);
-    renderer.setAlpha(0.35);
-    renderer.fillRect(0, 0, b.w, b.h, '#05010f');
+    renderer.setAlpha(0.14);
+    renderer.fillRect(0, 0, b.w, b.h, '#1e5aa0');
     renderer.setAlpha(1);
 
     // World layer (islands/landmarks), with a cinematic zoom toward the focus.

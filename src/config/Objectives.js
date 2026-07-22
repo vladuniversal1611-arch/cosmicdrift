@@ -57,7 +57,7 @@ export const Objectives = Object.freeze([
     event: 'tile:frozenFreed', require: 'frozen', base: 2, per: 0.05, weight: 3, minLevel: 1, reward: { materials: 14 } },
   { id: 'activatePortals', name: 'Activate {n} Portals', icon: 'portal', color: '#28e0d0',
     event: 'tile:portalUsed', require: 'portal', base: 3, per: 0.06, weight: 3, minLevel: 1, reward: { essence: 10 } },
-  { id: 'chargeTowers', name: 'Charge {n} Energy Towers', icon: 'towericon', color: '#7c5cff',
+  { id: 'chargeTowers', name: 'Charge {n} Energy Towers', icon: 'towericon', color: '#3aa8ff',
     event: 'gameplay:combo', match: (p) => p.combo >= 2, amount: () => 1, base: 2, per: 0.03, weight: 2, minLevel: 6,
     reward: { gold: 20 } },
   { id: 'defeatBoss', name: 'Purge the Corruption Boss', icon: 'boss', color: P.danger,

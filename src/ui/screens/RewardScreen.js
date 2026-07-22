@@ -83,8 +83,10 @@ export class RewardScreen extends Screen {
 
   render(r) {
     const b = this.bounds;
-    // Dim veil.
-    r.setAlpha(0.82); r.fillRect(0, 0, b.w, b.h, '#05030f'); r.setAlpha(1);
+    // Warm sky veil (never a black-out) so the celebration stays bright.
+    r.setAlpha(0.8);
+    const veil = r.linearGradient(0, 0, 0, b.h, [[0, 'rgba(38,120,195,0.94)'], [1, 'rgba(22,74,140,0.96)']]);
+    r.fillRect(0, 0, b.w, b.h, veil); r.setAlpha(1);
 
     const cx = b.centerX, cy = b.h * 0.34;
     const color = this._data.color || '#ffcf5e';

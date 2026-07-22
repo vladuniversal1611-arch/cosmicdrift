@@ -40,8 +40,8 @@ export class PanelScreen extends Screen {
 
   render(r) {
     this._bg.render(r);
-    // Dim the world a touch so the panel pops.
-    r.setAlpha(0.18); r.fillRect(0, 0, this.bounds.w, this.bounds.h, '#0a1030'); r.setAlpha(1);
+    // A soft cool wash so the bright panel pops (never a dark overlay).
+    r.setAlpha(0.12); r.fillRect(0, 0, this.bounds.w, this.bounds.h, '#1e5aa0'); r.setAlpha(1);
     if (this._topbar) this._topbar.render(r, this.bounds.w);
 
     const p = this.panel;

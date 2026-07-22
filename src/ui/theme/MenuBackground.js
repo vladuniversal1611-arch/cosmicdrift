@@ -30,7 +30,7 @@ export class MenuBackground {
       ph: rng.range(0, 6.28), hue: rng.pick(['#7fe08a', '#a8f07a', '#ffd25e']),
     }));
     this.dragons = [
-      { x: -0.2, y: 0.22, spd: 0.06, scale: 1, dir: 1, color: '#7c5cff' },
+      { x: -0.2, y: 0.22, spd: 0.06, scale: 1, dir: 1, color: '#3aa8ff' },
       { x: 1.2, y: 0.34, spd: 0.045, scale: 0.8, dir: -1, color: '#ff6a8a' },
     ];
   }
@@ -83,8 +83,10 @@ export class MenuBackground {
     const top = h * 0.6 + Math.sin(this.t * 0.7) * 6;   // gentle float
     const iw = w * 0.62;
     const ctx = r.ctx;
-    // Rocky underside.
-    ctx.fillStyle = '#6b4a3a';
+    // Rocky underside — a bright, warm sandy stone (never muddy brown).
+    const rock = r.linearGradient(cx, top, cx, top + h * 0.3,
+      [[0, '#f0cf9e'], [0.55, '#dcae74'], [1, '#c2925a']]);
+    ctx.fillStyle = rock;
     ctx.beginPath();
     ctx.moveTo(cx - iw / 2, top);
     ctx.lineTo(cx + iw / 2, top);
@@ -110,10 +112,10 @@ export class MenuBackground {
       r.setAlpha(1);
     }
     // A couple of tiny buildings/trees on top.
-    r.fillCircle(cx - iw * 0.22, top - 14, 14, '#2f9e4f');
-    r.fillRoundRect(cx - iw * 0.24, top - 6, 4, 12, 1, '#6b4a2b');
-    r.fillRoundRect(cx + iw * 0.12, top - 26, 26, 22, 3, '#e9d6b0');
-    r.fillRoundRect(cx + iw * 0.12, top - 34, 26, 10, 2, '#e0433f'); // roof
+    r.fillCircle(cx - iw * 0.22, top - 14, 14, '#3fc06a');
+    r.fillRoundRect(cx - iw * 0.24, top - 6, 4, 12, 1, '#b07a45');
+    r.fillRoundRect(cx + iw * 0.12, top - 26, 26, 22, 3, '#fbeccb');
+    r.fillRoundRect(cx + iw * 0.12, top - 34, 26, 10, 2, '#ff7a4d'); // roof
   }
 
   _dragon(r, d) {

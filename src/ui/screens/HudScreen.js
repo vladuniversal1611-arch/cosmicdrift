@@ -146,9 +146,9 @@ export class HudScreen extends Screen {
   _drawWorldButton(renderer) {
     const r = this._worldBtn;
     renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
-    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.accent, 1.5);
+    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.gold, 2);
     renderer.text(`◈ ${t('hud.worldMap')}`, r.centerX, r.centerY, {
-      font: '700 13px system-ui, sans-serif', color: Palette.textPrimary,
+      font: '800 13px system-ui, sans-serif', color: Palette.textInverse,
       align: 'center', baseline: 'middle',
     });
   }
@@ -157,9 +157,9 @@ export class HudScreen extends Screen {
   _drawPauseButton(renderer) {
     const r = this._pauseBtn;
     renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
-    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.accentAlt, 1.5);
-    renderer.fillRoundRect(r.centerX - 8, r.centerY - 8, 5, 16, 2, Palette.textPrimary);
-    renderer.fillRoundRect(r.centerX + 3, r.centerY - 8, 5, 16, 2, Palette.textPrimary);
+    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.gold, 2);
+    renderer.fillRoundRect(r.centerX - 8, r.centerY - 8, 5, 16, 2, Palette.accent);
+    renderer.fillRoundRect(r.centerX + 3, r.centerY - 8, 5, 16, 2, Palette.accent);
   }
 
   /** Brief reward / biome toast just above the board. */
@@ -181,7 +181,7 @@ export class HudScreen extends Screen {
     if (mult <= 1.0001) return;
     renderer.text(`×${mult.toFixed(2)}`, this.bounds.centerX, this.bounds.h * 0.055 + 30, {
       font: '800 16px system-ui, sans-serif', color: Palette.warning,
-      align: 'center', baseline: 'middle',
+      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
     });
   }
 
@@ -205,9 +205,11 @@ export class HudScreen extends Screen {
     const y = this.bounds.h * 0.05;
     renderer.text(`LEVEL ${this._level}`, 18, y, {
       font: '800 18px system-ui, sans-serif', color: Palette.textPrimary, baseline: 'middle',
+      outline: Palette.textOutline, outlineWidth: 4,
     });
     renderer.text(this._worldName.toUpperCase(), 18, y + 20, {
-      font: '700 11px system-ui, sans-serif', color: Palette.textMuted, baseline: 'middle',
+      font: '700 11px system-ui, sans-serif', color: '#eaf4ff', baseline: 'middle',
+      outline: Palette.textOutline, outlineWidth: 3,
     });
   }
 
@@ -236,25 +238,25 @@ export class HudScreen extends Screen {
       renderer.scale(1 + pop, 1 + pop);
       renderer.translate(-(x0 + rowW / 2), -cyc);
 
-      // Row background.
+      // Row background — bright glossy glass with a gold/accent trim.
       renderer.fillRoundRect(x0, y, rowW, rowH - 6, 10,
-        done ? 'rgba(56,224,138,0.14)' : 'rgba(20,18,42,0.72)');
-      renderer.strokeRoundRect(x0, y, rowW, rowH - 6, 10, accent, done ? 1.5 : 1);
+        done ? 'rgba(63,200,106,0.22)' : 'rgba(255,255,255,0.86)');
+      renderer.strokeRoundRect(x0, y, rowW, rowH - 6, 10, done ? Palette.success : Palette.gold, done ? 2 : 1.5);
 
       // Icon.
-      drawObjectiveIcon(renderer, o.icon, x0 + 22, cyc, 11, accent);
+      drawObjectiveIcon(renderer, o.icon, x0 + 22, cyc, 11, done ? Palette.success : o.color);
 
       // Label.
       renderer.text(o.label, x0 + 42, cyc - 7, {
-        font: '700 14px system-ui, sans-serif', color: Palette.textPrimary, baseline: 'middle',
+        font: '800 14px system-ui, sans-serif', color: Palette.textInverse, baseline: 'middle',
       });
 
       // Progress bar.
       const barX = x0 + 42;
       const barW = rowW - 42 - 62;
       const barY = cyc + 9;
-      renderer.fillRoundRect(barX, barY, barW, 5, 2.5, 'rgba(255,255,255,0.08)');
-      renderer.fillRoundRect(barX, barY, barW * o.displayProgress, 5, 2.5, accent);
+      renderer.fillRoundRect(barX, barY, barW, 5, 2.5, 'rgba(20,44,92,0.14)');
+      renderer.fillRoundRect(barX, barY, barW * o.displayProgress, 5, 2.5, done ? Palette.success : o.color);
 
       // Count / check.
       const rx = x0 + rowW - 14;
@@ -283,13 +285,13 @@ export class HudScreen extends Screen {
     renderer.withGlow(Palette.accent, 20, () => {
       renderer.text(b.title, cx, y, {
         font: '900 30px system-ui, sans-serif', color: Palette.textPrimary,
-        align: 'center', baseline: 'middle',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
       });
     });
     if (b.sub) {
       renderer.text(b.sub, cx, y + 34, {
-        font: '700 14px system-ui, sans-serif', color: Palette.accentAlt,
-        align: 'center', baseline: 'middle',
+        font: '800 14px system-ui, sans-serif', color: '#eaf4ff',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
       });
     }
     renderer.setAlpha(1);
@@ -305,7 +307,7 @@ export class HudScreen extends Screen {
     renderer.withGlow(Palette.accent, 14 * (0.4 + this._scorePop), () => {
       renderer.text(String(Math.round(this._displayScore)), 0, 0, {
         font: '800 46px system-ui, sans-serif', color: Palette.textPrimary,
-        align: 'center', baseline: 'middle',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
       });
     });
     renderer.restore();
@@ -323,8 +325,8 @@ export class HudScreen extends Screen {
     renderer.scale(scale, scale);
     renderer.withGlow(Palette.warning, 18, () => {
       renderer.text(this._comboText, 0, 0, {
-        font: '900 34px system-ui, sans-serif', color: Palette.warning,
-        align: 'center', baseline: 'middle',
+        font: '900 34px system-ui, sans-serif', color: Palette.gold,
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
       });
     });
     renderer.setAlpha(1);
@@ -333,29 +335,32 @@ export class HudScreen extends Screen {
 
   _drawGameOver(renderer) {
     const b = this.bounds;
-    renderer.setAlpha(0.72 * this._overlayT);
-    renderer.fillRect(0, 0, b.w, b.h, '#03010a');
+    // Warm translucent veil (a soft sky-blue wash) — never a black-out.
+    renderer.setAlpha(0.62 * this._overlayT);
+    const veil = renderer.linearGradient(0, 0, 0, b.h,
+      [[0, 'rgba(34,110,180,0.9)'], [1, 'rgba(20,60,120,0.92)']]);
+    renderer.fillRect(0, 0, b.w, b.h, veil);
     renderer.setAlpha(1);
 
     const cy = b.centerY;
     const rise = (1 - this._overlayT) * 30;
     renderer.setAlpha(this._overlayT);
-    renderer.withGlow(Palette.accent, 22, () => {
+    renderer.withGlow(Palette.gold, 22, () => {
       renderer.text(t('gameOver.title'), b.centerX, cy - 90 - rise, {
         font: '900 44px system-ui, sans-serif', color: Palette.textPrimary,
-        align: 'center', baseline: 'middle',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
       });
     });
     renderer.text(t('gameOver.score'), b.centerX, cy - 26 - rise, {
-      font: '700 15px system-ui, sans-serif', color: Palette.textMuted,
+      font: '800 15px system-ui, sans-serif', color: '#dbeafc',
       align: 'center', baseline: 'middle',
     });
     renderer.text(String(this._final), b.centerX, cy + 8 - rise, {
-      font: '800 40px system-ui, sans-serif', color: Palette.accentAlt,
-      align: 'center', baseline: 'middle',
+      font: '900 40px system-ui, sans-serif', color: '#ffffff',
+      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
     });
     renderer.text(`${t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
-      font: '700 16px system-ui, sans-serif', color: Palette.textMuted,
+      font: '800 16px system-ui, sans-serif', color: '#dbeafc',
       align: 'center', baseline: 'middle',
     });
 
@@ -371,7 +376,7 @@ export class HudScreen extends Screen {
         });
       });
       renderer.text(this._consolation.tip, b.centerX, cy + 110, {
-        font: '600 13px system-ui, sans-serif', color: Palette.textMuted,
+        font: '600 13px system-ui, sans-serif', color: '#dbeafc',
         align: 'center', baseline: 'middle',
       });
       renderer.setAlpha(1);
@@ -381,8 +386,8 @@ export class HudScreen extends Screen {
     const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 300);
     renderer.setAlpha(this._overlayT * pulse);
     renderer.text(t('gameOver.retry'), b.centerX, cy + 142, {
-      font: '700 18px system-ui, sans-serif', color: Palette.textPrimary,
-      align: 'center', baseline: 'middle',
+      font: '800 18px system-ui, sans-serif', color: Palette.textPrimary,
+      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
     renderer.setAlpha(1);
   }

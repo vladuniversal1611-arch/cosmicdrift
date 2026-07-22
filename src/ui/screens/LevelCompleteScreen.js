@@ -89,10 +89,12 @@ export class LevelCompleteScreen extends Screen {
 
   render(r) {
     const b = this.bounds;
-    // Dim + radiant god-rays behind the celebration.
-    r.setAlpha(0.68); r.fillRect(0, 0, b.w, b.h, '#0a1030'); r.setAlpha(1);
-    r.setAlpha(0.5);
-    const rays = r.radialGradient(b.centerX, b.h * 0.38, b.w * 0.8, [[0, 'rgba(255,240,190,0.6)'], [1, 'rgba(255,240,190,0)']]);
+    // Warm sky veil + radiant god-rays behind the celebration (never a black-out).
+    r.setAlpha(0.6);
+    const veil = r.linearGradient(0, 0, 0, b.h, [[0, 'rgba(40,130,205,0.9)'], [1, 'rgba(24,86,158,0.92)']]);
+    r.fillRect(0, 0, b.w, b.h, veil); r.setAlpha(1);
+    r.setAlpha(0.55);
+    const rays = r.radialGradient(b.centerX, b.h * 0.38, b.w * 0.8, [[0, 'rgba(255,244,200,0.7)'], [1, 'rgba(255,244,200,0)']]);
     r.fillRect(0, 0, b.w, b.h, rays); r.setAlpha(1);
 
     this._drawFireworks(r);
@@ -194,12 +196,12 @@ export class LevelCompleteScreen extends Screen {
     const y = this.bounds.h * 0.22 + Math.sin(this._t * 2) * 14;
     const s = 26;
     const flap = Math.sin(this._t * 10) * 0.5;
-    r.withGlow('#7c5cff', 14, () => {
-      r.fillCircle(x, y, s * 0.6, '#8a6cff');
-      const ctx = r.ctx; ctx.fillStyle = '#8a6cff';
+    r.withGlow('#3aa8ff', 14, () => {
+      r.fillCircle(x, y, s * 0.6, '#54a6ff');
+      const ctx = r.ctx; ctx.fillStyle = '#54a6ff';
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s * 1.7, y - s * (0.9 + flap)); ctx.lineTo(x - s * 0.5, y + s * 0.3); ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y - s * (0.7 - flap)); ctx.lineTo(x + s * 0.2, y + s * 0.3); ctx.closePath(); ctx.fill();
-      r.fillCircle(x + s * 0.7, y - s * 0.1, s * 0.35, '#8a6cff');
+      r.fillCircle(x + s * 0.7, y - s * 0.1, s * 0.35, '#54a6ff');
     });
   }
 }
