@@ -165,16 +165,17 @@ export class MenuBackground {
     const top = h * 0.6 + Math.sin(this.t * 0.7) * 6;   // gentle float
     const iw = w * 0.62;
     const ctx = r.ctx;
-    // Rocky underside — a bright, warm sandy stone (never muddy brown).
-    const rock = r.linearGradient(cx, top, cx, top + h * 0.3,
+    // Rocky underside — a bright, warm sandy stone (never muddy brown). Short
+    // and softly rounded so it reads as a gentle floating base, not a spike.
+    const depth = h * 0.14;
+    const rock = r.linearGradient(cx, top, cx, top + depth,
       [[0, '#f0cf9e'], [0.55, '#dcae74'], [1, '#c2925a']]);
     ctx.fillStyle = rock;
     ctx.beginPath();
     ctx.moveTo(cx - iw / 2, top);
     ctx.lineTo(cx + iw / 2, top);
-    ctx.lineTo(cx + iw * 0.18, top + h * 0.22);
-    ctx.lineTo(cx, top + h * 0.3);
-    ctx.lineTo(cx - iw * 0.2, top + h * 0.2);
+    ctx.quadraticCurveTo(cx + iw * 0.22, top + depth * 0.8, cx, top + depth);
+    ctx.quadraticCurveTo(cx - iw * 0.22, top + depth * 0.8, cx - iw / 2, top);
     ctx.closePath(); ctx.fill();
     // Grass top.
     r.withGlow('rgba(120,220,140,0.5)', 12, () => {
@@ -183,12 +184,13 @@ export class MenuBackground {
       ctx.beginPath(); ctx.ellipse(cx, top, iw / 2, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
     });
     // Waterfalls (animated streams from the underside).
+    const fall = h * 0.16;
     const off = (this.t * 60) % 20;
     for (let i = -1; i <= 1; i++) {
       const x = cx + i * iw * 0.16;
       r.setAlpha(0.75);
-      const wg = r.linearGradient(x, top, x, top + h * 0.26, [[0, '#cdeeff'], [1, 'rgba(180,230,255,0)']]);
-      r.fillRoundRect(x - 6, top, 12, h * 0.26, 6, wg);
+      const wg = r.linearGradient(x, top, x, top + fall, [[0, '#cdeeff'], [1, 'rgba(180,230,255,0)']]);
+      r.fillRoundRect(x - 6, top, 12, fall, 6, wg);
       r.setAlpha(0.5);
       for (let k = 0; k < 4; k++) r.fillCircle(x, top + off + k * 20, 3, '#ffffff');
       r.setAlpha(1);

@@ -30,7 +30,7 @@ const CX = 540;
 const LOGO = { y: 120, w: 560, h: 190, floatAmp: 6, floatPeriod: 3.5 };
 const PROFILE = { x: 36, y: 40, s: 120 };
 const SETTINGS = { s: 64, x: 1080 - 32 - 64, y: 44 };
-const RES = { y: 320, h: 110, capW: 320, gap: 20, radius: 54, x0: 40 };
+const RES = { y: 320, h: 110, capW: 300, gap: 20, radius: 54, x0: 70 };
 const PLAY = { w: 540, h: 170, x: (1080 - 540) / 2, y: 1200 - 85, radius: 85 };
 const GRID = { size: 210, gapH: 32, gapV: 28, x0: 193, row1: 1504, row2: 1742 };
 const CARD = { w: 320, h: 190, radius: 42, top: 2170, x0: 32, gap: 24 };
@@ -127,9 +127,12 @@ export class MenuScreen extends Screen {
       const col = i % 3, row = Math.floor(i / 3);
       const x = GRID.x0 + col * (GRID.size + GRID.gapH);
       const y = (row === 0 ? GRID.row1 : GRID.row2);
+      const base = Icons[item.key];
+      const scale = item.key === 'settings' ? 0.68 : 0.82;   // keep icons clear of the label
+      const icon = (r, cx, cy, s) => base(r, cx, cy - s * 0.08, s * scale);
       const btn = this.add(new PremiumButton(x, y, GRID.size, GRID.size,
         this._press(() => this.events.emit(item.event)),
-        { colors: item.colors, radius: 46, icon: Icons[item.key], label: item.label,
+        { colors: item.colors, radius: 46, icon, label: item.label,
           font: '800 26px system-ui, sans-serif', floatAmp: 4, floatPeriod: 2.4 + i * 0.15 }));
       this._nav.push({ btn, key: item.key });
     });
@@ -256,9 +259,12 @@ export class MenuScreen extends Screen {
       const ir = b.h * 0.34;
       r.fillCircle(b.x + b.h * 0.5, b.centerY, ir + 6, 'rgba(255,255,255,0.25)');
       c.icon(r, b.x + b.h * 0.5, b.centerY, ir);
-      // Value.
-      r.text(c.val, b.x + b.h * 0.95, b.centerY, {
-        font: '900 40px system-ui, sans-serif', color: '#fff', baseline: 'middle',
+      // Value, centred in the space between the icon and the "+"/right edge so
+      // the capsule never shows a dead gap regardless of digit count.
+      const left = b.x + b.h * 0.95;
+      const right = c.plus ? b.right - b.h * 0.95 : b.right - b.h * 0.35;
+      r.text(c.val, (left + right) / 2, b.centerY, {
+        font: '900 40px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
         outline: 'rgba(20,44,92,0.4)', outlineWidth: 4,
       });
       // "+" affordance.
@@ -304,12 +310,12 @@ export class MenuScreen extends Screen {
       const y = CARD.top;
       UITheme.button(r, x, y, CARD.w, CARD.h, CARD.radius, c.color, { shadow: true });
       // Gloss + gold trim provided by UITheme.button. Icon + label.
-      drawObjectiveIcon(r, c.icon, x + 66, y + CARD.h * 0.42, 34, '#fff');
-      r.text(c.label, x + 118, y + CARD.h * 0.36, { font: '900 26px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
+      drawObjectiveIcon(r, c.icon, x + 58, y + CARD.h * 0.42, 32, '#fff');
+      r.text(c.label, x + 104, y + CARD.h * 0.36, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
       // Status line.
       let status = 'OPEN';
       if (c.id === 'daily') status = ret?.hasUnclaimedDaily?.() ? 'READY!' : 'CLAIMED';
-      r.text(status, x + 118, y + CARD.h * 0.66, { font: '800 20px system-ui, sans-serif', color: 'rgba(255,255,255,0.92)', baseline: 'middle' });
+      r.text(status, x + 104, y + CARD.h * 0.66, { font: '800 18px system-ui, sans-serif', color: 'rgba(255,255,255,0.92)', baseline: 'middle' });
       // Ready badge on the daily card.
       if (c.id === 'daily' && ret?.hasUnclaimedDaily?.()) {
         const pulse = 0.8 + 0.2 * Math.sin(this._t * 5);
