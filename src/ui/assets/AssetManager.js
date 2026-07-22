@@ -29,14 +29,27 @@ class AssetManagerImpl {
   constructor() {
     /** key → HTMLImageElement (only present once loaded). */
     this._images = new Map();
-    /** key → url, declared but not necessarily loaded. */
+    /** key → path (relative to the base), declared but not necessarily loaded. */
     this._manifest = new Map();
+    /**
+     * Base path prepended to every manifest path. THE theme seam: swapping a
+     * whole visual theme is just pointing this at another folder that mirrors
+     * the same layout (or replacing files in place) — no code/key changes.
+     */
+    this._base = 'assets/';
     this._loading = 0;
   }
 
-  /** Declare art for a key. Call `load()` afterwards to fetch it. */
-  register(key, url) { this._manifest.set(key, url); return this; }
-  /** Declare many at once: { key: url, ... } */
+  /** Set the asset base folder (theme root). e.g. 'assets/themes/winter/'. */
+  setBasePath(base) { this._base = base.endsWith('/') ? base : base + '/'; return this; }
+  /** Convenience: switch to a named theme folder under assets/themes/. */
+  setTheme(name) { return this.setBasePath(`assets/themes/${name}/`); }
+  /** Full resolved URL for a key (base + declared relative path). */
+  url(key) { const p = this._manifest.get(key); return p == null ? null : this._base + p; }
+
+  /** Declare art for a key (path RELATIVE to the base). Call `load()` after. */
+  register(key, path) { this._manifest.set(key, path); return this; }
+  /** Declare many at once: { key: relativePath, ... } */
   registerAll(manifest) { for (const k in manifest) this._manifest.set(k, manifest[k]); return this; }
 
   /**
@@ -51,8 +64,9 @@ class AssetManagerImpl {
   }
 
   _loadOne(key) {
-    const url = this._manifest.get(key);
-    if (!url || this._images.has(key)) return Promise.resolve();
+    const path = this._manifest.get(key);
+    if (!path || this._images.has(key)) return Promise.resolve();
+    const url = this._base + path;
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => { this._images.set(key, img); resolve(); };
