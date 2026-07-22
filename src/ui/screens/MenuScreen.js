@@ -67,16 +67,6 @@ const Icons = {
   },
 };
 
-// Resource icon: a lightning bolt for Dragon Energy.
-function boltIcon(r, cx, cy, s) {
-  const ctx = r.ctx; ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.moveTo(cx + s * 0.2, cy - s); ctx.lineTo(cx - s * 0.5, cy + s * 0.15);
-  ctx.lineTo(cx, cy + s * 0.15); ctx.lineTo(cx - s * 0.2, cy + s);
-  ctx.lineTo(cx + s * 0.5, cy - s * 0.15); ctx.lineTo(cx, cy - s * 0.15);
-  ctx.closePath(); ctx.fill();
-}
-
 const CARDS = [
   { id: 'daily', label: 'DAILY REWARD', icon: 'chest', color: UI.btn.teal, event: 'ui:openDaily' },
   { id: 'season', label: 'SEASON PASS', icon: 'rune', color: UI.btn.purple, toast: 'Season Pass — coming soon!' },
@@ -201,6 +191,7 @@ export class MenuScreen extends Screen {
     this._drawResourceBar(r);
     this._drawPlayGlow(r);
     this._play.render(r);
+    this._drawPlayReflection(r);
     for (const p of this._sparks) { r.setAlpha(Math.max(0, 1 - p.t / p.life)); r.sparkle(p.x, p.y, p.s, '#fff6c8'); }
     r.setAlpha(1);
     for (const n of this._nav) n.btn.render(r);
@@ -214,6 +205,13 @@ export class MenuScreen extends Screen {
     const y = LOGO.y + bob;
     this._crystalWord(r, 'COSMIC', CX, y + 68, 80, '#ffffff');
     this._crystalWord(r, 'DRIFT', CX, y + 150, 80, '#dff6ff');
+    // Occasional travelling sparkle across the wordmark.
+    const cyc = (this._t % 3.4) / 0.7;
+    if (cyc < 1) {
+      const a = Math.sin(cyc * Math.PI);
+      const sx = CX - 150 + cyc * 300, sy = y + 60 - Math.sin(cyc * Math.PI) * 30;
+      r.setAlpha(a); r.withGlow('#fff', 10, () => r.sparkle(sx, sy, 14, '#fff6c8')); r.setAlpha(1);
+    }
   }
 
   /** A crystal letterform: soft depth shadow, bevelled gold outline, crystal
@@ -273,9 +271,9 @@ export class MenuScreen extends Screen {
 
   _drawResourceBar(r) {
     const caps = [
-      { rect: this._resRects[0], colors: UI.btn.orange, icon: (rr, cx, cy, s) => drawObjectiveIcon(rr, 'coins', cx, cy, s, '#fff'), val: this._coins.text, plus: true },
-      { rect: this._resRects[1], colors: UI.btn.blue, icon: (rr, cx, cy, s) => drawObjectiveIcon(rr, 'gem', cx, cy, s, '#fff'), val: this._gems.text, plus: true },
-      { rect: this._resRects[2], colors: UI.btn.teal, icon: boltIcon, val: this._energy.text, plus: false },
+      { rect: this._resRects[0], colors: UI.btn.orange, icon: (rr, cx, cy, s) => this._coinIcon(rr, cx, cy, s), val: this._coins.text, plus: true },
+      { rect: this._resRects[1], colors: UI.btn.blue, icon: (rr, cx, cy, s) => this._gemIcon(rr, cx, cy, s), val: this._gems.text, plus: true },
+      { rect: this._resRects[2], colors: UI.btn.teal, icon: (rr, cx, cy, s) => this._boltCrystal(rr, cx, cy, s), val: this._energy.text, plus: false },
     ];
     for (const c of caps) {
       const b = c.rect;
@@ -319,11 +317,13 @@ export class MenuScreen extends Screen {
       if (n.key === 'events' && ret?.hasUnclaimedDaily?.()) { show = true; txt = '!'; }
       if (!show) continue;
       const b = n.btn.bounds;
-      const bx = b.right - 18, by = b.y + 18;
-      const pulse = 0.8 + 0.2 * Math.sin(this._t * 5);
-      r.withGlow('#ff4d5e', 8, () => r.fillCircle(bx, by, 20 * pulse, '#ff4d5e'));
-      r.strokeRoundRect(bx - 20, by - 20, 40, 40, 20, '#fff', 3);
-      r.text(txt, bx, by + 1, { font: '900 24px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      // Bounce: a springy vertical hop + scale pop.
+      const hop = Math.abs(Math.sin(this._t * 3)) ;
+      const bx = b.right - 18, by = b.y + 18 - hop * 6;
+      const scale = 1 + hop * 0.18;
+      r.withGlow('#ff4d5e', 10, () => r.fillCircle(bx, by, 20 * scale, '#ff4d5e'));
+      r.strokeRoundRect(bx - 20 * scale, by - 20 * scale, 40 * scale, 40 * scale, 20 * scale, '#fff', 3);
+      r.text(txt, bx, by + 1, { font: `900 ${Math.round(24 * scale)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
     }
   }
 
@@ -332,10 +332,12 @@ export class MenuScreen extends Screen {
     CARDS.forEach((c, i) => {
       const x = CARD.x0 + i * (CARD.w + CARD.gap) + this._scroll;
       if (x > 1080 || x + CARD.w < 0) return;   // cull off-screen
-      const y = CARD.top;
-      UITheme.button(r, x, y, CARD.w, CARD.h, CARD.radius, c.color, { shadow: true });
-      // Gloss + gold trim provided by UITheme.button. Icon + label.
-      drawObjectiveIcon(r, c.icon, x + 58, y + CARD.h * 0.42, 32, '#fff');
+      const y = CARD.top + Math.sin(this._t * 1.4 + i * 0.8) * 4;   // soft idle bob
+      // Soft coloured glow behind each card.
+      r.withGlow(c.color[1], 12, () => UITheme.button(r, x, y, CARD.w, CARD.h, CARD.radius, c.color, { shadow: true }));
+      // Unique animated illustration (gentle bob offset from the card).
+      const iy = y + CARD.h * 0.42 + Math.sin(this._t * 2 + i) * 3;
+      this._cardArt(r, c.id, x + 60, iy, 22);
       r.text(c.label, x + 104, y + CARD.h * 0.36, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
       // Status line.
       let status = 'OPEN';
@@ -355,6 +357,67 @@ export class MenuScreen extends Screen {
     for (let i = 0; i < total; i++) {
       r.fillCircle(startX + i * dw, dotY, i === active ? 6 : 4, i === active ? '#fff' : 'rgba(255,255,255,0.5)');
     }
+  }
+
+  // --- Bespoke premium illustrations ----------------------------------------
+  _coinIcon(r, cx, cy, s) {
+    const ctx = r.ctx;
+    ctx.fillStyle = '#e0a41e'; ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.12, s, s * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+    const g = r.linearGradient(cx, cy - s, cx, cy + s, [[0, '#fff3c4'], [1, '#ffcf5e']]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, s * 0.92, s * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+    r.text('★', cx, cy + 1, { font: `900 ${s}px system-ui, sans-serif`, color: '#e0a41e', align: 'center', baseline: 'middle' });
+    r.setAlpha(0.6); r.fillCircle(cx - s * 0.32, cy - s * 0.3, s * 0.18, '#fff'); r.setAlpha(1);
+  }
+  _gemIcon(r, cx, cy, s) {
+    const ctx = r.ctx;
+    const g = r.linearGradient(cx, cy - s, cx, cy + s, [[0, '#e2f4ff'], [1, '#2f8bff']]);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(cx, cy - s); ctx.lineTo(cx - s * 0.9, cy - s * 0.1); ctx.lineTo(cx, cy + s); ctx.lineTo(cx + s * 0.9, cy - s * 0.1); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = s * 0.08;
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.9, cy - s * 0.1); ctx.lineTo(cx + s * 0.9, cy - s * 0.1); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
+    r.sparkle(cx - s * 0.28, cy - s * 0.28, s * 0.2, '#fff');
+  }
+  _boltCrystal(r, cx, cy, s) {
+    const ctx = r.ctx;
+    const g = r.linearGradient(cx, cy - s, cx, cy + s, [[0, '#c2fff4'], [1, '#18d0c0']]);
+    ctx.fillStyle = g; ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; const px = cx + Math.cos(a) * s, py = cy + Math.sin(a) * s; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath();
+    ctx.moveTo(cx + s * 0.12, cy - s * 0.62); ctx.lineTo(cx - s * 0.34, cy + s * 0.06); ctx.lineTo(cx, cy + s * 0.06);
+    ctx.lineTo(cx - s * 0.12, cy + s * 0.62); ctx.lineTo(cx + s * 0.4, cy - s * 0.12); ctx.lineTo(cx + s * 0.02, cy - s * 0.12); ctx.closePath(); ctx.fill();
+  }
+  _cardArt(r, id, cx, cy, s) {
+    const ctx = r.ctx; ctx.fillStyle = '#fff';
+    if (id === 'daily') { // gift present: box + lid + ribbon + bow
+      r.fillRoundRect(cx - s, cy - s * 0.15, s * 2, s * 1.05, s * 0.2, '#fff');
+      r.fillRoundRect(cx - s * 1.05, cy - s * 0.6, s * 2.1, s * 0.55, s * 0.2, '#fff');
+      r.fillRoundRect(cx - s * 0.14, cy - s * 0.6, s * 0.28, s * 1.5, s * 0.1, 'rgba(120,190,255,0.9)');
+      r.fillCircle(cx - s * 0.32, cy - s * 0.78, s * 0.3, '#fff');
+      r.fillCircle(cx + s * 0.32, cy - s * 0.78, s * 0.3, '#fff');
+    } else if (id === 'season') {
+      ctx.fillStyle = 'rgba(120,190,255,0.85)'; ctx.beginPath(); ctx.moveTo(cx - s * 0.5, cy + s * 0.2); ctx.lineTo(cx - s * 0.2, cy + s * 1.2); ctx.lineTo(cx, cy + s * 0.7); ctx.lineTo(cx + s * 0.2, cy + s * 1.2); ctx.lineTo(cx + s * 0.5, cy + s * 0.2); ctx.closePath(); ctx.fill();
+      r.fillCircle(cx, cy - s * 0.1, s * 0.85, '#fff');
+      r.text('★', cx, cy - s * 0.05, { font: `900 ${s}px system-ui, sans-serif`, color: '#ffb020', align: 'center', baseline: 'middle' });
+    } else if (id === 'event') {
+      r.fillRoundRect(cx - s, cy - s * 0.7, s * 2, s * 1.6, s * 0.18, '#fff');
+      r.fillRoundRect(cx - s, cy - s * 0.7, s * 2, s * 0.5, s * 0.18, 'rgba(255,150,60,0.9)');
+      r.fillCircle(cx, cy + s * 0.35, s * 0.3, 'rgba(255,150,60,0.9)');
+    } else { // lucky — clover
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 4; r.fillCircle(cx + Math.cos(a) * s * 0.5, cy + Math.sin(a) * s * 0.5, s * 0.42, '#fff'); }
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = s * 0.16; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + s * 0.4, cy + s * 1.1); ctx.stroke();
+    }
+  }
+  /** A soft light reflection sweeping across the PLAY button. */
+  _drawPlayReflection(r) {
+    const ctx = r.ctx;
+    ctx.save(); r.roundRectPath(PLAY.x, PLAY.y, PLAY.w, PLAY.h, PLAY.radius); ctx.clip();
+    const sweep = (this._t * 0.35) % 1.6;   // travels, then pauses off-screen
+    const bx = PLAY.x - PLAY.w * 0.3 + sweep * (PLAY.w * 1.2);
+    ctx.globalAlpha = 0.35;
+    const g = r.linearGradient(bx - 70, 0, bx + 70, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.75)'], [1, 'rgba(255,255,255,0)']]);
+    ctx.fillStyle = g; ctx.fillRect(PLAY.x, PLAY.y, PLAY.w, PLAY.h);
+    ctx.globalAlpha = 1; ctx.restore();
   }
 
   _drawToast(r) {

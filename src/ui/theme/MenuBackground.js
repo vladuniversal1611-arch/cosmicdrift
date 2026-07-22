@@ -32,6 +32,9 @@ export class MenuBackground {
     this.dragons = [
       { x: -0.2, y: 0.22, spd: 0.06, scale: 1, dir: 1, color: '#3aa8ff' },
       { x: 1.2, y: 0.34, spd: 0.045, scale: 0.8, dir: -1, color: '#ff6a8a' },
+      // Tiny dragons far away, high in the sky, drifting slowly.
+      { x: 0.3, y: 0.1, spd: 0.02, scale: 0.32, dir: 1, color: '#7fb8ff' },
+      { x: 0.8, y: 0.14, spd: 0.016, scale: 0.28, dir: -1, color: '#c8a6ff' },
     ];
     // Distant parallax islands (far, small, faint) high in the sky.
     this.farIslands = [
@@ -218,11 +221,89 @@ export class MenuBackground {
       for (let k = 0; k < 4; k++) r.fillCircle(x, top + off + k * 20, 3, '#ffffff');
       r.setAlpha(1);
     }
-    // A couple of tiny buildings/trees on top.
-    r.fillCircle(cx - iw * 0.22, top - 14, 14, '#3fc06a');
-    r.fillRoundRect(cx - iw * 0.24, top - 6, 4, 12, 1, '#b07a45');
-    r.fillRoundRect(cx + iw * 0.12, top - 26, 26, 22, 3, '#fbeccb');
-    r.fillRoundRect(cx + iw * 0.12, top - 34, 26, 10, 2, '#ff7a4d'); // roof
+    // Detailed island scene on top (soft shadows first, then props).
+    this._islandDecor(r, cx, top, iw);
+  }
+
+  /** A little living world on the island: trees, flowers, rocks, crystals, a
+   *  wooden bridge, a dragon nest and animated grass — all gently moving. */
+  _islandDecor(r, cx, top, iw) {
+    const ctx = r.ctx;
+    const sway = Math.sin(this.t * 1.1);
+    // Soft ground shadows under the props.
+    r.setAlpha(0.12);
+    for (const dx of [-0.30, -0.02, 0.24, 0.40]) r.fillCircle(cx + iw * dx, top + 10, 34, '#173a72');
+    r.setAlpha(1);
+
+    // Animated grass blades along the ridge.
+    ctx.strokeStyle = '#5ec46a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      const gx = cx + (i / 15 - 0.5) * iw * 0.9;
+      const bend = Math.sin(this.t * 1.6 + i) * 4;
+      ctx.beginPath(); ctx.moveTo(gx, top + 6); ctx.quadraticCurveTo(gx + bend, top - 8, gx + bend * 1.6, top - 16); ctx.stroke();
+    }
+
+    // Rocks (light gray-blue, rounded).
+    this._rock(r, cx - iw * 0.40, top - 4, 20);
+    this._rock(r, cx + iw * 0.40, top - 2, 15);
+
+    // Crystal cluster (cyan, softly pulsing glow).
+    const cg = 0.6 + 0.4 * Math.sin(this.t * 2);
+    r.withGlow('#7fe0ff', 8 + cg * 6, () => {
+      this._crystalSpike(r, cx + iw * 0.30, top - 6, 26, '#8fd6ff');
+      this._crystalSpike(r, cx + iw * 0.345, top - 2, 18, '#bfe4ff');
+    });
+
+    // Flowers (a small colourful cluster).
+    const petals = ['#ff6aa8', '#ffb020', '#ffe08a'];
+    for (let i = 0; i < 3; i++) this._flower(r, cx - iw * 0.14 + i * 16, top - 6 + (i % 2) * 6, 7, petals[i]);
+
+    // Trees (rounded canopies with a gentle sway).
+    this._tree(r, cx - iw * 0.30, top - 6, 26, sway);
+    this._tree(r, cx + iw * 0.02, top - 8, 32, sway * -0.8);
+
+    // Wooden bridge across a little gap.
+    this._bridge(r, cx - iw * 0.06, top + 2, iw * 0.22);
+
+    // Dragon nest with a spotted egg.
+    this._nest(r, cx + iw * 0.20, top + 2, 22);
+  }
+
+  _rock(r, x, y, s) {
+    const g = r.linearGradient(x, y - s, x, y + s, [[0, '#eaf3ff'], [1, '#aecbea']]);
+    r.ctx.fillStyle = g; r.ctx.beginPath(); r.ctx.ellipse(x, y, s, s * 0.7, 0, 0, Math.PI * 2); r.ctx.fill();
+  }
+  _crystalSpike(r, x, y, s, c) {
+    const ctx = r.ctx;
+    const g = r.linearGradient(x, y - s, x, y, [[0, '#e2fbff'], [1, c]]);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x, y - s); ctx.lineTo(x - s * 0.32, y); ctx.lineTo(x + s * 0.32, y); ctx.closePath(); ctx.fill();
+  }
+  _flower(r, x, y, s, c) {
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; r.fillCircle(x + Math.cos(a) * s, y + Math.sin(a) * s, s * 0.6, c); }
+    r.fillCircle(x, y, s * 0.6, '#fff3c4');
+  }
+  _tree(r, x, y, s, sway) {
+    const ctx = r.ctx;
+    r.fillRoundRect(x - s * 0.12, y - s * 0.2, s * 0.24, s * 0.9, s * 0.1, '#9a6b3f');
+    ctx.save(); ctx.translate(x, y - s * 0.2); ctx.rotate(sway * 0.05);
+    r.withGlow('rgba(120,220,140,0.35)', 6, () => {
+      const g = r.linearGradient(0, -s, 0, s * 0.3, [[0, '#8be86a'], [1, '#3fae5a']]);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -s * 0.4, s * 0.8, s * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.restore();
+  }
+  _bridge(r, x, y, w) {
+    const ctx = r.ctx; const h = 10;
+    ctx.strokeStyle = '#b07a45'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.quadraticCurveTo(x, y - h, x + w / 2, y); ctx.stroke();
+    for (let i = 0; i <= 4; i++) { const t = i / 4; const px = x - w / 2 + w * t; const py = y - Math.sin(t * Math.PI) * h; r.fillRoundRect(px - 2, py, 4, 8, 1, '#caa06e'); }
+  }
+  _nest(r, x, y, s) {
+    r.ctx.fillStyle = '#caa06e'; r.ctx.beginPath(); r.ctx.ellipse(x, y, s, s * 0.55, 0, 0, Math.PI * 2); r.ctx.fill();
+    r.ctx.fillStyle = '#9a6b3f'; r.ctx.beginPath(); r.ctx.ellipse(x, y - 2, s * 0.7, s * 0.35, 0, 0, Math.PI * 2); r.ctx.fill();
+    r.fillCircle(x, y - s * 0.35, s * 0.42, '#bfe4ff');
+    r.setAlpha(0.7); r.fillCircle(x - s * 0.14, y - s * 0.45, s * 0.1, '#3aa8ff'); r.fillCircle(x + s * 0.12, y - s * 0.3, s * 0.08, '#3aa8ff'); r.setAlpha(1);
   }
 
   _dragon(r, d) {
