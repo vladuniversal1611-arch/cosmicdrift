@@ -33,6 +33,16 @@ export class MenuBackground {
       { x: -0.2, y: 0.22, spd: 0.06, scale: 1, dir: 1, color: '#3aa8ff' },
       { x: 1.2, y: 0.34, spd: 0.045, scale: 0.8, dir: -1, color: '#ff6a8a' },
     ];
+    // Distant parallax islands (far, small, faint) high in the sky.
+    this.farIslands = [
+      { x: 0.16, y: 0.16, s: 0.055 },
+      { x: 0.84, y: 0.13, s: 0.045 },
+    ];
+    // A little flock of birds drifting across the sky.
+    this.birds = Array.from({ length: 6 }, () => ({
+      x: rng.range(-0.1, 1.1), y: rng.range(0.12, 0.42),
+      spd: rng.range(0.02, 0.045), scale: rng.range(0.6, 1.1), ph: rng.range(0, 6.28),
+    }));
   }
 
   update(dt) {
@@ -47,6 +57,10 @@ export class MenuBackground {
       if (d.dir > 0 && d.x > 1.25) d.x = -0.25;
       if (d.dir < 0 && d.x < -0.25) d.x = 1.25;
     }
+    for (const bd of this.birds) {
+      bd.x += bd.spd * dt;
+      if (bd.x > 1.15) bd.x = -0.15;
+    }
   }
 
   render(r) {
@@ -60,10 +74,78 @@ export class MenuBackground {
     r.fillRect(0, 0, w, h * 0.6, sun);
     r.setAlpha(1);
 
+    this._rays(r);
+    for (const b of this.birds) this._bird(r, b);
     for (const c of this.clouds) this._cloud(r, c);
+    for (const fi of this.farIslands) this._farIsland(r, fi);
     this._island(r);
     for (const d of this.dragons) this._dragon(r, d);
     for (const l of this.leaves) this._leaf(r, l);
+  }
+
+  /** Soft warm sunlight rays that slowly sweep from the top. */
+  _rays(r) {
+    const { w, h } = this;
+    const ctx = r.ctx;
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.translate(w * 0.5, -h * 0.06);
+    ctx.rotate(Math.sin(this.t * 0.05) * 0.12);
+    ctx.fillStyle = '#fff6d6';
+    for (let i = 0; i < 9; i++) {
+      ctx.rotate(Math.PI / 9);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-w * 0.03, h * 1.3);
+      ctx.lineTo(w * 0.03, h * 1.3);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /** A tiny, faint distant floating island (parallax depth). */
+  _farIsland(r, fi) {
+    const { w, h } = this;
+    const cx = fi.x * w + Math.sin(this.t * 0.4 + fi.x * 6) * 5;
+    const cy = fi.y * h;
+    const iw = w * fi.s;
+    const ctx = r.ctx;
+    r.setAlpha(0.45);
+    // Short rounded rock underside (soft trapezoid, not a big spike).
+    ctx.fillStyle = '#d8c096';
+    ctx.beginPath();
+    ctx.moveTo(cx - iw, cy);
+    ctx.lineTo(cx + iw, cy);
+    ctx.lineTo(cx + iw * 0.45, cy + iw * 0.7);
+    ctx.lineTo(cx - iw * 0.45, cy + iw * 0.7);
+    ctx.closePath(); ctx.fill();
+    // Grass cap.
+    ctx.fillStyle = '#7fd08a';
+    ctx.beginPath(); ctx.ellipse(cx, cy, iw, iw * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    r.setAlpha(1);
+  }
+
+  /** A little bird (soft "M" silhouette) gliding across the sky. */
+  _bird(r, bd) {
+    const { w, h } = this;
+    const x = bd.x * w, y = bd.y * h + Math.sin(this.t * 1.5 + bd.ph) * 6;
+    const s = 14 * bd.scale;
+    const flap = Math.sin(this.t * 6 + bd.ph) * 0.4 + 0.5;
+    const ctx = r.ctx;
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = '#4a6b9a';
+    ctx.lineWidth = Math.max(2, s * 0.16);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - s, y);
+    ctx.quadraticCurveTo(x - s * 0.4, y - s * flap, x, y);
+    ctx.quadraticCurveTo(x + s * 0.4, y - s * flap, x + s, y);
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   _cloud(r, c) {

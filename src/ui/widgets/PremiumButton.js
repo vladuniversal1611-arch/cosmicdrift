@@ -21,6 +21,11 @@ export class PremiumButton extends Widget {
     this.font = opts.font ?? `900 ${Math.round(h * 0.34)}px system-ui, sans-serif`;
     this.icon = opts.icon ?? null;          // (renderer, cx, cy, r) => void
     this.round = opts.round ?? false;        // circular icon button
+    /** Radians the button twists to on press (settles back). */
+    this.rotateOnPress = opts.rotateOnPress ?? 0;
+    /** Idle vertical float (px) + period (s) so buttons feel alive. */
+    this.floatAmp = opts.floatAmp ?? 0;
+    this.floatPeriod = opts.floatPeriod ?? 3;
     this._pressAt = -1;
     this._phase = Math.random() * Math.PI * 2;
   }
@@ -34,10 +39,16 @@ export class PremiumButton extends Widget {
     if (this._pressAt >= 0 && t < 0.6) press = 0.9 + 0.1 * Easing.elasticOut(Math.min(1, t / 0.6));
     const scale = breathe * press;
     const rad = this.round ? b.h / 2 : this.radius;
+    // Press twist + idle float (both honour Reduced Motion via small amplitudes).
+    const rot = (this.rotateOnPress && this._pressAt >= 0 && t < 0.6)
+      ? this.rotateOnPress * Math.sin(Math.min(1, t / 0.6) * Math.PI) : 0;
+    const bob = this.floatAmp
+      ? Math.sin(now / 1000 * (2 * Math.PI / this.floatPeriod) + this._phase) * this.floatAmp : 0;
 
     r.save();
-    r.translate(b.centerX, b.centerY);
+    r.translate(b.centerX, b.centerY + bob);
     r.scale(scale, scale);
+    if (rot) r.rotate(rot);
     r.translate(-b.centerX, -b.centerY);
     UITheme.button(r, b.x, b.y, b.w, b.h, rad, this.colors);
     if (this.icon) this.icon(r, b.centerX, b.centerY - (this.label ? b.h * 0.12 : 0), b.h * 0.3);

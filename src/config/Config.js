@@ -30,8 +30,8 @@ export const Config = Object.freeze({
    * which keeps layout identical across every screen size.
    */
   render: Object.freeze({
-    width: 720,
-    height: 1280,
+    width: 1080,
+    height: 2400,
     /** Target frame rate. The loop uses a fixed timestep derived from this. */
     targetFps: 60,
     /** Cap device pixel ratio to protect fill-rate on high-density panels. */
