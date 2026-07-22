@@ -167,6 +167,7 @@ export class BoardSystem extends System {
   // --- Rendering -------------------------------------------------------------
 
   render(renderer) {
+    this._drawPedestal(renderer);
     this._drawFrame(renderer);
     const size = this.grid.cellSize;
 
@@ -253,6 +254,9 @@ export class BoardSystem extends System {
     }
     ctx.globalAlpha = 1;
 
+    // Magic-lit cracks + tiny vines creeping along the edges.
+    this._drawVinesCracks(renderer, outer);
+
     // Crystal corner decorations (softly pulsing) — premium frame accents.
     const cg = 0.6 + 0.4 * Math.sin(this._time * 2);
     const cs = pad * 0.55;
@@ -262,6 +266,74 @@ export class BoardSystem extends System {
         ctx.fillStyle = g; ctx.beginPath();
         ctx.moveTo(cxp, cyp - cs); ctx.lineTo(cxp - cs * 0.7, cyp); ctx.lineTo(cxp, cyp + cs); ctx.lineTo(cxp + cs * 0.7, cyp); ctx.closePath(); ctx.fill();
       });
+    }
+  }
+
+  /** Glowing cracks in the stone + gentle vines growing along top/bottom edges. */
+  _drawVinesCracks(renderer, outer) {
+    const ctx = renderer.ctx;
+    // Glowing magical cracks.
+    const pulse = 0.4 + 0.35 * Math.sin(this._time * 1.4);
+    ctx.save();
+    ctx.globalAlpha = 0.45 + pulse * 0.35;
+    ctx.strokeStyle = '#7fe0ff'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    for (const [t, edge] of [[0.2, 0], [0.62, 0], [0.4, 1], [0.8, 1]]) {
+      const bx = outer.x + outer.w * t, by = edge ? outer.bottom - 6 : outer.y + 6;
+      const d = edge ? -1 : 1;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.lineTo(bx + 9, by + 16 * d); ctx.lineTo(bx - 6, by + 30 * d); ctx.lineTo(bx + 7, by + 46 * d);
+      ctx.stroke();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+    // Vines with tiny leaves swaying along the top and bottom edges.
+    for (const edge of [0, 1]) {
+      const ey = edge ? outer.bottom - 8 : outer.y + 8;
+      ctx.save(); ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = '#3fae5a'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) { const t = i / 24; const vx = outer.x + outer.w * t; const vy = ey + Math.sin(t * 11 + this._time * 0.8 + edge) * 5; i ? ctx.lineTo(vx, vy) : ctx.moveTo(vx, vy); }
+      ctx.stroke();
+      for (let i = 2; i < 24; i += 3) { const t = i / 24; const vx = outer.x + outer.w * t; const vy = ey + Math.sin(t * 11 + this._time * 0.8 + edge) * 5; renderer.fillCircle(vx, vy - 5 * (edge ? -1 : 1), 4, '#6fd07f'); }
+      ctx.globalAlpha = 1; ctx.restore();
+    }
+  }
+
+  /** The board's floating-island pedestal: side crystals, roots and tiny falls. */
+  _drawPedestal(renderer) {
+    const a = this._area; const ctx = renderer.ctx; const t = this._time;
+    // Floating crystals drifting beside the platform (in the side margins).
+    const spots = [
+      { x: a.x - 34, y: a.y + a.h * 0.28, s: 24 },
+      { x: a.right + 34, y: a.y + a.h * 0.5, s: 28 },
+      { x: a.x - 28, y: a.y + a.h * 0.72, s: 18 },
+      { x: a.right + 30, y: a.y + a.h * 0.86, s: 20 },
+    ];
+    for (const sp of spots) {
+      const bob = Math.sin(t * 1.2 + sp.x) * 6;
+      const cg = 0.6 + 0.4 * Math.sin(t * 2 + sp.x);
+      const cy = sp.y + bob;
+      renderer.withGlow('#7fe0ff', 6 + cg * 8, () => {
+        const g = renderer.linearGradient(sp.x, cy - sp.s, sp.x, cy + sp.s, [[0, '#e2fbff'], [1, '#8fd6ff']]);
+        ctx.fillStyle = g; ctx.beginPath();
+        ctx.moveTo(sp.x, cy - sp.s); ctx.lineTo(sp.x - sp.s * 0.5, cy); ctx.lineTo(sp.x, cy + sp.s); ctx.lineTo(sp.x + sp.s * 0.5, cy); ctx.closePath(); ctx.fill();
+      });
+    }
+    // Stone supports + roots curling from the bottom corners, and tiny falls.
+    for (const dir of [-1, 1]) {
+      const bx = dir < 0 ? a.x + a.w * 0.16 : a.right - a.w * 0.16;
+      const by = a.bottom - 4;
+      // support nub
+      const g = renderer.linearGradient(bx, by, bx, by + 70, [[0, '#dcae74'], [1, '#b07a45']]);
+      ctx.fillStyle = g; ctx.beginPath();
+      ctx.moveTo(bx - 26, by); ctx.lineTo(bx + 26, by); ctx.quadraticCurveTo(bx + 8, by + 70, bx, by + 74); ctx.quadraticCurveTo(bx - 8, by + 70, bx - 26, by); ctx.closePath(); ctx.fill();
+      // root
+      ctx.strokeStyle = '#9a6b3f'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(bx + dir * 18, by + 6); ctx.quadraticCurveTo(bx + dir * 46, by + 30, bx + dir * 30, by + 64); ctx.stroke();
+      // tiny waterfall
+      renderer.setAlpha(0.6);
+      const wg = renderer.linearGradient(bx, by, bx, by + 90, [[0, '#cdeeff'], [1, 'rgba(180,230,255,0)']]);
+      renderer.fillRoundRect(bx - 5, by, 10, 90, 5, wg);
+      renderer.setAlpha(1);
     }
   }
 
@@ -295,6 +367,13 @@ export class BoardSystem extends System {
     ctx.fillStyle = socketGrad;
     ctx.fill();
     ctx.restore();
+    // Carved depth: a soft top highlight and a bottom shade inside the tile so
+    // each cell reads as an engraved stone slab, not a flat square.
+    renderer.setAlpha(0.4);
+    renderer.fillRoundRect(x + size * 0.1, y + size * 0.09, size * 0.8, size * 0.14, r * 0.5, 'rgba(255,255,255,0.85)');
+    renderer.setAlpha(0.16);
+    renderer.fillRoundRect(x + size * 0.1, y + size * 0.77, size * 0.8, size * 0.14, r * 0.5, 'rgba(30,60,110,0.7)');
+    renderer.setAlpha(1);
   }
 
   /** Empty-but-alive cell: pulsing rune + a drifting glowing mote. */
@@ -318,6 +397,16 @@ export class BoardSystem extends System {
     ctx.globalAlpha = Math.sin(m * Math.PI) * 0.5;
     renderer.fillCircle(mx, myy, size * 0.05, '#7fd6ff');
     ctx.globalAlpha = 1;
+
+    // Occasional moss creeping in a corner of the carved tile (deterministic).
+    if ((cell.col * 5 + cell.row * 3) % 6 === 0) {
+      ctx.globalAlpha = 0.6;
+      const mgx = x + size * 0.22, mgy = y + size * 0.8;
+      renderer.fillCircle(mgx, mgy, size * 0.1, '#6fae5a');
+      renderer.fillCircle(mgx + size * 0.13, mgy - size * 0.05, size * 0.075, '#8fce6a');
+      renderer.fillCircle(mgx - size * 0.06, mgy - size * 0.02, size * 0.06, '#5aa85f');
+      ctx.globalAlpha = 1;
+    }
   }
 
   /** Placed crystal with landing squash/pop. */
