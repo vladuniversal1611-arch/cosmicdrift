@@ -69,9 +69,10 @@ export class BoardSystem extends System {
   _computeLayout() {
     const w = this.game.canvas.width;
     const h = this.game.canvas.height;
-    const margin = w * 0.07;
+    // Slightly larger board — it is the visual centre of the screen.
+    const margin = w * 0.06;
     // Leave headroom up top for the score, energy bar and objectives checklist.
-    const top = h * 0.205;
+    const top = h * 0.2;
     const size = w - margin * 2;
     this._area.set(margin, top, size, size);
     this.grid.layout(this._area, Config.board.gutter);
@@ -193,6 +194,7 @@ export class BoardSystem extends System {
       if (cell.tile) cell.tile.renderAbove(renderer, x, y, size, t);
     });
 
+    this._drawBoardMotes(renderer);
     if (this._hover) this._drawGhost(renderer);
   }
 
@@ -250,6 +252,32 @@ export class BoardSystem extends System {
       drawRune(ctx, i + 2, x, by, glyphSize);
     }
     ctx.globalAlpha = 1;
+
+    // Crystal corner decorations (softly pulsing) — premium frame accents.
+    const cg = 0.6 + 0.4 * Math.sin(this._time * 2);
+    const cs = pad * 0.55;
+    for (const [cxp, cyp] of [[outer.x, outer.y], [outer.right, outer.y], [outer.x, outer.bottom], [outer.right, outer.bottom]]) {
+      renderer.withGlow('#7fe0ff', 8 + cg * 6, () => {
+        const g = renderer.linearGradient(cxp, cyp - cs, cxp, cyp + cs, [[0, '#e2fbff'], [1, '#8fd6ff']]);
+        ctx.fillStyle = g; ctx.beginPath();
+        ctx.moveTo(cxp, cyp - cs); ctx.lineTo(cxp - cs * 0.7, cyp); ctx.lineTo(cxp, cyp + cs); ctx.lineTo(cxp + cs * 0.7, cyp); ctx.closePath(); ctx.fill();
+      });
+    }
+  }
+
+  /** A few drifting magical motes floating over the board (depth + life). */
+  _drawBoardMotes(renderer) {
+    const a = this._area;
+    for (let i = 0; i < 9; i++) {
+      const seed = i * 1.7;
+      const px = a.x + ((Math.sin(seed * 3.1 + this._time * 0.3) * 0.5 + 0.5)) * a.w;
+      const rise = ((this._time * 0.05 + i * 0.11) % 1);
+      const py = a.bottom - rise * a.h;
+      const tw = 0.4 + 0.6 * Math.abs(Math.sin(this._time * 1.5 + seed));
+      renderer.setAlpha(tw * 0.35);
+      renderer.fillCircle(px, py, 3 + tw * 2, '#bfe4ff');
+      renderer.setAlpha(1);
+    }
   }
 
   /**

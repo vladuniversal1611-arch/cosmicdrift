@@ -16,6 +16,7 @@ import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { UITheme, UI } from '../theme/UITheme.js';
 import { t } from '../../i18n/Localization.js';
 
 export class HudScreen extends Screen {
@@ -42,15 +43,17 @@ export class HudScreen extends Screen {
     this._banner = null;      // { title, sub, t } discovery/world callout
     this._structToast = null; // { name, t } structure-built callout
     this._toast = null;       // { text, color, t } reward / biome toast
-    this._worldBtn = new Rect(this.bounds.w - 134, 22, 118, 32);
-    this._pauseBtn = new Rect(16, 20, 40, 40);
+    this._coins = [];         // line-clear reward coins flying up
+    this._beam = 0;           // line-clear light-beam intensity (decays)
+    this._worldBtn = new Rect(this.bounds.w - 36 - 196, 44, 196, 64);
+    this._pauseBtn = new Rect(36, 44, 84, 84);
 
     const w = this.bounds.w;
 
-    // Dragon Energy meter (thin, above the objectives checklist).
-    const bw = w * 0.6;
-    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.075, bw, 8, {
-      value: 0, fill: Palette.energy[0], track: 'rgba(255,255,255,0.08)',
+    // Dragon Energy meter (the thin progress bar under the score).
+    const bw = w * 0.5;
+    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.082, bw, 12, {
+      value: 0, fill: Palette.energy[0], track: 'rgba(20,44,92,0.16)',
     }));
 
     this._bind();
@@ -106,6 +109,24 @@ export class HudScreen extends Screen {
     }));
     // Failure loop: a consolation reward + a friendly tip, never a scolding.
     this._subs.push(this.events.on('retention:consolation', (c) => { this._consolation = c; }));
+    // Line-clear reward flourish: a light beam + coins flying up to the score.
+    this._subs.push(this.events.on('game:linesCleared', ({ count = 1 }) => this._onLinesCleared(count)));
+  }
+
+  /** Spawn the celebratory light beam + rising coins over the board. */
+  _onLinesCleared(count) {
+    const board = this.game.getSystem('board')?.area;
+    if (!board) return;
+    this._beam = Math.min(1, 0.5 + count * 0.2);
+    const n = Math.min(24, 8 + count * 6);
+    for (let i = 0; i < n; i++) {
+      this._coins.push({
+        x: board.centerX + (Math.random() - 0.5) * board.w * 0.6,
+        y: board.centerY + (Math.random() - 0.5) * board.h * 0.4,
+        vx: (Math.random() - 0.5) * 120, vy: -260 - Math.random() * 220,
+        t: 0, life: 1.1 + Math.random() * 0.5, s: 14 + Math.random() * 8,
+      });
+    }
   }
 
   /** Detach listeners when the HUD is torn down (e.g. on restart/replace). */
@@ -125,41 +146,83 @@ export class HudScreen extends Screen {
     if (this._structToast && (this._structToast.t -= dt) <= 0) this._structToast = null;
     if (this._toast && (this._toast.t -= dt) <= 0) this._toast = null;
     if (this._state === 'over') this._overlayT = Math.min(1, this._overlayT + dt * 3);
+    // Line-clear reward: decay the beam, fly the coins up (gravity-lite).
+    if (this._beam > 0) this._beam = Math.max(0, this._beam - dt * 1.6);
+    for (let i = this._coins.length - 1; i >= 0; i--) {
+      const c = this._coins[i]; c.t += dt; c.vy += 240 * dt; c.x += c.vx * dt; c.y += c.vy * dt;
+      if (c.t > c.life || c.y < this.bounds.h * 0.05) this._coins.splice(i, 1);
+    }
   }
 
   render(renderer) {
+    if (this._beam > 0) this._drawClearBeam(renderer);
     this._drawScore(renderer);
     this._drawLevel(renderer);
-    this._drawMultiplier(renderer);
+    this._drawComboChip(renderer);
     this._drawWorldButton(renderer);
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
     this._drawCombo(renderer);
+    this._drawClearCoins(renderer);
     if (this._toast) this._drawToast(renderer);
     if (this._structToast) this._drawStructToast(renderer);
     if (this._banner) this._drawBanner(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
   }
 
-  /** Button that opens the floating-world restoration map. */
+  /** Soft vertical light beam over the board during a line clear. */
+  _drawClearBeam(renderer) {
+    const board = this.game.getSystem('board')?.area; if (!board) return;
+    renderer.setAlpha(this._beam * 0.5);
+    const g = renderer.linearGradient(0, board.y, 0, board.bottom, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,246,214,0.9)'], [1, 'rgba(255,255,255,0)']]);
+    renderer.fillRect(board.centerX - board.w * 0.3, board.y - 40, board.w * 0.6, board.h + 80, g);
+    renderer.setAlpha(1);
+  }
+
+  /** Coins flying up toward the score on a line clear. */
+  _drawClearCoins(renderer) {
+    for (const c of this._coins) {
+      renderer.setAlpha(Math.max(0, 1 - c.t / c.life));
+      drawObjectiveIcon(renderer, 'coins', c.x, c.y, c.s, '#ffcf5e');
+    }
+    renderer.setAlpha(1);
+  }
+
+  /** Top-right combo / score-multiplier chip. */
+  _drawComboChip(renderer) {
+    const mult = this.game.getSystem('structures')?.scoreMultiplier ?? 1;
+    const active = this._comboT > 0;
+    if (mult <= 1.0001 && !active) return;
+    const r = this._worldBtn;
+    const cw = 150, ch = 56, x = r.right - cw, y = r.bottom + 16;
+    const pulse = active ? 1 + 0.06 * Math.sin(performance.now() / 120) : 1;
+    renderer.save();
+    renderer.translate(x + cw / 2, y + ch / 2); renderer.scale(pulse, pulse); renderer.translate(-(x + cw / 2), -(y + ch / 2));
+    UITheme.button(renderer, x, y, cw, ch, ch / 2, active ? UI.btn.orange : UI.btn.blue, { shadow: true });
+    const label = active ? this._comboText.replace('COMBO ', '') : `×${mult.toFixed(2)}`;
+    renderer.text(active ? 'COMBO' : 'BONUS', x + cw / 2, y + ch * 0.32, { font: '800 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    renderer.text(label, x + cw / 2, y + ch * 0.68, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    renderer.restore();
+  }
+
+  /** Premium button that opens the floating-world restoration map. */
   _drawWorldButton(renderer) {
     const r = this._worldBtn;
-    renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
-    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.gold, 2);
+    UITheme.button(renderer, r.x, r.y, r.w, r.h, r.h / 2, UI.btn.teal, { shadow: true });
     renderer.text(`◈ ${t('hud.worldMap')}`, r.centerX, r.centerY, {
-      font: '800 13px system-ui, sans-serif', color: Palette.textInverse,
-      align: 'center', baseline: 'middle',
+      font: '900 22px system-ui, sans-serif', color: '#fff',
+      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
     });
   }
 
-  /** Round pause button (top-left). */
+  /** Premium round pause button (top-left). */
   _drawPauseButton(renderer) {
     const r = this._pauseBtn;
-    renderer.fillRoundRect(r.x, r.y, r.w, r.h, 12, Palette.surfaceRaised);
-    renderer.strokeRoundRect(r.x, r.y, r.w, r.h, 12, Palette.gold, 2);
-    renderer.fillRoundRect(r.centerX - 8, r.centerY - 8, 5, 16, 2, Palette.accent);
-    renderer.fillRoundRect(r.centerX + 3, r.centerY - 8, 5, 16, 2, Palette.accent);
+    UITheme.button(renderer, r.x, r.y, r.w, r.h, r.h / 2, UI.btn.blue, { shadow: true });
+    const bw = r.w * 0.12, bh = r.h * 0.38, cx = r.centerX, cy = r.centerY;
+    renderer.fillRoundRect(cx - bw * 1.5, cy - bh / 2, bw, bh, bw * 0.4, '#fff');
+    renderer.fillRoundRect(cx + bw * 0.5, cy - bh / 2, bw, bh, bw * 0.4, '#fff');
   }
 
   /** Brief reward / biome toast just above the board. */
@@ -176,15 +239,6 @@ export class HudScreen extends Screen {
   }
 
   /** Permanent structure score multiplier, shown beneath the score. */
-  _drawMultiplier(renderer) {
-    const mult = this.game.getSystem('structures')?.scoreMultiplier ?? 1;
-    if (mult <= 1.0001) return;
-    renderer.text(`×${mult.toFixed(2)}`, this.bounds.centerX, this.bounds.h * 0.055 + 30, {
-      font: '800 16px system-ui, sans-serif', color: Palette.warning,
-      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
-    });
-  }
-
   /** "<NAME> BUILT" callout when a structure rises. */
   _drawStructToast(renderer) {
     const t = this._structToast.t / 1.8;                 // 1 → 0
@@ -200,17 +254,19 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
   }
 
-  /** Level number + world name (top-left). */
+  /** Level title, centred above the score. */
   _drawLevel(renderer) {
-    const y = this.bounds.h * 0.05;
-    renderer.text(`LEVEL ${this._level}`, 18, y, {
-      font: '800 18px system-ui, sans-serif', color: Palette.textPrimary, baseline: 'middle',
-      outline: Palette.textOutline, outlineWidth: 4,
+    const cx = this.bounds.centerX;
+    renderer.text(`LEVEL ${this._level}`, cx, this.bounds.h * 0.028, {
+      font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
+      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
-    renderer.text(this._worldName.toUpperCase(), 18, y + 20, {
-      font: '700 11px system-ui, sans-serif', color: '#eaf4ff', baseline: 'middle',
-      outline: Palette.textOutline, outlineWidth: 3,
-    });
+    if (this._worldName) {
+      renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.028 + 26, {
+        font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
+      });
+    }
   }
 
   /**
@@ -299,15 +355,15 @@ export class HudScreen extends Screen {
 
   _drawScore(renderer) {
     const cx = this.bounds.centerX;
-    const y = this.bounds.h * 0.055;
+    const y = this.bounds.h * 0.062;
     const scale = 1 + this._scorePop * 0.28;
     renderer.save();
     renderer.translate(cx, y);
     renderer.scale(scale, scale);
-    renderer.withGlow(Palette.accent, 14 * (0.4 + this._scorePop), () => {
+    renderer.withGlow(Palette.accent, 16 * (0.4 + this._scorePop), () => {
       renderer.text(String(Math.round(this._displayScore)), 0, 0, {
-        font: '800 46px system-ui, sans-serif', color: Palette.textPrimary,
-        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
+        font: '900 60px system-ui, sans-serif', color: Palette.textPrimary,
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 7,
       });
     });
     renderer.restore();

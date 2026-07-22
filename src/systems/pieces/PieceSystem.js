@@ -32,6 +32,7 @@ import { Random } from '../../utils/Random.js';
 import { PieceFactory } from './PieceFactory.js';
 import { PieceGenerator } from './PieceGenerator.js';
 import { DifficultyDirector } from './DifficultyDirector.js';
+import { UITheme, UI } from '../../ui/theme/UITheme.js';
 
 export class PieceSystem extends System {
   constructor(game) {
@@ -110,7 +111,9 @@ export class PieceSystem extends System {
     const cellSize = this._grid.cellSize;
 
     const trayTop = board.bottom + this._grid.cellSize * 0.5 + 24;
-    const trayHeight = canvas.height - trayTop - 26;
+    // Cap the tray band so relics sit on a platform just below the board (the
+    // living world shows below it) rather than spanning the whole lower half.
+    const trayHeight = Math.min(canvas.height - trayTop - 26, 300);
     const slotWidth = canvas.width / this.tray.length;
 
     this.tray.forEach((piece, i) => {
@@ -123,6 +126,8 @@ export class PieceSystem extends System {
       piece.x = slotWidth * i + (slotWidth - pieceW) * 0.5;
       piece.y = trayTop + (trayHeight - pieceH) * 0.5;
       piece.storeHome();
+      // Remember the tray band so the platform can be drawn behind the pieces.
+      this._trayBand = { top: trayTop, height: trayHeight, slotW: slotWidth, n: this.tray.length };
     });
   }
 
@@ -304,10 +309,49 @@ export class PieceSystem extends System {
   render(renderer) {
     if (!this._grid) return;
     const cs = this._grid.cellSize;
+    // Magical tray platform behind the relics.
+    if (this._trayBand) this._drawTray(renderer);
     // Draw resting relics first, then the held one on top.
     for (const piece of this.tray) {
       if (piece !== this._drag?.piece) piece.render(renderer, cs, this._time);
     }
     if (this._drag) this._drag.piece.render(renderer, cs, this._time);
+  }
+
+  /**
+   * The bottom tray drawn as a glossy magical platform with three glowing slot
+   * recesses. Pure presentation — placement logic is unchanged.
+   */
+  _drawTray(renderer) {
+    const band = this._trayBand;
+    const canvas = this.game.canvas;
+    const pad = 24;
+    const x = pad, w = canvas.width - pad * 2;
+    // Cap the platform height so it hugs the relics instead of filling the whole
+    // lower half; centre it on the tray band (world stays visible below).
+    const cyBand = band.top + band.height / 2;
+    const h = Math.min(band.height + 28, 360);
+    const y = cyBand - h / 2;
+    // Platform base (glass + gold frame) with a soft grounding shadow.
+    UITheme.glassPanel(renderer, x, y, w, h, 30);
+    // Three slot recesses with an idle pulsing glow.
+    const filledCount = this.tray.length;
+    for (let i = 0; i < band.n; i++) {
+      const sx = band.slotW * i + band.slotW * 0.5;
+      const sw = band.slotW * 0.78, sh = h - 28;
+      const rx = sx - sw / 2, ry = y + 14;
+      // Recess.
+      renderer.fillRoundRect(rx, ry, sw, sh, 20, 'rgba(30,80,150,0.10)');
+      renderer.strokeRoundRect(rx, ry, sw, sh, 20, 'rgba(255,255,255,0.5)', 2);
+      // Idle glow (only under a slot that still holds a relic).
+      const hasPiece = i < filledCount;
+      if (hasPiece) {
+        const pulse = 0.5 + 0.5 * Math.sin(this._time * 2.4 + i);
+        renderer.setAlpha(0.10 + pulse * 0.12);
+        const g = renderer.radialGradient(sx, ry + sh / 2, sw * 0.55, [[0, UI.btn.teal[0]], [1, 'rgba(147,241,226,0)']]);
+        renderer.fillRect(rx, ry, sw, sh, g);
+        renderer.setAlpha(1);
+      }
+    }
   }
 }
