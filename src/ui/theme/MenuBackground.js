@@ -36,11 +36,27 @@ export class MenuBackground {
       { x: 0.3, y: 0.1, spd: 0.02, scale: 0.32, dir: 1, color: '#7fb8ff' },
       { x: 0.8, y: 0.14, spd: 0.016, scale: 0.28, dir: -1, color: '#c8a6ff' },
     ];
-    // Distant parallax islands (far, small, faint) high in the sky.
+    // Distant parallax islands — a couple large & far, plus tiny faint ones.
     this.farIslands = [
-      { x: 0.16, y: 0.16, s: 0.055 },
-      { x: 0.84, y: 0.13, s: 0.045 },
+      { x: 0.20, y: 0.30, s: 0.14, a: 0.55 },   // large, far
+      { x: 0.82, y: 0.24, s: 0.11, a: 0.5 },
+      { x: 0.14, y: 0.15, s: 0.05, a: 0.4 },    // tiny, high
+      { x: 0.88, y: 0.12, s: 0.045, a: 0.4 },
     ];
+    // A slower, larger far cloud layer (parallax depth behind the near clouds).
+    this.farClouds = Array.from({ length: 5 }, () => ({
+      x: rng.range(-0.1, 1.1) * width, y: rng.range(0.1, 0.5) * height,
+      s: rng.range(1.4, 2.4), spd: rng.range(3, 7), a: rng.range(0.35, 0.55),
+    }));
+    // Butterflies fluttering near the island.
+    this.butterflies = Array.from({ length: 3 }, () => ({
+      x: rng.range(0.2, 0.8), y: rng.range(0.5, 0.68), ph: rng.range(0, 6.28),
+      spd: rng.range(0.01, 0.02), dir: rng.pick([-1, 1]), hue: rng.pick(['#ff9d2e', '#ff6aa8', '#ffe08a']),
+    }));
+    // A rare drifting air balloon (mostly off-screen; crosses occasionally).
+    this.balloon = { x: -0.3, y: 0.2, spd: 0.012, hue: '#ff6aa8' };
+    // Occasional ambient light flash (bloom) at a random sky spot.
+    this._flash = { t: 3, x: 0.5, y: 0.3 };
     // A little flock of birds drifting across the sky.
     this.birds = Array.from({ length: 6 }, () => ({
       x: rng.range(-0.1, 1.1), y: rng.range(0.12, 0.42),
@@ -76,6 +92,15 @@ export class MenuBackground {
       if (p.x > this.w + 8) p.x = -8;
       if (p.y < -8) { p.y = this.h + 8; p.x = Math.random() * this.w; }
     }
+    for (const c of this.farClouds) { c.x += c.spd * dt; if (c.x - 200 * c.s > this.w) c.x = -200 * c.s; }
+    for (const bf of this.butterflies) { bf.x += bf.spd * bf.dir * dt; if (bf.x > 0.9) bf.dir = -1; if (bf.x < 0.15) bf.dir = 1; }
+    // Balloon drifts across, then waits a long while before the next pass.
+    this.balloon.x += this.balloon.spd * dt;
+    if (this.balloon.x > 1.4) this.balloon.x = -0.4 - Math.random() * 1.5;
+    // Ambient light flash.
+    this._flash.t -= dt;
+    if (this._flash.t <= 0) { this._flash.t = 4 + Math.random() * 5; this._flash.x = Math.random(); this._flash.y = 0.15 + Math.random() * 0.35; this._flash.life = 0.9; }
+    if (this._flash.life > 0) this._flash.life -= dt;
   }
 
   render(r) {
@@ -89,14 +114,71 @@ export class MenuBackground {
     r.fillRect(0, 0, w, h * 0.6, sun);
     r.setAlpha(1);
 
+    // Layered for depth: rays → far clouds → distant islands → fog → birds →
+    // balloon → near clouds → main island → dragons → butterflies → leaves →
+    // pollen → light flash.
     this._rays(r);
-    for (const b of this.birds) this._bird(r, b);
-    for (const c of this.clouds) this._cloud(r, c);
+    for (const c of this.farClouds) this._cloud(r, c, 200);
     for (const fi of this.farIslands) this._farIsland(r, fi);
+    this._fog(r);
+    for (const b of this.birds) this._bird(r, b);
+    this._balloon(r);
+    for (const c of this.clouds) this._cloud(r, c);
     this._island(r);
     for (const d of this.dragons) this._dragon(r, d);
+    for (const bf of this.butterflies) this._butterfly(r, bf);
     for (const l of this.leaves) this._leaf(r, l);
     for (const p of this.pollen) this._pollen(r, p);
+    this._lightFlash(r);
+  }
+
+  /** Soft horizontal fog band around the island's altitude (depth cue). */
+  _fog(r) {
+    const { w, h } = this;
+    r.setAlpha(0.5);
+    const g = r.linearGradient(0, h * 0.5, 0, h * 0.72, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(236,246,255,0.65)'], [1, 'rgba(255,255,255,0)']]);
+    r.fillRect(0, h * 0.5, w, h * 0.22, g);
+    r.setAlpha(1);
+  }
+
+  /** A rare, gently-bobbing hot-air balloon drifting across the sky. */
+  _balloon(r) {
+    const { w, h } = this;
+    const x = this.balloon.x * w, y = this.balloon.y * h + Math.sin(this.t * 0.8) * 10;
+    if (x < -120 || x > w + 120) return;
+    const s = 46;
+    r.withGlow('rgba(255,150,60,0.25)', 8, () => {
+      const g = r.linearGradient(x, y - s, x, y + s, [[0, '#ffd58c'], [1, this.balloon.hue]]);
+      r.ctx.fillStyle = g; r.ctx.beginPath(); r.ctx.ellipse(x, y, s * 0.8, s, 0, 0, Math.PI * 2); r.ctx.fill();
+    });
+    // Stripes + basket.
+    r.setAlpha(0.4); r.fillRoundRect(x - 4, y - s, 8, s * 1.8, 4, '#fff'); r.setAlpha(1);
+    r.ctx.strokeStyle = 'rgba(120,80,40,0.6)'; r.ctx.lineWidth = 2;
+    r.ctx.beginPath(); r.ctx.moveTo(x - s * 0.5, y + s * 0.8); r.ctx.lineTo(x - 8, y + s * 1.3); r.ctx.moveTo(x + s * 0.5, y + s * 0.8); r.ctx.lineTo(x + 8, y + s * 1.3); r.ctx.stroke();
+    r.fillRoundRect(x - 12, y + s * 1.3, 24, 16, 4, '#b07a45');
+  }
+
+  /** A tiny fluttering butterfly near the island. */
+  _butterfly(r, bf) {
+    const { w, h } = this;
+    const x = bf.x * w, y = bf.y * h + Math.sin(this.t * 3 + bf.ph) * 10;
+    const flap = Math.abs(Math.sin(this.t * 12 + bf.ph)) * 0.8 + 0.2;
+    const s = 9;
+    const ctx = r.ctx; ctx.save(); ctx.globalAlpha = 0.9;
+    ctx.fillStyle = bf.hue;
+    ctx.beginPath(); ctx.ellipse(x - s * 0.4 * bf.dir, y, s * flap, s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s * 0.4 * bf.dir, y, s * flap, s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1; ctx.restore();
+  }
+
+  /** A subtle bloom flash somewhere in the sky. */
+  _lightFlash(r) {
+    if (!(this._flash.life > 0)) return;
+    const { w, h } = this;
+    const a = Math.sin((1 - this._flash.life / 0.9) * Math.PI) * 0.4;
+    r.setAlpha(Math.max(0, a));
+    r.withGlow('#fff', 16, () => r.sparkle(this._flash.x * w, this._flash.y * h, 22, '#fff8e0'));
+    r.setAlpha(1);
   }
 
   /** A soft, glowing pollen mote (halo + bright core; no per-particle shadow). */
@@ -138,7 +220,7 @@ export class MenuBackground {
     const cy = fi.y * h;
     const iw = w * fi.s;
     const ctx = r.ctx;
-    r.setAlpha(0.45);
+    r.setAlpha(fi.a ?? 0.45);
     // Short rounded rock underside (soft trapezoid, not a big spike).
     ctx.fillStyle = '#d8c096';
     ctx.beginPath();
@@ -234,6 +316,15 @@ export class MenuBackground {
     r.setAlpha(0.12);
     for (const dx of [-0.30, -0.02, 0.24, 0.40]) r.fillCircle(cx + iw * dx, top + 10, 34, '#173a72');
     r.setAlpha(1);
+
+    // Winding stone path across the grass.
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      const sx = cx + (t - 0.5) * iw * 0.8;
+      const sy = top - 2 + Math.sin(t * Math.PI) * 8;
+      r.ctx.fillStyle = i % 2 ? '#e8eef7' : '#d3e0ee';
+      r.ctx.beginPath(); r.ctx.ellipse(sx, sy, 13, 8, 0, 0, Math.PI * 2); r.ctx.fill();
+    }
 
     // Animated grass blades along the ridge.
     ctx.strokeStyle = '#5ec46a'; ctx.lineWidth = 3; ctx.lineCap = 'round';

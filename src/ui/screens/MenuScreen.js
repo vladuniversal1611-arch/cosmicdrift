@@ -189,6 +189,7 @@ export class MenuScreen extends Screen {
     this._drawLogo(r);
     this._drawProfile(r);
     this._drawResourceBar(r);
+    this._drawPlayPlatform(r);
     this._drawPlayGlow(r);
     this._play.render(r);
     this._drawPlayReflection(r);
@@ -297,6 +298,37 @@ export class MenuScreen extends Screen {
         r.text('+', pc, b.centerY + 2, { font: '900 34px system-ui, sans-serif', color: '#7a4a00', align: 'center', baseline: 'middle' });
       }
     }
+  }
+
+  /** A magical floating stone platform the PLAY button rests on. */
+  _drawPlayPlatform(r) {
+    const ctx = r.ctx;
+    const cx = PLAY.x + PLAY.w / 2;
+    const topY = PLAY.y + PLAY.h - 30;       // platform top tucks under the button
+    const rx = PLAY.w * 0.52, ry = 44;
+    const bob = Math.sin(this._t * 0.9) * 4;
+    ctx.save(); ctx.translate(0, bob);
+    // Tapering rock underside.
+    const rock = r.linearGradient(cx, topY, cx, topY + 150, [[0, '#dcae74'], [1, '#b07a45']]);
+    ctx.fillStyle = rock; ctx.beginPath();
+    ctx.moveTo(cx - rx * 0.92, topY); ctx.lineTo(cx + rx * 0.92, topY);
+    ctx.quadraticCurveTo(cx + rx * 0.3, topY + 150, cx, topY + 160);
+    ctx.quadraticCurveTo(cx - rx * 0.3, topY + 150, cx - rx * 0.92, topY); ctx.closePath(); ctx.fill();
+    // Stone top surface.
+    const stone = r.linearGradient(cx, topY - ry, cx, topY + ry, [[0, '#fbfdff'], [1, '#c6ddf6']]);
+    ctx.fillStyle = stone; ctx.beginPath(); ctx.ellipse(cx, topY, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    // Grass rim.
+    ctx.fillStyle = '#5ec46a'; ctx.beginPath(); ctx.ellipse(cx, topY - 6, rx * 0.98, ry * 0.8, 0, Math.PI, Math.PI * 2); ctx.fill();
+    // Little crystals + glow on the rim.
+    const cg = 0.6 + 0.4 * Math.sin(this._t * 2);
+    r.withGlow('#7fe0ff', 6 + cg * 6, () => {
+      for (const dx of [-0.7, 0.62]) {
+        const px = cx + rx * dx, py = topY + 6;
+        ctx.fillStyle = '#8fd6ff'; ctx.beginPath();
+        ctx.moveTo(px, py - 24); ctx.lineTo(px - 8, py); ctx.lineTo(px + 8, py); ctx.closePath(); ctx.fill();
+      }
+    });
+    ctx.restore();
   }
 
   /** Soft pulsing glow behind PLAY — the primary focus. */
