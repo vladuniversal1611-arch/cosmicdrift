@@ -43,6 +43,12 @@ export class MenuBackground {
       x: rng.range(-0.1, 1.1), y: rng.range(0.12, 0.42),
       spd: rng.range(0.02, 0.045), scale: rng.range(0.6, 1.1), ph: rng.range(0, 6.28),
     }));
+    // Floating magic pollen carried on a gentle wind (soft, glowing motes).
+    this.pollen = Array.from({ length: 22 }, () => ({
+      x: rng.range(0, 1) * width, y: rng.range(0, 1) * height,
+      vx: rng.range(6, 18), vy: rng.range(-16, -5), r: rng.range(2, 5),
+      ph: rng.range(0, 6.28), hue: rng.pick(['#ffffff', '#bfe4ff', '#ffe6ad']),
+    }));
   }
 
   update(dt) {
@@ -60,6 +66,12 @@ export class MenuBackground {
     for (const bd of this.birds) {
       bd.x += bd.spd * dt;
       if (bd.x > 1.15) bd.x = -0.15;
+    }
+    for (const p of this.pollen) {
+      p.x += (p.vx + Math.sin(this.t * 0.5 + p.ph) * 6) * dt;
+      p.y += p.vy * dt;
+      if (p.x > this.w + 8) p.x = -8;
+      if (p.y < -8) { p.y = this.h + 8; p.x = Math.random() * this.w; }
     }
   }
 
@@ -81,6 +93,17 @@ export class MenuBackground {
     this._island(r);
     for (const d of this.dragons) this._dragon(r, d);
     for (const l of this.leaves) this._leaf(r, l);
+    for (const p of this.pollen) this._pollen(r, p);
+  }
+
+  /** A soft, glowing pollen mote (halo + bright core; no per-particle shadow). */
+  _pollen(r, p) {
+    const a = Math.max(0, 0.3 + 0.25 * Math.sin(this.t * 2 + p.ph));
+    r.setAlpha(a * 0.5);
+    r.fillCircle(p.x, p.y, p.r * 2.2, p.hue);
+    r.setAlpha(a);
+    r.fillCircle(p.x, p.y, p.r, p.hue);
+    r.setAlpha(1);
   }
 
   /** Soft warm sunlight rays that slowly sweep from the top. */

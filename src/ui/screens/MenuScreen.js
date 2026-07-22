@@ -29,7 +29,6 @@ import { t } from '../../i18n/Localization.js';
 const CX = 540;
 const LOGO = { y: 120, w: 560, h: 190, floatAmp: 6, floatPeriod: 3.5 };
 const PROFILE = { x: 36, y: 40, s: 120 };
-const SETTINGS = { s: 64, x: 1080 - 32 - 64, y: 44 };
 const RES = { y: 320, h: 110, capW: 300, gap: 20, radius: 54, x0: 70 };
 const PLAY = { w: 540, h: 170, x: (1080 - 540) / 2, y: 1200 - 85, radius: 85 };
 const GRID = { size: 210, gapH: 32, gapV: 28, x0: 193, row1: 1504, row2: 1742 };
@@ -136,12 +135,6 @@ export class MenuScreen extends Screen {
           font: '800 26px system-ui, sans-serif', floatAmp: 4, floatPeriod: 2.4 + i * 0.15 }));
       this._nav.push({ btn, key: item.key });
     });
-
-    // Settings (top-right) — twists on press.
-    this._settings = this.add(new PremiumButton(SETTINGS.x, SETTINGS.y, SETTINGS.s, SETTINGS.s,
-      this._press(() => this.events.emit('ui:openSettings')),
-      { colors: UI.btn.blue, round: true, rotateOnPress: 0.105,
-        icon: (r, cx, cy, s) => Icons.settings(r, cx, cy, s * 0.9) }));
   }
 
   // --- Lifecycle: carousel drag lives on the input bus -----------------------
@@ -205,7 +198,6 @@ export class MenuScreen extends Screen {
     this._bg.render(r);
     this._drawLogo(r);
     this._drawProfile(r);
-    this._settings.render(r);
     this._drawResourceBar(r);
     this._drawPlayGlow(r);
     this._play.render(r);
@@ -220,30 +212,63 @@ export class MenuScreen extends Screen {
   _drawLogo(r) {
     const bob = Math.sin(this._t * (2 * Math.PI / LOGO.floatPeriod)) * LOGO.floatAmp;
     const y = LOGO.y + bob;
-    r.withGlow('#ffdf7a', 20, () => UITheme.heading(r, 'COSMIC', CX, y + 68, 80, '#fff'));
-    r.withGlow('#ffb020', 20, () => UITheme.heading(r, 'DRIFT', CX, y + 150, 80, '#ffe08a'));
+    this._crystalWord(r, 'COSMIC', CX, y + 68, 80, '#ffffff');
+    this._crystalWord(r, 'DRIFT', CX, y + 150, 80, '#dff6ff');
+  }
+
+  /** A crystal letterform: soft depth shadow, bevelled gold outline, crystal
+   *  fill and a cyan magic glow — the premium logo treatment. */
+  _crystalWord(r, text, cx, cy, size, fill) {
+    const font = `900 ${size}px system-ui, sans-serif`;
+    r.text(text, cx + 2, cy + 4, { font, color: 'rgba(20,44,92,0.35)', align: 'center', baseline: 'middle' });
+    r.withGlow('#7fe0ff', 18, () => {
+      // Outer then inner gold rim (bevelled outline), crystal fill on top.
+      r.text(text, cx, cy, { font, color: fill, align: 'center', baseline: 'middle', outline: UI.gold.line, outlineWidth: size * 0.17 });
+      r.text(text, cx, cy, { font, color: fill, align: 'center', baseline: 'middle', outline: UI.gold.deep, outlineWidth: size * 0.10 });
+    });
   }
 
   _drawProfile(r) {
     const { x, y, s } = PROFILE;
     const cx = x + s / 2, cy = y + s / 2;
+    const avatarR = s / 2 - 10;
+    const ctx = r.ctx;
     UITheme.shadow(r, x, y, s, s, s / 2, 6, 0.3);
-    const g = r.radialGradient(cx, cy, s / 2, [[0, '#9ad7ff'], [1, '#2f6fe0']]);
-    r.fillCircle(cx, cy, s / 2, g);
-    // Friendly dragon face.
-    r.fillCircle(cx - s * 0.15, cy - s * 0.06, s * 0.1, '#fff');
-    r.fillCircle(cx + s * 0.15, cy - s * 0.06, s * 0.1, '#fff');
-    r.fillCircle(cx - s * 0.14, cy - s * 0.05, s * 0.05, '#233a72');
-    r.fillCircle(cx + s * 0.14, cy - s * 0.05, s * 0.05, '#233a72');
-    UITheme.goldFrame(r, x, y, s, s, s / 2, 5);
-    // Online indicator (top-right green dot).
-    r.withGlow('#3fc86a', 6, () => r.fillCircle(x + s * 0.92, y + s * 0.12, s * 0.1, '#3fc86a'));
-    r.strokeRoundRect(x + s * 0.82, y + s * 0.02, s * 0.2, s * 0.2, s * 0.1, '#fff', 3);
-    // Level badge (bottom-centre).
+
+    // XP ring — progress toward the next 10-level unlock (derived from level).
     const lvl = this.game.getSystem('save')?.getSlice('world')?.maxLevel ?? 1;
+    const frac = (lvl % 10 === 0) ? 1 : (lvl % 10) / 10;
+    const ringR = s / 2 - 5;
+    ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
+    r.withGlow(UI.gold.mid, 8, () => {
+      ctx.strokeStyle = UI.gold.mid;
+      ctx.beginPath(); ctx.arc(cx, cy, ringR, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();
+    });
+
+    // Avatar disc + friendly dragon face.
+    const g = r.radialGradient(cx, cy, avatarR, [[0, '#9ad7ff'], [1, '#2f6fe0']]);
+    r.fillCircle(cx, cy, avatarR, g);
+    r.fillCircle(cx - avatarR * 0.3, cy - avatarR * 0.12, avatarR * 0.2, '#fff');
+    r.fillCircle(cx + avatarR * 0.3, cy - avatarR * 0.12, avatarR * 0.2, '#fff');
+    r.fillCircle(cx - avatarR * 0.28, cy - avatarR * 0.1, avatarR * 0.1, '#233a72');
+    r.fillCircle(cx + avatarR * 0.28, cy - avatarR * 0.1, avatarR * 0.1, '#233a72');
+    UITheme.goldFrame(r, cx - avatarR, cy - avatarR, avatarR * 2, avatarR * 2, avatarR, 4);
+
+    // Level badge (bottom-centre).
     const bw = 78, bh = 40, bx = cx - bw / 2, by = y + s - bh * 0.5;
     UITheme.button(r, bx, by, bw, bh, bh / 2, UI.btn.orange, { shadow: true });
     r.text(`LV ${lvl}`, cx, by + bh / 2, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+
+    // Notification indicator — a pulsing dot when something is waiting.
+    if (this._retention()?.hasUnclaimedDaily?.()) {
+      const nx = x + s * 0.92, ny = y + s * 0.08;
+      const pulse = 0.8 + 0.2 * Math.sin(this._t * 5);
+      r.withGlow('#ff4d5e', 8, () => r.fillCircle(nx, ny, 15 * pulse, '#ff4d5e'));
+      r.strokeRoundRect(nx - 15, ny - 15, 30, 30, 15, '#fff', 3);
+      r.text('!', nx, ny + 1, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    }
   }
 
   _drawResourceBar(r) {
