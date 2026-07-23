@@ -69,6 +69,9 @@ export class LevelSystem extends System {
     this.listen('board:clearComplete', () => this._maybeAdvance());
   }
 
+  /** Furthest level the player has reached (drives the World Map unlock line). */
+  get highest() { return Math.max(this.level, this._progress?.highest ?? 1); }
+
   // --- World / goal maths ----------------------------------------------------
   get worldIndex() { return Math.floor((this.level - 1) / Config.progression.levelsPerWorld); }
   get levelInWorld() { return (this.level - 1) % Config.progression.levelsPerWorld; }
