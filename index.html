@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mystic Alchemy Lab">
+<meta name="application-name" content="Mystic Alchemy Lab">
+<meta name="theme-color" content="#8fd3ff">
+<meta name="description" content="Mystic Alchemy Lab — a bright, relaxing alchemy fusion puzzle. Restore an ancient floating laboratory across 320 handcrafted levels.">
+<meta name="format-detection" content="telephone=no">
+
+<!-- PWA manifest (inline data URI, offline friendly) -->
+<link rel="manifest" href="assets/manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+
+<title>Mystic Alchemy Lab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Canvas is used for gameplay board + particles; DOM overlays for menus/HUD -->
+  <canvas id="game"></canvas>
+
+  <!-- ============ TOP RESOURCE BAR (shared) ============ -->
+  <div id="topbar" class="hidden">
+    <div class="res" data-res="coins"><span class="ricon">🪙</span><span class="rval" id="tbCoins">0</span></div>
+    <div class="res" data-res="crystals"><span class="ricon">💎</span><span class="rval" id="tbCrystals">0</span></div>
+    <div class="res" data-res="dust"><span class="ricon">✨</span><span class="rval" id="tbDust">0</span></div>
+    <div class="res" data-res="keys"><span class="ricon">🗝️</span><span class="rval" id="tbKeys">0</span></div>
+    <div class="res lives" data-res="lives"><span class="ricon">❤️</span><span class="rval" id="tbLives">5</span><span class="rtimer" id="tbLifeTimer"></span></div>
+  </div>
+
+  <!-- ============ BOOT / SPLASH ============ -->
+  <section id="scene-boot" class="scene">
+    <div class="boot-glow"></div>
+    <div class="boot-logo">
+      <div class="boot-flask">⚗️</div>
+      <h1 class="title-grad">Mystic<br>Alchemy Lab</h1>
+      <p class="tagline">Restore the floating laboratory</p>
+    </div>
+    <button id="btnBoot" class="btn btn-big btn-primary pulse">TAP TO BEGIN</button>
+    <p class="boot-hint" id="bootHint">Loading enchanted flasks…</p>
+  </section>
+
+  <!-- ============ HOME / WORLD MAP ============ -->
+  <section id="scene-home" class="scene hidden">
+    <div class="home-header">
+      <h2 class="home-title">Alchemy Worlds</h2>
+      <div class="player-chip">
+        <div class="avatar" id="homeAvatar">🧙</div>
+        <div class="player-info">
+          <div class="pl-name" id="plName">Apprentice</div>
+          <div class="xp-track"><div class="xp-fill" id="plXpFill"></div></div>
+        </div>
+        <div class="pl-lvl" id="plLvl">Lv 1</div>
+      </div>
+    </div>
+    <div id="worldMap" class="world-map"></div>
+    <div class="home-nav">
+      <button class="navbtn" data-nav="lab"><span>🏛️</span>Lab</button>
+      <button class="navbtn" data-nav="daily"><span>🎁</span>Daily</button>
+      <button class="navbtn navbtn-play" data-nav="play"><span>▶️</span>Play</button>
+      <button class="navbtn" data-nav="shop"><span>🛒</span>Shop</button>
+      <button class="navbtn" data-nav="settings"><span>⚙️</span>Menu</button>
+    </div>
+  </section>
+
+  <!-- ============ LEVEL SELECT ============ -->
+  <section id="scene-levels" class="scene hidden">
+    <div class="sub-header">
+      <button class="btn-back" data-back="home">‹</button>
+      <h2 id="lvSelTitle">Ancient Forest</h2>
+      <div class="sub-header-spacer"></div>
+    </div>
+    <div id="levelGrid" class="level-grid"></div>
+  </section>
+
+  <!-- ============ GAME BOARD (canvas draws; DOM HUD here) ============ -->
+  <section id="scene-game" class="scene hidden">
+    <div class="game-hud">
+      <button class="btn-back" data-back="levels">‹</button>
+      <div class="hud-center">
+        <div class="hud-level" id="hudLevel">Level 1</div>
+        <div class="hud-goal" id="hudGoal">Create 2 Cores</div>
+      </div>
+      <div class="hud-energy">
+        <div class="energy-lbl">MOVES</div>
+        <div class="energy-val" id="hudMoves">20</div>
+      </div>
+    </div>
+    <div class="goal-track" id="goalTrack"></div>
+    <div id="comboBanner" class="combo-banner"></div>
+    <div class="booster-bar" id="boosterBar"></div>
+  </section>
+
+  <!-- ============ LEVEL END MODAL ============ -->
+  <div id="modal-end" class="modal hidden">
+    <div class="modal-card end-card">
+      <div class="end-banner" id="endBanner">Level Complete!</div>
+      <div class="stars" id="endStars">
+        <span class="star" data-i="0">★</span>
+        <span class="star" data-i="1">★</span>
+        <span class="star" data-i="2">★</span>
+      </div>
+      <div class="rewards" id="endRewards"></div>
+      <div class="end-chest hidden" id="endChest">
+        <div class="chest" id="chestBtn">🎁</div>
+        <p>Tap the chest!</p>
+      </div>
+      <div class="end-actions">
+        <button class="btn btn-round" id="endHome">🏠</button>
+        <button class="btn btn-round" id="endRetry">🔄</button>
+        <button class="btn btn-primary btn-wide" id="endNext">NEXT ›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAUSE / FAIL ============ -->
+  <div id="modal-fail" class="modal hidden">
+    <div class="modal-card">
+      <div class="fail-icon">💫</div>
+      <h3>Out of Moves</h3>
+      <p class="muted">The reaction fizzled out. Try again?</p>
+      <div class="end-actions">
+        <button class="btn btn-round" id="failHome">🏠</button>
+        <button class="btn btn-primary btn-wide" id="failRetry">RETRY</button>
+      </div>
+      <button class="btn btn-ghost btn-wide" id="failExtra">+5 Moves (💎 3)</button>
+    </div>
+  </div>
+
+  <!-- ============ SHOP ============ -->
+  <div id="modal-shop" class="modal hidden">
+    <div class="modal-card sheet">
+      <div class="sheet-head"><h3>🛒 Alchemy Shop</h3><button class="x" data-close>×</button></div>
+      <div class="shop-grid" id="shopGrid"></div>
+    </div>
+  </div>
+
+  <!-- ============ LAB / DECOR ============ -->
+  <div id="modal-lab" class="modal hidden">
+    <div class="modal-card sheet">
+      <div class="sheet-head"><h3>🏛️ The Laboratory</h3><button class="x" data-close>×</button></div>
+      <p class="muted lab-intro">Spend resources to rebuild the lab. Each upgrade restores its magic.</p>
+      <div class="lab-scene" id="labScene"></div>
+      <div class="lab-grid" id="labGrid"></div>
+    </div>
+  </div>
+
+  <!-- ============ DAILY ============ -->
+  <div id="modal-daily" class="modal hidden">
+    <div class="modal-card sheet">
+      <div class="sheet-head"><h3>🎁 Daily Rewards</h3><button class="x" data-close>×</button></div>
+      <div class="daily-login" id="dailyLogin"></div>
+      <h4 class="sec-title">🎡 Treasure Wheel</h4>
+      <div class="wheel-wrap">
+        <div class="wheel" id="wheel"></div>
+        <div class="wheel-ptr">▼</div>
+      </div>
+      <button class="btn btn-primary btn-wide" id="spinBtn">SPIN (🗝️ 1)</button>
+      <h4 class="sec-title">📜 Missions</h4>
+      <div class="missions" id="missionsList"></div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div id="modal-settings" class="modal hidden">
+    <div class="modal-card sheet">
+      <div class="sheet-head"><h3>⚙️ Menu</h3><button class="x" data-close>×</button></div>
+      <div class="settings-list">
+        <label class="setting"><span>🎵 Music</span><input type="checkbox" id="setMusic" checked></label>
+        <label class="setting"><span>🔊 Sound</span><input type="checkbox" id="setSound" checked></label>
+        <label class="setting"><span>📳 Vibration</span><input type="checkbox" id="setVibe" checked></label>
+        <label class="setting"><span>🌐 Language</span>
+          <select id="setLang">
+            <option value="en">English</option>
+            <option value="uk">Українська</option>
+            <option value="es">Español</option>
+          </select>
+        </label>
+        <button class="btn btn-ghost btn-wide" id="btnAchieve">🏆 Achievements</button>
+        <button class="btn btn-ghost btn-wide" id="btnStats">📊 Statistics</button>
+        <button class="btn btn-ghost btn-wide" id="btnPrivacy">🔒 Privacy Policy</button>
+        <button class="btn btn-danger btn-wide" id="btnReset">🗑️ Reset Progress</button>
+      </div>
+      <p class="ver">Mystic Alchemy Lab v1.0 · offline · no ads · no tracking</p>
+    </div>
+  </div>
+
+  <!-- Generic info modal -->
+  <div id="modal-info" class="modal hidden">
+    <div class="modal-card sheet">
+      <div class="sheet-head"><h3 id="infoTitle">Info</h3><button class="x" data-close>×</button></div>
+      <div id="infoBody" class="info-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Tutorial hint -->
+  <div id="tutorial" class="tutorial hidden"></div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
