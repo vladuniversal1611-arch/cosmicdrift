@@ -99,6 +99,8 @@ export class PieceSystem extends System {
       this.tray = this._factory.createBatch(size);
     }
     this._layoutTray();
+    // Staggered pop-in: each relic springs up a beat after the previous one.
+    this.tray.forEach((p, i) => { p._appear = -i * 0.14; });
     this.events.emit('pieces:refilled', { tray: this.tray });
     this._checkGameOver();
   }
@@ -304,6 +306,10 @@ export class PieceSystem extends System {
     this._time += dt;
     // Relax the held relic's tilt back toward upright when the finger is still.
     if (this._drag) this._drag.piece.tilt *= 0.88;
+    // Advance each relic's intro appear factor (staggered pop-in).
+    for (const p of this.tray) {
+      if (p._appear !== undefined && p._appear < 1) p._appear = Math.min(1, p._appear + dt * 3.2);
+    }
   }
 
   render(renderer) {
@@ -332,35 +338,23 @@ export class PieceSystem extends System {
     const cyBand = band.top + band.height / 2;
     const h = Math.min(band.height + 28, 360);
     const y = cyBand - h / 2;
-    const rad = 30;
-    // --- Ancient stone ALTAR base ---
-    UITheme.shadow(renderer, x, y, w, h, rad, h * 0.05, 0.4);
-    // Warm carved-stone body.
-    const body = renderer.linearGradient(x, y, x, y + h, [[0, '#f2ead6'], [0.5, '#e3d3ad'], [1, '#c9b48a']]);
-    renderer.fillRoundRect(x, y, w, h, rad, body);
-    // Top lip highlight (carved bevel).
-    renderer.setAlpha(0.5); renderer.fillRoundRect(x + 6, y + 5, w - 12, h * 0.16, rad, 'rgba(255,255,255,0.7)'); renderer.setAlpha(1);
-    // Engraved rune band across the altar face.
-    renderer.setAlpha(0.14);
-    renderer.fillRoundRect(x + 20, y + h * 0.5, w - 40, 3, 1.5, '#7a5a2a');
-    renderer.setAlpha(1);
-    UITheme.goldFrame(renderer, x, y, w, h, rad, 5);
+    // --- Premium glass panel base (big rounding, inner gloss, soft shadow) ---
+    UITheme.glassPanel(renderer, x, y, w, h, 40);
 
-    // --- Three carved slots with soft blue magical light ---
+    // --- Three slots with a soft blue magical light ---
     const filledCount = this.tray.length;
     for (let i = 0; i < band.n; i++) {
       const sx = band.slotW * i + band.slotW * 0.5;
-      const sw = band.slotW * 0.78, sh = h - 46;
+      const sw = band.slotW * 0.78, sh = h - 48;
       const rx = sx - sw / 2, ry = y + 24;
-      // Carved recess (darker stone inset + inner shadow).
-      const inset = renderer.linearGradient(rx, ry, rx, ry + sh, [[0, '#b7a079'], [1, '#d8c8a4']]);
-      renderer.fillRoundRect(rx, ry, sw, sh, 22, inset);
-      renderer.strokeRoundRect(rx, ry, sw, sh, 22, 'rgba(90,66,30,0.5)', 2);
-      renderer.strokeRoundRect(rx + 2, ry + 2, sw - 4, sh - 4, 20, 'rgba(255,255,255,0.4)', 1.5);
+      // Recess with a bright inner gloss.
+      renderer.fillRoundRect(rx, ry, sw, sh, 24, 'rgba(90,150,220,0.10)');
+      renderer.strokeRoundRect(rx, ry, sw, sh, 24, 'rgba(255,255,255,0.7)', 2);
+      renderer.setAlpha(0.35); renderer.fillRoundRect(rx + 4, ry + 4, sw - 8, sh * 0.24, 20, 'rgba(255,255,255,0.8)'); renderer.setAlpha(1);
       // Soft blue magical light pooling in a slot that still holds a relic.
       if (i < filledCount) {
         const pulse = 0.5 + 0.5 * Math.sin(this._time * 2.4 + i);
-        renderer.setAlpha(0.14 + pulse * 0.16);
+        renderer.setAlpha(0.14 + pulse * 0.18);
         const g = renderer.radialGradient(sx, ry + sh / 2, sw * 0.55, [[0, '#8fd6ff'], [1, 'rgba(143,214,255,0)']]);
         renderer.fillRect(rx, ry, sw, sh, g);
         renderer.setAlpha(1);

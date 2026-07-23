@@ -10,6 +10,7 @@
 import { Config } from '../../config/Config.js';
 import { Palette } from '../../config/Palette.js';
 import { drawCrystal } from '../../render/Crystal.js';
+import { Easing } from '../../utils/Easing.js';
 
 export class Piece {
   /**
@@ -68,12 +69,23 @@ export class Piece {
     const ctx = renderer.ctx;
     const radius = Config.board.cellRadius * this.scale;
 
+    // Intro pop-in (back-ease overshoot) + gentle idle breathing while resting.
+    // Both are purely visual: `this.scale` (used for hit-testing) is untouched.
+    const appear = Math.max(0, Math.min(1, this._appear ?? 1));
+    const introEase = Easing.backOut(appear);
+    const breathe = this.dragging ? 1 : 1 + 0.02 * Math.sin(time * 2 + this.glowPhase);
+    const vis = introEase * breathe;
+
     // Tilt the held relic toward finger movement, pivoting on its centre.
     const tilt = this.dragging ? this.tilt : 0;
     const pcx = this.x + (this.width * size) / 2 + shakeX;
     const pcy = this.y + (this.height * size) / 2;
     ctx.save();
-    if (tilt) { ctx.translate(pcx, pcy); ctx.rotate(tilt); ctx.translate(-pcx, -pcy); }
+    // Pivot both the intro/breathing scale and the drag tilt about the centre.
+    ctx.translate(pcx, pcy);
+    if (tilt) ctx.rotate(tilt);
+    if (vis !== 1) ctx.scale(vis, vis);
+    ctx.translate(-pcx, -pcy);
 
     // Soft drop-shadow beneath a lifted relic gives it weight.
     if (this.dragging) {
@@ -90,6 +102,29 @@ export class Piece {
       const bx = this.x + bc * size + shakeX;
       const by = this.y + br * size;
       drawCrystal(renderer, bx, by, size, this.material, { glow, radius });
+    }
+
+    // Occasional tiny sparkle drifting over a resting relic — pure sugar.
+    if (!this.dragging && appear >= 1) {
+      const sp = Math.sin(time * 0.7 + this.glowPhase * 1.7);
+      if (sp > 0.9) {
+        const t = (sp - 0.9) / 0.1;               // 0..1 across the twinkle
+        const a = Math.sin(t * Math.PI) * 0.8;     // fade in/out
+        const seed = this.glowPhase;
+        const sx = this.x + (0.3 + 0.5 * (Math.sin(seed * 3.1) * 0.5 + 0.5)) * this.width * size;
+        const sy = this.y + (0.2 + 0.5 * (Math.cos(seed * 2.3) * 0.5 + 0.5)) * this.height * size;
+        const r = size * 0.14;
+        renderer.setAlpha(a);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - r); ctx.lineTo(sx + r * 0.28, sy - r * 0.28);
+        ctx.lineTo(sx + r, sy); ctx.lineTo(sx + r * 0.28, sy + r * 0.28);
+        ctx.lineTo(sx, sy + r); ctx.lineTo(sx - r * 0.28, sy + r * 0.28);
+        ctx.lineTo(sx - r, sy); ctx.lineTo(sx - r * 0.28, sy - r * 0.28);
+        ctx.closePath();
+        ctx.fill();
+        renderer.setAlpha(1);
+      }
     }
     ctx.restore();
   }

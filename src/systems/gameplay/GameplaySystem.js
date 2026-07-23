@@ -131,6 +131,10 @@ export class GameplaySystem extends System {
       + (count - 1) * Config.fx.shakePerCombo;
     this.addShake(shake);
 
+    // A light camera "breath" on every clear (bigger clears push in a touch
+    // more); the combo finale layers its own stronger zoom on top.
+    this.zoomPulse(0.018 + 0.01 * (count - 1), 0.4);
+
     this._comboFx(this.combo);
 
     this.events.emit('gameplay:score', { score: this.score, add: gained });

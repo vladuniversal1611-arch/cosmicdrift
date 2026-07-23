@@ -45,14 +45,16 @@ export class HudScreen extends Screen {
     this._toast = null;       // { text, color, t } reward / biome toast
     this._coins = [];         // line-clear reward coins flying up
     this._beam = 0;           // line-clear light-beam intensity (decays)
-    this._worldBtn = new Rect(this.bounds.w - 36 - 196, 44, 196, 64);
-    this._pauseBtn = new Rect(36, 44, 84, 84);
+    // Tidy top bar: a compact pause (left) + World Map (right), lower on screen
+    // for a bigger top safe-area.
+    this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
+    this._pauseBtn = new Rect(36, 66, 72, 72);
 
     const w = this.bounds.w;
 
     // Dragon Energy meter (the thin progress bar under the score).
     const bw = w * 0.5;
-    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.082, bw, 12, {
+    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.096, bw, 12, {
       value: 0, fill: Palette.energy[0], track: 'rgba(20,44,92,0.16)',
     }));
 
@@ -257,12 +259,12 @@ export class HudScreen extends Screen {
   /** Level title, centred above the score. */
   _drawLevel(renderer) {
     const cx = this.bounds.centerX;
-    renderer.text(`LEVEL ${this._level}`, cx, this.bounds.h * 0.028, {
+    renderer.text(`LEVEL ${this._level}`, cx, this.bounds.h * 0.04, {
       font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
     if (this._worldName) {
-      renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.028 + 26, {
+      renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.04 + 26, {
         font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
       });
@@ -280,7 +282,7 @@ export class HudScreen extends Screen {
     const rowW = w * 0.9;
     const x0 = (w - rowW) / 2;
     const rowH = 40;
-    const baseY = this.bounds.h * 0.088;
+    const baseY = this.bounds.h * 0.112;
 
     rows.forEach((o, i) => {
       const y = baseY + i * rowH;
@@ -355,7 +357,7 @@ export class HudScreen extends Screen {
 
   _drawScore(renderer) {
     const cx = this.bounds.centerX;
-    const y = this.bounds.h * 0.062;
+    const y = this.bounds.h * 0.075;
     const scale = 1 + this._scorePop * 0.28;
     renderer.save();
     renderer.translate(cx, y);

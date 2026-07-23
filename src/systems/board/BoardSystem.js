@@ -69,8 +69,9 @@ export class BoardSystem extends System {
   _computeLayout() {
     const w = this.game.canvas.width;
     const h = this.game.canvas.height;
-    // Slightly larger board — it is the visual centre of the screen.
-    const margin = w * 0.06;
+    // The board is the hero of the screen — keep it large with equal side
+    // margins (it is width-bound, so this is near the maximum square).
+    const margin = w * 0.04;
     // Leave headroom up top for the score, energy bar and objectives checklist.
     const top = h * 0.2;
     const size = w - margin * 2;
@@ -219,13 +220,14 @@ export class BoardSystem extends System {
       renderer.fillRoundRect(outer.x, outer.y + 8, outer.w, outer.h, R, Palette.stone.frameBottom);
     });
 
-    // Beveled slab: light rim, stone face, carved recess.
-    renderer.fillRoundRect(outer.x, outer.y, outer.w, outer.h, R, Palette.stone.bevelLight);
+    // Beveled slab with a THICK bright-white rim, stone face, carved recess.
+    renderer.fillRoundRect(outer.x, outer.y, outer.w, outer.h, R, '#ffffff');
+    const rim = 8;
     const face = renderer.linearGradient(outer.x, outer.y, outer.x, outer.bottom, [
       [0, Palette.stone.frameTop],
       [1, Palette.stone.frameBottom],
     ]);
-    renderer.fillRoundRect(outer.x + 3, outer.y + 3, outer.w - 6, outer.h - 6, R - 3, face);
+    renderer.fillRoundRect(outer.x + rim, outer.y + rim, outer.w - rim * 2, outer.h - rim * 2, R - rim, face);
 
     // Inner carved recess the cells sit in.
     const recess = gb.inflate(pad * 0.45);
@@ -234,6 +236,12 @@ export class BoardSystem extends System {
       [1, Palette.stone.inlay],
     ]);
     renderer.fillRoundRect(recess.x, recess.y, recess.w, recess.h, R - 8, inner);
+    // Soft inner glow pooling inside the recess (breathing).
+    const ig = 0.5 + 0.5 * Math.sin(this._time * 0.9);
+    renderer.setAlpha(0.10 + ig * 0.10);
+    const glow = renderer.radialGradient(recess.centerX, recess.centerY, recess.w * 0.62, [[0, '#bfe4ff'], [1, 'rgba(191,228,255,0)']]);
+    renderer.fillRect(recess.x, recess.y, recess.w, recess.h, glow);
+    renderer.setAlpha(1);
 
     // Rune engravings around the frame. As Structure Patterns are completed
     // the board "evolves": its runes glow progressively brighter.

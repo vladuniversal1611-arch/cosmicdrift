@@ -82,7 +82,7 @@ export const Config = Object.freeze({
     /** Idle crystal glow pulse period, seconds. */
     idleGlowPeriod: 2.4,
     /** Scale a piece grows to while held. */
-    dragScale: 1.0,
+    dragScale: 1.08,
     /** Lift (logical px) so the held piece sits above the finger. */
     dragLift: 90,
     /** Duration of the pick-up grow / drop-return tween. */
