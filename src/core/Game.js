@@ -49,6 +49,7 @@ import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
 import { DebugManager } from '../systems/debug/DebugManager.js';
 import { ThemeManager } from '../systems/theme/ThemeManager.js';
+import { PopupManager } from '../systems/ui/PopupManager.js';
 
 export class Game {
   /**
@@ -145,6 +146,9 @@ export class Game {
     // Presentation — updated after gameplay, drawn on top.
     this.systems.register(new AnimationSystem(this));
     if (f.particles) this.systems.register(new ParticleSystem(this));
+    // Popup orchestration owns the modal queue; register before the UI so it is
+    // ready to serialise any popup the UI opens on boot.
+    this.systems.register(new PopupManager(this));
     this.systems.register(new UISystem(this));
   }
 

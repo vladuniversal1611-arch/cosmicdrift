@@ -6,7 +6,7 @@
  * last (registered last) so UI sits above gameplay.
  *
  * Navigation is entirely event-driven: screens emit `ui:*` intents and this
- * system maps them to push/pop/replace. The app opens on the premium MenuScreen
+ * system maps them to push/pop/replace. The app opens on the premium HomeScreen
  * and swaps to the HUD when a run begins.
  *
  * Events (in): input:tap, game:started, ui:playPressed(→handled by gameplay),
@@ -16,7 +16,7 @@
  * -----------------------------------------------------------------------------
  */
 import { System } from '../core/System.js';
-import { MenuScreen } from './screens/MenuScreen.js';
+import { HomeScreen } from './home/HomeScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
 import { WorldMapScreen } from './screens/WorldMapScreen.js';
 import { ShopScreen } from './screens/ShopScreen.js';
@@ -53,7 +53,12 @@ export class UISystem extends System {
 
     this.listen('ui:back', () => this.pop());
     this.listen('ui:closeWorldMap', () => { if (this.top?.name === 'worldmap') this.pop(); });
-    this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new MenuScreen(this.game)); });
+    this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new HomeScreen(this.game)); });
+
+    // Generic push/pop so the PopupManager can drive its pooled PopupScreen
+    // without UISystem knowing about each popup type.
+    this.listen('ui:pushScreen', ({ screen }) => { if (screen && this.top !== screen) this.push(screen); });
+    this.listen('ui:popScreen', () => this.pop());
 
     // Retention: celebrate a claimed reward, and auto-open the daily hub once
     // per boot when free rewards are waiting (a welcome, never a nag).
@@ -65,8 +70,8 @@ export class UISystem extends System {
     this.listen('reward:granted', (rw) => { this._lastReward = rw; });
     this.listen('level:complete', () => this.push(new LevelCompleteScreen(this.game, this._lastReward)));
 
-    // Boot into the premium main menu.
-    this.push(new MenuScreen(this.game));
+    // Boot into the premium home screen.
+    this.push(new HomeScreen(this.game));
   }
 
   get top() { return this._stack[this._stack.length - 1] ?? null; }

@@ -27,18 +27,67 @@ export class DebugManager extends System {
     this.flags = {
       showFps: Config.debug.showFps,
       drawGridOutlines: Config.debug.drawGridOutlines,
+      showBounds: false,
       logLevel: Config.debug.logLevel,
     };
     this._active = Config.meta.channel !== 'prod';
+    this._themes = ['classic'];
+    this._themeIdx = 0;
+    this._onKey = (e) => this._handleKey(e);
   }
 
   onInit() {
     if (!this._active) { this.enabled = false; return; }
     this.listen('debug:toggle', ({ flag }) => this.toggle(flag));
+    // Developer-mode actions (also reachable from the keyboard, below).
+    this.listen('debug:action', ({ action, arg }) => this.action(action, arg));
+    if (typeof window !== 'undefined') window.addEventListener('keydown', this._onKey);
     this.events.emit('debug:state', { ...this.flags });
   }
 
   onReset() { /* flags persist across a game reset by design */ }
+
+  onDestroy() { if (typeof window !== 'undefined') window.removeEventListener('keydown', this._onKey); }
+
+  /**
+   * Keyboard developer console (dev/beta only). Keys map to the capabilities the
+   * spec requires so a developer can exercise the UI without a build.
+   */
+  _handleKey(e) {
+    switch (e.key.toLowerCase()) {
+      case 'f': this.toggle('showFps'); break;
+      case 'b': this.toggle('showBounds'); break;
+      case 'n': this.action('simulateNotification'); break;
+      case 'r': this.action('addResources'); break;
+      case 'p': this.action('openPopup', 'news'); break;
+      case 't': this.action('switchTheme'); break;
+      case 'u': this.action('unlockAll'); break;
+      default: return;
+    }
+  }
+
+  /** Run a developer capability. All are safe no-ops in production. */
+  action(action, arg) {
+    switch (action) {
+      case 'simulateNotification':
+        this.events.emit('notify:push', { text: 'Debug notification', priority: 9, color: '#7ed957' });
+        break;
+      case 'addResources': {
+        const eco = this.game.getSystem('economy');
+        if (eco) { eco.credit('gold', 1000); eco.credit('crystal', 100); eco.credit('stardust', 50); }
+        this.events.emit('notify:push', { text: '+1000 coins · +100 gems', priority: 8 });
+        break;
+      }
+      case 'openPopup': this.events.emit('popup:open', { id: arg || 'news', priority: 9 }); break;
+      case 'switchTheme': {
+        this._themeIdx = (this._themeIdx + 1) % this._themes.length;
+        this.events.emit('theme:set', { name: this._themes[this._themeIdx] });
+        break;
+      }
+      case 'unlockAll': this.events.emit('debug:unlockAll'); this.events.emit('notify:push', { text: 'All content unlocked', priority: 8 }); break;
+      default: Logger.debug('DebugManager', `unknown action "${action}"`);
+    }
+  }
 
   /** Flip a boolean flag by name and re-broadcast the full state. */
   toggle(flag) {
