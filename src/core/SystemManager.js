@@ -57,6 +57,11 @@ export class SystemManager {
     }
   }
 
+  /** Reset every system to a clean pre-game state (keeps subscriptions). */
+  resetAll() {
+    for (const s of this._order) s.Reset();
+  }
+
   /** Destroy all systems in reverse order so dependents tear down first. */
   destroyAll() {
     for (let i = this._order.length - 1; i >= 0; i--) {

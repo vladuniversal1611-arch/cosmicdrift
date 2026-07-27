@@ -69,6 +69,22 @@ export class GameplaySystem extends System {
     this.listen('game:toMenu', () => { this.state = 'menu'; });
   }
 
+  /** Return to a clean pre-game state (score/combo/energy + all cinematics). */
+  onReset() {
+    this.state = 'menu';
+    this.score = 0;
+    this.combo = 0;
+    this.energy = 0;
+    this._shake = 0;
+    this._flash = null;
+    this._golden = 0;
+    this._zoomPulse = null;
+    this._slowmo = null;
+    const r = this.game.renderer;
+    if (r) { r.shakeX = 0; r.shakeY = 0; r.zoom = 1; }
+    this.game.time.scale = 1;
+  }
+
   /** Add Dragon Energy directly (Dragon Rune tiles, bonuses). */
   addEnergy(amount) {
     if (!amount) return;

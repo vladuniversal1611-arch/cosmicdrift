@@ -44,6 +44,21 @@ export class System {
     this.initialized = true;
   }
 
+  // --- Canonical manager lifecycle -------------------------------------------
+  // Every system/manager supports the same four verbs so orchestration can
+  // treat them uniformly. These are thin PascalCase wrappers over the internal
+  // hooks; subclasses keep overriding `onInit` / `update` / `onReset` /
+  // `onDestroy` and never need to touch these.
+
+  /** Idempotent one-time setup. */
+  Initialize() { this.init(); return this; }
+  /** Per-frame advance (skips when disabled). */
+  Update(dt) { if (this.enabled) this.update(dt); }
+  /** Return to a clean, pre-game state WITHOUT tearing down subscriptions. */
+  Reset() { this.onReset(); return this; }
+  /** Full teardown: detach listeners and release resources. */
+  Dispose() { this.destroy(); }
+
   /**
    * Subscribe to an event and auto-track the unsubscribe so `destroy()` can
    * clean it up. Prevents listener leaks when systems are torn down.
@@ -67,6 +82,8 @@ export class System {
   update(/* dt */) {}
   /** Draw using the supplied Renderer. */
   render(/* renderer */) {}
+  /** Restore transient state to defaults (called by `Reset()`). */
+  onReset() {}
   /** Release resources / detach listeners. */
   onDestroy() {}
 }

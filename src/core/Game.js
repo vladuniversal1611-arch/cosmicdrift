@@ -46,6 +46,9 @@ import { MissionSystem } from '../systems/missions/MissionSystem.js';
 import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { UISystem } from '../ui/UISystem.js';
+import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
+import { DebugManager } from '../systems/debug/DebugManager.js';
+import { ThemeManager } from '../systems/theme/ThemeManager.js';
 
 export class Game {
   /**
@@ -106,6 +109,10 @@ export class Game {
     this.systems.register(new SettingsSystem(this));
     // Vendor-agnostic analytics hooks (listens to everything, no provider).
     this.systems.register(new AnalyticsSystem(this));
+    // Cross-cutting infrastructure managers (measure/skin/debug — no gameplay).
+    this.systems.register(new ThemeManager(this));
+    this.systems.register(new DebugManager(this));
+    this.systems.register(new PerformanceManager(this));
 
     // Simulation-support systems.
     if (f.audio) this.systems.register(new AudioSystem(this));
@@ -156,7 +163,10 @@ export class Game {
     this.getSystem('gameplay')?.renderOverlay(r);
     r.end();
 
-    if (Config.debug.showFps) this._drawFps(r);
+    // The DebugManager owns the live flag; fall back to the frozen default
+    // until it has registered (e.g. earliest frames / prod channel).
+    const showFps = this.getSystem('debug')?.get('showFps') ?? Config.debug.showFps;
+    if (showFps) this._drawFps(r);
   }
 
   /** Minimal on-screen FPS readout for development. */
@@ -165,6 +175,16 @@ export class Game {
       font: '600 16px system-ui, sans-serif',
       color: 'rgba(255,255,255,0.5)',
     });
+  }
+
+  /**
+   * Return every system to a clean, pre-game state without tearing down the
+   * game (subscriptions and core services stay live). Broadcasts `game:reset`
+   * so systems that don't override `onReset` can still react if they wish.
+   */
+  reset() {
+    this.systems.resetAll();
+    this.events.emit('game:reset');
   }
 
   /** Full teardown — useful for hot-reload and WebView lifecycle events. */
