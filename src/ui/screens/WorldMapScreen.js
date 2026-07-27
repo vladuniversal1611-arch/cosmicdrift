@@ -97,6 +97,32 @@ export class WorldMapScreen extends Screen {
     return r;
   }
 
+  _regionIndex(n) { let i = 0; for (let k = 0; k < REGIONS.length; k++) if (n >= REGIONS[k].from) i = k; return i; }
+
+  /** Level roughly at the vertical centre of the viewport. */
+  _centerLevel() { return clamp((this._scroll + this.bounds.h * 0.5 - TOP_PAD) / NODE_STEP + 1, 1, LEVEL_COUNT); }
+
+  /** Blend two hex colours; returns an rgb() string. */
+  _mix(c1, c2, t) {
+    const h = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+    const a = h(c1), b = h(c2);
+    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+  }
+
+  /** Sky + grass for the viewed depth, crossfading across region borders. */
+  _biomeAt(centerLevel) {
+    const i = this._regionIndex(centerLevel);
+    const cur = REGIONS[i], next = REGIONS[i + 1];
+    let t = 0;
+    if (next) { const band = 10; const d = next.from - centerLevel; if (d < band) t = clamp((band - d) / band, 0, 1); }
+    const o = next || cur;
+    return {
+      idx: i, blend: t,
+      sky: cur.sky.map((c, k) => this._mix(c, o.sky[k], t)),
+      grass: cur.grass.map((c, k) => this._mix(c, o.grass[k], t)),
+    };
+  }
+
   _meta(n) {
     const boss = n % 10 === 0;
     const special = !boss && n % 5 === 0;
@@ -152,8 +178,15 @@ export class WorldMapScreen extends Screen {
     }
 
     // Scattered scenery filling the whole meadow (kept clear of the path).
+    // Each region has its own flavour so the journey visibly changes biome.
+    const POOLS = [
+      ['tree', 'tree', 'bush', 'flowerpatch', 'rock', 'pond'],        // Dragon Valley
+      ['tree', 'bush', 'crystal', 'crystal', 'flowerpatch', 'pond'],  // Crystal Highlands
+      ['tree', 'bush', 'ruin', 'ruin', 'rock', 'flowerpatch'],        // Ancient Kingdom
+      ['pine', 'pine', 'snowrock', 'icepond', 'bush', 'pine'],        // Frostpeak Reach
+      ['floatrock', 'starspark', 'starspark', 'crystal', 'bush', 'floatrock'], // Celestial Summit
+    ];
     this._props = [];
-    const kinds = ['tree', 'tree', 'bush', 'flowerpatch', 'rock', 'pond'];
     for (let y = TOP_PAD - 120; y < contentH - 80; y += 150) {
       const count = 2 + Math.floor(this._rand(y, 5) * 2);
       for (let k = 0; k < count; k++) {
@@ -164,7 +197,9 @@ export class WorldMapScreen extends Screen {
         // Push props out of the path corridor so nothing sits on the road.
         if (Math.abs(x - pathX) < 150) x = pathX + (x < pathX ? -1 : 1) * (150 + this._rand(seed, 8) * 120);
         x = clamp(x, 40, this.bounds.w - 40);
-        const kind = kinds[Math.floor(this._rand(seed, 9) * kinds.length)];
+        const lvl = clamp(Math.round((py - TOP_PAD) / NODE_STEP + 1), 1, LEVEL_COUNT);
+        const pool = POOLS[this._regionIndex(lvl)];
+        const kind = pool[Math.floor(this._rand(seed, 9) * pool.length)];
         this._props.push({ x, y: py, kind, sc: 0.75 + this._rand(seed, 10) * 0.7, seed });
       }
     }
@@ -179,6 +214,32 @@ export class WorldMapScreen extends Screen {
         v: 8 + this._rand(i, 24) * 16,
       });
     }
+
+    // Butterflies wander the meadow (world-space; flutter around a home point).
+    this._flutter = [];
+    for (let i = 0; i < 8; i++) {
+      this._flutter.push({
+        hx: 70 + this._rand(i, 60) * (this.bounds.w - 140),
+        hy: TOP_PAD + this._rand(i, 61) * (contentH - TOP_PAD - 200),
+        ph: this._rand(i, 62) * 6.283,
+        col: ['#ff9ec4', '#ffd34e', '#a48bff', '#8fe0ff', '#ff9d5c'][i % 5],
+        x: 0, y: 0,
+      });
+    }
+
+    // Birds glide across the sky (screen-space, wrap horizontally).
+    this._birds = [];
+    for (let i = 0; i < 3; i++) {
+      this._birds.push({
+        x: this._rand(i, 70) * this.bounds.w,
+        y: this.bounds.h * 0.14 + this._rand(i, 71) * this.bounds.h * 0.32,
+        v: 42 + this._rand(i, 72) * 46,
+        ph: this._rand(i, 73) * 6.283,
+      });
+    }
+
+    // A slow hot-air balloon drifts up the sky and wraps around.
+    this._balloon = { x: this.bounds.w * 0.72, y: this.bounds.h * 0.55, v: 11, ph: this._rand(9, 80) * 6.283 };
   }
 
   _catmull(p0, p1, p2, p3, t) {
@@ -270,6 +331,19 @@ export class WorldMapScreen extends Screen {
       c.x += c.v * dt;
       if (c.x - 160 > this.bounds.w) c.x = -160;
     }
+    // Ambient life.
+    for (const f of this._flutter) {
+      f.x = f.hx + Math.sin(this._time * 1.6 + f.ph) * 42;
+      f.y = f.hy + Math.cos(this._time * 2.1 + f.ph) * 26;
+    }
+    for (const bd of this._birds) {
+      bd.x += bd.v * dt;
+      if (bd.x - 40 > this.bounds.w) bd.x = -40;
+    }
+    if (this._balloon) {
+      this._balloon.y -= this._balloon.v * dt;
+      if (this._balloon.y < -140) this._balloon.y = this.bounds.h + 140;
+    }
   }
 
   _state(n) {
@@ -285,10 +359,10 @@ export class WorldMapScreen extends Screen {
   // --- Render ----------------------------------------------------------------
   render(renderer) {
     const b = this.bounds;
-    const region = this._region(this._current);
+    this._biome = this._biomeAt(this._centerLevel());
 
-    // Sky.
-    renderer.fillBackgroundGradient(region.sky);
+    // Sky (crossfades between regions as you scroll).
+    renderer.fillBackgroundGradient(this._biome.sky);
     const sun = renderer.radialGradient(b.centerX, 160, 520, [[0, 'rgba(255,255,255,0.5)'], [1, 'rgba(255,255,255,0)']]);
     renderer.fillRect(0, 0, b.w, b.h, sun);
 
@@ -296,11 +370,15 @@ export class WorldMapScreen extends Screen {
     this._drawGround(renderer);
     this._drawProps(renderer, 'back');   // trees/ponds behind the path
     this._drawPath(renderer);
+    this._drawPathGlow(renderer);        // energy flowing toward the next level
     this._drawEdge(renderer);
     this._drawProps(renderer, 'front');  // flowers/bushes in front of the path
+    this._drawFlutter(renderer);         // butterflies over the meadow
     this._drawNodes(renderer);
 
-    // Clouds float over the realm.
+    // Sky life + clouds float over the realm.
+    this._drawBalloon(renderer);
+    this._drawBirds(renderer);
     this._drawClouds(renderer);
 
     // Fixed foreground.
@@ -312,9 +390,9 @@ export class WorldMapScreen extends Screen {
   // --- Ground ----------------------------------------------------------------
   _drawGround(renderer) {
     const b = this.bounds;
-    const region = this._region(this._current);
+    const grass = (this._biome || this._biomeAt(this._centerLevel())).grass;
     const topY = TOP_PAD - this._scroll;
-    const g = renderer.linearGradient(0, Math.max(0, topY), 0, b.h, [[0, region.grass[0]], [1, region.grass[1]]]);
+    const g = renderer.linearGradient(0, Math.max(0, topY), 0, b.h, [[0, grass[0]], [1, grass[1]]]);
     // The meadow starts a little above the first node and fills to the bottom.
     renderer.fillRect(0, Math.max(0, topY - 200), b.w, b.h, g);
     // Soft lighter horizon band where grass meets sky.
@@ -414,32 +492,44 @@ export class WorldMapScreen extends Screen {
   // --- Scenery props ---------------------------------------------------------
   _drawProps(renderer, layer) {
     const s = this._scroll, b = this.bounds;
+    const BACK = new Set(['tree', 'pine', 'pond', 'icepond', 'ruin', 'floatrock']);
     for (const p of this._props) {
       const y = p.y - s;
-      if (y < -140 || y > b.h + 60) continue;
-      const back = p.kind === 'tree' || p.kind === 'pond';
+      if (y < -160 || y > b.h + 60) continue;
+      const back = BACK.has(p.kind);
       if (layer === 'back' ? !back : back) continue;
+      // Gentle wind sway for foliage (purely visual, per-prop phase).
+      const sway = Math.sin(this._time * 1.3 + p.seed) * 2.2;
       switch (p.kind) {
-        case 'tree': this._drawTree(renderer, p.x, y, p.sc); break;
+        case 'tree': this._drawTree(renderer, p.x, y, p.sc, sway); break;
         case 'bush': this._drawBush(renderer, p.x, y, p.sc); break;
         case 'flowerpatch': this._drawFlowerPatch(renderer, p.x, y, p.sc, p.seed); break;
         case 'rock': this._drawRock(renderer, p.x, y, p.sc); break;
         case 'pond': this._drawPond(renderer, p.x, y, p.sc); break;
+        case 'crystal': this._drawCrystalCluster(renderer, p.x, y, p.sc); break;
+        case 'ruin': this._drawRuin(renderer, p.x, y, p.sc, p.seed); break;
+        case 'pine': this._drawPine(renderer, p.x, y, p.sc, sway); break;
+        case 'snowrock': this._drawSnowRock(renderer, p.x, y, p.sc); break;
+        case 'icepond': this._drawIcePond(renderer, p.x, y, p.sc); break;
+        case 'floatrock': this._drawFloatRock(renderer, p.x, y, p.sc); break;
+        case 'starspark': this._drawStarSpark(renderer, p.x, y, p.sc); break;
       }
     }
   }
 
-  _drawTree(renderer, x, y, sc) {
+  _drawTree(renderer, x, y, sc, sway = 0) {
     const trunkW = 12 * sc, trunkH = 34 * sc;
     // shadow
     renderer.setAlpha(0.12); this._ellipse(renderer, x, y + 4, 34 * sc, 12 * sc, '#0a3a1a'); renderer.setAlpha(1);
     renderer.fillRoundRect(x - trunkW / 2, y - trunkH, trunkW, trunkH, 4 * sc, '#7a4a24');
     const r = 30 * sc;
-    renderer.fillCircle(x, y - trunkH - r * 0.5, r, '#3aa04a');
-    renderer.fillCircle(x - r * 0.7, y - trunkH, r * 0.82, '#48b657');
-    renderer.fillCircle(x + r * 0.7, y - trunkH, r * 0.82, '#48b657');
-    renderer.fillCircle(x, y - trunkH - r * 1.1, r * 0.7, '#54c063');
-    renderer.setAlpha(0.5); renderer.fillCircle(x - r * 0.35, y - trunkH - r * 1.0, r * 0.4, '#c8f2a4'); renderer.setAlpha(1);
+    const cx = x + sway;                 // crown leans with the wind
+    const cy = y - trunkH;
+    renderer.fillCircle(cx, cy - r * 0.5, r, '#3aa04a');
+    renderer.fillCircle(cx - r * 0.7, cy, r * 0.82, '#48b657');
+    renderer.fillCircle(cx + r * 0.7, cy, r * 0.82, '#48b657');
+    renderer.fillCircle(cx, cy - r * 1.1, r * 0.7, '#54c063');
+    renderer.setAlpha(0.5); renderer.fillCircle(cx - r * 0.35, cy - r * 1.0, r * 0.4, '#c8f2a4'); renderer.setAlpha(1);
   }
 
   _drawBush(renderer, x, y, sc) {
@@ -498,7 +588,185 @@ export class WorldMapScreen extends Screen {
     this._ellipse(renderer, x, y, w * 0.55, h * 0.55, '#3aa06a');       // muddy rim
     this._ellipse(renderer, x, y, w * 0.48, h * 0.46,
       renderer.linearGradient(x, y - h * 0.4, x, y + h * 0.4, [[0, '#8fe0ff'], [1, '#3f9fd6']]));
-    renderer.setAlpha(0.6); this._ellipse(renderer, x - w * 0.1, y - h * 0.12, w * 0.18, h * 0.1, '#eafcff'); renderer.setAlpha(1);
+    // Moving specular shimmer.
+    const sh = Math.sin(this._time * 2 + x) * w * 0.12;
+    renderer.setAlpha(0.6); this._ellipse(renderer, x - w * 0.1 + sh, y - h * 0.12, w * 0.18, h * 0.1, '#eafcff'); renderer.setAlpha(1);
+  }
+
+  // --- Region-themed props ---------------------------------------------------
+  _drawCrystalCluster(renderer, x, y, sc) {
+    renderer.setAlpha(0.12); this._ellipse(renderer, x, y + 3, 26 * sc, 8 * sc, '#0a2a3a'); renderer.setAlpha(1);
+    const gems = [[-10, 26, '#8ad6ff'], [8, 34, '#5fb9f0'], [0, 44, '#c9f2ff']];
+    const glow = 0.5 + 0.5 * Math.sin(this._time * 2 + x);
+    for (const [dx, hh, col] of gems) {
+      const gx = x + dx * sc, h = hh * sc, w = h * 0.42, ctx = renderer.ctx;
+      renderer.withGlow('#7fdcff', 8 + glow * 8, () => {
+        ctx.beginPath();
+        ctx.moveTo(gx, y - h);
+        ctx.lineTo(gx + w / 2, y - h * 0.45);
+        ctx.lineTo(gx + w * 0.3, y);
+        ctx.lineTo(gx - w * 0.3, y);
+        ctx.lineTo(gx - w / 2, y - h * 0.45);
+        ctx.closePath();
+        ctx.fillStyle = renderer.linearGradient(gx, y - h, gx, y, [[0, '#eafaff'], [1, col]]);
+        ctx.fill();
+      });
+    }
+  }
+
+  _drawRuin(renderer, x, y, sc, seed) {
+    renderer.setAlpha(0.12); this._ellipse(renderer, x, y + 3, 34 * sc, 10 * sc, '#2a2418'); renderer.setAlpha(1);
+    const cols = 2 + Math.floor(this._rand(seed, 90) * 2);
+    for (let i = 0; i < cols; i++) {
+      const px = x + (i - (cols - 1) / 2) * 26 * sc;
+      const h = (42 + this._rand(seed, 91 + i) * 30) * sc;   // broken heights
+      renderer.fillRoundRect(px - 9 * sc, y - h, 18 * sc, h, 3 * sc,
+        renderer.linearGradient(px, y - h, px, y, [[0, '#d8cfba'], [1, '#a99b7e']]));
+      renderer.setAlpha(0.4); renderer.fillRoundRect(px - 9 * sc, y - h, 6 * sc, h, 3 * sc, '#f0e8d4'); renderer.setAlpha(1);
+      renderer.fillRoundRect(px - 12 * sc, y - h - 6 * sc, 24 * sc, 8 * sc, 2 * sc, '#c3b79a'); // capital
+    }
+  }
+
+  _drawPine(renderer, x, y, sc, sway = 0) {
+    renderer.setAlpha(0.12); this._ellipse(renderer, x, y + 3, 24 * sc, 9 * sc, '#0a2a2a'); renderer.setAlpha(1);
+    renderer.fillRoundRect(x - 5 * sc, y - 16 * sc, 10 * sc, 16 * sc, 2 * sc, '#6a4526');
+    const ctx = renderer.ctx;
+    const tiers = [[46, 30], [34, 24], [22, 18]];
+    tiers.forEach(([topH, halfW], i) => {
+      const baseY = y - 12 * sc - i * 14 * sc;
+      const lean = sway * (i + 1) * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(x + lean, baseY - topH * sc);
+      ctx.lineTo(x - halfW * sc, baseY);
+      ctx.lineTo(x + halfW * sc, baseY);
+      ctx.closePath();
+      ctx.fillStyle = i === 0 ? '#2f7a4a' : (i === 1 ? '#37904f' : '#41a55a');
+      ctx.fill();
+    });
+    // Snow dusting.
+    renderer.setAlpha(0.85); renderer.fillCircle(x + sway, y - 12 * sc - 2 * 14 * sc - 40 * sc, 4 * sc, '#fff'); renderer.setAlpha(1);
+  }
+
+  _drawSnowRock(renderer, x, y, sc) {
+    const w = 30 * sc, h = 20 * sc, ctx = renderer.ctx;
+    renderer.setAlpha(0.12); this._ellipse(renderer, x, y + 3, w * 0.6, h * 0.35, '#20303a'); renderer.setAlpha(1);
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.quadraticCurveTo(x - w * 0.3, y - h, x, y - h);
+    ctx.quadraticCurveTo(x + w * 0.4, y - h, x + w / 2, y);
+    ctx.closePath();
+    ctx.fillStyle = renderer.linearGradient(x, y - h, x, y, [[0, '#cfd8e2'], [1, '#8b97a4']]);
+    ctx.fill();
+    // Snow cap.
+    renderer.setAlpha(0.95); this._ellipse(renderer, x, y - h * 0.8, w * 0.4, h * 0.28, '#ffffff'); renderer.setAlpha(1);
+  }
+
+  _drawIcePond(renderer, x, y, sc) {
+    const w = 70 * sc, h = 34 * sc, ctx = renderer.ctx;
+    this._ellipse(renderer, x, y, w * 0.55, h * 0.55, '#a8c4d6');
+    this._ellipse(renderer, x, y, w * 0.48, h * 0.46,
+      renderer.linearGradient(x, y - h * 0.4, x, y + h * 0.4, [[0, '#dff4ff'], [1, '#9fcfe6']]));
+    // Cracks.
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x - w * 0.2, y - h * 0.1); ctx.lineTo(x + w * 0.05, y); ctx.lineTo(x + w * 0.25, y - h * 0.15); ctx.stroke();
+  }
+
+  _drawFloatRock(renderer, x, y, sc) {
+    const bob = Math.sin(this._time * 1.4 + x) * 5 * sc;
+    const w = 42 * sc, h = 26 * sc, ctx = renderer.ctx, cy = y - 30 * sc + bob;
+    // Soft magic glow beneath.
+    renderer.setAlpha(0.25); renderer.withGlow('#b79cff', 16, () => renderer.fillCircle(x, cy + h * 0.4, w * 0.4, '#c9b8ff')); renderer.setAlpha(1);
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, cy);
+    ctx.quadraticCurveTo(x - w * 0.2, cy + h, x, cy + h * 1.1);
+    ctx.quadraticCurveTo(x + w * 0.2, cy + h, x + w / 2, cy);
+    ctx.closePath();
+    ctx.fillStyle = renderer.linearGradient(x, cy, x, cy + h, [[0, '#9a7ad0'], [1, '#6a4aa0']]);
+    ctx.fill();
+    this._ellipse(renderer, x, cy, w * 0.5, h * 0.32, renderer.linearGradient(x, cy - h * 0.3, x, cy + h * 0.3, [[0, '#c8b4f0'], [1, '#8a6cc0']]));
+    renderer.fillCircle(x - w * 0.2, cy - h * 0.05, 2.5 * sc, '#fff');
+  }
+
+  _drawStarSpark(renderer, x, y, sc) {
+    const tw = 0.5 + 0.5 * Math.sin(this._time * 3 + x);
+    renderer.setAlpha(0.6 + 0.4 * tw);
+    renderer.withGlow('#ffe27a', 10, () => renderer.sparkle(x, y - 14 * sc, (7 + tw * 3) * sc, '#fff7cf'));
+    renderer.setAlpha(1);
+  }
+
+  // --- Ambient life ----------------------------------------------------------
+  _drawFlutter(renderer) {
+    const s = this._scroll, b = this.bounds;
+    for (const f of this._flutter) {
+      const y = f.y - s;
+      if (y < -20 || y > b.h + 20) continue;
+      const flap = Math.abs(Math.sin(this._time * 12 + f.ph));
+      const wq = 5 + flap * 4;
+      const ctx = renderer.ctx;
+      ctx.fillStyle = f.col;
+      this._ellipse(renderer, f.x - wq * 0.6, y, wq, wq * (0.5 + flap * 0.6), f.col);
+      this._ellipse(renderer, f.x + wq * 0.6, y, wq, wq * (0.5 + flap * 0.6), f.col);
+      renderer.fillCircle(f.x, y, 2.4, '#3a2a40');
+    }
+  }
+
+  _drawBirds(renderer) {
+    for (const bd of this._birds) {
+      const flap = Math.sin(this._time * 9 + bd.ph) * 6;
+      const ctx = renderer.ctx;
+      ctx.strokeStyle = 'rgba(60,80,110,0.7)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(bd.x - 12, bd.y + flap);
+      ctx.lineTo(bd.x, bd.y - 2);
+      ctx.lineTo(bd.x + 12, bd.y + flap);
+      ctx.stroke();
+    }
+  }
+
+  _drawBalloon(renderer) {
+    if (!this._balloon) return;
+    const bl = this._balloon;
+    const x = bl.x + Math.sin(this._time * 0.6 + bl.ph) * 20;
+    const y = bl.y;
+    const R = 34, ctx = renderer.ctx;
+    // Basket + ropes.
+    ctx.strokeStyle = 'rgba(90,60,30,0.7)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x - 10, y + R); ctx.lineTo(x - 7, y + R + 20); ctx.moveTo(x + 10, y + R); ctx.lineTo(x + 7, y + R + 20); ctx.stroke();
+    renderer.fillRoundRect(x - 9, y + R + 18, 18, 14, 3, '#8a5a2c');
+    // Envelope: a round balloon with vertical colour stripes, tapering to a tip.
+    const stripes = ['#ff6b8a', '#ffd24a', '#5fb9f0', '#7ed957'];
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    ctx.moveTo(x - R * 0.5, y + R * 0.7);
+    ctx.lineTo(x, y + R + 6);
+    ctx.lineTo(x + R * 0.5, y + R * 0.7);
+    ctx.clip();
+    const sw = (2 * R) / stripes.length;
+    for (let i = 0; i < stripes.length; i++) {
+      ctx.fillStyle = stripes[i];
+      ctx.fillRect(x - R + sw * i, y - R, sw + 1, 2 * R + 10);
+    }
+    ctx.restore();
+    renderer.setAlpha(0.35); this._ellipse(renderer, x - R * 0.32, y - R * 0.25, R * 0.22, R * 0.4, '#fff'); renderer.setAlpha(1);
+  }
+
+  // --- Path energy flow ------------------------------------------------------
+  _drawPathGlow(renderer) {
+    const s = this._scroll, b = this.bounds;
+    if (!this._path.length) return;
+    const dots = 5;
+    for (let d = 0; d < dots; d++) {
+      const t = ((this._time * 0.06) + d / dots) % 1;
+      const idx = Math.floor(t * (this._path.length - 1));
+      const p = this._path[idx];
+      const y = p.y - s;
+      if (y < -20 || y > b.h + 20) continue;
+      const pulse = 0.4 + 0.6 * Math.sin(this._time * 4 + d);
+      renderer.setAlpha(0.35 * pulse);
+      renderer.withGlow('#ffe89a', 12, () => renderer.fillCircle(p.x, y, 6, '#fff3c4'));
+      renderer.setAlpha(1);
+    }
   }
 
   // --- Level nodes -----------------------------------------------------------
