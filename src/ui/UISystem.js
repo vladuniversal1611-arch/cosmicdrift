@@ -18,7 +18,7 @@
 import { System } from '../core/System.js';
 import { HomeScreen } from './home/HomeScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
-import { WorldMapScreen } from './screens/WorldMapScreen.js';
+import { WorldMapScreen } from './worldmap/WorldMapScreen.js';
 import { ShopScreen } from './screens/ShopScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { CollectionScreen } from './screens/CollectionScreen.js';
