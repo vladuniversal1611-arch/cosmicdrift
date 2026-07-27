@@ -10,6 +10,7 @@
 import { UITheme, UI, Rolling } from '../theme/UITheme.js';
 import { Rect } from '../../utils/Rect.js';
 import { Icons } from '../home/Icons.js';
+import { Motion } from '../home/Motion.js';
 
 export class WorldMapHud {
   constructor(game, w, h) {
@@ -37,8 +38,11 @@ export class WorldMapHud {
     const navH = 190, by = h - navH;
     this._navShelf = new Rect(-20, by + 6, w + 40, navH + 40);
     const pad = 20, tw = (w - pad * 2) / tabs.length, bh = 130;
-    this._tabs = tabs.map((d, i) => ({ def: d, rect: new Rect(pad + i * tw + tw * 0.12, by + 26, tw * 0.76, bh) }));
+    this._tabs = tabs.map((d, i) => ({ def: d, rect: new Rect(pad + i * tw + tw * 0.12, by + 26, tw * 0.76, bh), pressAt: -1, badge: 0, ph: i * 0.6 }));
   }
+
+  /** Set a bottom-nav badge (0 none, -1 red dot, >0 count). */
+  setBadge(id, n) { const t = this._tabs.find((x) => x.def.id === id); if (t) t.badge = n; }
 
   update(dt) {
     this._t += dt;
@@ -63,12 +67,26 @@ export class WorldMapHud {
       r.text(c.roll.text, (b.x + b.h * 0.95 + b.right) / 2, b.centerY, { font: '900 30px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 3 });
     }
 
-    // Bottom nav.
+    // Bottom nav — glass panel with animated, glowing icons + badges.
     UITheme.glassPanel(r, this._navShelf.x, this._navShelf.y, this._navShelf.w, this._navShelf.h, 30);
+    const now = performance.now();
     for (const t of this._tabs) {
       const b = t.rect, cx = b.centerX, icyR = Math.min(b.w, b.h) * 0.30;
-      t.def.icon(r, cx, b.y + icyR + 6, icyR, '#3a5a86');
-      r.text(t.def.label, cx, b.bottom - 10, { font: '800 18px system-ui, sans-serif', color: 'rgba(47,84,135,0.8)', align: 'center', baseline: 'middle' });
+      const pressT = t.pressAt >= 0 ? (now - t.pressAt) / 1000 : 99;
+      const press = pressT < 0.3 ? 0.9 + 0.1 * (pressT / 0.3) : 1;
+      const float = Motion.float(this._t, 3, 2.6, t.ph);
+      const ctx = r.ctx; ctx.save(); ctx.translate(cx, b.centerY + float); ctx.scale(press, press); ctx.translate(-cx, -b.centerY);
+      const icy = b.y + icyR + 6;
+      r.withGlow(t.def.colors[1], 8, () => r.fillCircle(cx, icy, icyR + 8, 'rgba(255,255,255,0.5)'));
+      t.def.icon(r, cx, icy, icyR, t.def.colors[1]);
+      r.text(t.def.label, cx, b.bottom - 10, { font: '800 18px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+      ctx.restore();
+      if (t.badge !== 0) {
+        const bx = cx + icyR + 6, byy = icy - icyR + float, hop = Motion.bounce(this._t, 3, 0.85, t.ph);
+        r.withGlow('#ff4d5e', 8, () => r.fillCircle(bx, byy - hop, 14, '#ff4d5e'));
+        r.strokeRoundRect(bx - 14, byy - hop - 14, 28, 28, 14, '#fff', 2.5);
+        if (t.badge > 0) r.text(String(t.badge), bx, byy - hop + 1, { font: '900 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      }
     }
   }
 
@@ -76,7 +94,7 @@ export class WorldMapHud {
     if (this._back.contains(px, py)) { this.game.events.emit('ui:closeWorldMap'); return true; }
     if (this._settings.contains(px, py)) { this.game.events.emit('ui:openSettings'); return true; }
     for (const c of this._chips) if (c.rect.contains(px, py)) { this.game.events.emit('ui:openShop', { resource: c.id }); return true; }
-    for (const t of this._tabs) if (t.rect.contains(px, py)) { this.game.events.emit(t.def.event); return true; }
+    for (const t of this._tabs) if (t.rect.contains(px, py)) { t.pressAt = performance.now(); this.game.getSystem('audio')?.play('button'); this.game.events.emit(t.def.event); return true; }
     return false;
   }
 }

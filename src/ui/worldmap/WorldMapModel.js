@@ -49,8 +49,9 @@ export class WorldMapModel {
       const ry = span / 2 + MAP.nodeStep * 0.55;
 
       const island = { index: islandIdx, theme, cx: icx, cy: icy, rx, ry, top: cursorY, nodes: [] };
-      // Scatter decor deterministically on the platform.
-      island.decor = this._decor(island);
+      // Unique irregular silhouette + floating satellite stones per island.
+      island.shape = this._silhouette(islandIdx);
+      island.stones = this._stones(island);
       this.islands.push(island);
 
       for (let j = 0; j < count; j++) {
@@ -64,6 +65,8 @@ export class WorldMapModel {
         level++;
         if (level > MAP.totalLevels) break;
       }
+      // Decor is scattered AFTER nodes exist so it can dodge the path.
+      island.decor = this._decor(island);
 
       // Reward object beside this island (if configured).
       if (MAP.rewards[islandIdx]) {
@@ -96,24 +99,57 @@ export class WorldMapModel {
     this.contentH = cursorY - MAP.islandGap + MAP.bottomPad;
   }
 
-  _decor(island) {
+  /** Per-island irregular outline: radius multipliers around the ellipse. */
+  _silhouette(i) {
+    const n = 24, out = [];
+    for (let k = 0; k < n; k++) {
+      const a = k / n * Math.PI * 2;
+      out.push(1 + 0.14 * Math.sin(a * 3 + i * 1.7) + 0.08 * Math.sin(a * 5 + i * 2.9) + 0.05 * Math.sin(a * 2 + i));
+    }
+    return out;
+  }
+
+  /** Small floating rocks orbiting just off the island rim. */
+  _stones(island) {
     const out = [];
-    const set = island.theme.decor;
-    const count = 7;
-    for (let k = 0; k < count; k++) {
-      const seed = island.index * 97 + k * 13;
-      const kind = set[Math.floor(this._rand(seed, 1) * set.length)];
-      // Spread around the platform, biased to the rim so nodes stay clear.
-      const ang = this._rand(seed, 2) * Math.PI * 2;
-      const rr = 0.55 + this._rand(seed, 3) * 0.4;
+    const n = 3 + Math.floor(this._rand(island.index, 5) * 3);
+    for (let k = 0; k < n; k++) {
+      const seed = island.index * 71 + k * 17;
+      const a = this._rand(seed, 1) * Math.PI * 2;
       out.push({
-        kind,
-        x: island.cx + Math.cos(ang) * island.rx * rr,
-        y: island.cy + Math.sin(ang) * island.ry * rr,
-        sc: 0.8 + this._rand(seed, 4) * 0.6,
-        seed,
+        x: island.cx + Math.cos(a) * island.rx * (1.02 + this._rand(seed, 2) * 0.18),
+        y: island.cy + Math.sin(a) * island.ry * (0.6 + this._rand(seed, 3) * 0.5),
+        sc: 0.5 + this._rand(seed, 4) * 0.7,
+        ph: this._rand(seed, 5) * 6.28,
       });
     }
+    return out;
+  }
+
+  /**
+   * Densely fill the island surface, dodging the node path so the world reads
+   * as handcrafted (no empty green centres). Theme decor is mixed with common
+   * ground fillers (grass, flowers, mushrooms, sparkles).
+   */
+  _decor(island) {
+    const out = [];
+    const pool = [...island.theme.decor, 'grasspatch', 'grasspatch', 'flower', 'flower', 'mushroom', 'sparkle', 'glowplant', 'pond', 'fence'];
+    const want = 20, tries = 70;
+    for (let k = 0; k < tries && out.length < want; k++) {
+      const seed = island.index * 131 + k * 7;
+      const a = this._rand(seed, 1) * Math.PI * 2;
+      const rr = Math.sqrt(this._rand(seed, 2)) * 0.9;   // ~uniform across the disc
+      const x = island.cx + Math.cos(a) * island.rx * rr;
+      const y = island.cy + Math.sin(a) * island.ry * rr;
+      let ok = true;
+      for (const nd of island.nodes) { if ((x - nd.x) ** 2 + (y - nd.y) ** 2 < 76 * 76) { ok = false; break; } }
+      if (!ok) continue;
+      const kind = pool[Math.floor(this._rand(seed, 3) * pool.length)];
+      // Bigger props (trees/pillars/ruins) prefer the rim; keep centres airy-ish.
+      out.push({ kind, x, y, sc: 0.7 + this._rand(seed, 4) * 0.6, seed, depth: y });
+    }
+    // Painter's order: back (higher on screen) first.
+    out.sort((p, q) => p.depth - q.depth);
     return out;
   }
 

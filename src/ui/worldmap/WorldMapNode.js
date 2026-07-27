@@ -57,8 +57,11 @@ export class WorldMapNode {
         r.sparkle(x + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7, 6, '#fff7cf'); r.setAlpha(1);
       }
     }
-    // Boss red glow.
-    if (boss && state !== 'locked') { r.setAlpha(0.3); r.withGlow('#ff3a3a', 26, () => r.fillCircle(x, cy, R * 1.3, '#ff5a4a')); r.setAlpha(1); }
+    // Boss red glow + licking flames.
+    if (boss && state !== 'locked') {
+      r.setAlpha(0.3); r.withGlow('#ff3a3a', 26, () => r.fillCircle(x, cy, R * 1.3, '#ff5a4a')); r.setAlpha(1);
+      this._flames(r, x, cy + R * 0.7, R);
+    }
 
     // Shadow + body + gloss + ring.
     r.setAlpha(state === 'locked' ? 0.16 : 0.28); r.fillCircle(x, cy + 8, R, '#0a1230'); r.setAlpha(1);
@@ -70,8 +73,8 @@ export class WorldMapNode {
     if (state === 'locked') { this._lock(r, x, cy, R); return; }
     if (node.kind === 'boss') this._bossIcon(r, x, cy, R);
     else if (node.kind === 'treasure') this._chest(r, x, cy, R * 0.5);
-    else if (node.kind === 'daily') this._dailyIcon(r, x, cy, R * 0.5);
-    else if (node.kind === 'special') r.sparkle(x, cy - R * 0.05, R * 0.4, '#fff');
+    else if (node.kind === 'daily') this._gift(r, x, cy, R * 0.5);
+    else if (node.kind === 'special') this._portal(r, x, cy, R * 0.62);
     else if (state === 'completed' || state === 'perfect') this._check(r, x, cy, R * 0.44);
     else r.text(String(node.n), x, cy + 2, { font: `900 ${Math.round(R * 0.72)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,40,80,0.45)', outlineWidth: 4 });
 
@@ -107,10 +110,37 @@ export class WorldMapNode {
     r.fillRoundRect(x - s * 0.16, y - s * 0.2, s * 0.32, s * 0.7, s * 0.06, '#7a4a00');
     r.sparkle(x + s * 0.7, y - s * 0.7, s * 0.4, '#fff'); r.sparkle(x - s * 0.7, y - s * 0.4, s * 0.3, '#fff6c8');
   }
-  _dailyIcon(r, x, y, s) {
-    r.fillRoundRect(x - s, y - s * 0.8, s * 2, s * 1.6, s * 0.2, '#fff');
-    const ctx = r.ctx; ctx.strokeStyle = '#22b07a'; ctx.lineWidth = s * 0.16; ctx.beginPath(); ctx.moveTo(x - s * 0.6, y - s * 0.2); ctx.lineTo(x + s * 0.6, y - s * 0.2); ctx.stroke();
-    r.text('!', x, y + s * 0.35, { font: `900 ${s}px system-ui, sans-serif`, color: '#22b07a', align: 'center', baseline: 'middle' });
+  _gift(r, x, y, s) {
+    // Gift box: base + lid + ribbon cross + bow.
+    r.fillRoundRect(x - s * 0.9, y - s * 0.1, s * 1.8, s, s * 0.16, '#fff');
+    r.fillRoundRect(x - s, y - s * 0.55, s * 2, s * 0.5, s * 0.16, '#fff');
+    r.fillRoundRect(x - s * 0.16, y - s * 0.55, s * 0.32, s * 1.45, s * 0.06, '#ff6a9a');
+    r.fillCircle(x - s * 0.3, y - s * 0.7, s * 0.26, '#ff6a9a');
+    r.fillCircle(x + s * 0.3, y - s * 0.7, s * 0.26, '#ff6a9a');
+    r.fillCircle(x, y - s * 0.6, s * 0.14, '#ffd24a');
+  }
+  _portal(r, x, y, s) {
+    const ctx = r.ctx; const spin = this._t * 1.6;
+    r.withGlow('#c98bff', 12, () => {
+      for (let ring = 0; ring < 2; ring++) {
+        ctx.beginPath();
+        for (let k = 0; k <= 20; k++) { const a = k / 20 * Math.PI * 2 + spin * (ring ? -1 : 1); const rr = s * (0.9 - ring * 0.3) + Math.sin(a * 4 + spin) * s * 0.08; const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr * 0.9; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.closePath(); ctx.strokeStyle = ring ? '#e6c8ff' : '#a86cff'; ctx.lineWidth = 5; ctx.stroke();
+      }
+    });
+    r.fillCircle(x, y, s * 0.32, '#f0e0ff');
+  }
+  _flames(r, x, y, R) {
+    const ctx = r.ctx;
+    for (let i = -1; i <= 1; i++) {
+      const flick = 0.7 + Motion.pulse(this._t, 0.3, i * 2 + x) * 0.6;
+      const fx = x + i * R * 0.5, h = R * (0.6 + i * 0 + 0.3) * flick;
+      r.withGlow('#ff6a2a', 10, () => {
+        ctx.beginPath(); ctx.moveTo(fx, y - h); ctx.quadraticCurveTo(fx - R * 0.22, y - h * 0.3, fx - R * 0.14, y);
+        ctx.lineTo(fx + R * 0.14, y); ctx.quadraticCurveTo(fx + R * 0.22, y - h * 0.3, fx, y - h); ctx.closePath();
+        ctx.fillStyle = r.linearGradient(fx, y - h, fx, y, [[0, '#ffe27a'], [1, '#ff4a1a']]); ctx.fill();
+      });
+    }
   }
   _stars(r, x, y, filled) {
     for (let i = 0; i < 3; i++) {

@@ -113,6 +113,7 @@ export class WorldMapScreen extends Screen {
     let vi = 0; for (const isl of this.model.islands) if (centerY >= isl.top - 100) vi = isl.index;
     this.hud.worldName = islandTheme(vi).name;
     this.hud.progress = (this._highest - 1) / MAP.totalLevels * 100;
+    this.hud.setBadge('events', this.game.getSystem('retention')?.hasUnclaimedDaily?.() ? -1 : 0);
     this.parallax.setSky(islandTheme(vi).sky);
 
     for (const c of this._critters) this._updateCritter(c, dt);

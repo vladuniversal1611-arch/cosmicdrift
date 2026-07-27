@@ -19,7 +19,12 @@ export class WorldMapParallax {
     this._birds = [];
     for (let i = 0; i < 4; i++) this._birds.push({ x: this._r(i, 31) * w, y: h * (0.12 + this._r(i, 32) * 0.3), v: 30 + this._r(i, 33) * 40, ph: this._r(i, 34) * 6.28 });
     this._dragon = { x: -160, y: h * 0.2, v: 40, ph: 0 };
+    this._farDragons = [{ x: w * 0.3, y: h * 0.34, v: 22, ph: 1 }, { x: w * 0.8, y: h * 0.5, v: 18, ph: 3 }];
     this._balloon = { x: w * 0.72, y: h * 0.6, v: 10, ph: this._r(9, 40) * 6.28 };
+    // Falling petals + drifting magic dust (pooled, screen space).
+    this._petals = [];
+    for (let i = 0; i < 16; i++) this._petals.push({ x: this._r(i, 51) * w, y: this._r(i, 52) * h, vy: 22 + this._r(i, 53) * 26, ph: this._r(i, 54) * 6.28, col: ['#ffc2da', '#fff0b0', '#d8c2ff'][i % 3], s: 4 + this._r(i, 55) * 4 });
+    this._shoot = null; this._shootT = 2 + this._r(1, 60) * 5;
   }
 
   _r(i, s = 0) { const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); }
@@ -40,7 +45,13 @@ export class WorldMapParallax {
     for (const c of this._nearClouds) { c.x += c.v * dt; if (c.x - 200 > this.w) c.x = -200; }
     for (const b of this._birds) { b.x += b.v * dt; if (b.x - 40 > this.w) b.x = -40; }
     this._dragon.x += this._dragon.v * dt; if (this._dragon.x - 200 > this.w) this._dragon.x = -200;
+    for (const d of this._farDragons) { d.x += d.v * dt; if (d.x - 80 > this.w) d.x = -80; }
     this._balloon.y -= this._balloon.v * dt; if (this._balloon.y < -140) this._balloon.y = this.h + 140;
+    for (const p of this._petals) { p.y += p.vy * dt; p.x += Math.sin(this._t * 1.5 + p.ph) * 14 * dt; if (p.y - 10 > this.h) { p.y = -10; p.x = Math.random() * this.w; } }
+    // Occasional shooting star.
+    this._shootT -= dt;
+    if (!this._shoot && this._shootT <= 0) { this._shoot = { x: this._r(this._t | 0, 61) * this.w * 0.6, y: this.h * (0.1 + this._r(this._t | 0, 62) * 0.2), t: 0 }; }
+    if (this._shoot) { this._shoot.t += dt; if (this._shoot.t > 0.9) { this._shoot = null; this._shootT = 4 + Math.random() * 6; } }
   }
 
   _mix(c1, c2, t) {
@@ -58,11 +69,14 @@ export class WorldMapParallax {
     r.setAlpha(0.05); const ctx = r.ctx;
     for (let i = 0; i < 5; i++) { ctx.save(); ctx.translate(this.w * 0.5, this.h * 0.1); ctx.rotate(-0.5 + i * 0.24); ctx.fillStyle = '#fff'; ctx.fillRect(-44, 0, 88, this.h); ctx.restore(); }
     r.setAlpha(1);
+    if (this._shoot) this._shootStar(r);
     this._cloudBank(r, this._farClouds, 0.5);
+    for (const d of this._farDragons) this._tinyDragon(r, d);
     this._dragonFly(r);
     this._balloonDraw(r);
     this._cloudBank(r, this._nearClouds, 0.85);
     this._birdsDraw(r);
+    this._petalsDraw(r);
     // Fog band low on screen.
     r.setAlpha(0.35);
     const fog = r.linearGradient(0, this.h * 0.72, 0, this.h, [[0, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0.6)']]);
@@ -103,6 +117,28 @@ export class WorldMapParallax {
     r.setAlpha(1);
   }
 
+  _petalsDraw(r) {
+    for (const p of this._petals) {
+      const ctx = r.ctx; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(this._t * 1.2 + p.ph);
+      r.setAlpha(0.75); ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * 0.5, 0, 0, Math.PI * 2); ctx.fillStyle = p.col; ctx.fill(); r.setAlpha(1); ctx.restore();
+    }
+  }
+  _shootStar(r) {
+    const s = this._shoot, k = s.t / 0.9, len = 120;
+    const x = s.x + k * 260, y = s.y + k * 120;
+    const ctx = r.ctx; r.setAlpha((1 - k) * 0.9);
+    const g = r.linearGradient(x, y, x - len, y - len * 0.46, [[0, '#fff'], [1, 'rgba(255,255,255,0)']]);
+    ctx.strokeStyle = g; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len, y - len * 0.46); ctx.stroke();
+    r.withGlow('#fff', 10, () => r.fillCircle(x, y, 4, '#fff')); r.setAlpha(1);
+  }
+  _tinyDragon(r, d) {
+    const wing = Math.sin(this._t * 5 + d.ph) * 6; const ctx = r.ctx;
+    r.setAlpha(0.4); ctx.fillStyle = '#8fb0d8';
+    r.fillCircle(d.x, d.y, 6, '#8fb0d8');
+    ctx.beginPath(); ctx.moveTo(d.x - 5, d.y); ctx.lineTo(d.x - 18, d.y - 7 - wing); ctx.lineTo(d.x - 13, d.y + 3); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(d.x + 5, d.y); ctx.lineTo(d.x + 18, d.y - 7 - wing); ctx.lineTo(d.x + 13, d.y + 3); ctx.closePath(); ctx.fill();
+    r.setAlpha(1);
+  }
   _balloonDraw(r) {
     const bl = this._balloon, ctx = r.ctx;
     const x = bl.x + Math.sin(this._t * 0.6 + bl.ph) * 18, y = bl.y, R = 30;
