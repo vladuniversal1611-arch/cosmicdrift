@@ -8,6 +8,12 @@
   const D = global.GameData;
   const SP = D.SPECIAL;
   const rnd = function (n) { return Math.floor(Math.random() * n); };
+  // COLLECT-objective icon: use the actual gem sprite shown on the board (not a
+  // generic emoji), so the goal reads as "collect N of THAT crystal".
+  function collectIcon(color) {
+    const url = global.GemSprites && global.GemSprites.url(color);
+    return url ? '<img class="obj-gem" src="' + url + '" alt="">' : (D.CRYSTALS[color] ? D.CRYSTALS[color].glyph : '');
+  }
   const ease = function (t) { return 1 - Math.pow(1 - t, 3); }; // easeOutCubic
   const easeBack = function (t) { const c1 = 2.2, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }; // overshoot pop
 
@@ -1017,7 +1023,7 @@
     }
     let cur, goal, label;
     if (this.level.objective === D.OBJ.SCORE) { cur = this.score; goal = this.level.target; label = T('obj_score'); }
-    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = D.CRYSTALS[this.level.color].glyph; }
+    else if (this.level.objective === D.OBJ.COLLECT) { cur = this.collected; goal = this.level.target; label = collectIcon(this.level.color); }
     else if (this.level.objective === D.OBJ.JELLY) { cur = this.level.jellyCount - this.jellyLeft; goal = this.level.jellyCount; label = T('obj_jelly'); }
     else { goal = this.level.iceCount + (this.level.crates || 0); cur = goal - this.iceLeft; label = T('obj_ice'); }
     this.cb.onObjective && this.cb.onObjective(Math.min(cur, goal), goal, label);

@@ -694,7 +694,7 @@
       const p = global.Save.get();
       const body = el('div', 'modal-body');
       let objText = lv.objective === D.OBJ.SCORE ? T('goal_score', { n: lv.target })
-        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: D.CRYSTALS[lv.color].glyph })
+        : lv.objective === D.OBJ.COLLECT ? T('goal_collect', { n: lv.target, g: (global.GemSprites && global.GemSprites.url(lv.color) ? '<img class="obj-gem" src="' + global.GemSprites.url(lv.color) + '" alt="">' : D.CRYSTALS[lv.color].glyph) })
         : lv.objective === D.OBJ.JELLY ? T('goal_jelly', { n: lv.jellyCount })
         : lv.objective === D.OBJ.BOSS ? T('goal_boss')
         : T('goal_ice', { n: lv.iceCount + (lv.crates || 0) });

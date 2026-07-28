@@ -142,7 +142,7 @@
         onMoves: function (m) { if (!self.hud || !self.hud.moves) return; self.hud.moves.textContent = m; if (m <= 5) self.hud.moves.classList.add('low'); else self.hud.moves.classList.remove('low'); },
         onObjective: function (cur, goal, label) {
           if (!self.hud || !self.hud.objLabel) return;
-          self.hud.objLabel.textContent = label;
+          self.hud.objLabel.innerHTML = label; // label may be a gem-sprite <img> (collect goals)
           self.hud.objVal.textContent = cur + ' / ' + goal;
           self.hud.objBar.style.width = Math.min(100, cur / goal * 100) + '%';
         },
