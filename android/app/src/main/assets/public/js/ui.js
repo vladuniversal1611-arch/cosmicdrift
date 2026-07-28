@@ -845,9 +845,9 @@
       // a promo: the x5 amount (6000) is struck through and a bonus 7200 shown.
       s.appendChild(el('div', 'section-h', T('gems_section')));
       [
-        { gems: 500, price: '$0.99' },
-        { gems: 2750, price: '$4.99' },
-        { gems: 7200, was: 6000, price: '$9.99' }
+        { gems: 500, price: '$0.99', pid: 'gems_500' },
+        { gems: 2750, price: '$4.99', pid: 'gems_2750' },
+        { gems: 7200, was: 6000, price: '$9.99', pid: 'gems_7200' }
       ].forEach(function (pack) {
         const c = el('div', 'shop-card' + (pack.was ? ' promo' : ''));
         const amount = pack.was
@@ -856,7 +856,7 @@
         c.innerHTML = (pack.was ? '<div class="promo-tag">' + T('promo_x5') + '</div>' : '') +
           '<div class="shop-ic">💎</div><div class="shop-info"><b>' + amount + '</b><span>' +
           T(pack.was ? 'promo_bonus' : 'best_price') + '</span></div>';
-        const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.fakePurchase(pack.gems); });
+        const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.buyPack(pack); });
         c.appendChild(b); s.appendChild(c);
       });
 
@@ -952,13 +952,40 @@
       });
     },
 
+    // Buy a gem pack. On a device with Google Play Billing available this runs
+    // the REAL purchase flow (gems are granted only after Google confirms the
+    // payment, via Billing.init's grant callback in main.js). In the browser /
+    // when billing is unavailable it falls back to the simulated grant so the
+    // shop is still testable — real money is never involved there.
+    buyPack: function (pack) {
+      if (global.Billing && global.Billing.available()) {
+        UI.toast(T('purchase_opening'));
+        global.Billing.buy(pack.pid, function (ok, err) {
+          if (!ok) UI.toast(T('purchase_failed'));
+        });
+      } else {
+        UI.fakePurchase(pack.gems); // browser/preview only — no real billing
+      }
+    },
+
     fakePurchase: function (gems) {
-      // Placeholder for Google Play Billing; grants gems for demo.
+      // Simulated grant used only in the browser / when billing is unavailable.
       const p = global.Save.get();
       p.gems += gems; global.Save.save();
       global.Audio2.play('coin'); UI.refreshCurrencies();
       UI.toast(T('purchase_ok', { n: gems }));
       UI.renderShop();
+    },
+
+    // Called by Billing when Google confirms a real purchase (also fires on
+    // relaunch for any pending/owed purchase) — this is the ONLY place a real
+    // purchase grants gems.
+    grantPurchase: function (gems) {
+      const p = global.Save.get();
+      p.gems += gems; global.Save.save();
+      global.Audio2.play('coin'); UI.refreshCurrencies();
+      UI.toast(T('purchase_ok', { n: gems }));
+      if (UI.root && !UI.root.querySelector('#screen-shop.hidden')) UI.renderShop();
     },
 
     // ---- BATTLE PASS ------------------------------------------------------

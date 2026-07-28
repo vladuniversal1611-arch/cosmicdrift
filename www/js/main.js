@@ -21,6 +21,13 @@
       this.ctx = this.canvas.getContext('2d');
       this.gameScreen = document.getElementById('screen-game');
 
+      // Real in-app purchases: gems are credited only here, when Google confirms
+      // a payment (also fires on relaunch for any pending purchase). No-op in the
+      // browser (billing unavailable → shop uses the simulated grant instead).
+      try {
+        if (global.Billing) global.Billing.init(function (gems) { global.UI.grantPurchase(gems); });
+      } catch (e) {}
+
       this.bindInput();
       this.resize();
       const onResize = this.resize.bind(this);
