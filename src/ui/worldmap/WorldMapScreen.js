@@ -45,6 +45,7 @@ export class WorldMapScreen extends Screen {
     this._critters = this._makeCritters();
     this._confetti = [];
     this._save = null;
+    this._build = null;   // { seg, t, dur } bridge-building animation
   }
 
   get _level() { return this.game.getSystem('level')?.level ?? 1; }
@@ -99,6 +100,11 @@ export class WorldMapScreen extends Screen {
       this._confetti.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, t: 0, life: 1.2 + Math.random() * 0.8, col: ['#ff6b8a', '#ffd24a', '#5fb9f0', '#7ed957', '#b79cff'][i % 5], s: 5 + Math.random() * 6 });
     }
     this._msg = { text: `${islandTheme(this._islandOf(this._highest)).name} unlocked!`, t: 2.6 };
+
+    // The bridge into the freshly-unlocked island constructs itself.
+    const island = this._islandOf(this._highest);
+    const seg = this.model.segments.find((s) => s.type === 'bridge' && s.b.island === island);
+    if (seg) this._build = { seg, t: 0, dur: 1.1 };
   }
 
   update(dt) {
@@ -121,6 +127,7 @@ export class WorldMapScreen extends Screen {
       const p = this._confetti[i]; p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 320 * dt;
       if (p.t > p.life) this._confetti.splice(i, 1);
     }
+    if (this._build) { this._build.t += dt; if (this._build.t >= this._build.dur) this._build = null; }
     if (this._msg && (this._msg.t -= dt) <= 0) this._msg = null;
   }
 
@@ -154,7 +161,8 @@ export class WorldMapScreen extends Screen {
     for (const seg of this.model.segments) {
       const ay = seg.a.y - s, by = seg.b.y - s;
       if (Math.max(ay, by) < -60 || Math.min(ay, by) > this.bounds.h + 60) continue;
-      this.pathArt.draw(r, seg, seg.a.x, ay, seg.b.x, by, seg.fromN < this._level);
+      const build = (this._build && this._build.seg === seg) ? Math.min(1, this._build.t / this._build.dur) : 1;
+      this.pathArt.draw(r, seg, seg.a.x, ay, seg.b.x, by, seg.fromN < this._level, build);
     }
     // Reward objects.
     for (const rw of this.model.rewards) this._drawReward(r, rw, rw.y - s);

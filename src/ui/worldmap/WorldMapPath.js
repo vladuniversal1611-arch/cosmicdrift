@@ -18,11 +18,15 @@ export class WorldMapPath {
    * @param seg   model segment { a, b, type, bridge, fromN }
    * @param ax,ay screen endpoints
    * @param lit   whether the segment is completed (animated light)
+   * @param build 0..1 construction progress (1 = fully built)
    */
-  draw(r, seg, ax, ay, bx, by, lit) {
-    if (seg.type === 'bridge') this._bridge(r, seg.bridge, ax, ay, bx, by);
-    else this._stone(r, ax, ay, bx, by);
-    if (lit) this._travelLight(r, ax, ay, bx, by, seg.fromN);
+  draw(r, seg, ax, ay, bx, by, lit, build = 1) {
+    const ex = ax + (bx - ax) * build, ey = ay + (by - ay) * build;
+    if (seg.type === 'bridge') this._bridge(r, seg.bridge, ax, ay, ex, ey);
+    else this._stone(r, ax, ay, ex, ey);
+    // Sparkle at the leading edge while a bridge is still building.
+    if (build < 1) { r.withGlow('#fff3c4', 14, () => r.fillCircle(ex, ey, 9, '#fff')); }
+    if (lit && build >= 1) this._travelLight(r, ax, ay, bx, by, seg.fromN);
   }
 
   _stone(r, ax, ay, bx, by) {

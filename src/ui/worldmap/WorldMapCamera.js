@@ -39,7 +39,11 @@ export class WorldMapCamera {
   move(y) {
     if (this._lastY == null) return;
     const d = this._lastY - y;
-    this.scroll = clamp(this.scroll + d, 0, this.maxScroll);
+    let ns = this.scroll + d;
+    // Rubber-band resistance once past the bounds (elastic overscroll).
+    if (ns < 0) ns = ns * 0.35;
+    else if (ns > this.maxScroll) ns = this.maxScroll + (ns - this.maxScroll) * 0.35;
+    this.scroll = ns;
     this._vel = d;
     this._lastY = y;
   }
@@ -53,14 +57,23 @@ export class WorldMapCamera {
       if (k >= 1) { this.zoom = 1; this._zoomT = -1; }
     }
     if (this._dragging) return;
+    const min = 0, max = this.maxScroll;
+    // Spring back if the elastic overscroll left us out of bounds.
+    if (this.scroll < min || this.scroll > max) {
+      const target = this.scroll < min ? min : max;
+      this.scroll += (target - this.scroll) * Math.min(1, dt * 12);
+      if (Math.abs(target - this.scroll) < 0.5) this.scroll = target;
+      this._vel = 0;
+      return;
+    }
     const k = Math.min(1, dt * 60);
     if (this._auto) {
       this.scroll += (this._target - this.scroll) * Math.min(1, dt * 6);
       if (Math.abs(this._target - this.scroll) < 0.5) { this.scroll = this._target; this._auto = false; }
     } else if (Math.abs(this._vel) > 0.4) {
-      this.scroll = clamp(this.scroll + this._vel * k, 0, this.maxScroll);
+      this.scroll += this._vel * k;               // may overshoot → spring handles it
       this._vel *= Math.pow(0.93, dt * 60);
-      if (this.scroll <= 0 || this.scroll >= this.maxScroll) this._vel = 0;
+      if (this.scroll < min || this.scroll > max) this._vel *= 0.5;
     }
   }
 }
