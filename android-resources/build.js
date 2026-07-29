@@ -20,7 +20,7 @@ let css = fs.readFileSync(path.join(ROOT, 'www/css/style.css'), 'utf8');
   }
 });
 // Ornate gold gem frames (border-image) for the HUD panels/bars.
-['panel_frame', 'progress_frame'].forEach(function (nm) {
+['panel_frame', 'progress_frame', 'victory_frame', 'star_big', 'btn_green', 'btn_purple'].forEach(function (nm) {
   const p = path.join(ROOT, 'www/assets/ui2/' + nm + '.webp');
   if (fs.existsSync(p)) {
     const uri = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');

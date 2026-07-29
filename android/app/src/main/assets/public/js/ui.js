@@ -116,6 +116,60 @@
 
     closeModal: function () { this.modalLayer.classList.add('hidden'); },
 
+    // ---- Victory panel (painted frame composed with live data) ------------
+    // opts: { title, level, sub, stars, score, rewards:[{icon,text,small}],
+    //         canDouble, onDouble, buttons:[{label,icon,green,onClick}] }
+    showVictory: function (opts) {
+      UI.closeModal();
+      const old = UI.root.querySelector('.victory-overlay'); if (old) old.remove();
+      const ov = document.createElement('div');
+      ov.className = 'victory-overlay';
+      const stars = [0, 1, 2].map(function (i) {
+        const on = i < opts.stars;
+        return '<div class="v-star ' + (i === 1 ? 'mid ' : '') + (on ? 'on' : 'off') + '"' +
+          (on ? ' style="animation-delay:' + (0.15 + i * 0.15) + 's"' : '') + '></div>';
+      }).join('');
+      const rw = (opts.rewards || []).map(function (r) {
+        return '<div class="v-rw">' + (r.icon ? '<img src="' + r.icon + '" alt="">' : '') +
+          '<span class="amt' + (r.small ? ' small' : '') + '">' + r.text + '</span></div>';
+      }).join('');
+      const dbl = opts.canDouble
+        ? '<div class="v-double"><img class="chest" src="' + (global.UiIcons.url('chest') || '') + '" alt="">' +
+            '<div class="dtxt"><b>' + T('double_reward_t') + '</b><span>' + T('double_reward_s') + '</span></div>' +
+            '<div class="dplay">▶</div></div>'
+        : '';
+      const btns = (opts.buttons || []).map(function (b, i) {
+        return '<button class="vbtn ' + (b.green ? 'green' : '') + '" data-i="' + i + '">' +
+          (b.icon ? '<img src="' + b.icon + '" alt="">' : '') + b.label + '</button>';
+      }).join('');
+      ov.innerHTML =
+        '<div class="victory-panel">' +
+          '<div class="v-banner">' + (opts.title || T('victory')) + '</div>' +
+          '<div class="v-content">' +
+            '<div class="v-level">' + T('level_n', { n: opts.level }) + '</div>' +
+            (opts.sub ? '<div class="v-sub">' + opts.sub + '</div>' : '') +
+            '<div class="v-stars">' + stars + '</div>' +
+            '<div class="v-pill v-score"><span class="lbl">' + T('obj_score') + '</span><span class="val">' + opts.score + '</span></div>' +
+            '<div class="v-pill v-rewards">' + rw + '</div>' +
+            dbl +
+            '<div class="v-buttons">' + btns + '</div>' +
+          '</div>' +
+        '</div>';
+      UI.root.appendChild(ov);
+      (opts.buttons || []).forEach(function (b, i) {
+        const el = ov.querySelector('.vbtn[data-i="' + i + '"]');
+        if (el) el.addEventListener('click', function () { global.Audio2.play('click'); ov.remove(); if (b.onClick) b.onClick(); });
+      });
+      if (opts.canDouble) {
+        const de = ov.querySelector('.v-double');
+        if (de) de.addEventListener('click', function () {
+          if (de.classList.contains('used')) return;
+          de.classList.add('used'); if (opts.onDouble) opts.onDouble();
+        });
+      }
+      return ov;
+    },
+
     // ---- top currency bar (shared) ----------------------------------------
     currencyBar: function () {
       const p = global.Save.get();

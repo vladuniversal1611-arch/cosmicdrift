@@ -851,47 +851,47 @@
       global.Save.save();
       this.checkUnlocks();
 
-      const body = document.createElement('div');
-      body.className = 'modal-body win-body';
-      const badge = res.stars === 3 ? '<div class="win-badge perfect">🌟 ' + T('perfect') + '</div>'
-        : (firstTime ? '<div class="win-badge">✨ ' + T('first_clear') + '</div>' : '');
-      body.innerHTML =
-        badge +
-        '<div class="stars-row">' +
-          ['s1','s2','s3'].map(function (id, i) {
-            return '<span class="big-star ' + (i < res.stars ? 'on' : '') + '" style="animation-delay:' + (i * 0.15) + 's">★</span>';
-          }).join('') +
-        '</div>' +
-        '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        '<div class="win-rewards">' + global.UI.rich(T('win_rewards', { gold: gold, energy: energy })) + '</div>' +
-        global.UI.rich(streakHtml) + global.UI.rich(piggyHtml);
+      if (streakHtml) global.UI.toast(global.UI.rich(T('streak_bonus', { n: p.streak.wins, r: '+' + (50 + p.streak.wins * 20) + '🪙' })));
+
       const self = this;
       const adBreak = function () { try { global.Ads && global.Ads.interstitial(); } catch (e) {} };
-      const btns = [
-        { label: T('btn_map'), onClick: function () { adBreak(); self.go('map'); } },
+      const Ic = global.UiIcons, Dr = global.DragonSprites;
+      // reward tiles: coins, energy, and (if an egg is incubating) its progress
+      const rewards = [
+        { icon: Ic.url('coin'), text: '+' + gold },
+        { icon: Ic.url('energy'), text: '+' + energy }
+      ];
+      if (p.eggs.length) {
+        const egg = p.eggs[0];
+        rewards.push({ icon: (Dr && Dr.url(egg.dragon)) || Ic.url('gem'), text: egg.charge + ' / ' + egg.need, small: true });
+      }
+      const buttons = [
+        { label: T('btn_map'), icon: Ic.url('nav_map'), onClick: function () { adBreak(); self.go('map'); } },
         { label: T('btn_retry'), onClick: function () { self.startLevel(lvNum); } }
       ];
-      if (lvNum < D.LEVELS.length) btns.push({ label: T('btn_next'), primary: true, onClick: function () { adBreak(); self.startLevel(lvNum + 1); } });
-      else btns.push({ label: T('btn_map'), primary: true, onClick: function () { adBreak(); self.go('map'); } });
-      // Rewarded: optionally double the level reward by watching an ad (once).
-      if ((gold > 0 || energy > 0)) {
-        const dbl = document.createElement('button');
-        dbl.className = 'btn btn-buy win-double';
-        dbl.innerHTML = '📺 ' + T('double_reward');
-        dbl.addEventListener('click', function () {
-          if (dbl.disabled) return;
+      if (lvNum < D.LEVELS.length) buttons.push({ label: T('btn_next'), green: true, onClick: function () { adBreak(); self.startLevel(lvNum + 1); } });
+      else buttons.push({ label: T('btn_map'), green: true, onClick: function () { adBreak(); self.go('map'); } });
+
+      // staggered star sounds
+      for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
+
+      global.UI.showVictory({
+        title: T('victory'),
+        level: lvNum,
+        sub: res.stars >= 3 ? T('perfect') : res.stars === 2 ? T('great') : T('good'),
+        stars: res.stars,
+        score: res.score,
+        rewards: rewards,
+        canDouble: (gold > 0 || energy > 0),
+        onDouble: function () {
           global.Ads.rewarded(function () {
             const pp = global.Save.get(); pp.gold += gold; pp.energy += energy; global.Save.save();
             global.Audio2.play('coin'); global.UI.refreshCurrencies();
             global.UI.toast(global.UI.rich('+' + gold + '🪙 +' + energy + '⚡'));
           }, null);
-          dbl.disabled = true; dbl.classList.add('used');
-        });
-        body.appendChild(dbl);
-      }
-      // staggered star sounds
-      for (let i = 0; i < res.stars; i++) (function (i) { setTimeout(function () { global.Audio2.play('star', i); }, 300 + i * 200); })(i);
-      global.UI.modal(T('victory'), body, btns);
+        },
+        buttons: buttons
+      });
     },
 
     // Current objective progress {cur, goal, label} from live engine state.

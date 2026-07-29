@@ -615,8 +615,8 @@
 
   // Ads / rewarded.
   const ADS = {
-    uk: { double_reward: 'Подвоїти нагороду', ad_label: 'Реклама', ad_skip: 'Пропустити' },
-    en: { double_reward: 'Double reward', ad_label: 'Ad', ad_skip: 'Skip' },
+    uk: { double_reward: 'Подвоїти нагороду', double_reward_t: 'Подвійна нагорода!', double_reward_s: 'Реклама → ×2 монет і енергії', good: 'Добре!', ad_label: 'Реклама', ad_skip: 'Пропустити' },
+    en: { double_reward: 'Double reward', double_reward_t: 'Double Reward!', double_reward_s: 'Watch an ad for ×2 Coins & Energy', good: 'Good!', ad_label: 'Ad', ad_skip: 'Skip' },
     es: { double_reward: 'Duplicar recompensa', ad_label: 'Anuncio', ad_skip: 'Saltar' },
     de: { double_reward: 'Belohnung verdoppeln', ad_label: 'Werbung', ad_skip: 'Überspringen' },
     fr: { double_reward: 'Doubler la récompense', ad_label: 'Pub', ad_skip: 'Passer' },
