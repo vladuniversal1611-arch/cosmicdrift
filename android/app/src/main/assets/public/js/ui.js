@@ -131,7 +131,10 @@
       }).join('');
       const rw = (opts.rewards || []).map(function (r) {
         return '<div class="v-rw">' + (r.icon ? '<img src="' + r.icon + '" alt="">' : '') +
-          '<span class="amt' + (r.small ? ' small' : '') + '">' + r.text + '</span></div>';
+          '<span class="amt' + (r.small ? ' small' : '') + '">' + r.text + '</span>' +
+          (typeof r.bar === 'number' ? '<div class="v-egg-bar"><i style="width:' + Math.max(0, Math.min(100, r.bar)) + '%"></i></div>' : '') +
+          (r.cap ? '<span class="cap">' + r.cap + '</span>' : '') +
+          '</div>';
       }).join('');
       const dbl = opts.canDouble
         ? '<div class="v-double"><img class="chest" src="' + (global.UiIcons.url('chest') || '') + '" alt="">' +

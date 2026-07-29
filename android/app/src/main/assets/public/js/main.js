@@ -858,12 +858,18 @@
       const Ic = global.UiIcons, Dr = global.DragonSprites;
       // reward tiles: coins, energy, and (if an egg is incubating) its progress
       const rewards = [
-        { icon: Ic.url('coin'), text: '+' + gold },
-        { icon: Ic.url('energy'), text: '+' + energy }
+        { icon: Ic.url('coin'), text: '+' + gold, cap: T('coins_w') },
+        { icon: Ic.url('energy'), text: '+' + energy, cap: T('energy_w') }
       ];
       if (p.eggs.length) {
         const egg = p.eggs[0];
-        rewards.push({ icon: (Dr && Dr.url(egg.dragon)) || Ic.url('gem'), text: egg.charge + ' / ' + egg.need, small: true });
+        const edef = D.dragonById(egg.dragon);
+        rewards.push({
+          icon: (Dr && Dr.url(egg.dragon)) || Ic.url('gem'),
+          text: egg.charge + ' / ' + egg.need, small: true,
+          bar: egg.charge / egg.need * 100,
+          cap: '🥚 ' + (edef ? edef.name : T('hatch_w'))
+        });
       }
       const buttons = [
         { label: T('btn_map'), icon: Ic.url('nav_map'), onClick: function () { adBreak(); self.go('map'); } },
