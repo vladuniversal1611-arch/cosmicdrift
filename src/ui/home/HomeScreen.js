@@ -129,12 +129,18 @@ export class HomeScreen extends Screen {
   }
 
   render(r) {
+    const ctx = r.ctx;
+    // Gentle "camera breathing": the whole scene scales almost imperceptibly.
+    const breath = 1 + 0.006 * Math.sin(this._t * 0.7);
+    const cx = this.bounds.w / 2, cy = this.bounds.h / 2;
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(breath, breath); ctx.translate(-cx, -cy);
+
     this.bg.render(r);
 
     // Content group with a subtle entrance rise + fade.
     const a = this._intro;
     const dy = (1 - Easing.cubicOut(a)) * 26;
-    const ctx = r.ctx;
     ctx.save();
     if (a < 1) { ctx.globalAlpha = a; ctx.translate(0, dy); }
     for (const s of this._sections) s.render(r);
@@ -142,6 +148,7 @@ export class HomeScreen extends Screen {
 
     this.notifications.render(r);
     this.ambient.render(r);
+    ctx.restore();
     if (this._debug.drawGridOutlines || this._debug.showBounds) this._drawBounds(r);
   }
 

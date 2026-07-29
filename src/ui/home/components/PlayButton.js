@@ -75,14 +75,15 @@ export class PlayButton {
     UITheme.button(r, b.x, b.y, b.w, b.h, this.radius, colors);
     if (!ready) { r.setAlpha(0.35); r.fillRoundRect(b.x, b.y, b.w, b.h, this.radius, '#1a2b4a'); r.setAlpha(1); }
 
-    // Animated highlight sweep (clipped to the body).
+    // Animated highlight sweep + a tiny sparkle riding across the button.
     if (ready) {
-      ctx.save(); r.roundRectPath(b.x, b.y, b.w, b.h, this.radius); ctx.clip();
       const sweep = (this._t * 0.35) % 1.6;
       const sx = b.x - b.w * 0.3 + sweep * (b.w * 1.2);
+      ctx.save(); r.roundRectPath(b.x, b.y, b.w, b.h, this.radius); ctx.clip();
       ctx.globalAlpha = 0.35;
       ctx.fillStyle = r.linearGradient(sx - 70, 0, sx + 70, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.75)'], [1, 'rgba(255,255,255,0)']]);
       ctx.fillRect(b.x, b.y, b.w, b.h); ctx.globalAlpha = 1; ctx.restore();
+      if (sweep < 1.2) { r.withGlow('#fff', 8, () => r.sparkle(sx, b.y + b.h * 0.28, 8, '#fff6c8')); }
     }
 
     // Label / icon.

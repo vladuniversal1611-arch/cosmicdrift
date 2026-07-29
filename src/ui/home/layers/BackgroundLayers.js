@@ -57,6 +57,13 @@ export class BackgroundLayers {
         vy: 6 + this._rand(i, 25) * 10,
       });
     }
+    // Ambient life (all pooled, recycled in place).
+    this._birds = [];
+    for (let i = 0; i < 3; i++) this._birds.push({ x: this._rand(i, 31) * w, y: h * (0.12 + this._rand(i, 32) * 0.28), v: 24 + this._rand(i, 33) * 34, ph: this._rand(i, 34) * 6.283 });
+    this._flutter = [];
+    for (let i = 0; i < 4; i++) this._flutter.push({ hx: w * (0.2 + this._rand(i, 41) * 0.6), hy: h * (0.5 + this._rand(i, 42) * 0.16), ph: this._rand(i, 43) * 6.283, col: ['#ff9ec4', '#a48bff', '#ffd34e', '#8fe0ff'][i % 4], x: 0, y: 0 });
+    this._leaves = [];
+    for (let i = 0; i < 6; i++) this._leaves.push({ x: this._rand(i, 51) * w, y: this._rand(i, 52) * h, vy: 14 + this._rand(i, 53) * 18, ph: this._rand(i, 54) * 6.283, col: ['#8fd66a', '#5cb04b', '#c8e06a'][i % 3], s: 5 + this._rand(i, 55) * 4 });
   }
 
   _rand(i, s = 0) { const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); }
@@ -77,14 +84,42 @@ export class BackgroundLayers {
       m.y -= m.vy * dt;
       if (m.y < -10) { m.y = this.h + 10; m.x = this._rand(m.ph * 1000 | 0, 7) * this.w; }
     }
+    for (const b of this._birds) { b.x += b.v * dt; if (b.x - 30 > this.w) b.x = -30; }
+    for (const f of this._flutter) { f.x = f.hx + Motion.slide(this._t, 44, 3, f.ph); f.y = f.hy + Motion.float(this._t, 28, 2.2, f.ph); }
+    for (const l of this._leaves) { l.y += l.vy * dt; l.x += Math.sin(this._t * 1.3 + l.ph) * 22 * dt; if (l.y - 10 > this.h) { l.y = -10; l.x = Math.random() * this.w; } }
   }
 
   render(r) {
     this._sky(r);
     this._farIslands(r);
+    this._birdsDraw(r);
     this._cloudLayer(r);
     this._mainIsland(r);
+    this._flutterDraw(r);
     this._particles(r);
+    this._leavesDraw(r);
+  }
+
+  _birdsDraw(r) {
+    const ctx = r.ctx; ctx.strokeStyle = 'rgba(70,90,120,0.55)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (const b of this._birds) { const f = Math.sin(this._t * 9 + b.ph) * 6; ctx.beginPath(); ctx.moveTo(b.x - 11, b.y + f); ctx.lineTo(b.x, b.y - 2); ctx.lineTo(b.x + 11, b.y + f); ctx.stroke(); }
+  }
+  _flutterDraw(r) {
+    for (const f of this._flutter) {
+      const flap = Math.abs(Math.sin(this._t * 12 + f.ph)), w = 5 + flap * 4;
+      r.setAlpha(0.9);
+      this._ellipse(r, f.x - w * 0.6, f.y, w, w * (0.5 + flap * 0.6), f.col);
+      this._ellipse(r, f.x + w * 0.6, f.y, w, w * (0.5 + flap * 0.6), f.col);
+      r.setAlpha(1);
+    }
+  }
+  _leavesDraw(r) {
+    const ctx = r.ctx;
+    for (const l of this._leaves) {
+      ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(this._t * 1.4 + l.ph);
+      r.setAlpha(0.75); ctx.beginPath(); ctx.ellipse(0, 0, l.s, l.s * 0.45, 0, 0, Math.PI * 2); ctx.fillStyle = l.col; ctx.fill(); r.setAlpha(1);
+      ctx.restore();
+    }
   }
 
   // --- Layer 1: Sky ---------------------------------------------------------
