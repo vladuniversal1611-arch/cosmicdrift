@@ -24,7 +24,7 @@ const REGIONS = {
     'data:image/png;base64,' + fs.readFileSync(SRC).toString('base64'));
 
   for (const [name, fr] of Object.entries(REGIONS)) {
-    const uri = await page.evaluate(({ fr }) => {
+    const uri = await page.evaluate(({ fr, tall }) => {
       const img = window.__img, W = img.width, H = img.height;
       const rx0 = Math.round(fr[0] * W), ry0 = Math.round(fr[1] * H), rx1 = Math.round(fr[2] * W), ry1 = Math.round(fr[3] * H);
       const rw = rx1 - rx0, rh = ry1 - ry0;
@@ -45,8 +45,27 @@ const REGIONS = {
       const cw = maxx - minx + 1, ch = maxy - miny + 1;
       const o = document.createElement('canvas'); o.width = cw; o.height = ch;
       o.getContext('2d').drawImage(c, minx, miny, cw, ch, 0, 0, cw, ch);
-      return o.toDataURL('image/webp', 0.92);
-    }, { fr });
+      // For the frame: stretch the middle (straight side rails) vertically so the
+      // panel is taller (aspect ~= tall) — top peak/badge and corner gems stay 1:1.
+      let final = o;
+      if (tall) {
+        const targetH = Math.round(cw / tall);
+        if (targetH > ch) {
+          const extra = targetH - ch;
+          // Source band of clean straight side rails (below the badge, above the
+          // bottom corner gems) — stretched gently so the interior texture keeps
+          // its grain instead of streaking.
+          const t0 = Math.round(ch * 0.42), t1 = Math.round(ch * 0.72), bandH = t1 - t0;
+          const t = document.createElement('canvas'); t.width = cw; t.height = ch + extra;
+          const tg = t.getContext('2d');
+          tg.drawImage(o, 0, 0, cw, t0, 0, 0, cw, t0);
+          tg.drawImage(o, 0, t0, cw, bandH, 0, t0, cw, bandH + extra);
+          tg.drawImage(o, 0, t1, cw, ch - t1, 0, t1 + extra, cw, ch - t1);
+          final = t;
+        }
+      }
+      return final.toDataURL('image/webp', 0.92);
+    }, { fr, tall: name === 'pause_frame' ? 0.85 : null });
     fs.writeFileSync(path.join(OUT, name + '.webp'), Buffer.from(uri.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
     console.log(name, '->', (fs.statSync(path.join(OUT, name + '.webp')).size / 1024 | 0) + 'KB');
   }

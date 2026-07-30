@@ -181,7 +181,8 @@
       ov.className = 'pause-overlay';
       const btns = (opts.buttons || []).map(function (b, i) {
         return '<button class="pbtn ' + (b.gold ? 'gold' : '') + '" data-i="' + i + '">' +
-          (b.icon ? '<span class="pic">' + b.icon + '</span>' : '') + b.label + '</button>';
+          (b.icon ? '<span class="pic">' + b.icon + '</span>' : '') +
+          '<span class="lbl">' + b.label + '</span></button>';
       }).join('');
       const titleHtml = opts.title ? '<div class="pause-title">' + opts.title + '</div>' : '';
       ov.innerHTML =
