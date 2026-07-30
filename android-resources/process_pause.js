@@ -12,8 +12,8 @@ const SRC = process.argv[2];
 // crop regions as fractions [x0,y0,x1,y1] of the full sheet
 const REGIONS = {
   pause_frame:      [0.012, 0.012, 0.625, 0.565],
-  btn_pause_gold:   [0.655, 0.198, 0.992, 0.307],
-  btn_pause_purple: [0.655, 0.315, 0.992, 0.420]
+  btn_pause_gold:   [0.638, 0.192, 0.998, 0.302],
+  btn_pause_purple: [0.638, 0.316, 0.998, 0.414]
 };
 
 (async () => {
