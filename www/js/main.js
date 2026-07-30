@@ -798,10 +798,13 @@
     },
     pause: function () {
       const self = this;
-      global.UI.modal(T('pause'), null, [
-        { label: T('to_map'), onClick: function () { self.go('map'); } },
-        { label: T('resume'), primary: true }
-      ]);
+      global.UI.showPause({
+        buttons: [
+          { label: T('resume'), gold: true, icon: '▶', onClick: function () {} },
+          { label: T('t_options'), icon: '⚙', onClick: function () { setTimeout(function () { global.UI.showSettings(); }, 60); } },
+          { label: T('to_map'), icon: '🏠', onClick: function () { self.go('map'); } }
+        ]
+      });
     },
 
     onWin: function (res) {

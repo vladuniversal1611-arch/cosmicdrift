@@ -83,7 +83,7 @@
       start_adventure: 'Почати пригоду!',
       // misc
       combo: 'КОМБО ×{n}!', quit_q: 'Вийти з рівня?', resume: 'Продовжити', quit: 'Вийти',
-      pause: '⏸ Пауза', to_map: 'Вийти на карту', ad_waiting: 'Зачекайте...',
+      pause: '⏸ Пауза', paused: 'Пауза', to_map: 'На карту', ad_waiting: 'Зачекайте...',
       level_intro_goal: 'Ціль: {text}', sugar_bonus: 'БОНУС! +{n}'
     },
 
@@ -144,7 +144,7 @@
       welcome_body: '<p>Match 3+ crystals to generate <b>energy</b>.</p><p>Energy charges the <b>dragon eggs</b> on your island.</p><p>Dragons help in battle: burn rows, smash ice, strike with lightning and grow bonuses!</p>',
       start_adventure: 'Start the adventure!',
       combo: 'COMBO ×{n}!', quit_q: 'Quit the level?', resume: 'Resume', quit: 'Quit',
-      pause: '⏸ Paused', to_map: 'Exit to map', ad_waiting: 'Please wait...',
+      pause: '⏸ Paused', paused: 'Paused', to_map: 'Exit to map', ad_waiting: 'Please wait...',
       level_intro_goal: 'Goal: {text}', sugar_bonus: 'BONUS! +{n}'
     },
 

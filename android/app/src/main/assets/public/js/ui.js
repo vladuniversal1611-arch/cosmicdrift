@@ -173,6 +173,33 @@
       return ov;
     },
 
+    // ---- Pause menu (painted frame + buttons) -----------------------------
+    // opts: { title, buttons:[{label, icon, gold, onClick}] }
+    showPause: function (opts) {
+      const old = UI.root.querySelector('.pause-overlay'); if (old) old.remove();
+      const ov = document.createElement('div');
+      ov.className = 'pause-overlay';
+      const btns = (opts.buttons || []).map(function (b, i) {
+        return '<button class="pbtn ' + (b.gold ? 'gold' : '') + '" data-i="' + i + '">' +
+          (b.icon ? '<span class="pic">' + b.icon + '</span>' : '') + b.label + '</button>';
+      }).join('');
+      const titleHtml = opts.title ? '<div class="pause-title">' + opts.title + '</div>' : '';
+      ov.innerHTML =
+        '<div class="pause-panel">' +
+          titleHtml +
+          '<div class="pause-btns">' + btns + '</div>' +
+        '</div>';
+      UI.root.appendChild(ov);
+      const close = function () { if (ov.parentNode) ov.remove(); };
+      (opts.buttons || []).forEach(function (b, i) {
+        const el = ov.querySelector('.pbtn[data-i="' + i + '"]');
+        if (el) el.addEventListener('click', function () { global.Audio2.play('click'); close(); if (b.onClick) b.onClick(); });
+      });
+      ov._close = close;
+      return ov;
+    },
+    closePause: function () { const o = UI.root.querySelector('.pause-overlay'); if (o) o.remove(); },
+
     // ---- top currency bar (shared) ----------------------------------------
     currencyBar: function () {
       const p = global.Save.get();
