@@ -803,7 +803,6 @@
       const icoGear = svg('M19.4 12.9a7.7 7.7 0 0 0 0-1.8l2-1.5-2-3.5-2.3 1a7.6 7.6 0 0 0-1.6-.9L15 3.5h-4l-.5 2.7a7.6 7.6 0 0 0-1.6.9l-2.3-1-2 3.5 2 1.5a7.7 7.7 0 0 0 0 1.8l-2 1.5 2 3.5 2.3-1a7.6 7.6 0 0 0 1.6.9l.5 2.7h4l.5-2.7a7.6 7.6 0 0 0 1.6-.9l2.3 1 2-3.5zM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4z');
       const icoHome = svg('M12 3 2.5 11.3h2.6V21h4.3v-5.6h5.2V21h4.3v-9.7h2.6z');
       global.UI.showPause({
-        title: T('paused'),
         buttons: [
           { label: T('resume'), gold: true, icon: icoPlay, onClick: function () {} },
           { label: T('t_options'), icon: icoGear, onClick: function () { setTimeout(function () { global.UI.showSettings(); }, 60); } },
