@@ -57,6 +57,17 @@ export class PremiumButton extends Widget {
       r.text(this.label, b.centerX + 1, ly + 2, { font: this.font, color: 'rgba(10,20,50,0.35)', align: 'center', baseline: 'middle' });
       r.text(this.label, b.centerX, ly, { font: this.font, color: UI.white, align: 'center', baseline: 'middle' });
     }
+    // Idle shimmer sweep every ~12 s (staggered per button) so the whole UI
+    // stays subtly alive without being distracting.
+    const cyc = (now / 1000 + this._phase * 1.9) % 12;
+    if (cyc < 0.6) {
+      const k = cyc / 0.6;
+      const ctx = r.ctx; ctx.save(); r.roundRectPath(b.x, b.y, b.w, b.h, rad); ctx.clip();
+      const sx = b.x - b.w * 0.4 + k * b.w * 1.4;
+      ctx.globalAlpha = 0.5 * Math.sin(k * Math.PI);
+      ctx.fillStyle = r.linearGradient(sx - 60, 0, sx + 60, 0, [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.85)'], [1, 'rgba(255,255,255,0)']]);
+      ctx.fillRect(b.x, b.y, b.w, b.h); ctx.globalAlpha = 1; ctx.restore();
+    }
     r.restore();
 
     if (this._pressAt >= 0 && t < 0.5) {

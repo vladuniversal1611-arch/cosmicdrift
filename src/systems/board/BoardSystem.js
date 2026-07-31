@@ -111,7 +111,7 @@ export class BoardSystem extends System {
     this.events.emit('board:linesResolved', { lines, cells: [...cells], grid: this.grid });
     // Premium punch: a quick screen flash accompanies the energy wave.
     this.events.emit('fx:flash', { color: '#ffffff', strength: 0.14 + 0.05 * lines.length });
-    this.game.getSystem('audio')?.play('clear');
+    this.game.getSystem('audio')?.play('clear', { rate: 0.95 + Math.random() * 0.1 });
   }
 
   update(dt) {

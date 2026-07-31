@@ -24,6 +24,7 @@ import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Easing } from '../../utils/Easing.js';
+import { Haptics } from '../../utils/Haptics.js';
 
 const MAX_SHAKE = 24;
 
@@ -67,6 +68,8 @@ export class GameplaySystem extends System {
     this.listen('level:changed', () => { this.combo = 0; });
     // Returning to the main menu leaves the 'playing' state (blocks board input).
     this.listen('game:toMenu', () => { this.state = 'menu'; });
+    // Tactile feedback layered onto the existing loop (mobile only, opt-out).
+    this.listen('level:complete', () => Haptics.heavy(this.game));
   }
 
   /** Return to a clean pre-game state (score/combo/energy + all cinematics). */
@@ -123,6 +126,7 @@ export class GameplaySystem extends System {
   _onPiecePlaced({ blocks }) {
     this.score += blocks * Config.gameplay.scorePerBlock;
     this.events.emit('gameplay:score', { score: this.score, add: blocks * Config.gameplay.scorePerBlock });
+    Haptics.light(this.game);
   }
 
   _onLinesCleared({ count }) {
@@ -146,6 +150,7 @@ export class GameplaySystem extends System {
       + Config.fx.shakePerCombo * (this.combo - 1)
       + (count - 1) * Config.fx.shakePerCombo;
     this.addShake(shake);
+    Haptics.medium(this.game);
 
     // A light camera "breath" on every clear (bigger clears push in a touch
     // more); the combo finale layers its own stronger zoom on top.
@@ -182,6 +187,7 @@ export class GameplaySystem extends System {
       audio?.play('dragonRoar');
       this.zoomPulse(0.05, 0.5);
       this.events.emit('fx:burst', { x: cx, y: cy, color: '#ffb020', count: 36 });
+      Haptics.heavy(this.game);
     }
     if (combo >= 8) {
       // Cinematic finale.

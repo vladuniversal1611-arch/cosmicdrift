@@ -40,7 +40,7 @@ const SFX = {
     [523, 659, 784, 1046].forEach((f, i) =>
       a._tone({ freq: f, type: 'triangle', dur: 0.2, gain: 0.13, delay: i * 0.045 }));
   },
-  combo: (a, o) => a._tone({ freq: 880 * (o.rate ?? 1), type: 'sine', dur: 0.16, sweep: 1.5, gain: 0.18 }),
+  combo: (a) => a._tone({ freq: 880, type: 'sine', dur: 0.16, sweep: 1.5, gain: 0.18 }),
   gameover: (a) => {
     [440, 349, 262].forEach((f, i) =>
       a._tone({ freq: f, type: 'sine', dur: 0.3, gain: 0.18, delay: i * 0.14 }));
@@ -158,7 +158,7 @@ export class AudioSystem extends System {
       return;
     }
     const recipe = SFX[name];
-    if (recipe) recipe(this, opts);
+    if (recipe) { this._playRate = opts.rate ?? 1; recipe(this, opts); this._playRate = 1; }
   }
 
   /**
@@ -171,8 +171,12 @@ export class AudioSystem extends System {
     const t0 = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    if (sweep !== 1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * sweep), t0 + dur);
+    // A per-play pitch multiplier lets any procedural SFX vary slightly so the
+    // same sound never repeats identically (set by play()).
+    const rate = this._playRate ?? 1;
+    const f = freq * rate;
+    osc.frequency.setValueAtTime(f, t0);
+    if (sweep !== 1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f * sweep), t0 + dur);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);

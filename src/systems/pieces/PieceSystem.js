@@ -235,7 +235,7 @@ export class PieceSystem extends System {
     const idx = this.tray.indexOf(piece);
     if (idx !== -1) this.tray.splice(idx, 1);
 
-    this.game.getSystem('audio')?.play('place');
+    this.game.getSystem('audio')?.play('place', { rate: 0.96 + Math.random() * 0.08 });
 
     // Satisfying impact: micro screen-shake, a ripple shockwave and magical
     // dust bursting from the landing point.
@@ -268,7 +268,7 @@ export class PieceSystem extends System {
     anim?.to(piece, 'x', piece.homeX, t, { ease: Easing.backOut });
     anim?.to(piece, 'y', piece.homeY, t, { ease: Easing.backOut });
     anim?.to(piece, 'scale', piece.homeScale, t, { ease: Easing.backOut });
-    this.game.getSystem('audio')?.play('invalid');
+    this.game.getSystem('audio')?.play('invalid', { rate: 0.96 + Math.random() * 0.08 });
 
     // A soft red flash and a puff of grey dust sell the rejection.
     const cs = this._grid.cellSize;
