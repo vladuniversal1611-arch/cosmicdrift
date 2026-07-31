@@ -68,8 +68,19 @@ export class GameplaySystem extends System {
     this.listen('level:changed', () => { this.combo = 0; });
     // Returning to the main menu leaves the 'playing' state (blocks board input).
     this.listen('game:toMenu', () => { this.state = 'menu'; });
-    // Tactile feedback layered onto the existing loop (mobile only, opt-out).
-    this.listen('level:complete', () => Haptics.heavy(this.game));
+    // Tactile feedback + the brief "I DID IT" board beat (slow-mo + zoom +
+    // golden flash + burst) the instant a level completes, before the
+    // celebration screen slides over it.
+    this.listen('level:complete', () => {
+      Haptics.heavy(this.game);
+      const board = this.game.getSystem('board')?.area;
+      const cx = board ? board.centerX : 540, cy = board ? board.centerY : 1000;
+      this.slowmo(0.6);
+      this.zoomPulse(0.03, 0.6);
+      this.golden(1.0);
+      this.flash('#fff', 0.2);
+      this.events.emit('fx:burst', { x: cx, y: cy, color: '#ffd23d', count: 40 });
+    });
   }
 
   /** Return to a clean pre-game state (score/combo/energy + all cinematics). */
