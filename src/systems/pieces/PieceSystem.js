@@ -27,6 +27,7 @@
 import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { Easing } from '../../utils/Easing.js';
+import { Haptics } from '../../utils/Haptics.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Random } from '../../utils/Random.js';
 import { PieceFactory } from './PieceFactory.js';
@@ -162,7 +163,10 @@ export class PieceSystem extends System {
     const anim = this.game.getSystem('animation');
     anim?.to(piece, 'scale', Config.fx.dragScale, Config.fx.pickupTime, { ease: Easing.backOut });
 
-    this.game.getSystem('audio')?.play('pickup');
+    this.game.getSystem('audio')?.play('pickup', { rate: 0.97 + Math.random() * 0.06 });
+    Haptics.light(this.game);
+    // A tiny sparkle at the grab point sells "I'm holding something".
+    this.events.emit('fx:burst', { x, y, color: '#fff6c8', count: 5 });
     this._positionDrag(x, y);
   }
 
@@ -269,6 +273,7 @@ export class PieceSystem extends System {
     anim?.to(piece, 'y', piece.homeY, t, { ease: Easing.backOut });
     anim?.to(piece, 'scale', piece.homeScale, t, { ease: Easing.backOut });
     this.game.getSystem('audio')?.play('invalid', { rate: 0.96 + Math.random() * 0.08 });
+    Haptics.light(this.game);
 
     // A soft red flash and a puff of grey dust sell the rejection.
     const cs = this._grid.cellSize;

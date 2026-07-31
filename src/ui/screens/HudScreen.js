@@ -45,6 +45,7 @@ export class HudScreen extends Screen {
     this._toast = null;       // { text, color, t } reward / biome toast
     this._coins = [];         // line-clear reward coins flying up
     this._beam = 0;           // line-clear light-beam intensity (decays)
+    this._scorePops = [];     // floating "+N" score popups near cleared lines
     // Tidy top bar: a compact pause (left) + World Map (right), lower on screen
     // for a bigger top safe-area.
     this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
@@ -65,6 +66,8 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('gameplay:score', ({ score, add }) => {
       this._score = score;
       if (add > 0) this._scorePop = 1;
+      // A big add (a line clear, not a plain placement) floats up as "+N".
+      if (add >= 40) this._spawnScorePop(add);
     }));
     this._subs.push(this.events.on('gameplay:energy', ({ energy, max }) => {
       this._energy.setValue(max ? energy / max : 0);
@@ -154,6 +157,33 @@ export class HudScreen extends Screen {
       const c = this._coins[i]; c.t += dt; c.vy += 240 * dt; c.x += c.vx * dt; c.y += c.vy * dt;
       if (c.t > c.life || c.y < this.bounds.h * 0.05) this._coins.splice(i, 1);
     }
+    // Floating "+N" score popups drift up toward the score and fade.
+    for (let i = this._scorePops.length - 1; i >= 0; i--) {
+      const p = this._scorePops[i]; p.t += dt; p.y -= p.vy * dt; p.vy *= 0.96;
+      if (p.t > p.life) this._scorePops.splice(i, 1);
+    }
+  }
+
+  _spawnScorePop(add) {
+    const board = this.game.getSystem('board')?.area;
+    const x = (board ? board.centerX : this.bounds.centerX) + (Math.random() - 0.5) * 120;
+    const y = (board ? board.centerY : this.bounds.h * 0.4);
+    this._scorePops.push({ text: `+${add}`, x, y, t: 0, life: 1.1, vy: 150 });
+  }
+
+  _drawScorePops(renderer) {
+    for (const p of this._scorePops) {
+      const k = p.t / p.life;
+      const pop = k < 0.2 ? k / 0.2 : 1;           // quick scale-in
+      const a = k > 0.6 ? Math.max(0, 1 - (k - 0.6) / 0.4) : 1;
+      const size = Math.round((34 + pop * 8) * (0.7 + pop * 0.3));
+      renderer.setAlpha(a);
+      renderer.withGlow('#ffe08a', 10, () => renderer.text(p.text, p.x, p.y, {
+        font: `900 ${size}px system-ui, sans-serif`, color: '#ffe89a', align: 'center', baseline: 'middle',
+        outline: 'rgba(120,80,10,0.7)', outlineWidth: 4,
+      }));
+      renderer.setAlpha(1);
+    }
   }
 
   render(renderer) {
@@ -167,6 +197,7 @@ export class HudScreen extends Screen {
     this._drawObjectives(renderer);
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
+    this._drawScorePops(renderer);
     if (this._toast) this._drawToast(renderer);
     if (this._structToast) this._drawStructToast(renderer);
     if (this._banner) this._drawBanner(renderer);
