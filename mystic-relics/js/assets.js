@@ -14,6 +14,7 @@ const Assets = {
   chests: {},       // { wood|silver|gold|legendary: Image }
   ui: {},           // { coin|gem|star|heart: Image }
   icons: {},        // іконки меню { shop|collection|home|achievements|profile|daily|wheel|missions|chests: Image }
+  win: {},          // спрайти панелі перемоги
   _tilesLoaded: 0,
 
   load() {
@@ -59,6 +60,15 @@ const Assets = {
         img.onerror = () => {};
         img.src = (emb[g] && emb[g][id]) || `assets/${g}/${id}.png`;
       }
+    }
+    const winIds = ['panel-frame', 'close-btn', 'stars-3', 'star-gold', 'star-gold-big', 'star-grey',
+      'ribbon', 'score-plate', 'card-coins', 'card-gems', 'card-xp', 'btn-next', 'btn-menu',
+      'divider', 'shield', 'xp-bar', 'sparkle', 'title-bar'];
+    for (const id of winIds) {
+      const img = new Image();
+      img.onload = () => { this.win[id] = img; };
+      img.onerror = () => {};
+      img.src = `assets/ui/win/${id}.png`;
     }
   },
 
