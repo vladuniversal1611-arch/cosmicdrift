@@ -367,10 +367,10 @@ const UI = {
           <button class="buy-btn btn-ad" data-adreward="${tab}" ${left ? '' : 'disabled'}>${I18N.t('watch_ad')}</button>
         </div>`;
       box.innerHTML = adCard + `<div class="shop-grid">` + items.map(it => `
-        <div class="shop-card glass" data-iap="${it.id}" data-kind="${tab}" data-amount="${it.amount}">
+        <div class="shop-card glass iap-soon">
           <div class="big">${ico}</div>
           <div class="amount">${Utils.fmt(it.amount)}</div>
-          <div class="price">${it.price}</div>
+          <div class="price iap-badge">${I18N.t('coming_soon')}</div>
         </div>`).join('') + `</div>
         <p style="text-align:center;opacity:0.6;font-size:12px;padding:10px">${I18N.t('iap_note')}</p>`;
     } else if (tab === 'boosters') {
@@ -393,12 +393,11 @@ const UI = {
       }).join('');
     } else if (tab === 'premium') {
       box.innerHTML = `
-        <div class="shop-row glass" style="border:1px solid var(--gold)">
+        <div class="shop-row glass iap-soon" style="border:1px solid var(--gold)">
           <div class="big">👑</div>
           <div class="info"><b>${I18N.t('premium_name')}</b>
           <small>${I18N.t('premium_desc')}</small></div>
-          <button class="buy-btn" data-iap="${CFG.SHOP.premium.id}" data-kind="premium" ${d.premium ? 'disabled' : ''}>
-            ${d.premium ? I18N.t('purchased') : CFG.SHOP.premium.price}</button>
+          <button class="buy-btn iap-badge" disabled>${I18N.t('coming_soon')}</button>
         </div>`;
     }
   },
