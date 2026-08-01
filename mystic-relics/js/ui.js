@@ -850,11 +850,15 @@ const UI = {
     const d = Storage.data;
     const need = CFG.xpForLevel(d.profileLevel);
     const xpPct = Math.min(100, ((d.xp) / need * 100)).toFixed(0);
+    const ws = id => (Assets.win[id] && Assets.win[id].src) || `assets/ui/win/${id}.png`;
 
     const starHtml = [0, 1, 2].map(i => {
       const on = i < stars;
       const cls = i === 1 ? 'win-star win-star-big' : 'win-star';
-      return `<div class="${cls}${on ? '' : ' off'}"></div>`;
+      const src = on
+        ? (i === 0 ? ws('star-gold') : i === 1 ? ws('star-gold-big') : ws('star-gold-r'))
+        : ws('star-grey');
+      return `<div class="${cls}${on ? '' : ' off'}"><img src="${src}" alt=""></div>`;
     }).join('');
 
     this.modal(`
@@ -866,7 +870,7 @@ const UI = {
           </div>
           <div class="win-score-label">${I18N.t('final_score')}</div>
           <div class="win-score" id="winScore">0</div>
-          <div class="win-divider"><i>✦</i></div>
+          <div class="win-divider"><img src="${ws('divider')}" alt=""></div>
           <div class="win-rewards">
             <div class="win-card" style="--d:0">
               <span class="win-card-ico">${Utils.ic('coin')}</span>
@@ -898,6 +902,24 @@ const UI = {
       </div>
     `, true);
     this.$('modalBox').classList.add('win-mode');
+
+    const box = this.$('modalBox');
+    if (Assets.win['panel-frame']) {
+      const b = box.querySelector('.win-body');
+      b.classList.add('has-frame');
+      b.style.backgroundImage = `url(${ws('panel-frame')})`;
+    }
+    if (Assets.win['ribbon']) {
+      const r = box.querySelector('.win-ribbon');
+      r.classList.add('has-sprite');
+      r.style.background = `url(${ws('ribbon')}) center/100% 100% no-repeat`;
+      r.style.border = 'none';
+    }
+    if (Assets.win['shield']) {
+      const bg = box.querySelector('.win-xp-badge');
+      bg.classList.add('has-sprite');
+      bg.style.backgroundImage = `url(${ws('shield')})`;
+    }
 
     if (Game.mode === 'daily') {
       this.$('btnNextLevel').textContent = I18N.t('to_menu');

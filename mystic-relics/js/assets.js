@@ -61,7 +61,7 @@ const Assets = {
         img.src = (emb[g] && emb[g][id]) || `assets/${g}/${id}.png`;
       }
     }
-    const winIds = ['panel-frame', 'close-btn', 'stars-3', 'star-gold', 'star-gold-big', 'star-grey',
+    const winIds = ['panel-frame', 'close-btn', 'stars-3', 'star-gold', 'star-gold-big', 'star-gold-r', 'star-grey',
       'ribbon', 'score-plate', 'card-coins', 'card-gems', 'card-xp', 'btn-next', 'btn-menu',
       'divider', 'shield', 'xp-bar', 'sparkle', 'title-bar'];
     for (const id of winIds) {
