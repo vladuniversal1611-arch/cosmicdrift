@@ -19,7 +19,7 @@ const Assets = {
 
   load() {
     // Вбудовані асети (однофайловий білд інжектить window.EMBEDDED_ASSETS)
-    const emb = (typeof window !== 'undefined' && window.EMBEDDED_ASSETS) || { tiles: {}, bg: {} };
+    const emb = (typeof window !== 'undefined' && window.EMBEDDED_ASSETS) || { tiles: {}, bg: {}, win: {} };
     // Плитки: assets/tiles/tile_00.png … tile_71.png
     for (let i = 0; i < CFG.TILES.length; i++) {
       const img = new Image();
@@ -68,7 +68,7 @@ const Assets = {
       const img = new Image();
       img.onload = () => { this.win[id] = img; };
       img.onerror = () => {};
-      img.src = `assets/ui/win/${id}.png`;
+      img.src = (emb.win && emb.win[id]) || `assets/ui/win/${id}.png`;
     }
   },
 
