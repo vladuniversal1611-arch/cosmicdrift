@@ -846,8 +846,6 @@ const UI = {
 
   /* ---------------- Ігрові модальні вікна ---------------- */
   showWin(stars, score, coins, gems, xp) {
-    const w = Assets.win;
-    const src = (k) => w[k] ? `<img src="${w[k].src}" alt="">` : '';
     const title = stars === 3 ? I18N.t('win_title') : stars === 2 ? I18N.t('win_good') : I18N.t('win_ok');
     const d = Storage.data;
     const need = CFG.xpForLevel(d.profileLevel);
@@ -856,55 +854,44 @@ const UI = {
     const starHtml = [0, 1, 2].map(i => {
       const on = i < stars;
       const cls = i === 1 ? 'win-star win-star-big' : 'win-star';
-      const img = on ? (i === 1 && w['star-gold-big'] ? w['star-gold-big'].src : w['star-gold'] ? w['star-gold'].src : '')
-                     : (w['star-grey'] ? w['star-grey'].src : '');
-      return img ? `<img class="${cls} ${on ? '' : 'off'}" src="${img}" alt="">` : `<span class="${cls} ${on ? '' : 'off'}">⭐</span>`;
+      return `<div class="${cls}${on ? '' : ' off'}"></div>`;
     }).join('');
 
     this.modal(`
       <div class="win-panel">
         <div class="win-stars-row">${starHtml}</div>
         <div class="win-body">
-          ${w['panel-frame'] ? `<img class="win-bg" src="${w['panel-frame'].src}" alt="">` : ''}
           <div class="win-ribbon">
-            ${w.ribbon ? `<img class="win-ribbon-img" src="${w.ribbon.src}" alt="">` : ''}
             <span class="win-title">${title}</span>
           </div>
-          ${w['score-plate'] ? `<div class="win-score-plate"><img src="${w['score-plate'].src}" alt=""><span>${I18N.t('final_score')}</span></div>` : ''}
+          <div class="win-score-label">${I18N.t('final_score')}</div>
           <div class="win-score" id="winScore">0</div>
-          ${w.divider ? `<img class="win-divider" src="${w.divider.src}" alt="">` : ''}
+          <div class="win-divider"><i>✦</i></div>
           <div class="win-rewards">
-            <div class="win-card win-card-pop" style="--d:0">
-              ${w['card-coins'] ? `<img class="win-card-bg" src="${w['card-coins'].src}" alt="">` : ''}
+            <div class="win-card" style="--d:0">
+              <span class="win-card-ico">${Utils.ic('coin')}</span>
               <span class="win-card-label">${I18N.t('tab_coins')}</span>
               <span class="win-card-val">+${coins}</span>
             </div>
-            ${gems ? `<div class="win-card win-card-pop" style="--d:1">
-              ${w['card-gems'] ? `<img class="win-card-bg" src="${w['card-gems'].src}" alt="">` : ''}
+            ${gems ? `<div class="win-card" style="--d:1">
+              <span class="win-card-ico">${Utils.ic('gem')}</span>
               <span class="win-card-label">${I18N.t('tab_gems')}</span>
               <span class="win-card-val">+${gems}</span>
             </div>` : ''}
-            <div class="win-card win-card-pop" style="--d:${gems ? 2 : 1}">
-              ${w['card-xp'] ? `<img class="win-card-bg" src="${w['card-xp'].src}" alt="">` : ''}
+            <div class="win-card" style="--d:${gems ? 2 : 1}">
+              <span class="win-card-ico">${Utils.ic('star')}</span>
               <span class="win-card-label">${I18N.t('experience')}</span>
-              <span class="win-card-val">+${xp} XP</span>
+              <span class="win-card-val">+${xp}</span>
             </div>
           </div>
-          <button class="win-btn-next" id="btnNextLevel">
-            ${w['btn-next'] ? `<img src="${w['btn-next'].src}" alt="">` : ''}
-            <span>${I18N.t('next')}</span>
-          </button>
-          <button class="win-btn-menu" id="btnWinMenu">
-            ${w['btn-menu'] ? `<img src="${w['btn-menu'].src}" alt="">` : ''}
-            <span>☰ ${I18N.t('to_menu')}</span>
-          </button>
+          <button class="win-btn-next" id="btnNextLevel">${I18N.t('next')}</button>
+          <button class="win-btn-menu" id="btnWinMenu">☰ ${I18N.t('to_menu')}</button>
           <div class="win-xp-row">
             <span class="win-xp-lbl">${I18N.t('level_n', { n: d.profileLevel })}</span>
             <div class="win-xp-track">
-              ${w['xp-bar'] ? `<img class="win-xp-track-bg" src="${w['xp-bar'].src}" alt="">` : ''}
               <i class="win-xp-fill" style="width:${xpPct}%"></i>
+              <div class="win-xp-badge">${d.profileLevel}</div>
             </div>
-            ${w.shield ? `<div class="win-xp-badge"><img src="${w.shield.src}" alt=""><span>${d.profileLevel}</span></div>` : ''}
             <small class="win-xp-text">${d.xp} / ${need} XP</small>
           </div>
         </div>
@@ -913,7 +900,7 @@ const UI = {
     this.$('modalBox').classList.add('win-mode');
 
     if (Game.mode === 'daily') {
-      this.$('btnNextLevel').querySelector('span').textContent = I18N.t('to_menu');
+      this.$('btnNextLevel').textContent = I18N.t('to_menu');
       this.$('btnNextLevel').onclick = () => { this.closeModal(); Game.quitToMenu(); };
       this.toast(I18N.t('daily_done'));
     } else {
