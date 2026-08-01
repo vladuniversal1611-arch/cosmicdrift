@@ -849,8 +849,11 @@ const UI = {
     const title = stars === 3 ? I18N.t('win_title') : stars === 2 ? I18N.t('win_good') : I18N.t('win_ok');
     const d = Storage.data;
     const need = CFG.xpForLevel(d.profileLevel);
-    const xpPct = Math.min(100, ((d.xp) / need * 100)).toFixed(0);
+    const prevXp = Math.max(0, d.xp - xp);
+    const xpPctStart = Math.min(100, (prevXp / need * 100)).toFixed(0);
+    const xpPctEnd = Math.min(100, (d.xp / need * 100)).toFixed(0);
     const ws = id => (Assets.win[id] && Assets.win[id].src) || `assets/ui/win/${id}.png`;
+    const nextLvl = d.profileLevel + 1;
 
     const starHtml = [0, 1, 2].map(i => {
       const on = i < stars;
@@ -858,42 +861,67 @@ const UI = {
       return `<div class="${cls}${on ? '' : ' off'}"></div>`;
     }).join('');
 
+    const coinIco = Assets.ui.coin
+      ? `<img src="${Assets.ui.coin.src}" style="width:34px;height:34px;object-fit:contain" alt="">`
+      : Utils.ic('coin');
+    const gemIco = Assets.ui.gem
+      ? `<img src="${Assets.ui.gem.src}" style="width:34px;height:34px;object-fit:contain" alt="">`
+      : Utils.ic('gem');
+    const xpIco = Assets.ui.star
+      ? `<img src="${Assets.ui.star.src}" style="width:34px;height:34px;object-fit:contain" alt="">`
+      : Utils.ic('star');
+
+    const shieldHtml = Assets.win['shield']
+      ? `<img src="${ws('shield')}" alt="">`
+      : `<div class="win-xp-badge-fallback">⚔</div>`;
+
+    let di = 0;
+    const cardCoins = `<div class="win-card" style="--d:${di++}">
+      <span class="win-card-ico ico-coin">${coinIco}</span>
+      <span class="win-card-label">${I18N.t('tab_coins')}</span>
+      <span class="win-card-val">+${coins}</span>
+    </div>`;
+    const cardGems = gems ? `<div class="win-card" style="--d:${di++}">
+      <span class="win-card-ico ico-gem">${gemIco}</span>
+      <span class="win-card-label">${I18N.t('tab_gems')}</span>
+      <span class="win-card-val">+${gems}</span>
+    </div>` : '';
+    const cardXp = `<div class="win-card" style="--d:${di}">
+      <span class="win-card-ico ico-xp">${xpIco}</span>
+      <span class="win-card-label">${I18N.t('experience')}</span>
+      <span class="win-card-val">+${xp}</span>
+    </div>`;
+
     this.modal(`
       <div class="win-panel">
-        <div class="win-stars-row">${starHtml}</div>
+        <div class="win-stars-row">
+          <div class="win-stars-glow"></div>
+          ${starHtml}
+        </div>
         <div class="win-body">
           <div class="win-ribbon">
             <span class="win-title">${title}</span>
           </div>
           <div class="win-score-label">${I18N.t('final_score')}</div>
           <div class="win-score" id="winScore">0</div>
+          <div class="win-score-glow"></div>
           <div class="win-divider"><img src="${ws('divider')}" alt=""></div>
-          <div class="win-rewards">
-            <div class="win-card" style="--d:0">
-              <span class="win-card-ico">${Utils.ic('coin')}</span>
-              <span class="win-card-label">${I18N.t('tab_coins')}</span>
-              <span class="win-card-val">+${coins}</span>
-            </div>
-            ${gems ? `<div class="win-card" style="--d:1">
-              <span class="win-card-ico">${Utils.ic('gem')}</span>
-              <span class="win-card-label">${I18N.t('tab_gems')}</span>
-              <span class="win-card-val">+${gems}</span>
-            </div>` : ''}
-            <div class="win-card" style="--d:${gems ? 2 : 1}">
-              <span class="win-card-ico">${Utils.ic('star')}</span>
-              <span class="win-card-label">${I18N.t('experience')}</span>
-              <span class="win-card-val">+${xp}</span>
-            </div>
-          </div>
+          <div class="win-rewards">${cardCoins}${cardGems}${cardXp}</div>
           <button class="win-btn-next" id="btnNextLevel">${I18N.t('next')}</button>
           <button class="win-btn-menu" id="btnWinMenu">☰ ${I18N.t('to_menu')}</button>
           <div class="win-xp-row">
-            <span class="win-xp-lbl">${I18N.t('level_n', { n: d.profileLevel })}</span>
-            <div class="win-xp-track">
-              <i class="win-xp-fill" style="width:${xpPct}%"></i>
-              <div class="win-xp-badge">${d.profileLevel}</div>
+            <div class="win-xp-levels">
+              <span class="win-xp-lvl">Lv.${d.profileLevel}</span>
+              <span class="win-xp-lvl win-xp-lvl-next">Lv.${nextLvl}</span>
             </div>
-            <small class="win-xp-text">${d.xp} / ${need} XP</small>
+            <div class="win-xp-track">
+              <i class="win-xp-fill" style="width:${xpPctStart}%"></i>
+              <div class="win-xp-badge">${shieldHtml}</div>
+            </div>
+            <div class="win-xp-text">
+              <span><b>${d.xp}</b> / ${need} XP</span>
+              <span>+${xp} XP</span>
+            </div>
           </div>
         </div>
       </div>
@@ -912,11 +940,22 @@ const UI = {
       r.style.background = `url(${ws('ribbon')}) center/100% 100% no-repeat`;
       r.style.border = 'none';
     }
-    if (Assets.win['shield']) {
-      const bg = box.querySelector('.win-xp-badge');
-      bg.classList.add('has-sprite');
-      bg.style.backgroundImage = `url(${ws('shield')})`;
+
+    const body = box.querySelector('.win-body');
+    for (let s = 0; s < 12; s++) {
+      const sp = document.createElement('div');
+      sp.className = 'win-sparkle';
+      sp.style.cssText = `left:${8 + Math.random() * 84}%;top:${5 + Math.random() * 90}%;`
+        + `--dx:${(Math.random() - 0.5) * 30}px;--dy:${-15 - Math.random() * 35}px;`
+        + `--dur:${2.5 + Math.random() * 2}s;--del:${Math.random() * 3}s;`
+        + `width:${4 + Math.random() * 4}px;height:${4 + Math.random() * 4}px;`;
+      body.appendChild(sp);
     }
+
+    setTimeout(() => {
+      const fill = box.querySelector('.win-xp-fill');
+      if (fill) fill.style.width = xpPctEnd + '%';
+    }, 400);
 
     if (Game.mode === 'daily') {
       this.$('btnNextLevel').textContent = I18N.t('to_menu');
