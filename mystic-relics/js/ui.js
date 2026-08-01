@@ -855,10 +855,7 @@ const UI = {
     const starHtml = [0, 1, 2].map(i => {
       const on = i < stars;
       const cls = i === 1 ? 'win-star win-star-big' : 'win-star';
-      const src = on
-        ? (i === 0 ? ws('star-gold') : i === 1 ? ws('star-gold-big') : ws('star-gold-r'))
-        : ws('star-grey');
-      return `<div class="${cls}${on ? '' : ' off'}"><img src="${src}" alt=""></div>`;
+      return `<div class="${cls}${on ? '' : ' off'}"></div>`;
     }).join('');
 
     this.modal(`
