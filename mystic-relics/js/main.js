@@ -19,6 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
   Game.startLoop();          // 10. Головний цикл (60 FPS)
   Ads.showBanner();          // 11. Місце під банер AdMob
 
+  // Ховаємо системну шторку (status bar) на нативній платформі
+  try {
+    const C = window.Capacitor;
+    if (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.StatusBar) {
+      C.Plugins.StatusBar.setOverlaysWebView({ overlay: false });
+      C.Plugins.StatusBar.hide({ animation: 'FADE' });
+    }
+  } catch (e) {}
+
   // WebAudio дозволено запускати лише після першого дотику користувача
   const unlock = () => { Audio2.init(); Audio2.resume(); };
   document.addEventListener('pointerdown', unlock, { once: true });
