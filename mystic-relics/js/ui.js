@@ -853,40 +853,65 @@ const UI = {
     const xpPctStart = Math.min(100, (prevXp / need * 100)).toFixed(0);
     const xpPctEnd = Math.min(100, (d.xp / need * 100)).toFixed(0);
     const nextLvl = d.profileLevel + 1;
+    const ws = id => Assets.win[id] ? Assets.win[id].src : null;
 
     const starHtml = [0, 1, 2].map(i => {
       const on = i < stars;
+      const sprSrc = ws(on ? 'star-gold' : 'star-grey');
       const cls = i === 1 ? 'win-star win-star-big' : 'win-star';
-      return `<div class="${cls}${on ? '' : ' off'}"></div>`;
+      const sprCls = sprSrc ? ' has-sprite' : '';
+      const sprStyle = sprSrc ? ` style="background-image:url('${sprSrc}')"` : '';
+      return `<div class="${cls}${on ? '' : ' off'}${sprCls}"${sprStyle}></div>`;
     }).join('');
+
+    const hasFrame = ws('panel-frame');
+    const hasRibbon = ws('ribbon');
+    const hasDivider = ws('divider');
+    const hasShield = ws('shield');
+
+    const cardIco = (type, fallback) => {
+      const src = ws(type);
+      return src ? `<img src="${src}" alt="">` : fallback;
+    };
 
     let di = 0;
     const cardCoins = `<div class="win-card" style="--d:${di++}">
-      <span class="win-card-ico">${Utils.ic('coin')}</span>
+      <span class="win-card-ico">${cardIco('card-coins', Utils.ic('coin'))}</span>
       <span class="win-card-label">${I18N.t('tab_coins')}</span>
       <span class="win-card-val">+${coins}</span>
     </div>`;
     const cardGems = gems ? `<div class="win-card" style="--d:${di++}">
-      <span class="win-card-ico">${Utils.ic('gem')}</span>
+      <span class="win-card-ico">${cardIco('card-gems', Utils.ic('gem'))}</span>
       <span class="win-card-label">${I18N.t('tab_gems')}</span>
       <span class="win-card-val">+${gems}</span>
     </div>` : '';
     const cardXp = `<div class="win-card" style="--d:${di}">
-      <span class="win-card-ico">${Utils.ic('star')}</span>
+      <span class="win-card-ico">${cardIco('card-xp', Utils.ic('star'))}</span>
       <span class="win-card-label">${I18N.t('experience')}</span>
       <span class="win-card-val">+${xp}</span>
     </div>`;
 
+    const frameImg = hasFrame ? `<img class="win-frame-img" src="${hasFrame}" alt="">` : '';
+    const ribbonImg = hasRibbon ? `<img class="win-ribbon-img" src="${hasRibbon}" alt="">` : '';
+    const dividerContent = hasDivider
+      ? `<img src="${hasDivider}" alt="">`
+      : `<span class="win-divider-gem"></span>`;
+    const badgeContent = hasShield
+      ? `<img src="${hasShield}" alt=""><span>${d.profileLevel}</span>`
+      : d.profileLevel;
+
     this.modal(`
       <div class="win-panel">
         <div class="win-stars-row">${starHtml}</div>
-        <div class="win-body">
-          <div class="win-ribbon">
+        <div class="win-body${hasFrame ? ' has-frame' : ''}">
+          ${frameImg}
+          <div class="win-ribbon${hasRibbon ? ' has-sprite' : ''}">
+            ${ribbonImg}
             <span class="win-title">${title}</span>
           </div>
           <div class="win-score-label">${I18N.t('final_score')}</div>
           <div class="win-score" id="winScore">0</div>
-          <div class="win-divider"><span class="win-divider-gem"></span></div>
+          <div class="win-divider${hasDivider ? ' has-sprite' : ''}">${dividerContent}</div>
           <div class="win-rewards">${cardCoins}${cardGems}${cardXp}</div>
           <button class="win-btn-next" id="btnNextLevel">${I18N.t('next')}</button>
           <button class="win-btn-menu" id="btnWinMenu">☰ ${I18N.t('to_menu')}</button>
@@ -897,7 +922,7 @@ const UI = {
             </div>
             <div class="win-xp-track">
               <i class="win-xp-fill" style="width:${xpPctStart}%"></i>
-              <div class="win-xp-badge">${d.profileLevel}</div>
+              <div class="win-xp-badge${hasShield ? ' has-sprite' : ''}">${badgeContent}</div>
             </div>
             <div class="win-xp-text">
               <span><b>${d.xp}</b> / ${need} XP</span>

@@ -62,7 +62,7 @@ const Assets = {
       }
     }
     // Win sprites: завантажуються тільки якщо є (поступова заміна CSS → PNG)
-    const winIds = [];
+    const winIds = ['panel-frame', 'ribbon', 'divider', 'star-gold', 'star-grey', 'shield', 'card-coins', 'card-gems', 'card-xp'];
     for (const id of winIds) {
       const img = new Image();
       img.onload = () => { this.win[id] = img; };
