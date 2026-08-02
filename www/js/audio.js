@@ -8,6 +8,7 @@
   let ctx = null;
   let master = null;
   let musicGain = null;
+  let musicLP = null;
   let sfxGain = null;
   let musicTimer = null;
   let musicOn = false;
@@ -18,7 +19,12 @@
     if (!AC) return;
     ctx = new AC();
     master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
-    musicGain = ctx.createGain(); musicGain.gain.value = 0.18; musicGain.connect(master);
+    // Music runs through a gentle low-pass so the pads/arpeggios stay warm and
+    // never harsh; a touch of high-pass removes low-end mud.
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.55;
+    musicLP = ctx.createBiquadFilter(); musicLP.type = 'lowpass'; musicLP.frequency.value = 1500; musicLP.Q.value = 0.5;
+    const musicHP = ctx.createBiquadFilter(); musicHP.type = 'highpass'; musicHP.frequency.value = 90;
+    musicGain.connect(musicLP); musicLP.connect(musicHP); musicHP.connect(master);
     sfxGain = ctx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(master);
   }
 
@@ -100,37 +106,68 @@
     if (SFX[name]) SFX[name](arg);
   }
 
-  // ---- Procedural background music ----------------------------------------
-  // One distinct, royalty-free theme per island: scale, tempo and timbre.
+  // ---- Melodic background music -------------------------------------------
+  // A calm looping chord progression per island (soft bass + sustained pad +
+  // gentle arpeggio), routed through the music low-pass so it stays warm.
+  // Each chord is a triad [root, third, fifth] in a comfortable octave.
   const THEMES = [
-    // 0 Dawn — warm major pentatonic, gentle
-    { scale: [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25], beat: 340, wave: 'sine', bass: 'triangle', vol: 0.22 },
-    // 1 Ice — airy lydian-ish, slower, glassy
-    { scale: [293.66, 329.63, 369.99, 440.0, 493.88, 587.33, 659.25, 739.99], beat: 400, wave: 'sine', bass: 'sine', vol: 0.2 },
-    // 2 Storm — minor pentatonic, faster, edgier
-    { scale: [246.94, 293.66, 329.63, 392.0, 440.0, 493.88, 587.33, 659.25], beat: 290, wave: 'triangle', bass: 'sawtooth', vol: 0.18 },
-    // 3 Forest — bright major, bouncy
-    { scale: [329.63, 369.99, 415.30, 493.88, 554.37, 659.25, 739.99, 830.61], beat: 320, wave: 'sine', bass: 'triangle', vol: 0.2 },
-    // 4 Sky — grand, wide intervals
-    { scale: [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.5, 1318.5], beat: 360, wave: 'sine', bass: 'triangle', vol: 0.22 }
+    // 0 Dawn — C major, I–V–vi–IV, warm and gentle
+    { prog: [[261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [220.00, 261.63, 329.63], [174.61, 220.00, 261.63]],
+      beat: 500, wave: 'triangle', bass: 'sine', cutoff: 1500, lvl: 1.0 },
+    // 1 Ice — A minor, vi–IV–I–V, slow and glassy
+    { prog: [[220.00, 261.63, 329.63], [174.61, 220.00, 261.63], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66]],
+      beat: 600, wave: 'sine', bass: 'sine', cutoff: 1150, lvl: 0.95 },
+    // 2 Storm — E minor, i–VI–III–VII, a little faster and edgier
+    { prog: [[329.63, 392.00, 493.88], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [293.66, 369.99, 440.00]],
+      beat: 440, wave: 'triangle', bass: 'triangle', cutoff: 1750, lvl: 0.95 },
+    // 3 Forest — G major, I–V–vi–IV, bright and bouncy
+    { prog: [[196.00, 246.94, 293.66], [293.66, 369.99, 440.00], [329.63, 392.00, 493.88], [261.63, 329.63, 392.00]],
+      beat: 460, wave: 'triangle', bass: 'sine', cutoff: 1900, lvl: 1.0 },
+    // 4 Sky — C major, grand and airy with an octave-up melody
+    { prog: [[261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [220.00, 261.63, 329.63], [174.61, 220.00, 261.63]],
+      beat: 520, wave: 'sine', bass: 'sine', cutoff: 2100, lvl: 1.0, hi: true }
   ];
   let theme = THEMES[0];
-  let step = 0;
+  let bar = 0, beat = 0;
+
+  // Smooth music note: slow-ish attack, long release — never clicky.
+  function mtone(freq, dur, type, gain, attack) {
+    if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    const t = ctx.currentTime, a = attack != null ? attack : Math.min(0.08, dur * 0.25);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
   function setIsland(id) {
-    const t = THEMES[Math.max(0, Math.min(THEMES.length - 1, id | 0))];
+    const t = THEMES[((id | 0) % THEMES.length + THEMES.length) % THEMES.length];
     if (t === theme) return;
     theme = t;
-    if (musicOn) { stopMusic(); startMusic(); } // restart loop at new tempo
+    if (musicOn) { stopMusic(); startMusic(); } // restart loop at new tempo/key
   }
+
   function musicTick() {
     if (!musicOn || !ctx) return;
-    const S = theme.scale;
-    const root = S[step % S.length];
-    tone(root, 0.5, theme.wave, theme.vol, musicGain, root * 1.001);
-    if (step % 2 === 0) tone(root / 2, 0.9, theme.bass, 0.12, musicGain);
-    if (step % 4 === 0) tone(S[(step / 4) % S.length] * 2, 0.4, 'sine', 0.1, musicGain);
-    if (step % 8 === 3) tone(S[(step + 2) % S.length] * 1.5, 0.3, 'sine', 0.07, musicGain);
-    step++;
+    const th = theme, chord = th.prog[bar % th.prog.length], bt = th.beat / 1000, L = th.lvl;
+    if (beat === 0) {
+      // Start of a bar: soft bass note + two sustained pad voices.
+      mtone(chord[0] / 2, bt * 3.7, th.bass, 0.15 * L);
+      mtone(chord[1], bt * 3.9, 'sine', 0.055 * L, bt * 0.9);
+      mtone(chord[2], bt * 3.9, 'sine', 0.05 * L, bt * 0.9);
+    }
+    // Gentle arpeggio melody across the bar (root, fifth, third, fifth+octave).
+    const seq = [chord[0], chord[2], chord[1], chord[2] * 2];
+    let n = seq[beat % seq.length];
+    if (th.hi) n *= 2; // Sky theme sings an octave higher
+    mtone(n, bt * 0.9, th.wave, 0.10 * L);
+    // A soft sparkle on the off-beat of every other bar.
+    if (beat === 2 && bar % 2 === 1) mtone(chord[1] * 2, bt * 0.8, 'sine', 0.045 * L, 0.02);
+    beat++;
+    if (beat >= 4) { beat = 0; bar++; }
   }
 
   function startMusic() {
@@ -138,7 +175,9 @@
     if (!ctx) return;
     if (global.Save && global.Save.get().settings.music === false) return;
     if (musicOn) return;
+    if (musicLP) musicLP.frequency.value = theme.cutoff || 1500;
     musicOn = true;
+    beat = 0;
     musicTimer = setInterval(musicTick, theme.beat);
   }
 

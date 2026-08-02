@@ -54,7 +54,7 @@
       skills: {},                       // dragon skill tree: { skillId: level }
       pvp: { trophies: 0, wins: 0, losses: 0, lastDate: '', played: 0 },
       daily2: { date: '', done: false },
-      settings: { sound: true, music: true, vibration: true, language: 'en', autoDragons: false, perf: false, colorblind: false },
+      settings: { sound: true, music: true, vibration: true, language: 'en', autoDragons: true, perf: false, colorblind: false },
       tutorialDone: false,
       tips: {},
       story: { bossSeen: {}, read: {} }, // read: story chapters the player opened
@@ -87,6 +87,10 @@
         if (profile.eggs.some(function (e) { return e.dragon === de.dragon; })) return; // already incubating
         profile.eggs.push({ dragon: de.dragon, charge: 0, need: de.need });
       });
+      // One-time migration: auto-dragons is now on by default. Flip existing
+      // saves on once (marker prevents re-enabling if the player later opts out).
+      profile._mig = profile._mig || {};
+      if (!profile._mig.autoDragons) { profile.settings.autoDragons = true; profile._mig.autoDragons = true; }
     } catch (e) {
       profile = freshProfile();
     }

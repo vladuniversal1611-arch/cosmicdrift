@@ -59,7 +59,11 @@
       const all = this.root.querySelectorAll('.screen');
       for (let i = 0; i < all.length; i++) all[i].classList.add('hidden');
       const s = document.getElementById('screen-' + id);
-      if (s) { s.classList.remove('hidden'); s.scrollTop = 0; }
+      if (s) {
+        s.classList.remove('hidden'); s.scrollTop = 0;
+        // Gentle fade/rise so switching panels isn't an abrupt cut.
+        s.classList.remove('screen-in'); void s.offsetWidth; s.classList.add('screen-in');
+      }
       this.current = id;
     },
 
