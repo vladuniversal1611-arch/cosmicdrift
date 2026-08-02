@@ -61,9 +61,8 @@ const Assets = {
         img.src = (emb[g] && emb[g][id]) || `assets/${g}/${id}.png`;
       }
     }
-    const winIds = ['panel-frame', 'close-btn', 'stars-3', 'star-gold', 'star-gold-big', 'star-gold-r', 'star-grey',
-      'ribbon', 'score-plate', 'card-coins', 'card-gems', 'card-xp', 'btn-next', 'btn-menu',
-      'divider', 'shield', 'xp-bar', 'sparkle', 'title-bar'];
+    // Win sprites: завантажуються тільки якщо є (поступова заміна CSS → PNG)
+    const winIds = [];
     for (const id of winIds) {
       const img = new Image();
       img.onload = () => { this.win[id] = img; };
