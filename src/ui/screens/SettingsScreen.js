@@ -32,6 +32,9 @@ export class SettingsScreen extends PanelScreen {
 
   _on(s, row) { const v = s?.get(row.key); return row.invert ? !v : !!v; }
 
+  // Rows (from p.y+40) + the reset button that sits at p.bottom-70.
+  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 94; }
+
   _rows() {
     const p = this.panel;
     const x = p.x + 30, w = p.w - 60, h = 62, gap = 18;

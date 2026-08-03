@@ -29,6 +29,12 @@ export class ShopScreen extends PanelScreen {
     this._toast = null;
   }
 
+  // Daily banner (34 + 118) + 2 rows of offer cards (150 tall, 16 gap) + pad.
+  contentHeight() {
+    const rows = Math.ceil(PACKS.length / 2);
+    return 34 + 118 + 22 + rows * 150 + (rows - 1) * 16 + 26;
+  }
+
   onUpdate(dt) {
     if (this._chestT >= 0) { this._chestT += dt; if (this._chestT > 1.4) this._chestT = -1; }
     for (let i = this._coins.length - 1; i >= 0; i--) {

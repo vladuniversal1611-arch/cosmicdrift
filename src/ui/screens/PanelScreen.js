@@ -24,6 +24,9 @@ export class PanelScreen extends Screen {
 
     const w = this.bounds.w, h = this.bounds.h;
     this.panel = new Rect(w * 0.06, h * (showTopBar ? 0.14 : 0.11), w * 0.88, h * (showTopBar ? 0.78 : 0.8));
+    // Remember the full extent so `contentHeight()` can shrink the panel to hug
+    // its content (top-anchored) without exceeding the available region.
+    this._panelMaxH = this.panel.h;
 
     // Back button (top-left, above the panel).
     this.add(new PremiumButton(18, 20, 58, 58, () => this.events.emit('ui:back'),
@@ -44,6 +47,11 @@ export class PanelScreen extends Screen {
     r.setAlpha(0.12); r.fillRect(0, 0, this.bounds.w, this.bounds.h, '#1e5aa0'); r.setAlpha(1);
     if (this._topbar) this._topbar.render(r, this.bounds.w);
 
+    // Fit the panel to its content (top-anchored) so screens read as tidy cards
+    // over the living background rather than sparse full-height sheets.
+    const ch = this.contentHeight();
+    if (ch != null) this.panel.h = Math.max(160, Math.min(this._panelMaxH, ch));
+
     const p = this.panel;
     UITheme.glassPanel(r, p.x, p.y, p.w, p.h, 26);
     // Title header ribbon.
@@ -59,6 +67,12 @@ export class PanelScreen extends Screen {
   onUpdate() {}
   drawContent() {}
   onContentTap() { return false; }
+  /**
+   * Optional: return the pixel height the content needs (measured from the
+   * panel's top). PanelScreen shrinks the panel to this (top-anchored, clamped
+   * to the available region). Return null to keep the full-height panel.
+   */
+  contentHeight() { return null; }
 
   onTap(px, py) { return this.onContentTap(px, py); }
 }

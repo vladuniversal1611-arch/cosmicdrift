@@ -32,6 +32,13 @@ export class CollectionScreen extends PanelScreen {
     this._cardHit = [];
   }
 
+  // Tabs (p.y+30, h38) + header (+20+16) + grid rows (138 tall, 14 gap) + pad.
+  contentHeight() {
+    const n = Math.min(this._cards().length, 10);
+    const rows = Math.max(1, Math.ceil(n / 2));
+    return 132 + rows * 138 + (rows - 1) * 14 + 24;
+  }
+
   _cards() {
     const world = this.game.getSystem('save')?.getSlice('world') ?? { complete: {}, maxLevel: 1 };
     const maxLevel = world.maxLevel ?? 1;

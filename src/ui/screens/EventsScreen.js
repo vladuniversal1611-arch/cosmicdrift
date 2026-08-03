@@ -32,6 +32,9 @@ export class EventsScreen extends PanelScreen {
 
   _ret() { return this.game.getSystem('retention'); }
 
+  // Featured banner (30 + 250) + CLAIM button (60, +20 gap) + daily tile (~130).
+  contentHeight() { return 30 + 250 + 20 + 60 + 26 + 130 + 24; }
+
   onUpdate(dt) {
     this._pulse += dt;
     const w = this._ret()?.weekly();
