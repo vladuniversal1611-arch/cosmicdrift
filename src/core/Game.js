@@ -45,6 +45,7 @@ import { EconomySystem } from '../systems/economy/EconomySystem.js';
 import { MissionSystem } from '../systems/missions/MissionSystem.js';
 import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
+import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
 import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
 import { DebugManager } from '../systems/debug/DebugManager.js';
@@ -142,6 +143,8 @@ export class Game {
     // Structures render above the board crystals but below the held piece.
     this.systems.register(new StructureSystem(this));
     this.systems.register(new PieceSystem(this));
+    // In-level power-ups (additive help; never feeds score/objectives).
+    if (f.boosters) this.systems.register(new BoosterSystem(this));
 
     // Presentation — updated after gameplay, drawn on top.
     this.systems.register(new AnimationSystem(this));

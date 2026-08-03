@@ -17,6 +17,7 @@ import { clamp } from '../../utils/MathUtils.js';
 import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
 import { UITheme, UI } from '../theme/UITheme.js';
+import { Boosters } from '../../config/Boosters.js';
 import { t } from '../../i18n/Localization.js';
 
 export class HudScreen extends Screen {
@@ -54,6 +55,16 @@ export class HudScreen extends Screen {
     // for a bigger top safe-area.
     this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
     this._pauseBtn = new Rect(36, 66, 72, 72);
+
+    // Booster row — round power-up buttons in the band below the tray.
+    this._boosterT = 0;
+    const bd = 104, bgap = 46;
+    const rowW = Boosters.length * bd + (Boosters.length - 1) * bgap;
+    const bx0 = (this.bounds.w - rowW) / 2;
+    const by = this.bounds.h * 0.865;
+    this._boosterBtns = Boosters.map((def, i) => ({
+      def, rect: new Rect(bx0 + i * (bd + bgap), by, bd, bd),
+    }));
 
     const w = this.bounds.w;
 
@@ -163,6 +174,7 @@ export class HudScreen extends Screen {
 
   update(dt) {
     this._dragonT += dt;
+    this._boosterT += dt;
     this._energy.update(dt);
     // Rolling score: ease the displayed number toward the real one.
     this._displayScore += (this._score - this._displayScore) * Math.min(1, dt * 8);
@@ -222,6 +234,115 @@ export class HudScreen extends Screen {
     ctx.restore();
   }
 
+  /** Booster palette (icon accent per booster). */
+  _boosterColors(id) {
+    return ({ hammer: UI.btn.orange, bomb: UI.btn.red, shuffle: UI.btn.teal })[id] ?? UI.btn.blue;
+  }
+
+  /**
+   * The booster row: three round power-up buttons with a live count badge. The
+   * armed booster glows and lifts; an empty booster dims. A hint appears over
+   * the board while one is armed ("TAP A BLOCK").
+   */
+  _drawBoosters(r) {
+    const booster = this.game.getSystem('booster');
+    if (!booster) return;
+    const ctx = r.ctx;
+    for (const b of this._boosterBtns) {
+      const id = b.def.id;
+      const count = booster.count(id);
+      const armed = booster.isArmed(id);
+      const empty = count <= 0;
+      const rect = b.rect, cx = rect.centerX, cy = rect.centerY;
+      const rad = rect.w / 2;
+      const cols = this._boosterColors(id);
+
+      const pulse = armed ? 0.5 + 0.5 * Math.sin(this._boosterT * 6) : 0;
+      const lift = armed ? -6 - pulse * 3 : 0;
+
+      ctx.save();
+      ctx.translate(0, lift);
+      if (armed) {
+        r.setAlpha(0.35 + pulse * 0.35);
+        r.withGlow(cols[1], 22, () => r.fillCircle(cx, cy, rad + 8 + pulse * 5, cols[1]));
+        r.setAlpha(1);
+      }
+      r.setAlpha(empty ? 0.42 : 1);
+      UITheme.button(r, rect.x, rect.y, rect.w, rect.h, rad, cols, { shadow: true });
+      this._drawBoosterIcon(r, id, cx, cy - 4, rad * 0.82, '#fff');
+      r.setAlpha(1);
+      ctx.restore();
+
+      // Count badge (top-right).
+      const bxp = rect.right - 12, byp = rect.y + 12 + lift;
+      r.withGlow('rgba(0,0,0,0.25)', 4, () => r.fillCircle(bxp, byp, 20, empty ? '#8a97ad' : '#fff'));
+      r.text(String(count), bxp, byp + 1, {
+        font: '900 22px system-ui, sans-serif', color: empty ? '#e9edf4' : UI.ink,
+        align: 'center', baseline: 'middle',
+      });
+
+      // Name label beneath.
+      r.text(b.def.name.toUpperCase(), cx, rect.bottom + 18 + lift, {
+        font: '800 16px system-ui, sans-serif', color: armed ? '#fff' : 'rgba(234,244,255,0.82)',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
+      });
+    }
+
+    // "Tap a block" hint while a cell-target booster is armed.
+    if (booster.armed) {
+      const board = this.game.getSystem('board')?.area;
+      const y = board ? board.bottom + 8 : this.bounds.h * 0.62;
+      const gl = 0.6 + 0.4 * Math.sin(this._boosterT * 5);
+      r.setAlpha(gl);
+      r.withGlow('#ffe08a', 12, () => r.text('TAP A BLOCK TO STRIKE', this.bounds.centerX, y, {
+        font: '900 26px system-ui, sans-serif', color: '#ffe89a',
+        align: 'center', baseline: 'middle', outline: 'rgba(120,80,10,0.7)', outlineWidth: 4,
+      }));
+      r.setAlpha(1);
+    }
+  }
+
+  /** Compact vector glyph for each booster. */
+  _drawBoosterIcon(r, id, cx, cy, s, color) {
+    const ctx = r.ctx;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(3, s * 0.14); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (id === 'hammer') {
+      // Head + handle at a jaunty angle.
+      ctx.translate(cx, cy); ctx.rotate(-0.5);
+      r.fillRoundRect(-s * 0.7, -s * 0.62, s * 1.4, s * 0.5, s * 0.16, color);
+      r.fillRoundRect(-s * 0.12, -s * 0.2, s * 0.24, s * 1.0, s * 0.1, color);
+    } else if (id === 'bomb') {
+      r.fillCircle(cx, cy + s * 0.16, s * 0.6, color);
+      // Fuse.
+      ctx.beginPath();
+      ctx.moveTo(cx + s * 0.3, cy - s * 0.36);
+      ctx.quadraticCurveTo(cx + s * 0.66, cy - s * 0.7, cx + s * 0.36, cy - s * 0.86);
+      ctx.stroke();
+      r.fillCircle(cx + s * 0.34, cy - s * 0.9, s * 0.14, '#ffd24a');
+      // Highlight.
+      r.setAlpha(0.5); r.fillCircle(cx - s * 0.2, cy - s * 0.02, s * 0.16, '#fff'); r.setAlpha(1);
+    } else if (id === 'shuffle') {
+      // Two curved arrows chasing each other.
+      for (const dir of [1, -1]) {
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(dir, dir); ctx.translate(0, -s * 0.32);
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.5, Math.PI * 0.15, Math.PI * 0.95);
+        ctx.stroke();
+        // Arrow head.
+        const ax = Math.cos(Math.PI * 0.95) * s * 0.5, ay = Math.sin(Math.PI * 0.95) * s * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - s * 0.02, ay - s * 0.22);
+        ctx.lineTo(ax + s * 0.22, ay - s * 0.06);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
   _drawScorePops(renderer) {
     for (const p of this._scorePops) {
       const k = p.t / p.life;
@@ -246,6 +367,7 @@ export class HudScreen extends Screen {
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
+    if (this._state === 'playing') this._drawBoosters(renderer);
     if (this._dragonReady && this._state === 'playing') this._drawDragonButton(renderer);
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
@@ -575,6 +697,15 @@ export class HudScreen extends Screen {
       this.game.getSystem('audio')?.play('dragonRoar');
       this.events.emit('dragon:unleash');
       return true;
+    }
+    // Booster row: arm a cell-target booster, or fire an instant one.
+    if (this._state === 'playing') {
+      const booster = this.game.getSystem('booster');
+      if (booster) {
+        for (const b of this._boosterBtns) {
+          if (b.rect.contains(px, py)) { booster.arm(b.def.id); return true; }
+        }
+      }
     }
     if (this._worldBtn.contains(px, py)) {
       this.events.emit('ui:openWorldMap');

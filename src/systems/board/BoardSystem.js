@@ -156,6 +156,38 @@ export class BoardSystem extends System {
     return true;
   }
 
+  /**
+   * Booster strike: force-clear an explicit list of cells (a hammer's single
+   * block, a bomb's 3×3). Reuses the normal clear timeline — cells ignite in a
+   * ring radiating out from `focal` (grid coords) — but does NOT emit
+   * `game:linesCleared`, so it never feeds scoring, combo or objectives: a
+   * booster is a free assist, not a scored line. Returns true if it cleared
+   * anything. Called by the BoosterSystem.
+   */
+  clearCells(cells, focal = null) {
+    const targets = cells.filter((cell) => cell && cell.filled && !cell.isClearing);
+    if (targets.length === 0) return false;
+
+    const dur = Config.fx.clearCellTime;
+    const stagger = Config.fx.clearStagger * 1.2;
+    const fc = focal ?? { col: targets[0].col, row: targets[0].row };
+    for (const cell of targets) {
+      const dist = Math.abs(cell.col - fc.col) + Math.abs(cell.row - fc.row);
+      cell.beginClear(dist * stagger, dur);
+    }
+
+    this._clearing = true;
+    // Let the Living Board tiles react (moss/frozen/etc.) as with any clear,
+    // but as a standalone strike — not part of a scored line.
+    this.events.emit('board:linesResolved', { lines: [targets], cells: targets, grid: this.grid });
+    const ctr = this.grid.cellCenter(fc.col, fc.row);
+    this.events.emit('fx:flash', { color: '#ffd36a', strength: 0.18 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: '#ffbf47', count: 12 + targets.length * 3 });
+    this.events.emit('fx:shake', { mag: targets.length > 1 ? 9 : 5 });
+    this.game.getSystem('audio')?.play('clear', { rate: 1.1 + Math.random() * 0.1 });
+    return true;
+  }
+
   update(dt) {
     this._time += dt;
     let stillClearing = 0;

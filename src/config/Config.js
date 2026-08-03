@@ -198,6 +198,7 @@ export const Config = Object.freeze({
     missions: true,
     events: true,
     shop: true,
+    boosters: true,
   }),
 
   /** Developer aids. Disabled automatically outside the 'dev' channel. */
