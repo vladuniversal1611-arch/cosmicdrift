@@ -138,6 +138,9 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('biome:changed', ({ biome }) => {
       this._toast = { text: `ENTERING ${biome.name.toUpperCase()}`, color: Palette.accentAlt, t: 2.6 };
     }));
+    this._subs.push(this.events.on('achievement:unlocked', ({ def }) => {
+      this._toast = { text: `🏆 ${def.name.toUpperCase()}`, color: Palette.gold, t: 2.8 };
+    }));
     this._subs.push(this.events.on('world:taskUnlocked', ({ task }) => {
       this._banner = { title: 'NEW RESTORATION', sub: `${task.name} — open the World Map ◈`, t: 3.6 };
     }));

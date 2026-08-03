@@ -46,6 +46,7 @@ import { MissionSystem } from '../systems/missions/MissionSystem.js';
 import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
+import { AchievementSystem } from '../systems/achievements/AchievementSystem.js';
 import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
 import { DebugManager } from '../systems/debug/DebugManager.js';
@@ -128,6 +129,8 @@ export class Game {
     this.systems.register(new WorldProgressionSystem(this));
     // Retention: daily/weekly loops, surprises, unlock reveals, failure comfort.
     this.systems.register(new RetentionSystem(this));
+    // Awards: tracks real play stats and unlocks milestone achievements.
+    this.systems.register(new AchievementSystem(this));
     // Store / ads / entitlements architecture (player-first, nothing shown).
     this.systems.register(new MonetizationSystem(this));
 

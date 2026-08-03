@@ -58,12 +58,15 @@ export class CollectionScreen extends PanelScreen {
         { name: 'Portal Shard', icon: 'portal', color: '#28e0d0', unlocked: maxLevel >= 30 },
       ];
     }
-    return [
-      { name: 'First Steps', icon: 'flower', color: UI.btn.play[1], unlocked: true },
-      { name: 'Combo Master', icon: 'boss', color: UI.btn.pink[1], unlocked: maxLevel >= 5 },
-      { name: 'World Builder', icon: 'tree', color: UI.btn.teal[1], unlocked: maxLevel >= 10 },
-      { name: 'Dragon Whisperer', icon: 'dragon', color: UI.btn.purple[1], unlocked: maxLevel >= 20 },
-    ];
+    // Awards: real achievements tracked from play stats.
+    const ach = this.game.getSystem('achievements');
+    if (ach) {
+      return ach.list().map((a) => ({
+        name: a.name, icon: a.icon, color: a.color, unlocked: a.unlocked,
+        sub: a.unlocked ? a.desc : `${a.progress} / ${a.goal}`,
+      }));
+    }
+    return [];
   }
 
   /** Abbreviate a perk for the small card subtitle. */
@@ -100,7 +103,7 @@ export class CollectionScreen extends PanelScreen {
     const cols = 2, cw = (p.w - 40 - 16) / cols, ch = 138;
     const gy = barY + 28;
     this._cardHit = [];
-    cards.slice(0, 8).forEach((card, i) => {
+    cards.slice(0, 10).forEach((card, i) => {
       const col = i % cols, row = Math.floor(i / cols);
       const x = p.x + 20 + col * (cw + 16);
       const y = gy + row * (ch + 14);
