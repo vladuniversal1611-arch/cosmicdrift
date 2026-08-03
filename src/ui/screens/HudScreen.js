@@ -49,6 +49,7 @@ export class HudScreen extends Screen {
     this._dragonReady = false; // Dragon Fire ultimate charged?
     this._dragonT = 0;
     this._dragonBtn = new Rect(this.bounds.w - 40 - 100, 150, 100, 100);
+    this._goalCard = null;    // { objectives, t, dur } level-start goal intro
     // Tidy top bar: a compact pause (left) + World Map (right), lower on screen
     // for a bigger top safe-area.
     this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
@@ -63,6 +64,18 @@ export class HudScreen extends Screen {
     }));
 
     this._bind();
+
+    // The first level's objectives + level are built (LevelSystem runs before
+    // the UI on game:started) before this HUD exists, so it misses the initial
+    // 'level:changed' / 'objectives:set'. Pull current state now; later levels
+    // arrive live.
+    const levelSys = this.game.getSystem('level');
+    if (levelSys) { this._level = levelSys.level ?? this._level; this._worldName = levelSys.worldName ?? this._worldName; }
+    const objs0 = this.game.getSystem('objectives')?.objectives;
+    if (objs0 && objs0.length) {
+      this._objectives = objs0.slice();
+      this._goalCard = { objectives: objs0.slice(), t: 0, dur: 3.0 };
+    }
   }
 
   _bind() {
@@ -101,6 +114,8 @@ export class HudScreen extends Screen {
     }));
     this._subs.push(this.events.on('objectives:set', ({ objectives }) => {
       this._objectives = objectives;
+      // Announce the level's authored goals with a brief intro card.
+      if (objectives && objectives.length) this._goalCard = { objectives: objectives.slice(), t: 0, dur: 3.0 };
     }));
     this._subs.push(this.events.on('structure:completed', ({ name }) => {
       this._structToast = { name, t: 1.8 };
@@ -155,6 +170,7 @@ export class HudScreen extends Screen {
     if (this._scorePop > 0) this._scorePop = Math.max(0, this._scorePop - dt * 3.5);
     if (this._comboT > 0) this._comboT = Math.max(0, this._comboT - dt);
     if (this._banner && (this._banner.t -= dt) <= 0) this._banner = null;
+    if (this._goalCard && (this._goalCard.t += dt) >= this._goalCard.dur) this._goalCard = null;
     if (this._structToast && (this._structToast.t -= dt) <= 0) this._structToast = null;
     if (this._toast && (this._toast.t -= dt) <= 0) this._toast = null;
     if (this._state === 'over') this._overlayT = Math.min(1, this._overlayT + dt * 3);
@@ -237,6 +253,7 @@ export class HudScreen extends Screen {
     if (this._toast) this._drawToast(renderer);
     if (this._structToast) this._drawStructToast(renderer);
     if (this._banner) this._drawBanner(renderer);
+    if (this._goalCard) this._drawGoalCard(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
   }
 
@@ -336,6 +353,36 @@ export class HudScreen extends Screen {
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
       });
     }
+  }
+
+  /**
+   * Level-start goal intro: a card that announces this level's authored
+   * objectives (big icons + labels), pops in, holds, then eases out. Purely a
+   * callout — it never blocks input.
+   */
+  _drawGoalCard(r) {
+    const c = this._goalCard, objs = c.objectives, n = objs.length;
+    const k = c.t / c.dur;
+    const inK = Math.min(1, c.t / 0.45), pop = 1 - Math.pow(1 - inK, 3);
+    const outStart = c.dur - 0.5;
+    const out = c.t > outStart ? Math.max(0, (c.dur - c.t) / 0.5) : 1;
+    const a = pop * out;
+    const b = this.bounds;
+    const w = Math.min(700, b.w - 80), rowH = 66, h = 118 + n * rowH;
+    const cx = b.centerX, cy = b.h * 0.34 + (1 - pop) * -40 + (1 - out) * 26;
+    const x = cx - w / 2, y = cy - h / 2;
+    const ctx = r.ctx;
+    r.setAlpha(a);
+    UITheme.glassPanel(r, x, y, w, h, 34);
+    UITheme.heading(r, `LEVEL ${this._level}`, cx, y + 44, 26, UI.inkSoft);
+    UITheme.heading(r, 'YOUR GOALS', cx, y + 88, 34, UI.ink);
+    objs.forEach((o, i) => {
+      const ry = y + 128 + i * rowH + rowH / 2;
+      r.fillCircle(x + 60, ry, 26, 'rgba(20,44,92,0.08)');
+      drawObjectiveIcon(r, o.icon, x + 60, ry, 18, o.color || UI.gold.mid);
+      r.text(o.label, x + 104, ry, { font: '800 26px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+    });
+    r.setAlpha(1);
   }
 
   /**
