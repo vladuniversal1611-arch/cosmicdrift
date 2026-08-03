@@ -164,7 +164,10 @@ export class IslandScreen extends Screen {
     // Centred title + subtitle, then a centred resource row below (no overlap
     // with the Back button or each other).
     UITheme.heading(r, biome?.name ?? 'Your Island', b.centerX, 74, 34, UI.white);
-    r.text(`${restored}/${total} RESTORED`, b.centerX, 108, { font: '800 18px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 3 });
+    // Until the first restoration unlocks (early levels), invite the player in
+    // rather than showing an awkward "0/0".
+    const sub = total > 0 ? `${restored}/${total} RESTORED` : 'RESTORE THE WORLD';
+    r.text(sub, b.centerX, 108, { font: '800 18px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 3 });
     const chips = [
       { id: 'materials', roll: this._res.materials, cap: '#c8a06a' },
       { id: 'essence', roll: this._res.essence, cap: '#b07cff' },

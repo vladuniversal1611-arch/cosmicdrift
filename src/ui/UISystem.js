@@ -70,7 +70,14 @@ export class UISystem extends System {
     // per boot when free rewards are waiting (a welcome, never a nag).
     this.listen('ui:showReward', (rw) => this.push(new RewardScreen(this.game, rw, { done: 'ui:back' })));
     this.listen('ui:reveal-next', () => this._advanceReveal());
-    this.listen('retention:dailyAvailable', () => { if (this.top?.name === 'menu') this.events.emit('ui:openDaily'); });
+    // Welcome returning players with the daily hub, but never a brand-new player
+    // on their very first launch — let them see Home and play first.
+    this.listen('retention:dailyAvailable', () => {
+      if (this.top?.name !== 'menu') return;
+      const brandNew = !this.game.getSystem('onboarding')?.isDone
+        && (this.game.getSystem('level')?.highest ?? 1) <= 1;
+      if (!brandNew) this.events.emit('ui:openDaily');
+    });
 
     // Level-complete celebration: capture the granted reward, then present it.
     this.listen('reward:granted', (rw) => { this._lastReward = rw; });

@@ -72,6 +72,9 @@ export class OnboardingSystem extends System {
 
   get isActive() { return this._active && this._onHud; }
 
+  /** True once the first-run tutorial has been completed (or skipped). */
+  get isDone() { return !!this._state?.done; }
+
   _maybeBegin() {
     if (this._state.done) return;
     this._active = true;
