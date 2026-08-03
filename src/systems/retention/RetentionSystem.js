@@ -120,7 +120,10 @@ export class RetentionSystem extends System {
     const week = Math.floor(day / 7);
     if (s.lastWeek !== week) {
       s.lastWeek = week;
-      s.weeklyId = WeeklyChallenges[0].id;
+      // Rotate the weekly event deterministically from the week index, so it is
+      // stable within the week but changes week to week.
+      const wk = new Random((week * 2654435761) >>> 0).pick(WeeklyChallenges);
+      s.weeklyId = wk.id;
       s.weeklyProgress = 0; s.weeklyClaimed = false;
       changed = true;
     }
@@ -273,14 +276,22 @@ export class RetentionSystem extends System {
     };
   }
 
-  /** A UI-friendly snapshot of the weekly challenge. */
+  /** A UI-friendly snapshot of the weekly challenge / event. */
   weekly() {
     const w = this._weeklyDef(); const s = this._state;
     if (!w || !s) return null;
     return {
+      id: w.id, name: w.name, icon: w.icon, color: w.color, blurb: w.blurb,
       text: w.text.replace('{n}', w.goal), progress: s.weeklyProgress, goal: w.goal,
-      reward: w.reward, complete: s.weeklyProgress >= w.goal, claimed: s.weeklyClaimed,
+      reward: w.reward, milestones: w.milestones ?? [1],
+      complete: s.weeklyProgress >= w.goal, claimed: s.weeklyClaimed,
     };
+  }
+
+  /** Milliseconds until the current week's event ends (for a live countdown). */
+  get weekEndsInMs() {
+    const week = Math.floor(todayIndex() / 7);
+    return Math.max(0, (week + 1) * 7 * 86400000 - Date.now());
   }
 
   get dailyClaimed() { return !!this._state?.dailyClaimed; }

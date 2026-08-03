@@ -32,9 +32,21 @@ export const DailyQuests = Object.freeze([
   { id: 'objectives', text: 'Finish {n} objective sets', event: 'objectives:allComplete', goal: 3, reward: { materials: 30 } },
 ]);
 
-/** Weekly challenge (one active; cumulative across the week). */
+/**
+ * Weekly events (one active per week, chosen deterministically from the date so
+ * it's stable across reloads but rotates week to week). Each is cumulative
+ * across the week and themed like a live-ops event. `milestones` are the
+ * fractions of the goal at which a chest lights up on the progress track — pure
+ * presentation of the single cumulative goal (the reward is granted on the
+ * final claim; earlier chests are visual "you're on your way" markers).
+ */
 export const WeeklyChallenges = Object.freeze([
-  { id: 'wLevels', text: 'Complete {n} levels this week', event: 'level:complete', goal: 25, reward: { gems: 40, coins: 1500 } },
+  { id: 'wLevels', name: 'Sky Marathon', icon: 'dragon', color: '#8a4fe0', blurb: 'A week-long climb through the isles.',
+    text: 'Complete {n} levels this week', event: 'level:complete', goal: 25, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
+  { id: 'wLines', name: 'Crystal Cascade', icon: 'gem', color: '#3aa8ff', blurb: 'Shatter crystals all week long.',
+    text: 'Clear {n} lines this week', event: 'game:linesCleared', goal: 120, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
+  { id: 'wStructures', name: 'Grand Architect', icon: 'statue', color: '#37a83f', blurb: 'Raise wonders across the week.',
+    text: 'Build {n} structures this week', event: 'structure:completed', goal: 12, reward: { gems: 45, materials: 150 }, milestones: [0.4, 0.7, 1] },
 ]);
 
 /** Rare post-level surprises. Kept genuinely rare so they stay exciting. */
