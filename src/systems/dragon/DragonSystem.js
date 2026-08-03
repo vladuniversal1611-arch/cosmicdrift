@@ -20,6 +20,7 @@
 import { System } from '../../core/System.js';
 import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
+import { Dragons, DragonById } from '../../config/Dragons.js';
 
 export class DragonSystem extends System {
   constructor(game) {
@@ -38,7 +39,55 @@ export class DragonSystem extends System {
       xp: 0,
       skin: 'hatchling',
       unlocked: ['hatchling'],
+      active: 'leafwyrm',
     }));
+    // Back-fill for saves made before companions existed.
+    if (!this._state.active) this._state.active = 'leafwyrm';
+
+    // Apply the active companion's passive perk through existing events only.
+    this.listen('game:started', () => this._applyStartPerk());
+    this.listen('game:linesCleared', ({ count = 1 }) => this._applyClearPerk(count));
+  }
+
+  // --- Companion roster + perks ----------------------------------------------
+
+  /** Highest level the player has reached (drives which dragons are unlocked). */
+  get _highest() { return this.game.getSystem('level')?.highest ?? 1; }
+
+  /** Is a dragon unlocked at the player's current progress? */
+  isUnlocked(id) { const d = DragonById[id]; return !!d && this._highest >= d.unlockLevel; }
+
+  /** The active companion definition (falls back to the starter). */
+  get activeDragon() { return DragonById[this._state.active] ?? DragonById.leafwyrm; }
+
+  /** Roster snapshot for the UI: every dragon with unlock + active flags. */
+  roster() {
+    return Dragons.map((d) => ({ ...d, unlocked: this.isUnlocked(d.id), active: this._state.active === d.id }));
+  }
+
+  /** Equip a companion (only if unlocked). Returns true on change. */
+  setActive(id) {
+    if (!this.isUnlocked(id) || this._state.active === id) return false;
+    this._state.active = id;
+    this.game.getSystem('save')?.markDirty();
+    this.events.emit('dragon:companionChanged', { id });
+    return true;
+  }
+
+  _applyStartPerk() {
+    const p = this.activeDragon.perk;
+    if (p.kind === 'startEnergy') this.events.emit('gameplay:addEnergy', { amount: p.value });
+  }
+
+  _applyClearPerk(count) {
+    const p = this.activeDragon.perk;
+    const eco = this.game.getSystem('economy');
+    switch (p.kind) {
+      case 'energyPerLine': this.events.emit('gameplay:addEnergy', { amount: p.value * count }); break;
+      case 'goldPerLine': eco?.credit('gold', p.value * count); break;
+      case 'materialsPerLine': eco?.credit('materials', p.value * count); break;
+      case 'essencePerLine': eco?.credit('essence', p.value * count); break;
+    }
   }
 
   /** XP required to advance from `level` to the next. Tunable curve. */

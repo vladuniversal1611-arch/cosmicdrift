@@ -20,6 +20,7 @@ import { HomeScreen } from './home/HomeScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
 import { WorldMapScreen } from './worldmap/WorldMapScreen.js';
 import { IslandScreen } from './screens/IslandScreen.js';
+import { DragonScreen } from './screens/DragonScreen.js';
 import { ShopScreen } from './screens/ShopScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { CollectionScreen } from './screens/CollectionScreen.js';
@@ -47,6 +48,8 @@ export class UISystem extends System {
     this.listen('ui:openWorldMap', () => open('worldmap', () => new WorldMapScreen(this.game)));
     this.listen('ui:openIsland', () => open('island', () => new IslandScreen(this.game)));
     this.listen('ui:closeIsland', () => { if (this.top?.name === 'island') this.pop(); });
+    this.listen('ui:openDragons', () => open('dragons', () => new DragonScreen(this.game)));
+    this.listen('ui:closeDragons', () => { if (this.top?.name === 'dragons') this.pop(); });
     this.listen('ui:openShop', () => open('shop', () => new ShopScreen(this.game)));
     this.listen('ui:openSettings', () => open('settings', () => new SettingsScreen(this.game)));
     this.listen('ui:openCollection', () => open('collection', () => new CollectionScreen(this.game)));

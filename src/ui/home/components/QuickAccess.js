@@ -17,7 +17,7 @@ import { Rect } from '../../../utils/Rect.js';
 export const QUICK = [
   { id: 'island', label: 'ISLAND', colors: UI.btn.teal, event: 'ui:openIsland', icon: (r, x, y, s, c) => Icons.island(r, x, y, s, c) },
   { id: 'worldmap', label: 'WORLD MAP', colors: UI.btn.blue, event: 'ui:openWorldMap', icon: (r, x, y, s, c) => Icons.map(r, x, y, s, c) },
-  { id: 'dragons', label: 'DRAGONS', colors: UI.btn.pink, event: 'ui:openCollection', icon: (r, x, y, s, c) => Icons.dragon(r, x, y, s, c) },
+  { id: 'dragons', label: 'DRAGONS', colors: UI.btn.pink, event: 'ui:openDragons', icon: (r, x, y, s, c) => Icons.dragon(r, x, y, s, c) },
   { id: 'collection', label: 'COLLECTION', colors: UI.btn.purple, event: 'ui:openCollection', icon: (r, x, y, s, c) => Icons.collection(r, x, y, s, c) },
   { id: 'events', label: 'EVENTS', colors: UI.btn.orange, event: 'ui:openEvents', icon: (r, x, y, s, c) => Icons.events(r, x, y, s, c) },
   { id: 'shop', label: 'SHOP', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
