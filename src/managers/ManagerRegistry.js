@@ -48,7 +48,7 @@ export const MANAGERS = Object.freeze({
   LocalizationManager: { status: 'module', owner: 'i18n', file: 'i18n/Localization.js', role: 'Key → localized string lookup with the active locale table.' },
   UIManager: { status: 'manager', owner: 'ui', file: 'ui/UISystem.js', role: 'Routes input to the active screen and drives UI update/render.' },
   PopupManager: { status: 'manager', owner: 'popups', file: 'systems/ui/PopupManager.js', role: 'Serialises popups via a priority queue; pools one generic PopupScreen.' },
-  TutorialManager: { status: 'embedded', owner: 'retention', file: 'systems/retention/RetentionSystem.js', role: 'First-run guidance / onboarding step progression (state owner).' },
+  TutorialManager: { status: 'manager', owner: 'onboarding', file: 'systems/onboarding/OnboardingSystem.js', role: 'First-run FTUE: spotlight coach that teaches place/clear/boosters once, then persists done.' },
   RewardManager: { status: 'embedded', owner: 'worldprogress', file: 'systems/world/WorldProgressionSystem.js', role: 'Grants and queues rewards for presentation (ui:showReward).' },
   AnalyticsManager: { status: 'manager', owner: 'analytics', file: 'systems/analytics/AnalyticsSystem.js', role: 'Vendor-agnostic funnel/event telemetry taps (no provider bundled).' },
   PerformanceManager: { status: 'manager', owner: 'performance', file: 'systems/performance/PerformanceManager.js', role: 'Samples FPS and adapts the global quality tier under load.' },

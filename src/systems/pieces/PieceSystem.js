@@ -83,6 +83,9 @@ export class PieceSystem extends System {
     this.listen('ui:modalClose', () => { this._modal = false; });
   }
 
+  /** The current tray band geometry ({ top, height, slotW, n }), or null. */
+  get trayBand() { return this._trayBand ?? null; }
+
   // --- Tray management -------------------------------------------------------
 
   /**

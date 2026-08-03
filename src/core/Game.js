@@ -51,6 +51,7 @@ import { PerformanceManager } from '../systems/performance/PerformanceManager.js
 import { DebugManager } from '../systems/debug/DebugManager.js';
 import { ThemeManager } from '../systems/theme/ThemeManager.js';
 import { PopupManager } from '../systems/ui/PopupManager.js';
+import { OnboardingSystem } from '../systems/onboarding/OnboardingSystem.js';
 
 export class Game {
   /**
@@ -153,6 +154,8 @@ export class Game {
     // ready to serialise any popup the UI opens on boot.
     this.systems.register(new PopupManager(this));
     this.systems.register(new UISystem(this));
+    // First-run coach — draws last so its spotlight sits above the HUD.
+    this.systems.register(new OnboardingSystem(this));
   }
 
   _update(dt) {
