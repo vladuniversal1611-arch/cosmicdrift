@@ -68,6 +68,8 @@ export class GameplaySystem extends System {
     this.listen('level:changed', () => { this.combo = 0; });
     // Returning to the main menu leaves the 'playing' state (blocks board input).
     this.listen('game:toMenu', () => { this.state = 'menu'; });
+    // Dragon Fire ultimate: unleashable once the energy meter is full.
+    this.listen('dragon:unleash', this._onDragonUnleash);
     // Tactile feedback + the brief "I DID IT" board beat (slow-mo + zoom +
     // golden flash + burst) the instant a level completes, before the
     // celebration screen slides over it.
@@ -107,6 +109,30 @@ export class GameplaySystem extends System {
   }
 
   get isPlaying() { return this.state === 'playing'; }
+
+  /** The Dragon Fire ultimate is ready when the energy meter is full mid-run. */
+  get dragonReady() { return this.state === 'playing' && this.energy >= Config.gameplay.energyMax; }
+
+  /**
+   * Unleash the dragon: it breathes fire across the fullest row + column. The
+   * board performs the strike (reusing the clear pipeline); we spend the full
+   * meter and layer on the cinematic. Any energy the clear returns is spent too,
+   * so the meter always empties.
+   */
+  _onDragonUnleash() {
+    if (!this.dragonReady) return;
+    const board = this.game.getSystem('board');
+    if (!board?.dragonSweep || board.isClearing) return;
+    if (!board.dragonSweep()) return;                 // nothing to burn
+    this.energy = 0;
+    this.events.emit('gameplay:energy', { energy: 0, max: Config.gameplay.energyMax });
+    this.slowmo(0.5);
+    this.zoomPulse(0.06, 0.7);
+    this.golden(1.1);
+    this.flash('#ff8a3d', 0.24);
+    Haptics.heavy(this.game);
+    this.events.emit('dragon:unleashed');
+  }
 
   // --- State transitions -----------------------------------------------------
 

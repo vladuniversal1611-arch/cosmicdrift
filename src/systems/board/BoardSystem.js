@@ -114,6 +114,48 @@ export class BoardSystem extends System {
     this.game.getSystem('audio')?.play('clear', { rate: 0.95 + Math.random() * 0.1 });
   }
 
+  /**
+   * Dragon Fire ultimate: force-clear the fullest row AND fullest column
+   * (regardless of whether they are complete) as one dramatic cross-strike.
+   * Reuses the normal clear pipeline so scoring, tiles and combo all flow.
+   * Fire radiates out from the strike intersection. Returns true if it cleared
+   * anything. Called by the GameplaySystem when the energy meter is unleashed.
+   */
+  dragonSweep() {
+    const g = this.grid;
+    const countRow = (r) => { let n = 0; for (let c = 0; c < g.columns; c++) { const cell = g.get(c, r); if (cell && cell.filled && !cell.isClearing) n++; } return n; };
+    const countCol = (c) => { let n = 0; for (let r = 0; r < g.rows; r++) { const cell = g.get(c, r); if (cell && cell.filled && !cell.isClearing) n++; } return n; };
+    let bestRow = 0, bestRowN = -1, bestCol = 0, bestColN = -1;
+    for (let r = 0; r < g.rows; r++) { const n = countRow(r); if (n > bestRowN) { bestRowN = n; bestRow = r; } }
+    for (let c = 0; c < g.columns; c++) { const n = countCol(c); if (n > bestColN) { bestColN = n; bestCol = c; } }
+    if (bestRowN <= 0 && bestColN <= 0) return false;
+
+    const dur = Config.fx.clearCellTime;
+    const stagger = Config.fx.clearStagger * 1.4;
+    const delays = new Map();
+    const add = (cell, dist) => {
+      if (!cell || !cell.filled || cell.isClearing) return;
+      const d = dist * stagger;
+      if (!delays.has(cell) || d < delays.get(cell)) delays.set(cell, d);
+    };
+    for (let c = 0; c < g.columns; c++) add(g.get(c, bestRow), Math.abs(c - bestCol));
+    for (let r = 0; r < g.rows; r++) add(g.get(bestCol, r), Math.abs(r - bestRow));
+    if (delays.size === 0) return false;
+
+    for (const [cell, d] of delays) cell.beginClear(d, dur);
+    this._clearing = true;
+    const cells = [...delays.keys()];
+    // Count as a 2-line clear so scoring/combo/energy flow through as normal.
+    this.events.emit('game:linesCleared', { count: 2, amount: 2 });
+    this.events.emit('board:linesResolved', { lines: [cells], cells, grid: g });
+    const ctr = g.cellCenter(bestCol, bestRow);
+    this.events.emit('fx:flash', { color: '#ff8a3d', strength: 0.32 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: '#ff6a2a', count: 44 });
+    this.events.emit('fx:shake', { mag: 12 });
+    this.game.getSystem('audio')?.play('dragonRoar');
+    return true;
+  }
+
   update(dt) {
     this._time += dt;
     let stillClearing = 0;

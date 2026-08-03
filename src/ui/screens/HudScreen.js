@@ -46,6 +46,9 @@ export class HudScreen extends Screen {
     this._coins = [];         // line-clear reward coins flying up
     this._beam = 0;           // line-clear light-beam intensity (decays)
     this._scorePops = [];     // floating "+N" score popups near cleared lines
+    this._dragonReady = false; // Dragon Fire ultimate charged?
+    this._dragonT = 0;
+    this._dragonBtn = new Rect(this.bounds.w - 40 - 100, 150, 100, 100);
     // Tidy top bar: a compact pause (left) + World Map (right), lower on screen
     // for a bigger top safe-area.
     this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
@@ -71,6 +74,9 @@ export class HudScreen extends Screen {
     }));
     this._subs.push(this.events.on('gameplay:energy', ({ energy, max }) => {
       this._energy.setValue(max ? energy / max : 0);
+      const ready = max ? energy >= max : false;
+      if (ready && !this._dragonReady) this.game.getSystem('audio')?.play('structure'); // "ability charged" chime
+      this._dragonReady = ready;
     }));
     this._subs.push(this.events.on('gameplay:combo', ({ combo }) => {
       if (combo >= 2) { this._comboText = `COMBO ×${combo}`; this._comboT = 1.3; }
@@ -141,6 +147,7 @@ export class HudScreen extends Screen {
   }
 
   update(dt) {
+    this._dragonT += dt;
     this._energy.update(dt);
     // Rolling score: ease the displayed number toward the real one.
     this._displayScore += (this._score - this._displayScore) * Math.min(1, dt * 8);
@@ -171,6 +178,34 @@ export class HudScreen extends Screen {
     this._scorePops.push({ text: `+${add}`, x, y, t: 0, life: 1.1, vy: 150 });
   }
 
+  /** The Dragon Fire ultimate button — appears, glowing + pulsing, when charged. */
+  _drawDragonButton(r) {
+    const b = this._dragonBtn, cx = b.centerX, cy = b.centerY;
+    const pulse = 0.5 + 0.5 * Math.sin(this._dragonT * 4);
+    const bob = Math.sin(this._dragonT * 2.2) * 4;
+    const ctx = r.ctx;
+    ctx.save(); ctx.translate(0, bob);
+    // Halo.
+    r.setAlpha(0.3 + pulse * 0.35);
+    r.withGlow('#ff6a2a', 26, () => r.fillCircle(cx, cy, b.w * 0.56 + pulse * 6, '#ff8a3d'));
+    r.setAlpha(1);
+    // Body.
+    UITheme.button(r, b.x, b.y, b.w, b.h, b.w / 2, UI.btn.red, { shadow: true });
+    // Flame glyph.
+    r.withGlow('#ffd24a', 8, () => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - b.h * 0.3);
+      ctx.quadraticCurveTo(cx - b.w * 0.26, cy, cx - b.w * 0.14, cy + b.h * 0.22);
+      ctx.lineTo(cx + b.w * 0.14, cy + b.h * 0.22);
+      ctx.quadraticCurveTo(cx + b.w * 0.26, cy, cx, cy - b.h * 0.3);
+      ctx.closePath();
+      ctx.fillStyle = r.linearGradient(cx, cy - b.h * 0.3, cx, cy + b.h * 0.25, [[0, '#fff3c4'], [1, '#ff6a2a']]);
+      ctx.fill();
+    });
+    r.text('DRAGON', cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
+    ctx.restore();
+  }
+
   _drawScorePops(renderer) {
     for (const p of this._scorePops) {
       const k = p.t / p.life;
@@ -195,6 +230,7 @@ export class HudScreen extends Screen {
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
+    if (this._dragonReady && this._state === 'playing') this._drawDragonButton(renderer);
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
     this._drawScorePops(renderer);
@@ -484,6 +520,13 @@ export class HudScreen extends Screen {
   onTap(px, py) {
     if (this._state === 'over' && this._overlayT > 0.6) {
       this.events.emit('ui:restart');
+      return true;
+    }
+    // Dragon Fire ultimate (only while charged + playing).
+    if (this._dragonReady && this._state === 'playing' && this._dragonBtn.contains(px, py)) {
+      this._dragonReady = false;   // hide immediately; re-armed by gameplay:energy
+      this.game.getSystem('audio')?.play('dragonRoar');
+      this.events.emit('dragon:unleash');
       return true;
     }
     if (this._worldBtn.contains(px, py)) {
