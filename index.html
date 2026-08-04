@@ -69,7 +69,11 @@ click(){tone(900,.03,'sine',.05)},
 milestone(){[523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.3,'sine',.14),i*120))},
 discover(){tone(440,.15,'sine',.1);setTimeout(()=>tone(554,.12,'sine',.1),100);setTimeout(()=>tone(659,.15,'sine',.12),200);setTimeout(()=>tone(880,.25,'sine',.14),300)},
 chest(){tone(330,.1,'triangle',.08);setTimeout(()=>tone(440,.1,'triangle',.08),80);setTimeout(()=>tone(550,.15,'triangle',.1),160)},
-hatch(){[262,330,392,523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.2+i*.03,'sine',.1+i*.01),i*100))}
+hatch(){[262,330,392,523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.2+i*.03,'sine',.1+i*.01),i*100))},
+laser(){tone(120,.15,'sawtooth',.1);tone(80,.25,'square',.06)},
+shatter(){tone(1800,.05,'square',.06);setTimeout(()=>tone(1400,.04,'square',.05),30);setTimeout(()=>tone(1000,.06,'square',.04),60)},
+wind(){tone(200,.15,'sine',.03);tone(350,.12,'sine',.02)},
+colorMatch(){tone(660,.08,'sine',.1);setTimeout(()=>tone(880,.1,'sine',.12),60)}
 };
 let bgM=null,curMusicWorld=-1;
 const WORLD_MUSIC=[
@@ -77,7 +81,10 @@ const WORLD_MUSIC=[
 {notes:[330,415,494,554,494,415,370,330],types:['triangle','sine','triangle','sine','triangle','sine','triangle','triangle'],tempo:1100,vol:.02},
 {notes:[247,294,330,370,349,294,262,247],types:['sine','triangle','sine','sine','triangle','sine','triangle','sine'],tempo:1250,vol:.018},
 {notes:[349,440,523,587,523,494,440,349],types:['triangle','triangle','sine','triangle','sine','triangle','triangle','sine'],tempo:1050,vol:.022},
-{notes:[523,587,659,784,880,784,659,523],types:['sine','sine','sine','triangle','sine','sine','sine','sine'],tempo:900,vol:.02}
+{notes:[523,587,659,784,880,784,659,523],types:['sine','sine','sine','triangle','sine','sine','sine','sine'],tempo:900,vol:.02},
+{notes:[165,196,220,165,147,131,147,165],types:['sawtooth','square','sawtooth','square','sawtooth','square','sawtooth','sawtooth'],tempo:1300,vol:.015},
+{notes:[784,880,988,1047,988,880,784,659],types:['sine','triangle','sine','triangle','sine','triangle','sine','triangle'],tempo:850,vol:.018},
+{notes:[392,494,587,659,784,659,494,392],types:['triangle','sine','square','sine','triangle','sine','square','triangle'],tempo:1000,vol:.022}
 ];
 function startMusic(worldIdx){
 if(!musicOn)return;
@@ -110,12 +117,17 @@ function drawP(){for(const p of P){const a=clamp(p.life/p.ml,0,1);X.globalAlpha=
 /*═══════════════════════════════════════════════════
   DATA: WORLDS, CREATURES, ARTIFACTS, MILESTONES
 ═══════════════════════════════════════════════════*/
+const COLORS=['#fbbf24','#ef4444','#3b82f6','#22c55e'];// gold, red, blue, green
+const COLOR_NAMES=['Gold','Red','Blue','Green'];
 const WORLDS=[
 {name:'Enchanted Meadow',color:'#4ade80',bg1:'#071a12',bg2:'#0f2a1d',accent:'#34d399',unlockAt:0},
 {name:'Crystal Caverns',color:'#a78bfa',bg1:'#120b2e',bg2:'#1e1348',accent:'#c084fc',unlockAt:10},
 {name:'Shadow Forest',color:'#c084fc',bg1:'#1a0a2e',bg2:'#2a1242',accent:'#a78bfa',unlockAt:20},
 {name:'Ancient Ruins',color:'#fbbf24',bg1:'#1a1408',bg2:'#2a2010',accent:'#f59e0b',unlockAt:30},
-{name:'Celestial Peaks',color:'#38bdf8',bg1:'#081828',bg2:'#0e2844',accent:'#22d3ee',unlockAt:40}
+{name:'Celestial Peaks',color:'#38bdf8',bg1:'#081828',bg2:'#0e2844',accent:'#22d3ee',unlockAt:40},
+{name:'Inferno Depths',color:'#f87171',bg1:'#1a0808',bg2:'#2a1010',accent:'#ef4444',unlockAt:50},
+{name:'Prismatic Void',color:'#c084fc',bg1:'#0f0a20',bg2:'#180e38',accent:'#a78bfa',unlockAt:60},
+{name:'The Nexus',color:'#fbbf24',bg1:'#0a0a0a',bg2:'#141414',accent:'#fbbf24',unlockAt:70}
 ];
 
 const CREATURES=[
@@ -130,7 +142,13 @@ const CREATURES=[
 {name:'Thunder Cat',icon:'⚡',desc:'Rides the storm with grace',world:4},
 {name:'Star Jellyfish',icon:'🪼',desc:'Drifts between dimensions',world:4},
 {name:'Time Serpent',icon:'🐉',desc:'Coils around the ages',world:4},
-{name:'Cosmic Guardian',icon:'👁️',desc:'Watches over all that is',world:4}
+{name:'Cosmic Guardian',icon:'👁️',desc:'Watches over all that is',world:4},
+{name:'Lava Salamander',icon:'🦎',desc:'Thrives in molten rivers',world:5},
+{name:'Ash Wraith',icon:'👻',desc:'Born from cinder and sorrow',world:5},
+{name:'Void Walker',icon:'🌀',desc:'Steps between realities',world:6},
+{name:'Prism Moth',icon:'🦋',desc:'Wings scatter all colors',world:6},
+{name:'Nexus Core',icon:'💠',desc:'The heart of all connections',world:7},
+{name:'Infinity Wyrm',icon:'🐲',desc:'Endless and eternal',world:7}
 ];
 
 const ARTIFACTS=[
@@ -143,7 +161,12 @@ const ARTIFACTS=[
 {name:'Moon Shard',icon:'🌙',desc:'A fragment of the night sky'},
 {name:'Sun Crown',icon:'👑',desc:'Radiates commanding light'},
 {name:'Storm Pearl',icon:'⚪',desc:'Holds a tempest within'},
-{name:'Star Fragment',icon:'✨',desc:'Piece of a fallen star'}
+{name:'Star Fragment',icon:'✨',desc:'Piece of a fallen star'},
+{name:'Inferno Crown',icon:'🔥',desc:'Forged in the deepest flame'},
+{name:'Void Crystal',icon:'🔮',desc:'Contains a pocket of nothing'},
+{name:'Prismatic Lens',icon:'🌈',desc:'Refracts all light perfectly'},
+{name:'Nexus Key',icon:'🗝️',desc:'Opens the final gate'},
+{name:'Eternity Flame',icon:'🕯️',desc:'Burns without end or beginning'}
 ];
 
 const MILESTONES=[
@@ -172,7 +195,21 @@ const MILESTONES=[
 {at:47,type:'artifact',id:8,title:'Discovery!',text:'Storm Pearl calms the tempest!'},
 {at:48,type:'creature',id:10,title:'A New Friend!',text:'Time Serpent coils through ages!'},
 {at:49,type:'creature',id:11,title:'A New Friend!',text:'Cosmic Guardian opens its eye!'},
-{at:50,type:'artifact',id:9,title:'The Final Fragment!',text:'Star Fragment — the world is whole again!'}
+{at:50,type:'world',id:5,title:'New World!',text:'Inferno Depths open beneath you!'},
+{at:52,type:'creature',id:12,title:'A New Friend!',text:'Lava Salamander emerges from the flames!'},
+{at:54,type:'artifact',id:10,title:'Discovery!',text:'Inferno Crown blazes with power!'},
+{at:56,type:'creature',id:13,title:'A New Friend!',text:'Ash Wraith materializes from cinders!'},
+{at:58,type:'artifact',id:11,title:'Discovery!',text:'Void Crystal bends the light around it!'},
+{at:60,type:'world',id:6,title:'New World!',text:'Prismatic Void shimmers into existence!'},
+{at:62,type:'creature',id:14,title:'A New Friend!',text:'Void Walker steps between dimensions!'},
+{at:64,type:'artifact',id:12,title:'Discovery!',text:'Prismatic Lens refracts all colors!'},
+{at:66,type:'creature',id:15,title:'A New Friend!',text:'Prism Moth unfurls radiant wings!'},
+{at:68,type:'artifact',id:13,title:'Discovery!',text:'Nexus Key hums with ancient power!'},
+{at:70,type:'world',id:7,title:'New World!',text:'The Nexus — where all paths converge!'},
+{at:72,type:'creature',id:16,title:'A New Friend!',text:'Nexus Core pulses with energy!'},
+{at:74,type:'artifact',id:14,title:'Discovery!',text:'Eternity Flame — the final light!'},
+{at:76,type:'creature',id:17,title:'A New Friend!',text:'Infinity Wyrm encircles the world!'},
+{at:80,type:'artifact',id:9,title:'Master of Light!',text:'You have mastered every challenge. The world is whole again! ✨'}
 ];
 
 const RANDOM_EVENTS=[
@@ -194,7 +231,13 @@ const MAP_DECOS=[
 {type:'pillar',x:.1,y:32,unlockAt:31},{type:'pillar',x:.9,y:33,unlockAt:32},{type:'rune',x:.15,y:35,unlockAt:34},
 {type:'pillar',x:.85,y:37,unlockAt:36},{type:'rune',x:.5,y:39,unlockAt:38},
 {type:'star',x:.12,y:42,unlockAt:41},{type:'star',x:.88,y:43,unlockAt:42},{type:'nebula',x:.5,y:45,unlockAt:44},
-{type:'star',x:.2,y:47,unlockAt:46},{type:'nebula',x:.8,y:49,unlockAt:48}
+{type:'star',x:.2,y:47,unlockAt:46},{type:'nebula',x:.8,y:49,unlockAt:48},
+{type:'lava',x:.12,y:52,unlockAt:51},{type:'lava',x:.88,y:53,unlockAt:52},{type:'flame',x:.5,y:54,unlockAt:53},
+{type:'lava',x:.2,y:56,unlockAt:55},{type:'flame',x:.85,y:57,unlockAt:56},{type:'lava',x:.15,y:59,unlockAt:58},
+{type:'void',x:.12,y:62,unlockAt:61},{type:'void',x:.88,y:63,unlockAt:62},{type:'prism',x:.5,y:64,unlockAt:63},
+{type:'void',x:.2,y:66,unlockAt:65},{type:'prism',x:.8,y:68,unlockAt:67},{type:'void',x:.15,y:69,unlockAt:68},
+{type:'nexus',x:.12,y:72,unlockAt:71},{type:'nexus',x:.88,y:73,unlockAt:72},{type:'core',x:.5,y:74,unlockAt:73},
+{type:'nexus',x:.2,y:76,unlockAt:75},{type:'core',x:.8,y:78,unlockAt:77},{type:'nexus',x:.5,y:80,unlockAt:79}
 ];
 
 /*═══════════════════════════════════════════════════
@@ -202,9 +245,9 @@ const MAP_DECOS=[
 ═══════════════════════════════════════════════════*/
 function makeLevels(){
 const L=[];
-// W1: Enchanted Meadow — mirrors
-L.push({w:0,orbs:[{x:.2,y:.2,dx:1.5,dy:.8}],targets:[{x:.8,y:.8,r:.07}],obj:[],ml:3,tip:'Draw lines to guide the light!',hint:{x1:.4,y1:.5,x2:.7,y2:.7}});
-L.push({w:0,orbs:[{x:.15,y:.15,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.07}],obj:[{t:'wall',x1:.5,y1:0,x2:.5,y2:.6}],ml:3,hint:{x1:.15,y1:.4,x2:.45,y2:.15}});
+// W1: Enchanted Meadow (1-10) — learn basics: lines + mirrors
+L.push({w:0,orbs:[{x:.2,y:.2,dx:1.5,dy:.8}],targets:[{x:.8,y:.8,r:.07}],obj:[],ml:3,tip:'Draw lines to guide the light!'});
+L.push({w:0,orbs:[{x:.15,y:.15,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.07}],obj:[{t:'wall',x1:.5,y1:0,x2:.5,y2:.6}],ml:3});
 L.push({w:0,orbs:[{x:.1,y:.5,dx:1.5,dy:0},{x:.9,y:.2,dx:-1.5,dy:1}],targets:[{x:.9,y:.5,r:.06},{x:.1,y:.8,r:.06}],obj:[],ml:4});
 L.push({w:0,orbs:[{x:.1,y:.1,dx:2,dy:.5}],targets:[{x:.1,y:.9,r:.06}],obj:[{t:'M',x:.7,y:.4,a:PI*.75,l:.12}],ml:2});
 L.push({w:0,orbs:[{x:.5,y:.1,dx:0,dy:2}],targets:[{x:.9,y:.1,r:.06}],obj:[{t:'M',x:.5,y:.6,a:PI*.25,l:.12,rot:1}],ml:2,tip:'Tap mirrors to rotate!'});
@@ -213,7 +256,7 @@ L.push({w:0,orbs:[{x:.1,y:.5,dx:2.5,dy:0},{x:.1,y:.3,dx:1.5,dy:.5}],targets:[{x:
 L.push({w:0,orbs:[{x:.5,y:.1,dx:0,dy:1.8}],targets:[{x:.15,y:.85,r:.06}],obj:[{t:'wall',x1:.3,y1:.5,x2:.7,y2:.5},{t:'M',x:.5,y:.75,a:PI*.75,l:.15}],ml:3});
 L.push({w:0,orbs:[{x:.1,y:.1,dx:1,dy:1}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'M',x:.6,y:.6,a:0,l:.1,rot:1},{t:'M',x:.3,y:.4,a:PI/2,l:.1,rot:1}],ml:2});
 L.push({w:0,orbs:[{x:.1,y:.1,dx:1.5,dy:.3},{x:.9,y:.1,dx:-1.5,dy:.3}],targets:[{x:.5,y:.9,r:.07}],obj:[{t:'M',x:.5,y:.5,a:PI*.25,l:.15,rot:1},{t:'wall',x1:.3,y1:.7,x2:.7,y2:.7}],ml:4});
-// W2: Crystal Caverns — crystals+magnets
+// W2: Crystal Caverns (11-20) — crystals + magnets
 L.push({w:1,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.2,r:.06},{x:.85,y:.8,r:.06}],obj:[{t:'C',x:.5,y:.5}],ml:2,tip:'Crystals split light in two!'});
 L.push({w:1,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.2,y:.9,r:.06},{x:.8,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.5},{t:'wall',x1:.5,y1:.6,x2:.5,y2:1}],ml:3});
 L.push({w:1,orbs:[{x:.5,y:.1,dx:0,dy:2}],targets:[{x:.2,y:.9,r:.06}],obj:[{t:'N',x:.2,y:.5,s:1.5}],ml:2,tip:'Magnets pull the light!'});
@@ -224,39 +267,73 @@ L.push({w:1,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.15,r:.06}],obj:[{t:'
 L.push({w:1,orbs:[{x:.1,y:.1,dx:1,dy:1.5}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'C',x:.4,y:.5},{t:'N',x:.7,y:.3,s:1},{t:'wall',x1:.6,y1:.5,x2:.9,y2:.5}],ml:3});
 L.push({w:1,orbs:[{x:.1,y:.5,dx:2,dy:0},{x:.9,y:.5,dx:-2,dy:0}],targets:[{x:.5,y:.1,r:.06},{x:.5,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.5},{t:'N',x:.5,y:.5,s:-1}],ml:3});
 L.push({w:1,orbs:[{x:.15,y:.1,dx:1,dy:1.5}],targets:[{x:.15,y:.9,r:.06},{x:.85,y:.9,r:.06},{x:.5,y:.1,r:.06}],obj:[{t:'C',x:.5,y:.4},{t:'C',x:.7,y:.65},{t:'N',x:.3,y:.7,s:1},{t:'M',x:.2,y:.6,a:PI/4,l:.1}],ml:4});
-// W3: Shadow Forest — trees+black holes
+// W3: Shadow Forest (21-30) — trees + black holes + breakable walls
 L.push({w:2,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'T',x:.5,y:.5,p:0}],ml:2,tip:'Trees grow & shrink—time it!'});
 L.push({w:2,orbs:[{x:.5,y:.1,dx:0,dy:1.5}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'B',x:.5,y:.5,r:.08}],ml:3,tip:'Avoid the void!'});
-L.push({w:2,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'T',x:.4,y:.4,p:0},{t:'T',x:.6,y:.6,p:PI}],ml:3});
+L.push({w:2,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'K',x1:.5,y1:.3,x2:.5,y2:.7}],ml:2,tip:'Break through fragile walls!'});
 L.push({w:2,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'B',x:.5,y:.3,r:.06},{t:'B',x:.5,y:.7,r:.06}],ml:3});
-L.push({w:2,orbs:[{x:.1,y:.1,dx:1.5,dy:.8}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'T',x:.3,y:.35,p:0},{t:'B',x:.6,y:.5,r:.07},{t:'M',x:.8,y:.7,a:PI*.75,l:.1}],ml:3});
+L.push({w:2,orbs:[{x:.1,y:.1,dx:1.5,dy:.8}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'T',x:.3,y:.35,p:0},{t:'K',x1:.6,y1:.4,x2:.6,y2:.7},{t:'M',x:.8,y:.7,a:PI*.75,l:.1}],ml:3});
 L.push({w:2,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.15,y:.85,r:.06},{x:.85,y:.85,r:.06}],obj:[{t:'C',x:.5,y:.4},{t:'T',x:.3,y:.65,p:0},{t:'T',x:.7,y:.65,p:PI}],ml:3});
-L.push({w:2,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.5,y:.1,r:.06}],obj:[{t:'B',x:.7,y:.5,r:.08},{t:'N',x:.5,y:.3,s:-1.5}],ml:3});
-L.push({w:2,orbs:[{x:.1,y:.2,dx:2,dy:.3}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'T',x:.4,y:.4,p:0},{t:'T',x:.6,y:.6,p:PI/2},{t:'B',x:.5,y:.8,r:.06},{t:'C',x:.7,y:.3}],ml:4});
+L.push({w:2,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.5,y:.1,r:.06}],obj:[{t:'B',x:.7,y:.5,r:.08},{t:'K',x1:.3,y1:.3,x2:.6,y2:.3},{t:'N',x:.5,y:.2,s:-1}],ml:3});
+L.push({w:2,orbs:[{x:.1,y:.2,dx:2,dy:.3}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'T',x:.4,y:.4,p:0},{t:'T',x:.6,y:.6,p:PI/2},{t:'B',x:.5,y:.8,r:.06},{t:'K',x1:.7,y1:.5,x2:.7,y2:.85}],ml:4});
 L.push({w:2,orbs:[{x:.1,y:.1,dx:1,dy:1},{x:.9,y:.1,dx:-1,dy:1}],targets:[{x:.5,y:.9,r:.07}],obj:[{t:'T',x:.3,y:.5,p:0},{t:'T',x:.7,y:.5,p:PI},{t:'B',x:.5,y:.5,r:.05}],ml:4});
-L.push({w:2,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.1,y:.9,r:.06},{x:.9,y:.9,r:.06},{x:.5,y:.5,r:.06}],obj:[{t:'C',x:.5,y:.25},{t:'T',x:.3,y:.7,p:0},{t:'T',x:.7,y:.7,p:PI},{t:'B',x:.5,y:.75,r:.05},{t:'N',x:.5,y:.9,s:1}],ml:4});
-// W4: Ancient Ruins — portals+switches
+L.push({w:2,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.1,y:.9,r:.06},{x:.9,y:.9,r:.06},{x:.5,y:.5,r:.06}],obj:[{t:'C',x:.5,y:.25},{t:'T',x:.3,y:.7,p:0},{t:'T',x:.7,y:.7,p:PI},{t:'K',x1:.3,y1:.5,x2:.7,y2:.5},{t:'B',x:.5,y:.85,r:.05}],ml:4});
+// W4: Ancient Ruins (31-40) — portals + switches + laser walls
 L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'P',x1:.5,y1:.5,x2:.7,y2:.2}],ml:2,tip:'Portals teleport light!'});
 L.push({w:3,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'S',x:.5,y:.5,g:'g1'},{t:'G',x1:.7,y1:.6,x2:.7,y2:.95,id:'g1'}],ml:3,tip:'Hit switches to open gates!'});
-L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.15,r:.06}],obj:[{t:'P',x1:.4,y1:.5,x2:.6,y2:.3},{t:'M',x:.8,y:.25,a:PI*.75,l:.1}],ml:2});
-L.push({w:3,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'S',x:.5,y:.4,g:'g1'},{t:'G',x1:.6,y1:.5,x2:.95,y2:.5,id:'g1'},{t:'P',x1:.5,y1:.7,x2:.8,y2:.7}],ml:3});
-L.push({w:3,orbs:[{x:.1,y:.1,dx:2,dy:.5}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'P',x1:.7,y1:.3,x2:.2,y2:.7},{t:'S',x:.4,y:.8,g:'g1'},{t:'G',x1:.6,y1:.65,x2:.6,y2:.95,id:'g1'}],ml:3});
-L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.9,y:.1,r:.06},{x:.9,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.5},{t:'P',x1:.7,y1:.3,x2:.7,y2:.7},{t:'S',x:.85,y:.5,g:'g1'},{t:'G',x1:.8,y1:.05,x2:.8,y2:.25,id:'g1'}],ml:3});
-L.push({w:3,orbs:[{x:.1,y:.1,dx:1.5,dy:.5}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'P',x1:.6,y1:.3,x2:.2,y2:.5},{t:'P',x1:.4,y1:.6,x2:.5,y2:.75},{t:'wall',x1:.3,y1:.4,x2:.7,y2:.4}],ml:3});
-L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'S',x:.3,y:.5,g:'g1'},{t:'G',x1:.5,y1:.4,x2:.5,y2:.65,id:'g1'},{t:'P',x1:.5,y1:.8,x2:.7,y2:.6},{t:'N',x:.85,y:.7,s:1}],ml:3});
-L.push({w:3,orbs:[{x:.1,y:.1,dx:1,dy:1},{x:.9,y:.1,dx:-1,dy:1}],targets:[{x:.5,y:.9,r:.07}],obj:[{t:'P',x1:.3,y1:.5,x2:.7,y2:.5},{t:'S',x:.5,y:.3,g:'g1'},{t:'G',x1:.4,y1:.7,x2:.6,y2:.7,id:'g1'},{t:'T',x:.5,y:.5,p:0}],ml:4});
-L.push({w:3,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.1,y:.9,r:.06},{x:.9,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.3},{t:'P',x1:.3,y1:.5,x2:.15,y2:.7},{t:'P',x1:.7,y1:.5,x2:.85,y2:.7},{t:'S',x:.5,y:.6,g:'g1'},{t:'G',x1:.4,y1:.75,x2:.6,y2:.75,id:'g1'},{t:'B',x:.5,y:.85,r:.05}],ml:4});
-// W5: Celestial Peaks — time zones + all
+L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.15,r:.06}],obj:[{t:'L',x1:.5,y1:.3,x2:.5,y2:.7}],ml:3,tip:'Laser walls destroy the orb!'});
+L.push({w:3,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'S',x:.5,y:.4,g:'g1'},{t:'G',x1:.6,y1:.5,x2:.95,y2:.5,id:'g1'},{t:'L',x1:.3,y1:.6,x2:.7,y2:.6}],ml:3});
+L.push({w:3,orbs:[{x:.1,y:.1,dx:2,dy:.5}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'P',x1:.7,y1:.3,x2:.2,y2:.7},{t:'L',x1:.5,y1:.5,x2:.9,y2:.5},{t:'S',x:.4,y:.8,g:'g1'},{t:'G',x1:.6,y1:.65,x2:.6,y2:.95,id:'g1'}],ml:3});
+L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.9,y:.1,r:.06},{x:.9,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.5},{t:'L',x1:.7,y1:.4,x2:.7,y2:.6},{t:'P',x1:.8,y1:.3,x2:.8,y2:.7}],ml:3});
+L.push({w:3,orbs:[{x:.1,y:.1,dx:1.5,dy:.5}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'P',x1:.6,y1:.3,x2:.2,y2:.5},{t:'P',x1:.4,y1:.6,x2:.5,y2:.75},{t:'L',x1:.3,y1:.4,x2:.7,y2:.4}],ml:3});
+L.push({w:3,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'S',x:.3,y:.5,g:'g1'},{t:'G',x1:.5,y1:.4,x2:.5,y2:.65,id:'g1'},{t:'L',x1:.2,y1:.7,x2:.45,y2:.7},{t:'P',x1:.5,y1:.8,x2:.7,y2:.6}],ml:3});
+L.push({w:3,orbs:[{x:.1,y:.1,dx:1,dy:1},{x:.9,y:.1,dx:-1,dy:1}],targets:[{x:.5,y:.9,r:.07}],obj:[{t:'P',x1:.3,y1:.5,x2:.7,y2:.5},{t:'S',x:.5,y:.3,g:'g1'},{t:'G',x1:.4,y1:.7,x2:.6,y2:.7,id:'g1'},{t:'L',x1:.15,y1:.6,x2:.35,y2:.6},{t:'L',x1:.65,y1:.6,x2:.85,y2:.6}],ml:4});
+L.push({w:3,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.1,y:.9,r:.06},{x:.9,y:.9,r:.06}],obj:[{t:'C',x:.5,y:.3},{t:'P',x1:.3,y1:.5,x2:.15,y2:.7},{t:'P',x1:.7,y1:.5,x2:.85,y2:.7},{t:'S',x:.5,y:.6,g:'g1'},{t:'G',x1:.4,y1:.75,x2:.6,y2:.75,id:'g1'},{t:'L',x1:.4,y1:.85,x2:.6,y2:.85}],ml:4});
+// W5: Celestial Peaks (41-50) — time zones + wind
 L.push({w:4,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'Z',x:.5,y:.5,r:.15}],ml:2,tip:'Time zones slow the light!'});
-L.push({w:4,orbs:[{x:.1,y:.1,dx:2,dy:.8}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'Z',x:.4,y:.4,r:.12},{t:'M',x:.7,y:.7,a:PI*.75,l:.12}],ml:3});
-L.push({w:4,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.15,r:.06}],obj:[{t:'Z',x:.5,y:.5,r:.18},{t:'M',x:.7,y:.4,a:PI*.75,l:.12},{t:'N',x:.85,y:.3,s:1}],ml:3});
-L.push({w:4,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.15,y:.85,r:.06},{x:.85,y:.85,r:.06}],obj:[{t:'C',x:.5,y:.35},{t:'Z',x:.3,y:.6,r:.12},{t:'Z',x:.7,y:.6,r:.12}],ml:3});
-L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'P',x1:.5,y1:.4,x2:.7,y2:.6},{t:'Z',x:.8,y:.75,r:.12},{t:'B',x:.6,y:.8,r:.05}],ml:3});
-L.push({w:4,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'Z',x:.4,y:.5,r:.12},{t:'Z',x:.65,y:.5,r:.12},{t:'T',x:.5,y:.5,p:0},{t:'N',x:.85,y:.3,s:-1}],ml:3});
-L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.1,y:.9,dx:1.5,dy:-.5}],targets:[{x:.85,y:.5,r:.07}],obj:[{t:'Z',x:.5,y:.5,r:.2},{t:'C',x:.5,y:.5},{t:'P',x1:.7,y1:.3,x2:.7,y2:.7}],ml:4});
-L.push({w:4,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'S',x:.5,y:.3,g:'g1'},{t:'G',x1:.3,y1:.5,x2:.7,y2:.5,id:'g1'},{t:'Z',x:.5,y:.7,r:.15},{t:'B',x:.3,y:.7,r:.05},{t:'B',x:.7,y:.7,r:.05}],ml:3});
-L.push({w:4,orbs:[{x:.1,y:.1,dx:1,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'P',x1:.4,y1:.4,x2:.6,y2:.2},{t:'P',x1:.7,y1:.4,x2:.3,y2:.7},{t:'Z',x:.5,y:.6,r:.15},{t:'C',x:.5,y:.8},{t:'M',x:.8,y:.85,a:PI*.75,l:.1}],ml:4});
-L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.9,y:.1,dx:-1.5,dy:.5}],targets:[{x:.5,y:.95,r:.08}],obj:[{t:'C',x:.5,y:.3},{t:'P',x1:.3,y1:.5,x2:.7,y2:.5},{t:'Z',x:.5,y:.7,r:.18},{t:'S',x:.5,y:.55,g:'g1'},{t:'G',x1:.35,y1:.8,x2:.65,y2:.8,id:'g1'},{t:'B',x:.2,y:.8,r:.05},{t:'B',x:.8,y:.8,r:.05},{t:'N',x:.5,y:.9,s:1.5}],ml:5});
+L.push({w:4,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.15,r:.06}],obj:[{t:'V',x:.5,y:.5,r:.15,vdx:0,vdy:-2}],ml:2,tip:'Wind pushes the orb!'});
+L.push({w:4,orbs:[{x:.1,y:.1,dx:2,dy:.8}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'Z',x:.4,y:.4,r:.12},{t:'V',x:.7,y:.7,r:.12,vdx:0,vdy:1}],ml:3});
+L.push({w:4,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.15,y:.85,r:.06},{x:.85,y:.85,r:.06}],obj:[{t:'C',x:.5,y:.35},{t:'V',x:.3,y:.6,r:.12,vdx:-1,vdy:0},{t:'V',x:.7,y:.6,r:.12,vdx:1,vdy:0}],ml:3});
+L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'P',x1:.5,y1:.4,x2:.7,y2:.6},{t:'Z',x:.8,y:.75,r:.12},{t:'L',x1:.6,y1:.8,x2:.6,y2:.95}],ml:3});
+L.push({w:4,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'Z',x:.4,y:.5,r:.12},{t:'V',x:.65,y:.5,r:.12,vdx:0,vdy:-1.5},{t:'T',x:.5,y:.3,p:0}],ml:3});
+L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.1,y:.9,dx:1.5,dy:-.5}],targets:[{x:.85,y:.5,r:.07}],obj:[{t:'Z',x:.5,y:.5,r:.2},{t:'V',x:.7,y:.5,r:.1,vdx:1,vdy:0},{t:'C',x:.5,y:.5}],ml:4});
+L.push({w:4,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.5,y:.9,r:.06}],obj:[{t:'S',x:.5,y:.3,g:'g1'},{t:'G',x1:.3,y1:.5,x2:.7,y2:.5,id:'g1'},{t:'V',x:.5,y:.7,r:.12,vdx:0,vdy:1},{t:'L',x1:.3,y1:.7,x2:.35,y2:.7},{t:'L',x1:.65,y1:.7,x2:.7,y2:.7}],ml:3});
+L.push({w:4,orbs:[{x:.1,y:.1,dx:1,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'P',x1:.4,y1:.4,x2:.6,y2:.2},{t:'V',x:.7,y:.4,r:.1,vdx:0,vdy:1},{t:'Z',x:.5,y:.6,r:.15},{t:'K',x1:.7,y1:.7,x2:.9,y2:.7},{t:'M',x:.8,y:.85,a:PI*.75,l:.1}],ml:4});
+L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.9,y:.1,dx:-1.5,dy:.5}],targets:[{x:.5,y:.95,r:.08}],obj:[{t:'C',x:.5,y:.3},{t:'V',x:.3,y:.5,r:.1,vdx:0,vdy:1},{t:'V',x:.7,y:.5,r:.1,vdx:0,vdy:1},{t:'Z',x:.5,y:.7,r:.15},{t:'S',x:.5,y:.55,g:'g1'},{t:'G',x1:.35,y1:.8,x2:.65,y2:.8,id:'g1'},{t:'L',x1:.2,y1:.85,x2:.35,y2:.85},{t:'L',x1:.65,y1:.85,x2:.8,y2:.85}],ml:5});
+// W6: Inferno Depths (51-60) — laser gauntlets + color system
+L.push({w:5,orbs:[{x:.1,y:.5,dx:2,dy:0,c:1}],targets:[{x:.85,y:.5,r:.06,c:1}],obj:[],ml:2,tip:'Match orb color to target!'});
+L.push({w:5,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06,c:1}],obj:[{t:'R',x:.5,y:.5,c:1}],ml:2,tip:'Color rings change orb color!'});
+L.push({w:5,orbs:[{x:.1,y:.3,dx:2,dy:0}],targets:[{x:.85,y:.3,r:.06,c:1},{x:.85,y:.7,r:.06,c:2}],obj:[{t:'R',x:.5,y:.3,c:1},{t:'R',x:.5,y:.7,c:2},{t:'C',x:.3,y:.5}],ml:3});
+L.push({w:5,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06}],obj:[{t:'L',x1:.4,y1:.3,x2:.4,y2:.7},{t:'K',x1:.4,y1:.45,x2:.4,y2:.55}],ml:2,tip:'Break walls to bypass lasers!'});
+L.push({w:5,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.15,y:.9,r:.06,c:1},{x:.85,y:.9,r:.06,c:2}],obj:[{t:'C',x:.5,y:.35},{t:'R',x:.3,y:.6,c:1},{t:'R',x:.7,y:.6,c:2},{t:'L',x1:.45,y1:.5,x2:.55,y2:.5}],ml:3});
+L.push({w:5,orbs:[{x:.1,y:.1,dx:1.5,dy:.8}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'L',x1:.3,y1:.3,x2:.3,y2:.7},{t:'L',x1:.6,y1:.3,x2:.6,y2:.7},{t:'K',x1:.3,y1:.48,x2:.3,y2:.52},{t:'K',x1:.6,y1:.48,x2:.6,y2:.52}],ml:3});
+L.push({w:5,orbs:[{x:.1,y:.5,dx:2,dy:0,c:0}],targets:[{x:.85,y:.2,r:.06,c:1},{x:.85,y:.8,r:.06,c:2}],obj:[{t:'C',x:.5,y:.5},{t:'R',x:.7,y:.3,c:1},{t:'R',x:.7,y:.7,c:2}],ml:3});
+L.push({w:5,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'L',x1:.3,y1:.5,x2:.7,y2:.5},{t:'V',x:.5,y:.35,r:.12,vdx:0,vdy:-1.5},{t:'P',x1:.5,y1:.1,x2:.5,y2:.7},{t:'K',x1:.45,y1:.7,x2:.55,y2:.7}],ml:4});
+L.push({w:5,orbs:[{x:.1,y:.5,dx:2,dy:0},{x:.9,y:.5,dx:-2,dy:0}],targets:[{x:.5,y:.1,r:.06,c:1},{x:.5,y:.9,r:.06,c:2}],obj:[{t:'C',x:.5,y:.5},{t:'R',x:.5,y:.25,c:1},{t:'R',x:.5,y:.75,c:2},{t:'L',x1:.35,y1:.4,x2:.65,y2:.4},{t:'L',x1:.35,y1:.6,x2:.65,y2:.6}],ml:4});
+L.push({w:5,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.1,y:.9,r:.06,c:1},{x:.5,y:.9,r:.06,c:2},{x:.9,y:.9,r:.06,c:3}],obj:[{t:'C',x:.5,y:.25},{t:'C',x:.35,y:.5},{t:'R',x:.15,y:.7,c:1},{t:'R',x:.5,y:.65,c:2},{t:'R',x:.85,y:.7,c:3},{t:'L',x1:.3,y1:.8,x2:.3,y2:.95},{t:'L',x1:.7,y1:.8,x2:.7,y2:.95}],ml:4});
+// W7: Prismatic Void (61-70) — moving targets + wind mastery + all combined
+L.push({w:6,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.7,y:.3,r:.07,mx:.7,my:.7,mspd:1.5}],obj:[],ml:3,tip:'Moving targets—time your shot!'});
+L.push({w:6,orbs:[{x:.1,y:.1,dx:1.5,dy:1}],targets:[{x:.8,y:.5,r:.06,mx:.8,my:.8,mspd:1}],obj:[{t:'V',x:.5,y:.5,r:.15,vdx:1,vdy:0}],ml:3});
+L.push({w:6,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.3,y:.8,r:.06,mx:.7,my:.8,mspd:1.2}],obj:[{t:'Z',x:.5,y:.5,r:.18}],ml:3});
+L.push({w:6,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.8,y:.3,r:.06,c:1,mx:.8,my:.7,mspd:1}],obj:[{t:'R',x:.5,y:.5,c:1},{t:'L',x1:.65,y1:.45,x2:.65,y2:.55}],ml:3});
+L.push({w:6,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.1,y:.9,dx:1.5,dy:-.5}],targets:[{x:.85,y:.3,r:.06,mx:.85,my:.7,mspd:.8},{x:.85,y:.7,r:.06,mx:.85,my:.3,mspd:.8}],obj:[{t:'V',x:.5,y:.5,r:.15,vdx:.8,vdy:0}],ml:4});
+L.push({w:6,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.2,y:.8,r:.06},{x:.8,y:.8,r:.06}],obj:[{t:'C',x:.5,y:.3},{t:'V',x:.3,y:.5,r:.1,vdx:-1,vdy:1},{t:'V',x:.7,y:.5,r:.1,vdx:1,vdy:1},{t:'L',x1:.45,y1:.6,x2:.55,y2:.6},{t:'K',x1:.48,y1:.6,x2:.52,y2:.6}],ml:4});
+L.push({w:6,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06,c:2}],obj:[{t:'R',x:.3,y:.5,c:1},{t:'P',x1:.5,y1:.5,x2:.2,y2:.3},{t:'R',x:.3,y:.3,c:2},{t:'V',x:.4,y:.3,r:.08,vdx:2,vdy:0}],ml:3});
+L.push({w:6,orbs:[{x:.1,y:.1,dx:1,dy:1}],targets:[{x:.85,y:.85,r:.06}],obj:[{t:'K',x1:.3,y1:.3,x2:.3,y2:.7},{t:'K',x1:.6,y1:.3,x2:.6,y2:.7},{t:'V',x:.45,y:.5,r:.1,vdx:1,vdy:0},{t:'T',x:.75,y:.5,p:0},{t:'B',x:.5,y:.8,r:.05}],ml:4});
+L.push({w:6,orbs:[{x:.1,y:.5,dx:2,dy:0,c:0}],targets:[{x:.5,y:.1,r:.06,c:1,mx:.7,my:.1,mspd:1},{x:.5,y:.9,r:.06,c:2,mx:.7,my:.9,mspd:1.3}],obj:[{t:'C',x:.4,y:.5},{t:'R',x:.3,y:.3,c:1},{t:'R',x:.3,y:.7,c:2},{t:'Z',x:.6,y:.5,r:.12}],ml:4});
+L.push({w:6,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.15,y:.85,r:.06,c:1},{x:.5,y:.85,r:.06,c:2},{x:.85,y:.85,r:.06,c:3}],obj:[{t:'C',x:.5,y:.25},{t:'C',x:.3,y:.5},{t:'R',x:.15,y:.7,c:1},{t:'R',x:.5,y:.55,c:2},{t:'R',x:.85,y:.7,c:3},{t:'V',x:.5,y:.75,r:.1,vdx:0,vdy:1},{t:'L',x1:.35,y1:.65,x2:.35,y2:.85},{t:'L',x1:.65,y1:.65,x2:.65,y2:.85}],ml:5});
+// W8: The Nexus (71-80) — everything combined, max difficulty
+L.push({w:7,orbs:[{x:.1,y:.5,dx:2,dy:0}],targets:[{x:.85,y:.5,r:.06,c:1,mx:.85,my:.2,mspd:1}],obj:[{t:'R',x:.3,y:.5,c:1},{t:'L',x1:.5,y1:.3,x2:.5,y2:.7},{t:'K',x1:.5,y1:.45,x2:.5,y2:.55},{t:'V',x:.65,y:.5,r:.08,vdx:1,vdy:0}],ml:3});
+L.push({w:7,orbs:[{x:.1,y:.1,dx:1.5,dy:1,c:0}],targets:[{x:.85,y:.85,r:.06,c:2}],obj:[{t:'R',x:.3,y:.3,c:1},{t:'P',x1:.5,y1:.5,x2:.2,y2:.7},{t:'R',x:.3,y:.7,c:2},{t:'L',x1:.5,y1:.6,x2:.8,y2:.6},{t:'Z',x:.7,y:.4,r:.1}],ml:4});
+L.push({w:7,orbs:[{x:.5,y:.05,dx:0,dy:2}],targets:[{x:.15,y:.9,r:.06,c:1},{x:.85,y:.9,r:.06,c:2}],obj:[{t:'C',x:.5,y:.3},{t:'R',x:.25,y:.55,c:1},{t:'R',x:.75,y:.55,c:2},{t:'K',x1:.25,y1:.7,x2:.75,y2:.7},{t:'V',x:.5,y:.8,r:.12,vdx:0,vdy:1},{t:'T',x:.5,y:.6,p:0}],ml:4});
+L.push({w:7,orbs:[{x:.1,y:.5,dx:2,dy:0},{x:.9,y:.5,dx:-2,dy:0}],targets:[{x:.5,y:.1,r:.06,mx:.3,my:.1,mspd:1},{x:.5,y:.9,r:.06,mx:.7,my:.9,mspd:1}],obj:[{t:'C',x:.5,y:.5},{t:'L',x1:.3,y1:.35,x2:.7,y2:.35},{t:'L',x1:.3,y1:.65,x2:.7,y2:.65},{t:'K',x1:.48,y1:.35,x2:.52,y2:.35},{t:'K',x1:.48,y1:.65,x2:.52,y2:.65}],ml:4});
+L.push({w:7,orbs:[{x:.1,y:.1,dx:1,dy:1}],targets:[{x:.9,y:.9,r:.06}],obj:[{t:'B',x:.5,y:.5,r:.06},{t:'L',x1:.2,y1:.5,x2:.4,y2:.5},{t:'L',x1:.6,y1:.5,x2:.8,y2:.5},{t:'V',x:.5,y:.3,r:.12,vdx:0,vdy:-1},{t:'P',x1:.5,y1:.1,x2:.8,y2:.7},{t:'K',x1:.75,y1:.65,x2:.85,y2:.75}],ml:4});
+L.push({w:7,orbs:[{x:.1,y:.5,dx:2,dy:0,c:0}],targets:[{x:.85,y:.2,r:.06,c:1},{x:.85,y:.5,r:.06,c:2},{x:.85,y:.8,r:.06,c:3}],obj:[{t:'C',x:.4,y:.5},{t:'C',x:.55,y:.35},{t:'R',x:.7,y:.2,c:1},{t:'R',x:.7,y:.5,c:2},{t:'R',x:.7,y:.8,c:3},{t:'L',x1:.6,y1:.35,x2:.6,y2:.65},{t:'K',x1:.6,y1:.45,x2:.6,y2:.55}],ml:5});
+L.push({w:7,orbs:[{x:.5,y:.05,dx:0,dy:1.5}],targets:[{x:.5,y:.9,r:.06,c:3}],obj:[{t:'R',x:.5,y:.2,c:1},{t:'P',x1:.5,y1:.35,x2:.2,y2:.5},{t:'R',x:.3,y:.5,c:2},{t:'V',x:.3,y:.65,r:.08,vdx:1,vdy:0},{t:'R',x:.5,y:.7,c:3},{t:'L',x1:.35,y1:.8,x2:.65,y2:.8},{t:'K',x1:.48,y1:.8,x2:.52,y2:.8},{t:'Z',x:.5,y:.55,r:.1}],ml:4});
+L.push({w:7,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.9,y:.1,dx:-1.5,dy:.5}],targets:[{x:.5,y:.85,r:.06,mx:.3,my:.85,mspd:1.5}],obj:[{t:'Z',x:.5,y:.4,r:.15},{t:'V',x:.5,y:.6,r:.1,vdx:0,vdy:1},{t:'L',x1:.2,y1:.6,x2:.35,y2:.6},{t:'L',x1:.65,y1:.6,x2:.8,y2:.6},{t:'T',x:.3,y:.4,p:0},{t:'T',x:.7,y:.4,p:PI}],ml:5});
+L.push({w:7,orbs:[{x:.1,y:.5,dx:2,dy:0,c:0}],targets:[{x:.85,y:.15,r:.06,c:1,mx:.85,my:.35,mspd:1},{x:.85,y:.85,r:.06,c:2,mx:.85,my:.65,mspd:1.2}],obj:[{t:'C',x:.4,y:.5},{t:'R',x:.6,y:.3,c:1},{t:'R',x:.6,y:.7,c:2},{t:'L',x1:.5,y1:.45,x2:.5,y2:.55},{t:'V',x:.7,y:.5,r:.08,vdx:0,vdy:-1},{t:'B',x:.5,y:.2,r:.04},{t:'B',x:.5,y:.8,r:.04}],ml:5});
+// FINAL: Level 80 — the ultimate test
+L.push({w:7,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.9,y:.1,dx:-1.5,dy:.5}],targets:[{x:.5,y:.95,r:.08,c:3,mx:.3,my:.95,mspd:.8}],obj:[{t:'C',x:.5,y:.3},{t:'R',x:.3,y:.45,c:1},{t:'R',x:.7,y:.45,c:2},{t:'P',x1:.3,y1:.6,x2:.7,y2:.6},{t:'R',x:.5,y:.75,c:3},{t:'V',x:.5,y:.85,r:.08,vdx:0,vdy:1},{t:'L',x1:.2,y1:.7,x2:.35,y2:.7},{t:'L',x1:.65,y1:.7,x2:.8,y2:.7},{t:'Z',x:.5,y:.5,r:.12},{t:'B',x:.2,y:.85,r:.04},{t:'B',x:.8,y:.85,r:.04},{t:'S',x:.5,y:.6,g:'g1'},{t:'G',x1:.4,y1:.85,x2:.6,y2:.85,id:'g1'}],ml:5});
 return L;
 }
 const LEVELS=makeLevels();
@@ -349,8 +426,17 @@ else if(o.t==='T'){ob.px=gx(o.x);ob.py=gy(o.y);ob.r=20*SC;ob.phase=o.p||0;ob.an=
 else if(o.t==='S'){ob.px=gx(o.x);ob.py=gy(o.y);ob.r=14*SC;ob.on=false;ob.an=0}
 else if(o.t==='G'){ob.px1=gx(o.x1);ob.py1=gy(o.y1);ob.px2=gx(o.x2);ob.py2=gy(o.y2);ob.open=false;ob.an=0}
 else if(o.t==='Z'){ob.px=gx(o.x);ob.py=gy(o.y);ob.pr=o.r*FW;ob.an=0}
+else if(o.t==='L'){ob.px1=gx(o.x1);ob.py1=gy(o.y1);ob.px2=gx(o.x2);ob.py2=gy(o.y2);ob.an=0}
+else if(o.t==='K'){ob.px1=gx(o.x1);ob.py1=gy(o.y1);ob.px2=gx(o.x2);ob.py2=gy(o.y2);ob.hp=1;ob.an=0}
+else if(o.t==='V'){ob.px=gx(o.x);ob.py=gy(o.y);ob.pr=o.r*FW;ob.vdx=o.vdx||0;ob.vdy=o.vdy||0;ob.an=0}
+else if(o.t==='R'){ob.px=gx(o.x);ob.py=gy(o.y);ob.r=18*SC;ob.color=o.c||0;ob.an=0}
 lvObjs.push(ob);
 }
+// Add color to orbs & targets
+for(const o of ld.orbs){const ob=orbs[orbs.length-ld.orbs.length+ld.orbs.indexOf(o)];ob.color=o.c||0}
+for(let i=0;i<ld.targets.length;i++){targets[i].color=ld.targets[i].c||0}
+// Moving targets
+for(const tg of targets){const td=ld.targets[targets.indexOf(tg)];if(td.mx!==undefined){tg.mx=gx(td.mx);tg.my=gy(td.my);tg.ox=tg.x;tg.oy=tg.y;tg.mspd=td.mspd||1;tg.mt=0}}
 }
 
 /*═══════════════════════════════════════════════════
@@ -382,7 +468,13 @@ if(o.t==='P')o.an+=dt*2;
 if(o.t==='B')o.an+=dt*.5;
 if(o.t==='G'){const sw=lvObjs.find(s=>s.t==='S'&&s.g===o.id);o.open=sw?sw.on:false;o.an+=(o.open?1:-1)*dt*3;o.an=clamp(o.an,0,1)}
 if(o.t==='Z')o.an+=dt;
+if(o.t==='L')o.an+=dt;
+if(o.t==='K')o.an+=dt;
+if(o.t==='V')o.an+=dt;
+if(o.t==='R')o.an+=dt*2;
 }
+// Update moving targets
+for(const tg of targets){if(tg.mx!==undefined&&!tg.collected){tg.mt+=dt*tg.mspd;const t=Math.sin(tg.mt)*.5+.5;tg.x=lerp(tg.ox,tg.mx,t);tg.y=lerp(tg.oy,tg.my,t)}}
 for(const orb of orbs){
 if(!orb.active)continue;
 if(orb.sd>0){orb.sd-=dt;continue}
@@ -437,9 +529,34 @@ const r=reflect(orb.dx,orb.dy,nx,ny);orb.dx=r.dx;orb.dy=r.dy;
 orb.x=o.px+nx*(o.r+orb.r+3);orb.y=o.py+ny*(o.r+orb.r+3);
 sfx.bounce();burst(orb.x,orb.y,'#4ade80',6,2,.3,2)}
 }}
+// Laser walls — kill orb
+for(const o of lvObjs){if(o.t==='L'){
+const dx=o.px2-o.px1,dy=o.py2-o.py1,len=Math.hypot(dx,dy);if(len<1)continue;
+const nx=-dy/len,ny=dx/len,ox=orb.x-o.px1,oy=orb.y-o.py1;
+const proj=ox*dx/len+oy*dy/len;if(proj<-orb.r||proj>len+orb.r)continue;
+const perp=ox*nx+oy*ny;if(Math.abs(perp)<orb.r+4){orb.active=false;orb.absorbed=true;sfx.laser();burst(orb.x,orb.y,'#ef4444',15,3,.6,3);shakeAmt=.8}
+}}
+// Breakable walls — bounce + break
+for(const o of lvObjs){if(o.t==='K'&&o.hp>0){
+if(bounceOff(orb,o.px1,o.py1,o.px2,o.py2)){o.hp=0;sfx.shatter();
+const mx=(o.px1+o.px2)/2,my=(o.py1+o.py2)/2;burst(mx,my,'#94a3b8',12,3,.5,2);
+for(let i=0;i<8;i++)spark(mx+rng(-20,20),my+rng(-10,10),'#cbd5e1',rng(-3,3),rng(-4,-1),.8,rng(1,3))}
+}}
+// Wind zones — push orb
+for(const o of lvObjs){if(o.t==='V'){
+const d=dst({x:orb.x,y:orb.y},{x:o.px,y:o.py});
+if(d<o.pr){const f=150*SC*dt;orb.dx+=o.vdx*f;orb.dy+=o.vdy*f}
+}}
+// Color rings — change orb color
+for(const o of lvObjs){if(o.t==='R'){
+const d=dst({x:orb.x,y:orb.y},{x:o.px,y:o.py});
+if(d<o.r+orb.r&&orb.color!==o.color){orb.color=o.color;sfx.colorMatch();burst(o.px,o.py,COLORS[o.color],10,3,.4,3)}
+}}
+// Target collection — with color matching
 for(const tg of targets){if(tg.collected)continue;
 const d=dst({x:orb.x,y:orb.y},{x:tg.x,y:tg.y});
-if(d<tg.r+orb.r){tg.collected=true;collected++;orb.active=false;sfx.collect();burst(tg.x,tg.y,'#fbbf24',18,4,.7,3);confetti(tg.x,tg.y,20);tg.pulse=1;shakeAmt=.5}
+if(d<tg.r+orb.r){if(tg.color!==0&&orb.color!==tg.color){sfx.bounce();burst(tg.x,tg.y,'#ef4444',8,2,.3,2);const nx=(orb.x-tg.x)/d,ny=(orb.y-tg.y)/d;const r=reflect(orb.dx,orb.dy,nx,ny);orb.dx=r.dx;orb.dy=r.dy;orb.x=tg.x+nx*(tg.r+orb.r+3);orb.y=tg.y+ny*(tg.r+orb.r+3);continue}
+tg.collected=true;collected++;orb.active=false;sfx.collect();burst(tg.x,tg.y,COLORS[tg.color||0],18,4,.7,3);confetti(tg.x,tg.y,20);tg.pulse=1;shakeAmt=.5}
 }
 }
 const allC=targets.every(t=>t.collected),anyA=orbs.some(o=>o.active),anyP=orbs.some(o=>o.sd>0);
@@ -501,18 +618,19 @@ if(!o.active&&!o.absorbed)continue;
 if(o.sd>0){const a=1-o.sd/.5;X.globalAlpha=a;glow(o.x,o.y,28*SC,'rgba(255,200,50,.3)',a*.4);X.fillStyle='#fbbf24';X.beginPath();X.arc(o.x,o.y,o.r*a,0,TAU);X.fill();X.globalAlpha=1;continue}
 if(!o.active)continue;
 for(const tr of o.trail){if(tr.a<=0)continue;X.globalAlpha=tr.a*.3;X.fillStyle='#fbbf24';X.beginPath();X.arc(tr.x,tr.y,o.r*tr.a*.5,0,TAU);X.fill()}
-X.globalAlpha=1;glow(o.x,o.y,30*SC,'rgba(251,191,36,.18)');
-const og=X.createRadialGradient(o.x-2,o.y-2,0,o.x,o.y,o.r);og.addColorStop(0,'#fff');og.addColorStop(.35,'#fde68a');og.addColorStop(1,'#f59e0b');
-X.fillStyle=og;X.shadowColor='#fbbf24';X.shadowBlur=14;X.beginPath();X.arc(o.x,o.y,o.r,0,TAU);X.fill();X.shadowBlur=0;
+X.globalAlpha=1;const oc=COLORS[o.color||0];glow(o.x,o.y,30*SC,oc+'30');
+const og=X.createRadialGradient(o.x-2,o.y-2,0,o.x,o.y,o.r);og.addColorStop(0,'#fff');og.addColorStop(.35,oc);og.addColorStop(1,oc);
+X.fillStyle=og;X.shadowColor=oc;X.shadowBlur=14;X.beginPath();X.arc(o.x,o.y,o.r,0,TAU);X.fill();X.shadowBlur=0;
 }}
 function drawTargets(){
-for(const tg of targets){const p=Math.sin(gameTime*3)*.12+.88;
+for(const tg of targets){const p=Math.sin(gameTime*3)*.12+.88;const tc=COLORS[tg.color||0];
 if(tg.collected){if(tg.pulse>0){tg.pulse-=.02;glow(tg.x,tg.y,tg.r*3*tg.pulse,'rgba(74,222,128,.3)')}
 X.globalAlpha=.3;X.strokeStyle='#4ade80';X.lineWidth=2;X.beginPath();X.arc(tg.x,tg.y,tg.r,0,TAU);X.stroke();
 X.strokeStyle='#4ade80';X.lineWidth=3*SC;X.beginPath();X.moveTo(tg.x-7*SC,tg.y);X.lineTo(tg.x-2*SC,tg.y+5*SC);X.lineTo(tg.x+7*SC,tg.y-5*SC);X.stroke();X.globalAlpha=1}
-else{glow(tg.x,tg.y,tg.r*2.2*p,'rgba(251,191,36,.1)');X.strokeStyle='rgba(251,191,36,.5)';X.lineWidth=2*SC;X.setLineDash([4,4]);X.beginPath();X.arc(tg.x,tg.y,tg.r*p,0,TAU);X.stroke();X.setLineDash([]);
-X.fillStyle='rgba(251,191,36,.04)';X.beginPath();X.arc(tg.x,tg.y,tg.r*p,0,TAU);X.fill();
-X.fillStyle='rgba(251,191,36,.3)';X.beginPath();X.moveTo(tg.x,tg.y-7*SC);X.lineTo(tg.x+5*SC,tg.y);X.lineTo(tg.x,tg.y+7*SC);X.lineTo(tg.x-5*SC,tg.y);X.closePath();X.fill()}
+else{glow(tg.x,tg.y,tg.r*2.2*p,tc+'1a');X.strokeStyle=tc+'80';X.lineWidth=2*SC;X.setLineDash([4,4]);X.beginPath();X.arc(tg.x,tg.y,tg.r*p,0,TAU);X.stroke();X.setLineDash([]);
+X.fillStyle=tc+'0a';X.beginPath();X.arc(tg.x,tg.y,tg.r*p,0,TAU);X.fill();
+X.fillStyle=tc+'4d';X.beginPath();X.moveTo(tg.x,tg.y-7*SC);X.lineTo(tg.x+5*SC,tg.y);X.lineTo(tg.x,tg.y+7*SC);X.lineTo(tg.x-5*SC,tg.y);X.closePath();X.fill();
+if(tg.color&&tg.color>0){X.fillStyle=tc;X.font=`bold ${8*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.globalAlpha=.5;X.fillText(COLOR_NAMES[tg.color],tg.x,tg.y+tg.r+8*SC);X.globalAlpha=1}}
 }}
 function drawLvObjs(){
 for(const o of lvObjs){
@@ -528,6 +646,24 @@ else if(o.t==='T'){X.fillStyle='#713f12';X.fillRect(o.px-3*SC,o.py+o.r*.3,6*SC,o
 else if(o.t==='S'){const col=o.on?'#4ade80':'#94a3b8';X.fillStyle=o.on?'rgba(74,222,128,.1)':'rgba(148,163,184,.06)';X.beginPath();X.arc(o.px,o.py,o.r*1.5,0,TAU);X.fill();X.fillStyle=col;X.shadowColor=col;X.shadowBlur=o.on?10:3;X.beginPath();X.arc(o.px,o.py,o.r,0,TAU);X.fill();X.shadowBlur=0;X.fillStyle='#fff';X.font=`bold ${9*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.fillText(o.on?'ON':'OFF',o.px,o.py)}
 else if(o.t==='G'){if(o.open){X.globalAlpha=.15*(1-o.an);X.strokeStyle='#fbbf24';X.lineWidth=3*SC;X.setLineDash([5,4]);X.beginPath();X.moveTo(o.px1,o.py1);X.lineTo(o.px2,o.py2);X.stroke();X.setLineDash([]);X.globalAlpha=1}else{X.strokeStyle='#ef4444';X.lineWidth=4*SC;X.shadowColor='#ef4444';X.shadowBlur=6;X.beginPath();X.moveTo(o.px1,o.py1);X.lineTo(o.px2,o.py2);X.stroke();X.shadowBlur=0}}
 else if(o.t==='Z'){X.globalAlpha=.1+.03*Math.sin(o.an*2);X.fillStyle='#38bdf8';X.beginPath();X.arc(o.px,o.py,o.pr,0,TAU);X.fill();X.globalAlpha=.25;X.strokeStyle='#38bdf8';X.lineWidth=1.5;X.setLineDash([3,5]);X.beginPath();X.arc(o.px,o.py,o.pr,0,TAU);X.stroke();X.setLineDash([]);X.globalAlpha=1;X.strokeStyle='rgba(56,189,248,.4)';X.lineWidth=1.5;X.beginPath();X.arc(o.px,o.py,7*SC,0,TAU);X.stroke();X.beginPath();X.moveTo(o.px,o.py);X.lineTo(o.px,o.py-5*SC);X.moveTo(o.px,o.py);X.lineTo(o.px+3.5*SC,o.py);X.stroke()}
+// Laser wall — red pulsing danger
+else if(o.t==='L'){const pulse=.7+.3*Math.sin(o.an*6);X.strokeStyle=`rgba(239,68,68,${pulse})`;X.lineWidth=3*SC;X.shadowColor='#ef4444';X.shadowBlur=12*pulse;X.lineCap='round';X.beginPath();X.moveTo(o.px1,o.py1);X.lineTo(o.px2,o.py2);X.stroke();X.shadowBlur=0;X.lineCap='butt';
+// Danger markers
+const mx=(o.px1+o.px2)/2,my=(o.py1+o.py2)/2;X.fillStyle='#ef4444';X.font=`bold ${8*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.globalAlpha=pulse*.6;X.fillText('☠',mx,my-8*SC);X.globalAlpha=1}
+// Breakable wall — cracked glass
+else if(o.t==='K'){if(o.hp>0){X.strokeStyle='rgba(148,163,184,.6)';X.lineWidth=3*SC;X.setLineDash([4,3]);X.beginPath();X.moveTo(o.px1,o.py1);X.lineTo(o.px2,o.py2);X.stroke();X.setLineDash([]);
+const mx=(o.px1+o.px2)/2,my=(o.py1+o.py2)/2;X.fillStyle='rgba(148,163,184,.35)';X.font=`${9*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.fillText('💔',mx,my-7*SC)}
+else{const mx=(o.px1+o.px2)/2,my=(o.py1+o.py2)/2;X.globalAlpha=.15;X.strokeStyle='#64748b';X.lineWidth=1;X.setLineDash([2,6]);X.beginPath();X.moveTo(o.px1,o.py1);X.lineTo(o.px2,o.py2);X.stroke();X.setLineDash([]);X.globalAlpha=1}}
+// Wind zone — directional push
+else if(o.t==='V'){X.globalAlpha=.08+.04*Math.sin(o.an*3);X.fillStyle='#06b6d4';X.beginPath();X.arc(o.px,o.py,o.pr,0,TAU);X.fill();X.globalAlpha=.3;X.strokeStyle='#06b6d4';X.lineWidth=1;X.setLineDash([3,5]);X.beginPath();X.arc(o.px,o.py,o.pr,0,TAU);X.stroke();X.setLineDash([]);
+// Wind arrows
+const ang=Math.atan2(o.vdy,o.vdx);X.globalAlpha=.25+.15*Math.sin(o.an*4);X.strokeStyle='#22d3ee';X.lineWidth=2;
+for(let i=0;i<3;i++){const off=(o.an*40+i*o.pr*.6)%(o.pr*1.5)-o.pr*.3;const ax=o.px+Math.cos(ang)*off,ay=o.py+Math.sin(ang)*off;const al=8*SC;X.beginPath();X.moveTo(ax-Math.cos(ang)*al,ay-Math.sin(ang)*al);X.lineTo(ax,ay);X.lineTo(ax-Math.cos(ang-PI*.25)*al*.5,ay-Math.sin(ang-PI*.25)*al*.5);X.moveTo(ax,ay);X.lineTo(ax-Math.cos(ang+PI*.25)*al*.5,ay-Math.sin(ang+PI*.25)*al*.5);X.stroke()}
+X.globalAlpha=1}
+// Color ring — colored hoop
+else if(o.t==='R'){const col=COLORS[o.color]||COLORS[0];X.strokeStyle=col;X.lineWidth=3*SC;X.shadowColor=col;X.shadowBlur=10;X.globalAlpha=.7+.2*Math.sin(o.an);X.beginPath();X.arc(o.px,o.py,o.r,0,TAU);X.stroke();X.shadowBlur=0;
+X.fillStyle=col;X.globalAlpha=.06;X.beginPath();X.arc(o.px,o.py,o.r,0,TAU);X.fill();X.globalAlpha=1;
+X.fillStyle=col;X.font=`bold ${8*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.fillText(COLOR_NAMES[o.color],o.px,o.py)}
 }}
 function drawLines(){
 for(const ln of lines){const a=clamp(ln.life/ln.ml,0,1);X.globalAlpha=a;X.strokeStyle=`rgba(167,139,250,${a})`;X.lineWidth=4*SC;X.shadowColor='#a78bfa';X.shadowBlur=10*a;X.lineCap='round';X.beginPath();X.moveTo(ln.x1,ln.y1);X.lineTo(ln.x2,ln.y2);X.stroke();X.shadowBlur=0}
@@ -715,6 +851,12 @@ else if(d.type==='pillar'){X.fillStyle='#a8a29e';X.fillRect(dx-3,dy-10+bob,6,16)
 else if(d.type==='rune'){X.strokeStyle='#fbbf24';X.lineWidth=1.5;X.globalAlpha=.3+.2*Math.sin(gameTime*2+d.unlockAt);X.beginPath();X.arc(dx,dy+bob,5,0,TAU);X.stroke();X.beginPath();X.moveTo(dx,dy-5+bob);X.lineTo(dx,dy+5+bob);X.stroke()}
 else if(d.type==='star'){X.fillStyle='#fff';X.globalAlpha=.3+.3*Math.sin(gameTime*3+d.unlockAt);X.beginPath();X.arc(dx,dy+bob,2,0,TAU);X.fill();glow(dx,dy+bob,8,'rgba(255,255,255,.15)')}
 else if(d.type==='nebula'){const ng=X.createRadialGradient(dx,dy+bob,0,dx,dy+bob,15);ng.addColorStop(0,'rgba(139,92,246,.15)');ng.addColorStop(1,'transparent');X.fillStyle=ng;X.beginPath();X.arc(dx,dy+bob,15,0,TAU);X.fill()}
+else if(d.type==='lava'){X.fillStyle='#ef4444';X.globalAlpha=.4+.2*Math.sin(gameTime*3+d.unlockAt);X.beginPath();X.arc(dx,dy+bob,5,0,TAU);X.fill();X.fillStyle='#fbbf24';X.beginPath();X.arc(dx,dy-3+bob,3,0,TAU);X.fill()}
+else if(d.type==='flame'){X.fillStyle='#f97316';X.globalAlpha=.3+.3*Math.sin(gameTime*5+d.unlockAt);X.beginPath();X.moveTo(dx,dy-8+bob);X.quadraticCurveTo(dx+5,dy-2+bob,dx,dy+4+bob);X.quadraticCurveTo(dx-5,dy-2+bob,dx,dy-8+bob);X.fill()}
+else if(d.type==='void'){const vg=X.createRadialGradient(dx,dy+bob,0,dx,dy+bob,10);vg.addColorStop(0,'rgba(168,85,247,.2)');vg.addColorStop(1,'transparent');X.fillStyle=vg;X.beginPath();X.arc(dx,dy+bob,10,0,TAU);X.fill();X.strokeStyle='#a855f7';X.lineWidth=1;X.globalAlpha=.3;X.beginPath();X.arc(dx,dy+bob,6,gameTime*2,gameTime*2+PI);X.stroke()}
+else if(d.type==='prism'){X.globalAlpha=.4+.2*Math.sin(gameTime*2+d.unlockAt);for(let c=0;c<3;c++){X.fillStyle=['#ef4444','#3b82f6','#22c55e'][c];X.beginPath();X.arc(dx+Math.cos(gameTime+c*TAU/3)*4,dy+Math.sin(gameTime+c*TAU/3)*4+bob,2.5,0,TAU);X.fill()}}
+else if(d.type==='nexus'){X.strokeStyle='#fbbf24';X.lineWidth=1.5;X.globalAlpha=.3+.3*Math.sin(gameTime*2.5+d.unlockAt);const na=gameTime+d.unlockAt;for(let s=0;s<4;s++){X.beginPath();X.moveTo(dx,dy+bob);X.lineTo(dx+Math.cos(na+s*PI/2)*8,dy+Math.sin(na+s*PI/2)*8+bob);X.stroke()}}
+else if(d.type==='core'){const cg=X.createRadialGradient(dx,dy+bob,0,dx,dy+bob,8);cg.addColorStop(0,'rgba(251,191,36,.3)');cg.addColorStop(1,'transparent');X.fillStyle=cg;X.beginPath();X.arc(dx,dy+bob,8,0,TAU);X.fill();X.fillStyle='#fbbf24';X.globalAlpha=.5+.3*Math.sin(gameTime*4+d.unlockAt);X.beginPath();X.arc(dx,dy+bob,2.5,0,TAU);X.fill()}
 X.globalAlpha=1;
 }
 
