@@ -16,16 +16,15 @@ export class WorldMapHud {
   constructor(game, w, h) {
     this.game = game; this.w = w; this.h = h; this._t = 0;
     this.worldName = ''; this.progress = 0;
-    this._coins = new Rolling(0); this._gems = new Rolling(0); this._energy = new Rolling(0);
+    this._coins = new Rolling(0); this._gems = new Rolling(0);
 
     this._back = new Rect(28, 44, 132, 76);
     this._settings = new Rect(w - 28 - 76, 44, 76, 76);
-    // Currency chips row (under the top row).
-    const cw = 200, gap = 16, y = 132;
+    // Currency chips row (under the top row) — just the two currencies.
+    const cw = 220, gap = 18, y = 132;
     this._chips = [
       { id: 'coins', currency: 'gold', colors: UI.btn.orange, icon: (r, x, yy, s) => Icons.coin(r, x, yy, s), roll: this._coins, rect: new Rect(28, y, cw, 60) },
       { id: 'gems', currency: 'crystal', colors: UI.btn.blue, icon: (r, x, yy, s) => Icons.gem(r, x, yy, s), roll: this._gems, rect: new Rect(28 + cw + gap, y, cw, 60) },
-      { id: 'energy', currency: 'essence', colors: UI.btn.teal, icon: (r, x, yy, s) => Icons.energy(r, x, yy, s), roll: this._energy, rect: new Rect(28 + (cw + gap) * 2, y, cw, 60) },
     ];
     // Bottom nav.
     const tabs = [
@@ -47,8 +46,8 @@ export class WorldMapHud {
   update(dt) {
     this._t += dt;
     const eco = this.game.getSystem('economy');
-    if (eco) { this._coins.set(eco.balance('gold')); this._gems.set(eco.balance('crystal')); this._energy.set(eco.balance('essence')); }
-    this._coins.update(dt); this._gems.update(dt); this._energy.update(dt);
+    if (eco) { this._coins.set(eco.balance('gold')); this._gems.set(eco.balance('crystal')); }
+    this._coins.update(dt); this._gems.update(dt);
   }
 
   render(r) {

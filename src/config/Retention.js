@@ -19,7 +19,7 @@ export const DailyCalendar = Object.freeze([
   { coins: 150 },
   { gems: 5 },
   { coins: 300 },
-  { materials: 25 },
+  { coins: 250 },
   { gems: 10 },
   { coins: 600, gems: 15, big: true },   // day 7 payoff
 ]);
@@ -29,7 +29,7 @@ export const DailyQuests = Object.freeze([
   { id: 'clearLines', text: 'Clear {n} lines today', event: 'game:linesCleared', use: 'count', goal: 15, reward: { coins: 200 } },
   { id: 'levels', text: 'Complete {n} levels today', event: 'level:complete', goal: 3, reward: { coins: 250 } },
   { id: 'structures', text: 'Build {n} structures today', event: 'structure:completed', goal: 2, reward: { gems: 6 } },
-  { id: 'objectives', text: 'Finish {n} objective sets', event: 'objectives:allComplete', goal: 3, reward: { materials: 30 } },
+  { id: 'objectives', text: 'Finish {n} objective sets', event: 'objectives:allComplete', goal: 3, reward: { coins: 300 } },
 ]);
 
 /**
@@ -46,7 +46,7 @@ export const WeeklyChallenges = Object.freeze([
   { id: 'wLines', name: 'Crystal Cascade', icon: 'gem', color: '#3aa8ff', blurb: 'Shatter crystals all week long.',
     text: 'Clear {n} lines this week', event: 'game:linesCleared', goal: 120, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
   { id: 'wStructures', name: 'Grand Architect', icon: 'statue', color: '#37a83f', blurb: 'Raise wonders across the week.',
-    text: 'Build {n} structures this week', event: 'structure:completed', goal: 12, reward: { gems: 45, materials: 150 }, milestones: [0.4, 0.7, 1] },
+    text: 'Build {n} structures this week', event: 'structure:completed', goal: 12, reward: { gems: 45, coins: 900 }, milestones: [0.4, 0.7, 1] },
 ]);
 
 /** Rare post-level surprises. Kept genuinely rare so they stay exciting. */
@@ -54,7 +54,7 @@ export const Surprises = Object.freeze([
   { id: 'goblin', name: 'Treasure Goblin!', icon: 'chest', color: '#37a83f', reward: { coins: 500 } },
   { id: 'golden', name: 'Golden Dragon!', icon: 'dragon', color: '#ffcf5e', reward: { gems: 15 } },
   { id: 'hidden', name: 'Hidden Chest!', icon: 'chest', color: '#ff9422', reward: { coins: 750 } },
-  { id: 'egg', name: 'Rare Egg!', icon: 'egg', color: '#28e0d0', reward: { gems: 8, materials: 40 } },
+  { id: 'egg', name: 'Rare Egg!', icon: 'egg', color: '#28e0d0', reward: { gems: 8, coins: 400 } },
   { id: 'rainbow', name: 'Rainbow Reward!', icon: 'gem', color: '#8a4fe0', reward: { gems: 20 } },
 ]);
 
@@ -70,7 +70,7 @@ export const Unlocks = Object.freeze([
   { kind: 'Board Theme', name: 'New Board Theme', icon: 'crystal', color: '#3aa8ff', reward: { coins: 400 } },
   { kind: 'Soundtrack', name: 'New Soundtrack', icon: 'rune', color: '#28e0d0', reward: { coins: 400 } },
   { kind: 'Collectible', name: 'New Collectible', icon: 'gem', color: '#ffb020', reward: { gems: 8 } },
-  { kind: 'Building', name: 'New Building Style', icon: 'statue', color: '#c8b48a', reward: { materials: 40 } },
+  { kind: 'Building', name: 'New Building Style', icon: 'statue', color: '#c8b48a', reward: { coins: 400 } },
   { kind: 'Visual Theme', name: 'New Visual Theme', icon: 'flower', color: '#3fa93f', reward: { coins: 500 } },
 ]);
 

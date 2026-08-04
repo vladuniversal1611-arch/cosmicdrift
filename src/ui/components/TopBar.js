@@ -17,7 +17,6 @@ export class TopBar {
     this.game = game;
     this.coins = new Rolling(0);
     this.gems = new Rolling(0);
-    this.energy = new Rolling(0);
     this._t = 0;
   }
 
@@ -27,20 +26,18 @@ export class TopBar {
     if (eco) {
       this.coins.set(eco.balance('gold'));
       this.gems.set(eco.balance('crystal'));
-      this.energy.set(eco.balance('essence'));
     }
-    this.coins.update(dt); this.gems.update(dt); this.energy.update(dt);
+    this.coins.update(dt); this.gems.update(dt);
   }
 
   render(r, width) {
     const y = 20;
     const h = 40;
-    // Three chips on the left, avatar on the right.
-    const chipW = 108;
-    const gap = 8;
+    // Two currency chips on the left, avatar on the right.
+    const chipW = 118;
+    const gap = 10;
     this._chip(r, 16, y, chipW, h, '#ffcf5e', 'coins', this.coins.text);
     this._chip(r, 16 + (chipW + gap), y, chipW, h, '#7cd6ff', 'gem', this.gems.text);
-    this._chip(r, 16 + (chipW + gap) * 2, y, chipW, h, '#b07cff', 'dragon', this.energy.text);
     this._avatar(r, width - 16 - 52, y - 6, 52);
   }
 

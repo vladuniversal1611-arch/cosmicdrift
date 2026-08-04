@@ -195,7 +195,6 @@ export const Config = Object.freeze({
     particles: true,
     dragon: true,
     economy: true,
-    missions: true,
     events: true,
     shop: true,
     boosters: true,

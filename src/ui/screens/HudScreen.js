@@ -136,8 +136,8 @@ export class HudScreen extends Screen {
       this._structToast = { name, t: 1.8 };
     }));
     // World Progression feedback.
-    this._subs.push(this.events.on('reward:granted', ({ essence, gold, materials }) => {
-      this._toast = { text: `+${essence} ✧   +${gold} ⬤   +${materials} ▲`, color: Palette.warning, t: 2.4 };
+    this._subs.push(this.events.on('reward:granted', ({ gold = 0 }) => {
+      this._toast = { text: `+${gold} ⬤`, color: Palette.warning, t: 2.2 };
     }));
     this._subs.push(this.events.on('biome:changed', ({ biome }) => {
       this._toast = { text: `ENTERING ${biome.name.toUpperCase()}`, color: Palette.accentAlt, t: 2.6 };

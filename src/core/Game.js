@@ -42,7 +42,6 @@ import { PieceSystem } from '../systems/pieces/PieceSystem.js';
 import { WorldSystem } from '../systems/world/WorldSystem.js';
 import { DragonSystem } from '../systems/dragon/DragonSystem.js';
 import { EconomySystem } from '../systems/economy/EconomySystem.js';
-import { MissionSystem } from '../systems/missions/MissionSystem.js';
 import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
@@ -122,7 +121,6 @@ export class Game {
     // Simulation-support systems.
     if (f.audio) this.systems.register(new AudioSystem(this));
     if (f.economy) this.systems.register(new EconomySystem(this));
-    if (f.missions) this.systems.register(new MissionSystem(this));
     if (f.events) this.systems.register(new EventsSystem(this));
     if (f.shop) this.systems.register(new ShopSystem(this));
     if (f.dragon) this.systems.register(new DragonSystem(this));

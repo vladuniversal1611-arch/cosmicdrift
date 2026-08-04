@@ -21,25 +21,29 @@
 // secondary cost, and Gold the most abundant (it is also the Shop currency).
 // Daily/weekly rewards and dragon perks sit on top as a comfort buffer, so the
 // world-rebuild loop has real weight without ever soft-locking progress.
+// Costs are a single Gold value (the one soft currency), tuned against the
+// per-level Gold faucet so restoring the world is a meaningful, steady goal —
+// each landmark is affordable soon after it unlocks, but fully rebuilding the
+// world spans many levels.
 export const Restorations = Object.freeze([
   { id: 'bridge', name: 'Ancient Bridge', biome: 'forest', art: 'bridge',
-    stages: ['Broken ruins', 'Half repaired', 'Fully restored'], cost: { materials: 8, essence: 9, gold: 20 } },
+    stages: ['Broken ruins', 'Half repaired', 'Fully restored'], cost: { gold: 40 } },
   { id: 'worldtree', name: 'World Tree', biome: 'forest', art: 'tree',
-    stages: ['Withered stump', 'Sprouting', 'In full bloom'], cost: { materials: 11, essence: 15, gold: 24 } },
+    stages: ['Withered stump', 'Sprouting', 'In full bloom'], cost: { gold: 55 } },
   { id: 'crystaltower', name: 'Crystal Tower', biome: 'crystal', art: 'tower',
-    stages: ['Shattered base', 'Rising spire', 'Radiant tower'], cost: { materials: 14, essence: 18, gold: 34 } },
+    stages: ['Shattered base', 'Rising spire', 'Radiant tower'], cost: { gold: 70 } },
   { id: 'dragonnest', name: 'Dragon Nest', biome: 'crystal', art: 'nest',
-    stages: ['Cold embers', 'Warming nest', 'Guarded roost'], cost: { materials: 17, essence: 24, gold: 38 } },
+    stages: ['Cold embers', 'Warming nest', 'Guarded roost'], cost: { gold: 85 } },
   { id: 'hiddencave', name: 'Hidden Cave', biome: 'frozen', art: 'cave',
-    stages: ['Sealed rock', 'Cracked open', 'Glittering grotto'], cost: { materials: 20, essence: 27, gold: 44 } },
+    stages: ['Sealed rock', 'Cracked open', 'Glittering grotto'], cost: { gold: 100 } },
   { id: 'waterfall', name: 'Waterfall', biome: 'frozen', art: 'waterfall',
-    stages: ['Dry cliff', 'Trickling', 'Cascading falls'], cost: { materials: 22, essence: 30, gold: 48 } },
+    stages: ['Dry cliff', 'Trickling', 'Cascading falls'], cost: { gold: 115 } },
   { id: 'library', name: 'Magic Library', biome: 'volcano', art: 'library',
-    stages: ['Burnt ruins', 'Rebuilt walls', 'Living archive'], cost: { materials: 25, essence: 36, gold: 58 } },
+    stages: ['Burnt ruins', 'Rebuilt walls', 'Living archive'], cost: { gold: 135 } },
   { id: 'skyharbor', name: 'Sky Harbor', biome: 'sky', art: 'harbor',
-    stages: ['Drifting wreck', 'Moored docks', 'Bustling harbor'], cost: { materials: 31, essence: 42, gold: 68 } },
+    stages: ['Drifting wreck', 'Moored docks', 'Bustling harbor'], cost: { gold: 160 } },
   { id: 'portalgate', name: 'Portal Gate', biome: 'ruins', art: 'portal',
-    stages: ['Dead arch', 'Flickering rift', 'Open gateway'], cost: { materials: 36, essence: 54, gold: 82 } },
+    stages: ['Dead arch', 'Flickering rift', 'Open gateway'], cost: { gold: 190 } },
 ]);
 
 export const RestorationById = Object.freeze(

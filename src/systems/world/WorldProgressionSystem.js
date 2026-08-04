@@ -71,18 +71,15 @@ export class WorldProgressionSystem extends System {
 
   _grantRewards(level) {
     const r = Config.progression.rewards;
-    const essence = Math.round(r.essence.base + r.essence.perLevel * level);
-    const gold = Math.round(r.gold.base + r.gold.perLevel * level);
-    const materials = Math.round(r.materials.base + r.materials.perLevel * level);
+    // One soft currency now: a single Gold reward that scales with depth.
+    const gold = Math.round(16 + 2 * level);
 
     const economy = this.game.getSystem('economy');
-    economy?.credit('essence', essence);
     economy?.credit('gold', gold);
-    economy?.credit('materials', materials);
     this.events.emit('gameplay:addEnergy', { amount: r.energy });
 
     this.game.getSystem('audio')?.play('reward');
-    this.events.emit('reward:granted', { level, essence, gold, materials, energy: r.energy });
+    this.events.emit('reward:granted', { level, gold, energy: r.energy });
   }
 
   _syncBiome(level) {

@@ -31,8 +31,8 @@ export class TreasureTile extends Tile {
 
   reactToClear(ctx) {
     if (this.isDying || !ctx.cleared.has(this.cell)) return;
-    // Collected!
-    this._reward('stardust', 120);
+    // Collected! (one soft currency now: gold)
+    this._reward('gold', 60);
     this._energy(20);
     this._burst(Palette.tiles.treasure.glow, 22);
     this._shake(6);

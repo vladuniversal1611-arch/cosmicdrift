@@ -35,7 +35,7 @@ export class IslandScreen extends Screen {
     this._particles = [];
     this._msg = null;
     this._bg = new MenuBackground(this.bounds.w, this.bounds.h);
-    this._res = { essence: new Rolling(0), gold: new Rolling(0), materials: new Rolling(0) };
+    this._res = { gold: new Rolling(0), crystal: new Rolling(0) };
     this._back = new Rect(28, 56, 150, 64);
     this._islandY = this.bounds.h * 0.5;
   }
@@ -91,7 +91,7 @@ export class IslandScreen extends Screen {
     this._t += dt;
     this._bg.update(dt);
     const eco = this.game.getSystem('economy');
-    if (eco) { this._res.essence.set(eco.balance('essence')); this._res.gold.set(eco.balance('gold')); this._res.materials.set(eco.balance('materials')); }
+    if (eco) { this._res.gold.set(eco.balance('gold')); this._res.crystal.set(eco.balance('crystal')); }
     for (const k of Object.keys(this._res)) this._res[k].update(dt);
     for (let i = this._particles.length - 1; i >= 0; i--) { const p = this._particles[i]; p.t += dt; p.vy += 240 * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.t > p.life) this._particles.splice(i, 1); }
     if (this._msg && (this._msg.t -= dt) <= 0) this._msg = null;
@@ -169,11 +169,10 @@ export class IslandScreen extends Screen {
     const sub = total > 0 ? `${restored}/${total} RESTORED` : 'RESTORE THE WORLD';
     r.text(sub, b.centerX, 108, { font: '800 18px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 3 });
     const chips = [
-      { id: 'materials', roll: this._res.materials, cap: '#c8a06a' },
-      { id: 'essence', roll: this._res.essence, cap: '#b07cff' },
       { id: 'gold', roll: this._res.gold, cap: '#ffcf5e' },
+      { id: 'crystal', roll: this._res.crystal, cap: '#7cd6ff' },
     ];
-    const cw = 150, gap = 14, cy = 138;
+    const cw = 190, gap = 18, cy = 138;
     let cx = b.centerX - (chips.length * cw + (chips.length - 1) * gap) / 2;
     for (const c of chips) {
       UITheme.chip(r, cx, cy, cw, 52, c.cap);

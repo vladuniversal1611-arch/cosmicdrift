@@ -23,11 +23,11 @@ export const Dragons = Object.freeze([
   { id: 'prismscale', name: 'Prismscale', biome: 'crystal', color: '#3aa8ff', unlockLevel: 16,
     perk: { kind: 'goldPerLine', value: 6, desc: '+6 Gold per line cleared' } },
   { id: 'frostfang', name: 'Frostfang', biome: 'frozen', color: '#8fc4ff', unlockLevel: 31,
-    perk: { kind: 'materialsPerLine', value: 2, desc: '+2 Building Materials per line cleared' } },
+    perk: { kind: 'energyPerLine', value: 5, desc: '+5 Dragon Energy per line cleared' } },
   { id: 'emberdrake', name: 'Emberdrake', biome: 'volcano', color: '#ff7a4d', unlockLevel: 46,
     perk: { kind: 'startEnergy', value: 30, desc: 'Start every level with +30 Dragon Energy' } },
   { id: 'cloudserpent', name: 'Cloudserpent', biome: 'sky', color: '#18d0c0', unlockLevel: 61,
-    perk: { kind: 'essencePerLine', value: 2, desc: '+2 Magic Essence per line cleared' } },
+    perk: { kind: 'goldPerLine', value: 12, desc: '+12 Gold per line cleared' } },
 ]);
 
 export const DragonById = Object.freeze(Object.fromEntries(Dragons.map((d) => [d.id, d])));

@@ -14,10 +14,8 @@ import { Rect } from '../../../utils/Rect.js';
 
 /** Default resources. Future resources: append a descriptor — layout adapts. */
 export const RESOURCES = [
-  { id: 'coins', currency: 'gold', colors: UI.btn.orange, plus: true, tip: 'Coins — earned in play', icon: (r, x, y, s) => Icons.coin(r, x, y, s) },
+  { id: 'coins', currency: 'gold', colors: UI.btn.orange, plus: true, tip: 'Gold — earned in play', icon: (r, x, y, s) => Icons.coin(r, x, y, s) },
   { id: 'gems', currency: 'crystal', colors: UI.btn.blue, plus: true, tip: 'Gems — premium currency', icon: (r, x, y, s) => Icons.gem(r, x, y, s) },
-  { id: 'energy', currency: 'essence', colors: UI.btn.teal, plus: false, tip: 'Energy — powers the dragon', icon: (r, x, y, s) => Icons.energy(r, x, y, s) },
-  { id: 'dust', currency: 'stardust', colors: UI.btn.purple, plus: true, tip: 'Dragon Dust — rare crafting', icon: (r, x, y, s) => Icons.dust(r, x, y, s) },
 ];
 
 export class ResourceBar {
