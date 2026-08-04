@@ -47,6 +47,7 @@ export class DriftSystem extends System {
     this._steerBtn = null;      // fixed tap target, sized on init
     this._steerFlash = 0;       // green pulse after a successful steer
     this._denyFlash = 0;        // red pulse when steering is unaffordable
+    this._wind = [];            // cosmic-wind streaks drifting across the board
   }
 
   onInit() {
@@ -116,6 +117,8 @@ export class DriftSystem extends System {
     if (this._flash > 0) this._flash = Math.max(0, this._flash - dt * 2);
     if (this._steerFlash > 0) this._steerFlash = Math.max(0, this._steerFlash - dt * 2);
     if (this._denyFlash > 0) this._denyFlash = Math.max(0, this._denyFlash - dt * 2);
+
+    if (this._active) this._updateWind(dt);
     if (!this._active || !this._want || !this._free) return;
 
     const dir = DIRS[this._dir];
@@ -130,6 +133,71 @@ export class DriftSystem extends System {
     this.events.emit('drift:changed', { left: this._left, dir: DIRS[this._dir].id });
   }
 
+  // --- Cosmic wind (readability) ---------------------------------------------
+
+  /** How strongly the wind blows: a gentle ambient breeze that ramps as the
+   *  next drift nears and gusts hard the moment it fires. */
+  _windIntensity() {
+    let i = 0.18;
+    if (this._left <= 2) i += (3 - this._left) * 0.14;
+    if (this._want) i = Math.max(i, 0.85);
+    i += this._flash * 0.9;
+    return Math.min(1.4, i);
+  }
+
+  _seedWind(a) {
+    this._wind = [];
+    for (let k = 0; k < 16; k++) {
+      this._wind.push({
+        x: a.x + Math.random() * a.w,
+        y: a.y + Math.random() * a.h,
+        len: 20 + Math.random() * 46,
+        spd: 0.5 + Math.random() * 0.9,
+      });
+    }
+    this._windArea = { x: a.x, y: a.y, w: a.w, h: a.h };
+  }
+
+  _updateWind(dt) {
+    const a = this.game.getSystem('board')?.area;
+    if (!a) return;
+    const wa = this._windArea;
+    if (!wa || wa.w !== a.w || wa.x !== a.x || wa.y !== a.y) this._seedWind(a);
+    const dir = DIRS[this._dir];
+    const intensity = this._windIntensity();
+    const base = (a.w + a.h) * 0.5;
+    for (const p of this._wind) {
+      const v = base * (0.12 + intensity * 0.9) * p.spd * dt;
+      p.x += dir.dx * v;
+      p.y += dir.dy * v;
+      // Wrap within the board so the flow is continuous.
+      if (p.x < a.x - 40) p.x = a.right + 40; else if (p.x > a.right + 40) p.x = a.x - 40;
+      if (p.y < a.y - 40) p.y = a.bottom + 40; else if (p.y > a.bottom + 40) p.y = a.y - 40;
+    }
+  }
+
+  _drawWind(r, a) {
+    if (this._wind.length === 0) return;
+    const dir = DIRS[this._dir];
+    const intensity = this._windIntensity();
+    if (intensity < 0.2) return;
+    const ctx = r.ctx;
+    ctx.save();
+    ctx.strokeStyle = this._want || this._flash > 0.2 ? '#ffe0a0' : '#bfe4ff';
+    ctx.lineCap = 'round';
+    for (const p of this._wind) {
+      const len = p.len * (0.6 + intensity);
+      ctx.globalAlpha = Math.min(0.6, 0.14 + intensity * 0.34) * (0.6 + p.spd * 0.4);
+      ctx.lineWidth = 1.6 + intensity * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - dir.dx * len, p.y - dir.dy * len);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
   // --- Telegraph -------------------------------------------------------------
 
   render(r) {
@@ -139,6 +207,8 @@ export class DriftSystem extends System {
     const board = this.game.getSystem('board');
     const a = board?.area;
     if (!a) return;
+
+    this._drawWind(r, a);
 
     const dir = DIRS[this._dir];
     const imminent = this._left <= 1 || this._want;
