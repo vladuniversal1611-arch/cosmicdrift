@@ -49,6 +49,8 @@ export class BoardSystem extends System {
     this._clearing = false;
     /** True while a drift slide is settling; resolves clears when it lands. */
     this._driftPending = false;
+    /** Throttle timer for the idle "no full line lingers" safety sweep. */
+    this._sweepT = 0;
   }
 
   onInit() {
@@ -323,6 +325,19 @@ export class BoardSystem extends System {
       this._driftResolve = true;
       this.events.emit('board:checkClears');
       this._driftResolve = false;
+    }
+
+    // Safety net: a fully-filled row or column must NEVER linger un-cleared. If
+    // the board is idle (nothing clearing or drifting) and a full line somehow
+    // exists — a missed edge case, a tile that filled a gap, a state race — the
+    // next idle tick resolves it, so "a completed line that didn't disappear"
+    // can't persist. Throttled; cheap on an 8×8 grid.
+    if (!this._clearing && !this._driftPending) {
+      this._sweepT += dt;
+      if (this._sweepT >= 0.25) {
+        this._sweepT = 0;
+        if (this.grid.findFullLines().lines.length > 0) this._resolveClears();
+      }
     }
   }
 
