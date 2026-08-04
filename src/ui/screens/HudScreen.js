@@ -40,6 +40,8 @@ export class HudScreen extends Screen {
     this._level = 1;
     this._worldName = '';
     this._objectives = [];    // live Objective instances for the current level
+    this._objExpanded = false; // checklist starts collapsed (compact icon strip)
+    this._objToggleRect = null;
     this._banner = null;      // { title, sub, t } discovery/world callout
     this._structToast = null; // { name, t } structure-built callout
     this._toast = null;       // { text, color, t } reward / biome toast
@@ -511,17 +513,63 @@ export class HudScreen extends Screen {
   }
 
   /**
-   * The objectives checklist — the player's live goals for this level. Each row
-   * shows an icon, label, progress bar and count, with a green completion pop.
+   * The objectives checklist. Collapsed by default to a compact strip of
+   * progress-ring icons (keeps the top clean); tapping it expands to the full
+   * labelled rows, tapping again collapses. The level-start goal card already
+   * spells the goals out, so compact-by-default never hides anything crucial.
    */
   _drawObjectives(renderer) {
     const rows = this._objectives;
-    if (!rows.length) return;
+    if (!rows.length) { this._objToggleRect = null; return; }
+    if (this._objExpanded) this._drawObjectivesExpanded(renderer);
+    else this._drawObjectivesCollapsed(renderer);
+  }
+
+  /** Compact strip: one progress-ring icon per goal + an expand chevron. */
+  _drawObjectivesCollapsed(r) {
+    const rows = this._objectives;
+    const w = this.bounds.w;
+    const n = rows.length;
+    const gap = 54, icoR = 20;
+    const stripW = n * gap + 44;
+    const x0 = (w - stripW) / 2;
+    const cy = this.bounds.h * 0.118;
+    const ctx = r.ctx;
+
+    // Glass backing pill.
+    r.fillRoundRect(x0, cy - 30, stripW, 60, 30, 'rgba(255,255,255,0.82)');
+    r.strokeRoundRect(x0, cy - 30, stripW, 60, 30, Palette.gold, 1.5);
+
+    rows.forEach((o, i) => {
+      const cx = x0 + 30 + i * gap;
+      const done = o.complete;
+      const col = done ? Palette.success : o.color;
+      // Progress ring.
+      ctx.beginPath(); ctx.arc(cx, cy, icoR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(20,44,92,0.14)'; ctx.lineWidth = 3.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, icoR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(o.displayProgress, 0, 1));
+      ctx.strokeStyle = col; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.stroke();
+      // Icon (or check when done).
+      if (done) r.text('✓', cx, cy + 1, { font: '900 20px system-ui, sans-serif', color: Palette.success, align: 'center', baseline: 'middle' });
+      else drawObjectiveIcon(r, o.icon, cx, cy, 10, o.color);
+    });
+
+    // Expand chevron (▸).
+    const chx = x0 + stripW - 22;
+    ctx.strokeStyle = Palette.textMuted; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(chx - 3, cy - 6); ctx.lineTo(chx + 4, cy); ctx.lineTo(chx - 3, cy + 6); ctx.stroke();
+
+    this._objToggleRect = new Rect(x0, cy - 30, stripW, 60);
+  }
+
+  /** Expanded: the full labelled rows (tap anywhere on them to collapse). */
+  _drawObjectivesExpanded(renderer) {
+    const rows = this._objectives;
     const w = this.bounds.w;
     const rowW = w * 0.9;
     const x0 = (w - rowW) / 2;
     const rowH = 40;
-    const baseY = this.bounds.h * 0.112;
+    const baseY = this.bounds.h * 0.108;
 
     rows.forEach((o, i) => {
       const y = baseY + i * rowH;
@@ -568,6 +616,7 @@ export class HudScreen extends Screen {
       }
       renderer.restore();
     });
+    this._objToggleRect = new Rect(x0, baseY, rowW, rows.length * rowH);
   }
 
   /** Transient world / new-mechanic discovery callout. */
@@ -712,6 +761,12 @@ export class HudScreen extends Screen {
     }
     if (this._pauseBtn.contains(px, py)) {
       this.events.emit('ui:openPause');
+      return true;
+    }
+    // Toggle the objectives checklist between the compact strip and full rows.
+    if (this._objToggleRect?.contains(px, py)) {
+      this._objExpanded = !this._objExpanded;
+      this.game.getSystem('audio')?.play('pickup', { rate: 1.1 });
       return true;
     }
     return false;
