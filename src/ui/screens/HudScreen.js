@@ -280,19 +280,23 @@ export class HudScreen extends Screen {
         r.withGlow(cols[1], 22, () => r.fillCircle(cx, cy, rad + 8 + pulse * 5, cols[1]));
         r.setAlpha(1);
       }
-      r.setAlpha(empty ? 0.42 : 1);
-      UITheme.button(r, rect.x, rect.y, rect.w, rect.h, rad, cols, { shadow: true });
+      // A depleted booster fades well back (no shadow) so it never competes for
+      // attention; an available one is fully solid.
+      r.setAlpha(empty ? 0.3 : 1);
+      UITheme.button(r, rect.x, rect.y, rect.w, rect.h, rad, cols, { shadow: !empty });
       this._drawBoosterIcon(r, id, cx, cy - 4, rad * 0.82, '#fff');
       r.setAlpha(1);
       ctx.restore();
 
-      // Count badge (top-right).
+      // Count badge (top-right) — also faded when depleted.
       const bxp = rect.right - 12, byp = rect.y + 12 + lift;
+      r.setAlpha(empty ? 0.45 : 1);
       r.withGlow('rgba(0,0,0,0.25)', 4, () => r.fillCircle(bxp, byp, 20, empty ? '#8a97ad' : '#fff'));
       r.text(String(count), bxp, byp + 1, {
         font: '900 22px system-ui, sans-serif', color: empty ? '#e9edf4' : UI.ink,
         align: 'center', baseline: 'middle',
       });
+      r.setAlpha(1);
       // (No text label — the icon + count read clearly and keep the row clean.)
     }
 

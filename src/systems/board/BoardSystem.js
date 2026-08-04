@@ -588,31 +588,22 @@ export class BoardSystem extends System {
     const cx = x + size * 0.5;
     const cy = y + size * 0.5;
 
-    // Pulsing engraved rune.
+    // Pulsing engraved rune (kept faint so the empty board reads as calm).
     const litPulse = 0.5 + 0.5 * Math.sin(this._time * 0.8 + cell.phase);
-    ctx.globalAlpha = 0.10 + litPulse * 0.16;
+    ctx.globalAlpha = 0.06 + litPulse * 0.10;
     ctx.strokeStyle = Palette.rune.lit;
     ctx.lineWidth = Math.max(1, size * 0.03);
     drawRune(ctx, cell.runeId, cx, cy, size * 0.72);
     ctx.globalAlpha = 1;
 
-    // Drifting mote rising through the socket.
+    // A single, very faint drifting mote — just enough life without scatter.
     const m = (((this._time * 0.22 + cell.phase * 0.15) % 1) + 1) % 1;
     const mx = cx + Math.sin((this._time + cell.phase) * 1.4) * size * 0.14;
     const myy = y + size * (0.86 - 0.72 * m);
-    ctx.globalAlpha = Math.sin(m * Math.PI) * 0.5;
-    renderer.fillCircle(mx, myy, size * 0.05, '#7fd6ff');
+    ctx.globalAlpha = Math.sin(m * Math.PI) * 0.22;
+    renderer.fillCircle(mx, myy, size * 0.04, '#7fd6ff');
     ctx.globalAlpha = 1;
-
-    // Occasional moss creeping in a corner of the carved tile (deterministic).
-    if ((cell.col * 5 + cell.row * 3) % 6 === 0) {
-      ctx.globalAlpha = 0.6;
-      const mgx = x + size * 0.22, mgy = y + size * 0.8;
-      renderer.fillCircle(mgx, mgy, size * 0.1, '#6fae5a');
-      renderer.fillCircle(mgx + size * 0.13, mgy - size * 0.05, size * 0.075, '#8fce6a');
-      renderer.fillCircle(mgx - size * 0.06, mgy - size * 0.02, size * 0.06, '#5aa85f');
-      ctx.globalAlpha = 1;
-    }
+    // (Removed the scattered "moss" corner blobs — they read as board noise.)
   }
 
   /** Placed crystal with landing squash/pop. */
