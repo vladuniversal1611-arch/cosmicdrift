@@ -11,7 +11,6 @@
  */
 import { Screen } from '../Screen.js';
 import { Label } from '../widgets/Label.js';
-import { ProgressBar } from '../widgets/ProgressBar.js';
 import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Rect } from '../../utils/Rect.js';
@@ -67,11 +66,13 @@ export class HudScreen extends Screen {
 
     const w = this.bounds.w;
 
-    // Dragon Energy meter (the thin progress bar under the score).
+    // Dragon Energy meter (self-drawn). It stays hidden while the meter is low
+    // and fades in + glows as the Dragon Fire ultimate nears, so it only draws
+    // attention when it's about to matter. Geometry only; drawn in _drawEnergy.
     const bw = w * 0.5;
-    this._energy = this.add(new ProgressBar(w * 0.5 - bw / 2, this.bounds.h * 0.096, bw, 12, {
-      value: 0, fill: Palette.energy[0], track: 'rgba(20,44,92,0.16)',
-    }));
+    this._energyBar = new Rect(w * 0.5 - bw / 2, this.bounds.h * 0.096, bw, 12);
+    this._energyFrac = 0;     // 0..1 current meter fill
+    this._energyShown = 0;    // eased reveal alpha 0..1
 
     this._bind();
 
@@ -97,7 +98,7 @@ export class HudScreen extends Screen {
       if (add >= 40) this._spawnScorePop(add);
     }));
     this._subs.push(this.events.on('gameplay:energy', ({ energy, max }) => {
-      this._energy.setValue(max ? energy / max : 0);
+      this._energyFrac = max ? energy / max : 0;
       const ready = max ? energy >= max : false;
       if (ready && !this._dragonReady) this.game.getSystem('audio')?.play('structure'); // "ability charged" chime
       this._dragonReady = ready;
@@ -182,7 +183,10 @@ export class HudScreen extends Screen {
   update(dt) {
     this._dragonT += dt;
     this._boosterT += dt;
-    this._energy.update(dt);
+    // Reveal the energy meter only as it fills (hidden when low, gone once the
+    // Dragon button has taken over at full charge).
+    const target = this._dragonReady ? 0 : clamp((this._energyFrac - 0.3) / 0.35, 0, 1);
+    this._energyShown += (target - this._energyShown) * Math.min(1, dt * 6);
     // Rolling score: ease the displayed number toward the real one.
     this._displayScore += (this._score - this._displayScore) * Math.min(1, dt * 8);
     if (Math.abs(this._score - this._displayScore) < 0.5) this._displayScore = this._score;
@@ -364,6 +368,7 @@ export class HudScreen extends Screen {
     if (this._beam > 0) this._drawClearBeam(renderer);
     this._drawScore(renderer);
     this._drawLevel(renderer);
+    this._drawEnergy(renderer);
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
@@ -395,6 +400,25 @@ export class HudScreen extends Screen {
       drawObjectiveIcon(renderer, 'coins', c.x, c.y, c.s, '#ffcf5e');
     }
     renderer.setAlpha(1);
+  }
+
+  /**
+   * The Dragon Energy meter — fades in as it fills and glows brighter as the
+   * ultimate nears, so it's invisible when it doesn't matter and impossible to
+   * miss right before it's ready.
+   */
+  _drawEnergy(r) {
+    const a = this._energyShown;
+    if (a < 0.02) return;
+    const b = this._energyBar;
+    const frac = clamp(this._energyFrac, 0, 1);
+    const near = clamp((frac - 0.7) / 0.3, 0, 1);            // ramps 0→1 near full
+    const pulse = 0.5 + 0.5 * Math.sin(this._dragonT * 4);
+    const col = Palette.energy[0];
+    r.setAlpha(a);
+    r.fillRoundRect(b.x, b.y, b.w, b.h, b.h / 2, 'rgba(20,44,92,0.16)');
+    r.withGlow(col, 5 + near * 16 * pulse, () => r.fillRoundRect(b.x, b.y, b.w * frac, b.h, b.h / 2, col));
+    r.setAlpha(1);
   }
 
   /** Premium round pause button (top-left). */
