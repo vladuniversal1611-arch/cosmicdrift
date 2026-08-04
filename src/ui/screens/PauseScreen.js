@@ -15,21 +15,21 @@ export class PauseScreen extends Screen {
     super(game);
     this.name = 'pause';
     const w = this.bounds.w, h = this.bounds.h;
-    // Size the panel to its content (a title band + 3 buttons) so it reads as a
+    // Size the panel to its content (a title band + 4 buttons) so it reads as a
     // tidy dialog rather than a big empty sheet, and centre it on screen.
-    const bh = 74, gap = 20, topPad = 96, botPad = 44;
+    const bh = 74, gap = 18, topPad = 96, botPad = 44;
     const panelW = w * 0.72;
-    const panelH = topPad + bh * 3 + gap * 2 + botPad;
+    const panelH = topPad + bh * 4 + gap * 3 + botPad;
     this.panel = { x: (w - panelW) / 2, y: (h - panelH) / 2, w: panelW, h: panelH };
     const p = this.panel;
     const bw = p.w * 0.74, bx = p.x + (p.w - bw) / 2;
     const by = p.y + topPad;
-    this.add(new PremiumButton(bx, by, bw, bh, () => this.events.emit('ui:back'),
-      { label: t('common.resume'), colors: UI.btn.play, radius: 24, font: '900 26px system-ui, sans-serif' }));
-    this.add(new PremiumButton(bx, by + (bh + gap), bw, bh, () => this.events.emit('ui:openSettings'),
-      { label: t('menu.settings'), colors: UI.btn.blue, radius: 24, font: '900 26px system-ui, sans-serif' }));
-    this.add(new PremiumButton(bx, by + (bh + gap) * 2, bw, bh, () => this.events.emit('ui:mainMenu'),
-      { label: t('titles.mainMenu'), colors: UI.btn.orange, radius: 24, font: '900 26px system-ui, sans-serif' }));
+    const btn = (i, label, colors, ev) => this.add(new PremiumButton(bx, by + (bh + gap) * i, bw, bh,
+      () => this.events.emit(ev), { label, colors, radius: 24, font: '900 26px system-ui, sans-serif' }));
+    btn(0, t('common.resume'), UI.btn.play, 'ui:back');
+    btn(1, t('hud.worldMap'), UI.btn.teal, 'ui:openWorldMap');
+    btn(2, t('menu.settings'), UI.btn.blue, 'ui:openSettings');
+    btn(3, t('titles.mainMenu'), UI.btn.orange, 'ui:mainMenu');
   }
 
   onEnter() { this.events.emit('ui:modalOpen'); }

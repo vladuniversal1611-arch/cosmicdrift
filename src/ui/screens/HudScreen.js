@@ -51,9 +51,8 @@ export class HudScreen extends Screen {
     this._dragonT = 0;
     this._dragonBtn = new Rect(this.bounds.w - 40 - 100, 150, 100, 100);
     this._goalCard = null;    // { objectives, t, dur } level-start goal intro
-    // Tidy top bar: a compact pause (left) + World Map (right), lower on screen
-    // for a bigger top safe-area.
-    this._worldBtn = new Rect(this.bounds.w - 36 - 168, 66, 168, 60);
+    // Clean top bar: just a compact pause button (left). World Map lives in the
+    // Pause menu now, so mid-run the top stays uncluttered.
     this._pauseBtn = new Rect(36, 66, 72, 72);
 
     // Booster row — round power-up buttons in the band below the tray.
@@ -288,12 +287,7 @@ export class HudScreen extends Screen {
         font: '900 22px system-ui, sans-serif', color: empty ? '#e9edf4' : UI.ink,
         align: 'center', baseline: 'middle',
       });
-
-      // Name label beneath.
-      r.text(b.def.name.toUpperCase(), cx, rect.bottom + 18 + lift, {
-        font: '800 16px system-ui, sans-serif', color: armed ? '#fff' : 'rgba(234,244,255,0.82)',
-        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
-      });
+      // (No text label — the icon + count read clearly and keep the row clean.)
     }
 
     // "Tap a block" hint while a cell-target booster is armed.
@@ -370,8 +364,6 @@ export class HudScreen extends Screen {
     if (this._beam > 0) this._drawClearBeam(renderer);
     this._drawScore(renderer);
     this._drawLevel(renderer);
-    this._drawComboChip(renderer);
-    this._drawWorldButton(renderer);
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
@@ -403,33 +395,6 @@ export class HudScreen extends Screen {
       drawObjectiveIcon(renderer, 'coins', c.x, c.y, c.s, '#ffcf5e');
     }
     renderer.setAlpha(1);
-  }
-
-  /** Top-right combo / score-multiplier chip. */
-  _drawComboChip(renderer) {
-    const mult = this.game.getSystem('structures')?.scoreMultiplier ?? 1;
-    const active = this._comboT > 0;
-    if (mult <= 1.0001 && !active) return;
-    const r = this._worldBtn;
-    const cw = 150, ch = 56, x = r.right - cw, y = r.bottom + 16;
-    const pulse = active ? 1 + 0.06 * Math.sin(performance.now() / 120) : 1;
-    renderer.save();
-    renderer.translate(x + cw / 2, y + ch / 2); renderer.scale(pulse, pulse); renderer.translate(-(x + cw / 2), -(y + ch / 2));
-    UITheme.button(renderer, x, y, cw, ch, ch / 2, active ? UI.btn.orange : UI.btn.blue, { shadow: true });
-    const label = active ? this._comboText.replace('COMBO ', '') : `×${mult.toFixed(2)}`;
-    renderer.text(active ? 'COMBO' : 'BONUS', x + cw / 2, y + ch * 0.32, { font: '800 13px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-    renderer.text(label, x + cw / 2, y + ch * 0.68, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-    renderer.restore();
-  }
-
-  /** Premium button that opens the floating-world restoration map. */
-  _drawWorldButton(renderer) {
-    const r = this._worldBtn;
-    UITheme.button(renderer, r.x, r.y, r.w, r.h, r.h / 2, UI.btn.teal, { shadow: true });
-    renderer.text(`◈ ${t('hud.worldMap')}`, r.centerX, r.centerY, {
-      font: '900 22px system-ui, sans-serif', color: '#fff',
-      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 3,
-    });
   }
 
   /** Premium round pause button (top-left). */
@@ -720,10 +685,6 @@ export class HudScreen extends Screen {
           if (b.rect.contains(px, py)) { booster.arm(b.def.id); return true; }
         }
       }
-    }
-    if (this._worldBtn.contains(px, py)) {
-      this.events.emit('ui:openWorldMap');
-      return true;
     }
     if (this._pauseBtn.contains(px, py)) {
       this.events.emit('ui:openPause');

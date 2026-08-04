@@ -270,9 +270,11 @@ export class DriftSystem extends System {
     this._arrow(r, cx, cy, dir, 13, '#fff');
     r.setAlpha(1);
 
-    // Label + cost.
-    r.text('STEER', bt.x + 92, cy - 12, { font: '900 15px system-ui, sans-serif', color: '#eaf4ff', baseline: 'middle', outline: 'rgba(20,44,92,0.5)', outlineWidth: 3 });
-    r.text(`⚡${this._steerCost}`, bt.x + 92, cy + 12, { font: '800 15px system-ui, sans-serif', color: afford ? '#ffd36a' : '#9fb0c8', baseline: 'middle', outline: 'rgba(20,44,92,0.5)', outlineWidth: 3 });
+    // Just the energy cost beneath the glyph — no wordy label.
+    r.text(`⚡${this._steerCost}`, cx, cy + rad + 13, {
+      font: '800 15px system-ui, sans-serif', color: afford ? '#ffd36a' : '#9fb0c8',
+      align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.5)', outlineWidth: 3,
+    });
   }
 
   /** A chunky chevron/arrow pointing along `dir`. */
