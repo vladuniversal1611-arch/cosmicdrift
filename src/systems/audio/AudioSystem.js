@@ -34,7 +34,7 @@ const SFX = {
     a._tone({ freq: 392, type: 'sine', dur: 0.13, gain: 0.22 });
     a._tone({ freq: 587, type: 'sine', dur: 0.11, gain: 0.14, delay: 0.02 });
   },
-  invalid: (a) => a._tone({ freq: 150, type: 'sawtooth', dur: 0.18, sweep: 0.7, gain: 0.16 }),
+  invalid: (a) => a._tone({ freq: 233, type: 'sine', dur: 0.16, sweep: 0.82, gain: 0.13 }),
   clear: (a) => {
     // Ascending shimmer.
     [523, 659, 784, 1046].forEach((f, i) =>
@@ -65,6 +65,23 @@ const SFX = {
     [523, 659, 784, 1046, 1319, 1568].forEach((f, i) =>
       a._tone({ freq: f, type: 'triangle', dur: 0.4, gain: 0.15, delay: i * 0.09 }));
   },
+};
+
+/**
+ * Gentle piano background music — a calm, always-consonant loop so the score is
+ * melodic and soothing, never harsh. A classic "Axis" progression (Am–F–C–G,
+ * all diatonic to C major) is arpeggiated as soft piano notes with an occasional
+ * light melody note from the C-major pentatonic (no dissonance possible).
+ */
+const MUSIC = {
+  stepDur: 0.36,          // one eighth note (~calm tempo)
+  progression: [
+    { bass: 110.00, arp: [220.00, 261.63, 329.63, 440.00] }, // Am
+    { bass: 87.31, arp: [174.61, 220.00, 261.63, 349.23] },  // F
+    { bass: 130.81, arp: [261.63, 329.63, 392.00, 523.25] }, // C
+    { bass: 98.00, arp: [196.00, 246.94, 293.66, 392.00] },  // G
+  ],
+  melody: [523.25, 587.33, 659.25, 783.99, 880.00],          // C-major pentatonic
 };
 
 export class AudioSystem extends System {
@@ -111,7 +128,56 @@ export class AudioSystem extends System {
     if (this._unlocked || !this._ctx) return;
     if (this._ctx.state === 'suspended') this._ctx.resume();
     this._unlocked = true;
+    this._startMusic();
     this.events.emit('audio:unlocked');
+  }
+
+  // --- Melodic piano background music ----------------------------------------
+
+  /** A soft, piano-like note: sine partials, quick attack, long decay. */
+  _piano(freq, dur, gain, t0) {
+    const ctx = this._ctx;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);   // percussive attack
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);   // long, mellow decay
+    out.connect(this._musicBus);
+    for (const [mult, amp] of [[1, 1], [2, 0.3], [3, 0.1]]) {   // fundamental + octave + 12th
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq * mult;
+      const g = ctx.createGain();
+      g.gain.value = amp;
+      osc.connect(g).connect(out);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    }
+  }
+
+  /** Begin the looping piano score (idempotent; starts after audio unlock). */
+  _startMusic() {
+    if (this._musicOn || !this._ctx) return;
+    this._musicOn = true;
+    this._bar = 0;
+    this._step = 0;
+    this._nextTime = this._ctx.currentTime + 0.15;
+    this._musicTimer = setInterval(() => this._scheduleMusic(), 30);
+  }
+
+  /** Lookahead scheduler: queue any notes due within the next ~0.2s. */
+  _scheduleMusic() {
+    if (!this._ctx) return;
+    while (this._nextTime < this._ctx.currentTime + 0.2) {
+      const chord = MUSIC.progression[this._bar % MUSIC.progression.length];
+      const step = this._step, t = this._nextTime;
+      if (step === 0) this._piano(chord.bass, 1.9, 0.13, t);                 // soft bass root
+      if (step % 2 === 0) this._piano(chord.arp[(step / 2) % chord.arp.length], 0.95, 0.08, t); // arpeggio
+      else if (Math.random() < 0.38) {                                        // light melody sparkle
+        this._piano(MUSIC.melody[(Math.random() * MUSIC.melody.length) | 0], 0.7, 0.05, t);
+      }
+      this._nextTime += MUSIC.stepDur;
+      if (++this._step >= 8) { this._step = 0; this._bar++; }
+    }
   }
 
   _onSettingChanged({ key }) {
@@ -187,6 +253,7 @@ export class AudioSystem extends System {
   }
 
   onDestroy() {
+    if (this._musicTimer) clearInterval(this._musicTimer);
     if (this._ctx) this._ctx.close();
   }
 }
