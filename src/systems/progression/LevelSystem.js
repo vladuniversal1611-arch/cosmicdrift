@@ -63,9 +63,13 @@ export class LevelSystem extends System {
     this._progress = save.registerSlice('progress', () => ({ level: 1, highest: 1 }));
     this.level = this._progress.level ?? 1;
 
-    this.listen('game:started', () => this.beginLevel(this.level));
+    this.listen('game:started', ({ mode } = {}) => {
+      this._endless = mode === 'endless';
+      if (this._endless) this.beginEndless();
+      else this.beginLevel(this.level);
+    });
     // A level is now cleared when its OBJECTIVES are all met (not a score goal).
-    this.listen('objectives:allComplete', () => this._completeLevel());
+    this.listen('objectives:allComplete', () => { if (!this._endless) this._completeLevel(); });
     this.listen('board:clearComplete', () => this._maybeAdvance());
   }
 
@@ -113,6 +117,26 @@ export class LevelSystem extends System {
       levelInWorld: this.levelInWorld,
       newMechanic,
       unlocked: [...unlocked],
+    });
+  }
+
+  /**
+   * Endless survival: one continuous plain board (no objective tiles, no level
+   * gate). The player places pieces for score until the board fills. Difficulty
+   * sits at a fair, varied middle so hands stay interesting without ramping into
+   * the objective-teaching layout.
+   */
+  beginEndless() {
+    this._pending = 0;
+    this.game.getSystem('tiles').buildLevel([], new Set(), 1);
+    this.events.emit('level:changed', {
+      level: 8,                 // a fair, varied piece-difficulty target
+      world: 0,
+      worldName: 'Endless',
+      levelInWorld: 0,
+      newMechanic: null,
+      unlocked: [],
+      endless: true,
     });
   }
 

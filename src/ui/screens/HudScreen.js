@@ -80,6 +80,7 @@ export class HudScreen extends Screen {
     // the UI on game:started) before this HUD exists, so it misses the initial
     // 'level:changed' / 'objectives:set'. Pull current state now; later levels
     // arrive live.
+    this._endless = this.game.getSystem('gameplay')?.isEndless ?? false;
     const levelSys = this.game.getSystem('level');
     if (levelSys) { this._level = levelSys.level ?? this._level; this._worldName = levelSys.worldName ?? this._worldName; }
     const objs0 = this.game.getSystem('objectives')?.objectives;
@@ -113,6 +114,7 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('level:changed', (d) => {
       this._level = d.level;
       this._worldName = d.worldName;
+      this._endless = !!d.endless;
       if (d.newMechanic) {
         this._banner = {
           title: `WORLD ${d.world} · ${d.worldName}`,
@@ -468,11 +470,11 @@ export class HudScreen extends Screen {
   /** Level title, centred above the score. */
   _drawLevel(renderer) {
     const cx = this.bounds.centerX;
-    renderer.text(`LEVEL ${this._level}`, cx, this.bounds.h * 0.04, {
+    renderer.text(this._endless ? 'ENDLESS' : `LEVEL ${this._level}`, cx, this.bounds.h * 0.04, {
       font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
-    if (this._worldName) {
+    if (this._worldName && !this._endless) {
       renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.04 + 26, {
         font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,

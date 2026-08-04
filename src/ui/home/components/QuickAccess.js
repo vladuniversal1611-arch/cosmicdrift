@@ -15,6 +15,8 @@ import { Rect } from '../../../utils/Rect.js';
 
 /** Shortcut descriptors. Island/Dragons lead; overflow wraps to more rows. */
 export const QUICK = [
+  { id: 'endless', label: 'ENDLESS', colors: UI.btn.orange, event: 'ui:playEndless',
+    icon: (r, x, y, s, c) => r.text('∞', x, y + 1, { font: `900 ${Math.round(s * 1.7)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
   { id: 'island', label: 'ISLAND', colors: UI.btn.teal, event: 'ui:openIsland', icon: (r, x, y, s, c) => Icons.island(r, x, y, s, c) },
   { id: 'worldmap', label: 'WORLD MAP', colors: UI.btn.blue, event: 'ui:openWorldMap', icon: (r, x, y, s, c) => Icons.map(r, x, y, s, c) },
   { id: 'dragons', label: 'DRAGONS', colors: UI.btn.pink, event: 'ui:openDragons', icon: (r, x, y, s, c) => Icons.dragon(r, x, y, s, c) },

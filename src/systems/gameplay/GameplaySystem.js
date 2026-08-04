@@ -53,7 +53,11 @@ export class GameplaySystem extends System {
     this._stats = save.registerSlice('stats', () => ({ best: 0 }));
     this.best = this._stats.best ?? 0;
 
-    this.listen('ui:playPressed', this.startGame);
+    // Two ways to play: the objective-driven campaign, and an endless survival
+    // run (no goals, play for score until the board fills). `ui:restart` keeps
+    // whatever mode the current run is in.
+    this.listen('ui:playPressed', () => { this.mode = 'campaign'; this.startGame(); });
+    this.listen('ui:playEndless', () => { this.mode = 'endless'; this.startGame(); });
     this.listen('ui:restart', this.startGame);
     this.listen('game:piecePlaced', this._onPiecePlaced);
     this.listen('game:linesCleared', this._onLinesCleared);
@@ -138,13 +142,16 @@ export class GameplaySystem extends System {
 
   startGame() {
     this.state = 'playing';
+    this.mode = this.mode ?? 'campaign';
     this.score = 0;
     this.combo = 0;
     this.energy = 0;
-    this.events.emit('game:started');
+    this.events.emit('game:started', { mode: this.mode });
     this._broadcast();
     this.events.emit('gameplay:stateChanged', { state: this.state, score: 0, best: this.best });
   }
+
+  get isEndless() { return this.mode === 'endless'; }
 
   _onGameOver() {
     if (this.state !== 'playing') return;

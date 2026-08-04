@@ -46,10 +46,13 @@ export class ObjectivesSystem extends System {
 
   // --- Building the level's objective set ------------------------------------
 
-  _build({ level, levelInWorld, newMechanic, unlocked }) {
+  _build({ level, levelInWorld, newMechanic, unlocked, endless }) {
     this._teardownEventBindings();
     this.objectives = [];
     this._allDone = false;
+
+    // Endless mode has no goals — it's pure survival for score.
+    if (endless) { this.events.emit('objectives:set', { objectives: this.objectives }); return; }
 
     const unlockedSet = new Set(unlocked || []);
     const rng = new Random(level * 0x2545f491);
