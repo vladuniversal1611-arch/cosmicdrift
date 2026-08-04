@@ -71,6 +71,8 @@ export class LevelSystem extends System {
     // A level is now cleared when its OBJECTIVES are all met (not a score goal).
     this.listen('objectives:allComplete', () => { if (!this._endless) this._completeLevel(); });
     this.listen('board:clearComplete', () => this._maybeAdvance());
+    // Endless difficulty ramp: the longer you survive, the harder the hands get.
+    this.listen('game:linesCleared', ({ count = 1 }) => { if (this._endless) this._rampEndless(count); });
   }
 
   /** Furthest level the player has reached (drives the World Map unlock line). */
@@ -128,9 +130,12 @@ export class LevelSystem extends System {
    */
   beginEndless() {
     this._pending = 0;
+    this._endlessLevel = 8;     // starting piece-difficulty target
+    this._endlessLines = 0;
+    this._endlessTier = 0;
     this.game.getSystem('tiles').buildLevel([], new Set(), 1);
     this.events.emit('level:changed', {
-      level: 8,                 // a fair, varied piece-difficulty target
+      level: this._endlessLevel,
       world: 0,
       worldName: 'Endless',
       levelInWorld: 0,
@@ -138,6 +143,29 @@ export class LevelSystem extends System {
       unlocked: [],
       endless: true,
     });
+  }
+
+  /** Current endless difficulty tier (0-based), for the HUD "DEPTH" readout. */
+  get endlessTier() { return this._endlessTier ?? 0; }
+
+  /**
+   * Escalate endless difficulty with survival: every few cleared lines, nudge
+   * the piece-difficulty target up a step (capped). Applied without refilling —
+   * it takes effect on the next natural tray refill.
+   */
+  _rampEndless(count) {
+    const LINES_PER_TIER = 6, STEP = 4, CAP = 60;
+    this._endlessLines += count;
+    let ramped = false;
+    while (this._endlessLines >= (this._endlessTier + 1) * LINES_PER_TIER && this._endlessLevel < CAP) {
+      this._endlessTier++;
+      this._endlessLevel = Math.min(CAP, this._endlessLevel + STEP);
+      ramped = true;
+    }
+    if (ramped) {
+      this.game.getSystem('pieces')?.setDifficultyLevel(this._endlessLevel);
+      this.events.emit('endless:ramp', { tier: this._endlessTier, level: this._endlessLevel });
+    }
   }
 
   /** Objectives all met → queue the next level (advances after the clear settles). */

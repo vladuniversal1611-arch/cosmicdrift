@@ -89,6 +89,14 @@ export class PieceSystem extends System {
   /** True while the player is dragging a relic (drift waits for this to end). */
   get isDragging() { return !!this._drag; }
 
+  /**
+   * Set the difficulty level used to tune generated trays, WITHOUT refilling —
+   * the higher difficulty takes effect on the next natural refill (when the tray
+   * empties), so it never yanks pieces out from under the player. Used by the
+   * endless ramp.
+   */
+  setDifficultyLevel(n) { this._level = n; }
+
   // --- Tray management -------------------------------------------------------
 
   /**

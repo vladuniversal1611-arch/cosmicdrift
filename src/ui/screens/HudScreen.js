@@ -143,6 +143,9 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('achievement:unlocked', ({ def }) => {
       this._toast = { text: `🏆 ${def.name.toUpperCase()}`, color: Palette.gold, t: 2.8 };
     }));
+    this._subs.push(this.events.on('endless:ramp', ({ tier }) => {
+      this._toast = { text: `DEPTH ${tier + 1} — HARDER PIECES`, color: Palette.accent, t: 2.4 };
+    }));
     this._subs.push(this.events.on('world:taskUnlocked', ({ task }) => {
       this._banner = { title: 'NEW RESTORATION', sub: `${task.name} — open the World Map ◈`, t: 3.6 };
     }));
@@ -474,7 +477,13 @@ export class HudScreen extends Screen {
       font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
-    if (this._worldName && !this._endless) {
+    if (this._endless) {
+      const tier = this.game.getSystem('level')?.endlessTier ?? 0;
+      renderer.text(`DEPTH ${tier + 1}`, cx, this.bounds.h * 0.04 + 26, {
+        font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
+      });
+    } else if (this._worldName) {
       renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.04 + 26, {
         font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
