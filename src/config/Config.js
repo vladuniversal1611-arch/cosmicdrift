@@ -199,6 +199,12 @@ export const Config = Object.freeze({
     events: true,
     shop: true,
     boosters: true,
+    drift: true,
+  }),
+
+  /** Cosmic Drift: the board drifts one pull every N placements. */
+  drift: Object.freeze({
+    everyPlacements: 5,
   }),
 
   /** Developer aids. Disabled automatically outside the 'dev' channel. */

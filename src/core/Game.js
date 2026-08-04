@@ -47,6 +47,7 @@ import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
 import { AchievementSystem } from '../systems/achievements/AchievementSystem.js';
+import { DriftSystem } from '../systems/drift/DriftSystem.js';
 import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
 import { DebugManager } from '../systems/debug/DebugManager.js';
@@ -149,6 +150,9 @@ export class Game {
     this.systems.register(new PieceSystem(this));
     // In-level power-ups (additive help; never feeds score/objectives).
     if (f.boosters) this.systems.register(new BoosterSystem(this));
+    // Cosmic Drift: the signature board-drift mechanic (renders its telegraph
+    // above the board, so it is registered after BoardSystem).
+    if (f.drift) this.systems.register(new DriftSystem(this));
 
     // Presentation — updated after gameplay, drawn on top.
     this.systems.register(new AnimationSystem(this));

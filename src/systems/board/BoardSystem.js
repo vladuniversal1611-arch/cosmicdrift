@@ -47,6 +47,8 @@ export class BoardSystem extends System {
     this._hover = null;
     /** True while a clear sequence is animating. */
     this._clearing = false;
+    /** True while a drift slide is settling; resolves clears when it lands. */
+    this._driftPending = false;
   }
 
   onInit() {
@@ -188,15 +190,100 @@ export class BoardSystem extends System {
     return true;
   }
 
+  // --- Cosmic Drift ----------------------------------------------------------
+
+  /** A cell that blocks a drifting crystal (immovable): a structure or a
+   *  placement-blocking tile, or the grid edge (null). */
+  _isDriftWall(cell) {
+    return !cell || !!cell.structure || !!(cell.tile && cell.tile.blocksPlacement);
+  }
+
+  /**
+   * The signature "Cosmic Drift": slide every loose crystal one pull toward
+   * `dir` ({dx,dy}), compacting each open run against the drift side (2048-style,
+   * deterministic). Structures and blocking tiles act as walls that split a line
+   * into independently-compacting segments; terrain tiles stay put (only the
+   * crystal on top slides). After the slide settles, completed lines resolve
+   * through the normal clear pipeline. Returns the number of crystals moved.
+   */
+  applyDrift(dir) {
+    const g = this.grid;
+    const vertical = dir.dy !== 0;
+    const positive = (dir.dx + dir.dy) > 0;      // down / right → toward higher index
+    const lines = vertical ? g.columns : g.rows;
+    const span = vertical ? g.rows : g.columns;
+    const at = (line, k) => (vertical ? g.get(line, k) : g.get(k, line));
+    const dur = 0.2;
+    let moved = 0;
+
+    for (let line = 0; line < lines; line++) {
+      let seg = [];
+      const flush = () => { if (seg.length) { moved += this._compactSegment(seg, positive, vertical, dur); seg = []; } };
+      for (let k = 0; k < span; k++) {
+        const cell = at(line, k);
+        if (this._isDriftWall(cell)) flush();
+        else seg.push(cell);
+      }
+      flush();
+    }
+
+    if (moved > 0) {
+      this._driftPending = true;
+      const a = this._area;
+      this.events.emit('fx:shake', { mag: 7 });
+      this.events.emit('fx:flash', { color: '#bfe4ff', strength: 0.08 });
+      this.events.emit('fx:burst', { x: a.centerX + dir.dx * a.w * 0.3, y: a.centerY + dir.dy * a.h * 0.3, color: '#8fd6ff', count: 14 });
+      this.game.getSystem('audio')?.play('place', { rate: 0.7 });
+    }
+    return moved;
+  }
+
+  /**
+   * Compact the movable crystals in one open segment (a run of non-wall cells)
+   * toward the drift side, preserving their order, and start each moved
+   * crystal's slide animation. Terrain tiles are untouched.
+   */
+  _compactSegment(cells, positive, vertical, dur) {
+    const items = [];
+    cells.forEach((c, i) => { if (c.filled) items.push({ mat: c.materialKey, fromIdx: i }); });
+    // An empty run has nothing to move; a completely full run cannot shift.
+    if (items.length === 0 || items.length === cells.length) return 0;
+    // Empty every crystal in the run (tiles/structures stay).
+    for (const c of cells) if (c.filled) { c.filled = false; c.materialKey = null; c.placeDur = 0; c.placeT = 0; }
+    const L = cells.length, n = items.length;
+    let moved = 0;
+    for (let j = 0; j < n; j++) {
+      const it = positive ? items[n - 1 - j] : items[j];
+      const destIdx = positive ? (L - 1 - j) : j;
+      const dest = cells[destIdx];
+      dest.fill(it.mat, 0);
+      const delta = it.fromIdx - destIdx;         // where it slid FROM, in cells
+      if (delta !== 0) {
+        moved++;
+        if (vertical) dest.beginDrift(0, delta, dur);
+        else dest.beginDrift(delta, 0, dur);
+      }
+    }
+    return moved;
+  }
+
   update(dt) {
     this._time += dt;
     let stillClearing = 0;
+    let stillDrifting = 0;
 
     this.grid.forEach((cell) => {
       // Landing animation timer.
       if (cell.placeDur > 0) {
         cell.placeT += dt;
         if (cell.placeT >= cell.placeDur) cell.placeDur = 0;
+      }
+
+      // Cosmic Drift slide timer.
+      if (cell.driftDur > 0) {
+        stillDrifting++;
+        cell.driftT += dt;
+        if (cell.driftT >= cell.driftDur) cell.driftDur = 0;
       }
 
       // Clear timeline: wait for the wave, then ignite → burst → sparks → empty.
@@ -223,6 +310,12 @@ export class BoardSystem extends System {
     if (this._clearing && stillClearing === 0) {
       this._clearing = false;
       this.events.emit('board:clearComplete');
+    }
+
+    // Once the drift slide settles, resolve any lines it completed.
+    if (this._driftPending && stillDrifting === 0) {
+      this._driftPending = false;
+      this.events.emit('board:checkClears');
     }
   }
 
@@ -263,7 +356,16 @@ export class BoardSystem extends System {
       if (cell.isClearing) this._drawClearingCell(renderer, x, y, size, cell);
       // Structured cells are drawn by the StructureSystem (as the risen
       // structure), so skip the plain-crystal draw for them here.
-      else if (cell.filled && !cell.structure) this._drawPlacedCell(renderer, x, y, size, cell);
+      else if (cell.filled && !cell.structure) {
+        // Cosmic Drift: slide the crystal in from where it drifted.
+        let px = x, py = y;
+        if (cell.driftDur > 0) {
+          const k = 1 - Easing.smooth(clamp(cell.driftT / cell.driftDur, 0, 1)); // 1 → 0
+          px += cell.driftDX * this.grid.stride * k;
+          py += cell.driftDY * this.grid.stride * k;
+        }
+        this._drawPlacedCell(renderer, px, py, size, cell);
+      }
       else if (!cell.filled && !cell.tile) this._drawAlive(renderer, x, y, size, cell);
 
       // Overlays that must sit above the crystal (fog, ice sheen, energy beams).

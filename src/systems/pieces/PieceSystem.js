@@ -86,6 +86,9 @@ export class PieceSystem extends System {
   /** The current tray band geometry ({ top, height, slotW, n }), or null. */
   get trayBand() { return this._trayBand ?? null; }
 
+  /** True while the player is dragging a relic (drift waits for this to end). */
+  get isDragging() { return !!this._drag; }
+
   // --- Tray management -------------------------------------------------------
 
   /**

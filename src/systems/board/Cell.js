@@ -57,6 +57,21 @@ export class Cell {
     /** One-shot guards so the burst/spark FX fire exactly once per clear. */
     this.igniteFired = false;
     this.sparkFired = false;
+
+    // --- Cosmic Drift slide animation ---
+    /** Cell-space offset the crystal visually slides FROM (eases to 0). */
+    this.driftDX = 0;
+    this.driftDY = 0;
+    this.driftT = 0;
+    this.driftDur = 0;      // 0 when no drift animation active
+  }
+
+  /** Start a drift slide animation: the crystal appears to come FROM (dx,dy) cells away. */
+  beginDrift(dx, dy, dur) {
+    this.driftDX = dx;
+    this.driftDY = dy;
+    this.driftT = 0;
+    this.driftDur = dur;
   }
 
   /** Fill with a material and kick off the landing animation. */
@@ -79,6 +94,10 @@ export class Cell {
     this.clearMaterial = null;
     this.igniteFired = false;
     this.sparkFired = false;
+    this.driftDX = 0;
+    this.driftDY = 0;
+    this.driftT = 0;
+    this.driftDur = 0;
   }
 
   /** True while a clear animation is scheduled or running. */
