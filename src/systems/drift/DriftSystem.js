@@ -22,6 +22,7 @@
 import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { Haptics } from '../../utils/Haptics.js';
+import { Rect } from '../../utils/Rect.js';
 
 /** Telegraphed rotation of drift pulls. */
 const DIRS = [
@@ -42,9 +43,17 @@ export class DriftSystem extends System {
     this._active = false;       // a run is in progress
     this._t = 0;
     this._flash = 0;            // brief post-drift telegraph flash
+    this._steerCost = Config.drift?.steerCost ?? 35;
+    this._steerBtn = null;      // fixed tap target, sized on init
+    this._steerFlash = 0;       // green pulse after a successful steer
+    this._denyFlash = 0;        // red pulse when steering is unaffordable
   }
 
   onInit() {
+    const c = this.game.canvas;
+    this._steerBtn = new Rect(c.width * 0.055, c.height * 0.80, 132, 96);
+
+    this.listen('input:tap', ({ x, y }) => this._onTap(x, y));
     this.listen('game:started', () => {
       this._active = true;
       this._left = this._every;
@@ -57,6 +66,33 @@ export class DriftSystem extends System {
   }
 
   get dir() { return DIRS[this._dir]; }
+
+  /** Steering is allowed during the countdown of a run, not mid-slide. */
+  get _canSteer() {
+    if (!this._active) return false;
+    const gp = this.game.getSystem('gameplay');
+    if (gp && !gp.isPlaying) return false;
+    if (this.game.getSystem('board')?._driftPending) return false;
+    return true;
+  }
+
+  _onTap(x, y) {
+    if (!this._canSteer || !this._steerBtn?.contains(x, y)) return;
+    const gp = this.game.getSystem('gameplay');
+    if (!gp) return;
+    if (gp.energy < this._steerCost) {
+      this._denyFlash = 0.7;
+      this.game.getSystem('audio')?.play('invalid');
+      return;
+    }
+    // Pay energy (trading against the Dragon ultimate) and rotate the next pull.
+    gp.addEnergy(-this._steerCost);
+    this._dir = (this._dir + 1) % DIRS.length;
+    this._steerFlash = 1;
+    this.game.getSystem('audio')?.play('pickup', { rate: 1.2 });
+    Haptics.light(this.game);
+    this.events.emit('drift:changed', { left: this._left, dir: DIRS[this._dir].id, steered: true });
+  }
 
   _onPlaced() {
     if (!this._active) return;
@@ -78,6 +114,8 @@ export class DriftSystem extends System {
   update(dt) {
     this._t += dt;
     if (this._flash > 0) this._flash = Math.max(0, this._flash - dt * 2);
+    if (this._steerFlash > 0) this._steerFlash = Math.max(0, this._steerFlash - dt * 2);
+    if (this._denyFlash > 0) this._denyFlash = Math.max(0, this._denyFlash - dt * 2);
     if (!this._active || !this._want || !this._free) return;
 
     const dir = DIRS[this._dir];
@@ -129,6 +167,42 @@ export class DriftSystem extends System {
       font: `900 ${this._want ? 15 : 22}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle',
     });
     r.setAlpha(1);
+
+    this._drawSteer(r, dir);
+  }
+
+  /** Fixed "STEER" control: rotate the incoming drift for Dragon Energy. */
+  _drawSteer(r, dir) {
+    const bt = this._steerBtn; if (!bt) return;
+    const gp = this.game.getSystem('gameplay');
+    const energy = gp?.energy ?? 0;
+    const afford = energy >= this._steerCost;
+    const ctx = r.ctx;
+    const cx = bt.x + 46, cy = bt.centerY;
+    const rad = 42;
+    const deny = this._denyFlash, ok = this._steerFlash;
+
+    // Body.
+    r.setAlpha(afford ? 1 : 0.55);
+    const col = deny > 0 ? '#ff5a6a' : (ok > 0 ? '#3fc86a' : (afford ? '#2a6fd6' : '#3a4a66'));
+    r.withGlow(afford ? '#5fa8ff' : 'rgba(0,0,0,0.2)', afford ? 10 : 2, () => r.fillCircle(cx, cy, rad, col));
+    r.strokeRoundRect(cx - rad, cy - rad, rad * 2, rad * 2, rad, 'rgba(255,255,255,0.7)', 2);
+
+    // Rotate glyph (arc + arrowhead) around the next-direction arrow.
+    ctx.save();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy, rad * 0.62, Math.PI * 0.15, Math.PI * 1.5); ctx.stroke();
+    const ax = cx + Math.cos(Math.PI * 1.5) * rad * 0.62, ay = cy + Math.sin(Math.PI * 1.5) * rad * 0.62;
+    ctx.fillStyle = '#fff'; ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(ax - 8, ay - 4); ctx.lineTo(ax - 2, ay + 8); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // The direction the next drift will pull, in the middle.
+    this._arrow(r, cx, cy, dir, 13, '#fff');
+    r.setAlpha(1);
+
+    // Label + cost.
+    r.text('STEER', bt.x + 92, cy - 12, { font: '900 15px system-ui, sans-serif', color: '#eaf4ff', baseline: 'middle', outline: 'rgba(20,44,92,0.5)', outlineWidth: 3 });
+    r.text(`⚡${this._steerCost}`, bt.x + 92, cy + 12, { font: '800 15px system-ui, sans-serif', color: afford ? '#ffd36a' : '#9fb0c8', baseline: 'middle', outline: 'rgba(20,44,92,0.5)', outlineWidth: 3 });
   }
 
   /** A chunky chevron/arrow pointing along `dir`. */

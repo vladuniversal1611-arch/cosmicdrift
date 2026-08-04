@@ -202,9 +202,12 @@ export const Config = Object.freeze({
     drift: true,
   }),
 
-  /** Cosmic Drift: the board drifts one pull every N placements. */
+  /** Cosmic Drift: the board drifts one pull every N placements. The player can
+   *  spend Dragon Energy to steer (rotate) the next pull — a tactical trade
+   *  against saving that energy for the Dragon Fire ultimate. */
   drift: Object.freeze({
     everyPlacements: 5,
+    steerCost: 35,
   }),
 
   /** Developer aids. Disabled automatically outside the 'dev' channel. */
