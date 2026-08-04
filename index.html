@@ -71,18 +71,30 @@ discover(){tone(440,.15,'sine',.1);setTimeout(()=>tone(554,.12,'sine',.1),100);s
 chest(){tone(330,.1,'triangle',.08);setTimeout(()=>tone(440,.1,'triangle',.08),80);setTimeout(()=>tone(550,.15,'triangle',.1),160)},
 hatch(){[262,330,392,523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.2+i*.03,'sine',.1+i*.01),i*100))}
 };
-let bgM=null;
-function startMusic(){
-if(!musicOn||bgM)return;
-const notes=[262,330,392,523,440,349,330,262];let idx=0;
-function pn(){if(!musicOn){bgM=null;return}
-const o=AC.createOscillator(),g=AC.createGain();o.type='sine';
-o.frequency.value=notes[idx%notes.length];
-g.gain.setValueAtTime(.02*masterVol,AC.currentTime);
-g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.95);
-o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+1);
-idx++;bgM=setTimeout(pn,1e3)}pn()}
-function stopMusic(){if(bgM){clearTimeout(bgM);bgM=null}}
+let bgM=null,curMusicWorld=-1;
+const WORLD_MUSIC=[
+{notes:[262,330,392,330,349,294,262,330],types:['sine','sine','triangle','sine','sine','triangle','sine','sine'],tempo:950,vol:.025},
+{notes:[330,415,494,554,494,415,370,330],types:['triangle','sine','triangle','sine','triangle','sine','triangle','triangle'],tempo:1100,vol:.02},
+{notes:[247,294,330,370,349,294,262,247],types:['sine','triangle','sine','sine','triangle','sine','triangle','sine'],tempo:1250,vol:.018},
+{notes:[349,440,523,587,523,494,440,349],types:['triangle','triangle','sine','triangle','sine','triangle','triangle','sine'],tempo:1050,vol:.022},
+{notes:[523,587,659,784,880,784,659,523],types:['sine','sine','sine','triangle','sine','sine','sine','sine'],tempo:900,vol:.02}
+];
+function startMusic(worldIdx){
+if(!musicOn)return;
+const wi=worldIdx??0;
+if(bgM&&curMusicWorld===wi)return;
+stopMusic();curMusicWorld=wi;
+const wm=WORLD_MUSIC[wi]||WORLD_MUSIC[0];let idx=0;
+function pn(){if(!musicOn){bgM=null;curMusicWorld=-1;return}
+const o=AC.createOscillator(),g=AC.createGain();
+o.type=wm.types[idx%wm.notes.length];
+o.frequency.value=wm.notes[idx%wm.notes.length];
+const v=wm.vol*masterVol;
+g.gain.setValueAtTime(v,AC.currentTime);
+g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+wm.tempo/1100);
+o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+wm.tempo/900);
+idx++;bgM=setTimeout(pn,wm.tempo)}pn()}
+function stopMusic(){if(bgM){clearTimeout(bgM);bgM=null;curMusicWorld=-1}}
 
 /*═══════════════════════════════════════════════════
   PARTICLES
@@ -191,8 +203,8 @@ const MAP_DECOS=[
 function makeLevels(){
 const L=[];
 // W1: Enchanted Meadow — mirrors
-L.push({w:0,orbs:[{x:.2,y:.2,dx:1.5,dy:.8}],targets:[{x:.8,y:.8,r:.07}],obj:[],ml:3,tip:'Draw lines to guide the light!'});
-L.push({w:0,orbs:[{x:.15,y:.15,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.07}],obj:[{t:'wall',x1:.5,y1:0,x2:.5,y2:.6}],ml:3});
+L.push({w:0,orbs:[{x:.2,y:.2,dx:1.5,dy:.8}],targets:[{x:.8,y:.8,r:.07}],obj:[],ml:3,tip:'Draw lines to guide the light!',hint:{x1:.4,y1:.5,x2:.7,y2:.7}});
+L.push({w:0,orbs:[{x:.15,y:.15,dx:2,dy:0}],targets:[{x:.85,y:.85,r:.07}],obj:[{t:'wall',x1:.5,y1:0,x2:.5,y2:.6}],ml:3,hint:{x1:.15,y1:.4,x2:.45,y2:.15}});
 L.push({w:0,orbs:[{x:.1,y:.5,dx:1.5,dy:0},{x:.9,y:.2,dx:-1.5,dy:1}],targets:[{x:.9,y:.5,r:.06},{x:.1,y:.8,r:.06}],obj:[],ml:4});
 L.push({w:0,orbs:[{x:.1,y:.1,dx:2,dy:.5}],targets:[{x:.1,y:.9,r:.06}],obj:[{t:'M',x:.7,y:.4,a:PI*.75,l:.12}],ml:2});
 L.push({w:0,orbs:[{x:.5,y:.1,dx:0,dy:2}],targets:[{x:.9,y:.1,r:.06}],obj:[{t:'M',x:.5,y:.6,a:PI*.25,l:.12,rot:1}],ml:2,tip:'Tap mirrors to rotate!'});
@@ -248,6 +260,15 @@ L.push({w:4,orbs:[{x:.1,y:.1,dx:1.5,dy:.5},{x:.9,y:.1,dx:-1.5,dy:.5}],targets:[{
 return L;
 }
 const LEVELS=makeLevels();
+// Auto-generate hints for levels that don't have one
+// Hint = a short line near the midpoint between first orb and first target
+for(const lv of LEVELS){if(!lv.hint){
+const o=lv.orbs[0],t=lv.targets[0];
+const mx=(o.x+t.x)/2,my=(o.y+t.y)/2;
+const dx=t.x-o.x,dy=t.y-o.y,len=Math.hypot(dx,dy)||1;
+const px=-dy/len*.08,py=dx/len*.08;
+lv.hint={x1:mx-px,y1:my-py,x2:mx+px,y2:my+py};
+}}
 
 /*═══════════════════════════════════════════════════
   SAVE
@@ -274,6 +295,8 @@ let uiBtn=[];
 let selectedWorld=0;
 let screenFade=0,screenFadeDir=0,screenFadeCb=null;
 let bonusLines=0;
+let hintUsed=false,hintAnim=0,showHint=false;
+let undoStack=[];
 
 /*═══════════════════════════════════════════════════
   COORDINATE HELPERS
@@ -309,6 +332,7 @@ const ld=LEVELS[idx];if(!ld)return;
 curLv=idx;orbs=[];lines=[];lvObjs=[];targets=[];
 linesUsed=0;collected=0;lvWon=false;lvLost=false;lvTime=0;winTimer=0;
 tipA=ld.tip?2.5:0;lvTip=ld.tip||'';
+hintUsed=false;hintAnim=0;showHint=false;undoStack=[];
 maxLines=(ld.ml||3)+bonusLines;bonusLines=0;
 totalTgts=ld.targets.length;
 for(const o of ld.orbs)orbs.push({x:gx(o.x),y:gy(o.y),dx:o.dx*SC*60,dy:o.dy*SC*60,r:8*SC,active:true,trail:[],absorbed:false,spawned:false,sd:.5});
@@ -451,7 +475,8 @@ drawLine={x1:cx,y1:cy,x2:cx,y2:cy};sfx.draw();
 }
 function moveDraw(cx,cy){if(!drawLine)return;const dx=cx-drawLine.x1,dy=cy-drawLine.y1,len=Math.hypot(dx,dy),mx=120*SC;
 if(len>mx){drawLine.x2=drawLine.x1+dx/len*mx;drawLine.y2=drawLine.y1+dy/len*mx}else{drawLine.x2=cx;drawLine.y2=cy}}
-function endDraw(){if(!drawLine)return;if(Math.hypot(drawLine.x2-drawLine.x1,drawLine.y2-drawLine.y1)>15*SC){lines.push({...drawLine,life:4,ml:4});linesUsed++}drawLine=null}
+function endDraw(){if(!drawLine)return;if(Math.hypot(drawLine.x2-drawLine.x1,drawLine.y2-drawLine.y1)>15*SC){const ln={...drawLine,life:4,ml:4};lines.push(ln);linesUsed++;undoStack.push(lines.length-1)}drawLine=null}
+function undoLine(){if(undoStack.length===0||lvWon||lvLost)return;const idx=undoStack.pop();if(idx<lines.length){lines.splice(idx,1);linesUsed=Math.max(0,linesUsed-1);sfx.click()}}
 
 C.addEventListener('pointerdown',e=>{e.preventDefault();resumeAC();if(state==='level'){startDraw(e.clientX,e.clientY);ptrDown=true}});
 C.addEventListener('pointermove',e=>{e.preventDefault();if(ptrDown&&state==='level')moveDraw(e.clientX,e.clientY)});
@@ -796,7 +821,10 @@ addB(W/2-bw/2,H*.52,bw,bh,'Play','play','primary');
 addB(W/2-bw/2,H*.52+bh+10,bw,bh*.75,'Collection','collection','small');
 addB(W/2-bw/2,H*.52+bh+10+bh*.75+10,bw,bh*.75,'Settings','settings','small')}
 function setupMap(){clearUI();addB(14,8,42,42,'←','back_menu','small');addB(W-56,8,42,42,'📦','collection','small')}
-function setupLevel(){clearUI();addB(14,8,42,42,'←','back_map','small');const rw=90*SC;addB(W/2-rw/2,H-52,rw,32,'Restart','restart','small')}
+function setupLevel(){clearUI();addB(14,8,42,42,'←','back_map','small');
+const rw=72*SC;addB(W/2-rw/2,H-52,rw,32,'Restart','restart','small');
+addB(W/2-rw/2-rw-10,H-52,rw,32,'↩ Undo','undo','small');
+if(!hintUsed)addB(W/2+rw/2+10,H-52,rw,32,'💡 Hint','hint','small')}
 function setupWin(){clearUI();const bw=150*SC,bh=42*SC;
 addB(W/2-bw/2,H*.62,bw,bh,'Next Level','next','primary');
 addB(W/2-bw/2,H*.62+bh+8,bw,bh*.7,'Replay','replay','small');
@@ -829,7 +857,7 @@ else if(a==='collection'){prevState=state;state='collection';setupCollection()}
 else if(a==='restart'||a==='retry'||a==='replay'){resize();initLevel(curLv);state='level';setupLevel()}
 else if(a==='next'){
 if(milestoneQueue.length>0){curMilestone=milestoneQueue.shift();milestoneTimer=0;state='milestone';setupMilestone();sfx.milestone();megaConfetti(40);return}
-if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();maybeRandomEvent(curLv)}
+if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();startMusic(LEVELS[curLv]?.w);maybeRandomEvent(curLv)}
 else{state='map';setupMap()}}
 else if(a==='to_map'){state='map';setupMap()}
 else if(a==='toggle_sfx'){sfxOn=!sfxOn;doSave();setupSettings()}
@@ -837,12 +865,14 @@ else if(a==='toggle_music'){musicOn=!musicOn;if(!musicOn)stopMusic();doSave();se
 else if(a==='reset'){save={lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},settings:{sfx:true,music:true}};doSave();sfxOn=true;musicOn=true;state='menu';setupMenu()}
 else if(a==='milestone_done'){
 if(milestoneQueue.length>0){curMilestone=milestoneQueue.shift();milestoneTimer=0;sfx.milestone();megaConfetti(40)}
-else if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();maybeRandomEvent(curLv)}
+else if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();startMusic(LEVELS[curLv]?.w);maybeRandomEvent(curLv)}
 else{state='map';setupMap()}}
 else if(a==='event_accept'){applyEventReward();state='level';setupLevel()}
 else if(a==='event_skip'){curEvent=null;state='level';setupLevel()}
+else if(a==='undo'){undoLine()}
+else if(a==='hint'){if(!hintUsed){hintUsed=true;showHint=true;hintAnim=0;sfx.chest()}}
 else if(a==='ad_lines'){bonusLines=2;resize();initLevel(curLv);state='level';setupLevel()}
-else if(a.startsWith('node_')){const idx=+a.slice(5);resize();initLevel(idx);state='level';setupLevel();startMusic()}
+else if(a.startsWith('node_')){const idx=+a.slice(5);resize();initLevel(idx);state='level';setupLevel();startMusic(LEVELS[idx]?.w)}
 }
 
 function scrollToCurrentLevel(){
@@ -935,7 +965,9 @@ if(state==='menu'){drawMenu();setupMenu();drawUI()}
 else if(state==='map'){drawMap();setupMap();drawUI()}
 else if(state==='collection'){drawCollection();setupCollection();drawUI()}
 else if(state==='level'){
-const wd=WORLDS[LEVELS[curLv]?.w||0];drawBG(wd.bg1,wd.bg2);drawField();drawLvObjs();drawLines();drawTargets();drawOrbs();drawP();drawHUD();setupLevel();drawUI();
+const wd=WORLDS[LEVELS[curLv]?.w||0];drawBG(wd.bg1,wd.bg2);drawField();drawLvObjs();drawLines();
+if(showHint){hintAnim+=dt;const h=LEVELS[curLv]?.hint;if(h){const ha=clamp(hintAnim*2,0,1)*(.4+.2*Math.sin(gameTime*4));X.globalAlpha=ha;X.strokeStyle='#fbbf24';X.lineWidth=3*SC;X.setLineDash([6,6]);X.lineCap='round';X.shadowColor='#fbbf24';X.shadowBlur=8;X.beginPath();X.moveTo(gx(h.x1),gy(h.y1));X.lineTo(gx(h.x2),gy(h.y2));X.stroke();X.setLineDash([]);X.shadowBlur=0;X.globalAlpha=1;if(hintAnim>6)showHint=false}}
+drawTargets();drawOrbs();drawP();drawHUD();setupLevel();drawUI();
 if(lvWon){drawWin(dt);if(winTimer>1.5){if(milestoneQueue.length===0)setupWin();drawUI()}}
 if(lvLost){drawLose();setupLose();drawUI()}
 }
