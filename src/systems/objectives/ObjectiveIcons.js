@@ -21,6 +21,17 @@ const ICONS = {
     r.fillRoundRect(cx - s * 0.8, cy - s * 0.8, s * 1.6, s * 1.6, s * 0.3, color);
     r.ctx.globalAlpha = 0.5; r.sparkle(cx - s * 0.2, cy - s * 0.2, s * 0.5, '#fff'); r.ctx.globalAlpha = 1;
   },
+  drift(r, cx, cy, s, color) { // drifting wind chevrons (>>)
+    const ctx = r.ctx; ctx.strokeStyle = color; ctx.lineWidth = s * 0.32; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < 2; i++) {
+      const dx = (i - 0.5) * s * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx + dx - s * 0.35, cy - s * 0.6);
+      ctx.lineTo(cx + dx + s * 0.35, cy);
+      ctx.lineTo(cx + dx - s * 0.35, cy + s * 0.6);
+      ctx.stroke();
+    }
+  },
   egg(r, cx, cy, s, color) {
     const ctx = r.ctx; ctx.fillStyle = color;
     ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.1, s * 0.7, s, 0, 0, Math.PI * 2); ctx.fill();

@@ -107,6 +107,9 @@ export class BoardSystem extends System {
     this._clearing = true;
     // `amount` mirrors `count` so the generic MissionSystem can accrue progress.
     this.events.emit('game:linesCleared', { count: lines.length, amount: lines.length });
+    // Lines completed by a Cosmic Drift also fire a distinct event so the
+    // drift-specific objective can teach the mechanic.
+    if (this._driftResolve) this.events.emit('drift:linesCleared', { count: lines.length, amount: lines.length });
     // Living Board: hand the resolved lines/cells to the TileSystem so tiles
     // (moss, crystal, frozen, dragon rune, treasure, tree, fog, corruption)
     // can react in sync with the clear.
@@ -312,10 +315,14 @@ export class BoardSystem extends System {
       this.events.emit('board:clearComplete');
     }
 
-    // Once the drift slide settles, resolve any lines it completed.
+    // Once the drift slide settles, resolve any lines it completed. Tag this
+    // resolve so lines completed BY the drift emit a distinct event that the
+    // "clear N lines by Drift" objective can count.
     if (this._driftPending && stillDrifting === 0) {
       this._driftPending = false;
+      this._driftResolve = true;
       this.events.emit('board:checkClears');
+      this._driftResolve = false;
     }
   }
 
