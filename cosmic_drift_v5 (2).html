@@ -462,7 +462,16 @@ const cdAds = (function(){
     if(!rewardReady){ await prepRewarded(); }
     if(!rewardReady){ onFail&&onFail(); return; }
     rewardEarned=false;
-    try{ const r=await plugin.showRewardVideoAd(); if(r) rewardEarned=true; }catch(e){}
+    try{
+      const dismissed=new Promise(res=>{
+        const evs=['onRewardedVideoAdDismissed','rewardAdDismissed','onAdDismissed'].map(ev=>{
+          try{return plugin.addListener(ev,()=>res());}catch(e){return null;}
+        });
+        setTimeout(()=>res(),60000);
+      });
+      await plugin.showRewardVideoAd();
+      await dismissed;
+    }catch(e){}
     rewardReady=false; prepRewarded();
     if(rewardEarned) onReward&&onReward(); else onFail&&onFail();
   }
