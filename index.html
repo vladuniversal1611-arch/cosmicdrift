@@ -37,10 +37,9 @@
       position: fixed;
       inset: 0;
       display: block;
-      /* Extend into the safe area; the game keeps content within its margins. */
-      padding: env(safe-area-inset-top) env(safe-area-inset-right)
-               env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
+    /* The Canvas class positions this: fixed + centred on the viewport, rotated
+       90° in landscape so the game is always presented in portrait. */
     #game { display: block; }
   </style>
 </head>
@@ -49,6 +48,28 @@
   <div id="stage">
     <canvas id="game"></canvas>
   </div>
+
+  <!-- Immersive portrait: on the first tap, go fullscreen (hides the phone's
+       top status bar / clock shutter) and lock to portrait where the platform
+       allows it. Both are wrapped so an unsupported browser silently no-ops;
+       the Canvas class also rotates to portrait as a guaranteed fallback. -->
+  <script>
+    (function () {
+      function goImmersive() {
+        try {
+          var el = document.documentElement;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+          if (req) { var p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(function () {}); }
+        } catch (e) {}
+        try {
+          if (screen.orientation && screen.orientation.lock) {
+            var q = screen.orientation.lock('portrait'); if (q && q.catch) q.catch(function () {});
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('pointerdown', goImmersive, { once: true });
+    })();
+  </script>
 
   <!-- ES modules keep the architecture cleanly separated. For Android WebView
        export, bundle to a single file (see README) since file:// + modules
