@@ -259,9 +259,11 @@ export class PieceSystem extends System {
     // dust bursting from the landing point.
     const mat = piece.material;
     const ctr = this._grid.cellCenter(col + (piece.width - 1) / 2, row + (piece.height - 1) / 2);
-    this.events.emit('fx:shake', { mag: 3 });
-    this.events.emit('fx:ripple', { x: ctr.x, y: ctr.y, color: mat.glow, radius: this._grid.cellSize * 2 });
-    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: mat.spark, count: 9 });
+    // Placement is the calm, frequent action — keep its feedback light (a soft
+    // ripple + a few sparks). Screen-shake is reserved for impactful events
+    // (clears, drift, the dragon) so it stays meaningful.
+    this.events.emit('fx:ripple', { x: ctr.x, y: ctr.y, color: mat.glow, radius: this._grid.cellSize * 1.8 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: mat.spark, count: 5 });
 
     this.events.emit('game:piecePlaced', {
       amount: 1, blocks: piece.blockCount, material: piece.materialKey,

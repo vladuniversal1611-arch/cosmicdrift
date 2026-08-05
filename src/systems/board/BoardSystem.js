@@ -344,14 +344,15 @@ export class BoardSystem extends System {
   _explode(cell) {
     const { x, y } = this.grid.cellCenter(cell.col, cell.row);
     const mat = Palette.materials[cell.clearMaterial] ?? Palette.materials.amethyst;
-    this.events.emit('fx:burst', { x, y, color: mat.spark, count: 16 });
-    this.events.emit('fx:burst', { x, y, color: mat.glow, count: 8 });
+    // One tidy burst per cell (a full 8-cell line is ~80 particles, not ~190) —
+    // still lively, no longer a screen-filling smear.
+    this.events.emit('fx:burst', { x, y, color: mat.spark, count: 9 });
   }
 
   _sparks(cell) {
     const { x, y } = this.grid.cellCenter(cell.col, cell.row);
     const mat = Palette.materials[cell.clearMaterial] ?? Palette.materials.amethyst;
-    this.events.emit('fx:burst', { x, y, color: mat.spark, count: 5 });
+    this.events.emit('fx:burst', { x, y, color: mat.spark, count: 3 });
   }
 
   // --- Rendering -------------------------------------------------------------

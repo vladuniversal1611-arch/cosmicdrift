@@ -165,7 +165,7 @@ export class HudScreen extends Screen {
     const board = this.game.getSystem('board')?.area;
     if (!board) return;
     this._beam = Math.min(1, 0.5 + count * 0.2);
-    const n = Math.min(24, 8 + count * 6);
+    const n = Math.min(14, 5 + count * 3);
     for (let i = 0; i < n; i++) {
       this._coins.push({
         x: board.centerX + (Math.random() - 0.5) * board.w * 0.6,
