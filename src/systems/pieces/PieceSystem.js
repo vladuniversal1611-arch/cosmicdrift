@@ -319,26 +319,43 @@ export class PieceSystem extends System {
     const gameplay = this.game.getSystem('gameplay');
     if (gameplay && !gameplay.isPlaying) return;
     if (!this._grid || this.tray.length === 0) return;
-    let placeable = 0;
-    for (const p of this.tray) if (this._grid.canPlaceAnywhere(p)) placeable++;
-    if (placeable === 0) { this.events.emit('game:over', {}); return; }
-    this._emitDanger(placeable);
+    // Count the ACTUAL legal placements left on the board for the current tray
+    // (summed over the pieces still in it). Game over when zero.
+    let positions = 0;
+    for (const p of this.tray) positions += this._countPlacements(p);
+    if (positions === 0) { this.events.emit('game:over', {}); return; }
+    this._emitDanger(positions);
+  }
+
+  /** How many board cells this piece can legally be dropped on right now. */
+  _countPlacements(piece) {
+    let n = 0;
+    for (let r = 0; r < this._grid.rows; r++) {
+      for (let c = 0; c < this._grid.columns; c++) {
+        if (this._grid.canPlace(piece, c, r)) n++;
+      }
+    }
+    return n;
   }
 
   /**
-   * Broadcast how close the board is to a dead end (0 = calm, 1 = critical), so
-   * the board can raise a "you're nearly stuck" tension effect. Danger rises as
-   * free space shrinks and, more sharply, when only one or two tray pieces can
-   * be placed at all. Cheap (one grid pass on an 8×8).
+   * Broadcast how close the board is to a dead end (0 = calm, 1 = critical) so
+   * the board can raise a "you're nearly stuck" tension effect. The strong cue
+   * is driven by how few legal PLACEMENTS remain on the board — so it fires when
+   * the board is genuinely running out of room, NOT merely because the tray is
+   * down to its last piece. A gentle fullness term adds a faint warmth as the
+   * board packs up. Cheap (runs only on board changes, never per frame).
    */
-  _emitDanger(placeable) {
+  _emitDanger(positions) {
     let empty = 0;
     this._grid.forEach((c) => {
       if (!(c.filled || c.structure || (c.tile && c.tile.blocksPlacement))) empty++;
     });
-    const spaceDanger = clamp((18 - empty) / 13, 0, 1);          // 0 at ≥18 free, 1 at ≤5
-    const optionDanger = placeable <= 1 ? 0.78 : placeable === 2 ? 0.42 : 0;
-    const level = clamp(Math.max(spaceDanger, optionDanger), 0, 1);
+    // Faint ambient warmth only once the board is fairly packed.
+    const spaceDanger = clamp((12 - empty) / 10, 0, 1) * 0.55;
+    // The real flash: few legal spots left. positions ≤ 1 == one move from stuck.
+    const stuckDanger = positions <= 1 ? 1 : positions <= 3 ? 0.8 : positions <= 6 ? 0.5 : positions <= 12 ? 0.25 : 0;
+    const level = clamp(Math.max(spaceDanger, stuckDanger), 0, 1);
     this.events.emit('board:danger', { level });
   }
 
