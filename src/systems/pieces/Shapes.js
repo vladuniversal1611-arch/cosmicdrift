@@ -42,6 +42,14 @@ export const Shapes = Object.freeze({
   zShape: { blocks: [[0, 0], [1, 0], [1, 1], [2, 1]], weight: 2 },
   zShapeV: { blocks: [[1, 0], [0, 1], [1, 1], [0, 2]], weight: 2 },
 
+  // Diagonal "staircase" pieces — blocks that step corner-to-corner (they touch
+  // only at the corners, leaving gaps). Tricky to place well, so a spice, not a
+  // staple. Both a 2-step diagonal and a 3-step staircase, each way.
+  diagDown: { blocks: [[0, 0], [1, 1]], weight: 2 },
+  diagUp: { blocks: [[1, 0], [0, 1]], weight: 2 },
+  stairsDown: { blocks: [[0, 0], [1, 1], [2, 2]], weight: 2 },
+  stairsUp: { blocks: [[2, 0], [1, 1], [0, 2]], weight: 2 },
+
   // Big showpieces (both diagonals) + the plus.
   bigL: { blocks: [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]], weight: 2 },
   bigJ: { blocks: [[2, 0], [2, 1], [2, 2], [1, 2], [0, 2]], weight: 2 },
