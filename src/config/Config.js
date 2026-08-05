@@ -180,8 +180,9 @@ export const Config = Object.freeze({
   /** Persistence configuration for the SaveSystem. */
   save: Object.freeze({
     storageKey: 'cosmicdrift.save.v1',
-    /** Schema version, independent of build version, drives migrations. */
-    schemaVersion: 1,
+    /** Schema version, independent of build version, drives migrations.
+     *  v2: collapsed the 5-currency wallet to Gold + Gems. */
+    schemaVersion: 2,
     /** Debounce writes so rapid state changes don't thrash localStorage. */
     autosaveDebounceMs: 400,
   }),

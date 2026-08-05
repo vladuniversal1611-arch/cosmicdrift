@@ -153,7 +153,20 @@ export class SaveSystem extends System {
     let v = data.schemaVersion ?? 0;
     while (v < Config.save.schemaVersion) {
       Logger.info('SaveSystem', `migrating save v${v} -> v${v + 1}`);
-      // switch (v) { case 0: /* ...transform... */ break; }
+      switch (v) {
+        case 1:
+          // v1 -> v2: collapse the 5-currency wallet to Gold + Gems so no
+          // balance is lost when the economy was consolidated.
+          if (data.wallet && typeof data.wallet === 'object') {
+            const w = data.wallet;
+            let gold = w.gold || 0;
+            for (const k of ['coins', 'essence', 'materials', 'stardust']) gold += w[k] || 0;
+            const crystal = (w.crystal || 0) + (w.gems || 0);
+            data.wallet = { gold, crystal };
+          }
+          break;
+        default: break;
+      }
       v++;
     }
     data.schemaVersion = Config.save.schemaVersion;
