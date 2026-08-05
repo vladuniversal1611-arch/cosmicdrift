@@ -9,6 +9,7 @@
  */
 import { UI } from '../../theme/UITheme.js';
 import { Motion } from '../Motion.js';
+import { Config } from '../../../config/Config.js';
 
 export class Logo {
   constructor(game, safe) {
@@ -28,14 +29,24 @@ export class Logo {
   render(r) {
     const bob = Motion.float(this._t, 8, 3.6);
     const rot = Motion.rotate(this._t, 0.02, 5);
-    // Fill up to 45% of the screen width (≈ 'COSMIC' at 900 weight ≈ 3.6×size).
-    const size = Math.min(116, this.maxW / 3.6);
+    // The wordmark is driven by the game's name — a one-word name renders on a
+    // single line, a multi-word name splits first-word / rest across two lines.
+    // Type auto-scales so ANY name fits the capped width (rebrand = one config).
+    const name = (Config.meta.name || 'GAME').toUpperCase();
+    const parts = name.split(/\s+/).filter(Boolean);
+    const lines = parts.length >= 2 ? [parts[0], parts.slice(1).join(' ')] : [name];
+    const longest = Math.max(1, ...lines.map((l) => l.length));
+    const size = Math.min(116, this.maxW / (longest * 0.62));
     const ctx = r.ctx;
     ctx.save();
     ctx.translate(this.cx, this.cy + bob);
     ctx.rotate(rot);
-    this._word(r, 'COSMIC', 0, -size * 0.5, size, '#ffffff');
-    this._word(r, 'DRIFT', 0, size * 0.5, size, '#dff6ff');
+    if (lines.length === 2) {
+      this._word(r, lines[0], 0, -size * 0.5, size, '#ffffff');
+      this._word(r, lines[1], 0, size * 0.5, size, '#dff6ff');
+    } else {
+      this._word(r, lines[0], 0, 0, size, '#ffffff');
+    }
     ctx.restore();
 
     // Travelling sparkle across the wordmark.
