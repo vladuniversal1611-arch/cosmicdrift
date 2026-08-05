@@ -56,9 +56,9 @@ export const Palette = Object.freeze({
 
   /** Engraved empty cell "sockets" — soft light insets with a gentle blue glow. */
   socket: Object.freeze({
-    rim: '#cfe0f4',
-    faceTop: '#eef6ff',
-    faceBottom: '#d3e6fa',
+    rim: '#b6cfec',
+    faceTop: '#e4f0fd',
+    faceBottom: '#b8d3f0',
     innerGlow: 'rgba(34,183,255,0.14)',
   }),
 

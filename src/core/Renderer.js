@@ -23,6 +23,27 @@ export class Renderer {
     this.shakeY = 0;
     /** Cinematic camera zoom about the screen centre (1 = none). */
     this.zoom = 1;
+    /**
+     * Composable opacity. Every `setAlpha(a)` is multiplied by the current
+     * base, so a parent (e.g. a screen transition) can fade an entire subtree
+     * even though the children set their own local alphas and reset to 1. Push
+     * a base before rendering the subtree, pop it after.
+     */
+    this._alphaBase = 1;
+    this._alphaStack = [];
+  }
+
+  /** Multiply a fade over everything drawn until the matching popAlpha(). */
+  pushAlpha(a) {
+    this._alphaStack.push(this._alphaBase);
+    this._alphaBase *= a;
+    this.ctx.globalAlpha = this._alphaBase;
+  }
+
+  /** Restore the fade in force before the matching pushAlpha(). */
+  popAlpha() {
+    this._alphaBase = this._alphaStack.pop() ?? 1;
+    this.ctx.globalAlpha = this._alphaBase;
   }
 
   /** Begin a frame: apply the logical transform and clear the backing store. */
@@ -30,6 +51,10 @@ export class Renderer {
     const { ctx } = this;
     // Clear in device space, then switch to logical space for drawing.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Guard against an unbalanced push/pop leaking a fade across frames.
+    this._alphaBase = 1;
+    this._alphaStack.length = 0;
+    ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, this.canvas.el.width, this.canvas.el.height);
     this.canvas.applyTransform();
     // Apply screen shake to the whole scene. The WorldSystem overfills its
@@ -54,7 +79,7 @@ export class Renderer {
   translate(x, y) { this.ctx.translate(x, y); }
   rotate(rad) { this.ctx.rotate(rad); }
   scale(x, y) { this.ctx.scale(x, y); }
-  setAlpha(a) { this.ctx.globalAlpha = a; }
+  setAlpha(a) { this.ctx.globalAlpha = a * this._alphaBase; }
 
   // --- Primitives ------------------------------------------------------------
   fillRect(x, y, w, h, color) {

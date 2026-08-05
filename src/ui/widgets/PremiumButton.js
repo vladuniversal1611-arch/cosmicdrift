@@ -10,6 +10,7 @@
 import { Widget } from '../Widget.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { Easing } from '../../utils/Easing.js';
+import { Haptics } from '../../utils/Haptics.js';
 
 export class PremiumButton extends Widget {
   constructor(x, y, w, h, onPress, opts = {}) {
@@ -85,6 +86,7 @@ export class PremiumButton extends Widget {
   onTap() {
     if (!this.enabled) return false;
     this._pressAt = performance.now();
+    Haptics.select();   // a crisp tactile tick under every button press
     this.onPress();
     return true;
   }

@@ -57,11 +57,13 @@ export class PlayButton {
     const breathe = ready ? Motion.scale(this._t, 0.02, 2.2) : 1;
     const scale = this._scale * breathe;
 
-    // Glow (behind everything) — only when interactive.
+    // Glow (behind everything) — only when interactive. A soft, slightly warm
+    // mint bloom that breathes; kept low-alpha and wide so it reads as light
+    // pooling around the button, not a hard green band on the sky.
     if (ready) {
-      const g = 0.28 + Motion.pulse(this._t, 2.2) * 0.3;
+      const g = 0.16 + Motion.pulse(this._t, 2.2) * 0.2;
       r.setAlpha(g);
-      const grad = r.radialGradient(cx, cy, b.w * 0.7, [[0, 'rgba(120,240,140,0.9)'], [1, 'rgba(120,240,140,0)']]);
+      const grad = r.radialGradient(cx, cy, b.w * 0.9, [[0, 'rgba(158,246,186,0.62)'], [0.6, 'rgba(150,240,180,0.22)'], [1, 'rgba(150,240,180,0)']]);
       r.fillRect(cx - b.w, cy - b.h, b.w * 2, b.h * 2, grad);
       r.setAlpha(1);
     }

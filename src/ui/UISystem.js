@@ -16,6 +16,7 @@
  * -----------------------------------------------------------------------------
  */
 import { System } from '../core/System.js';
+import { Easing } from '../utils/Easing.js';
 import { HomeScreen } from './home/HomeScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
 import { WorldMapScreen } from './worldmap/WorldMapScreen.js';
@@ -37,6 +38,11 @@ export class UISystem extends System {
     /** @type {import('./Screen.js').Screen[]} */
     this._stack = [];
     this._lastReward = {};
+    // Cinematic transitions: the screen sliding/fading in, and (for pops) the
+    // screen fading out over the one it revealed. Every navigation animates so
+    // the game never hard-cuts between screens.
+    this._incoming = null; // { screen, t }
+    this._outgoing = null; // { screen, t }
   }
 
   onInit() {
@@ -102,6 +108,7 @@ export class UISystem extends System {
     this.top?.onExit();
     this._stack.push(screen);
     screen.onEnter();
+    this._incoming = { screen, t: 0 };
     this.events.emit('ui:screenChanged', { name: screen.name });
   }
 
@@ -109,20 +116,73 @@ export class UISystem extends System {
     const screen = this._stack.pop();
     screen?.onExit();
     this.top?.onEnter();
+    // Animate the removed screen out on top of the one it revealed.
+    if (screen) this._outgoing = { screen, t: 0 };
+    if (this._incoming?.screen === screen) this._incoming = null;
     this.events.emit('ui:screenChanged', { name: this.top?.name });
     return screen;
   }
 
   replace(screen) {
+    // Cross-fade: keep the old base fading out beneath the new one fading in.
+    const old = this.top;
     while (this._stack.length) this._stack.pop()?.onExit();
-    this.push(screen);
+    if (old) this._outgoing = { screen: old, t: 0 };
+    this._stack.push(screen);
+    screen.onEnter();
+    this._incoming = { screen, t: 0 };
+    this.events.emit('ui:screenChanged', { name: screen.name });
   }
 
-  _routeTap(x, y) { this.top?.handleTap(x, y); }
+  /** Taps are swallowed while a screen is still settling, so a stray press
+   *  never lands on a control that is mid-slide. */
+  _routeTap(x, y) {
+    if (this._incoming && this._incoming.t < UISystem.TRANSITION * 0.6) return;
+    this.top?.handleTap(x, y);
+  }
 
-  update(dt) { this.top?.update(dt); }
+  update(dt) {
+    this.top?.update(dt);
+    const D = UISystem.TRANSITION;
+    if (this._incoming && (this._incoming.t += dt) >= D) this._incoming = null;
+    if (this._outgoing) {
+      this._outgoing.screen.update(dt);      // keep its ambient motion alive
+      if ((this._outgoing.t += dt) >= D) this._outgoing = null;
+    }
+  }
 
   render(renderer) {
-    for (const screen of this._stack) screen.render(renderer);
+    const inc = this._incoming;
+    for (const screen of this._stack) {
+      if (inc && screen === inc.screen) this._composite(renderer, screen, inc.t / UISystem.TRANSITION, 'in');
+      else screen.render(renderer);
+    }
+    if (this._outgoing) this._composite(renderer, this._outgoing.screen, this._outgoing.t / UISystem.TRANSITION, 'out');
+  }
+
+  /**
+   * Render `screen` with a premium fade+scale transform. Incoming screens ease
+   * up from 96% with a gentle rise; outgoing screens settle back and fade. The
+   * eased curve (never linear) is the same motion language the HUD/menus use.
+   */
+  _composite(renderer, screen, p, dir) {
+    const e = Easing.smooth(Math.min(1, Math.max(0, p)));
+    const inbound = dir === 'in';
+    const alpha = inbound ? e : 1 - e;
+    const scale = inbound ? 0.965 + 0.035 * e : 1 - 0.03 * e;
+    const ty = inbound ? (1 - e) * 34 : -8 * e;
+    const cx = this.game.canvas.width / 2;
+    const cy = this.game.canvas.height / 2;
+    renderer.save();
+    renderer.pushAlpha(alpha);
+    renderer.translate(cx, cy);
+    renderer.scale(scale, scale);
+    renderer.translate(-cx, -cy + ty);
+    screen.render(renderer);
+    renderer.popAlpha();
+    renderer.restore();
   }
 }
+
+/** Screen-transition duration, seconds — one shared timing for all navigation. */
+UISystem.TRANSITION = 0.3;

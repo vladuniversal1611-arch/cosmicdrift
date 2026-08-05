@@ -289,7 +289,7 @@ export class PieceSystem extends System {
     anim?.to(piece, 'y', piece.homeY, t, { ease: Easing.backOut });
     anim?.to(piece, 'scale', piece.homeScale, t, { ease: Easing.backOut });
     this.game.getSystem('audio')?.play('invalid', { rate: 0.96 + Math.random() * 0.08 });
-    Haptics.light(this.game);
+    Haptics.warn(this.game);
 
     // A soft red flash and a puff of grey dust sell the rejection.
     const cs = this._grid.cellSize;

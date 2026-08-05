@@ -492,15 +492,35 @@ export class BoardSystem extends System {
       ctx.stroke();
     }
     ctx.restore(); ctx.globalAlpha = 1;
-    // Vines with tiny leaves swaying along the top and bottom edges.
+    // Delicate vines creeping only across the corners of the top and bottom
+    // rims — a soft, desaturated sage so they read as a handcrafted detail on
+    // the stone, never a bright green band cutting across the board.
     for (const edge of [0, 1]) {
-      const ey = edge ? outer.bottom - 8 : outer.y + 8;
-      ctx.save(); ctx.globalAlpha = 0.7;
-      ctx.strokeStyle = '#3fae5a'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let i = 0; i <= 24; i++) { const t = i / 24; const vx = outer.x + outer.w * t; const vy = ey + Math.sin(t * 11 + this._time * 0.8 + edge) * 5; i ? ctx.lineTo(vx, vy) : ctx.moveTo(vx, vy); }
-      ctx.stroke();
-      for (let i = 2; i < 24; i += 3) { const t = i / 24; const vx = outer.x + outer.w * t; const vy = ey + Math.sin(t * 11 + this._time * 0.8 + edge) * 5; renderer.fillCircle(vx, vy - 5 * (edge ? -1 : 1), 4, '#6fd07f'); }
+      const ey = edge ? outer.bottom - 7 : outer.y + 7;
+      const d = edge ? -1 : 1;
+      ctx.save(); ctx.globalAlpha = 0.3; ctx.lineCap = 'round';
+      for (const side of [0, 1]) {
+        // A short tendril anchored at each corner, reaching ~28% inward.
+        const x0 = side ? outer.right : outer.x;
+        const dir = side ? -1 : 1;
+        const span = outer.w * 0.28;
+        ctx.strokeStyle = '#7cc48a'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= 14; i++) {
+          const k = i / 14;
+          const vx = x0 + dir * span * k;
+          const vy = ey + Math.sin(k * 6 + this._time * 0.7 + edge) * 2.4 * (1 - k * 0.4);
+          i ? ctx.lineTo(vx, vy) : ctx.moveTo(vx, vy);
+        }
+        ctx.stroke();
+        // A couple of tiny leaves near the anchor.
+        for (let i = 3; i < 12; i += 4) {
+          const k = i / 14;
+          const vx = x0 + dir * span * k;
+          const vy = ey + Math.sin(k * 6 + this._time * 0.7 + edge) * 2.4 * (1 - k * 0.4);
+          renderer.fillCircle(vx, vy - 2.6 * d, 2.4, '#8fd39a');
+        }
+      }
       ctx.globalAlpha = 1; ctx.restore();
     }
   }
@@ -574,37 +594,34 @@ export class BoardSystem extends System {
     ctx.fillStyle = socketGrad;
     ctx.fill();
     ctx.restore();
-    // Carved depth: a soft top highlight and a bottom shade inside the tile so
-    // each cell reads as an engraved stone slab, not a flat square.
-    renderer.setAlpha(0.4);
-    renderer.fillRoundRect(x + size * 0.1, y + size * 0.09, size * 0.8, size * 0.14, r * 0.5, 'rgba(255,255,255,0.85)');
-    renderer.setAlpha(0.16);
-    renderer.fillRoundRect(x + size * 0.1, y + size * 0.77, size * 0.8, size * 0.14, r * 0.5, 'rgba(30,60,110,0.7)');
+    // Carved depth. A soft inner-top shadow sells the recess (light comes from
+    // above, so the top lip casts down), a crisp rim-light rides that shadow,
+    // and a deeper bottom shade grounds the socket — so each empty cell reads
+    // as a real engraved slot and placed crystals pop out of it.
+    renderer.setAlpha(0.22);
+    renderer.fillRoundRect(x + size * 0.08, y + size * 0.04, size * 0.84, size * 0.12, r * 0.5, 'rgba(40,74,130,0.55)');
+    renderer.setAlpha(0.5);
+    renderer.fillRoundRect(x + size * 0.12, y + size * 0.15, size * 0.76, size * 0.1, r * 0.5, 'rgba(255,255,255,0.9)');
+    renderer.setAlpha(0.22);
+    renderer.fillRoundRect(x + size * 0.1, y + size * 0.78, size * 0.8, size * 0.13, r * 0.5, 'rgba(30,60,110,0.7)');
     renderer.setAlpha(1);
   }
 
-  /** Empty-but-alive cell: pulsing rune + a drifting glowing mote. */
+  /** Empty-but-alive cell: a single drifting glowing mote. */
   _drawAlive(renderer, x, y, size, cell) {
     const ctx = renderer.ctx;
     const cx = x + size * 0.5;
-    const cy = y + size * 0.5;
-
-    // Pulsing engraved rune (kept faint so the empty board reads as calm).
-    const litPulse = 0.5 + 0.5 * Math.sin(this._time * 0.8 + cell.phase);
-    ctx.globalAlpha = 0.06 + litPulse * 0.10;
-    ctx.strokeStyle = Palette.rune.lit;
-    ctx.lineWidth = Math.max(1, size * 0.03);
-    drawRune(ctx, cell.runeId, cx, cy, size * 0.72);
-    ctx.globalAlpha = 1;
 
     // A single, very faint drifting mote — just enough life without scatter.
+    // (The per-cell engraved rune was removed: at readable contrast it dotted
+    // the empty board with glyphs that read as noise; the carved frame runes
+    // carry the "living stone" motif on their own.)
     const m = (((this._time * 0.22 + cell.phase * 0.15) % 1) + 1) % 1;
     const mx = cx + Math.sin((this._time + cell.phase) * 1.4) * size * 0.14;
     const myy = y + size * (0.86 - 0.72 * m);
-    ctx.globalAlpha = Math.sin(m * Math.PI) * 0.22;
+    ctx.globalAlpha = Math.sin(m * Math.PI) * 0.2;
     renderer.fillCircle(mx, myy, size * 0.04, '#7fd6ff');
     ctx.globalAlpha = 1;
-    // (Removed the scattered "moss" corner blobs — they read as board noise.)
   }
 
   /** Placed crystal with landing squash/pop. */

@@ -120,7 +120,7 @@ export class LevelCompleteScreen extends Screen {
       this._xpDisp += (this._xpTarget - this._xpDisp) * Math.min(1, dt * 3);
       if (this._levelUp && !this._leveledShown && this._xpDisp > 0.985) {
         this._leveledShown = true;
-        audio?.play('levelup'); Haptics.medium(this.game);
+        audio?.play('levelup'); Haptics.victory(this.game);
         this.events.emit('fx:flash', { color: '#ffe08a', strength: 0.3 });
       }
     }
