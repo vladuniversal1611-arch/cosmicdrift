@@ -71,15 +71,25 @@ export class WorldProgressionSystem extends System {
 
   _grantRewards(level) {
     const r = Config.progression.rewards;
-    // One soft currency now: a single Gold reward that scales with depth.
+    // One soft currency: a single Coin reward that scales with depth.
     const gold = Math.round(16 + 2 * level);
 
     const economy = this.game.getSystem('economy');
     economy?.credit('gold', gold);
     this.events.emit('gameplay:addEnergy', { amount: r.energy });
 
+    // Every third cleared level also hands out a free booster, rotating through
+    // the set — a steady, earn-by-playing supply that never needs the shop.
+    let booster = null;
+    if (level % 3 === 0) {
+      const kinds = ['hammer', 'bomb', 'shuffle'];
+      const id = kinds[Math.floor(level / 3) % kinds.length];
+      this.game.getSystem('booster')?.grant(id, 1);
+      booster = { id, n: 1 };
+    }
+
     this.game.getSystem('audio')?.play('reward');
-    this.events.emit('reward:granted', { level, gold, energy: r.energy });
+    this.events.emit('reward:granted', { level, gold, energy: r.energy, booster });
   }
 
   _syncBiome(level) {

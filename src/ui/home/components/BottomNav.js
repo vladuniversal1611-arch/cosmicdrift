@@ -18,8 +18,6 @@ const MAX_TABS = 5;
 export const NAV_TABS = [
   { id: 'home', label: 'HOME', colors: UI.btn.teal, event: null, icon: (r, x, y, s, c) => Icons.island(r, x, y, s, c) },
   { id: 'shop', label: 'SHOP', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
-  { id: 'events', label: 'EVENTS', colors: UI.btn.orange, event: 'ui:openEvents', icon: (r, x, y, s, c) => Icons.events(r, x, y, s, c) },
-  { id: 'collection', label: 'HEROES', colors: UI.btn.pink, event: 'ui:openDragons', icon: (r, x, y, s, c) => Icons.dragon(r, x, y, s, c) },
   { id: 'settings', label: 'SETTINGS', colors: UI.btn.purple, event: 'ui:openSettings', icon: (r, x, y, s, c) => Icons.gear(r, x, y, s, c) },
 ];
 

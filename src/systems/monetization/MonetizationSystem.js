@@ -18,7 +18,7 @@
  */
 import { System } from '../../core/System.js';
 import { Products } from './Products.js';
-import { NullAdProvider } from './AdProvider.js';
+import { SimulatedAdProvider } from './AdProvider.js';
 import { Logger } from '../../utils/Logger.js';
 
 /** Minimum seconds between interstitials (non-aggressive). */
@@ -29,7 +29,9 @@ export class MonetizationSystem extends System {
     super(game);
     this.name = 'monetization';
     this._ent = null;
-    this._ads = new NullAdProvider();
+    // A simulated rewarded-ad provider stands in until a real ad SDK is
+    // injected via setAdProvider(); it lets the opt-in "watch ad" rewards work.
+    this._ads = new SimulatedAdProvider();
     this._lastInterstitial = -Infinity;
   }
 

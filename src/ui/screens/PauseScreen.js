@@ -27,7 +27,10 @@ export class PauseScreen extends Screen {
     const btn = (i, label, colors, ev) => this.add(new PremiumButton(bx, by + (bh + gap) * i, bw, bh,
       () => this.events.emit(ev), { label, colors, radius: 24, font: '900 26px system-ui, sans-serif' }));
     btn(0, t('common.resume'), UI.btn.play, 'ui:back');
-    btn(1, t('hud.worldMap'), UI.btn.teal, 'ui:openWorldMap');
+    // Restart the current run, then close the pause panel so play resumes.
+    this.add(new PremiumButton(bx, by + (bh + gap) * 1, bw, bh,
+      () => { this.events.emit('ui:restart'); this.events.emit('ui:back'); },
+      { label: 'RESTART', colors: UI.btn.teal, radius: 24, font: '900 26px system-ui, sans-serif' }));
     btn(2, t('menu.settings'), UI.btn.blue, 'ui:openSettings');
     btn(3, t('titles.mainMenu'), UI.btn.orange, 'ui:mainMenu');
   }

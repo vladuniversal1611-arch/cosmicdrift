@@ -195,17 +195,20 @@ export const Config = Object.freeze({
   features: Object.freeze({
     audio: true,
     particles: true,
-    dragon: true,
     economy: true,
-    events: true,
     shop: true,
     boosters: true,
-    drift: true,
+    // Pared down to a focused, Block-Blast-style game: two modes (Levels +
+    // Endless) plus boosters. The heavier meta layers below are switched off —
+    // their systems simply never register, and every caller already reaches
+    // for them optionally, so the game runs clean without them.
+    dragon: false,      // no dragon collection / perks
+    events: false,      // no live/weekly events
+    drift: false,       // no board-drift mechanic (pure classic placement)
+    structures: false,  // no "structure pattern" board-evolution meta
   }),
 
-  /** Cosmic Drift: the board drifts one pull every N placements. The player can
-   *  spend Dragon Energy to steer (rotate) the next pull — a tactical trade
-   *  against saving that energy for the Dragon Fire ultimate. */
+  /** Board-drift tuning (feature disabled; kept for the seam). */
   drift: Object.freeze({
     everyPlacements: 5,
     steerCost: 35,

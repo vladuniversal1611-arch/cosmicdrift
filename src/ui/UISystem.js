@@ -19,13 +19,8 @@ import { System } from '../core/System.js';
 import { Easing } from '../utils/Easing.js';
 import { HomeScreen } from './home/HomeScreen.js';
 import { HudScreen } from './screens/HudScreen.js';
-import { WorldMapScreen } from './worldmap/WorldMapScreen.js';
-import { IslandScreen } from './screens/IslandScreen.js';
-import { DragonScreen } from './screens/DragonScreen.js';
 import { ShopScreen } from './screens/ShopScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
-import { CollectionScreen } from './screens/CollectionScreen.js';
-import { EventsScreen } from './screens/EventsScreen.js';
 import { PauseScreen } from './screens/PauseScreen.js';
 import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
 import { DailyHubScreen } from './screens/DailyHubScreen.js';
@@ -51,20 +46,12 @@ export class UISystem extends System {
 
     // Modal navigation (only push if not already the top screen).
     const open = (name, factory) => { if (this.top?.name !== name) this.push(factory()); };
-    this.listen('ui:openWorldMap', () => open('worldmap', () => new WorldMapScreen(this.game)));
-    this.listen('ui:openIsland', () => open('island', () => new IslandScreen(this.game)));
-    this.listen('ui:closeIsland', () => { if (this.top?.name === 'island') this.pop(); });
-    this.listen('ui:openDragons', () => open('dragons', () => new DragonScreen(this.game)));
-    this.listen('ui:closeDragons', () => { if (this.top?.name === 'dragons') this.pop(); });
     this.listen('ui:openShop', () => open('shop', () => new ShopScreen(this.game)));
     this.listen('ui:openSettings', () => open('settings', () => new SettingsScreen(this.game)));
-    this.listen('ui:openCollection', () => open('collection', () => new CollectionScreen(this.game)));
-    this.listen('ui:openEvents', () => open('events', () => new EventsScreen(this.game)));
     this.listen('ui:openPause', () => open('pause', () => new PauseScreen(this.game)));
     this.listen('ui:openDaily', () => open('daily', () => new DailyHubScreen(this.game)));
 
     this.listen('ui:back', () => this.pop());
-    this.listen('ui:closeWorldMap', () => { if (this.top?.name === 'worldmap') this.pop(); });
     this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new HomeScreen(this.game)); });
 
     // Generic push/pop so the PopupManager can drive its pooled PopupScreen

@@ -1,16 +1,14 @@
 /**
  * Header.js  (Home Screen · section 3)
  * -----------------------------------------------------------------------------
- * The top bar: player avatar with an XP ring + level badge (left) and three
- * round action buttons — Notifications, Mail, Settings (right). Fixed 180px
- * band from SafeArea; content is centred in the band and auto-scales, and the
- * left cluster and right cluster never overlap because each is anchored to its
- * own edge with a guaranteed gutter.
+ * The top bar: a friendly player avatar (left) and two round action buttons —
+ * Daily rewards and Settings (right). Fixed 180px band from SafeArea; content
+ * is centred in the band and auto-scales, and the left/right clusters never
+ * overlap because each is anchored to its own edge with a guaranteed gutter.
  *
  * Self-contained: owns its buttons (PremiumButton, so the press feel is shared,
- * not re-coded), reads level/XP from the save + progression, and exposes
- * `mail` / `notifications` counts that the NotificationLayer/debug can set.
- * Emits `ui:openSettings`, `ui:openMail`, `ui:openNotifications`, `ui:openProfile`.
+ * not re-coded). The Daily button carries an attention badge whenever a reward
+ * is waiting. Emits `ui:openSettings`, `ui:openDaily`.
  * -----------------------------------------------------------------------------
  */
 import { PremiumButton } from '../../widgets/PremiumButton.js';
@@ -25,19 +23,16 @@ export class Header {
     this.safe = safe;
     this._tap = onTap;
     this._t = 0;
-    this.mail = 0;
-    this.notifications = 0;
 
     const band = safe.header;
     const cy = band.y + band.h / 2;
     const S = 96;                          // min-touch round buttons
     const gap = 18;
     const rightX = safe.contentRight;
-    // Right cluster: Notifications, Mail, Settings (right-to-left).
+    // Right cluster: Settings, Daily (right-to-left).
     const defs = [
       { id: 'settings', icon: (r, x, y, s) => Icons.gear(r, x, y, s), color: UI.btn.blue, event: 'ui:openSettings' },
-      { id: 'mail', icon: (r, x, y, s) => Icons.mail(r, x, y, s), color: UI.btn.teal, event: 'ui:openMail' },
-      { id: 'notifications', icon: (r, x, y, s) => Icons.bell(r, x, y, s), color: UI.btn.orange, event: 'ui:openNotifications' },
+      { id: 'daily', icon: (r, x, y, s) => Icons.bell(r, x, y, s), color: UI.btn.orange, event: 'ui:openDaily' },
     ];
     this._btns = defs.map((d, i) => {
       const x = rightX - S - i * (S + gap);
@@ -58,40 +53,24 @@ export class Header {
 
   render(r) {
     this._drawAvatar(r);
+    const dailyReady = !!this.game.getSystem('retention')?.hasUnclaimedDaily?.();
     for (const b of this._btns) {
       b.btn.render(r);
-      const count = this[b.id] ?? 0;
-      if (count > 0 || b.id === 'notifications' && this.notifications > 0) this._badge(r, b.btn.bounds, count);
+      if (b.id === 'daily' && dailyReady) this._badge(r, b.btn.bounds, 0);
     }
   }
 
   _drawAvatar(r) {
     const cx = this._avCx, cy = this._avCy, R = this._avR;
-    const ctx = r.ctx;
-    const lvl = this.game.getSystem('level')?.highest ?? (this.game.getSystem('save')?.getSlice?.('world')?.maxLevel ?? 1);
-    const xp = ((lvl - 1) % 10) / 10 || (lvl > 1 ? 1 : 0);
-
+    // A friendly avatar disc — decorative identity, no XP/level meta.
     UITheme.shadow(r, cx - R, cy - R, R * 2, R * 2, R, 6, 0.3);
-    // XP ring.
-    ctx.lineWidth = 8; ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.arc(cx, cy, R - 2, 0, Math.PI * 2); ctx.stroke();
-    r.withGlow(UI.gold.mid, 8, () => {
-      ctx.strokeStyle = UI.gold.mid;
-      ctx.beginPath(); ctx.arc(cx, cy, R - 2, -Math.PI / 2, -Math.PI / 2 + xp * Math.PI * 2); ctx.stroke();
-    });
-    // Avatar disc + friendly dragon face.
-    const av = R - 10;
+    const av = R - 6;
     r.fillCircle(cx, cy, av, r.radialGradient(cx, cy - av * 0.3, av, [[0, '#9ad7ff'], [1, '#2f6fe0']]));
     r.fillCircle(cx - av * 0.3, cy - av * 0.08, av * 0.2, '#fff');
     r.fillCircle(cx + av * 0.3, cy - av * 0.08, av * 0.2, '#fff');
     r.fillCircle(cx - av * 0.28, cy - av * 0.06, av * 0.1, '#233a72');
     r.fillCircle(cx + av * 0.28, cy - av * 0.06, av * 0.1, '#233a72');
     UITheme.goldFrame(r, cx - av, cy - av, av * 2, av * 2, av, 4);
-    // Level badge under the avatar.
-    const bw = 84, bh = 40, bx = cx - bw / 2, by = cy + R - bh * 0.4;
-    UITheme.button(r, bx, by, bw, bh, bh / 2, UI.btn.orange, { shadow: true });
-    r.text(`LV ${lvl}`, cx, by + bh / 2, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
   }
 
   _badge(r, b, count) {
@@ -105,7 +84,6 @@ export class Header {
 
   onTap(px, py) {
     for (const b of this._btns) if (b.btn.handleTap(px, py)) return true;
-    if (this._avatarRect.contains(px, py)) { this._tap?.(); this.game.events.emit('ui:openProfile'); return true; }
     return false;
   }
 

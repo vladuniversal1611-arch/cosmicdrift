@@ -18,22 +18,19 @@ import { System } from '../../core/System.js';
 import { Wallet } from './Wallet.js';
 
 /**
- * Two currencies only — a clean, legible economy:
- *   gold    (soft)    earned in play + rewards; spent to restore the world / shop
- *   crystal (premium) gems: rare rewards; the premium currency
- *
- * Everything the game earns folds into these via ALIAS below, so the meta reads
- * as "earn gold, rebuild the island; gems are special" instead of five loosely
- * connected resources.
+ * One currency — coins. The whole game runs on a single, legible soft currency:
+ * you earn coins by clearing levels and spend them on boosters. Everything the
+ * game ever credits folds into `gold` (the internal id for coins) via ALIAS
+ * below, so no screen ever has to reason about a second wallet.
  */
 export const Currencies = Object.freeze({
-  gold: { id: 'gold', name: 'Gold', premium: false, icon: '⬤' },
-  crystal: { id: 'crystal', name: 'Gems', premium: true, icon: '◆' },
+  gold: { id: 'gold', name: 'Coins', premium: false, icon: '⬤' },
 });
 
-/** Legacy / friendly currency ids fold into the two real ones. */
+/** Every legacy / friendly currency id folds into the single coin pool. */
 const ALIAS = Object.freeze({
-  coins: 'gold', essence: 'gold', materials: 'gold', stardust: 'gold', gems: 'crystal',
+  coins: 'gold', essence: 'gold', materials: 'gold', stardust: 'gold',
+  gems: 'gold', crystal: 'gold',
 });
 const resolve = (id) => ALIAS[id] ?? id;
 
@@ -46,16 +43,15 @@ export class EconomySystem extends System {
 
   onInit() {
     const save = this.game.getSystem('save');
-    const slice = save.registerSlice('wallet', () => ({ gold: 0, crystal: 0 }));
-    // Migrate any legacy 5-currency save into the two real currencies.
+    const slice = save.registerSlice('wallet', () => ({ gold: 0 }));
+    // Fold any legacy multi-currency save down into the single coin pool.
     let goldAdd = 0;
-    for (const k of ['coins', 'essence', 'materials', 'stardust']) {
+    for (const k of ['coins', 'essence', 'materials', 'stardust', 'gems', 'crystal']) {
       if (k in slice) { goldAdd += slice[k] || 0; delete slice[k]; }
     }
-    if ('gems' in slice) { slice.crystal = (slice.crystal ?? 0) + (slice.gems || 0); delete slice.gems; }
     if (goldAdd) slice.gold = (slice.gold ?? 0) + goldAdd;
     save.markDirty();
-    this._wallet.deserialize({ gold: slice.gold ?? 0, crystal: slice.crystal ?? 0 });
+    this._wallet.deserialize({ gold: slice.gold ?? 0 });
     this._persist();
   }
 

@@ -144,7 +144,7 @@ export class Game {
     this.systems.register(new BoardSystem(this));
     this.systems.register(new TileSystem(this));
     // Structures render above the board crystals but below the held piece.
-    this.systems.register(new StructureSystem(this));
+    if (f.structures) this.systems.register(new StructureSystem(this));
     this.systems.register(new PieceSystem(this));
     // In-level power-ups (additive help; never feeds score/objectives).
     if (f.boosters) this.systems.register(new BoosterSystem(this));

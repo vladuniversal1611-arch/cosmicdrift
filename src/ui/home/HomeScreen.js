@@ -82,10 +82,9 @@ export class HomeScreen extends Screen {
     this._subs.push(this.events.on('debug:state', (f) => { this._debug = f; }));
     this._subs.push(this.events.on('home:playState', ({ state }) => this.play.setState(state)));
 
-    // Waiting daily reward → bell badge + events badge (once).
+    // Waiting daily reward → a warm one-time "welcome back" toast. The Daily
+    // button in the header shows its own attention badge (reads retention live).
     const daily = this.game.getSystem('retention')?.hasUnclaimedDaily?.();
-    this.header.notifications = daily ? 1 : 0;
-    const ev = this.quick.byId.events; if (ev) ev.badge = daily ? -1 : 0;
     if (daily && !this._welcomed) {
       this._welcomed = true;
       this.events.emit('notify:push', { text: 'Daily reward is ready!', priority: 5, color: '#ff9d2e' });

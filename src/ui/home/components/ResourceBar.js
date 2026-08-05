@@ -12,10 +12,9 @@ import { Icons } from '../Icons.js';
 import { UI } from '../../theme/UITheme.js';
 import { Rect } from '../../../utils/Rect.js';
 
-/** Default resources. Future resources: append a descriptor — layout adapts. */
+/** A single soft currency — coins, earned by clearing levels, spent on boosters. */
 export const RESOURCES = [
-  { id: 'coins', currency: 'gold', colors: UI.btn.orange, plus: true, tip: 'Gold — earned in play', icon: (r, x, y, s) => Icons.coin(r, x, y, s) },
-  { id: 'gems', currency: 'crystal', colors: UI.btn.blue, plus: true, tip: 'Gems — premium currency', icon: (r, x, y, s) => Icons.gem(r, x, y, s) },
+  { id: 'coins', currency: 'gold', colors: UI.btn.orange, plus: true, tip: 'Coins — earned in play', icon: (r, x, y, s) => Icons.coin(r, x, y, s) },
 ];
 
 export class ResourceBar {
@@ -32,6 +31,14 @@ export class ResourceBar {
     const h = 92;
     const gap = 16;
     const n = this.chips.length;
+    // A lone coin chip reads best as a centred pill, not a stretched full-width
+    // bar; two or more tile evenly (wrapping past four).
+    if (n === 1) {
+      const w = Math.min(s.contentWidth * 0.62, 360);
+      this.chips[0].setRect(s.contentLeft + (s.contentWidth - w) / 2, top, w, h);
+      this._bandBottom = top + h + gap;
+      return;
+    }
     // Fit up to 4 per row; wrap beyond that.
     const perRow = Math.min(n, 4);
     const rows = Math.ceil(n / perRow);

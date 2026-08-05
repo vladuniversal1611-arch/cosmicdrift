@@ -55,15 +55,6 @@ export class LevelCompleteScreen extends Screen {
     this._coinCtr = { x: this.bounds.w - 150, y: 96, w: 130, h: 62 };
     this._dingT = 0;
 
-    // XP / player level (derived — no new system; mirrors the Header formula).
-    const cleared = Math.max(0, (game.getSystem('level')?.highest ?? 1) - 1);
-    const per = 4, from = Math.max(0, cleared - 1), to = cleared;
-    this._levelUp = (1 + Math.floor(to / per)) > (1 + Math.floor(from / per));
-    this._playerLevel = 1 + Math.floor(to / per);
-    this._xpDisp = (from % per) / per;
-    this._xpTarget = this._levelUp ? 1 : (to % per) / per;
-    this._leveledShown = false;
-
     const w = this.bounds.w, h = this.bounds.h;
     this._contY = h * 0.82;
     this._continue = this.add(new PremiumButton(w / 2 - w * 0.32, h + 120, w * 0.64, 96,
@@ -115,23 +106,14 @@ export class LevelCompleteScreen extends Screen {
     if (this._dingT > 0) this._dingT -= dt;
     if (this._counterPulse > 0) this._counterPulse = Math.max(0, this._counterPulse - dt * 3);
 
-    // XP fill (after the coins) + level-up beat.
-    if (this._t >= T.xp) {
-      this._xpDisp += (this._xpTarget - this._xpDisp) * Math.min(1, dt * 3);
-      if (this._levelUp && !this._leveledShown && this._xpDisp > 0.985) {
-        this._leveledShown = true;
-        audio?.play('levelup'); Haptics.victory(this.game);
-        this.events.emit('fx:flash', { color: '#ffe08a', strength: 0.3 });
-      }
-    }
-
     // Ambient particles + dragon flyby.
     for (const p of this._particles) { p.y -= p.vy * dt; if (p.y < -10) { p.y = this.bounds.h + 10; p.x = Math.random() * this.bounds.w; } }
     this._dragonX += dt * 0.3; if (this._dragonX > 1.3) this._dragonX = -0.3;
 
-    // Continue reveal (slides up with a bounce).
+    // Continue reveal (slides up with a bounce) + a final victory beat.
     if (this._t >= T.cont && !this._contShown) {
       this._contShown = true;
+      audio?.play('levelup'); Haptics.victory(this.game);
       this._continue.visible = true; this._continue.enabled = true;
       this.game.getSystem('animation')?.to(this._continue.bounds, 'y', this._contY, 0.5, { ease: Easing.backOut });
     }
@@ -163,12 +145,10 @@ export class LevelCompleteScreen extends Screen {
     const ctx = r.ctx; ctx.save(); ctx.translate(b.centerX, b.h * 0.42); ctx.scale(zoom, zoom); ctx.translate(-b.centerX, -b.h * 0.42);
     this._drawTitle(r, b.centerX, b.h * 0.24);
     this._drawStars(r, b.centerX, b.h * 0.4);
-    this._drawXp(r, b.centerX, b.h * 0.62);
     ctx.restore();
 
     this._drawCoinCounter(r);
     this._drawCoins(r);
-    if (this._levelUp && this._leveledShown) this._drawLevelUp(r, b.centerX, b.h * 0.5);
 
     for (const child of this.children) child.render(r);
 
@@ -223,15 +203,6 @@ export class LevelCompleteScreen extends Screen {
     ctx.lineWidth = 3; ctx.strokeStyle = UI.gold.deep; ctx.stroke();
   }
 
-  _drawXp(r, cx, cy) {
-    if (this._t < T.xp - 0.2) return;
-    const w = 360, x = cx - w / 2;
-    r.fillRoundRect(x, cy, w, 22, 11, 'rgba(20,40,80,0.5)');
-    r.fillRoundRect(x, cy, w * this._xpDisp, 22, 11, r.linearGradient(x, cy, x + w, cy, [[0, '#8fe06a'], [1, '#37a83f']]));
-    r.strokeRoundRect(x, cy, w, 22, 11, 'rgba(255,255,255,0.7)', 1.5);
-    r.text(`LV ${this._playerLevel}`, x - 8, cy + 11, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'right', baseline: 'middle' });
-  }
-
   _drawCoinCounter(r) {
     const c = this._coinCtr, pulse = 1 + this._counterPulse * 0.14;
     const ctx = r.ctx; ctx.save(); ctx.translate(c.x + c.w / 2, c.y + c.h / 2); ctx.scale(pulse, pulse); ctx.translate(-(c.x + c.w / 2), -(c.y + c.h / 2));
@@ -263,11 +234,6 @@ export class LevelCompleteScreen extends Screen {
     ctx.restore();
   }
 
-  _drawLevelUp(r, cx, cy) {
-    const k = Math.min(1, (this._t - T.xp) / 0.6);
-    r.withGlow('#ffe08a', 26, () => UITheme.heading(r, 'LEVEL UP!', cx, cy - 90, 40 * Easing.backOut(k), '#ffe08a'));
-  }
-
   _drawParticles(r) {
     for (const p of this._particles) { r.setAlpha(0.2 + 0.4 * (0.5 + 0.5 * Math.sin(this._t * 1.5 + p.ph))); r.fillCircle(p.x, p.y, p.s, '#fff6c8'); }
     r.setAlpha(1);
@@ -297,8 +263,7 @@ export class LevelCompleteScreen extends Screen {
     this._t = T.cont + 0.01;
     this._coins.length = 0;
     this._coinDisplay = this._coinTarget;
-    this._xpDisp = this._xpTarget;
-    if (this._levelUp) this._leveledShown = true;
+    this.game.getSystem('audio')?.play('levelup'); Haptics.victory(this.game);
     this._contShown = true;
     this._continue.visible = true; this._continue.enabled = true;
     this._continue.bounds.y = this._contY;

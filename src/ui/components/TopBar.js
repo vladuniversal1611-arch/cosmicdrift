@@ -1,12 +1,12 @@
 /**
  * TopBar.js
  * -----------------------------------------------------------------------------
- * The premium meta top bar: Coins, Gems and Dragon Energy chips with smooth
- * rolling numbers and glowing icons, plus a framed player avatar. Reused across
- * the menu and meta screens. It reads balances from the EconomySystem and eases
- * every number so values never snap.
+ * The premium meta top bar: a single Coins chip with a smooth rolling number
+ * and glowing icon, plus a framed player avatar. Reused across the menu and
+ * meta screens. It reads the balance from the EconomySystem and eases the
+ * number so values never snap.
  *
- * Currency mapping: Coins = gold, Gems = crystal, Dragon Energy = essence.
+ * Currency mapping: Coins = gold (the single soft currency).
  * -----------------------------------------------------------------------------
  */
 import { UITheme, UI, Rolling } from '../theme/UITheme.js';
@@ -16,28 +16,21 @@ export class TopBar {
   constructor(game) {
     this.game = game;
     this.coins = new Rolling(0);
-    this.gems = new Rolling(0);
     this._t = 0;
   }
 
   update(dt) {
     this._t += dt;
     const eco = this.game.getSystem('economy');
-    if (eco) {
-      this.coins.set(eco.balance('gold'));
-      this.gems.set(eco.balance('crystal'));
-    }
-    this.coins.update(dt); this.gems.update(dt);
+    if (eco) this.coins.set(eco.balance('gold'));
+    this.coins.update(dt);
   }
 
   render(r, width) {
     const y = 20;
     const h = 40;
-    // Two currency chips on the left, avatar on the right.
-    const chipW = 118;
-    const gap = 10;
-    this._chip(r, 16, y, chipW, h, '#ffcf5e', 'coins', this.coins.text);
-    this._chip(r, 16 + (chipW + gap), y, chipW, h, '#7cd6ff', 'gem', this.gems.text);
+    // A single coins chip on the left, avatar on the right.
+    this._chip(r, 16, y, 118, h, '#ffcf5e', 'coins', this.coins.text);
     this._avatar(r, width - 16 - 52, y - 6, 52);
   }
 

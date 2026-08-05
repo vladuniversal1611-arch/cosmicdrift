@@ -17,12 +17,12 @@
  * -----------------------------------------------------------------------------
  */
 export const AuthoredLevels = Object.freeze({
-  1: { objectives: [{ id: 'collectEnergy', goal: 8 }], drift: false },   // learn: drag & place
-  2: { objectives: [{ id: 'clearLines', goal: 3 }] },                    // learn: clear a line (drift on)
-  3: { objectives: [{ id: 'clearLines', goal: 5 }] },                    // reinforce
-  4: { objectives: [{ id: 'driftClears', goal: 2 }] },                   // learn: use the drift
-  5: { objectives: [{ id: 'collectEnergy', goal: 20 }] },                // breather
-  6: { objectives: [{ id: 'clearLines', goal: 7 }] },                    // ramp before Mosswood
+  1: { objectives: [{ id: 'collectEnergy', goal: 8 }] },    // learn: drag & place
+  2: { objectives: [{ id: 'clearLines', goal: 3 }] },       // learn: clear a line
+  3: { objectives: [{ id: 'clearLines', goal: 5 }] },       // reinforce
+  4: { objectives: [{ id: 'clearLines', goal: 6 }] },       // build combos
+  5: { objectives: [{ id: 'collectEnergy', goal: 20 }] },   // breather
+  6: { objectives: [{ id: 'clearLines', goal: 7 }] },       // ramp
 });
 
 /** True while the hand-authored opening is in effect for `level`. */
