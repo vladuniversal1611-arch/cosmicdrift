@@ -157,9 +157,11 @@ export class PieceGenerator {
       if (gift) this._trySwap(tray, gift, occ, rows, cols);
     }
 
-    // Rare exciting big piece late game (only if it stays solvable).
+    // Rare exciting big piece late game (only if it stays solvable). The heavy
+    // space-hogs (five-bars, rectangles, the 3×3) live here so they show up as
+    // a deliberate spike, not a constant grind.
     if (target > 0.6 && this.rng.next() < Config.generator.excitingChance) {
-      const big = ['cross', 'bigL', 'quad', 'tShape'].filter((k) => ShapeKeys.includes(k));
+      const big = ['cross', 'bigL', 'bigJ', 'quint', 'quintV', 'rect23', 'rect32', 'bigSquare'].filter((k) => ShapeKeys.includes(k));
       if (big.length) this._trySwap(tray, this.rng.pick(big), occ, rows, cols);
     }
 

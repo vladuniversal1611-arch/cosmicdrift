@@ -46,6 +46,16 @@ export const Shapes = Object.freeze({
   bigL: { blocks: [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]], weight: 2 },
   bigJ: { blocks: [[2, 0], [2, 1], [2, 2], [1, 2], [0, 2]], weight: 2 },
   cross: { blocks: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], weight: 2 },
+
+  // Heavy space-hogs — the Block Blast staples. Low weight and (via the
+  // generator's hardness rating) they only surface at high difficulty, and
+  // never in a tray the generator can't prove solvable. They demand real
+  // planning: a five-bar wants a clean line, the 3×3 a clean square.
+  quint: { blocks: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], weight: 1 },
+  quintV: { blocks: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], weight: 1 },
+  rect23: { blocks: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]], weight: 1 },
+  rect32: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], weight: 1 },
+  bigSquare: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2]], weight: 1 },
 });
 
 /** Flat list of shape keys, for convenient iteration. */

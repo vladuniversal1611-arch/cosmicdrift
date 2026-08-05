@@ -32,6 +32,7 @@ import { Palette } from '../../config/Palette.js';
 import { Rect } from '../../utils/Rect.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { Easing } from '../../utils/Easing.js';
+import { Haptics } from '../../utils/Haptics.js';
 import { Grid } from './Grid.js';
 import { drawRune } from './Runes.js';
 import { drawCrystal } from '../../render/Crystal.js';
@@ -51,11 +52,22 @@ export class BoardSystem extends System {
     this._driftPending = false;
     /** Throttle timer for the idle "no full line lingers" safety sweep. */
     this._sweepT = 0;
+    // Board theme (cycled on every full-board clear) + the transformation FX.
+    this._themeIndex = 0;
+    this._theme = Palette.boardThemes[0];
+    this._prevTheme = null;
+    this._fullClearFx = null;   // { t, dur } while the wave + PERFECT banner play
   }
 
   onInit() {
     this._computeLayout();
     window.addEventListener('resize', () => this._computeLayout());
+
+    // Persist the current board theme so it carries across sessions.
+    const save = this.game.getSystem('save');
+    this._themeSlice = save?.registerSlice('boardtheme', () => ({ index: 0 }));
+    this._themeIndex = (this._themeSlice?.index ?? 0) % Palette.boardThemes.length;
+    this._theme = Palette.boardThemes[this._themeIndex];
 
     this.listen('save:loaded', ({ data }) => { if (data.board) this.grid.deserialize(data.board); });
     this.listen('game:started', () => this.grid.clearAll());
@@ -119,6 +131,39 @@ export class BoardSystem extends System {
     // Premium punch: a quick screen flash accompanies the energy wave.
     this.events.emit('fx:flash', { color: '#ffffff', strength: 0.14 + 0.05 * lines.length });
     this.game.getSystem('audio')?.play('clear', { rate: 0.95 + Math.random() * 0.1 });
+  }
+
+  /** True when no placed crystal or risen structure remains on the board. */
+  _isBoardEmpty() {
+    let empty = true;
+    this.grid.forEach((c) => { if (c.filled || c.structure) empty = false; });
+    return empty;
+  }
+
+  /**
+   * A full-board clear ("PERFECT"): advance the board theme (persisted), kick
+   * off the transformation wave + banner, and pay out a celebratory bonus that
+   * also nearly charges the Dragon Fire ultimate.
+   */
+  _onFullClear() {
+    this._prevTheme = this._theme;
+    this._themeIndex = (this._themeIndex + 1) % Palette.boardThemes.length;
+    this._theme = Palette.boardThemes[this._themeIndex];
+    if (this._themeSlice) { this._themeSlice.index = this._themeIndex; this.game.getSystem('save')?.markDirty(); }
+
+    this._fullClearFx = { t: 0, dur: 1.15 };
+
+    const bonus = 50;
+    this.game.getSystem('economy')?.credit('gold', bonus);
+    this.events.emit('gameplay:addEnergy', { amount: 30 });
+    this.events.emit('board:fullClear', { bonus, theme: this._theme.name });
+
+    const a = this._area;
+    this.events.emit('fx:flash', { color: this._theme.accent, strength: 0.42 });
+    this.events.emit('fx:burst', { x: a.centerX, y: a.centerY, color: this._theme.accent, count: 60 });
+    this.events.emit('fx:shake', { mag: 14 });
+    Haptics.victory(this.game);
+    this.game.getSystem('audio')?.play('levelup');
   }
 
   /**
@@ -315,6 +360,15 @@ export class BoardSystem extends System {
     if (this._clearing && stillClearing === 0) {
       this._clearing = false;
       this.events.emit('board:clearComplete');
+      // A clear that empties the whole board is a "PERFECT" — celebrate + swap
+      // the board theme with a transformation wave.
+      if (this._isBoardEmpty()) this._onFullClear();
+    }
+
+    // Advance the full-clear transformation wave.
+    if (this._fullClearFx) {
+      this._fullClearFx.t += dt;
+      if (this._fullClearFx.t >= this._fullClearFx.dur) { this._fullClearFx = null; this._prevTheme = null; }
     }
 
     // Once the drift slide settles, resolve any lines it completed. Tag this
@@ -362,15 +416,35 @@ export class BoardSystem extends System {
     this._drawFrame(renderer);
     const size = this.grid.cellSize;
 
-    // One cell-local socket gradient reused for all cells (via translate),
-    // instead of allocating one gradient per cell every frame.
-    const socketGrad = renderer.linearGradient(0, 0, 0, size,
-      [[0, Palette.socket.faceTop], [1, Palette.socket.faceBottom]]);
+    // Themed socket gradient (one per theme, reused across cells via translate).
+    const th = this._theme;
+    const gradNew = renderer.linearGradient(0, 0, 0, size, [[0, th.faceTop], [1, th.faceBottom]]);
+    // During a full-clear transformation, a wave sweeps outward from the centre:
+    // cells behind the front already show the NEW theme, cells ahead still show
+    // the old one, and cells right on the front flash with the accent.
+    const fx = this._fullClearFx;
+    let gradOld = gradNew, prevTh = th, waveFront = 0, ccx = 0, ccy = 0;
+    if (fx) {
+      prevTh = this._prevTheme ?? th;
+      gradOld = renderer.linearGradient(0, 0, 0, size, [[0, prevTh.faceTop], [1, prevTh.faceBottom]]);
+      const p = Easing.smooth(clamp(fx.t / fx.dur, 0, 1));
+      ccx = (this.grid.columns - 1) / 2; ccy = (this.grid.rows - 1) / 2;
+      const maxDist = Math.hypot(ccx, ccy) + 1.4;
+      waveFront = p * maxDist;
+    }
 
     const t = this._time;
     this.grid.forEach((cell) => {
       const { x, y } = this.grid.cellToPixel(cell.col, cell.row);
-      this._drawSocket(renderer, x, y, size, socketGrad);
+      // Pick the themed socket for this cell (wave reveal during a full clear).
+      let grad = gradNew, rim = th.rim, flash = 0;
+      if (fx) {
+        const dist = Math.hypot(cell.col - ccx, cell.row - ccy);
+        if (dist > waveFront) { grad = gradOld; rim = prevTh.rim; }
+        const df = Math.abs(dist - waveFront);
+        if (df < 0.9) flash = 1 - df / 0.9;
+      }
+      this._drawSocket(renderer, x, y, size, grad, rim, flash, th.accent);
 
       // Living Board terrain draws beneath the crystal (moss, ice, portal,
       // crystal-core, corruption, dragon rune, treasure, tree base).
@@ -396,6 +470,7 @@ export class BoardSystem extends System {
     });
 
     this._drawBoardMotes(renderer);
+    if (this._fullClearFx) this._drawFullClearFx(renderer);
     if (this._hover) this._drawGhost(renderer);
   }
 
@@ -582,11 +657,13 @@ export class BoardSystem extends System {
   /**
    * Engraved socket (depth) drawn under every cell. Uses a shared cell-local
    * gradient (see render) painted through a translate, so the whole grid costs
-   * one gradient allocation per frame rather than 64.
+   * one gradient allocation per frame rather than 64. `rim` and `socketGrad`
+   * carry the active board theme; `flash` (0..1) accents the cell as the
+   * full-clear transformation wave passes over it.
    */
-  _drawSocket(renderer, x, y, size, socketGrad) {
+  _drawSocket(renderer, x, y, size, socketGrad, rim = Palette.socket.rim, flash = 0, accent = '#22b7ff') {
     const r = Config.board.cellRadius;
-    renderer.fillRoundRect(x - 1, y - 1, size + 2, size + 2, r + 1, Palette.socket.rim);
+    renderer.fillRoundRect(x - 1, y - 1, size + 2, size + 2, r + 1, rim);
     const ctx = renderer.ctx;
     ctx.save();
     ctx.translate(x, y);
@@ -604,6 +681,45 @@ export class BoardSystem extends System {
     renderer.fillRoundRect(x + size * 0.12, y + size * 0.15, size * 0.76, size * 0.1, r * 0.5, 'rgba(255,255,255,0.9)');
     renderer.setAlpha(0.22);
     renderer.fillRoundRect(x + size * 0.1, y + size * 0.78, size * 0.8, size * 0.13, r * 0.5, 'rgba(30,60,110,0.7)');
+    renderer.setAlpha(1);
+    // Transformation-wave accent: a bright bloom on the cell as the front passes.
+    if (flash > 0) {
+      renderer.setAlpha(flash * 0.7);
+      renderer.withGlow(accent, 12, () => renderer.fillRoundRect(x, y, size, size, r, accent));
+      renderer.setAlpha(1);
+    }
+  }
+
+  /**
+   * The full-board-clear celebration overlay: an expanding shockwave ring that
+   * rides the transformation wave, and a "PERFECT!" banner that pops then fades.
+   */
+  _drawFullClearFx(renderer) {
+    const fx = this._fullClearFx, a = this._area, ctx = renderer.ctx;
+    const p = clamp(fx.t / fx.dur, 0, 1);
+    const e = Easing.smooth(p);
+    // Shockwave ring expanding from the board centre.
+    const maxR = Math.hypot(a.w, a.h) * 0.5;
+    const rad = e * maxR;
+    renderer.setAlpha((1 - p) * 0.6);
+    renderer.withGlow(this._theme.accent, 18, () => {
+      ctx.strokeStyle = this._theme.accent;
+      ctx.lineWidth = 6 + 10 * (1 - p);
+      ctx.beginPath(); ctx.arc(a.centerX, a.centerY, rad, 0, Math.PI * 2); ctx.stroke();
+    });
+    renderer.setAlpha(1);
+    // "PERFECT!" banner — backOut pop in, hold, fade out.
+    const pop = Easing.backOut(clamp(p / 0.25, 0, 1));
+    const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
+    const size = 64 * pop;
+    renderer.setAlpha(fade);
+    ctx.save();
+    ctx.translate(a.centerX, a.centerY - a.h * 0.06);
+    renderer.withGlow(this._theme.accent, 24, () => {
+      renderer.text('PERFECT!', 2, 4, { font: `900 ${size}px system-ui, sans-serif`, color: 'rgba(20,44,92,0.35)', align: 'center', baseline: 'middle' });
+      renderer.text('PERFECT!', 0, 0, { font: `900 ${size}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: this._theme.accent, outlineWidth: size * 0.12 });
+    });
+    ctx.restore();
     renderer.setAlpha(1);
   }
 

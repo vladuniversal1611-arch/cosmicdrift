@@ -62,6 +62,21 @@ export const Palette = Object.freeze({
     innerGlow: 'rgba(34,183,255,0.14)',
   }),
 
+  /**
+   * Board themes cycled through on every full-board ("PERFECT") clear. Index 0
+   * matches `socket` above, so the board looks identical until the first full
+   * clear, then transforms colour with a shockwave. Each is a socket tint plus
+   * an accent used for the transformation wave + celebration.
+   */
+  boardThemes: Object.freeze([
+    Object.freeze({ name: 'Sky',     rim: '#b6cfec', faceTop: '#e4f0fd', faceBottom: '#b8d3f0', accent: '#22b7ff' }),
+    Object.freeze({ name: 'Sunset',  rim: '#eccbb6', faceTop: '#fdeee4', faceBottom: '#f0d3b8', accent: '#ff9d3d' }),
+    Object.freeze({ name: 'Orchid',  rim: '#d8bcec', faceTop: '#f3e6fd', faceBottom: '#ddc2f0', accent: '#b06aff' }),
+    Object.freeze({ name: 'Rose',    rim: '#ecc0cf', faceTop: '#fde4ec', faceBottom: '#f0bcd0', accent: '#ff6aa8' }),
+    Object.freeze({ name: 'Meadow',  rim: '#bcecc4', faceTop: '#e6fdea', faceBottom: '#bcf0c8', accent: '#3fbf5a' }),
+    Object.freeze({ name: 'Dusk',    rim: '#b6c0ec', faceTop: '#e4e8fd', faceBottom: '#b8c2f0', accent: '#6a7aff' }),
+  ]),
+
   /** Rune engravings etched into stone and cells — warm glowing gold. */
   rune: Object.freeze({
     dim: 'rgba(255,196,90,0.22)',
