@@ -319,8 +319,27 @@ export class PieceSystem extends System {
     const gameplay = this.game.getSystem('gameplay');
     if (gameplay && !gameplay.isPlaying) return;
     if (!this._grid || this.tray.length === 0) return;
-    const anyFits = this.tray.some((p) => this._grid.canPlaceAnywhere(p));
-    if (!anyFits) this.events.emit('game:over', {});
+    let placeable = 0;
+    for (const p of this.tray) if (this._grid.canPlaceAnywhere(p)) placeable++;
+    if (placeable === 0) { this.events.emit('game:over', {}); return; }
+    this._emitDanger(placeable);
+  }
+
+  /**
+   * Broadcast how close the board is to a dead end (0 = calm, 1 = critical), so
+   * the board can raise a "you're nearly stuck" tension effect. Danger rises as
+   * free space shrinks and, more sharply, when only one or two tray pieces can
+   * be placed at all. Cheap (one grid pass on an 8×8).
+   */
+  _emitDanger(placeable) {
+    let empty = 0;
+    this._grid.forEach((c) => {
+      if (!(c.filled || c.structure || (c.tile && c.tile.blocksPlacement))) empty++;
+    });
+    const spaceDanger = clamp((18 - empty) / 13, 0, 1);          // 0 at ≥18 free, 1 at ≤5
+    const optionDanger = placeable <= 1 ? 0.78 : placeable === 2 ? 0.42 : 0;
+    const level = clamp(Math.max(spaceDanger, optionDanger), 0, 1);
+    this.events.emit('board:danger', { level });
   }
 
   update(dt) {

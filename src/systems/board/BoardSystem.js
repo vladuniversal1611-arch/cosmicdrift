@@ -57,6 +57,10 @@ export class BoardSystem extends System {
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
     this._fullClearFx = null;   // { t, dur } while the wave + PERFECT banner play
+    // "Nearly stuck" tension: eased 0..1 danger driving a pulsing red vignette.
+    this._danger = 0;
+    this._dangerTarget = 0;
+    this._dangerWarned = false;
   }
 
   onInit() {
@@ -70,7 +74,8 @@ export class BoardSystem extends System {
     this._theme = Palette.boardThemes[this._themeIndex];
 
     this.listen('save:loaded', ({ data }) => { if (data.board) this.grid.deserialize(data.board); });
-    this.listen('game:started', () => this.grid.clearAll());
+    this.listen('game:started', () => { this.grid.clearAll(); this._danger = this._dangerTarget = 0; this._dangerWarned = false; });
+    this.listen('board:danger', ({ level }) => { this._dangerTarget = level ?? 0; });
     this.listen('board:hover', (h) => { this._hover = h; });
     this.listen('board:hoverEnd', () => { this._hover = null; });
     this.listen('board:checkClears', () => this._resolveClears());
@@ -371,6 +376,18 @@ export class BoardSystem extends System {
       if (this._fullClearFx.t >= this._fullClearFx.dur) { this._fullClearFx = null; this._prevTheme = null; }
     }
 
+    // Ease danger toward its target, and give a single warning beat the moment
+    // the board tips into "critical" (so it's felt once, never nags).
+    this._danger += (this._dangerTarget - this._danger) * Math.min(1, dt * 4);
+    if (this._dangerTarget >= 0.82 && !this._dangerWarned) {
+      this._dangerWarned = true;
+      this.events.emit('fx:shake', { mag: 6 });
+      this.game.getSystem('audio')?.play('invalid', { rate: 0.7 });
+      Haptics.warn(this.game);
+    } else if (this._dangerTarget < 0.6) {
+      this._dangerWarned = false;
+    }
+
     // Once the drift slide settles, resolve any lines it completed. Tag this
     // resolve so lines completed BY the drift emit a distinct event that the
     // "clear N lines by Drift" objective can count.
@@ -470,6 +487,7 @@ export class BoardSystem extends System {
     });
 
     this._drawBoardMotes(renderer);
+    if (this._danger > 0.04 && !this._fullClearFx) this._drawDanger(renderer);
     if (this._fullClearFx) this._drawFullClearFx(renderer);
     if (this._hover) this._drawGhost(renderer);
   }
@@ -720,6 +738,26 @@ export class BoardSystem extends System {
       renderer.text('PERFECT!', 0, 0, { font: `900 ${size}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: this._theme.accent, outlineWidth: size * 0.12 });
     });
     ctx.restore();
+    renderer.setAlpha(1);
+  }
+
+  /**
+   * "Nearly stuck" tension: a red vignette hugging the board edges that
+   * brightens and pulses faster as the board approaches a dead end — the classic
+   * near-loss cue that pushes the player to think before the final move.
+   */
+  _drawDanger(renderer) {
+    const d = this._danger, a = this._area;
+    const pulse = 0.62 + 0.38 * Math.sin(this._time * (3 + d * 6));
+    const alpha = d * d * 0.55 * pulse;
+    if (alpha <= 0.01) return;
+    const col = '255,66,86';
+    const inset = a.w * 0.24;
+    renderer.setAlpha(alpha);
+    renderer.fillRect(a.x, a.y, a.w, inset, renderer.linearGradient(a.x, a.y, a.x, a.y + inset, [[0, `rgba(${col},0.95)`], [1, `rgba(${col},0)`]]));
+    renderer.fillRect(a.x, a.bottom - inset, a.w, inset, renderer.linearGradient(a.x, a.bottom - inset, a.x, a.bottom, [[0, `rgba(${col},0)`], [1, `rgba(${col},0.95)`]]));
+    renderer.fillRect(a.x, a.y, inset, a.h, renderer.linearGradient(a.x, a.y, a.x + inset, a.y, [[0, `rgba(${col},0.95)`], [1, `rgba(${col},0)`]]));
+    renderer.fillRect(a.right - inset, a.y, inset, a.h, renderer.linearGradient(a.right - inset, a.y, a.right, a.y, [[0, `rgba(${col},0)`], [1, `rgba(${col},0.95)`]]));
     renderer.setAlpha(1);
   }
 
