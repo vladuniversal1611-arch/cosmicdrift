@@ -18,9 +18,10 @@ export const Config = Object.freeze({
   meta: Object.freeze({
     name: 'Cosmic Drift',
     /** Bump on every release; used by the SaveSystem migration layer. */
-    version: '0.1.0',
-    /** Internal build channel: 'dev' | 'beta' | 'prod'. */
-    channel: 'dev',
+    version: '1.0.0',
+    /** Internal build channel: 'dev' | 'beta' | 'prod'. Ship on 'prod' so the
+     *  developer console, cheat keys and debug overlays are all disabled. */
+    channel: 'prod',
   }),
 
   /**
@@ -210,10 +211,10 @@ export const Config = Object.freeze({
     steerCost: 35,
   }),
 
-  /** Developer aids. Disabled automatically outside the 'dev' channel. */
+  /** Developer aids — release values (no on-screen FPS, quiet logs). */
   debug: Object.freeze({
-    showFps: true,
-    logLevel: 'debug', // 'debug' | 'info' | 'warn' | 'error' | 'silent'
+    showFps: false,
+    logLevel: 'warn', // 'debug' | 'info' | 'warn' | 'error' | 'silent'
     drawGridOutlines: false,
   }),
 });
