@@ -55,6 +55,11 @@ export class DriftSystem extends System {
     this._steerBtn = new Rect(c.width * 0.055, c.height * 0.80, 132, 96);
 
     this.listen('input:tap', ({ x, y }) => this._onTap(x, y));
+    // The authored opening can keep a level static (e.g. level 1 teaches placing
+    // before the board ever drifts). `drift:false` in the level payload disables
+    // the mechanic for that level; anything else re-enables it.
+    this._allowed = true;
+    this.listen('level:changed', ({ drift }) => { this._allowed = drift !== false; });
     this.listen('game:started', () => {
       this._active = true;
       this._left = this._every;
@@ -118,8 +123,8 @@ export class DriftSystem extends System {
     if (this._steerFlash > 0) this._steerFlash = Math.max(0, this._steerFlash - dt * 2);
     if (this._denyFlash > 0) this._denyFlash = Math.max(0, this._denyFlash - dt * 2);
 
-    if (this._active) this._updateWind(dt);
-    if (!this._active || !this._want || !this._free) return;
+    if (this._active && this._allowed) this._updateWind(dt);
+    if (!this._active || !this._allowed || !this._want || !this._free) return;
 
     const dir = DIRS[this._dir];
     const moved = this.game.getSystem('board')?.applyDrift(dir) ?? 0;
@@ -201,7 +206,7 @@ export class DriftSystem extends System {
   // --- Telegraph -------------------------------------------------------------
 
   render(r) {
-    if (!this._active) return;
+    if (!this._active || !this._allowed) return;
     const gp = this.game.getSystem('gameplay');
     if (gp && !gp.isPlaying) return;
     const board = this.game.getSystem('board');

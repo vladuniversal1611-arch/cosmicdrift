@@ -29,7 +29,10 @@ const P = Palette;
 export const Objectives = Object.freeze([
   { id: 'collectEnergy', name: 'Collect {n} Crystal Energy', icon: 'crystal', color: P.accent,
     event: 'game:piecePlaced', amount: (p) => p.blocks ?? 1, base: 14, per: 0.8, weight: 5, minLevel: 1,
-    reward: { essence: 6 } },
+    reward: { gold: 60 } },
+  { id: 'clearLines', name: 'Clear {n} Lines', icon: 'crystaltile', color: P.accentAlt,
+    event: 'game:linesCleared', amount: (p) => p.count ?? p.amount ?? 1, base: 3, per: 0.12, weight: 5, minLevel: 1,
+    reward: { gold: 70 } },
   { id: 'chargeEggs', name: 'Charge {n} Dragon Eggs', icon: 'egg', color: P.warning,
     event: 'structure:completed', base: 2, per: 0.03, weight: 3, minLevel: 1, reward: { gold: 20 } },
   { id: 'rescueDragons', name: 'Rescue {n} Baby Dragons', icon: 'dragon', color: P.danger,

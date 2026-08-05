@@ -26,6 +26,7 @@ import { Config } from '../../config/Config.js';
 import { Random } from '../../utils/Random.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { TileRegistry } from '../tiles/TileRegistry.js';
+import { AuthoredLevels } from '../../config/AuthoredLevels.js';
 
 /**
  * The world table. `mech` is the tile mechanic introduced by that world (null
@@ -101,7 +102,9 @@ export class LevelSystem extends System {
     const world = this.namedWorld;
 
     const unlocked = this.unlockedMechanics();
-    const placements = this._generateLayout(unlocked);
+    // The hand-authored opening overrides layout/objectives/drift for its range.
+    const authored = AuthoredLevels[level] ?? null;
+    const placements = authored?.tiles ?? this._generateLayout(unlocked);
     this.game.getSystem('tiles').buildLevel(placements, unlocked, level * 2654435761);
 
     // A discovery callout only on the first level of a world that adds a mechanic.
@@ -111,7 +114,8 @@ export class LevelSystem extends System {
       ? { id: mech, label: TileRegistry[mech].label, blurb: TileRegistry[mech].blurb }
       : null;
 
-    // The ObjectivesSystem builds this level's goals from `unlocked` + level.
+    // The ObjectivesSystem builds this level's goals from `unlocked` + level,
+    // unless the authored opening supplies an explicit objective set.
     this.events.emit('level:changed', {
       level: this.level,
       world: world + 1,
@@ -119,6 +123,8 @@ export class LevelSystem extends System {
       levelInWorld: this.levelInWorld,
       newMechanic,
       unlocked: [...unlocked],
+      authored: authored?.objectives ?? null,
+      drift: authored ? authored.drift !== false : true,
     });
   }
 

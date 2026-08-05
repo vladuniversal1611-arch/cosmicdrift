@@ -25,7 +25,7 @@
  */
 import { System } from '../../core/System.js';
 import { Random } from '../../utils/Random.js';
-import { Objectives, objectiveGoal, objectiveAvailable } from '../../config/Objectives.js';
+import { Objectives, ObjectiveById, objectiveGoal, objectiveAvailable } from '../../config/Objectives.js';
 import { Objective } from './Objective.js';
 
 export class ObjectivesSystem extends System {
@@ -46,13 +46,26 @@ export class ObjectivesSystem extends System {
 
   // --- Building the level's objective set ------------------------------------
 
-  _build({ level, levelInWorld, newMechanic, unlocked, endless }) {
+  _build({ level, levelInWorld, newMechanic, unlocked, endless, authored }) {
     this._teardownEventBindings();
     this.objectives = [];
     this._allDone = false;
 
     // Endless mode has no goals — it's pure survival for score.
     if (endless) { this.events.emit('objectives:set', { objectives: this.objectives }); return; }
+
+    // Hand-authored opening: build exactly the specified goals.
+    if (authored && authored.length) {
+      for (const a of authored) {
+        const def = ObjectiveById[a.id];
+        if (!def) continue;
+        this.objectives.push(new Objective(def, Math.max(1, a.goal)));
+        this._bindEvent(def.event);
+      }
+      for (const obj of this.objectives) this._ensureTilesFor(obj.def, obj.goal);
+      this.events.emit('objectives:set', { objectives: this.objectives });
+      return;
+    }
 
     const unlockedSet = new Set(unlocked || []);
     const rng = new Random(level * 0x2545f491);
