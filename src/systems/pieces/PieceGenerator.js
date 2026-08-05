@@ -118,7 +118,7 @@ export class PieceGenerator {
    * Produce `count` Piece instances tuned to `target` hardness (0..1) and the
    * player's `generosity`. Guaranteed solvable whenever the board has room.
    */
-  generateTray(grid, count, target, generosity) {
+  generateTray(grid, count, target, generosity, { endless = false } = {}) {
     const rows = grid.rows; const cols = grid.columns;
     const occ = this._occupancy(grid);
     const emptyCount = occ.reduce((s, r) => s + r.filter((v) => !v).length, 0);
@@ -127,9 +127,14 @@ export class PieceGenerator {
     const placeable = ShapeKeys.filter((k) => this._positions(occ, Shapes[k].blocks, rows, cols) > 0);
     const pool = placeable.length ? placeable : ShapeKeys.slice();
 
-    // Weight shapes by closeness to the target hardness (a soft Gaussian).
+    // Shape weighting. Endless is a pure "all shapes, all sizes" mix: a flat
+    // weight with a mild size boost so the big space-hogs (five-bars, 3×3,
+    // rectangles) drop on par with the small pieces instead of being crowded
+    // out — the solvability check below still swaps in smaller pieces whenever
+    // a big one wouldn't fit. Campaign keeps the level-tuned hardness Gaussian.
     const sigma = 0.28;
     const weightOf = (k) => {
+      if (endless) return 1 + 0.14 * (Shapes[k].blocks.length - 1);
       const g = Math.exp(-((this.hardness[k] - target) ** 2) / (2 * sigma * sigma));
       return (Shapes[k].weight ?? 1) * g + 0.001;
     };
