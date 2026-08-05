@@ -157,10 +157,11 @@ export class PieceGenerator {
       if (gift) this._trySwap(tray, gift, occ, rows, cols);
     }
 
-    // Rare exciting big piece late game (only if it stays solvable). The heavy
-    // space-hogs (five-bars, rectangles, the 3×3) live here so they show up as
-    // a deliberate spike, not a constant grind.
-    if (target > 0.6 && this.rng.next() < Config.generator.excitingChance) {
+    // Exciting big piece once the difficulty is past the low-tutorial band (and
+    // only if it stays solvable). The heavy space-hogs (five-bars, rectangles,
+    // the 3×3) live here so they show up as a deliberate spike. The gate is low
+    // enough that they surface in a normal Endless run, not only very late.
+    if (target > 0.38 && this.rng.next() < Config.generator.excitingChance) {
       const big = ['cross', 'bigL', 'bigJ', 'quint', 'quintV', 'rect23', 'rect32', 'bigSquare'].filter((k) => ShapeKeys.includes(k));
       if (big.length) this._trySwap(tray, this.rng.pick(big), occ, rows, cols);
     }

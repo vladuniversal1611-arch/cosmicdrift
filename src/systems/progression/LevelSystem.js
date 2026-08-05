@@ -136,7 +136,7 @@ export class LevelSystem extends System {
    */
   beginEndless() {
     this._pending = 0;
-    this._endlessLevel = 8;     // starting piece-difficulty target
+    this._endlessLevel = 12;    // starting piece-difficulty target
     this._endlessLines = 0;
     this._endlessTier = 0;
     this.game.getSystem('tiles').buildLevel([], new Set(), 1);
@@ -160,7 +160,7 @@ export class LevelSystem extends System {
    * it takes effect on the next natural tray refill.
    */
   _rampEndless(count) {
-    const LINES_PER_TIER = 6, STEP = 4, CAP = 60;
+    const LINES_PER_TIER = 4, STEP = 5, CAP = 60;
     this._endlessLines += count;
     let ramped = false;
     while (this._endlessLines >= (this._endlessTier + 1) * LINES_PER_TIER && this._endlessLevel < CAP) {

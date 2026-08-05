@@ -157,8 +157,9 @@ export const Config = Object.freeze({
     giftBaseChance: 0.12,
     /** Extra gift chance scaled by how much the player is struggling (DDA). */
     giftStruggleBonus: 0.5,
-    /** Chance (late game) to offer a big, exciting, still-solvable piece. */
-    excitingChance: 0.09,
+    /** Chance to offer a big, exciting, still-solvable piece once past the
+     *  tutorial difficulty band (five-bars, rectangles, the 3×3 square). */
+    excitingChance: 0.16,
     /** Difficulty curve: target shape "hardness" 0..1 = base + perLevel*level. */
     difficulty: Object.freeze({ base: 0.12, perLevel: 0.012, max: 0.9 }),
     /** Dynamic difficulty adjustment (generosity: + = easier, - = harder). */
