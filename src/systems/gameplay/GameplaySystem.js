@@ -194,7 +194,10 @@ export class GameplaySystem extends System {
       + Config.fx.shakePerCombo * (this.combo - 1)
       + (count - 1) * Config.fx.shakePerCombo;
     this.addShake(shake);
-    Haptics.medium(this.game);
+    // The ASMR ladder: every clear rings the next note up the pentatonic scale,
+    // climbing with the combo chain. Haptic weight grows with the chain too.
+    this.game.getSystem('audio')?.play('comboStep', { combo: this.combo });
+    if (this.combo >= 4) Haptics.heavy(this.game); else Haptics.medium(this.game);
 
     // A light camera "breath" on every clear (bigger clears push in a touch
     // more); the combo finale layers its own stronger zoom on top.
@@ -219,7 +222,7 @@ export class GameplaySystem extends System {
     const cy = board ? board.centerY : 640;
 
     if (combo >= 2) {
-      audio?.play('combo', { rate: 1 + combo * 0.05 });
+      // (The rising pitch is handled by the 'comboStep' ladder in _onLinesCleared.)
       this.events.emit('fx:ripple', { x: cx, y: cy, color: '#22b7ff' });
       this.flash('#22b7ff', 0.1);
     }

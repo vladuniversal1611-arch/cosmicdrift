@@ -29,16 +29,42 @@ import { Logger } from '../../utils/Logger.js';
  * the art direction. Add entries here to give new events a voice.
  */
 const SFX = {
-  pickup: (a) => a._tone({ freq: 520, type: 'triangle', dur: 0.09, sweep: 1.35, gain: 0.16 }),
-  place: (a) => {
-    a._tone({ freq: 392, type: 'sine', dur: 0.13, gain: 0.22 });
-    a._tone({ freq: 587, type: 'sine', dur: 0.11, gain: 0.14, delay: 0.02 });
+  // A soft, crisp "tick" as a relic lifts off the tray.
+  pickup: (a) => {
+    a._noise({ dur: 0.045, gain: 0.09, type: 'highpass', freq: 3200 });
+    a._tone({ freq: 640, type: 'triangle', dur: 0.07, sweep: 1.3, gain: 0.09 });
   },
-  invalid: (a) => a._tone({ freq: 233, type: 'sine', dur: 0.16, sweep: 0.82, gain: 0.13 }),
+  // A tactile "thock": a short filtered-noise transient (the click) over a low
+  // sine body-thump with a fast decay, so a placement lands with weight instead
+  // of a thin beep. play() adds a little pitch jitter so it never repeats.
+  place: (a) => {
+    a._noise({ dur: 0.055, gain: 0.16, type: 'lowpass', freq: 2600, sweep: 0.4 });
+    a._tone({ freq: 176, type: 'sine', dur: 0.12, sweep: 0.72, gain: 0.30 });
+    a._tone({ freq: 330, type: 'triangle', dur: 0.07, gain: 0.10, delay: 0.004 });
+  },
+  invalid: (a) => {
+    a._noise({ dur: 0.06, gain: 0.08, type: 'lowpass', freq: 900, sweep: 0.6 });
+    a._tone({ freq: 210, type: 'sine', dur: 0.16, sweep: 0.8, gain: 0.13 });
+  },
   clear: (a) => {
-    // Ascending shimmer.
+    // A soft airy "whoosh" transient under a quick ascending shimmer — the
+    // satisfying crunch of a line dissolving.
+    a._noise({ dur: 0.22, gain: 0.10, type: 'bandpass', freq: 1400, q: 0.6, sweep: 2.4 });
     [523, 659, 784, 1046].forEach((f, i) =>
-      a._tone({ freq: f, type: 'triangle', dur: 0.2, gain: 0.13, delay: i * 0.045 }));
+      a._tone({ freq: f, type: 'triangle', dur: 0.2, gain: 0.11, delay: i * 0.04 }));
+  },
+  /**
+   * The ASMR escalation: each consecutive clear plays the NEXT note up a C major
+   * pentatonic ladder (do-re-mi-…), bell-like, with a tiny sparkle on top. Pass
+   * { combo } — the higher the chain, the higher and brighter the note.
+   */
+  comboStep: (a, o = {}) => {
+    const ladder = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00];
+    const f = ladder[Math.min(ladder.length - 1, Math.max(1, o.combo || 1) - 1)];
+    a._tone({ freq: f, type: 'sine', dur: 0.34, gain: 0.17 });
+    a._tone({ freq: f * 2, type: 'sine', dur: 0.28, gain: 0.05, delay: 0.004 });
+    a._tone({ freq: f * 3, type: 'triangle', dur: 0.16, gain: 0.03, delay: 0.008 });
+    a._noise({ dur: 0.05, gain: 0.045, type: 'highpass', freq: 6500 });
   },
   combo: (a) => a._tone({ freq: 880, type: 'sine', dur: 0.16, sweep: 1.5, gain: 0.18 }),
   gameover: (a) => {
@@ -250,6 +276,34 @@ export class AudioSystem extends System {
     osc.connect(g).connect(this._sfxBus);
     osc.start(t0);
     osc.stop(t0 + dur + 0.03);
+  }
+
+  /**
+   * A short filtered-noise burst — the percussive transient (tick / thock /
+   * whoosh) that pure oscillators can't make. This is what gives placements and
+   * clears their tactile "crunch". Cheap: a tiny one-shot noise buffer.
+   */
+  _noise({ dur = 0.06, gain = 0.15, type = 'bandpass', freq = 2000, q = 0.7, sweep = 1, delay = 0 }) {
+    const ctx = this._ctx;
+    const t0 = ctx.currentTime + delay;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = type;
+    filt.frequency.setValueAtTime(freq, t0);
+    filt.Q.value = q;
+    if (sweep !== 1) filt.frequency.exponentialRampToValueAtTime(Math.max(60, freq * sweep), t0 + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(filt).connect(g).connect(this._sfxBus);
+    src.start(t0);
+    src.stop(t0 + dur + 0.02);
   }
 
   onDestroy() {
