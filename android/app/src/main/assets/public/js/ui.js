@@ -938,14 +938,17 @@
         { gems: 2750, price: '$4.99', pid: 'gems_2750' },
         { gems: 7200, was: 6000, price: '$9.99', pid: 'gems_7200' }
       ].forEach(function (pack) {
-        const c = el('div', 'shop-card' + (pack.was ? ' promo' : ''));
+        // Real-money gem packs are disabled until Play Store billing is live —
+        // shown greyed out and non-interactive.
+        const c = el('div', 'shop-card is-soon' + (pack.was ? ' promo' : ''));
         const amount = pack.was
           ? '<s class="pack-was">' + pack.was + '</s> <b>' + pack.gems + '</b> 💎'
           : '<b>' + pack.gems + ' 💎</b>';
         c.innerHTML = (pack.was ? '<div class="promo-tag">' + T('promo_x5') + '</div>' : '') +
           '<div class="shop-ic">💎</div><div class="shop-info"><b>' + amount + '</b><span>' +
           T(pack.was ? 'promo_bonus' : 'best_price') + '</span></div>';
-        const b = click(el('button', 'btn btn-buy btn-mini', pack.price), function () { UI.buyPack(pack); });
+        const b = el('button', 'btn btn-buy btn-mini', T('soon'));
+        b.disabled = true;
         c.appendChild(b); s.appendChild(c);
       });
 

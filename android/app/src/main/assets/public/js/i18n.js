@@ -46,7 +46,7 @@
       upgrade_btn: 'Покращити ({cost}{ic})', not_enough_gold: 'Недостатньо золота 🪙', now_level: '{name} тепер рівня {n}!',
       // shop
       shop_title: '🛒 Магазин', rewarded_ad: 'Реклама за винагороду', ad_desc: 'Перегляньте рекламу → +6💎 та +30⚡',
-      watch: 'Дивитись', gems_section: '💎 Кристали', best_price: 'Найкраща ціна',
+      watch: 'Дивитись', gems_section: '💎 Кристали', best_price: 'Найкраща ціна', soon: 'Скоро',
       gold_section: '🪙 Золото', gold_pack: '{gold} золота', for_gems: 'за {gems}💎',
       boosters_section: '🧪 Бустери', skins_section: '🎨 Косметичні скіни драконів',
       hammer_pack: 'Молот ×3', mix_pack: 'Мікс ×3', moves_pack: 'Ходи ×3',
@@ -115,7 +115,7 @@
       charges_faster: 'Charges faster each level', close: 'Close',
       upgrade_btn: 'Upgrade ({cost}{ic})', not_enough_gold: 'Not enough gold 🪙', now_level: '{name} is now level {n}!',
       shop_title: '🛒 Shop', rewarded_ad: 'Rewarded ad', ad_desc: 'Watch an ad → +6💎 and +30⚡',
-      watch: 'Watch', gems_section: '💎 Gems', best_price: 'Best value',
+      watch: 'Watch', gems_section: '💎 Gems', best_price: 'Best value', soon: 'Soon',
       gold_section: '🪙 Gold', gold_pack: '{gold} gold', for_gems: 'for {gems}💎',
       boosters_section: '🧪 Boosters', skins_section: '🎨 Dragon cosmetic skins',
       hammer_pack: 'Hammer ×3', mix_pack: 'Mix ×3', moves_pack: 'Moves ×3',
