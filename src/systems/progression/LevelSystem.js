@@ -65,7 +65,8 @@ export class LevelSystem extends System {
     this.level = this._progress.level ?? 1;
 
     this.listen('game:started', ({ mode } = {}) => {
-      this._endless = mode === 'endless';
+      // Daily Challenge runs on the same score-chasing rails as Endless.
+      this._endless = mode === 'endless' || mode === 'daily';
       if (this._endless) this.beginEndless();
       else this.beginLevel(this.level);
     });

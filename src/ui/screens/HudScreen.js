@@ -130,13 +130,14 @@ export class HudScreen extends Screen {
       this._comboColor = tier >= 5 ? '#ff7a3d' : tier >= 4 ? '#ffcf4e' : tier >= 3 ? '#ffe08a' : '#7fe0ff';
       this._comboT = 1.3;
     }));
-    this._subs.push(this.events.on('gameplay:stateChanged', ({ state, score, best, newBest, canRevive }) => {
+    this._subs.push(this.events.on('gameplay:stateChanged', ({ state, score, best, newBest, canRevive, daily }) => {
       this._state = state;
       this._best = best ?? this._best;
       if (state === 'over') {
         this._final = score ?? this._score;
         this._overlayT = 0;
         this._newBest = !!newBest;
+        this._daily = !!daily;
         this._canRevive = canRevive !== false;
         // Celebrate a fresh record: gold flash, confetti and a triumphant beat.
         if (this._newBest) {
@@ -795,7 +796,7 @@ export class HudScreen extends Screen {
       font: '900 40px system-ui, sans-serif', color: '#ffffff',
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
     });
-    renderer.text(`${t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
+    renderer.text(`${this._daily ? "TODAY'S BEST" : t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
       font: '800 16px system-ui, sans-serif', color: this._newBest ? '#ffe08a' : '#dbeafc',
       align: 'center', baseline: 'middle',
     });

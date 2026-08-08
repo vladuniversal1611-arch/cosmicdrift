@@ -50,7 +50,7 @@ export class GameplaySystem extends System {
 
   onInit() {
     const save = this.game.getSystem('save');
-    this._stats = save.registerSlice('stats', () => ({ best: 0 }));
+    this._stats = save.registerSlice('stats', () => ({ best: 0, dailyBest: 0, dailyDate: '' }));
     this.best = this._stats.best ?? 0;
 
     // Two ways to play: the objective-driven campaign, and an endless survival
@@ -58,6 +58,7 @@ export class GameplaySystem extends System {
     // whatever mode the current run is in.
     this.listen('ui:playPressed', () => { this.mode = 'campaign'; this.startGame(); });
     this.listen('ui:playEndless', () => { this.mode = 'endless'; this.startGame(); });
+    this.listen('ui:playDaily', () => { this.mode = 'daily'; this.startGame(); });
     this.listen('ui:restart', this.startGame);
     this.listen('game:piecePlaced', this._onPiecePlaced);
     this.listen('game:linesCleared', this._onLinesCleared);
@@ -148,12 +149,27 @@ export class GameplaySystem extends System {
     this.combo = 0;
     this.energy = 0;
     this._revives = 0;
+    // Daily Challenge is a deterministic seeded run; a new day resets its best.
+    if (this.mode === 'daily') {
+      const today = GameplaySystem._today();
+      if (this._stats.dailyDate !== today) { this._stats.dailyDate = today; this._stats.dailyBest = 0; }
+      this.game.getSystem('pieces')?.seedDaily(GameplaySystem._daySeed());
+      this.game.getSystem('save')?.markDirty();
+    } else {
+      this.game.getSystem('pieces')?.seedRandom();
+    }
     this.events.emit('game:started', { mode: this.mode });
     this._broadcast();
-    this.events.emit('gameplay:stateChanged', { state: this.state, score: 0, best: this.best });
+    this.events.emit('gameplay:stateChanged', { state: this.state, score: 0, best: this._displayBest() });
   }
 
-  get isEndless() { return this.mode === 'endless'; }
+  // Survival (score-chasing, no level objectives) covers both Endless and Daily.
+  get isEndless() { return this.mode === 'endless' || this.mode === 'daily'; }
+  get isDaily() { return this.mode === 'daily'; }
+  /** The best score to show for the current mode (today's best in Daily). */
+  _displayBest() { return this.mode === 'daily' ? (this._stats.dailyBest ?? 0) : this.best; }
+  /** Has the player already started today's Daily Challenge? */
+  get dailyPlayedToday() { return this._stats?.dailyDate === GameplaySystem._today(); }
 
   /** How many times the player may still revive this run (ad-gated each time). */
   get canRevive() { return (this._revives ?? 0) < GameplaySystem.MAX_REVIVES; }
@@ -161,14 +177,18 @@ export class GameplaySystem extends System {
   _onGameOver() {
     if (this.state !== 'playing') return;
     this.state = 'over';
-    const newBest = this.score > this.best;
-    if (newBest) {
-      this.best = this.score;
-      this._stats.best = this.best;
-      this.game.getSystem('save')?.markDirty();
+    // Records: Daily tracks its own per-day best; other modes the all-time best.
+    let newBest;
+    if (this.mode === 'daily') {
+      newBest = this.score > (this._stats.dailyBest ?? 0);
+      if (newBest) this._stats.dailyBest = this.score;
+    } else {
+      newBest = this.score > this.best;
+      if (newBest) { this.best = this.score; this._stats.best = this.best; }
     }
+    if (newBest) this.game.getSystem('save')?.markDirty();
     this.game.getSystem('audio')?.play('gameover');
-    this.events.emit('gameplay:stateChanged', { state: 'over', score: this.score, best: this.best, newBest, canRevive: this.canRevive });
+    this.events.emit('gameplay:stateChanged', { state: 'over', score: this.score, best: this._displayBest(), newBest, canRevive: this.canRevive, daily: this.mode === 'daily' });
   }
 
   /**
@@ -369,3 +389,10 @@ export class GameplaySystem extends System {
 
 /** How many ad-gated revives a single run allows. */
 GameplaySystem.MAX_REVIVES = 3;
+
+/** Local calendar day as YYYYMMDD (string key + numeric seed for the Daily). */
+GameplaySystem._today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+};
+GameplaySystem._daySeed = () => (Number(GameplaySystem._today()) >>> 0) || 1;

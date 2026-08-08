@@ -102,6 +102,11 @@ export class PieceSystem extends System {
    */
   setDifficultyLevel(n) { this._level = n; }
 
+  /** Seed the piece RNG for a deterministic Daily Challenge run. */
+  seedDaily(seed) { this._rng.seed((seed >>> 0) || 1); }
+  /** Restore a non-deterministic sequence for normal play. */
+  seedRandom() { this._rng.seed((Date.now() >>> 0) || 1); }
+
   // --- Tray management -------------------------------------------------------
 
   /**
