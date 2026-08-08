@@ -63,6 +63,7 @@ export class GameplaySystem extends System {
     this.listen('game:linesCleared', this._onLinesCleared);
     this.listen('game:noClears', this._onNoClears);
     this.listen('game:over', this._onGameOver);
+    this.listen('game:revive', () => this.revive());
     // Living Board tiles feed the meter and shake through these generic hooks.
     this.listen('gameplay:addEnergy', ({ amount }) => this.addEnergy(amount));
     this.listen('fx:shake', ({ mag }) => this.addShake(mag));
@@ -146,6 +147,7 @@ export class GameplaySystem extends System {
     this.score = 0;
     this.combo = 0;
     this.energy = 0;
+    this._revives = 0;
     this.events.emit('game:started', { mode: this.mode });
     this._broadcast();
     this.events.emit('gameplay:stateChanged', { state: this.state, score: 0, best: this.best });
@@ -153,16 +155,39 @@ export class GameplaySystem extends System {
 
   get isEndless() { return this.mode === 'endless'; }
 
+  /** How many times the player may still revive this run (ad-gated each time). */
+  get canRevive() { return (this._revives ?? 0) < GameplaySystem.MAX_REVIVES; }
+
   _onGameOver() {
     if (this.state !== 'playing') return;
     this.state = 'over';
-    if (this.score > this.best) {
+    const newBest = this.score > this.best;
+    if (newBest) {
       this.best = this.score;
       this._stats.best = this.best;
       this.game.getSystem('save')?.markDirty();
     }
     this.game.getSystem('audio')?.play('gameover');
-    this.events.emit('gameplay:stateChanged', { state: 'over', score: this.score, best: this.best });
+    this.events.emit('gameplay:stateChanged', { state: 'over', score: this.score, best: this.best, newBest, canRevive: this.canRevive });
+  }
+
+  /**
+   * Second chance: clear space on the board and hand the player a fresh tray so
+   * the run continues from the same score. Ad-gated by the caller; capped per
+   * run so it stays a treat, not a crutch.
+   */
+  revive() {
+    if (this.state !== 'over' || !this.canRevive) return false;
+    this._revives = (this._revives ?? 0) + 1;
+    this.state = 'playing';
+    this.combo = 0;
+    this.game.getSystem('board')?.reviveClear();
+    this.game.getSystem('pieces')?.refill();
+    this.game.getSystem('audio')?.play('reward');
+    this.events.emit('game:revived', {});
+    this._broadcast();
+    this.events.emit('gameplay:stateChanged', { state: 'playing', score: this.score, best: this.best });
+    return true;
   }
 
   // --- Scoring / combo / energy ---------------------------------------------
@@ -338,3 +363,6 @@ export class GameplaySystem extends System {
     this.events.emit('gameplay:energy', { energy: this.energy, max: Config.gameplay.energyMax });
   }
 }
+
+/** How many ad-gated revives a single run allows. */
+GameplaySystem.MAX_REVIVES = 3;

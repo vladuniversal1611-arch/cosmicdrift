@@ -17,6 +17,7 @@ import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { Boosters } from '../../config/Boosters.js';
+import { Haptics } from '../../utils/Haptics.js';
 import { t } from '../../i18n/Localization.js';
 
 export class HudScreen extends Screen {
@@ -108,10 +109,25 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('gameplay:combo', ({ combo }) => {
       if (combo >= 2) { this._comboText = `COMBO ×${combo}`; this._comboT = 1.3; }
     }));
-    this._subs.push(this.events.on('gameplay:stateChanged', ({ state, score, best }) => {
+    this._subs.push(this.events.on('gameplay:stateChanged', ({ state, score, best, newBest, canRevive }) => {
       this._state = state;
       this._best = best ?? this._best;
-      if (state === 'over') { this._final = score ?? this._score; this._overlayT = 0; }
+      if (state === 'over') {
+        this._final = score ?? this._score;
+        this._overlayT = 0;
+        this._newBest = !!newBest;
+        this._canRevive = canRevive !== false;
+        // Celebrate a fresh record: gold flash, confetti and a triumphant beat.
+        if (this._newBest) {
+          this.events.emit('fx:flash', { color: '#ffe08a', strength: 0.4 });
+          const b = this.bounds;
+          this.events.emit('fx:burst', { x: b.centerX, y: b.centerY - b.h * 0.1, color: '#ffd34e', count: 70 });
+          this.game.getSystem('audio')?.play('restore');
+          Haptics.victory(this.game);
+        } else {
+          Haptics.heavy(this.game);
+        }
+      }
     }));
     this._subs.push(this.events.on('level:changed', (d) => {
       this._level = d.level;
@@ -695,12 +711,23 @@ export class HudScreen extends Screen {
     const cy = b.centerY;
     const rise = (1 - this._overlayT) * 30;
     renderer.setAlpha(this._overlayT);
-    renderer.withGlow(Palette.gold, 22, () => {
-      renderer.text(t('gameOver.title'), b.centerX, cy - 90 - rise, {
-        font: '900 44px system-ui, sans-serif', color: Palette.textPrimary,
-        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
+    // Title — a golden "NEW BEST!" when the run set a record, else "Game Over".
+    if (this._newBest) {
+      const beat = 1 + 0.06 * Math.sin(performance.now() / 180);
+      renderer.withGlow('#ffd34e', 28, () => {
+        renderer.text('NEW BEST!', b.centerX, cy - 90 - rise, {
+          font: `900 ${Math.round(48 * beat)}px system-ui, sans-serif`, color: '#fff6c8',
+          align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 7,
+        });
       });
-    });
+    } else {
+      renderer.withGlow(Palette.gold, 22, () => {
+        renderer.text(t('gameOver.title'), b.centerX, cy - 90 - rise, {
+          font: '900 44px system-ui, sans-serif', color: Palette.textPrimary,
+          align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
+        });
+      });
+    }
     renderer.text(t('gameOver.score'), b.centerX, cy - 26 - rise, {
       font: '800 15px system-ui, sans-serif', color: '#dbeafc',
       align: 'center', baseline: 'middle',
@@ -710,7 +737,7 @@ export class HudScreen extends Screen {
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
     });
     renderer.text(`${t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
-      font: '800 16px system-ui, sans-serif', color: '#dbeafc',
+      font: '800 16px system-ui, sans-serif', color: this._newBest ? '#ffe08a' : '#dbeafc',
       align: 'center', baseline: 'middle',
     });
 
@@ -732,18 +759,42 @@ export class HudScreen extends Screen {
       renderer.setAlpha(1);
     }
 
-    // Pulsing call to action.
-    const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 300);
-    renderer.setAlpha(this._overlayT * pulse);
-    renderer.text(t('gameOver.retry'), b.centerX, cy + 142, {
-      font: '800 18px system-ui, sans-serif', color: Palette.textPrimary,
-      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
+    // Action buttons. When a revive is still available, a bright "CONTINUE
+    // (watch ad)" sits above a smaller "Retry"; otherwise just a Retry button.
+    renderer.setAlpha(this._overlayT);
+    const bw = Math.min(b.w * 0.62, 360), bx = b.centerX - bw / 2;
+    let y = cy + 116;
+    this._reviveRect = null;
+    if (this._canRevive) {
+      const rh = 66; this._reviveRect = new Rect(bx, y, bw, rh);
+      const beat = 1 + 0.03 * Math.sin(performance.now() / 260);
+      const cxp = b.centerX, cyp = y + rh / 2;
+      renderer.save(); renderer.translate(cxp, cyp); renderer.scale(beat, beat); renderer.translate(-cxp, -cyp);
+      UITheme.button(renderer, bx, y, bw, rh, rh / 2, UI.btn.play, { shadow: true });
+      // little play triangle
+      renderer.ctx.fillStyle = '#fff';
+      renderer.ctx.beginPath(); renderer.ctx.moveTo(bx + 34, cyp - 12); renderer.ctx.lineTo(bx + 34 + 20, cyp); renderer.ctx.lineTo(bx + 34, cyp + 12); renderer.ctx.closePath(); renderer.ctx.fill();
+      renderer.text('CONTINUE', b.centerX + 12, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      renderer.text('watch a short ad', b.centerX + 12, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
+      renderer.restore();
+      y += rh + 16;
+    }
+    const rh2 = 54; this._retryRect = new Rect(bx + bw * 0.15, y, bw * 0.7, rh2);
+    UITheme.button(renderer, this._retryRect.x, this._retryRect.y, this._retryRect.w, rh2, rh2 / 2, UI.btn.blue, { shadow: true });
+    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, {
+      font: '800 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
     });
     renderer.setAlpha(1);
   }
 
   onTap(px, py) {
     if (this._state === 'over' && this._overlayT > 0.6) {
+      // Continue (watch a rewarded ad) or Retry from zero.
+      if (this._reviveRect?.contains(px, py)) {
+        this._reviveRect = null;   // debounce
+        this.game.getSystem('monetization')?.offerRewarded('revive', () => this.events.emit('game:revive'));
+        return true;
+      }
       this.events.emit('ui:restart');
       return true;
     }

@@ -133,6 +133,29 @@ export class BoardSystem extends System {
     this.game.getSystem('audio')?.play('clear', { rate: 0.95 + Math.random() * 0.1 });
   }
 
+  /**
+   * Revive: instantly clear the bottom half of the board (and emit a bright
+   * burst) so a dead-ended run has guaranteed room to continue. Instant rather
+   * than animated so the very next tray refill sees the freed space.
+   */
+  reviveClear() {
+    const g = this.grid;
+    const from = Math.floor(g.rows / 2);
+    let n = 0;
+    for (let r = from; r < g.rows; r++) {
+      for (let c = 0; c < g.columns; c++) {
+        const cell = g.get(c, r);
+        if (cell && cell.filled) { cell.clear(); n++; }
+      }
+    }
+    const a = this._area;
+    this.events.emit('fx:flash', { color: '#7fe0ff', strength: 0.3 });
+    this.events.emit('fx:burst', { x: a.centerX, y: a.centerY + a.h * 0.25, color: '#7fe0ff', count: 44 });
+    this.events.emit('fx:shake', { mag: 9 });
+    this.game.getSystem('audio')?.play('clear');
+    return n;
+  }
+
   /** True when no placed crystal or risen structure remains on the board. */
   _isBoardEmpty() {
     let empty = true;
