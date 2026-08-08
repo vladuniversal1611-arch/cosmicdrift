@@ -70,6 +70,10 @@ export class HudScreen extends Screen {
     this._boosterBtns = Boosters.map((def, i) => ({
       def, rect: new Rect(bx0 + i * (bd + bgap), by, bd, bd),
     }));
+    // Rewarded HINT button at the right of the booster row (watch an ad → the
+    // board highlights a good move). Player-initiated, never automatic.
+    this._hintBtn = new Rect(this.bounds.w - 24 - 92, by + (bd - 92) / 2, 92, 92);
+    this._hintPending = false;
 
     const w = this.bounds.w;
 
@@ -347,6 +351,33 @@ export class HudScreen extends Screen {
     }
   }
 
+  /** The rewarded HINT button: a lightbulb over a round button with an "AD"
+   *  tag. Pulses gently to invite the tap; dims while an ad is loading. */
+  _drawHintButton(r) {
+    const b = this._hintBtn, cx = b.centerX, cy = b.centerY, rad = b.w / 2;
+    const ctx = r.ctx;
+    const pulse = 0.6 + 0.4 * Math.sin(this._boosterT * 3);
+    r.setAlpha(this._hintPending ? 0.5 : 1);
+    r.withGlow('#ffd34e', 8 + pulse * 6, () => {
+      const g = r.radialGradient(cx, cy - rad * 0.4, rad, [[0, '#ffe89a'], [1, '#f2a93a']]);
+      r.fillCircle(cx, cy, rad, g);
+    });
+    UITheme.goldFrame(r, b.x, b.y, b.w, b.h, rad, 3);
+    // Lightbulb glyph.
+    ctx.save();
+    r.withGlow('#fff', 6, () => {
+      r.fillCircle(cx, cy - rad * 0.12, rad * 0.34, '#fffef2');
+    });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - rad * 0.16, cy + rad * 0.2, rad * 0.32, rad * 0.16);
+    ctx.fillRect(cx - rad * 0.12, cy + rad * 0.36, rad * 0.24, rad * 0.1);
+    ctx.restore();
+    // "AD" tag.
+    UITheme.chip(r, cx - 22, b.bottom - 6, 44, 24, '#3aa8ff');
+    r.text('AD', cx, b.bottom + 6, { font: '900 14px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.setAlpha(1);
+  }
+
   /** Compact vector glyph for each booster. */
   _drawBoosterIcon(r, id, cx, cy, s, color) {
     const ctx = r.ctx;
@@ -411,7 +442,7 @@ export class HudScreen extends Screen {
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
-    if (this._state === 'playing') this._drawBoosters(renderer);
+    if (this._state === 'playing') { this._drawBoosters(renderer); this._drawHintButton(renderer); }
     if (this._dragonReady && this._state === 'playing') this._drawDragonButton(renderer);
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
@@ -831,6 +862,14 @@ export class HudScreen extends Screen {
       this._dragonReady = false;   // hide immediately; re-armed by gameplay:energy
       this.game.getSystem('audio')?.play('dragonRoar');
       this.events.emit('dragon:unleash');
+      return true;
+    }
+    // Rewarded HINT: watch a short ad → highlight a good move.
+    if (this._state === 'playing' && this._hintBtn.contains(px, py)) {
+      if (this._hintPending) return true;
+      this._hintPending = true;
+      this.game.getSystem('monetization')?.offerRewarded('hint', () => this.events.emit('game:hint'))
+        .finally(() => { this._hintPending = false; });
       return true;
     }
     // Booster row: arm a cell-target booster, or fire an instant one.

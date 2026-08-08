@@ -57,6 +57,7 @@ export class BoardSystem extends System {
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
     this._fullClearFx = null;   // { t, dur } while the wave + PERFECT banner play
+    this._hint = null;          // { blocks, col, row, t } rewarded-hint highlight
   }
 
   onInit() {
@@ -70,7 +71,10 @@ export class BoardSystem extends System {
     this._theme = Palette.boardThemes[this._themeIndex];
 
     this.listen('save:loaded', ({ data }) => { if (data.board) this.grid.deserialize(data.board); });
-    this.listen('game:started', () => this.grid.clearAll());
+    this.listen('game:started', () => { this.grid.clearAll(); this._hint = null; });
+    // Rewarded hint: highlight the suggested placement for a few seconds.
+    this.listen('board:showHint', ({ blocks, col, row }) => { this._hint = { blocks, col, row, t: 4 }; });
+    this.listen('game:piecePlaced', () => { this._hint = null; });
     this.listen('board:hover', (h) => { this._hover = h; });
     this.listen('board:hoverEnd', () => { this._hover = null; });
     this.listen('board:checkClears', () => this._resolveClears());
@@ -154,6 +158,24 @@ export class BoardSystem extends System {
     this.events.emit('fx:shake', { mag: 9 });
     this.game.getSystem('audio')?.play('clear');
     return n;
+  }
+
+  /** The rewarded-hint highlight: a pulsing green outline on the suggested
+   *  placement cells, fading out over its last second. */
+  _drawHint(renderer) {
+    const h = this._hint, size = this.grid.cellSize, r = Config.board.cellRadius;
+    const pulse = 0.5 + 0.5 * Math.sin(this._time * 6);
+    const fade = Math.min(1, h.t);
+    for (const [bc, br] of h.blocks) {
+      const c = h.col + bc, rr = h.row + br;
+      if (!this.grid.inRange(c, rr)) continue;
+      const { x, y } = this.grid.cellToPixel(c, rr);
+      renderer.setAlpha((0.18 + pulse * 0.26) * fade);
+      renderer.fillRoundRect(x, y, size, size, r, '#5bff96');
+      renderer.setAlpha((0.7 + pulse * 0.3) * fade);
+      renderer.withGlow('#5bff96', 8 + pulse * 12, () => renderer.strokeRoundRect(x + 1.5, y + 1.5, size - 3, size - 3, r, '#a6ffc4', 3));
+      renderer.setAlpha(1);
+    }
   }
 
   /** True when no placed crystal or risen structure remains on the board. */
@@ -394,6 +416,9 @@ export class BoardSystem extends System {
       if (this._fullClearFx.t >= this._fullClearFx.dur) { this._fullClearFx = null; this._prevTheme = null; }
     }
 
+    // Fade out the rewarded hint.
+    if (this._hint && (this._hint.t -= dt) <= 0) this._hint = null;
+
     // Once the drift slide settles, resolve any lines it completed. Tag this
     // resolve so lines completed BY the drift emit a distinct event that the
     // "clear N lines by Drift" objective can count.
@@ -494,6 +519,7 @@ export class BoardSystem extends System {
 
     this._drawBoardMotes(renderer);
     if (this._fullClearFx) this._drawFullClearFx(renderer);
+    if (this._hint && !this._hover) this._drawHint(renderer);
     if (this._hover) this._drawGhost(renderer);
   }
 

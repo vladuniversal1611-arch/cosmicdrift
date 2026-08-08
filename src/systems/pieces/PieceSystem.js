@@ -68,6 +68,11 @@ export class PieceSystem extends System {
     // Feed the dynamic-difficulty director: losing => kinder, clearing => tougher.
     this.listen('game:over', () => this._director.recordLoss());
     this.listen('level:complete', () => this._director.recordWin());
+    // Rewarded hint: point the player at a good move (prefers one that clears).
+    this.listen('game:hint', () => {
+      const h = this.findHint();
+      if (h) this.events.emit('board:showHint', { blocks: h.piece.blocks, col: h.col, row: h.row });
+    });
     // After a clear resolves, freed cells (or melted tiles) may unstick a
     // game-over, so re-check.
     this.listen('board:clearComplete', () => this._checkGameOver());
@@ -322,6 +327,45 @@ export class PieceSystem extends System {
     if (!this._grid || this.tray.length === 0) return;
     const anyFits = this.tray.some((p) => this._grid.canPlaceAnywhere(p));
     if (!anyFits) this.events.emit('game:over', {});
+  }
+
+  /**
+   * A suggested move for the current tray: the first placement that completes a
+   * line if one exists (the "aha" move), otherwise any legal placement. Returns
+   * { piece, col, row } or null.
+   */
+  findHint() {
+    const g = this._grid;
+    if (!g) return null;
+    let fallback = null;
+    for (const piece of this.tray) {
+      for (let r = 0; r < g.rows; r++) {
+        for (let c = 0; c < g.columns; c++) {
+          if (!g.canPlace(piece, c, r)) continue;
+          if (!fallback) fallback = { piece, col: c, row: r };
+          if (this._completesLine(g, piece, c, r)) return { piece, col: c, row: r };
+        }
+      }
+    }
+    return fallback;
+  }
+
+  /** Would placing `piece` at (col,row) fill a whole row or column? */
+  _completesLine(g, piece, col, row) {
+    const has = new Set(piece.blocks.map(([bc, br]) => `${col + bc},${row + br}`));
+    const rows = new Set(), cols = new Set();
+    for (const [bc, br] of piece.blocks) { rows.add(row + br); cols.add(col + bc); }
+    for (const rr of rows) {
+      let full = true;
+      for (let c = 0; c < g.columns; c++) { if (!(g.get(c, rr)?.filled || has.has(`${c},${rr}`))) { full = false; break; } }
+      if (full) return true;
+    }
+    for (const cc of cols) {
+      let full = true;
+      for (let r = 0; r < g.rows; r++) { if (!(g.get(cc, r)?.filled || has.has(`${cc},${r}`))) { full = false; break; } }
+      if (full) return true;
+    }
+    return false;
   }
 
   update(dt) {
