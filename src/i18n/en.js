@@ -37,7 +37,7 @@ export default {
     shop: 'SHOP', settings: 'SETTINGS', collection: 'COLLECTION', events: 'EVENTS',
     paused: 'PAUSED', mainMenu: 'MAIN MENU', floatingWorld: 'FLOATING WORLD',
   },
-  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'DRAGON ENERGY' },
+  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY' },
   levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!' },
   gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {

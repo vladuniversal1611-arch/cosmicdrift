@@ -28,7 +28,7 @@ export const DailyCalendar = Object.freeze([
 export const DailyQuests = Object.freeze([
   { id: 'clearLines', text: 'Clear {n} lines today', event: 'game:linesCleared', use: 'count', goal: 15, reward: { coins: 200 } },
   { id: 'levels', text: 'Complete {n} levels today', event: 'level:complete', goal: 3, reward: { coins: 250 } },
-  { id: 'structures', text: 'Build {n} structures today', event: 'structure:completed', goal: 2, reward: { gems: 6 } },
+  { id: 'perfect', text: 'Clear the whole board {n}×', event: 'board:fullClear', goal: 1, reward: { coins: 250 } },
   { id: 'objectives', text: 'Finish {n} objective sets', event: 'objectives:allComplete', goal: 3, reward: { coins: 300 } },
 ]);
 
@@ -45,8 +45,8 @@ export const WeeklyChallenges = Object.freeze([
     text: 'Complete {n} levels this week', event: 'level:complete', goal: 25, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
   { id: 'wLines', name: 'Crystal Cascade', icon: 'gem', color: '#3aa8ff', blurb: 'Shatter crystals all week long.',
     text: 'Clear {n} lines this week', event: 'game:linesCleared', goal: 120, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
-  { id: 'wStructures', name: 'Grand Architect', icon: 'statue', color: '#37a83f', blurb: 'Raise wonders across the week.',
-    text: 'Build {n} structures this week', event: 'structure:completed', goal: 12, reward: { gems: 45, coins: 900 }, milestones: [0.4, 0.7, 1] },
+  { id: 'wPerfect', name: 'Clean Sweep', icon: 'crystal', color: '#3fbf5a', blurb: 'Wipe the board spotless, all week.',
+    text: 'Clear the whole board {n}× this week', event: 'board:fullClear', goal: 10, reward: { coins: 1800 }, milestones: [0.4, 0.7, 1] },
 ]);
 
 /** Rare post-level surprises. Kept genuinely rare so they stay exciting. */
@@ -66,20 +66,19 @@ export const SurpriseChance = 0.06;
  * experience — cycled so depth keeps arriving. Grants a celebratory bonus too.
  */
 export const Unlocks = Object.freeze([
-  { kind: 'Dragon', name: 'A New Dragon Appears', icon: 'dragon', color: '#ff5c94', reward: { gems: 10 } },
   { kind: 'Board Theme', name: 'New Board Theme', icon: 'crystal', color: '#3aa8ff', reward: { coins: 400 } },
+  { kind: 'Piece Skin', name: 'New Piece Style', icon: 'gem', color: '#ffb020', reward: { coins: 400 } },
   { kind: 'Soundtrack', name: 'New Soundtrack', icon: 'rune', color: '#28e0d0', reward: { coins: 400 } },
-  { kind: 'Collectible', name: 'New Collectible', icon: 'gem', color: '#ffb020', reward: { gems: 8 } },
-  { kind: 'Building', name: 'New Building Style', icon: 'statue', color: '#c8b48a', reward: { coins: 400 } },
+  { kind: 'Booster', name: 'Bonus Boosters', icon: 'chest', color: '#ff9422', reward: { coins: 500 } },
   { kind: 'Visual Theme', name: 'New Visual Theme', icon: 'flower', color: '#3fa93f', reward: { coins: 500 } },
 ]);
 
 /** Friendly, non-blaming tips shown on the retry screen. */
 export const Tips = Object.freeze([
   'Tip: Save long pieces for clearing full rows.',
-  'Tip: Chain clears build combos for big score multipliers.',
-  'Tip: Corruption spreads — clear next to it to purge it.',
-  'Tip: Line up a 2×2 to raise a Magic Crystal structure.',
-  'Tip: Dragon Runes charge your Dragon Energy faster.',
-  'Tip: Leave a column open to place awkward pieces.',
+  'Tip: Back-to-back clears build a combo for a bigger score.',
+  'Tip: Clearing a row AND a column at once scores a Double.',
+  'Tip: Empty the whole board for a PERFECT bonus and a fresh look.',
+  'Tip: Keep a column open to place those awkward pieces.',
+  'Tip: Stuck? A Shuffle booster deals you a fresh set of pieces.',
 ]);

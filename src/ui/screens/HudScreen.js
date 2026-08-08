@@ -13,6 +13,7 @@ import { Screen } from '../Screen.js';
 import { Label } from '../widgets/Label.js';
 import { Palette } from '../../config/Palette.js';
 import { clamp } from '../../utils/MathUtils.js';
+import { Easing } from '../../utils/Easing.js';
 import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
 import { UITheme, UI } from '../theme/UITheme.js';
@@ -32,6 +33,9 @@ export class HudScreen extends Screen {
     this._final = 0;
     this._scorePop = 0;       // decays 1 → 0 for the score bump
     this._comboText = '';
+    this._comboSub = '';      // secondary line (e.g. the chain under a DOUBLE!)
+    this._comboColor = null;  // escalates cool → gold → hot with intensity
+    this._comboBig = false;   // larger type for high-tier callouts
     this._comboT = 0;         // seconds remaining on the combo callout
     this._overlayT = 0;       // game-over fade-in
     this._consolation = null; // { reward, tip } shown on the game-over panel
@@ -106,8 +110,21 @@ export class HudScreen extends Screen {
       if (ready && !this._dragonReady) this.game.getSystem('audio')?.play('structure'); // "ability charged" chime
       this._dragonReady = ready;
     }));
-    this._subs.push(this.events.on('gameplay:combo', ({ combo }) => {
-      if (combo >= 2) { this._comboText = `COMBO ×${combo}`; this._comboT = 1.3; }
+    this._subs.push(this.events.on('gameplay:combo', ({ combo, lines }) => {
+      // A multi-line clear shouts DOUBLE/TRIPLE/…; a chain shows COMBO ×N. When
+      // both happen, the big word leads and the chain rides underneath. Size and
+      // colour escalate with whichever is more intense.
+      const WORDS = { 2: 'DOUBLE!', 3: 'TRIPLE!', 4: 'QUAD!', 5: 'PENTA!' };
+      let text = '';
+      if (lines >= 2) text = WORDS[lines] || 'MEGA!';
+      else if (combo >= 2) text = `COMBO ×${combo}`;
+      if (!text) return;
+      this._comboText = text;
+      this._comboSub = (lines >= 2 && combo >= 2) ? `COMBO ×${combo}` : '';
+      const tier = Math.max(combo, lines);
+      this._comboBig = tier >= 5;
+      this._comboColor = tier >= 5 ? '#ff7a3d' : tier >= 4 ? '#ffcf4e' : tier >= 3 ? '#ffe08a' : '#7fe0ff';
+      this._comboT = 1.3;
     }));
     this._subs.push(this.events.on('gameplay:stateChanged', ({ state, score, best, newBest, canRevive }) => {
       this._state = state;
@@ -259,7 +276,7 @@ export class HudScreen extends Screen {
       ctx.fillStyle = r.linearGradient(cx, cy - b.h * 0.3, cx, cy + b.h * 0.25, [[0, '#fff3c4'], [1, '#ff6a2a']]);
       ctx.fill();
     });
-    r.text('DRAGON', cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
+    r.text('NOVA', cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
     ctx.restore();
   }
 
@@ -680,21 +697,32 @@ export class HudScreen extends Screen {
   }
 
   _drawCombo(renderer) {
-    if (this._comboT <= 0) return;
+    if (this._comboT <= 0 || !this._comboText) return;
     const t = this._comboT / 1.3;                 // 1 → 0
     const alpha = clamp(t * 1.6, 0, 1);
-    const scale = 1.3 - t * 0.3;                   // small settle
+    // Pop in with an overshoot, then hold; a gentle wobble keeps it alive.
+    const pop = Easing.backOut(clamp((1.3 - this._comboT) / 0.22, 0, 1));
+    const scale = (0.6 + pop * 0.45) * (this._comboBig ? 1.18 : 1);
+    const col = this._comboColor || Palette.gold;
+    const size = this._comboBig ? 52 : 38;
     const board = this.game.getSystem('board').area;
     renderer.save();
     renderer.setAlpha(alpha);
-    renderer.translate(board.centerX, board.top - 26);
+    renderer.translate(board.centerX, board.top - 30);
+    renderer.rotate(Math.sin((1 - t) * 12) * 0.03 * t);   // tiny settle wobble
     renderer.scale(scale, scale);
-    renderer.withGlow(Palette.warning, 18, () => {
+    renderer.withGlow(col, this._comboBig ? 30 : 20, () => {
       renderer.text(this._comboText, 0, 0, {
-        font: '900 34px system-ui, sans-serif', color: Palette.gold,
-        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
+        font: `900 ${size}px system-ui, sans-serif`, color: col,
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
       });
     });
+    if (this._comboSub) {
+      renderer.text(this._comboSub, 0, size * 0.72, {
+        font: '900 20px system-ui, sans-serif', color: '#ffffff',
+        align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
+      });
+    }
     renderer.setAlpha(1);
     renderer.restore();
   }

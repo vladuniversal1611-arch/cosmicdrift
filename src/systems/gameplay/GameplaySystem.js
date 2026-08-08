@@ -248,8 +248,11 @@ export class GameplaySystem extends System {
 
     if (combo >= 2) {
       // (The rising pitch is handled by the 'comboStep' ladder in _onLinesCleared.)
-      this.events.emit('fx:ripple', { x: cx, y: cy, color: '#22b7ff' });
-      this.flash('#22b7ff', 0.1);
+      // A splash that grows with the chain — more sparks, warmer colour, bigger flash.
+      const hot = combo >= 5 ? '#ff7a3d' : combo >= 3 ? '#ffcf4e' : '#22b7ff';
+      this.events.emit('fx:ripple', { x: cx, y: cy, color: hot });
+      this.events.emit('fx:burst', { x: cx, y: cy, color: hot, count: 10 + combo * 5 });
+      this.flash(hot, 0.08 + Math.min(0.14, combo * 0.02));
     }
     if (combo >= 3) {
       this.events.emit('fx:burst', { x: cx, y: cy, color: '#28e0d0', count: 24 });
