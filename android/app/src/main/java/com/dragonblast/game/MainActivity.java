@@ -1,5 +1,6 @@
 package com.dragonblast.game;
 
+import android.content.pm.ActivityInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -12,6 +13,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Hard-lock portrait in code as well as in the manifest, so the game
+        // never rotates even if the device is lying flat / auto-rotate is on.
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         hideSystemBars();
     }
 
@@ -27,6 +31,8 @@ public class MainActivity extends BridgeActivity {
     // edge shows them transiently, then they auto-hide again — like most games.
     private void hideSystemBars() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Draw edge-to-edge so hiding the bars actually reclaims their space.
+            getWindow().setDecorFitsSystemWindows(false);
             WindowInsetsController controller = getWindow().getInsetsController();
             if (controller != null) {
                 controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
