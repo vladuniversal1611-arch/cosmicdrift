@@ -25,6 +25,7 @@
  * -----------------------------------------------------------------------------
  */
 import { System } from '../../core/System.js';
+import { t } from '../../i18n/Localization.js';
 import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../../ui/theme/UITheme.js';
 import { Palette } from '../../config/Palette.js';
@@ -200,7 +201,7 @@ export class OnboardingSystem extends System {
       const bw = 220, bh = 46, bx = cardX + cardW / 2 - bw / 2, by = cardY + cardH - bh - 12;
       this._gotItBtn.set(bx, by, bw, bh);
       UITheme.button(r, bx, by, bw, bh, bh / 2, UI.btn.teal, { shadow: true });
-      r.text('GOT IT!', bx + bw / 2, by + bh / 2, {
+      r.text(t('common.gotIt'), bx + bw / 2, by + bh / 2, {
         font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
         outline: Palette.textOutline, outlineWidth: 3,
       });
@@ -217,7 +218,7 @@ export class OnboardingSystem extends System {
     this._skipBtn.set(sx, sy, sw, sh);
     r.setAlpha(0.85);
     r.strokeRoundRect(sx, sy, sw, sh, sh / 2, 'rgba(255,255,255,0.7)', 2);
-    r.text('SKIP TUTORIAL', sx + sw / 2, sy + sh / 2, {
+    r.text(t('common.skipTutorial'), sx + sw / 2, sy + sh / 2, {
       font: '800 18px system-ui, sans-serif', color: '#eaf4ff', align: 'center', baseline: 'middle',
     });
     r.setAlpha(1);

@@ -9,6 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 import { UITheme, UI } from '../../theme/UITheme.js';
+import { t as tr } from '../../../i18n/Localization.js';
 import { Rect } from '../../../utils/Rect.js';
 import { Icons } from '../Icons.js';
 import { Motion } from '../Motion.js';
@@ -16,9 +17,9 @@ import { Motion } from '../Motion.js';
 const MAX_TABS = 5;
 
 export const NAV_TABS = [
-  { id: 'home', label: 'HOME', colors: UI.btn.teal, event: null, icon: (r, x, y, s, c) => Icons.island(r, x, y, s, c) },
-  { id: 'shop', label: 'SHOP', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
-  { id: 'settings', label: 'SETTINGS', colors: UI.btn.purple, event: 'ui:openSettings', icon: (r, x, y, s, c) => Icons.gear(r, x, y, s, c) },
+  { id: 'home', label: 'menu.home', colors: UI.btn.teal, event: null, icon: (r, x, y, s, c) => Icons.island(r, x, y, s, c) },
+  { id: 'shop', label: 'menu.shop', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
+  { id: 'settings', label: 'menu.settings', colors: UI.btn.purple, event: 'ui:openSettings', icon: (r, x, y, s, c) => Icons.gear(r, x, y, s, c) },
 ];
 
 export class BottomNav {
@@ -75,7 +76,7 @@ export class BottomNav {
       UITheme.goldFrame(r, cx - icyR - 12, b.y - 6, (icyR + 12) * 2, (icyR + 12) * 2, icyR + 12, 3);
     }
     t.def.icon(r, cx, b.y + icyR + 6, icyR, isActive ? '#fff' : '#3a5a86');
-    r.text(t.def.label, cx, b.bottom - 12, {
+    r.text(tr(t.def.label), cx, b.bottom - 12, {
       font: `800 ${isActive ? 22 : 20}px system-ui, sans-serif`,
       color: isActive ? UI.ink : 'rgba(47,84,135,0.75)', align: 'center', baseline: 'middle',
     });

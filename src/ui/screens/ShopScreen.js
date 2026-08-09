@@ -61,25 +61,25 @@ export class ShopScreen extends PanelScreen {
     this._dailyRect = dg;
     UITheme.button(r, dg.x, dg.y, dg.w, dg.h, 20, UI.btn.teal);
     this._chest(r, dg.x + 60, dg.centerY, 40, this._chestT >= 0);
-    r.text('DAILY GIFT', dg.x + 118, dg.centerY - 14, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    r.text('Come back every day!', dg.x + 118, dg.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
+    r.text(t('shop.dailyGift'), dg.x + 118, dg.centerY - 14, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
+    r.text(t('shop.dailySub'), dg.x + 118, dg.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
     const claimW = 96, claimH = 44, cx = dg.right - claimW - 16, cyy = dg.centerY - claimH / 2;
     this._claimRect = new Rect(cx, cyy, claimW, claimH);
     UITheme.button(r, cx, cyy, claimW, claimH, claimH / 2, UI.btn.play);
-    r.text('CLAIM', cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(t('common.claim'), cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
     // --- Watch-ad → free booster banner ---
     const ad = new Rect(p.x + pad, dg.bottom + 12, p.w - pad * 2, 70);
     this._adRect = ad;
     UITheme.button(r, ad.x, ad.y, ad.w, ad.h, 18, UI.btn.play);
     this._playIcon(r, ad.x + 44, ad.centerY, 18);
-    r.text(this._adPending ? 'WATCHING…' : 'FREE BOOSTER', ad.x + 84, ad.centerY - 12, { font: '900 20px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    r.text('Watch a short ad', ad.x + 84, ad.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
+    r.text(this._adPending ? t('shop.watching') : t('shop.freeBooster'), ad.x + 84, ad.centerY - 12, { font: '900 20px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
+    r.text(t('common.watchAd'), ad.x + 84, ad.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
     UITheme.chip(r, ad.right - 96, ad.centerY - 17, 80, 34, '#ff8a3d');
-    r.text('WATCH', ad.right - 56, ad.centerY, { font: '900 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(t('common.watch'), ad.right - 56, ad.centerY, { font: '900 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
     // --- Booster store header ---
-    r.text('BOOSTER STORE', p.centerX, ad.bottom + 22, { font: '900 18px system-ui, sans-serif', color: UI.gold.deep, align: 'center', baseline: 'middle' });
+    r.text(t('shop.boosterStore'), p.centerX, ad.bottom + 22, { font: '900 18px system-ui, sans-serif', color: UI.gold.deep, align: 'center', baseline: 'middle' });
 
     // --- Offer cards (2×2), priced in Coins ---
     const cols = 2, cw = (p.w - pad * 2 - 16) / cols, ch = 150;
@@ -154,14 +154,14 @@ export class ShopScreen extends PanelScreen {
     if (this._adRect?.contains(px, py)) {
       if (this._adPending) return true;
       this._adPending = true;
-      this._toast = { text: 'Loading ad…', t: 2 };
+      this._toast = { text: t('shop.loadingAd'), t: 2 };
       this.game.getSystem('monetization')?.offerRewarded('shop_free_booster', () => {
         const text = this._grantBoosters(AD_REWARD);
         this.game.getSystem('audio')?.play('reward'); Haptics.success(this.game);
         this._toast = { text, t: 1.8 };
       }).then((earned) => {
         this._adPending = false;
-        if (!earned) this._toast = { text: 'No ad available', t: 1.4 };
+        if (!earned) this._toast = { text: t('shop.noAd'), t: 1.4 };
       });
       return true;
     }
@@ -169,7 +169,7 @@ export class ShopScreen extends PanelScreen {
     for (const { rect, o } of (this._packRects || [])) {
       if (!rect.contains(px, py)) continue;
       if (!eco || !eco.canAfford('gold', o.cost)) {
-        this._toast = { text: 'NOT ENOUGH COINS', t: 1.6 };
+        this._toast = { text: t('shop.notEnough'), t: 1.6 };
         this.game.getSystem('audio')?.play('invalid'); Haptics.warn(this.game);
         return true;
       }

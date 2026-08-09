@@ -16,11 +16,11 @@ import { Rect } from '../../../utils/Rect.js';
 /** Shortcut descriptors. A focused set: jump into Endless, or open the booster
  *  Shop. The big PLAY button above handles the Levels campaign. */
 export const QUICK = [
-  { id: 'daily', label: 'DAILY', colors: UI.btn.purple, event: 'ui:playDaily',
+  { id: 'daily', label: 'menu.daily', colors: UI.btn.purple, event: 'ui:playDaily',
     icon: (r, x, y, s, c) => r.text('★', x, y + 1, { font: `900 ${Math.round(s * 1.4)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
-  { id: 'endless', label: 'ENDLESS', colors: UI.btn.orange, event: 'ui:playEndless',
+  { id: 'endless', label: 'menu.endless', colors: UI.btn.orange, event: 'ui:playEndless',
     icon: (r, x, y, s, c) => r.text('∞', x, y + 1, { font: `900 ${Math.round(s * 1.7)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
-  { id: 'shop', label: 'SHOP', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
+  { id: 'shop', label: 'menu.shop', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
 ];
 
 export class QuickAccess {

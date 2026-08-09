@@ -12,6 +12,7 @@
  * -----------------------------------------------------------------------------
  */
 import { UITheme, UI } from '../../theme/UITheme.js';
+import { t } from '../../../i18n/Localization.js';
 import { Rect } from '../../../utils/Rect.js';
 import { Icons } from '../Icons.js';
 import { Motion } from '../Motion.js';
@@ -94,7 +95,7 @@ export class PlayButton {
       r.text('LOCKED', cx + b.w * 0.06, cy, { font: '900 44px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 5 });
     } else {
       Icons.play(r, cx - b.w * 0.30, cy, b.h * 0.26, ready ? '#fff' : 'rgba(255,255,255,0.6)');
-      r.text('PLAY', cx + b.w * 0.06, cy, { font: '900 66px system-ui, sans-serif', color: ready ? '#fff' : 'rgba(255,255,255,0.6)', align: 'center', baseline: 'middle', outline: 'rgba(20,80,30,0.5)', outlineWidth: 5 });
+      r.text(t('common.play'), cx + b.w * 0.06, cy, { font: '900 66px system-ui, sans-serif', color: ready ? '#fff' : 'rgba(255,255,255,0.6)', align: 'center', baseline: 'middle', outline: 'rgba(20,80,30,0.5)', outlineWidth: 5 });
     }
     ctx.restore();
 

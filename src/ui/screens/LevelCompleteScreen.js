@@ -153,7 +153,7 @@ export class LevelCompleteScreen extends Screen {
     for (const child of this.children) child.render(r);
 
     // Skip hint until Continue appears.
-    if (!this._contShown) r.text('tap to skip', b.centerX, b.h - 40, { font: '700 22px system-ui, sans-serif', color: 'rgba(255,255,255,0.5)', align: 'center', baseline: 'middle' });
+    if (!this._contShown) r.text(t('common.tapToSkip'), b.centerX, b.h - 40, { font: '700 22px system-ui, sans-serif', color: 'rgba(255,255,255,0.5)', align: 'center', baseline: 'middle' });
   }
 
   _drawTitle(r, cx, cy) {

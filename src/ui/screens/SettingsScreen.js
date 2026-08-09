@@ -10,7 +10,7 @@ import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
 import { UI } from '../theme/UITheme.js';
 import { clamp } from '../../utils/MathUtils.js';
-import { t } from '../../i18n/Localization.js';
+import { t, L } from '../../i18n/Localization.js';
 
 const ROWS = [
   { key: 'muted', labelKey: 'settings.audio', invert: true },
@@ -32,8 +32,8 @@ export class SettingsScreen extends PanelScreen {
 
   _on(s, row) { const v = s?.get(row.key); return row.invert ? !v : !!v; }
 
-  // Rows (from p.y+40) + the reset button that sits at p.bottom-70.
-  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 94; }
+  // Toggle rows (from p.y+40) + a language row + the reset button at the foot.
+  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 80 + 94; }
 
   _rows() {
     const p = this.panel;
@@ -58,6 +58,19 @@ export class SettingsScreen extends PanelScreen {
       r.text(t(row.labelKey), rect.x + 20, rect.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
       this._toggle(r, rect.right - 82, rect.centerY - 17, 66, 34, this._anim[row.key]);
     }
+
+    // Language row — tap the pill to cycle available languages (updates live).
+    const rows = this._rows();
+    const last = rows[rows.length - 1].rect;
+    const lr = new Rect(last.x, last.bottom + 18, last.w, 62);
+    this._langRect = lr;
+    r.fillRoundRect(lr.x, lr.y, lr.w, lr.h, 16, 'rgba(255,255,255,0.6)');
+    r.strokeRoundRect(lr.x, lr.y, lr.w, lr.h, 16, 'rgba(120,140,200,0.4)', 1.5);
+    r.text(t('settings.language'), lr.x + 20, lr.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+    const pw = 150, px2 = lr.right - pw - 12, ph = 40, py2 = lr.centerY - ph / 2;
+    r.fillRoundRect(px2, py2, pw, ph, ph / 2, UI.btn.blue[1]);
+    r.text(L.currentName(), px2 + pw / 2, lr.centerY, { font: '800 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+
     // Reset progress button area (drawn text; tap handled in onContentTap).
     const p = this.panel;
     const bx = p.centerX - 90, by = p.bottom - 70;
@@ -85,6 +98,14 @@ export class SettingsScreen extends PanelScreen {
         this.game.getSystem('audio')?.play('pickup');
         return true;
       }
+    }
+    // Cycle language (EN ↔ UK …). Takes effect on the next frame everywhere.
+    if (this._langRect?.contains(px, py)) {
+      const langs = L.languages;
+      const next = langs[(langs.indexOf(L.language) + 1) % langs.length];
+      this.game.getSystem('settings')?.set('language', next);
+      this.game.getSystem('audio')?.play('pickup');
+      return true;
     }
     if (this._resetRect?.contains(px, py)) {
       this.game.getSystem('save')?.reset();

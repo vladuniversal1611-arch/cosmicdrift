@@ -118,13 +118,13 @@ export class HudScreen extends Screen {
       // A multi-line clear shouts DOUBLE/TRIPLE/…; a chain shows COMBO ×N. When
       // both happen, the big word leads and the chain rides underneath. Size and
       // colour escalate with whichever is more intense.
-      const WORDS = { 2: 'DOUBLE!', 3: 'TRIPLE!', 4: 'QUAD!', 5: 'PENTA!' };
+      const WORDS = { 2: t('combo.double'), 3: t('combo.triple'), 4: t('combo.quad'), 5: t('combo.penta') };
       let text = '';
-      if (lines >= 2) text = WORDS[lines] || 'MEGA!';
-      else if (combo >= 2) text = `COMBO ×${combo}`;
+      if (lines >= 2) text = WORDS[lines] || t('combo.mega');
+      else if (combo >= 2) text = t('combo.chain', { n: combo });
       if (!text) return;
       this._comboText = text;
-      this._comboSub = (lines >= 2 && combo >= 2) ? `COMBO ×${combo}` : '';
+      this._comboSub = (lines >= 2 && combo >= 2) ? t('combo.chain', { n: combo }) : '';
       const tier = Math.max(combo, lines);
       this._comboBig = tier >= 5;
       this._comboColor = tier >= 5 ? '#ff7a3d' : tier >= 4 ? '#ffcf4e' : tier >= 3 ? '#ffe08a' : '#7fe0ff';
@@ -281,7 +281,7 @@ export class HudScreen extends Screen {
       ctx.fillStyle = r.linearGradient(cx, cy - b.h * 0.3, cx, cy + b.h * 0.25, [[0, '#fff3c4'], [1, '#ff6a2a']]);
       ctx.fill();
     });
-    r.text('NOVA', cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
+    r.text(t('common.nova'), cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
     ctx.restore();
   }
 
@@ -344,7 +344,7 @@ export class HudScreen extends Screen {
       const y = board ? board.bottom + 8 : this.bounds.h * 0.62;
       const gl = 0.6 + 0.4 * Math.sin(this._boosterT * 5);
       r.setAlpha(gl);
-      r.withGlow('#ffe08a', 12, () => r.text('TAP A BLOCK TO STRIKE', this.bounds.centerX, y, {
+      r.withGlow('#ffe08a', 12, () => r.text(t('hud.tapToStrike'), this.bounds.centerX, y, {
         font: '900 26px system-ui, sans-serif', color: '#ffe89a',
         align: 'center', baseline: 'middle', outline: 'rgba(120,80,10,0.7)', outlineWidth: 4,
       }));
@@ -775,7 +775,7 @@ export class HudScreen extends Screen {
     if (this._newBest) {
       const beat = 1 + 0.06 * Math.sin(performance.now() / 180);
       renderer.withGlow('#ffd34e', 28, () => {
-        renderer.text('NEW BEST!', b.centerX, cy - 90 - rise, {
+        renderer.text(t('common.newBest'), b.centerX, cy - 90 - rise, {
           font: `900 ${Math.round(48 * beat)}px system-ui, sans-serif`, color: '#fff6c8',
           align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 7,
         });
@@ -796,7 +796,7 @@ export class HudScreen extends Screen {
       font: '900 40px system-ui, sans-serif', color: '#ffffff',
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
     });
-    renderer.text(`${this._daily ? "TODAY'S BEST" : t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
+    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
       font: '800 16px system-ui, sans-serif', color: this._newBest ? '#ffe08a' : '#dbeafc',
       align: 'center', baseline: 'middle',
     });
@@ -834,8 +834,8 @@ export class HudScreen extends Screen {
       // little play triangle
       renderer.ctx.fillStyle = '#fff';
       renderer.ctx.beginPath(); renderer.ctx.moveTo(bx + 34, cyp - 12); renderer.ctx.lineTo(bx + 34 + 20, cyp); renderer.ctx.lineTo(bx + 34, cyp + 12); renderer.ctx.closePath(); renderer.ctx.fill();
-      renderer.text('CONTINUE', b.centerX + 12, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-      renderer.text('watch a short ad', b.centerX + 12, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
+      renderer.text(t('common.continue'), b.centerX + 12, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      renderer.text(t('common.watchAd'), b.centerX + 12, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
       renderer.restore();
       y += rh + 16;
     }

@@ -9,6 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 import { UITheme, UI } from '../../theme/UITheme.js';
+import { t } from '../../../i18n/Localization.js';
 import { Rect } from '../../../utils/Rect.js';
 import { Motion } from '../Motion.js';
 
@@ -55,8 +56,8 @@ export class QuickButton {
     UITheme.button(r, b.x, b.y, b.w, b.h, 40, this.locked ? ['#aebccb', '#7e8ea0'] : this.def.colors);
     const icy = b.centerY - b.h * 0.10;
     this.def.icon(r, b.centerX, icy, b.h * 0.26, this.locked ? 'rgba(255,255,255,0.7)' : '#fff');
-    r.text(this.def.label, b.centerX + 1, b.y + b.h * 0.80 + 1, { font: '800 24px system-ui, sans-serif', color: 'rgba(10,20,50,0.3)', align: 'center', baseline: 'middle' });
-    r.text(this.def.label, b.centerX, b.y + b.h * 0.80, { font: '800 24px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(t(this.def.label), b.centerX + 1, b.y + b.h * 0.80 + 1, { font: '800 24px system-ui, sans-serif', color: 'rgba(10,20,50,0.3)', align: 'center', baseline: 'middle' });
+    r.text(t(this.def.label), b.centerX, b.y + b.h * 0.80, { font: '800 24px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
     if (this.locked) {
       r.setAlpha(0.25); r.fillRoundRect(b.x, b.y, b.w, b.h, 40, '#1a2b4a'); r.setAlpha(1);

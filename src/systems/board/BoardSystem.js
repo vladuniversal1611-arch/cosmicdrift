@@ -27,6 +27,7 @@
  * -----------------------------------------------------------------------------
  */
 import { System } from '../../core/System.js';
+import { t } from '../../i18n/Localization.js';
 import { Config } from '../../config/Config.js';
 import { Palette } from '../../config/Palette.js';
 import { Rect } from '../../utils/Rect.js';
@@ -765,8 +766,8 @@ export class BoardSystem extends System {
     ctx.save();
     ctx.translate(a.centerX, a.centerY - a.h * 0.06);
     renderer.withGlow(this._theme.accent, 24, () => {
-      renderer.text('PERFECT!', 2, 4, { font: `900 ${size}px system-ui, sans-serif`, color: 'rgba(20,44,92,0.35)', align: 'center', baseline: 'middle' });
-      renderer.text('PERFECT!', 0, 0, { font: `900 ${size}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: this._theme.accent, outlineWidth: size * 0.12 });
+      renderer.text(t('common.perfect'), 2, 4, { font: `900 ${size}px system-ui, sans-serif`, color: 'rgba(20,44,92,0.35)', align: 'center', baseline: 'middle' });
+      renderer.text(t('common.perfect'), 0, 0, { font: `900 ${size}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: this._theme.accent, outlineWidth: size * 0.12 });
     });
     ctx.restore();
     renderer.setAlpha(1);

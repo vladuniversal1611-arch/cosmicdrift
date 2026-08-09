@@ -12,11 +12,14 @@ export default {
   common: {
     play: 'PLAY', continue: 'CONTINUE', resume: 'RESUME', back: 'BACK',
     claim: 'CLAIM', free: 'FREE', best: 'BEST', locked: 'LOCKED', restore: 'RESTORE',
+    nova: 'NOVA', perfect: 'PERFECT!', newBest: 'NEW BEST!', gotIt: 'GOT IT!',
+    watch: 'WATCH', watchAd: 'Watch a short ad', skipTutorial: 'SKIP TUTORIAL', tapToSkip: 'tap to skip',
   },
+  combo: { double: 'DOUBLE!', triple: 'TRIPLE!', quad: 'QUAD!', penta: 'PENTA!', mega: 'MEGA!', chain: 'COMBO ×{n}' },
   menu: {
     tagline: 'A MAGICAL PUZZLE SAGA',
     events: 'EVENTS', dragons: 'DRAGONS', island: 'ISLAND', shop: 'SHOP', settings: 'SETTINGS',
-    daily: 'DAILY', collection: 'Collection {a}/{b}',
+    daily: 'DAILY', endless: 'ENDLESS', home: 'HOME', collection: 'Collection {a}/{b}',
   },
   daily: {
     title: 'DAILY REWARDS',
@@ -37,14 +40,18 @@ export default {
     shop: 'SHOP', settings: 'SETTINGS', collection: 'COLLECTION', events: 'EVENTS',
     paused: 'PAUSED', mainMenu: 'MAIN MENU', floatingWorld: 'FLOATING WORLD',
   },
-  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY' },
+  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY', tapToStrike: 'TAP A BLOCK TO STRIKE', todaysBest: "TODAY'S BEST" },
   levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!' },
   gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {
     audio: 'Music & Sound', haptics: 'Haptics', reducedMotion: 'Reduced Motion',
     colorBlind: 'Color-Blind Mode', lowPerformance: 'Low Performance Mode', largeUI: 'Large UI',
-    reset: 'RESET PROGRESS',
+    reset: 'RESET PROGRESS', language: 'Language',
   },
-  shop: { dailyGift: 'DAILY GIFT', dailySub: 'Come back every day!' },
+  shop: {
+    dailyGift: 'DAILY GIFT', dailySub: 'Come back every day!', boosterStore: 'BOOSTER STORE',
+    freeBooster: 'FREE BOOSTER', watching: 'WATCHING…', loadingAd: 'Loading ad…', noAd: 'No ad available',
+    notEnough: 'NOT ENOUGH COINS',
+  },
   collection: { tabs: { dragons: 'DRAGONS', buildings: 'BUILDINGS', artifacts: 'ARTIFACTS', awards: 'AWARDS' } },
 };

@@ -9,10 +9,11 @@
  * -----------------------------------------------------------------------------
  */
 import en from './en.js';
+import uk from './uk.js';
 
 class Localization {
   constructor() {
-    this._packs = { en };
+    this._packs = { en, uk };
     this._lang = 'en';
     this._pack = en;
   }
@@ -23,6 +24,8 @@ class Localization {
   /** List available language codes. */
   get languages() { return Object.keys(this._packs); }
   get language() { return this._lang; }
+  /** The active language's own display name (e.g. "Українська"). */
+  currentName() { return this._pack?.meta?.language ?? this._lang; }
 
   /** Switch language if the pack exists. */
   setLanguage(lang) {
