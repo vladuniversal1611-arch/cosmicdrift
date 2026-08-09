@@ -36,17 +36,13 @@ import { ObjectivesSystem } from '../systems/objectives/ObjectivesSystem.js';
 import { WorldProgressionSystem } from '../systems/world/WorldProgressionSystem.js';
 import { RetentionSystem } from '../systems/retention/RetentionSystem.js';
 import { TileSystem } from '../systems/tiles/TileSystem.js';
-import { StructureSystem } from '../systems/structures/StructureSystem.js';
 import { BoardSystem } from '../systems/board/BoardSystem.js';
 import { PieceSystem } from '../systems/pieces/PieceSystem.js';
 import { WorldSystem } from '../systems/world/WorldSystem.js';
-import { DragonSystem } from '../systems/dragon/DragonSystem.js';
 import { EconomySystem } from '../systems/economy/EconomySystem.js';
-import { EventsSystem } from '../systems/events/EventsSystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
 import { AchievementSystem } from '../systems/achievements/AchievementSystem.js';
-import { DriftSystem } from '../systems/drift/DriftSystem.js';
 import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
 import { DebugManager } from '../systems/debug/DebugManager.js';
@@ -121,10 +117,8 @@ export class Game {
     // Simulation-support systems.
     if (f.audio) this.systems.register(new AudioSystem(this));
     if (f.economy) this.systems.register(new EconomySystem(this));
-    if (f.events) this.systems.register(new EventsSystem(this));
     if (f.shop) this.systems.register(new ShopSystem(this));
-    if (f.dragon) this.systems.register(new DragonSystem(this));
-    // Long-term meta: rewards, restorations and biome unlocks.
+    // Long-term meta: rewards and biome unlocks.
     this.systems.register(new WorldProgressionSystem(this));
     // Retention: daily/weekly loops, surprises, unlock reveals, failure comfort.
     this.systems.register(new RetentionSystem(this));
@@ -143,14 +137,9 @@ export class Game {
     this.systems.register(new WorldSystem(this));
     this.systems.register(new BoardSystem(this));
     this.systems.register(new TileSystem(this));
-    // Structures render above the board crystals but below the held piece.
-    if (f.structures) this.systems.register(new StructureSystem(this));
     this.systems.register(new PieceSystem(this));
     // In-level power-ups (additive help; never feeds score/objectives).
     if (f.boosters) this.systems.register(new BoosterSystem(this));
-    // Cosmic Drift: the signature board-drift mechanic (renders its telegraph
-    // above the board, so it is registered after BoardSystem).
-    if (f.drift) this.systems.register(new DriftSystem(this));
 
     // Presentation — updated after gameplay, drawn on top.
     this.systems.register(new AnimationSystem(this));
