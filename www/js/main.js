@@ -209,7 +209,13 @@
       this.currentLevelObj = lv;
       this.engine = new global.Engine();
       this.engine.init(lv, p.equipped, {
-        onScore: function (s) { if (self.hud) self.hud.score.textContent = s; },
+        onScore: function (s) {
+          if (!self.hud) return;
+          self.hud.score.textContent = s;
+          // Blitz has no reachable target — surface the running score in the
+          // objective row so it visibly counts up (the "task" is max score).
+          if (lv.mode === 'blitz') self.hud.objVal.textContent = s;
+        },
         onMoves: function (m) { if (self.hud && lv.mode === 'daily') self.hud.moves.textContent = m; },
         onObjective: function (cur, goal, label) {
           if (!self.hud || lv.mode !== 'daily') return;
@@ -299,8 +305,19 @@
       };
     },
     startTrials: function () {
-      this.run = { depth: 1, relics: [], score: 0, revive: false };
-      this.startTrialLevel();
+      const self = this;
+      const begin = function () { self.run = { depth: 1, relics: [], score: 0, revive: false }; self.startTrialLevel(); };
+      const p = global.Save.get();
+      p.tips = p.tips || {};
+      if (p.tips.trialsIntro) { begin(); return; } // primer shown once
+      p.tips.trialsIntro = true; global.Save.save();
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+      body.innerHTML = '<div class="big-emoji">🎲</div><p>' + T('trials_intro') + '</p>';
+      global.UI.modal(T('mode_trials'), body, [
+        { label: T('close'), onClick: function () { self.go('modes'); } },
+        { label: T('play'), primary: true, onClick: begin }
+      ]);
     },
     startTrialLevel: function () {
       const p = global.Save.get();
@@ -369,6 +386,7 @@
           global.Audio2.play('coin');
           if (rel.id === 'shield') self.run.revive = true; else self.run.relics.push(rel.id);
           global.UI.closeModal();
+          global.UI.toast('🎁 ' + T('relic_got') + ': ' + T('relic_' + rel.id) + ' · ' + T('depth', { n: self.run.depth }));
           self.startTrialLevel();
         });
         body.appendChild(card);

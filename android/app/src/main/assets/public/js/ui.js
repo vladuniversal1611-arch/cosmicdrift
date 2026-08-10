@@ -118,7 +118,7 @@
       this.modalLayer.classList.remove('hidden');
     },
 
-    closeModal: function () { this.modalLayer.classList.add('hidden'); },
+    closeModal: function () { this.modalLayer.classList.add('hidden'); clear(this.modalLayer); },
 
     // ---- Victory panel (painted frame composed with live data) ------------
     // opts: { title, level, sub, stars, score, rewards:[{icon,text,small}],
@@ -211,13 +211,16 @@
       const li = global.Save.livesInfo();
       const ic = function (id, emoji) { const t = global.UiIcons && global.UiIcons.tag(id, 'cur-ic'); return t || ('<span class="cur-ic">' + emoji + '</span>'); };
       const bar = el('div', 'currency-bar');
+      // NB: each screen renders its own bar, so these repeat in the DOM. Use
+      // classes (not ids) for the live-updated values so refreshCurrencies can
+      // update every bar, not just the first id match.
       bar.innerHTML =
-        '<div class="cur cur-life" id="ui-life-pill">' + ic('heart', '❤️') + '<span id="ui-lives">' + li.count + '</span><span class="life-timer" id="ui-life-timer"></span></div>' +
-        '<div class="cur">' + ic('coin', '🪙') + '<span id="ui-gold">' + p.gold + '</span></div>' +
-        '<div class="cur">' + ic('gem', '💎') + '<span id="ui-gems">' + p.gems + '</span></div>' +
-        '<div class="cur">' + ic('energy', '⚡') + '<span id="ui-energy">' + p.energy + '</span></div>';
+        '<div class="cur cur-life ui-life-pill">' + ic('heart', '❤️') + '<span class="cv-lives">' + li.count + '</span><span class="life-timer"></span></div>' +
+        '<div class="cur">' + ic('coin', '🪙') + '<span class="cv-gold">' + p.gold + '</span></div>' +
+        '<div class="cur">' + ic('gem', '💎') + '<span class="cv-gems">' + p.gems + '</span></div>' +
+        '<div class="cur">' + ic('energy', '⚡') + '<span class="cv-energy">' + p.energy + '</span></div>';
       // tapping the heart pill opens the lives panel
-      const pill = bar.querySelector('#ui-life-pill');
+      const pill = bar.querySelector('.ui-life-pill');
       if (pill) click(pill, function () { UI.showNoLives(); });
       // start the regen ticker
       UI.startLifeTicker();
@@ -226,22 +229,24 @@
     refreshCurrencies: function () {
       const p = global.Save.get();
       const li = global.Save.livesInfo();
-      const set = function (id, v) { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set('ui-gold', p.gold); set('ui-gems', p.gems); set('ui-energy', p.energy); set('ui-lives', li.count);
+      const setAll = function (cls, v) { const es = document.querySelectorAll(cls); for (let i = 0; i < es.length; i++) es[i].textContent = v; };
+      setAll('.cv-gold', p.gold); setAll('.cv-gems', p.gems); setAll('.cv-energy', p.energy); setAll('.cv-lives', li.count);
     },
     startLifeTicker: function () {
       if (this._lifeTick) clearInterval(this._lifeTick);
       const update = function () {
         const li = global.Save.livesInfo();
-        const lc = document.getElementById('ui-lives'); if (lc) lc.textContent = li.count;
-        const tm = document.getElementById('ui-life-timer');
-        if (!tm) { clearInterval(UI._lifeTick); UI._lifeTick = null; return; }
-        if (li.count >= li.max) { tm.textContent = 'MAX'; }
+        const lcs = document.querySelectorAll('.cv-lives'); for (let i = 0; i < lcs.length; i++) lcs[i].textContent = li.count;
+        const tms = document.querySelectorAll('.life-timer');
+        if (!tms.length) { clearInterval(UI._lifeTick); UI._lifeTick = null; return; }
+        let txt;
+        if (li.count >= li.max) { txt = 'MAX'; }
         else {
           const s = Math.ceil(li.msToNext / 1000);
           const m = Math.floor(s / 60), ss = s % 60;
-          tm.textContent = m + ':' + (ss < 10 ? '0' : '') + ss;
+          txt = m + ':' + (ss < 10 ? '0' : '') + ss;
         }
+        for (let i = 0; i < tms.length; i++) tms[i].textContent = txt;
       };
       update();
       this._lifeTick = setInterval(update, 1000);
@@ -1424,6 +1429,7 @@
         p.daily.streak += 1; p.daily.lastClaim = today;
         global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
         UI.toast('🎁 ' + amt + (dayIdx === 6 ? '💎' : '🪙') + (mult > 1 ? ' ×2' : ''));
+        UI.closeModal();
       };
       const buttons = [{ label: T('close') }];
       if (UI.dailyAvailable()) {
@@ -1517,17 +1523,18 @@
       const dailyDone = p.daily2.done && p.daily2.date === today;
       const wrap = el('div', 'modes-wrap');
       const modes = [
-        { id: 'trials', ic: '🎲', icon: 'mode_trials', name: T('mode_trials'), desc: T('mode_trials_desc'), best: p.modeBest.trials, bestLabel: T('depth', { n: p.modeBest.trials || 0 }) },
+        { id: 'endless', ic: '♾️', icon: 'mode_endless', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless, featured: true },
         { id: 'blitz', ic: '⏱️', icon: 'mode_blitz', name: T('mode_blitz'), desc: T('mode_blitz_desc'), best: p.modeBest.blitz },
-        { id: 'endless', ic: '♾️', icon: 'mode_endless', name: T('mode_endless'), desc: T('mode_endless_desc'), best: p.modeBest.endless },
+        { id: 'trials', ic: '🎲', icon: 'mode_trials', name: T('mode_trials'), desc: T('mode_trials_desc'), best: p.modeBest.trials, bestLabel: T('depth', { n: p.modeBest.trials || 0 }) },
         { id: 'daily', ic: '📅', icon: 'mode_daily', name: T('mode_daily'), desc: T('mode_daily_desc'), daily: true },
         { id: 'adventure', ic: '🗺️', icon: 'mode_adventure', name: T('nav_map'), desc: T('play_level', { n: p.levelProgress }), adventure: true }
       ];
       modes.forEach(function (m) {
-        const card = el('div', 'mode-card');
+        const card = el('div', 'mode-card' + (m.featured ? ' featured' : ''));
         const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + (m.bestLabel || m.best)) : '');
         const mIcon = (global.UiIcons && global.UiIcons.tag(m.icon, 'mode-ic-img')) || m.ic;
-        card.innerHTML = '<div class="mode-ic">' + mIcon + '</div>' +
+        card.innerHTML = (m.featured ? '<div class="mode-flag">★ ' + T('popular') + '</div>' : '') +
+          '<div class="mode-ic">' + mIcon + '</div>' +
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
