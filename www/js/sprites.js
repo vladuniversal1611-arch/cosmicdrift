@@ -108,9 +108,14 @@
     'cloud1', 'cloud2', 'cloud3', 'islet', 'gulls', 'gull_strip', 'signpost', 'boat', 'lighthouse', 'buoy'];
   const mapInline = global.MAP_SPRITES || null;
   const mapUrls = {};
+  // The water background file is water_tile.webp (its id is just 'water'); every
+  // other sprite's filename matches its id. Without this, the file-path fallback
+  // used by the installed app looks for a non-existent water.webp and the map
+  // loses its painted water background.
+  const MAP_FILE = { water: 'water_tile' };
   MAP_IDS.forEach(function (id) {
     mapUrls[id] = (mapInline && mapInline[id]) ? mapInline[id]
-      : ('assets/map/' + id + '.webp');
+      : ('assets/map/' + (MAP_FILE[id] || id) + '.webp');
   });
   global.MapSprites = {
     url: function (id) { return mapUrls[id] || null; },
