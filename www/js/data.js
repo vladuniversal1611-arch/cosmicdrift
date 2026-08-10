@@ -260,7 +260,7 @@
   const QUEST_POOL = [
     { id: 'q_win3',    text: 'Виграйте 3 рівні',          goal: 3,   stat: 'levelsWon',      reward: 120 },
     { id: 'q_crush200',text: 'Знищіть 200 кристалів',     goal: 200, stat: 'crystalsCrushed',reward: 150 },
-    { id: 'q_combo4',  text: 'Зробіть комбо x4',          goal: 4,   stat: 'maxCombo',       reward: 180 },
+    { id: 'q_combo4',  text: 'Зробіть комбо x4',          goal: 4,   stat: 'comboMaxToday',  reward: 180 },
     { id: 'q_dragon',  text: 'Активуйте драконів 8 разів',goal: 8,   stat: 'dragonProcs',    reward: 160 },
     { id: 'q_energy',  text: 'Зберіть 200 енергії',       goal: 200, stat: 'energyEarned',   reward: 140 },
     { id: 'q_special', text: 'Створіть 6 особливих кристалів', goal: 6, stat: 'specialsMade',reward: 170 }

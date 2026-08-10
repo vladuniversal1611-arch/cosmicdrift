@@ -746,7 +746,8 @@
         const rail = el('div', 'map-rail ' + side);
         items.forEach(function (a) {
           const glyph = (global.UiIcons && global.UiIcons.tag(a.icon, 'rail-ic')) || ('<span class="rail-em">' + a.ic + '</span>');
-          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : ''),
+          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : '') + (a.flag ? ' featured' : ''),
+            (a.flag ? '<span class="rail-flag">' + a.flag + '</span>' : '') +
             '<span class="rail-chip">' + glyph + '</span><span class="rail-lbl">' + a.label + '</span>');
           btn.title = a.label; btn.setAttribute('aria-label', a.label);
           click(btn, a.go);
@@ -755,6 +756,7 @@
         return rail;
       };
       wrap.appendChild(mk('left', [
+        { ic: '♾️', icon: 'mode_endless', label: T('m_survival'), flag: T('popular'), go: function () { global.Game.startMode('endless'); } },
         { ic: '🎁', icon: 'tile_daily', label: T('t_daily'), go: function () { UI.showDaily(); }, badge: UI.dailyAvailable() },
         { ic: '🎡', icon: 'tile_wheel', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
         { ic: '🎰', icon: 'tile_summon', label: T('t_summon'), go: function () { UI.showSummon(); } },
@@ -1135,7 +1137,7 @@
     rewardLabel: function (r) {
       if (r.type === 'gold') return r.amount + '🪙';
       if (r.type === 'gems') return r.amount + '💎';
-      if (r.type === 'dragon') return '🐲 скін';
+      if (r.type === 'dragon') return '🥚 ' + T('rw_dragon_egg');
       return '?';
     },
     claimPass: function (tier, track) {
@@ -1148,7 +1150,7 @@
       arr.push(tier);
       if (r.type === 'gold') p.gold += r.amount;
       else if (r.type === 'gems') p.gems += r.amount;
-      else if (r.type === 'dragon') p.gems += 50;
+      else if (r.type === 'dragon') UI.grantReward({ eggCharge: 250 }); // pour progress into a hatching dragon egg
       global.Save.save(); global.Audio2.play('coin'); UI.refreshCurrencies();
       UI.toast(T('got', { r: UI.rewardLabel(r) })); UI.renderPass();
     },
@@ -1449,6 +1451,7 @@
       const p = global.Save.get();
       const today = new Date().toISOString().slice(0, 10);
       if (p.quests.date !== today || !p.quests.list || !p.quests.list.length) {
+        p.stats.comboMaxToday = 0; // reset today's combo peak alongside the new day's quests
         const pool = D.QUEST_POOL.slice();
         for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
         const chosen = pool.slice(0, 3);

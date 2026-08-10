@@ -451,6 +451,7 @@
     if (this.combo > 1) global.Audio2.play('match', this.combo);
     else global.Audio2.play('match', 1);
     global.Save.addStat('maxCombo', this.combo, true);
+    global.Save.addStat('comboMaxToday', this.combo, true); // per-day peak for the daily combo quest
     if (this.cb.onCombo && this.combo > 1) this.cb.onCombo(this.combo);
 
     const clearSet = {};

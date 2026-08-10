@@ -36,7 +36,7 @@
       ownedSkins: [],
       activeSkins: {},             // { dragonId: skinId }
       stats: {
-        levelsWon: 0, maxCombo: 0, dragonsHatched: 0, crystalsCrushed: 0,
+        levelsWon: 0, maxCombo: 0, comboMaxToday: 0, dragonsHatched: 0, crystalsCrushed: 0,
         totalStars: 0, dragonProcs: 0, energyEarned: 0, specialsMade: 0
       },
       achievements: {},            // { id: claimed bool }

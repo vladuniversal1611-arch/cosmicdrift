@@ -256,19 +256,20 @@
     onDailyEnd: function (win, res) {
       const p = global.Save.get();
       const today = new Date().toISOString().slice(0, 10);
-      p.daily2.date = today; p.daily2.done = true;
+      // Only mark the daily as done (and lock the card) on a WIN — a loss must
+      // stay replayable so the reward isn't lost behind a false ✓.
       let reward = 0, gems = 0;
-      if (win) { reward = 300; gems = 15; p.gold += reward; p.gems += gems; }
+      if (win) { p.daily2.date = today; p.daily2.done = true; reward = 300; gems = 15; p.gold += reward; p.gems += gems; }
       global.Save.save(); global.UI.refreshCurrencies();
       const self = this;
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.innerHTML = '<div class="big-emoji">' + (win ? '📅' : '😢') + '</div>' +
         '<div class="win-score">' + T('score', { n: res.score }) + '</div>' +
-        (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '<p class="muted small">' + T('daily_done_today') + '</p>');
-      global.UI.modal(win ? T('victory') : T('defeat'), body, [
-        { label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } }
-      ]);
+        (win ? '<div class="win-rewards">+' + reward + '🪙 +' + gems + '💎</div>' : '');
+      const buttons = [{ label: T('btn_island'), onClick: function () { self.go('home'); } }];
+      if (!win) buttons.push({ label: T('btn_retry'), primary: true, onClick: function () { self.startMode('daily'); } });
+      global.UI.modal(win ? T('victory') : T('defeat'), body, win ? [{ label: T('btn_island'), primary: true, onClick: function () { self.go('home'); } }] : buttons);
     },
 
     // ---- Roguelite: Dragon Trials ----------------------------------------
@@ -972,11 +973,13 @@
       global.UI.modal(T('defeat'), body, [
         { label: T('btn_map'), onClick: function () { self.go('map'); } },
         { label: T('ad_plus_moves'), onClick: function () {
-            global.UI.watchAd();
-            // grant extra moves and resume
-            self.engine.movesLeft += 5; self.engine.finished = false; self.engine.state = 'idle';
-            self.hud.moves.textContent = self.engine.movesLeft;
-            setTimeout(function () { global.UI.closeModal(); }, 50);
+            // Grant the +5 moves ONLY after the rewarded ad actually completes —
+            // and don't pay the shop's gem/energy bonus for an in-level continue.
+            global.UI.watchAdGeneric(function () {
+              self.engine.movesLeft += 5; self.engine.finished = false; self.engine.state = 'idle';
+              if (self.hud && self.hud.moves) self.hud.moves.textContent = self.engine.movesLeft;
+              global.UI.closeModal();
+            });
           }},
         { label: T('btn_retry'), primary: true, onClick: function () { self.startLevel(lvNum); } }
       ]);
