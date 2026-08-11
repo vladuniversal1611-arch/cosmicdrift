@@ -197,16 +197,25 @@ export class GameplaySystem extends System {
    * run so it stays a treat, not a crutch.
    */
   revive() {
-    if (this.state !== 'over' || !this.canRevive) return false;
+    // The player has ALREADY watched the ad by the time this runs, so once we
+    // decide to revive we must always land back in play — never bounce them
+    // back to the game-over screen. Guard only the truly-invalid cases.
+    if (this.state !== 'over') return false;
+    if (!this.canRevive) return false;
     this._revives = (this._revives ?? 0) + 1;
     this.state = 'playing';
     this.combo = 0;
-    this.game.getSystem('board')?.reviveClear();
-    this.game.getSystem('pieces')?.refill();
+    // Clear space + a fresh tray. reviveClear empties the bottom half, so the
+    // refilled (solvable) tray is guaranteed to fit — no instant re-loss.
+    try {
+      this.game.getSystem('board')?.reviveClear();
+      this.game.getSystem('pieces')?.refill();
+    } catch { /* even if clearing hiccups, we stay in 'playing' — never re-lose */ }
     this.game.getSystem('audio')?.play('reward');
     this.events.emit('game:revived', {});
     this._broadcast();
-    this.events.emit('gameplay:stateChanged', { state: 'playing', score: this.score, best: this.best });
+    // Announce 'playing' so the HUD tears down the game-over overlay at once.
+    this.events.emit('gameplay:stateChanged', { state: 'playing', score: this.score, best: this._displayBest() });
     return true;
   }
 
@@ -387,8 +396,8 @@ export class GameplaySystem extends System {
   }
 }
 
-/** How many ad-gated revives a single run allows. */
-GameplaySystem.MAX_REVIVES = 3;
+/** How many ad-gated revives a single run allows (6th loss ends the run). */
+GameplaySystem.MAX_REVIVES = 5;
 
 /** Local calendar day as YYYYMMDD (string key + numeric seed for the Daily). */
 GameplaySystem._today = () => {

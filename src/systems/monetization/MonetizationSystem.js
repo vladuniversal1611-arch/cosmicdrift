@@ -51,6 +51,10 @@ export class MonetizationSystem extends System {
     // when the player chooses to play again.
     this.listen('game:over', () => { this._gameOvers++; });
     this.listen('ui:restart', () => this.maybeInterstitial('retry'));
+
+    // Persistent bottom banner while a run is on screen; hidden in the menus.
+    this.listen('game:started', () => this.showBanner());
+    this.listen('game:toMenu', () => this.hideBanner());
   }
 
   // --- Entitlements ----------------------------------------------------------
@@ -108,5 +112,24 @@ export class MonetizationSystem extends System {
     return shown;
   }
 
-  onDestroy() { Logger.debug('Monetization', 'teardown'); }
+  /**
+   * Interstitial shown between campaign levels (a natural, policy-approved
+   * break). Bypasses the frequency cap so it can run after each level, but is
+   * still suppressed for paying players and never stacks right after a rewarded
+   * ad (e.g. a revive).
+   */
+  async interstitialAtLevelEnd() {
+    if (this.adsRemoved || !Config.ads.enabled) return false;
+    const now = performance.now() / 1000;
+    if (now - this._lastRewarded < Config.ads.interstitial.afterRewardedSec) return false;
+    const shown = await this._ads.showInterstitial('level').catch(() => false);
+    if (shown) { this._lastInterstitial = now; this.events.emit('ads:interstitial', { placement: 'level' }); }
+    return shown;
+  }
+
+  // --- Banner ----------------------------------------------------------------
+  showBanner() { if (!this.adsRemoved && Config.ads.enabled) this._ads.showBanner?.().catch(() => {}); }
+  hideBanner() { this._ads.hideBanner?.().catch(() => {}); }
+
+  onDestroy() { this.hideBanner(); Logger.debug('Monetization', 'teardown'); }
 }

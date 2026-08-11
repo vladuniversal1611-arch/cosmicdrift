@@ -15,6 +15,10 @@ export class AdProvider {
   showRewarded(/* placement */) { return Promise.resolve(false); }
   /** @returns {Promise<boolean>} resolves true if an interstitial was shown. */
   showInterstitial(/* placement */) { return Promise.resolve(false); }
+  /** Show a persistent bottom banner (idempotent). */
+  showBanner() { return Promise.resolve(false); }
+  /** Hide/remove the bottom banner. */
+  hideBanner() { return Promise.resolve(); }
 }
 
 /** No-op provider: no ads available, everything resolves gracefully. */
@@ -102,5 +106,25 @@ export class AdMobProvider extends AdProvider {
       await this._admob.showInterstitial();
       return true;
     } catch { return false; }
+  }
+
+  async showBanner() {
+    if (!this._admob || this._bannerUp) return false;
+    try {
+      await this._admob.showBanner({
+        adId: this._cfg.admob.banner,
+        position: 'BOTTOM_CENTER',
+        adSize: 'ADAPTIVE_BANNER',
+        margin: 0,
+      });
+      this._bannerUp = true;
+      return true;
+    } catch { return false; }
+  }
+
+  async hideBanner() {
+    if (!this._admob || !this._bannerUp) return;
+    try { await (this._admob.hideBanner?.() ?? this._admob.removeBanner?.()); } catch { /* ignore */ }
+    this._bannerUp = false;
   }
 }

@@ -58,7 +58,8 @@ export class LevelCompleteScreen extends Screen {
     const w = this.bounds.w, h = this.bounds.h;
     this._contY = h * 0.82;
     this._continue = this.add(new PremiumButton(w / 2 - w * 0.32, h + 120, w * 0.64, 96,
-      () => this.events.emit('ui:reveal-next'),
+      // Between-levels break: offer an interstitial, then continue the flow.
+      () => { this.game.getSystem('monetization')?.interstitialAtLevelEnd(); this.events.emit('ui:reveal-next'); },
       { label: t('common.continue'), colors: UI.btn.play, radius: 32, font: '900 40px system-ui, sans-serif', floatAmp: 3, floatPeriod: 2 }));
     this._continue.visible = false; this._continue.enabled = false;
     this._contShown = false;

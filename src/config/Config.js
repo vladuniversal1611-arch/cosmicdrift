@@ -232,6 +232,7 @@ export const Config = Object.freeze({
       appId: 'ca-app-pub-3940256099942544~3347511713',       // TEST app id
       rewarded: 'ca-app-pub-3940256099942544/5224354917',     // TEST rewarded
       interstitial: 'ca-app-pub-3940256099942544/1033173712', // TEST interstitial
+      banner: 'ca-app-pub-3940256099942544/6300978111',       // TEST banner
     }),
     interstitial: Object.freeze({
       minGames: 2,         // no interstitials until 2 runs have ended
