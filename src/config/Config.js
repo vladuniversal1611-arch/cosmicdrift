@@ -215,6 +215,31 @@ export const Config = Object.freeze({
     steerCost: 35,
   }),
 
+  /**
+   * Advertising. The game only ever shows OPT-IN rewarded ads (free booster,
+   * revive, hint) plus occasional interstitials at natural breaks — never
+   * during play. Real ads arrive through a native AdMob bridge when the game
+   * runs inside its Android wrapper; in a plain browser a simulated provider
+   * stands in so the flows still work.
+   *
+   * ⚠️ The unit IDs below are Google's official PUBLIC TEST ids — safe to build
+   * and click during development, but you MUST replace them with your own real
+   * AdMob ids before publishing (and never click your own live ads).
+   */
+  ads: Object.freeze({
+    enabled: true,
+    admob: Object.freeze({
+      appId: 'ca-app-pub-3940256099942544~3347511713',       // TEST app id
+      rewarded: 'ca-app-pub-3940256099942544/5224354917',     // TEST rewarded
+      interstitial: 'ca-app-pub-3940256099942544/1033173712', // TEST interstitial
+    }),
+    interstitial: Object.freeze({
+      minGames: 2,         // no interstitials until 2 runs have ended
+      cooldownSec: 90,     // minimum gap between interstitials
+      afterRewardedSec: 8, // never stack right after a rewarded ad
+    }),
+  }),
+
   /** Developer aids — release values (no on-screen FPS, quiet logs). */
   debug: Object.freeze({
     showFps: false,
