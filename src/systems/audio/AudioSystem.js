@@ -131,6 +131,44 @@ export class AudioSystem extends System {
     // Mobile browsers require a user gesture before audio can play.
     this.listen('input:down', this._unlock);
     this.listen('settings:changed', this._onSettingChanged);
+
+    // Silence everything the moment the app is backgrounded / exited, and
+    // resume on return — an AudioContext keeps playing scheduled notes even
+    // while the view is hidden, so music must be actively suspended. We cover
+    // every signal a WebView/browser might send (visibility, page hide, blur).
+    if (typeof document !== 'undefined') {
+      this._onHidden = () => this._setActive(false);
+      this._onShown = () => this._setActive(true);
+      this._visHandler = () => this._setActive(document.visibilityState !== 'hidden' && !document.hidden);
+      document.addEventListener('visibilitychange', this._visHandler);
+      window.addEventListener('pagehide', this._onHidden);
+      window.addEventListener('blur', this._onHidden);
+      window.addEventListener('focus', this._onShown);
+      window.addEventListener('pageshow', this._onShown);
+    }
+  }
+
+  /**
+   * Foreground/background gate. When the app leaves the foreground we suspend
+   * the AudioContext (kills music + SFX at once) and stop the music scheduler
+   * so notes don't queue up and burst on return. When it comes back we resume
+   * (only if audio was already unlocked) and restart the score.
+   */
+  _setActive(active) {
+    if (!this._ctx) return;
+    if (!active) {
+      if (this._backgrounded) return;
+      this._backgrounded = true;
+      if (this._musicTimer) { clearInterval(this._musicTimer); this._musicTimer = null; }
+      this._musicOn = false;
+      if (this._ctx.state === 'running') this._ctx.suspend().catch(() => {});
+    } else {
+      if (!this._backgrounded) return;
+      this._backgrounded = false;
+      if (!this._unlocked) return;                 // never start before first gesture
+      if (this._ctx.state === 'suspended') this._ctx.resume().catch(() => {});
+      this._startMusic();                          // idempotent; re-arms the scheduler
+    }
   }
 
   _buildGraph() {
@@ -308,6 +346,13 @@ export class AudioSystem extends System {
 
   onDestroy() {
     if (this._musicTimer) clearInterval(this._musicTimer);
+    if (typeof document !== 'undefined' && this._visHandler) {
+      document.removeEventListener('visibilitychange', this._visHandler);
+      window.removeEventListener('pagehide', this._onHidden);
+      window.removeEventListener('blur', this._onHidden);
+      window.removeEventListener('focus', this._onShown);
+      window.removeEventListener('pageshow', this._onShown);
+    }
     if (this._ctx) this._ctx.close();
   }
 }
