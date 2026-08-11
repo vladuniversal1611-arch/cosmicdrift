@@ -97,9 +97,13 @@ export class HudScreen extends Screen {
     const objs0 = this.game.getSystem('objectives')?.objectives;
     if (objs0 && objs0.length) {
       this._objectives = objs0.slice();
-      this._goalCard = { objectives: objs0.slice(), t: 0, dur: 3.0 };
+      if (this._canShowGoalCard()) this._goalCard = { objectives: objs0.slice(), t: 0, dur: 3.0 };
     }
   }
+
+  /** The level-start goals card is suppressed during the first-run tutorial so
+   *  it never overlaps the onboarding coach panel. */
+  _canShowGoalCard() { return this.game.getSystem('onboarding')?.isDone !== false; }
 
   _bind() {
     this._subs.push(this.events.on('gameplay:score', ({ score, add }) => {
@@ -167,8 +171,11 @@ export class HudScreen extends Screen {
     }));
     this._subs.push(this.events.on('objectives:set', ({ objectives }) => {
       this._objectives = objectives;
-      // Announce the level's authored goals with a brief intro card.
-      if (objectives && objectives.length) this._goalCard = { objectives: objectives.slice(), t: 0, dur: 3.0 };
+      // Announce the level's authored goals with a brief intro card — but not
+      // during the first-run tutorial, where it would fight the coach panel.
+      if (objectives && objectives.length && this._canShowGoalCard()) {
+        this._goalCard = { objectives: objectives.slice(), t: 0, dur: 3.0 };
+      }
     }));
     this._subs.push(this.events.on('structure:completed', ({ name }) => {
       this._structToast = { name, t: 1.8 };
@@ -533,7 +540,11 @@ export class HudScreen extends Screen {
   /** Level title, centred above the score. */
   _drawLevel(renderer) {
     const cx = this.bounds.centerX;
-    renderer.text(this._endless ? 'ENDLESS' : `LEVEL ${this._level}`, cx, this.bounds.h * 0.04, {
+    // Title reflects the actual mode: Daily and Endless share rails, but Daily
+    // must read "DAILY", not "ENDLESS".
+    const daily = this.game.getSystem('gameplay')?.isDaily;
+    const title = daily ? t('menu.daily') : this._endless ? t('menu.endless') : t('hud.level', { n: this._level });
+    renderer.text(title, cx, this.bounds.h * 0.04, {
       font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });

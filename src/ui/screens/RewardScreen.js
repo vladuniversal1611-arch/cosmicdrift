@@ -109,9 +109,13 @@ export class RewardScreen extends Screen {
 
     // Title + subtitle.
     r.setAlpha(Math.min(1, this._t * 3));
-    r.withGlow(color, 18, () => UITheme.heading(r, this._data.title || 'REWARD!', cx, b.h * 0.52, this._data.big ? 40 : 34, '#fff'));
-    if (this._data.subtitle) {
-      r.text(this._data.subtitle, cx, b.h * 0.52 + 34, {
+    // Announce WHAT was unlocked: prefer an explicit title, else the unlock's
+    // name (e.g. "New Board Theme"), with its kind as a subtitle.
+    const title = this._data.title || this._data.name || 'REWARD!';
+    const subtitle = this._data.subtitle || this._data.kind || null;
+    r.withGlow(color, 18, () => UITheme.heading(r, title, cx, b.h * 0.52, this._data.big ? 40 : 34, '#fff'));
+    if (subtitle) {
+      r.text(subtitle, cx, b.h * 0.52 + 34, {
         font: '800 16px system-ui, sans-serif', color: color, align: 'center', baseline: 'middle',
       });
     }
