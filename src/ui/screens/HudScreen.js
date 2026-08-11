@@ -61,18 +61,21 @@ export class HudScreen extends Screen {
     // Pause menu now, so mid-run the top stays uncluttered.
     this._pauseBtn = new Rect(36, 66, 72, 72);
 
-    // Booster row — round power-up buttons in the band below the tray.
+    // Booster row — round power-up buttons in the band JUST ABOVE the board, so
+    // the very bottom of the screen stays free for a persistent ad banner and
+    // nothing important sits under it.
     this._boosterT = 0;
-    const bd = 104, bgap = 46;
+    const bd = 88, bgap = 36;
     const rowW = Boosters.length * bd + (Boosters.length - 1) * bgap;
     const bx0 = (this.bounds.w - rowW) / 2;
-    const by = this.bounds.h * 0.865;
+    const boardTop = this.game.getSystem('board')?.area?.top ?? this.bounds.h * 0.2;
+    const by = boardTop - bd - 16;
     this._boosterBtns = Boosters.map((def, i) => ({
       def, rect: new Rect(bx0 + i * (bd + bgap), by, bd, bd),
     }));
     // Rewarded HINT button at the right of the booster row (watch an ad → the
     // board highlights a good move). Player-initiated, never automatic.
-    this._hintBtn = new Rect(this.bounds.w - 24 - 92, by + (bd - 92) / 2, 92, 92);
+    this._hintBtn = new Rect(this.bounds.w - 20 - bd, by, bd, bd);
     this._hintPending = false;
 
     const w = this.bounds.w;

@@ -120,6 +120,9 @@ export class MonetizationSystem extends System {
    */
   async interstitialAtLevelEnd() {
     if (this.adsRemoved || !Config.ads.enabled) return false;
+    // Every OTHER level (2nd, 4th, …) — lighter than every level.
+    this._levelEnds = (this._levelEnds ?? 0) + 1;
+    if (this._levelEnds % 2 !== 0) return false;
     const now = performance.now() / 1000;
     if (now - this._lastRewarded < Config.ads.interstitial.afterRewardedSec) return false;
     const shown = await this._ads.showInterstitial('level').catch(() => false);
