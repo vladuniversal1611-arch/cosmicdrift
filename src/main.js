@@ -13,6 +13,7 @@
 import { Game } from './core/Game.js';
 import { AssetManager } from './ui/assets/AssetManager.js';
 import { AssetManifest } from './ui/assets/manifest.js';
+import { ASSETS } from './generated/assets.js';
 
 function boot() {
   const canvas = document.getElementById('game');
@@ -22,6 +23,7 @@ function boot() {
   // procedural placeholders and hot-swaps to art keys as they resolve. With an
   // empty manifest this is a no-op and nothing changes.
   AssetManager.registerAll(AssetManifest);
+  AssetManager.registerAll(ASSETS);   // packed sprite atlas (base64 data URIs)
   AssetManager.load();
 
   const game = new Game(canvas);

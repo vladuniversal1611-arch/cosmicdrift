@@ -66,7 +66,10 @@ class AssetManagerImpl {
   _loadOne(key) {
     const path = this._manifest.get(key);
     if (!path || this._images.has(key)) return Promise.resolve();
-    const url = this._base + path;
+    // Inlined data URIs (and absolute/rooted URLs) are used verbatim; only
+    // relative theme paths get the base folder prepended. This lets the packer
+    // register base64 sprites that work in the self-contained single-file build.
+    const url = /^(data:|https?:|\/)/.test(path) ? path : this._base + path;
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => { this._images.set(key, img); resolve(); };

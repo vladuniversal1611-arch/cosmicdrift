@@ -16,6 +16,16 @@
  */
 import { Config } from '../config/Config.js';
 import { Quality } from '../config/Quality.js';
+import { Palette } from '../config/Palette.js';
+import { AssetManager } from '../ui/assets/AssetManager.js';
+
+// Map each material object → its gem sprite key. Built once. `amethyst` is the
+// legacy key for the turquoise gem, so it points at the turquoise sprite.
+const SPRITE_KEY = new Map();
+{
+  const alias = { amethyst: 'turquoise' };
+  for (const [k, m] of Object.entries(Palette.materials)) SPRITE_KEY.set(m, `gem_${alias[k] || k}`);
+}
 
 /**
  * @param {import('../core/Renderer.js').Renderer} renderer
@@ -39,6 +49,22 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   const px = x + (size - s) * 0.5;
   const py = y + (size - s) * 0.5;
   const r = Math.max(2, radius * scale);
+
+  // --- Sprite path ----------------------------------------------------------
+  // When the gem PNG has decoded, blit it (cheap, GPU-accelerated) instead of
+  // the procedural build below. `s`/`px`/`py` already fold in the pop scale, so
+  // the landing squash still works; `ignite` flashes the cell white on a clear.
+  const img = AssetManager.image(SPRITE_KEY.get(material));
+  if (img) {
+    ctx.drawImage(img, px, py, s, s);
+    if (ignite > 0) {
+      ctx.globalAlpha = Math.min(1, ignite);
+      renderer.fillRoundRect(px, py, s, s, r, '#ffffff');
+      ctx.globalAlpha = 1;
+    }
+    if (Quality.colorBlind && material.symbol) drawSymbol(ctx, material.symbol, px + s / 2, py + s / 2, s * 0.24);
+    return;
+  }
 
   // NOTE: no per-cell `shadowBlur` aura here. A full board would run one
   // gaussian blur per gem per frame (80+/frame), which desktops shrug off but
