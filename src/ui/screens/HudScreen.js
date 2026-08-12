@@ -22,6 +22,15 @@ import { Haptics } from '../../utils/Haptics.js';
 import { t } from '../../i18n/Localization.js';
 
 export class HudScreen extends Screen {
+  /**
+   * Fixed top-stack anchors (logical px). The header is a fixed-size stack
+   * (title → score → record/objectives pill), so anchoring it in absolute px —
+   * rather than as fractions of canvas height — guarantees it clears the board
+   * frame on any aspect. `pill` is shared by the endless BEST pill and the
+   * campaign objectives strip (mutually exclusive per mode).
+   */
+  static TOP = { title: 58, sub: 82, score: 128, pill: 192 };
+
   constructor(game) {
     super(game);
     this.name = 'hud';
@@ -29,7 +38,9 @@ export class HudScreen extends Screen {
     this._state = 'playing';
     this._score = 0;
     this._displayScore = 0;   // eased "rolling" number toward _score
-    this._best = 0;
+    // Seed the record from the store so the BEST pill is correct on the very
+    // first frame (before any stateChanged event lands).
+    this._best = this.game.getSystem('gameplay')?.best ?? 0;
     this._final = 0;
     this._scorePop = 0;       // decays 1 → 0 for the score bump
     this._comboText = '';
@@ -69,7 +80,10 @@ export class HudScreen extends Screen {
     const rowW = Boosters.length * bd + (Boosters.length - 1) * bgap;
     const bx0 = (this.bounds.w - rowW) / 2;
     const boardTop = this.game.getSystem('board')?.area?.top ?? this.bounds.h * 0.2;
-    const by = boardTop - bd - 16;
+    // Sit the row in the clear band ABOVE the board frame (the frame starts
+    // ~pad above boardTop); this offset keeps a ~16px gap so buttons never spill
+    // onto the gold bezel.
+    const by = boardTop - bd - 56;
     this._boosterBtns = Boosters.map((def, i) => ({
       def, rect: new Rect(bx0 + i * (bd + bgap), by, bd, bd),
     }));
@@ -453,6 +467,7 @@ export class HudScreen extends Screen {
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
+    this._drawBestPill(renderer);
     if (this._state === 'playing') { this._drawBoosters(renderer); this._drawHintButton(renderer); }
     if (this._dragonReady && this._state === 'playing') this._drawDragonButton(renderer);
     this._drawCombo(renderer);
@@ -540,29 +555,63 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
   }
 
-  /** Level title, centred above the score. */
+  /** Level title, centred above the score. Fixed top-stack positions (px) so the
+   *  header always clears the board frame regardless of the canvas aspect. */
   _drawLevel(renderer) {
     const cx = this.bounds.centerX;
     // Title reflects the actual mode: Daily and Endless share rails, but Daily
     // must read "DAILY", not "ENDLESS".
     const daily = this.game.getSystem('gameplay')?.isDaily;
     const title = daily ? t('menu.daily') : this._endless ? t('menu.endless') : t('hud.level', { n: this._level });
-    renderer.text(title, cx, this.bounds.h * 0.04, {
+    renderer.text(title, cx, HudScreen.TOP.title, {
       font: '800 30px system-ui, sans-serif', color: Palette.textPrimary,
       align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 4,
     });
     if (this._endless) {
       const tier = this.game.getSystem('level')?.endlessTier ?? 0;
-      renderer.text(`DEPTH ${tier + 1}`, cx, this.bounds.h * 0.04 + 26, {
+      renderer.text(`DEPTH ${tier + 1}`, cx, HudScreen.TOP.sub, {
         font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
       });
     } else if (this._worldName) {
-      renderer.text(this._worldName.toUpperCase(), cx, this.bounds.h * 0.04 + 26, {
+      renderer.text(this._worldName.toUpperCase(), cx, HudScreen.TOP.sub, {
         font: '700 15px system-ui, sans-serif', color: '#eaf4ff',
         align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 2,
       });
     }
+  }
+
+  /**
+   * Endless / Daily "record" pill: the max score you've ever reached, shown just
+   * below the live score so you always see your target. Once the live score
+   * passes the stored record the pill climbs with you (you ARE the record now).
+   * Sits in the same slot the campaign objectives strip uses — modes are
+   * mutually exclusive, so they never collide.
+   */
+  _drawBestPill(renderer) {
+    if (!this._endless) return;
+    const best = Math.max(this._best || 0, Math.round(this._displayScore));
+    const label = t('common.best');
+    const num = best.toLocaleString('en-US');
+    const cx = this.bounds.centerX;
+    const cy = HudScreen.TOP.pill;
+    // Estimate width from content (no per-frame measureText allocation needed).
+    const w = 92 + label.length * 11 + num.length * 17;
+    const h = 46, x = cx - w / 2, y = cy - h / 2;
+    renderer.fillRoundRect(x, y, w, h, h / 2, 'rgba(255,255,255,0.86)');
+    renderer.strokeRoundRect(x, y, w, h, h / 2, Palette.gold, 2);
+    // Little gold trophy dot on the left.
+    renderer.withGlow('#ffcf5e', 8, () => renderer.sparkle(x + 26, cy, 11, '#ffcf5e'));
+    // "BEST" label (gold) then the number (ink), left-aligned as a unit.
+    const textX = x + 46;
+    renderer.text(label, textX, cy, {
+      font: '800 17px system-ui, sans-serif', color: '#d79a1e',
+      align: 'left', baseline: 'middle',
+    });
+    renderer.text(num, x + w - 20, cy, {
+      font: '900 24px system-ui, sans-serif', color: UI.ink,
+      align: 'right', baseline: 'middle',
+    });
   }
 
   /**
@@ -616,7 +665,7 @@ export class HudScreen extends Screen {
     const gap = 54, icoR = 20;
     const stripW = n * gap + 44;
     const x0 = (w - stripW) / 2;
-    const cy = this.bounds.h * 0.118;
+    const cy = HudScreen.TOP.pill;
     const ctx = r.ctx;
 
     // Glass backing pill.
@@ -652,7 +701,7 @@ export class HudScreen extends Screen {
     const rowW = w * 0.9;
     const x0 = (w - rowW) / 2;
     const rowH = 40;
-    const baseY = this.bounds.h * 0.108;
+    const baseY = HudScreen.TOP.pill - 20;
 
     rows.forEach((o, i) => {
       const y = baseY + i * rowH;
@@ -728,7 +777,7 @@ export class HudScreen extends Screen {
 
   _drawScore(renderer) {
     const cx = this.bounds.centerX;
-    const y = this.bounds.h * 0.075;
+    const y = HudScreen.TOP.score;
     const scale = 1 + this._scorePop * 0.28;
     renderer.save();
     renderer.translate(cx, y);
