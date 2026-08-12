@@ -13,13 +13,12 @@ import { Icons } from '../Icons.js';
 import { UI } from '../../theme/UITheme.js';
 import { Rect } from '../../../utils/Rect.js';
 
-/** Shortcut descriptors. A focused set: jump into Endless, or open the booster
- *  Shop. The big PLAY button above handles the Levels campaign. */
+/** Shortcut descriptors. The two ways to play (Levels + Endless) are the hero
+ *  buttons above; these are the secondary shortcuts: the Daily Challenge and the
+ *  booster Shop. */
 export const QUICK = [
   { id: 'daily', label: 'menu.daily', colors: UI.btn.purple, event: 'ui:playDaily',
     icon: (r, x, y, s, c) => r.text('★', x, y + 1, { font: `900 ${Math.round(s * 1.4)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
-  { id: 'endless', label: 'menu.endless', colors: UI.btn.orange, event: 'ui:playEndless',
-    icon: (r, x, y, s, c) => r.text('∞', x, y + 1, { font: `900 ${Math.round(s * 1.7)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
   { id: 'shop', label: 'menu.shop', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
 ];
 
@@ -36,15 +35,20 @@ export class QuickAccess {
   _layout(region) {
     const perRow = 3;
     const gap = 28;
+    // Keep a consistent tile size (sized as if 3 per row), but CENTRE the actual
+    // row so a partial row (e.g. 2 tiles) isn't left-aligned with a gap on the right.
     const w = (region.w - gap * (perRow - 1)) / perRow;
     const h = Math.min(w, 200);
+    const n = Math.min(this.tiles.length, perRow);
+    const rowW = n * w + (n - 1) * gap;
+    const startX = region.x + (region.w - rowW) / 2;
     const rows = Math.ceil(this.tiles.length / perRow);
     const totalH = rows * h + (rows - 1) * gap;
     // Anchor the grid to the bottom of the region (just above the nav).
     const startY = region.y + region.h - totalH;
     this.tiles.forEach((t, i) => {
       const col = i % perRow, row = Math.floor(i / perRow);
-      t.setRect(region.x + col * (w + gap), startY + row * (h + gap), w, h);
+      t.setRect(startX + col * (w + gap), startY + row * (h + gap), w, h);
     });
     this._region = new Rect(region.x, startY, region.w, totalH);
   }

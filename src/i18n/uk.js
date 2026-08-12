@@ -17,7 +17,7 @@ export default {
   menu: {
     tagline: 'ЧАРІВНА ГОЛОВОЛОМКА',
     events: 'ПОДІЇ', dragons: 'ДРАКОНИ', island: 'ОСТРІВ', shop: 'МАГАЗИН', settings: 'НАЛАШТУВАННЯ',
-    daily: 'ЩОДЕННЕ', endless: 'БЕЗКІНЕЧНИЙ', home: 'ГОЛОВНА', collection: 'Колекція {a}/{b}',
+    daily: 'ЩОДЕННЕ', endless: 'БЕЗКІНЕЧНИЙ', levels: 'РІВНІ', home: 'ГОЛОВНА', collection: 'Колекція {a}/{b}',
   },
   daily: {
     title: 'ЩОДЕННІ НАГОРОДИ',

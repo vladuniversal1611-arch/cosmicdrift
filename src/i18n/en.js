@@ -19,7 +19,7 @@ export default {
   menu: {
     tagline: 'A MAGICAL PUZZLE SAGA',
     events: 'EVENTS', dragons: 'DRAGONS', island: 'ISLAND', shop: 'SHOP', settings: 'SETTINGS',
-    daily: 'DAILY', endless: 'ENDLESS', home: 'HOME', collection: 'Collection {a}/{b}',
+    daily: 'DAILY', endless: 'ENDLESS', levels: 'LEVELS', home: 'HOME', collection: 'Collection {a}/{b}',
   },
   daily: {
     title: 'DAILY REWARDS',
