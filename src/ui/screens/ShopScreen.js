@@ -24,8 +24,10 @@ const OFFERS = [
   { id: 'bundle', label: 'BUNDLE', qty: 'ALL', boosters: { hammer: 2, bomb: 1, shuffle: 2 }, cost: 450, color: UI.btn.purple, best: true },
 ];
 
-/** Coins handed out for watching a rewarded ad (opt-in). */
-const AD_COINS = 100;
+/** Coins handed out for watching a rewarded ad (opt-in). Tuned to the cheapest
+ *  booster (Shuffle = 150) so one ad = one booster's worth — a clearly worthwhile
+ *  reward, yet below the once-a-day gift (300). */
+const AD_COINS = 150;
 
 export class ShopScreen extends PanelScreen {
   constructor(game) {
