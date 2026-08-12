@@ -24,6 +24,10 @@ function boot() {
   // empty manifest this is a no-op and nothing changes.
   AssetManager.registerAll(AssetManifest);
   AssetManager.registerAll(ASSETS);   // packed sprite atlas (base64 data URIs)
+  // Alias packed icon sprites onto the `icon:<name>` keys drawObjectiveIcon uses,
+  // so coins/star/chest/gem art swaps in wherever those icons are drawn.
+  const iconAlias = { 'icon:coins': 'icon_coin', 'icon:star': 'icon_star', 'icon:chest': 'icon_chest', 'icon:gem': 'icon_gem' };
+  for (const [key, src] of Object.entries(iconAlias)) if (ASSETS[src]) AssetManager.register(key, ASSETS[src]);
   AssetManager.load();
 
   const game = new Game(canvas);

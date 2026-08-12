@@ -16,6 +16,7 @@ import { clamp } from '../../utils/MathUtils.js';
 import { Easing } from '../../utils/Easing.js';
 import { Rect } from '../../utils/Rect.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { AssetManager } from '../assets/AssetManager.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { Boosters } from '../../config/Boosters.js';
 import { Haptics } from '../../utils/Haptics.js';
@@ -406,6 +407,15 @@ export class HudScreen extends Screen {
   /** Compact vector glyph for each booster. */
   _drawBoosterIcon(r, id, cx, cy, s, color) {
     const ctx = r.ctx;
+    // Sprite art when available; procedural glyph otherwise.
+    const img = AssetManager.image(`booster_${id}`);
+    if (img) {
+      const box = s * 2.15;
+      const rr = Math.min(box / img.width, box / img.height);
+      const w = img.width * rr, h = img.height * rr;
+      ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+      return;
+    }
     ctx.save();
     ctx.strokeStyle = color; ctx.fillStyle = color;
     ctx.lineWidth = Math.max(3, s * 0.14); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
