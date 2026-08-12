@@ -32,7 +32,11 @@ export const Config = Object.freeze({
    */
   render: Object.freeze({
     width: 1080,
-    height: 2400,
+    // Authored aspect ~9:16.7. The board is width-bound (a fixed ~994px square),
+    // so a shorter canvas makes it a larger fraction of the screen and trims the
+    // dead sky band below the tray — the game reads as "full screen". Canvas.js
+    // contains-fits this into any device, filling the thin remainder with sky.
+    height: 2000,
     /** Target frame rate. The loop uses a fixed timestep derived from this. */
     targetFps: 60,
     /** Cap device pixel ratio to protect fill-rate on high-density panels. */
