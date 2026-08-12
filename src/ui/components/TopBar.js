@@ -29,9 +29,14 @@ export class TopBar {
   render(r, width) {
     const y = 20;
     const h = 40;
-    // A single coins chip on the left, avatar on the right.
-    this._chip(r, 16, y, 118, h, '#ffcf5e', 'coins', this.coins.text);
-    this._avatar(r, width - 16 - 52, y - 6, 52);
+    // Both live on the RIGHT: avatar at the edge, coins chip just left of it.
+    // (The top-LEFT corner belongs to the PanelScreen Back button, so the coins
+    // chip must not sit there or the two overlap.)
+    const s = 52;
+    const avatarX = width - 16 - s;
+    const chipW = 118;
+    this._chip(r, avatarX - 12 - chipW, y, chipW, h, '#ffcf5e', 'coins', this.coins.text);
+    this._avatar(r, avatarX, y - 6, s);
   }
 
   _chip(r, x, y, w, h, cap, icon, text) {

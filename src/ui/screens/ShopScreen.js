@@ -3,7 +3,7 @@
  * -----------------------------------------------------------------------------
  * The booster shop, built on a single soft currency (Coins) with no real money:
  *   - a free Daily Gift at the top,
- *   - a "watch an ad → free booster" banner (opt-in, rewarded),
+ *   - a "watch an ad → free coins" banner (opt-in, rewarded),
  *   - a Booster Store where Coins buy in-run power-ups.
  * Coins are earned by clearing levels, so the whole loop is: play → earn coins →
  * buy boosters (or grab a free one from an ad) → play harder levels.
@@ -24,8 +24,8 @@ const OFFERS = [
   { id: 'bundle', label: 'BUNDLE', qty: 'ALL', boosters: { hammer: 2, bomb: 1, shuffle: 2 }, cost: 450, color: UI.btn.purple, best: true },
 ];
 
-/** The free booster handed out for watching a rewarded ad. */
-const AD_REWARD = { hammer: 1, shuffle: 1 };
+/** Coins handed out for watching a rewarded ad (opt-in). */
+const AD_COINS = 100;
 
 export class ShopScreen extends PanelScreen {
   constructor(game) {
@@ -68,13 +68,15 @@ export class ShopScreen extends PanelScreen {
     UITheme.button(r, cx, cyy, claimW, claimH, claimH / 2, UI.btn.play);
     r.text(t('common.claim'), cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
-    // --- Watch-ad → free booster banner ---
+    // --- Watch-ad → free COINS banner ---
     const ad = new Rect(p.x + pad, dg.bottom + 12, p.w - pad * 2, 70);
     this._adRect = ad;
     UITheme.button(r, ad.x, ad.y, ad.w, ad.h, 18, UI.btn.play);
     this._playIcon(r, ad.x + 44, ad.centerY, 18);
-    r.text(this._adPending ? t('shop.watching') : t('shop.freeBooster'), ad.x + 84, ad.centerY - 12, { font: '900 20px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    r.text(t('common.watchAd'), ad.x + 84, ad.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
+    r.text(this._adPending ? t('shop.watching') : t('shop.freeCoins'), ad.x + 84, ad.centerY - 12, { font: '900 20px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
+    // Subtitle: "+100" with a coin so it's clear the reward is coins, not a booster.
+    drawObjectiveIcon(r, 'coins', ad.x + 90, ad.centerY + 13, 8, '#ffcf5e');
+    r.text(`+${AD_COINS}`, ad.x + 104, ad.centerY + 12, { font: '800 14px system-ui, sans-serif', color: 'rgba(255,255,255,0.95)', baseline: 'middle' });
     UITheme.chip(r, ad.right - 96, ad.centerY - 17, 80, 34, '#ff8a3d');
     r.text(t('common.watch'), ad.right - 56, ad.centerY, { font: '900 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
@@ -150,15 +152,16 @@ export class ShopScreen extends PanelScreen {
       for (let i = 0; i < 20; i++) this._coins.push({ x: this._dailyRect.x + 60, y: this._dailyRect.centerY, vx: (Math.random() - 0.5) * 260, vy: -Math.random() * 320 - 60, t: 0, life: 1.1, s: 8 + Math.random() * 6 });
       return true;
     }
-    // Watch a rewarded ad → free booster (opt-in).
+    // Watch a rewarded ad → free COINS (opt-in).
     if (this._adRect?.contains(px, py)) {
       if (this._adPending) return true;
       this._adPending = true;
       this._toast = { text: t('shop.loadingAd'), t: 2 };
-      this.game.getSystem('monetization')?.offerRewarded('shop_free_booster', () => {
-        const text = this._grantBoosters(AD_REWARD);
+      this.game.getSystem('monetization')?.offerRewarded('shop_free_coins', () => {
+        eco?.credit('gold', AD_COINS);
         this.game.getSystem('audio')?.play('reward'); Haptics.success(this.game);
-        this._toast = { text, t: 1.8 };
+        this._toast = { text: `+${AD_COINS} Coins`, t: 1.8 };
+        for (let i = 0; i < 18; i++) this._coins.push({ x: this._adRect.x + 44, y: this._adRect.centerY, vx: (Math.random() - 0.5) * 260, vy: -Math.random() * 320 - 60, t: 0, life: 1.1, s: 8 + Math.random() * 6 });
       }).then((earned) => {
         this._adPending = false;
         if (!earned) this._toast = { text: t('shop.noAd'), t: 1.4 };

@@ -48,7 +48,7 @@ export default {
   },
   shop: {
     dailyGift: 'ЩОДЕННИЙ ПОДАРУНОК', dailySub: 'Заходь щодня!', boosterStore: 'МАГАЗИН БУСТЕРІВ',
-    freeBooster: 'БЕЗКОШТОВНИЙ БУСТЕР', watching: 'ПЕРЕГЛЯД…', loadingAd: 'Завантаження реклами…', noAd: 'Реклама недоступна',
+    freeBooster: 'БЕЗКОШТОВНИЙ БУСТЕР', freeCoins: 'МОНЕТИ ЗА РЕКЛАМУ', watching: 'ПЕРЕГЛЯД…', loadingAd: 'Завантаження реклами…', noAd: 'Реклама недоступна',
     notEnough: 'НЕ ВИСТАЧАЄ МОНЕТ',
   },
   collection: { tabs: { dragons: 'ДРАКОНИ', buildings: 'БУДІВЛІ', artifacts: 'АРТЕФАКТИ', awards: 'НАГОРОДИ' } },
