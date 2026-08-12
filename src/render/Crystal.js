@@ -19,13 +19,9 @@ import { Quality } from '../config/Quality.js';
 import { Palette } from '../config/Palette.js';
 import { AssetManager } from '../ui/assets/AssetManager.js';
 
-// Map each material object → its gem sprite key. Built once. `amethyst` is the
-// legacy key for the turquoise gem, so it points at the turquoise sprite.
+// Map each material object → its gem sprite key (gem_<materialKey>). Built once.
 const SPRITE_KEY = new Map();
-{
-  const alias = { amethyst: 'turquoise' };
-  for (const [k, m] of Object.entries(Palette.materials)) SPRITE_KEY.set(m, `gem_${alias[k] || k}`);
-}
+for (const [k, m] of Object.entries(Palette.materials)) SPRITE_KEY.set(m, `gem_${k}`);
 
 /**
  * @param {import('../core/Renderer.js').Renderer} renderer
