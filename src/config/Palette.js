@@ -43,13 +43,15 @@ export const Palette = Object.freeze({
   gold: '#ffcf5e',         // golden decorations
 
   /**
-   * The magical stone board — BRIGHT sunlit stone decorated with gold. Each
-   * token is a stop in a lighting model (top-lit bevel over a soft carved slab).
+   * The board's raised GOLD frame — the reference's signature: a polished gold
+   * bezel with a bright top edge falling to a deeper amber base. Each token is a
+   * stop in a lighting model (top-lit bevel over a warm metallic slab).
    */
   stone: Object.freeze({
-    frameTop: '#fbfdff',
-    frameBottom: '#c6ddf6',
-    bevelLight: '#ffffff',
+    frameTop: '#ffe9a6',
+    frameBottom: '#e0a544',
+    bevelLight: '#fff6d8',
+    bevelEdge: '#b87d28',
     bevelDark: '#aecbea',
     inlay: '#dcecfb',
   }),

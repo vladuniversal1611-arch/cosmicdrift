@@ -57,36 +57,42 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   ]);
   renderer.fillRoundRect(px, py, s, s, r, body);
 
-  // --- Facet split (clipped to the gem) -------------------------------------
+  // --- Facets + glossy dome (clipped to the gem) ----------------------------
   ctx.save();
   renderer.roundRectPath(px, py, s, s, r);
   ctx.clip();
 
-  ctx.globalAlpha = 0.38;
+  // Soft diagonal facets (subtle — the gloss dome below carries the shine).
+  ctx.globalAlpha = 0.22;
   ctx.fillStyle = material.light;
   ctx.beginPath();
-  ctx.moveTo(px, py);
-  ctx.lineTo(px + s, py);
-  ctx.lineTo(px, py + s);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.globalAlpha = 0.30;
+  ctx.moveTo(px, py); ctx.lineTo(px + s, py); ctx.lineTo(px, py + s); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.28;
   ctx.fillStyle = material.deep;
   ctx.beginPath();
-  ctx.moveTo(px + s, py);
-  ctx.lineTo(px + s, py + s);
-  ctx.lineTo(px, py + s);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(px + s, py); ctx.lineTo(px + s, py + s); ctx.lineTo(px, py + s); ctx.closePath(); ctx.fill();
+
+  // Glossy top dome — the signature "candy gem" sheen over the upper half.
+  ctx.globalAlpha = 1;
+  const gloss = renderer.linearGradient(px, py, px, py + s * 0.62, [[0, 'rgba(255,255,255,0.6)'], [1, 'rgba(255,255,255,0)']]);
+  renderer.fillRoundRect(px + s * 0.12, py + s * 0.08, s * 0.76, s * 0.46, r * 0.8, gloss);
+  // A grounding shade along the very bottom so the block reads as puffed/3D.
+  ctx.globalAlpha = 0.28;
+  renderer.fillRoundRect(px + s * 0.14, py + s * 0.74, s * 0.72, s * 0.16, r * 0.6, material.deep);
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // --- Polished rim + specular ---------------------------------------------
-  renderer.strokeRoundRect(px, py, s, s, r, material.light, Math.max(1, s * 0.045));
-
-  ctx.globalAlpha = 0.9;
-  renderer.sparkle(px + s * 0.3, py + s * 0.3, s * 0.13, material.spark);
+  // --- Beveled rim + central star specular ----------------------------------
+  // Bright inner rim reads as a raised, beveled edge.
+  renderer.strokeRoundRect(px + s * 0.045, py + s * 0.045, s * 0.91, s * 0.91, r * 0.9, material.light, Math.max(1.5, s * 0.06));
+  // Thin darker outer edge for definition against the socket.
+  ctx.globalAlpha = 0.5;
+  renderer.strokeRoundRect(px + 0.5, py + 0.5, s - 1, s - 1, r, material.deep, Math.max(1, s * 0.03));
+  ctx.globalAlpha = 1;
+  // Central 4-point star (the reference gems' hallmark) + a tiny corner glint.
+  renderer.withGlow(material.spark, 6, () => renderer.sparkle(px + s * 0.5, py + s * 0.46, s * 0.17, material.spark));
+  ctx.globalAlpha = 0.85;
+  renderer.fillCircle(px + s * 0.30, py + s * 0.27, s * 0.05, '#ffffff');
   ctx.globalAlpha = 1;
 
   // --- Colour-blind aid: a distinct centre symbol per material --------------

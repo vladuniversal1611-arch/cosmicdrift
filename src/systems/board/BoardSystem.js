@@ -544,14 +544,20 @@ export class BoardSystem extends System {
       renderer.fillRoundRect(outer.x, outer.y + 8, outer.w, outer.h, R, Palette.stone.frameBottom);
     });
 
-    // Beveled slab with a THICK bright-white rim, stone face, carved recess.
-    renderer.fillRoundRect(outer.x, outer.y, outer.w, outer.h, R, '#ffffff');
+    // Beveled GOLD slab: a defining dark-amber outer line, a bright top-lit
+    // highlight ring, then the metallic gold face, then the carved recess.
+    renderer.fillRoundRect(outer.x, outer.y, outer.w, outer.h, R, Palette.stone.bevelEdge);
+    renderer.fillRoundRect(outer.x + 2, outer.y + 2, outer.w - 4, outer.h - 4, R - 2, Palette.stone.bevelLight);
     const rim = 8;
     const face = renderer.linearGradient(outer.x, outer.y, outer.x, outer.bottom, [
       [0, Palette.stone.frameTop],
       [1, Palette.stone.frameBottom],
     ]);
     renderer.fillRoundRect(outer.x + rim, outer.y + rim, outer.w - rim * 2, outer.h - rim * 2, R - rim, face);
+    // A bright sheen streak across the frame's upper edge — polished metal.
+    renderer.setAlpha(0.5);
+    renderer.fillRoundRect(outer.x + rim, outer.y + rim, outer.w - rim * 2, (outer.h - rim * 2) * 0.32, R - rim, Palette.stone.bevelLight);
+    renderer.setAlpha(1);
 
     // Inner carved recess the cells sit in.
     const recess = gb.inflate(pad * 0.45);
@@ -589,12 +595,12 @@ export class BoardSystem extends System {
     // Magic-lit cracks + tiny vines creeping along the edges.
     this._drawVinesCracks(renderer, outer);
 
-    // Crystal corner decorations (softly pulsing) — premium frame accents.
+    // Gem corner decorations (softly pulsing) — premium gold-frame accents.
     const cg = 0.6 + 0.4 * Math.sin(this._time * 2);
     const cs = pad * 0.55;
     for (const [cxp, cyp] of [[outer.x, outer.y], [outer.right, outer.y], [outer.x, outer.bottom], [outer.right, outer.bottom]]) {
-      renderer.withGlow('#7fe0ff', 8 + cg * 6, () => {
-        const g = renderer.linearGradient(cxp, cyp - cs, cxp, cyp + cs, [[0, '#e2fbff'], [1, '#8fd6ff']]);
+      renderer.withGlow('#ffdf8a', 8 + cg * 6, () => {
+        const g = renderer.linearGradient(cxp, cyp - cs, cxp, cyp + cs, [[0, '#fff6d8'], [1, '#f0b64e']]);
         ctx.fillStyle = g; ctx.beginPath();
         ctx.moveTo(cxp, cyp - cs); ctx.lineTo(cxp - cs * 0.7, cyp); ctx.lineTo(cxp, cyp + cs); ctx.lineTo(cxp + cs * 0.7, cyp); ctx.closePath(); ctx.fill();
       });
