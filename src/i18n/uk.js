@@ -15,7 +15,7 @@ export default {
   },
   combo: { double: 'ДВІ!', triple: 'ТРИ!', quad: 'ЧОТИРИ!', penta: "П'ЯТЬ!", mega: 'МЕГА!', chain: 'КОМБО ×{n}' },
   menu: {
-    tagline: 'ЧАРІВНА ГОЛОВОЛОМКА',
+    tagline: 'ГОЛОВОЛОМКА В НЕБІ',
     events: 'ПОДІЇ', dragons: 'ДРАКОНИ', island: 'ОСТРІВ', shop: 'МАГАЗИН', settings: 'НАЛАШТУВАННЯ',
     daily: 'ЩОДЕННЕ', endless: 'БЕЗКІНЕЧНИЙ', levels: 'РІВНІ', home: 'ГОЛОВНА', collection: 'Колекція {a}/{b}',
   },

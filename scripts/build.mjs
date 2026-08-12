@@ -2,7 +2,7 @@
  * build.mjs
  * -----------------------------------------------------------------------------
  * Bundles the ES-module source graph into a single minified IIFE and inlines it
- * into index.html, producing the self-contained CosmicDrift.html that runs from
+ * into index.html, producing the self-contained Skydoku.html that runs from
  * file:// inside an Android WebView (no cross-origin module loads).
  *
  *   node scripts/build.mjs
@@ -36,5 +36,5 @@ const out = html.replace(
 );
 if (out === html) throw new Error('build: could not find module script tag to inline');
 
-writeFileSync(resolve(root, 'CosmicDrift.html'), out);
-console.log(`built CosmicDrift.html (${(out.length / 1024).toFixed(0)}kb)`);
+writeFileSync(resolve(root, 'Skydoku.html'), out);
+console.log(`built Skydoku.html (${(out.length / 1024).toFixed(0)}kb)`);

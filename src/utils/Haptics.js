@@ -29,7 +29,7 @@ const PATTERNS = {
 // player's haptics setting authoritative even for context-free callers.
 function resolveGame(game) {
   if (game) return game;
-  return (typeof globalThis !== 'undefined' && globalThis.CosmicDrift) || null;
+  return (typeof globalThis !== 'undefined' && globalThis.Skydoku) || null;
 }
 
 function enabled(game) {

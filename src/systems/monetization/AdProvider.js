@@ -44,7 +44,7 @@ export class SimulatedAdProvider extends AdProvider {
  * when running inside the Android wrapper that ships the plugin.
  *
  * To go live:
- *   1. Wrap the built CosmicDrift.html in a Capacitor app and add the plugin:
+ *   1. Wrap the built Skydoku.html in a Capacitor app and add the plugin:
  *        npm i @capacitor-community/admob
  *   2. Put your real AdMob ids in Config.ads.admob (replace the TEST ids).
  *   3. Add the AdMob App ID to AndroidManifest.xml (per the plugin README) and

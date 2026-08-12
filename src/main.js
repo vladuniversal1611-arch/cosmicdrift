@@ -35,7 +35,7 @@ function boot() {
   });
 
   // Expose for debugging in dev consoles / WebView bridges.
-  if (typeof window !== 'undefined') window.CosmicDrift = game;
+  if (typeof window !== 'undefined') window.Skydoku = game;
 }
 
 // Start once the DOM is ready.

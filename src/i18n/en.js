@@ -17,7 +17,7 @@ export default {
   },
   combo: { double: 'DOUBLE!', triple: 'TRIPLE!', quad: 'QUAD!', penta: 'PENTA!', mega: 'MEGA!', chain: 'COMBO ×{n}' },
   menu: {
-    tagline: 'A MAGICAL PUZZLE SAGA',
+    tagline: 'BLOCK PUZZLE IN THE SKY',
     events: 'EVENTS', dragons: 'DRAGONS', island: 'ISLAND', shop: 'SHOP', settings: 'SETTINGS',
     daily: 'DAILY', endless: 'ENDLESS', levels: 'LEVELS', home: 'HOME', collection: 'Collection {a}/{b}',
   },

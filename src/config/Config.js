@@ -16,7 +16,7 @@
 export const Config = Object.freeze({
   /** Human-readable metadata. */
   meta: Object.freeze({
-    name: 'Cosmic Drift',
+    name: 'Skydoku',
     /** Bump on every release; used by the SaveSystem migration layer. */
     version: '1.0.0',
     /** Internal build channel: 'dev' | 'beta' | 'prod'. Ship on 'prod' so the
