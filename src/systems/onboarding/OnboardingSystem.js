@@ -28,12 +28,12 @@ import { System } from '../../core/System.js';
 import { t } from '../../i18n/Localization.js';
 import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../../ui/theme/UITheme.js';
-import { Palette } from '../../config/Palette.js';
 
+// Just the two essentials, taught by doing. Deliberately light: no dark veil,
+// no board-covering card — a newcomer complained the old coach got in the way.
 const STEPS = [
   { id: 'place', title: 'PLACE A RELIC', body: 'Drag a piece from the tray onto the board.', focus: 'tray' },
   { id: 'clear', title: 'CLEAR A LINE', body: 'Fill a whole row or column to clear it and score!', focus: 'board' },
-  { id: 'booster', title: 'BOOSTERS', body: 'Stuck? Tap a booster below for instant help.', focus: 'boosters' },
 ];
 
 export class OnboardingSystem extends System {
@@ -108,8 +108,7 @@ export class OnboardingSystem extends System {
 
   _onTap(x, y) {
     if (!this.isActive) return;
-    if (this._skipBtn.contains(x, y)) { this._finish(); return; }
-    if (STEPS[this._step].id === 'booster' && this._gotItBtn.contains(x, y)) { this._finish(); }
+    if (this._skipBtn.contains(x, y)) { this._finish(); }
   }
 
   update(dt) {
@@ -131,108 +130,65 @@ export class OnboardingSystem extends System {
       if (band) return new Rect(w * 0.04, band.top - 12, w * 0.92, band.height + 24);
       if (board) return new Rect(w * 0.04, board.bottom + 20, w * 0.92, h * 0.22);
     }
-    if (focus === 'boosters') {
-      // Mirror the HUD booster-row placement (centred, just below the tray).
-      return new Rect(w * 0.12, h * 0.845, w * 0.76, h * 0.075);
-    }
     return new Rect(w * 0.1, h * 0.4, w * 0.8, h * 0.2);
   }
 
   render(r) {
     if (!this.isActive) return;
-    const ctx = r.ctx;
     const w = this.game.canvas.width, h = this.game.canvas.height;
     const focus = this._focusRect();
-    const pad = 14 + Math.sin(this._t * 3) * 4;
+    const pad = 12 + Math.sin(this._t * 3) * 3;
     const fx = focus.x - pad, fy = focus.y - pad;
     const fw = focus.w + pad * 2, fh = focus.h + pad * 2;
     const rad = 28;
+    this._gotItBtn.set(0, 0, 0, 0);
 
-    // 1) Dimming veil with a rounded "hole" over the focus area. We fill the
-    //    whole screen MINUS the focus using the even-odd rule, so the veil is
-    //    simply never painted over the spotlight and the live game shows through
-    //    (a destination-out punch would erase the game underneath too).
-    ctx.save();
-    ctx.globalAlpha = 0.6;
-    ctx.fillStyle = '#0a1a36';
-    ctx.beginPath();
-    ctx.rect(0, 0, w, h);
-    this._addRoundRectSubpath(ctx, fx, fy, fw, fh, rad);
-    ctx.fill('evenodd');
-    ctx.restore();
+    // NO dimming veil and NO board-covering card: the coach must never get in
+    // the way of actually playing. We only (1) softly ring the thing to touch,
+    // (2) point at it, and (3) show a slim caption in the free band BELOW the
+    // tray, plus a SKIP. The player sees the whole board the entire time.
 
-    // 2) Pulsing highlight ring around the focus.
+    // 1) Soft pulsing highlight ring around the focus (no heavy glow).
     const glow = 0.5 + 0.5 * Math.sin(this._t * 3);
-    r.setAlpha(0.7 + glow * 0.3);
-    r.withGlow(UI.gold.mid, 14 + glow * 10, () => r.strokeRoundRect(fx, fy, fw, fh, rad, UI.gold.mid, 3));
+    r.setAlpha(0.55 + glow * 0.35);
+    r.strokeRoundRect(fx, fy, fw, fh, rad, UI.gold.mid, 3);
     r.setAlpha(1);
 
-    // 3) Instruction card — above the board for the tray/booster steps, below
-    //    the score for the board step, so it never covers the focus.
+    // 2) Bobbing pointer from just outside the focus toward it.
     const step = STEPS[this._step];
-    const board = this.game.getSystem('board')?.area;
-    const above = step.focus !== 'board';
-    const cardW = Math.min(760, w - 80), cardH = 190;
-    const cardX = (w - cardW) / 2;
-    let cardY = above ? (board ? board.top - cardH - 24 : h * 0.24) : (board ? board.bottom + 40 : h * 0.7);
-    cardY = Math.max(h * 0.14, Math.min(cardY, h - cardH - 60));
+    this._drawPointer(r, focus, step.focus !== 'board');
 
+    // 3) Slim caption in the empty band below the tray (never over the board).
+    const band = this.game.getSystem('pieces')?.trayBand;
+    const board = this.game.getSystem('board')?.area;
+    const trayBottom = band ? band.top + band.height : (board ? board.bottom + h * 0.16 : h * 0.86);
+    const cardW = Math.min(680, w - 80), cardH = 96;
+    const cardX = (w - cardW) / 2;
+    let cardY = trayBottom + 20;
+    cardY = Math.min(cardY, h - cardH - 64);        // keep clear of the SKIP row
     const pop = 1 - Math.pow(1 - this._cardT, 3);
+    const ctx = r.ctx;
     ctx.save();
     ctx.translate(cardX + cardW / 2, cardY + cardH / 2);
-    ctx.scale(0.9 + pop * 0.1, 0.9 + pop * 0.1);
+    ctx.scale(0.94 + pop * 0.06, 0.94 + pop * 0.06);
     ctx.globalAlpha = pop;
     ctx.translate(-(cardX + cardW / 2), -(cardY + cardH / 2));
-    UITheme.glassPanel(r, cardX, cardY, cardW, cardH, 30);
-    // Step pips.
-    for (let i = 0; i < STEPS.length; i++) {
-      const on = i <= this._step;
-      r.fillCircle(cardX + cardW / 2 + (i - (STEPS.length - 1) / 2) * 26, cardY + 30, on ? 7 : 5,
-        on ? UI.gold.mid : 'rgba(20,44,92,0.25)');
-    }
-    UITheme.heading(r, step.title, cardX + cardW / 2, cardY + 74, 32, UI.ink);
-    r.text(step.body, cardX + cardW / 2, cardY + 116, {
-      font: '700 22px system-ui, sans-serif', color: UI.inkSoft, align: 'center', baseline: 'middle',
+    UITheme.glassPanel(r, cardX, cardY, cardW, cardH, 24);
+    UITheme.heading(r, step.title, cardX + cardW / 2, cardY + 34, 26, UI.ink);
+    r.text(step.body, cardX + cardW / 2, cardY + 68, {
+      font: '700 19px system-ui, sans-serif', color: UI.inkSoft, align: 'center', baseline: 'middle',
     });
-
-    // On the final step, offer an explicit GOT IT! button (in case the player
-    // would rather not spend a booster to finish the tour).
-    if (step.id === 'booster') {
-      const bw = 220, bh = 46, bx = cardX + cardW / 2 - bw / 2, by = cardY + cardH - bh - 12;
-      this._gotItBtn.set(bx, by, bw, bh);
-      UITheme.button(r, bx, by, bw, bh, bh / 2, UI.btn.teal, { shadow: true });
-      r.text(t('common.gotIt'), bx + bw / 2, by + bh / 2, {
-        font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
-        outline: Palette.textOutline, outlineWidth: 3,
-      });
-    } else {
-      this._gotItBtn.set(0, 0, 0, 0);
-    }
     ctx.restore();
 
-    // 4) A bobbing hand pointing at the focus (from the card toward it).
-    this._drawPointer(r, focus, above);
-
-    // 5) SKIP button, parked at the very bottom, clear of the tray + boosters.
-    const sw = 200, sh = 40, sx = (w - sw) / 2, sy = h - sh - 18;
+    // 4) SKIP, parked at the very bottom.
+    const sw = 190, sh = 38, sx = (w - sw) / 2, sy = h - sh - 20;
     this._skipBtn.set(sx, sy, sw, sh);
-    r.setAlpha(0.85);
+    r.setAlpha(0.8);
     r.strokeRoundRect(sx, sy, sw, sh, sh / 2, 'rgba(255,255,255,0.7)', 2);
     r.text(t('common.skipTutorial'), sx + sw / 2, sy + sh / 2, {
-      font: '800 18px system-ui, sans-serif', color: '#eaf4ff', align: 'center', baseline: 'middle',
+      font: '800 17px system-ui, sans-serif', color: '#eaf4ff', align: 'center', baseline: 'middle',
     });
     r.setAlpha(1);
-  }
-
-  /** Append a rounded-rect subpath to the current path (does NOT beginPath). */
-  _addRoundRectSubpath(ctx, x, y, w, h, r) {
-    const rr = Math.min(r, w / 2, h / 2);
-    ctx.moveTo(x + rr, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rr);
-    ctx.arcTo(x + w, y + h, x, y + h, rr);
-    ctx.arcTo(x, y + h, x, y, rr);
-    ctx.arcTo(x, y, x + w, y, rr);
-    ctx.closePath();
   }
 
   /**
