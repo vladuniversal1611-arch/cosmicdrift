@@ -40,14 +40,10 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   const py = y + (size - s) * 0.5;
   const r = Math.max(2, radius * scale);
 
-  // --- Outer magical aura ---------------------------------------------------
-  if (glow > 0 && Quality.highQuality) {
-    ctx.save();
-    ctx.shadowColor = material.glow;
-    ctx.shadowBlur = 16 * glow;
-    renderer.fillRoundRect(px, py, s, s, r, material.core);
-    ctx.restore();
-  }
+  // NOTE: no per-cell `shadowBlur` aura here. A full board would run one
+  // gaussian blur per gem per frame (80+/frame), which desktops shrug off but
+  // mobile GPUs choke on — the #1 cause of stutter. The gloss dome + beveled
+  // rim below already sell the material without any blur pass.
 
   // --- Translucent body -----------------------------------------------------
   const body = renderer.linearGradient(px, py, px + s, py + s, [
@@ -90,7 +86,10 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   renderer.strokeRoundRect(px + 0.5, py + 0.5, s - 1, s - 1, r, material.deep, Math.max(1, s * 0.03));
   ctx.globalAlpha = 1;
   // Central 4-point star (the reference gems' hallmark) + a tiny corner glint.
-  renderer.withGlow(material.spark, 6, () => renderer.sparkle(px + s * 0.5, py + s * 0.46, s * 0.17, material.spark));
+  // Drawn WITHOUT a glow/shadowBlur pass — the star shape + bright glint read as
+  // a specular highlight on their own, and skipping the blur keeps a full board
+  // cheap to draw.
+  renderer.sparkle(px + s * 0.5, py + s * 0.46, s * 0.17, material.spark);
   ctx.globalAlpha = 0.85;
   renderer.fillCircle(px + s * 0.30, py + s * 0.27, s * 0.05, '#ffffff');
   ctx.globalAlpha = 1;

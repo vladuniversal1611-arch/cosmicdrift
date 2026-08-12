@@ -39,8 +39,11 @@ export const Config = Object.freeze({
     height: 2000,
     /** Target frame rate. The loop uses a fixed timestep derived from this. */
     targetFps: 60,
-    /** Cap device pixel ratio to protect fill-rate on high-density panels. */
-    maxDpr: 3,
+    /** Cap device pixel ratio to protect fill-rate on high-density panels. A
+     *  QHD+ phone reports dpr 3–3.5; rendering the whole board at that density
+     *  is pure fill-rate cost for no visible gain on this flat, high-contrast
+     *  art. Cap at 2 — still crisp, roughly half the pixels of dpr 3. */
+    maxDpr: 2,
     /** Master toggle for expensive glow / shadow passes on weak hardware. */
     highQuality: true,
   }),
