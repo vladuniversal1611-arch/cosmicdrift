@@ -82,9 +82,9 @@ export class HomeScreen extends Screen {
     this._subs.push(this.events.on('debug:state', (f) => { this._debug = f; }));
     this._subs.push(this.events.on('home:playState', ({ state }) => this.play.setState(state)));
 
-    // Daily Challenge attention dot on its tile until it's been played today.
-    const dailyTile = this.quick.byId.daily;
-    if (dailyTile) dailyTile.badge = this.game.getSystem('gameplay')?.dailyPlayedToday ? 0 : -1;
+    // Daily Challenge attention dot on the DAILY nav tab until played today.
+    const dailyTab = this.nav.byId.daily;
+    if (dailyTab) dailyTab.badge = this.game.getSystem('gameplay')?.dailyPlayedToday ? 0 : -1;
 
     // Waiting daily reward → a warm one-time "welcome back" toast. The Daily
     // button in the header shows its own attention badge (reads retention live).

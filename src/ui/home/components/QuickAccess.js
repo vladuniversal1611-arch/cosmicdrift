@@ -16,11 +16,9 @@ import { Rect } from '../../../utils/Rect.js';
 /** Shortcut descriptors. The two ways to play (Levels + Endless) are the hero
  *  buttons above; these are the secondary shortcuts: the Daily Challenge and the
  *  booster Shop. */
-export const QUICK = [
-  { id: 'daily', label: 'menu.daily', colors: UI.btn.purple, event: 'ui:playDaily',
-    icon: (r, x, y, s, c) => r.text('★', x, y + 1, { font: `900 ${Math.round(s * 1.4)}px system-ui, sans-serif`, color: c, align: 'center', baseline: 'middle' }) },
-  { id: 'shop', label: 'menu.shop', colors: UI.btn.blue, event: 'ui:openShop', icon: (r, x, y, s, c) => Icons.shop(r, x, y, s, c) },
-];
+// The two ways to play are the hero buttons; Daily and Shop now live in the
+// bottom nav — so there are no quick-access tiles left (kept as a seam).
+export const QUICK = [];
 
 export class QuickAccess {
   constructor(game, safe, onTap, region, list = QUICK) {

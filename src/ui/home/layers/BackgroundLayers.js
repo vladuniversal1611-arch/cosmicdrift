@@ -18,7 +18,7 @@
 import { Motion } from '../Motion.js';
 import { AssetManager } from '../../assets/AssetManager.js';
 
-const CLOUD_KEYS = ['cloud_big1', 'cloud_big2', 'cloud_small1', 'cloud_small2'];
+const CLOUD_KEYS = ['cloud_a', 'cloud_b', 'cloud_c', 'cloud_d'];
 
 export class BackgroundLayers {
   constructor(w, h) {
