@@ -37,6 +37,9 @@ import { Haptics } from '../../utils/Haptics.js';
 import { Grid } from './Grid.js';
 import { drawRune } from './Runes.js';
 import { drawCrystal } from '../../render/Crystal.js';
+import { AssetManager } from '../../ui/assets/AssetManager.js';
+
+const SKY_CLOUDS = ['cloud_a', 'cloud_b', 'cloud_c', 'cloud_d'];
 
 export class BoardSystem extends System {
   constructor(game) {
@@ -45,6 +48,22 @@ export class BoardSystem extends System {
     this.grid = new Grid(Config.board.columns, Config.board.rows);
     this._area = new Rect();
     this._time = 0;
+
+    // Drifting clouds behind the board (the HUD is transparent, so they show in
+    // the sky above the board and the band below the tray). Seeded, allocation-
+    // free after construction; the board covers the middle ones.
+    this._skyClouds = [];
+    {
+      const w = this.game.canvas.width, h = this.game.canvas.height;
+      const seed = (i, s) => { const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
+      for (let i = 0; i < 6; i++) {
+        this._skyClouds.push({
+          x: seed(i, 1) * w, y: h * (0.03 + seed(i, 2) * 0.94),
+          s: 0.6 + seed(i, 3) * 0.9, v: 7 + seed(i, 4) * 13,
+          key: SKY_CLOUDS[i % SKY_CLOUDS.length], flip: seed(i, 5) > 0.5,
+        });
+      }
+    }
     /** Placement preview: { piece, col, row, valid } | null. */
     this._hover = null;
     /** True while a clear sequence is animating. */
@@ -365,6 +384,9 @@ export class BoardSystem extends System {
 
   update(dt) {
     this._time += dt;
+    // Drift the backdrop clouds (wrap around).
+    const cw = this.game.canvas.width;
+    for (const c of this._skyClouds) { c.x += c.v * dt; if (c.x - 300 > cw) c.x = -300; }
     let stillClearing = 0;
     let stillDrifting = 0;
 
@@ -460,7 +482,35 @@ export class BoardSystem extends System {
 
   // --- Rendering -------------------------------------------------------------
 
+  /** The gameplay backdrop: sky gradient + sun bloom + drifting cloud sprites,
+   *  drawn behind the board. Only visible in-game (the menus paint their own
+   *  opaque background on top). */
+  _drawSky(renderer) {
+    const w = this.game.canvas.width, h = this.game.canvas.height, ctx = renderer.ctx;
+    renderer.fillBackgroundGradient(['#5db4ff', '#96d4ff', '#dff2ff']);
+    const sun = renderer.radialGradient(w * 0.5, h * 0.12, h * 0.4,
+      [[0, 'rgba(255,255,255,0.5)'], [0.5, 'rgba(255,247,214,0.22)'], [1, 'rgba(255,255,255,0)']]);
+    renderer.fillRect(0, 0, w, h, sun);
+    renderer.setAlpha(0.05);
+    for (let i = 0; i < 5; i++) {
+      const a = -0.5 + i * 0.24;
+      ctx.save(); ctx.translate(w * 0.5, h * 0.1); ctx.rotate(a);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-40, 0, 80, h); ctx.restore();
+    }
+    renderer.setAlpha(1);
+    for (const c of this._skyClouds) {
+      const img = AssetManager.image(c.key);
+      if (!img) continue;
+      const cw = c.s * 200, ch = cw * img.height / img.width;
+      renderer.setAlpha(c.s < 0.95 ? 0.8 : 1);
+      if (c.flip) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(-1, 1); ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch); ctx.restore(); }
+      else ctx.drawImage(img, c.x - cw / 2, c.y - ch / 2, cw, ch);
+      renderer.setAlpha(1);
+    }
+  }
+
   render(renderer) {
+    this._drawSky(renderer);
     this._drawPedestal(renderer);
     this._drawFrame(renderer);
     const size = this.grid.cellSize;
