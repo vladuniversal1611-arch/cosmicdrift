@@ -132,6 +132,9 @@
       else if (id === 'pass') global.UI.renderPass();
       else if (id === 'modes') global.UI.renderModes();
       global.UI.show(id);
+      // Centre the map on the current level in the same frame it becomes
+      // visible, so it doesn't render at the top and then jump-scroll.
+      if (id === 'map' && global.UI._centerMap) global.UI._centerMap();
     },
 
     // ---- Level lifecycle --------------------------------------------------

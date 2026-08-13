@@ -722,12 +722,17 @@
       // then centre it once the screen is actually shown & laid out. go() calls
       // renderMap() before show(id), so scrollTop must be set in a later frame.
       mountChunks(Math.floor((progress - 1) / CHUNK) - 2, Math.floor((progress - 1) / CHUNK) + 2);
-      global.requestAnimationFrame(function () {
+      // Centre the current level. go() calls this synchronously right after
+      // show() (screen laid out) so the map doesn't visibly jump-scroll; the
+      // rAF is a fallback for any path that renders the map while already shown.
+      const center = function () {
         const vh = s.clientHeight || global.innerHeight || 700;
         if (waterEl) waterEl.style.height = vh + 'px';
         s.scrollTop = Math.max(0, path.offsetTop + yAt(progress - 1) - vh / 2);
         update();
-      });
+      };
+      UI._centerMap = center;
+      global.requestAnimationFrame(center);
 
       let raf = 0;
       const onScroll = function () {
