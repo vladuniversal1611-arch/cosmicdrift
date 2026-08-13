@@ -16,6 +16,9 @@
  * -----------------------------------------------------------------------------
  */
 import { Motion } from '../Motion.js';
+import { AssetManager } from '../../assets/AssetManager.js';
+
+const CLOUD_KEYS = ['cloud_big1', 'cloud_big2', 'cloud_small1', 'cloud_small2'];
 
 export class BackgroundLayers {
   constructor(w, h) {
@@ -44,6 +47,8 @@ export class BackgroundLayers {
         y: h * (0.1 + this._rand(i, 12) * 0.45),
         s: 0.7 + this._rand(i, 13) * 1.1,
         v: 6 + this._rand(i, 14) * 12,
+        key: CLOUD_KEYS[i % CLOUD_KEYS.length],   // sprite variant (if art loaded)
+        flip: this._rand(i, 15) > 0.5,
       });
     }
     // Layer 5 — pooled light motes (fixed-size pool, recycled in place).
@@ -155,13 +160,31 @@ export class BackgroundLayers {
   // --- Layer 3: Clouds (mid parallax) ---------------------------------------
   _cloudLayer(r) {
     const ox = this._px * 26, oy = this._py * 14;
+    const ctx = r.ctx;
     for (const c of this._clouds) {
+      const x = c.x + ox, y = c.y + oy;
+      const img = AssetManager.image(c.key);
+      if (img) {
+        // Sprite cloud: scale by depth, mirror some for variety.
+        const w = c.s * 200, h = w * img.height / img.width;
+        r.setAlpha(c.s < 1.1 ? 0.82 : 1);
+        if (c.flip) {
+          ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h); ctx.restore();
+        } else {
+          ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+        }
+        r.setAlpha(1);
+        continue;
+      }
+      // Procedural fallback (puffed circles).
       r.setAlpha(c.s < 1.1 ? 0.6 : 0.9);
-      const x = c.x + ox, y = c.y + oy, rr = 30 * c.s;
+      const rr = 30 * c.s;
       r.fillCircle(x, y, rr, '#ffffff');
       r.fillCircle(x + rr * 0.95, y + rr * 0.15, rr * 0.8, '#ffffff');
       r.fillCircle(x - rr * 0.95, y + rr * 0.2, rr * 0.72, '#ffffff');
       r.fillCircle(x + rr * 0.2, y - rr * 0.42, rr * 0.72, '#ffffff');
+      r.setAlpha(1);
     }
     r.setAlpha(1);
   }
@@ -170,9 +193,22 @@ export class BackgroundLayers {
   _mainIsland(r) {
     const ox = this._px * 40;
     const cx = this.w * 0.5 + ox;
+    const ctx = r.ctx;
+
+    // Sprite island (with the same gentle bob + a soft grounding shadow).
+    const img = AssetManager.image('island');
+    if (img) {
+      const iw = this.w * 0.8, ih = iw * img.height / img.width;
+      const iy = this.h * 0.64 + Motion.float(this._t, 8, 6);   // vertical centre + bob
+      r.setAlpha(0.14);
+      this._ellipse(r, cx, iy + ih * 0.42, iw * 0.4, ih * 0.12, '#0a2a1a');
+      r.setAlpha(1);
+      ctx.drawImage(img, cx - iw / 2, iy - ih / 2, iw, ih);
+      return;
+    }
+
     const topY = this.h * 0.62 + Motion.float(this._t, 8, 5);
     const rx = this.w * 0.6, ry = 130;
-    const ctx = r.ctx;
     // Shadow.
     r.setAlpha(0.12); this._ellipse(r, cx, topY + ry * 1.2, rx * 0.8, ry * 0.4, '#0a2a1a'); r.setAlpha(1);
     // Rocky underside.
