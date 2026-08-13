@@ -16,6 +16,7 @@ import { UITheme, UI } from '../../theme/UITheme.js';
 import { Rect } from '../../../utils/Rect.js';
 import { Icons } from '../Icons.js';
 import { Motion } from '../Motion.js';
+import { AssetManager } from '../../assets/AssetManager.js';
 
 export class Header {
   constructor(game, safe, onTap) {
@@ -62,6 +63,15 @@ export class Header {
 
   _drawAvatar(r) {
     const cx = this._avCx, cy = this._avCy, R = this._avR;
+    // Mascot art (self-contained, drawn a touch larger than the disc so its
+    // arms/feet read); procedural face disc as the fallback.
+    const img = AssetManager.image('mascot');
+    if (img) {
+      const box = R * 2.7, rr = Math.min(box / img.width, box / img.height);
+      const w = img.width * rr, h = img.height * rr;
+      r.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+      return;
+    }
     // A friendly avatar disc — decorative identity, no XP/level meta.
     UITheme.shadow(r, cx - R, cy - R, R * 2, R * 2, R, 6, 0.3);
     const av = R - 6;

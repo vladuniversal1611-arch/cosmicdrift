@@ -8,8 +8,23 @@
  * component asks Icons.<name>; later that resolves to art via the AssetManager.
  * -----------------------------------------------------------------------------
  */
+import { AssetManager } from '../assets/AssetManager.js';
+
+/** Blit a sprite centred on (cx,cy), fitted into a ~2.2·s box. Returns false
+ *  (so the caller draws its procedural glyph) when the art isn't loaded. */
+function spr(r, key, cx, cy, s) {
+  const img = AssetManager.image(key);
+  if (!img) return false;
+  const box = s * 2.2;
+  const rr = Math.min(box / img.width, box / img.height);
+  const w = img.width * rr, h = img.height * rr;
+  r.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  return true;
+}
+
 export const Icons = {
   gear(r, cx, cy, s, col = '#fff') {
+    if (spr(r, 'ui_gear', cx, cy, s)) return;
     const ctx = r.ctx; ctx.fillStyle = col;
     for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * s, cy + Math.sin(a) * s, s * 0.3, 0, Math.PI * 2); ctx.fill(); }
     r.fillCircle(cx, cy, s * 0.82, col); r.fillCircle(cx, cy, s * 0.4, 'rgba(47,143,224,0.9)');
@@ -22,6 +37,7 @@ export const Icons = {
     ctx.lineTo(cx, cy + s * 0.16); ctx.lineTo(cx + w / 2 - s * 0.14, cy - h / 2 + s * 0.16); ctx.stroke();
   },
   bell(r, cx, cy, s, col = '#fff') {
+    if (spr(r, 'ui_bell', cx, cy, s)) return;
     const ctx = r.ctx; ctx.fillStyle = col;
     ctx.beginPath();
     ctx.moveTo(cx - s * 0.8, cy + s * 0.5);
@@ -32,9 +48,11 @@ export const Icons = {
     r.fillCircle(cx, cy + s * 0.7, s * 0.22, col);
   },
   plus(r, cx, cy, s, col = '#7a4a00') {
+    if (spr(r, 'ui_plus', cx, cy, s)) return;
     r.text('+', cx, cy + 1, { font: `900 ${Math.round(s * 2.2)}px system-ui, sans-serif`, color: col, align: 'center', baseline: 'middle' });
   },
   coin(r, cx, cy, s) {
+    if (spr(r, 'icon_coin', cx, cy, s)) return;
     const ctx = r.ctx;
     ctx.fillStyle = '#e0a41e'; ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.12, s, s * 0.9, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = r.linearGradient(cx, cy - s, cx, cy + s, [[0, '#fff3c4'], [1, '#ffcf5e']]);
@@ -68,6 +86,7 @@ export const Icons = {
     r.sparkle(cx - s * 0.5, cy - s * 0.2, s * 0.22, '#ffe6ff');
   },
   island(r, cx, cy, s) {
+    if (spr(r, 'ui_home', cx, cy, s)) return;
     const ctx = r.ctx; ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.32, s, s * 0.42, 0, 0, Math.PI * 2); ctx.fill();
     r.fillCircle(cx, cy - s * 0.2, s * 0.52, '#fff');
@@ -103,6 +122,7 @@ export const Icons = {
     r.fillCircle(cx, cy + s * 0.4, s * 0.26, '#ff9422');
   },
   shop(r, cx, cy, s, col = '#fff') {
+    if (spr(r, 'ui_bag', cx, cy, s)) return;
     r.fillRoundRect(cx - s * 0.85, cy - s * 0.25, s * 1.7, s * 1.25, s * 0.22, col);
     const ctx = r.ctx; ctx.strokeStyle = col; ctx.lineWidth = s * 0.2;
     ctx.beginPath(); ctx.arc(cx, cy - s * 0.2, s * 0.5, Math.PI, 0); ctx.stroke();
