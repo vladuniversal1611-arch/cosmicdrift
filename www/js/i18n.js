@@ -14,7 +14,7 @@
       nav_map: 'Карта', nav_dragons: 'Дракони', nav_shop: 'Магазин', nav_pass: 'Пропуск', nav_island: 'Острів',
       // home
       play_level: '▶ Грати рівень {n}', incubator: '🥚 Інкубатор драконів',
-      t_daily: 'Щоденна', t_quests: 'Квести', t_leaderboard: 'Рейтинг', t_ach: 'Досягнення', t_options: 'Опції',
+      t_daily: 'Щоденна', t_quests: 'Квести', t_leaderboard: 'Ліга', t_ach: 'Досягнення', t_options: 'Опції',
       hatch: 'Вилупити!', charge10: 'Зарядити +10⚡', need_energy: 'Недостатньо енергії ⚡ (грайте рівні)',
       new_dragon: '🎉 Новий дракон!', great: 'Чудово!',
       // map
@@ -46,7 +46,7 @@
       upgrade_btn: 'Покращити ({cost}{ic})', not_enough_gold: 'Недостатньо золота 🪙', now_level: '{name} тепер рівня {n}!',
       // shop
       shop_title: '🛒 Магазин', rewarded_ad: 'Реклама за винагороду', ad_desc: 'Перегляньте рекламу → +6💎 та +30⚡',
-      watch: 'Дивитись', gems_section: '💎 Кристали', best_price: 'Найкраща ціна', soon: 'Скоро',
+      watch: 'Дивитись', gems_section: '💎 Кристали', best_price: 'Набір кристалів', soon: 'Скоро',
       gold_section: '🪙 Золото', gold_pack: '{gold} золота', for_gems: 'за {gems}💎',
       boosters_section: '🧪 Бустери', skins_section: '🎨 Косметичні скіни драконів',
       hammer_pack: 'Молот ×3', mix_pack: 'Мікс ×3', moves_pack: 'Ходи ×3',
@@ -91,7 +91,7 @@
       lang_name: 'English (US)',
       nav_map: 'Map', nav_dragons: 'Dragons', nav_shop: 'Shop', nav_pass: 'Pass', nav_island: 'Island',
       play_level: '▶ Play level {n}', incubator: '🥚 Dragon Incubator',
-      t_daily: 'Daily', t_quests: 'Quests', t_leaderboard: 'Ranks', t_ach: 'Awards', t_options: 'Options',
+      t_daily: 'Daily', t_quests: 'Quests', t_leaderboard: 'League', t_ach: 'Trophies', t_options: 'Options',
       hatch: 'Hatch!', charge10: 'Charge +10⚡', need_energy: 'Not enough energy ⚡ (play levels)',
       new_dragon: '🎉 New dragon!', great: 'Great!',
       islands_title: '🗺️ Dragon Islands', locked_at: '🔒 level {n}', level_n: 'Level {n}',
@@ -115,7 +115,7 @@
       charges_faster: 'Charges faster each level', close: 'Close',
       upgrade_btn: 'Upgrade ({cost}{ic})', not_enough_gold: 'Not enough gold 🪙', now_level: '{name} is now level {n}!',
       shop_title: '🛒 Shop', rewarded_ad: 'Rewarded ad', ad_desc: 'Watch an ad → +6💎 and +30⚡',
-      watch: 'Watch', gems_section: '💎 Gems', best_price: 'Best value', soon: 'Soon',
+      watch: 'Watch', gems_section: '💎 Gems', best_price: 'Gem pack', soon: 'Soon',
       gold_section: '🪙 Gold', gold_pack: '{gold} gold', for_gems: 'for {gems}💎',
       boosters_section: '🧪 Boosters', skins_section: '🎨 Dragon cosmetic skins',
       hammer_pack: 'Hammer ×3', mix_pack: 'Mix ×3', moves_pack: 'Moves ×3',
@@ -418,7 +418,7 @@
   // Game modes.
   const MSTR = {
     uk: { t_modes: 'Режими', modes_title: '🎮 Ігрові режими', mode_blitz: 'Бліц', mode_endless: 'Виживання', mode_daily: 'Щоденний виклик', mode_blitz_desc: '60 секунд на макс. рахунок. Дракони заряджаються ×2!', mode_endless_desc: 'Збивай шкалу загрози збігами. Скільки протримаєшся?', mode_daily_desc: 'Особливий рівень раз на день за велику нагороду.', mode_endless_danger: 'Загроза', best: 'Рекорд', new_best: 'Новий рекорд!', time_up: '⏱️ Час вийшов!', mode_over: '♾️ Гру завершено', play: 'Грати', daily_done_today: 'Сьогодні вже пройдено ✓', popular: 'Популярне', trials_intro: 'Проходь рівні, після кожного обирай реліквію-підсилення і спускайся глибше. Програш завершує забіг — головне зайти якомога глибше!', relic_got: 'Реліквію отримано', rw_dragon_egg: 'Яйце дракона', m_survival: 'Виживання' },
-    en: { t_modes: 'Modes', modes_title: '🎮 Game Modes', mode_blitz: 'Blitz', mode_endless: 'Survival', mode_daily: 'Daily Challenge', mode_blitz_desc: '60 seconds for max score. Dragons charge ×2!', mode_endless_desc: 'Beat back the threat meter with matches. How long can you last?', mode_daily_desc: 'A special level once a day for a big reward.', mode_endless_danger: 'Threat', best: 'Best', new_best: 'New best!', time_up: '⏱️ Time up!', mode_over: '♾️ Game over', play: 'Play', daily_done_today: 'Already done today ✓', popular: 'Popular', trials_intro: 'Clear levels, pick a power-up relic after each one, and descend deeper. A single loss ends the run — get as deep as you can!', relic_got: 'Relic acquired', rw_dragon_egg: 'Dragon egg', m_survival: 'Survival' },
+    en: { t_modes: 'Modes', modes_title: '🎮 Game Modes', mode_blitz: 'Blitz', mode_endless: 'Survival', mode_daily: 'Daily Challenge', mode_blitz_desc: '60 seconds for max score. Dragons charge ×2!', mode_endless_desc: 'Beat back the threat meter with matches. How long can you last?', mode_daily_desc: 'A special level once a day for a big reward.', mode_endless_danger: 'Threat', best: 'Record', new_best: 'New record!', time_up: '⏱️ Time up!', mode_over: '♾️ Game over', play: 'Play', daily_done_today: 'Already done today ✓', popular: 'Popular', trials_intro: 'Clear levels, pick a power-up relic after each one, and descend deeper. A single loss ends the run — get as deep as you can!', relic_got: 'Relic acquired', rw_dragon_egg: 'Dragon egg', m_survival: 'Survival' },
     es: { t_modes: 'Modos', modes_title: '🎮 Modos de juego', mode_blitz: 'Blitz', mode_endless: 'Supervivencia', mode_daily: 'Reto diario', mode_blitz_desc: '60 segundos para máxima puntuación. ¡Dragones cargan ×2!', mode_endless_desc: 'Reduce la amenaza con combinaciones. ¿Cuánto aguantas?', mode_daily_desc: 'Un nivel especial al día por una gran recompensa.', mode_endless_danger: 'Amenaza', best: 'Récord', new_best: '¡Nuevo récord!', time_up: '⏱️ ¡Tiempo!', mode_over: '♾️ Fin del juego', play: 'Jugar', daily_done_today: 'Ya hecho hoy ✓' },
     de: { t_modes: 'Modi', modes_title: '🎮 Spielmodi', mode_blitz: 'Blitz', mode_endless: 'Überleben', mode_daily: 'Tägliche Aufgabe', mode_blitz_desc: '60 Sekunden für Höchstpunktzahl. Drachen laden ×2!', mode_endless_desc: 'Drücke die Gefahr mit Matches zurück. Wie lange hältst du durch?', mode_daily_desc: 'Ein Speziallevel pro Tag für eine große Belohnung.', mode_endless_danger: 'Gefahr', best: 'Rekord', new_best: 'Neuer Rekord!', time_up: '⏱️ Zeit um!', mode_over: '♾️ Vorbei', play: 'Spielen', daily_done_today: 'Heute schon erledigt ✓' },
     fr: { t_modes: 'Modes', modes_title: '🎮 Modes de jeu', mode_blitz: 'Blitz', mode_endless: 'Survie', mode_daily: 'Défi quotidien', mode_blitz_desc: '60 secondes pour le max de points. Dragons chargent ×2 !', mode_endless_desc: 'Repoussez la menace avec des combos. Combien de temps tiendrez-vous ?', mode_daily_desc: 'Un niveau spécial par jour pour une grosse récompense.', mode_endless_danger: 'Menace', best: 'Record', new_best: 'Nouveau record !', time_up: '⏱️ Temps écoulé !', mode_over: '♾️ Partie terminée', play: 'Jouer', daily_done_today: 'Déjà fait aujourd’hui ✓' },
@@ -638,7 +638,7 @@
   // Player statistics screen.
   const STT = {
     uk: { stats_title: 'Статистика', credits: 'Зроблено з ❤', st_progress: 'Прогрес', st_stars: 'Зірок зібрано', st_levels_won: 'Рівнів пройдено', st_max_combo: 'Макс. комбо', st_crushed: 'Кристалів знищено', st_specials: 'Спец-кристалів', st_dragons: 'Драконів', st_procs: 'Здібностей драконів', st_energy: 'Енергії зібрано', st_streak: 'Найкраща серія', st_blitz: 'Бліц рекорд', st_endless: 'Безмежжя рекорд', st_trials: 'Випробування', st_pvp: 'Дуелі' },
-    en: { stats_title: 'Statistics', credits: 'Made with ❤', st_progress: 'Progress', st_stars: 'Stars earned', st_levels_won: 'Levels won', st_max_combo: 'Max combo', st_crushed: 'Crystals crushed', st_specials: 'Specials made', st_dragons: 'Dragons', st_procs: 'Dragon abilities', st_energy: 'Energy collected', st_streak: 'Best streak', st_blitz: 'Blitz best', st_endless: 'Endless best', st_trials: 'Trials depth', st_pvp: 'Duels' },
+    en: { stats_title: 'Statistics', credits: 'Made with ❤', st_progress: 'Progress', st_stars: 'Stars earned', st_levels_won: 'Levels won', st_max_combo: 'Max combo', st_crushed: 'Crystals crushed', st_specials: 'Specials made', st_dragons: 'Dragons', st_procs: 'Dragon abilities', st_energy: 'Energy collected', st_streak: 'Longest streak', st_blitz: 'Blitz record', st_endless: 'Endless record', st_trials: 'Trials depth', st_pvp: 'Duels' },
     es: { stats_title: 'Estadísticas', credits: 'Hecho con ❤', st_progress: 'Progreso', st_stars: 'Estrellas', st_levels_won: 'Niveles ganados', st_max_combo: 'Combo máx.', st_crushed: 'Cristales rotos', st_specials: 'Especiales', st_dragons: 'Dragones', st_procs: 'Habilidades', st_energy: 'Energía', st_streak: 'Mejor racha', st_blitz: 'Récord Blitz', st_endless: 'Récord Infinito', st_trials: 'Pruebas', st_pvp: 'Duelos' },
     de: { stats_title: 'Statistik', credits: 'Mit ❤ gemacht', st_progress: 'Fortschritt', st_stars: 'Sterne', st_levels_won: 'Level gewonnen', st_max_combo: 'Max. Combo', st_crushed: 'Kristalle zerstört', st_specials: 'Spezialsteine', st_dragons: 'Drachen', st_procs: 'Drachenfähigkeiten', st_energy: 'Energie', st_streak: 'Beste Serie', st_blitz: 'Blitz-Rekord', st_endless: 'Endlos-Rekord', st_trials: 'Prüfungen', st_pvp: 'Duelle' },
     fr: { stats_title: 'Statistiques', credits: 'Fait avec ❤', st_progress: 'Progression', st_stars: 'Étoiles', st_levels_won: 'Niveaux gagnés', st_max_combo: 'Combo max', st_crushed: 'Cristaux brisés', st_specials: 'Spéciaux', st_dragons: 'Dragons', st_procs: 'Capacités', st_energy: 'Énergie', st_streak: 'Meilleure série', st_blitz: 'Record Blitz', st_endless: 'Record Infini', st_trials: 'Épreuves', st_pvp: 'Duels' },

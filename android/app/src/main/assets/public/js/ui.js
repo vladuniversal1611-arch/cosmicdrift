@@ -746,7 +746,7 @@
         const rail = el('div', 'map-rail ' + side);
         items.forEach(function (a) {
           const glyph = (global.UiIcons && global.UiIcons.tag(a.icon, 'rail-ic')) || ('<span class="rail-em">' + a.ic + '</span>');
-          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : '') + (a.flag ? ' featured' : ''),
+          const btn = el('button', 'rail-btn' + (a.badge ? ' badge' : '') + (a.featured ? ' featured' : ''),
             (a.flag ? '<span class="rail-flag">' + a.flag + '</span>' : '') +
             '<span class="rail-chip">' + glyph + '</span><span class="rail-lbl">' + a.label + '</span>');
           btn.title = a.label; btn.setAttribute('aria-label', a.label);
@@ -756,7 +756,7 @@
         return rail;
       };
       wrap.appendChild(mk('left', [
-        { ic: '♾️', icon: 'mode_endless', label: T('m_survival'), flag: T('popular'), go: function () { global.Game.startMode('endless'); } },
+        { ic: '♾️', icon: 'mode_endless', label: T('m_survival'), featured: true, go: function () { global.Game.startMode('endless'); } },
         { ic: '🎁', icon: 'tile_daily', label: T('t_daily'), go: function () { UI.showDaily(); }, badge: UI.dailyAvailable() },
         { ic: '🎡', icon: 'tile_wheel', label: T('t_wheel'), go: function () { UI.showWheel(); }, badge: UI.wheelAvailable() },
         { ic: '🎰', icon: 'tile_summon', label: T('t_summon'), go: function () { UI.showSummon(); } },
@@ -1536,8 +1536,7 @@
         const card = el('div', 'mode-card' + (m.featured ? ' featured' : ''));
         const sub = m.daily ? (dailyDone ? T('daily_done_today') : '') : (m.best ? (T('best') + ': ' + (m.bestLabel || m.best)) : '');
         const mIcon = (global.UiIcons && global.UiIcons.tag(m.icon, 'mode-ic-img')) || m.ic;
-        card.innerHTML = (m.featured ? '<div class="mode-flag">★ ' + T('popular') + '</div>' : '') +
-          '<div class="mode-ic">' + mIcon + '</div>' +
+        card.innerHTML = '<div class="mode-ic">' + mIcon + '</div>' +
           '<div class="mode-info"><b>' + m.name + '</b><span>' + m.desc + '</span>' + (sub ? '<span class="mode-best">' + sub + '</span>' : '') + '</div>';
         const disabled = m.daily && dailyDone;
         const btn = el('button', 'btn btn-mini ' + (disabled ? 'btn-ghost' : 'btn-primary'), disabled ? '✓' : T('play'));
