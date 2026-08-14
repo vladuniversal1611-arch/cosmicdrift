@@ -848,6 +848,15 @@ export class HudScreen extends Screen {
     const cy = b.centerY;
     const rise = (1 - this._overlayT) * 30;
     renderer.setAlpha(this._overlayT);
+    // Mascot cheering you on above the title (on-brand encouragement, not a
+    // punishing screen).
+    const mimg = AssetManager.image('mascot');
+    if (mimg) {
+      const box = b.w * 0.26, rr = Math.min(box / mimg.width, box / mimg.height);
+      const mw = mimg.width * rr, mh = mimg.height * rr;
+      const myc = cy - 235 - rise + Math.sin(performance.now() / 500) * 6;
+      renderer.ctx.drawImage(mimg, b.centerX - mw / 2, myc - mh / 2, mw, mh);
+    }
     // Title — a golden "NEW BEST!" when the run set a record, else "Game Over".
     if (this._newBest) {
       const beat = 1 + 0.06 * Math.sin(performance.now() / 180);
@@ -883,12 +892,18 @@ export class HudScreen extends Screen {
     if (this._consolation) {
       renderer.setAlpha(this._overlayT);
       const gold = this._consolation.reward?.coins ?? 0;
+      // "NICE TRY!  +N" with a coin sprite, centred as a group.
+      const label = `${t('gameOver.consolation')}  +${gold}`;
+      const ctx = renderer.ctx; ctx.font = '800 15px system-ui, sans-serif';
+      const wtext = ctx.measureText(label).width;
+      const coinR = 9, gap = 14, startX = b.centerX - (wtext + gap + coinR * 2) / 2;
       renderer.withGlow(Palette.warning, 10, () => {
-        renderer.text(`${t('gameOver.consolation')}  +${gold} ⬤`, b.centerX, cy + 84, {
+        renderer.text(label, startX, cy + 84, {
           font: '800 15px system-ui, sans-serif', color: Palette.warning,
-          align: 'center', baseline: 'middle',
+          align: 'left', baseline: 'middle',
         });
       });
+      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, cy + 84, coinR, '#ffcf5e');
       renderer.text(this._consolation.tip, b.centerX, cy + 110, {
         font: '600 13px system-ui, sans-serif', color: '#dbeafc',
         align: 'center', baseline: 'middle',
