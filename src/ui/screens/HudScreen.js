@@ -837,105 +837,85 @@ export class HudScreen extends Screen {
   }
 
   _drawGameOver(renderer) {
-    const b = this.bounds;
-    // Warm translucent veil (a soft sky-blue wash) — never a black-out.
-    renderer.setAlpha(0.62 * this._overlayT);
-    const veil = renderer.linearGradient(0, 0, 0, b.h,
-      [[0, 'rgba(34,110,180,0.9)'], [1, 'rgba(20,60,120,0.92)']]);
+    const b = this.bounds, ctx = renderer.ctx;
+    // Dim veil over the board (soft sky wash, never black).
+    renderer.setAlpha(0.6 * this._overlayT);
+    const veil = renderer.linearGradient(0, 0, 0, b.h, [[0, 'rgba(34,110,180,0.86)'], [1, 'rgba(20,60,120,0.9)']]);
     renderer.fillRect(0, 0, b.w, b.h, veil);
     renderer.setAlpha(1);
 
-    const cy = b.centerY;
-    const rise = (1 - this._overlayT) * 30;
-    renderer.setAlpha(this._overlayT);
-    // Mascot cheering you on above the title (on-brand encouragement, not a
-    // punishing screen).
+    const a = this._overlayT, cx = b.centerX, rise = (1 - a) * 24;
+    // --- Panel card ---
+    const cw = Math.min(b.w * 0.84, 620);
+    const cardH = this._canRevive ? 476 : 384;
+    const cardX = cx - cw / 2;
+    const cardY = Math.round(b.centerY - cardH / 2 + 26 + rise);
+    renderer.setAlpha(a);
+    UITheme.glassPanel(renderer, cardX, cardY, cw, cardH, 34);
+
+    // Mascot peeking over the top edge of the card (mostly above; feet dip in).
     const mimg = AssetManager.image('mascot');
     if (mimg) {
-      const box = b.w * 0.26, rr = Math.min(box / mimg.width, box / mimg.height);
+      const box = cw * 0.42, rr = Math.min(box / mimg.width, box / mimg.height);
       const mw = mimg.width * rr, mh = mimg.height * rr;
-      const myc = cy - 235 - rise + Math.sin(performance.now() / 500) * 6;
-      renderer.ctx.drawImage(mimg, b.centerX - mw / 2, myc - mh / 2, mw, mh);
+      const myTop = cardY - mh * 0.94 + Math.sin(performance.now() / 500) * 5;
+      ctx.drawImage(mimg, cx - mw / 2, myTop, mw, mh);
     }
-    // Title — a golden "NEW BEST!" when the run set a record, else "Game Over".
+
+    // Title (dark/gold on the light panel).
     if (this._newBest) {
-      const beat = 1 + 0.06 * Math.sin(performance.now() / 180);
-      renderer.withGlow('#ffd34e', 28, () => {
-        renderer.text(t('common.newBest'), b.centerX, cy - 90 - rise, {
-          font: `900 ${Math.round(48 * beat)}px system-ui, sans-serif`, color: '#fff6c8',
-          align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 7,
-        });
-      });
+      const beat = 1 + 0.05 * Math.sin(performance.now() / 180);
+      renderer.withGlow('#ffd34e', 16, () => renderer.text(t('common.newBest'), cx, cardY + 64, {
+        font: `900 ${Math.round(40 * beat)}px system-ui, sans-serif`, color: '#ffb020',
+        align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 5,
+      }));
     } else {
-      renderer.withGlow(Palette.gold, 22, () => {
-        renderer.text(t('gameOver.title'), b.centerX, cy - 90 - rise, {
-          font: '900 44px system-ui, sans-serif', color: Palette.textPrimary,
-          align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 6,
-        });
+      renderer.text(t('gameOver.title'), cx, cardY + 64, {
+        font: '900 40px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle',
       });
     }
-    renderer.text(t('gameOver.score'), b.centerX, cy - 26 - rise, {
-      font: '800 15px system-ui, sans-serif', color: '#dbeafc',
-      align: 'center', baseline: 'middle',
-    });
-    renderer.text(String(this._final), b.centerX, cy + 8 - rise, {
-      font: '900 40px system-ui, sans-serif', color: '#ffffff',
-      align: 'center', baseline: 'middle', outline: Palette.textOutline, outlineWidth: 5,
-    });
-    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, b.centerX, cy + 48 - rise, {
-      font: '800 16px system-ui, sans-serif', color: this._newBest ? '#ffe08a' : '#dbeafc',
-      align: 'center', baseline: 'middle',
+
+    // Score + best.
+    renderer.text(t('gameOver.score'), cx, cardY + 104, { font: '800 14px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
+    renderer.text(String(this._final), cx, cardY + 146, { font: '900 50px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, cardY + 188, {
+      font: '800 16px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
     });
 
-    // Consolation: reward the attempt (never punish) + a helpful, non-blaming
-    // tip. Progress is always kept, so a lost run still moves the player forward.
+    // --- Buttons (anchored to the card bottom) ---
+    const bw = cw - 72, bx = cx - bw / 2, retryH = 54, bottomPad = 26;
+    const reviveBlock = this._canRevive ? 66 + 14 : 0;
+    let byb = cardY + cardH - bottomPad - retryH - reviveBlock;
+
+    // Consolation reward + tip, tucked just above the buttons.
     if (this._consolation) {
-      renderer.setAlpha(this._overlayT);
       const gold = this._consolation.reward?.coins ?? 0;
-      // "NICE TRY!  +N" with a coin sprite, centred as a group.
       const label = `${t('gameOver.consolation')}  +${gold}`;
-      const ctx = renderer.ctx; ctx.font = '800 15px system-ui, sans-serif';
+      ctx.font = '800 15px system-ui, sans-serif';
       const wtext = ctx.measureText(label).width;
-      const coinR = 9, gap = 14, startX = b.centerX - (wtext + gap + coinR * 2) / 2;
-      renderer.withGlow(Palette.warning, 10, () => {
-        renderer.text(label, startX, cy + 84, {
-          font: '800 15px system-ui, sans-serif', color: Palette.warning,
-          align: 'left', baseline: 'middle',
-        });
-      });
-      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, cy + 84, coinR, '#ffcf5e');
-      renderer.text(this._consolation.tip, b.centerX, cy + 110, {
-        font: '600 13px system-ui, sans-serif', color: '#dbeafc',
-        align: 'center', baseline: 'middle',
-      });
-      renderer.setAlpha(1);
+      const coinR = 9, gap = 12, startX = cx - (wtext + gap + coinR * 2) / 2;
+      renderer.text(label, startX, byb - 44, { font: '800 15px system-ui, sans-serif', color: '#e6892a', align: 'left', baseline: 'middle' });
+      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, byb - 44, coinR, '#ffcf5e');
+      renderer.text(this._consolation.tip, cx, byb - 20, { font: '600 12.5px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
     }
 
-    // Action buttons. When a revive is still available, a bright "CONTINUE
-    // (watch ad)" sits above a smaller "Retry"; otherwise just a Retry button.
-    renderer.setAlpha(this._overlayT);
-    const bw = Math.min(b.w * 0.62, 360), bx = b.centerX - bw / 2;
-    let y = cy + 116;
     this._reviveRect = null;
     if (this._canRevive) {
-      const rh = 66; this._reviveRect = new Rect(bx, y, bw, rh);
+      const rh = 66; this._reviveRect = new Rect(bx, byb, bw, rh);
       const beat = 1 + 0.03 * Math.sin(performance.now() / 260);
-      const cxp = b.centerX, cyp = y + rh / 2;
-      renderer.save(); renderer.translate(cxp, cyp); renderer.scale(beat, beat); renderer.translate(-cxp, -cyp);
-      UITheme.button(renderer, bx, y, bw, rh, rh / 2, UI.btn.play, { shadow: true });
-      // little play triangle
-      renderer.ctx.fillStyle = '#fff';
-      renderer.ctx.beginPath(); renderer.ctx.moveTo(bx + 34, cyp - 12); renderer.ctx.lineTo(bx + 34 + 20, cyp); renderer.ctx.lineTo(bx + 34, cyp + 12); renderer.ctx.closePath(); renderer.ctx.fill();
-      renderer.text(t('common.continue'), b.centerX + 12, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-      renderer.text(t('common.watchAd'), b.centerX + 12, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
+      const cyp = byb + rh / 2;
+      renderer.save(); renderer.translate(cx, cyp); renderer.scale(beat, beat); renderer.translate(-cx, -cyp);
+      UITheme.button(renderer, bx, byb, bw, rh, rh / 2, UI.btn.play, { shadow: true });
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(bx + 40, cyp - 12); ctx.lineTo(bx + 60, cyp); ctx.lineTo(bx + 40, cyp + 12); ctx.closePath(); ctx.fill();
+      renderer.text(t('common.continue'), cx + 14, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      renderer.text(t('common.watchAd'), cx + 14, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
       renderer.restore();
-      y += rh + 16;
+      byb += rh + 14;
     }
-    const rh2 = 54; this._retryRect = new Rect(bx + bw * 0.15, y, bw * 0.7, rh2);
-    UITheme.button(renderer, this._retryRect.x, this._retryRect.y, this._retryRect.w, rh2, rh2 / 2, UI.btn.blue, { shadow: true });
-    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, {
-      font: '800 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle',
-    });
+    this._retryRect = new Rect(bx + bw * 0.12, byb, bw * 0.76, retryH);
+    UITheme.button(renderer, this._retryRect.x, this._retryRect.y, this._retryRect.w, retryH, retryH / 2, UI.btn.blue, { shadow: true });
+    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, { font: '800 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
     renderer.setAlpha(1);
   }
 
