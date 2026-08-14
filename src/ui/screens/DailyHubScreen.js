@@ -16,9 +16,10 @@
  */
 import { Screen } from '../Screen.js';
 import { PremiumButton } from '../widgets/PremiumButton.js';
-import { MenuBackground } from '../theme/MenuBackground.js';
+import { BackgroundLayers } from '../home/layers/BackgroundLayers.js';
 import { UITheme, UI, Rolling } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { AssetManager } from '../assets/AssetManager.js';
 import { Rect } from '../../utils/Rect.js';
 import { DailyCalendar } from '../../config/Retention.js';
 import { t } from '../../i18n/Localization.js';
@@ -47,7 +48,7 @@ export class DailyHubScreen extends Screen {
   constructor(game) {
     super(game);
     this.name = 'daily';
-    this._bg = new MenuBackground(this.bounds.w, this.bounds.h);
+    this._bg = new BackgroundLayers(this.bounds.w, this.bounds.h);
     this._t = 0;
     this._heroSparkT = 0;
     this._sparks = [];
@@ -353,7 +354,12 @@ export class DailyHubScreen extends Screen {
       if (!enabled) { r.setAlpha(0.5); r.fillRoundRect(x, y, cw, CARDS_H, 30, 'rgba(20,60,120,0.5)'); r.setAlpha(1); }
       const iy = y + CARDS_H * 0.36, isz = 30;
       r.setAlpha(enabled ? 1 : 0.7);
-      if (c.id === 'free') this._miniChest(r, x + cw / 2, iy, isz, false);
+      const sprKey = c.id === 'mystery' ? 'ui_gift' : c.id === 'wheel' ? 'ui_wheel' : 'icon_chest';
+      const sImg = AssetManager.image(sprKey);
+      if (sImg) {
+        const box = isz * 2.6, rr = Math.min(box / sImg.width, box / sImg.height);
+        r.ctx.drawImage(sImg, x + cw / 2 - sImg.width * rr / 2, iy - sImg.height * rr / 2, sImg.width * rr, sImg.height * rr);
+      } else if (c.id === 'free') this._miniChest(r, x + cw / 2, iy, isz, false);
       else if (c.id === 'lucky') this._miniChest(r, x + cw / 2, iy, isz, true);
       else if (c.id === 'mystery') this._miniGift(r, x + cw / 2, iy, isz);
       else this._miniWheel(r, x + cw / 2, iy, isz);

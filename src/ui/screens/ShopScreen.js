@@ -13,6 +13,7 @@ import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { AssetManager } from '../assets/AssetManager.js';
 import { Haptics } from '../../utils/Haptics.js';
 import { t } from '../../i18n/Localization.js';
 
@@ -99,8 +100,17 @@ export class ShopScreen extends PanelScreen {
       UITheme.button(r, x, y, cw, ch, 18, o.color, { shadow: true });
       r.setAlpha(0.5); r.fillRoundRect(x + 8, y + 8, cw - 16, ch * 0.34, 12, 'rgba(255,255,255,0.55)'); r.setAlpha(1);
       if (o.best) { r.withGlow('#ffe08a', 8, () => UITheme.chip(r, x + cw - 66, y + 10, 56, 26, '#ff7ab0')); r.text('BEST', x + cw - 38, y + 23, { font: '900 12px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' }); }
-      // Big quantity + label.
-      r.text(o.qty, x + cw / 2, y + ch * 0.34, { font: '900 34px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
+      // Booster sprite + quantity (sprite to the left, "×N" to the right); the
+      // bundle has no single sprite, so its "ALL" stays centred.
+      const bImg = AssetManager.image(`booster_${o.id}`);
+      if (bImg) {
+        const box = ch * 0.42, rr = Math.min(box / bImg.width, box / bImg.height);
+        const iw = bImg.width * rr, ih = bImg.height * rr;
+        r.ctx.drawImage(bImg, x + cw * 0.32 - iw / 2, y + ch * 0.32 - ih / 2, iw, ih);
+        r.text(o.qty, x + cw * 0.66, y + ch * 0.32, { font: '900 32px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
+      } else {
+        r.text(o.qty, x + cw / 2, y + ch * 0.34, { font: '900 34px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
+      }
       r.text(o.label, x + cw / 2, y + ch * 0.58, { font: '800 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
       // Coin-price pill (dim when unaffordable).
       const bw = cw * 0.66, bh = 34, bx = x + cw / 2 - bw / 2, by = y + ch - bh - 10;
@@ -126,6 +136,14 @@ export class ShopScreen extends PanelScreen {
   }
 
   _chest(r, cx, cy, s, open) {
+    const img = AssetManager.image('icon_chest');
+    if (img) {
+      const box = s * 2.6, rr = Math.min(box / img.width, box / img.height);
+      const w = img.width * rr, h = img.height * rr;
+      if (open) r.withGlow('#fff', 14, () => r.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h));
+      else r.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+      return;
+    }
     r.fillRoundRect(cx - s, cy - s * 0.1, s * 2, s * 1.1, 6, '#b8860b');
     r.fillRoundRect(cx - s, cy - s * 0.1, s * 2, s * 0.35, 6, '#ffcf5e');
     r.ctx.save();

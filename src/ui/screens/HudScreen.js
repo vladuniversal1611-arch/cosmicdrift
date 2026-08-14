@@ -389,15 +389,19 @@ export class HudScreen extends Screen {
       r.fillCircle(cx, cy, rad, g);
     });
     UITheme.goldFrame(r, b.x, b.y, b.w, b.h, rad, 3);
-    // Lightbulb glyph.
-    ctx.save();
-    r.withGlow('#fff', 6, () => {
-      r.fillCircle(cx, cy - rad * 0.12, rad * 0.34, '#fffef2');
-    });
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(cx - rad * 0.16, cy + rad * 0.2, rad * 0.32, rad * 0.16);
-    ctx.fillRect(cx - rad * 0.12, cy + rad * 0.36, rad * 0.24, rad * 0.1);
-    ctx.restore();
+    // Lightbulb — sprite when available, else a procedural glyph.
+    const bulb = AssetManager.image('ui_hint');
+    if (bulb) {
+      const box = rad * 1.9, rr = Math.min(box / bulb.width, box / bulb.height);
+      ctx.drawImage(bulb, cx - bulb.width * rr / 2, cy - bulb.height * rr / 2 - rad * 0.04, bulb.width * rr, bulb.height * rr);
+    } else {
+      ctx.save();
+      r.withGlow('#fff', 6, () => { r.fillCircle(cx, cy - rad * 0.12, rad * 0.34, '#fffef2'); });
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx - rad * 0.16, cy + rad * 0.2, rad * 0.32, rad * 0.16);
+      ctx.fillRect(cx - rad * 0.12, cy + rad * 0.36, rad * 0.24, rad * 0.1);
+      ctx.restore();
+    }
     // "AD" tag.
     UITheme.chip(r, cx - 22, b.bottom - 6, 44, 24, '#3aa8ff');
     r.text('AD', cx, b.bottom + 6, { font: '900 14px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });

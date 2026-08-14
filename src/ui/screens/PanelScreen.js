@@ -11,14 +11,14 @@ import { Screen } from '../Screen.js';
 import { Rect } from '../../utils/Rect.js';
 import { PremiumButton } from '../widgets/PremiumButton.js';
 import { TopBar } from '../components/TopBar.js';
-import { MenuBackground } from '../theme/MenuBackground.js';
+import { BackgroundLayers } from '../home/layers/BackgroundLayers.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 
 export class PanelScreen extends Screen {
   constructor(game, title, { showTopBar = false } = {}) {
     super(game);
     this.title = title;
-    this._bg = new MenuBackground(this.bounds.w, this.bounds.h);
+    this._bg = new BackgroundLayers(this.bounds.w, this.bounds.h);
     this._topbar = showTopBar ? new TopBar(game) : null;
     this._t = 0;
 
