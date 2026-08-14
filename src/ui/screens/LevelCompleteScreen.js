@@ -24,6 +24,11 @@ import { Easing } from '../../utils/Easing.js';
 import { Haptics } from '../../utils/Haptics.js';
 import { clamp } from '../../utils/MathUtils.js';
 import { t } from '../../i18n/Localization.js';
+import { AssetManager } from '../assets/AssetManager.js';
+
+/** Coerce to a finite number (guards against NaN reward/balance values, which
+ *  `??` does NOT catch and which would render as "NaN"). */
+const fin = (v, d) => (Number.isFinite(v) ? v : d);
 
 // Timeline anchors (seconds).
 const T = { zoom: 0.4, title: 0.15, star0: 0.7, starGap: 0.35, starDur: 0.4, coin: 1.55, xp: 1.95, cont: 2.35 };
@@ -33,7 +38,7 @@ export class LevelCompleteScreen extends Screen {
     super(game);
     this.name = 'levelcomplete';
     this._t = 0;
-    this._reward = { gold: reward.gold ?? 120, essence: reward.essence ?? 10, materials: reward.materials ?? 8 };
+    this._reward = { gold: fin(reward.gold, 120), essence: fin(reward.essence, 10), materials: fin(reward.materials, 8) };
     this._starCount = clamp(reward.stars ?? 3, 1, 3);
     this._skipped = false;
 
@@ -42,11 +47,10 @@ export class LevelCompleteScreen extends Screen {
     this._particles = [];   // floating ambient motes
     for (let i = 0; i < 20; i++) this._particles.push({ x: Math.random() * this.bounds.w, y: Math.random() * this.bounds.h, vy: 8 + Math.random() * 16, ph: Math.random() * 6.28, s: 2 + Math.random() * 4 });
     this._starPops = [0, 0, 0];   // per-star pop-burst timers
-    this._dragonX = -0.2;
 
     // Coin counter target (economy already credited before this screen opened).
     const eco = game.getSystem('economy');
-    this._coinTarget = eco ? eco.balance('gold') : this._reward.gold;
+    this._coinTarget = fin(eco ? eco.balance('gold') : this._reward.gold, this._reward.gold);
     this._coinDisplay = Math.max(0, this._coinTarget - this._reward.gold);
     this._coinsToFly = Math.min(36, Math.max(16, this._reward.gold));
     this._coinsSpawned = 0;
@@ -107,9 +111,8 @@ export class LevelCompleteScreen extends Screen {
     if (this._dingT > 0) this._dingT -= dt;
     if (this._counterPulse > 0) this._counterPulse = Math.max(0, this._counterPulse - dt * 3);
 
-    // Ambient particles + dragon flyby.
+    // Ambient particles.
     for (const p of this._particles) { p.y -= p.vy * dt; if (p.y < -10) { p.y = this.bounds.h + 10; p.x = Math.random() * this.bounds.w; } }
-    this._dragonX += dt * 0.3; if (this._dragonX > 1.3) this._dragonX = -0.3;
 
     // Continue reveal (slides up with a bounce) + a final victory beat.
     if (this._t >= T.cont && !this._contShown) {
@@ -139,7 +142,7 @@ export class LevelCompleteScreen extends Screen {
     r.setAlpha(0.5); r.fillRect(0, 0, b.w, b.h, r.radialGradient(b.centerX, b.h * 0.4, b.w * 0.85, [[0, 'rgba(255,244,200,0.6)'], [1, 'rgba(255,244,200,0)']])); r.setAlpha(1);
     this._drawParticles(r);
     this._drawRays(r);
-    this._drawDragon(r);
+    this._drawMascot(r);
 
     // Everything scales in subtly for the "I DID IT" beat.
     const zoom = 1.03 - 0.03 * Easing.smooth(Math.min(1, this._t / T.zoom));
@@ -228,6 +231,12 @@ export class LevelCompleteScreen extends Screen {
   _coin(r, x, y, rr, spin) {
     const ctx = r.ctx;
     const sq = Math.abs(Math.cos(spin));   // fake 3D spin by squashing width
+    const img = AssetManager.image('icon_coin');
+    if (img) {
+      const w = rr * 2 * Math.max(0.2, sq), h = rr * 2;
+      ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+      return;
+    }
     ctx.save(); ctx.translate(x, y);
     ctx.fillStyle = '#e0a41e'; ctx.beginPath(); ctx.ellipse(0, rr * 0.12, rr * Math.max(0.18, sq), rr * 0.9, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = r.linearGradient(-rr, -rr, rr, rr, [[0, '#fff3c4'], [1, '#ffcf5e']]); ctx.beginPath(); ctx.ellipse(0, 0, rr * Math.max(0.16, sq), rr * 0.82, 0, 0, Math.PI * 2); ctx.fill();
@@ -244,16 +253,20 @@ export class LevelCompleteScreen extends Screen {
     for (let i = 0; i < 6; i++) { ctx.save(); ctx.translate(b.centerX, b.h * 0.34); ctx.rotate(-0.6 + i * 0.24 + Math.sin(this._t * 0.3) * 0.02); ctx.fillStyle = '#fff'; ctx.fillRect(-40, -b.h, 80, b.h * 2); ctx.restore(); }
     r.setAlpha(1);
   }
-  _drawDragon(r) {
-    const x = this._dragonX * this.bounds.w, y = this.bounds.h * 0.16 + Math.sin(this._t * 2) * 12, s = 24;
-    const flap = Math.sin(this._t * 10) * 0.5, ctx = r.ctx;
-    r.setAlpha(0.85);
-    r.withGlow('#3aa8ff', 12, () => {
-      r.fillCircle(x, y, s * 0.6, '#54a6ff'); ctx.fillStyle = '#54a6ff';
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s * 1.6, y - s * (0.9 + flap)); ctx.lineTo(x - s * 0.5, y + s * 0.3); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y - s * (0.7 - flap)); ctx.lineTo(x + s * 0.2, y + s * 0.3); ctx.closePath(); ctx.fill();
-    });
-    r.setAlpha(1);
+  /** The mascot celebrates at the top — pops in with the title, then bobs and
+   *  wobbles happily. (Replaced the old off-brand dragon flyby.) */
+  _drawMascot(r) {
+    const img = AssetManager.image('mascot');
+    if (!img) return;
+    const b = this.bounds;
+    const k = Math.max(0, Math.min(1, (this._t - T.title) / 0.5));
+    if (k <= 0) return;
+    const pop = Easing.backOut(k);
+    const cx = b.centerX, cy = b.h * 0.125 + Math.sin(this._t * 2) * 9;
+    const box = b.w * 0.36 * pop, rr = Math.min(box / img.width, box / img.height);
+    const w = img.width * rr, h = img.height * rr, ctx = r.ctx;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(this._t * 3) * 0.045);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h); ctx.restore();
   }
 
   // --- Input: tap once to fast-forward ---------------------------------------
