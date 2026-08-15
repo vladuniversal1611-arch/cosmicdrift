@@ -845,18 +845,18 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
 
     const a = this._overlayT, cx = b.centerX, rise = (1 - a) * 24;
-    // --- Panel card ---
-    const cw = Math.min(b.w * 0.84, 620);
-    const cardH = this._canRevive ? 476 : 384;
+    // --- Panel card (large + comfortable to read) ---
+    const cw = Math.min(b.w * 0.9, 900);
+    const cardH = this._canRevive ? 620 : 520;
     const cardX = cx - cw / 2;
-    const cardY = Math.round(b.centerY - cardH / 2 + 26 + rise);
+    const cardY = Math.round(b.centerY - cardH / 2 + 24 + rise);
     renderer.setAlpha(a);
-    UITheme.glassPanel(renderer, cardX, cardY, cw, cardH, 34);
+    UITheme.glassPanel(renderer, cardX, cardY, cw, cardH, 40);
 
     // Mascot peeking over the top edge of the card (mostly above; feet dip in).
     const mimg = AssetManager.image('mascot');
     if (mimg) {
-      const box = cw * 0.42, rr = Math.min(box / mimg.width, box / mimg.height);
+      const box = cw * 0.40, rr = Math.min(box / mimg.width, box / mimg.height);
       const mw = mimg.width * rr, mh = mimg.height * rr;
       const myTop = cardY - mh * 0.94 + Math.sin(performance.now() / 500) * 5;
       ctx.drawImage(mimg, cx - mw / 2, myTop, mw, mh);
@@ -865,57 +865,57 @@ export class HudScreen extends Screen {
     // Title (dark/gold on the light panel).
     if (this._newBest) {
       const beat = 1 + 0.05 * Math.sin(performance.now() / 180);
-      renderer.withGlow('#ffd34e', 16, () => renderer.text(t('common.newBest'), cx, cardY + 64, {
-        font: `900 ${Math.round(40 * beat)}px system-ui, sans-serif`, color: '#ffb020',
-        align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 5,
+      renderer.withGlow('#ffd34e', 18, () => renderer.text(t('common.newBest'), cx, cardY + 88, {
+        font: `900 ${Math.round(52 * beat)}px system-ui, sans-serif`, color: '#ffb020',
+        align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 6,
       }));
     } else {
-      renderer.text(t('gameOver.title'), cx, cardY + 64, {
-        font: '900 40px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle',
+      renderer.text(t('gameOver.title'), cx, cardY + 88, {
+        font: '900 52px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle',
       });
     }
 
     // Score + best.
-    renderer.text(t('gameOver.score'), cx, cardY + 104, { font: '800 14px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
-    renderer.text(String(this._final), cx, cardY + 146, { font: '900 50px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
-    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, cardY + 188, {
-      font: '800 16px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
+    renderer.text(t('gameOver.score'), cx, cardY + 156, { font: '800 17px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
+    renderer.text(String(this._final), cx, cardY + 214, { font: '900 68px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, cardY + 270, {
+      font: '800 20px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
     });
 
     // --- Buttons (anchored to the card bottom) ---
-    const bw = cw - 72, bx = cx - bw / 2, retryH = 54, bottomPad = 26;
-    const reviveBlock = this._canRevive ? 66 + 14 : 0;
+    const bw = cw - 96, bx = cx - bw / 2, retryH = 62, bottomPad = 34;
+    const reviveBlock = this._canRevive ? 76 + 16 : 0;
     let byb = cardY + cardH - bottomPad - retryH - reviveBlock;
 
     // Consolation reward + tip, tucked just above the buttons.
     if (this._consolation) {
       const gold = this._consolation.reward?.coins ?? 0;
       const label = `${t('gameOver.consolation')}  +${gold}`;
-      ctx.font = '800 15px system-ui, sans-serif';
+      ctx.font = '800 18px system-ui, sans-serif';
       const wtext = ctx.measureText(label).width;
-      const coinR = 9, gap = 12, startX = cx - (wtext + gap + coinR * 2) / 2;
-      renderer.text(label, startX, byb - 44, { font: '800 15px system-ui, sans-serif', color: '#e6892a', align: 'left', baseline: 'middle' });
-      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, byb - 44, coinR, '#ffcf5e');
-      renderer.text(this._consolation.tip, cx, byb - 20, { font: '600 12.5px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
+      const coinR = 11, gap = 14, startX = cx - (wtext + gap + coinR * 2) / 2;
+      renderer.text(label, startX, byb - 58, { font: '800 18px system-ui, sans-serif', color: '#e6892a', align: 'left', baseline: 'middle' });
+      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, byb - 58, coinR, '#ffcf5e');
+      renderer.text(this._consolation.tip, cx, byb - 28, { font: '600 15px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
     }
 
     this._reviveRect = null;
     if (this._canRevive) {
-      const rh = 66; this._reviveRect = new Rect(bx, byb, bw, rh);
+      const rh = 76; this._reviveRect = new Rect(bx, byb, bw, rh);
       const beat = 1 + 0.03 * Math.sin(performance.now() / 260);
       const cyp = byb + rh / 2;
       renderer.save(); renderer.translate(cx, cyp); renderer.scale(beat, beat); renderer.translate(-cx, -cyp);
       UITheme.button(renderer, bx, byb, bw, rh, rh / 2, UI.btn.play, { shadow: true });
       ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.moveTo(bx + 40, cyp - 12); ctx.lineTo(bx + 60, cyp); ctx.lineTo(bx + 40, cyp + 12); ctx.closePath(); ctx.fill();
-      renderer.text(t('common.continue'), cx + 14, cyp - 8, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-      renderer.text(t('common.watchAd'), cx + 14, cyp + 13, { font: '700 12px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
+      ctx.beginPath(); ctx.moveTo(bx + 48, cyp - 15); ctx.lineTo(bx + 74, cyp); ctx.lineTo(bx + 48, cyp + 15); ctx.closePath(); ctx.fill();
+      renderer.text(t('common.continue'), cx + 18, cyp - 10, { font: '900 26px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+      renderer.text(t('common.watchAd'), cx + 18, cyp + 16, { font: '700 14px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
       renderer.restore();
-      byb += rh + 14;
+      byb += rh + 16;
     }
-    this._retryRect = new Rect(bx + bw * 0.12, byb, bw * 0.76, retryH);
+    this._retryRect = new Rect(bx + bw * 0.1, byb, bw * 0.8, retryH);
     UITheme.button(renderer, this._retryRect.x, this._retryRect.y, this._retryRect.w, retryH, retryH / 2, UI.btn.blue, { shadow: true });
-    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, { font: '800 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, { font: '800 24px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
     renderer.setAlpha(1);
   }
 
