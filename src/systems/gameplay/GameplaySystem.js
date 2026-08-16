@@ -17,7 +17,7 @@
  *   listens 'ui:playPressed', 'ui:restart', 'game:piecePlaced',
  *           'game:linesCleared', 'game:noClears', 'game:over', 'save:loaded'
  *   emits   'game:started', 'gameplay:score', 'gameplay:combo',
- *           'gameplay:energy', 'gameplay:stateChanged'
+ *           'gameplay:stateChanged'
  * -----------------------------------------------------------------------------
  */
 import { System } from '../../core/System.js';
@@ -36,7 +36,6 @@ export class GameplaySystem extends System {
     this.score = 0;
     this.best = 0;
     this.combo = 0;
-    this.energy = 0;
     this._shake = 0;
     this._stats = null;
 
@@ -65,8 +64,6 @@ export class GameplaySystem extends System {
     this.listen('game:noClears', this._onNoClears);
     this.listen('game:over', this._onGameOver);
     this.listen('game:revive', () => this.revive());
-    // Living Board tiles feed the meter and shake through these generic hooks.
-    this.listen('gameplay:addEnergy', ({ amount }) => this.addEnergy(amount));
     this.listen('fx:shake', ({ mag }) => this.addShake(mag));
     // Any system can request a screen flash (line clears, placements).
     this.listen('fx:flash', ({ color, strength }) => this.flash(color, strength));
@@ -74,8 +71,6 @@ export class GameplaySystem extends System {
     this.listen('level:changed', () => { this.combo = 0; });
     // Returning to the main menu leaves the 'playing' state (blocks board input).
     this.listen('game:toMenu', () => { this.state = 'menu'; });
-    // Dragon Fire ultimate: unleashable once the energy meter is full.
-    this.listen('dragon:unleash', this._onDragonUnleash);
     // Tactile feedback + the brief "I DID IT" board beat (slow-mo + zoom +
     // golden flash + burst) the instant a level completes, before the
     // celebration screen slides over it.
@@ -91,12 +86,11 @@ export class GameplaySystem extends System {
     });
   }
 
-  /** Return to a clean pre-game state (score/combo/energy + all cinematics). */
+  /** Return to a clean pre-game state (score/combo + all cinematics). */
   onReset() {
     this.state = 'menu';
     this.score = 0;
     this.combo = 0;
-    this.energy = 0;
     this._shake = 0;
     this._flash = null;
     this._golden = 0;
@@ -107,38 +101,7 @@ export class GameplaySystem extends System {
     this.game.time.scale = 1;
   }
 
-  /** Add Dragon Energy directly (Dragon Rune tiles, bonuses). */
-  addEnergy(amount) {
-    if (!amount) return;
-    this.energy = clamp(this.energy + amount, 0, Config.gameplay.energyMax);
-    this.events.emit('gameplay:energy', { energy: this.energy, max: Config.gameplay.energyMax });
-  }
-
   get isPlaying() { return this.state === 'playing'; }
-
-  /** The Dragon Fire ultimate is ready when the energy meter is full mid-run. */
-  get dragonReady() { return this.state === 'playing' && this.energy >= Config.gameplay.energyMax; }
-
-  /**
-   * Unleash the dragon: it breathes fire across the fullest row + column. The
-   * board performs the strike (reusing the clear pipeline); we spend the full
-   * meter and layer on the cinematic. Any energy the clear returns is spent too,
-   * so the meter always empties.
-   */
-  _onDragonUnleash() {
-    if (!this.dragonReady) return;
-    const board = this.game.getSystem('board');
-    if (!board?.dragonSweep || board.isClearing) return;
-    if (!board.dragonSweep()) return;                 // nothing to burn
-    this.energy = 0;
-    this.events.emit('gameplay:energy', { energy: 0, max: Config.gameplay.energyMax });
-    this.slowmo(0.5);
-    this.zoomPulse(0.06, 0.7);
-    this.golden(1.1);
-    this.flash('#ff8a3d', 0.24);
-    Haptics.heavy(this.game);
-    this.events.emit('dragon:unleashed');
-  }
 
   // --- State transitions -----------------------------------------------------
 
@@ -147,7 +110,6 @@ export class GameplaySystem extends System {
     this.mode = this.mode ?? 'campaign';
     this.score = 0;
     this.combo = 0;
-    this.energy = 0;
     this._revives = 0;
     // Daily Challenge is a deterministic seeded run; a new day resets its best.
     if (this.mode === 'daily') {
@@ -219,7 +181,7 @@ export class GameplaySystem extends System {
     return true;
   }
 
-  // --- Scoring / combo / energy ---------------------------------------------
+  // --- Scoring / combo -------------------------------------------------------
 
   _onPiecePlaced({ blocks }) {
     this.score += blocks * Config.gameplay.scorePerBlock;
@@ -240,9 +202,6 @@ export class GameplaySystem extends System {
     const gained = Math.round(lineScore * combo * structure);
     this.score += gained;
 
-    // Dragon Energy charges faster on bigger combos.
-    this.energy = clamp(this.energy + g.energyPerLine * count * combo, 0, g.energyMax);
-
     // Shake scales with combo depth and simultaneous lines.
     const shake = Config.fx.shakeBase
       + Config.fx.shakePerCombo * (this.combo - 1)
@@ -261,12 +220,11 @@ export class GameplaySystem extends System {
 
     this.events.emit('gameplay:score', { score: this.score, add: gained });
     this.events.emit('gameplay:combo', { combo: this.combo, lines: count });
-    this.events.emit('gameplay:energy', { energy: this.energy, max: g.energyMax });
   }
 
   /**
    * Escalating combo feedback — each tier layers on more spectacle:
-   *   x2 small energy wave · x3 bigger explosion · x5 dragon roar ·
+   *   x2 small wave · x3 bigger explosion · x5 boom + zoom ·
    *   x8 cinematic slow-motion + zoom + golden lighting + massive particles.
    */
   _comboFx(combo) {
@@ -288,7 +246,7 @@ export class GameplaySystem extends System {
       this.flash('#ffffff', 0.18);
     }
     if (combo >= 5) {
-      audio?.play('dragonRoar');
+      audio?.play('reward', { rate: 0.7 });
       this.zoomPulse(0.05, 0.5);
       this.events.emit('fx:burst', { x: cx, y: cy, color: '#ffb020', count: 36 });
       Haptics.heavy(this.game);
@@ -392,7 +350,6 @@ export class GameplaySystem extends System {
   _broadcast() {
     this.events.emit('gameplay:score', { score: this.score, add: 0 });
     this.events.emit('gameplay:combo', { combo: this.combo, lines: 0 });
-    this.events.emit('gameplay:energy', { energy: this.energy, max: Config.gameplay.energyMax });
   }
 }
 

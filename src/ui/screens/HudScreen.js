@@ -65,9 +65,6 @@ export class HudScreen extends Screen {
     this._coins = [];         // line-clear reward coins flying up
     this._beam = 0;           // line-clear light-beam intensity (decays)
     this._scorePops = [];     // floating "+N" score popups near cleared lines
-    this._dragonReady = false; // Dragon Fire ultimate charged?
-    this._dragonT = 0;
-    this._dragonBtn = new Rect(this.bounds.w - 40 - 100, 150, 100, 100);
     this._goalCard = null;    // { objectives, t, dur } level-start goal intro
     // Clean top bar: just a compact pause button (left). World Map lives in the
     // Pause menu now, so mid-run the top stays uncluttered.
@@ -92,16 +89,6 @@ export class HudScreen extends Screen {
     // board highlights a good move). Player-initiated, never automatic.
     this._hintBtn = new Rect(this.bounds.w - 20 - bd, by, bd, bd);
     this._hintPending = false;
-
-    const w = this.bounds.w;
-
-    // Dragon Energy meter (self-drawn). It stays hidden while the meter is low
-    // and fades in + glows as the Dragon Fire ultimate nears, so it only draws
-    // attention when it's about to matter. Geometry only; drawn in _drawEnergy.
-    const bw = w * 0.5;
-    this._energyBar = new Rect(w * 0.5 - bw / 2, this.bounds.h * 0.096, bw, 12);
-    this._energyFrac = 0;     // 0..1 current meter fill
-    this._energyShown = 0;    // eased reveal alpha 0..1
 
     this._bind();
 
@@ -129,12 +116,6 @@ export class HudScreen extends Screen {
       if (add > 0) this._scorePop = 1;
       // A big add (a line clear, not a plain placement) floats up as "+N".
       if (add >= 40) this._spawnScorePop(add);
-    }));
-    this._subs.push(this.events.on('gameplay:energy', ({ energy, max }) => {
-      this._energyFrac = max ? energy / max : 0;
-      const ready = max ? energy >= max : false;
-      if (ready && !this._dragonReady) this.game.getSystem('audio')?.play('structure'); // "ability charged" chime
-      this._dragonReady = ready;
     }));
     this._subs.push(this.events.on('gameplay:combo', ({ combo, lines }) => {
       // A multi-line clear shouts DOUBLE/TRIPLE/…; a chain shows COMBO ×N. When
@@ -246,12 +227,7 @@ export class HudScreen extends Screen {
   }
 
   update(dt) {
-    this._dragonT += dt;
     this._boosterT += dt;
-    // Reveal the energy meter only as it fills (hidden when low, gone once the
-    // Dragon button has taken over at full charge).
-    const target = this._dragonReady ? 0 : clamp((this._energyFrac - 0.3) / 0.35, 0, 1);
-    this._energyShown += (target - this._energyShown) * Math.min(1, dt * 6);
     // Rolling score: ease the displayed number toward the real one.
     this._displayScore += (this._score - this._displayScore) * Math.min(1, dt * 8);
     if (Math.abs(this._score - this._displayScore) < 0.5) this._displayScore = this._score;
@@ -280,34 +256,6 @@ export class HudScreen extends Screen {
     const x = (board ? board.centerX : this.bounds.centerX) + (Math.random() - 0.5) * 120;
     const y = (board ? board.centerY : this.bounds.h * 0.4);
     this._scorePops.push({ text: `+${add}`, x, y, t: 0, life: 1.1, vy: 150 });
-  }
-
-  /** The Dragon Fire ultimate button — appears, glowing + pulsing, when charged. */
-  _drawDragonButton(r) {
-    const b = this._dragonBtn, cx = b.centerX, cy = b.centerY;
-    const pulse = 0.5 + 0.5 * Math.sin(this._dragonT * 4);
-    const bob = Math.sin(this._dragonT * 2.2) * 4;
-    const ctx = r.ctx;
-    ctx.save(); ctx.translate(0, bob);
-    // Halo.
-    r.setAlpha(0.3 + pulse * 0.35);
-    r.withGlow('#ff6a2a', 26, () => r.fillCircle(cx, cy, b.w * 0.56 + pulse * 6, '#ff8a3d'));
-    r.setAlpha(1);
-    // Body.
-    UITheme.button(r, b.x, b.y, b.w, b.h, b.w / 2, UI.btn.red, { shadow: true });
-    // Flame glyph.
-    r.withGlow('#ffd24a', 8, () => {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - b.h * 0.3);
-      ctx.quadraticCurveTo(cx - b.w * 0.26, cy, cx - b.w * 0.14, cy + b.h * 0.22);
-      ctx.lineTo(cx + b.w * 0.14, cy + b.h * 0.22);
-      ctx.quadraticCurveTo(cx + b.w * 0.26, cy, cx, cy - b.h * 0.3);
-      ctx.closePath();
-      ctx.fillStyle = r.linearGradient(cx, cy - b.h * 0.3, cx, cy + b.h * 0.25, [[0, '#fff3c4'], [1, '#ff6a2a']]);
-      ctx.fill();
-    });
-    r.text(t('common.nova'), cx, b.bottom + 16, { font: '900 20px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,40,10,0.8)', outlineWidth: 4 });
-    ctx.restore();
   }
 
   /** Booster palette (icon accent per booster). */
@@ -477,13 +425,11 @@ export class HudScreen extends Screen {
     if (this._beam > 0) this._drawClearBeam(renderer);
     this._drawScore(renderer);
     this._drawLevel(renderer);
-    this._drawEnergy(renderer);
     this._drawPauseButton(renderer);
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
     this._drawBestPill(renderer);
     if (this._state === 'playing') { this._drawBoosters(renderer); this._drawHintButton(renderer); }
-    if (this._dragonReady && this._state === 'playing') this._drawDragonButton(renderer);
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
     this._drawScorePops(renderer);
@@ -510,25 +456,6 @@ export class HudScreen extends Screen {
       drawObjectiveIcon(renderer, 'coins', c.x, c.y, c.s, '#ffcf5e');
     }
     renderer.setAlpha(1);
-  }
-
-  /**
-   * The Dragon Energy meter — fades in as it fills and glows brighter as the
-   * ultimate nears, so it's invisible when it doesn't matter and impossible to
-   * miss right before it's ready.
-   */
-  _drawEnergy(r) {
-    const a = this._energyShown;
-    if (a < 0.02) return;
-    const b = this._energyBar;
-    const frac = clamp(this._energyFrac, 0, 1);
-    const near = clamp((frac - 0.7) / 0.3, 0, 1);            // ramps 0→1 near full
-    const pulse = 0.5 + 0.5 * Math.sin(this._dragonT * 4);
-    const col = Palette.energy[0];
-    r.setAlpha(a);
-    r.fillRoundRect(b.x, b.y, b.w, b.h, b.h / 2, 'rgba(20,44,92,0.16)');
-    r.withGlow(col, 5 + near * 16 * pulse, () => r.fillRoundRect(b.x, b.y, b.w * frac, b.h, b.h / 2, col));
-    r.setAlpha(1);
   }
 
   /** Premium round pause button (top-left). */
@@ -928,13 +855,6 @@ export class HudScreen extends Screen {
         return true;
       }
       this.events.emit('ui:restart');
-      return true;
-    }
-    // Dragon Fire ultimate (only while charged + playing).
-    if (this._dragonReady && this._state === 'playing' && this._dragonBtn.contains(px, py)) {
-      this._dragonReady = false;   // hide immediately; re-armed by gameplay:energy
-      this.game.getSystem('audio')?.play('dragonRoar');
-      this.events.emit('dragon:unleash');
       return true;
     }
     // Rewarded HINT: watch a short ad → highlight a good move.
