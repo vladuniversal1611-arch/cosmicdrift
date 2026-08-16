@@ -122,19 +122,32 @@ export class PieceGenerator {
     const rows = grid.rows; const cols = grid.columns;
     const occ = this._occupancy(grid);
     const emptyCount = occ.reduce((s, r) => s + r.filter((v) => !v).length, 0);
+    const filled = rows * cols - emptyCount;
+    const fill = filled / (rows * cols);   // 0 = empty board, 1 = full
 
     // Only offer shapes that fit somewhere right now (fall back to all if none).
     const placeable = ShapeKeys.filter((k) => this._positions(occ, Shapes[k].blocks, rows, cols) > 0);
     const pool = placeable.length ? placeable : ShapeKeys.slice();
 
-    // Shape weighting. Endless is a pure "all shapes, all sizes" mix: a flat
-    // weight with a mild size boost so the big space-hogs (five-bars, 3×3,
-    // rectangles) drop on par with the small pieces instead of being crowded
-    // out — the solvability check below still swaps in smaller pieces whenever
-    // a big one wouldn't fit. Campaign keeps the level-tuned hardness Gaussian.
+    // Shape weighting. Endless is BOARD-AWARE: big space-hogs (five-bars, 3×3,
+    // rectangles) drop freely on an open board, but fade out as it fills so the
+    // player is fed handy, clearable pieces instead of clogging up — this is what
+    // keeps a board actually emptiable (and makes PERFECT reachable). Campaign
+    // keeps the level-tuned hardness Gaussian.
     const sigma = 0.28;
     const weightOf = (k) => {
-      if (endless) return 1 + 0.14 * (Shapes[k].blocks.length - 1);
+      if (endless) {
+        const n = Shapes[k].blocks.length;
+        const bigness = Math.max(0, n - 2) / 3;          // 0 tiny .. 1 five-block
+        // CLOSE-OUT: only a few cells left → feed tiny (1–2 block) pieces so the
+        // player can surgically finish the last cells for a full clear (PERFECT).
+        if (filled > 0 && filled <= rows * 1.5) return n <= 2 ? 1.5 : Math.max(0.02, 0.3 - bigness * 0.28);
+        // FINISH MODE: a nearly-empty board favours small pieces so it keeps
+        // trending toward empty instead of being refilled by big space-hogs.
+        if (filled > 0 && filled <= rows * 3) return Math.max(0.05, 1.4 - bigness * 1.25);
+        const fillPenalty = 1 - bigness * fill * 0.9;    // big pieces fade as the board fills
+        return Math.max(0.06, (1 + 0.12 * (n - 1)) * fillPenalty);
+      }
       const g = Math.exp(-((this.hardness[k] - target) ** 2) / (2 * sigma * sigma));
       return (Shapes[k].weight ?? 1) * g + 0.001;
     };
@@ -153,20 +166,22 @@ export class PieceGenerator {
     }
     if (!tray) tray = this._greedySolvable(occ, count, rows, cols); // guaranteed fit
 
-    // Satisfying gifts: a line-clear enabler, likelier when tight or struggling.
+    // Satisfying gifts: a line-clear enabler. Likelier the fuller the board gets
+    // (keeps runs from clogging), and a strong nudge when the board is nearly
+    // empty so the player can finish the LAST cells and trigger a full-clear
+    // (PERFECT + theme change) — the moment that was too hard to reach before.
     const struggle = Math.max(0, generosity);
-    const tightness = emptyCount < rows * cols * 0.28 ? 0.25 : 0;
-    const giftChance = Config.generator.giftBaseChance + struggle * Config.generator.giftStruggleBonus + tightness;
+    const tightness = fill > 0.5 ? (fill - 0.5) * 0.9 : 0;
+    const finishHelp = (endless && filled > 0 && filled <= rows * 3) ? 0.6 : 0;
+    const giftChance = Config.generator.giftBaseChance + struggle * Config.generator.giftStruggleBonus + tightness + finishHelp;
     if (this.rng.next() < giftChance) {
       const gift = this._findClearingShape(occ, rows, cols);
       if (gift) this._trySwap(tray, gift, occ, rows, cols);
     }
 
-    // Exciting big piece once the difficulty is past the low-tutorial band (and
-    // only if it stays solvable). The heavy space-hogs (five-bars, rectangles,
-    // the 3×3) live here so they show up as a deliberate spike. The gate is low
-    // enough that they surface in a normal Endless run, not only very late.
-    if (target > 0.38 && this.rng.next() < Config.generator.excitingChance) {
+    // Exciting big piece — a deliberate spike, but only when there's ROOM for it
+    // (in endless, gated on a fairly open board) so it never clogs a tight one.
+    if (target > 0.38 && (!endless || fill < 0.35) && this.rng.next() < Config.generator.excitingChance) {
       const big = ['cross', 'bigL', 'bigJ', 'quint', 'quintV', 'rect23', 'rect32', 'bigSquare'].filter((k) => ShapeKeys.includes(k));
       if (big.length) this._trySwap(tray, this.rng.pick(big), occ, rows, cols);
     }
