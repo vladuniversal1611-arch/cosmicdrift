@@ -183,20 +183,11 @@ export class HudScreen extends Screen {
     this._subs.push(this.events.on('reward:granted', ({ gold = 0 }) => {
       this._toast = { text: `+${gold} ⬤`, color: Palette.warning, t: 2.2 };
     }));
-    this._subs.push(this.events.on('biome:changed', ({ biome }) => {
-      this._toast = { text: `ENTERING ${biome.name.toUpperCase()}`, color: Palette.accentAlt, t: 2.6 };
-    }));
     this._subs.push(this.events.on('achievement:unlocked', ({ def }) => {
       this._toast = { text: `🏆 ${def.name.toUpperCase()}`, color: Palette.gold, t: 2.8 };
     }));
     this._subs.push(this.events.on('endless:ramp', ({ tier }) => {
       this._toast = { text: `DEPTH ${tier + 1} — HARDER PIECES`, color: Palette.accent, t: 2.4 };
-    }));
-    this._subs.push(this.events.on('world:taskUnlocked', ({ task }) => {
-      this._banner = { title: 'NEW RESTORATION', sub: `${task.name} — open the World Map ◈`, t: 3.6 };
-    }));
-    this._subs.push(this.events.on('world:restored', ({ task }) => {
-      this._banner = { title: `${task.name.toUpperCase()} RESTORED`, sub: 'A new part of the world awakens', t: 3.4 };
     }));
     // Failure loop: a consolation reward + a friendly tip, never a scolding.
     this._subs.push(this.events.on('retention:consolation', (c) => { this._consolation = c; }));

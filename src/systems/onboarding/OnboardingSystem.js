@@ -32,7 +32,7 @@ import { UITheme, UI } from '../../ui/theme/UITheme.js';
 // Just the two essentials, taught by doing. Deliberately light: no dark veil,
 // no board-covering card — a newcomer complained the old coach got in the way.
 const STEPS = [
-  { id: 'place', title: 'PLACE A RELIC', body: 'Drag a piece from the tray onto the board.', focus: 'tray' },
+  { id: 'place', title: 'PLACE A PIECE', body: 'Drag a piece from the tray onto the board.', focus: 'tray' },
   { id: 'clear', title: 'CLEAR A LINE', body: 'Fill a whole row or column to clear it and score!', focus: 'board' },
 ];
 
