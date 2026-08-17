@@ -41,6 +41,15 @@ import { AssetManager } from '../../ui/assets/AssetManager.js';
 
 const SKY_CLOUDS = ['cloud_a', 'cloud_b', 'cloud_c', 'cloud_d'];
 
+/** Blend two "#rrggbb" colours by t (0..1) → "#rrggbb". */
+function hexLerp(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * t);
+  const g = Math.round(((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * t);
+  const bl = Math.round((pa & 255) + ((pb & 255) - (pa & 255)) * t);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1);
+}
+
 export class BoardSystem extends System {
   constructor(game) {
     super(game);
@@ -451,7 +460,16 @@ export class BoardSystem extends System {
    *  opaque background on top). */
   _drawSky(renderer) {
     const w = this.game.canvas.width, h = this.game.canvas.height, ctx = renderer.ctx;
-    renderer.fillBackgroundGradient(['#5db4ff', '#96d4ff', '#dff2ff']);
+    // The background is the current theme's sky mood, cross-fading from the
+    // previous theme during the full-clear transformation wave.
+    const DEF = ['#5db4ff', '#96d4ff', '#dff2ff'];
+    let sky = this._theme?.sky ?? DEF;
+    const fx = this._fullClearFx, prev = this._prevTheme?.sky;
+    if (fx && prev) {
+      const k = Easing.smooth(Math.min(1, fx.t / fx.dur));
+      sky = sky.map((c, i) => hexLerp(prev[i] ?? prev[prev.length - 1], c, k));
+    }
+    renderer.fillBackgroundGradient(sky);
     const sun = renderer.radialGradient(w * 0.5, h * 0.12, h * 0.4,
       [[0, 'rgba(255,255,255,0.5)'], [0.5, 'rgba(255,247,214,0.22)'], [1, 'rgba(255,255,255,0)']]);
     renderer.fillRect(0, 0, w, h, sun);

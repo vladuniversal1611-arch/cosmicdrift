@@ -70,13 +70,16 @@ export const Palette = Object.freeze({
    * clear, then transforms colour with a shockwave. Each is a socket tint plus
    * an accent used for the transformation wave + celebration.
    */
+  // Each theme is a full sky "mood": it tints the board cells (rim/face) AND the
+  // whole background gradient (`sky`, top→bottom), so a full-board clear morphs
+  // the entire screen — not just the tiles.
   boardThemes: Object.freeze([
-    Object.freeze({ name: 'Sky',     rim: '#b6cfec', faceTop: '#e4f0fd', faceBottom: '#b8d3f0', accent: '#22b7ff' }),
-    Object.freeze({ name: 'Sunset',  rim: '#eccbb6', faceTop: '#fdeee4', faceBottom: '#f0d3b8', accent: '#ff9d3d' }),
-    Object.freeze({ name: 'Orchid',  rim: '#d8bcec', faceTop: '#f3e6fd', faceBottom: '#ddc2f0', accent: '#b06aff' }),
-    Object.freeze({ name: 'Rose',    rim: '#ecc0cf', faceTop: '#fde4ec', faceBottom: '#f0bcd0', accent: '#ff6aa8' }),
-    Object.freeze({ name: 'Meadow',  rim: '#bcecc4', faceTop: '#e6fdea', faceBottom: '#bcf0c8', accent: '#3fbf5a' }),
-    Object.freeze({ name: 'Dusk',    rim: '#b6c0ec', faceTop: '#e4e8fd', faceBottom: '#b8c2f0', accent: '#6a7aff' }),
+    Object.freeze({ name: 'Sky',     rim: '#b6cfec', faceTop: '#e4f0fd', faceBottom: '#b8d3f0', accent: '#22b7ff', sky: ['#5db4ff', '#96d4ff', '#dff2ff'] }),
+    Object.freeze({ name: 'Sunset',  rim: '#eccbb6', faceTop: '#fdeee4', faceBottom: '#f0d3b8', accent: '#ff9d3d', sky: ['#ff8a5c', '#ffb488', '#ffe4cf'] }),
+    Object.freeze({ name: 'Orchid',  rim: '#d8bcec', faceTop: '#f3e6fd', faceBottom: '#ddc2f0', accent: '#b06aff', sky: ['#8f66e6', '#b98ff2', '#ecdcfb'] }),
+    Object.freeze({ name: 'Rose',    rim: '#ecc0cf', faceTop: '#fde4ec', faceBottom: '#f0bcd0', accent: '#ff6aa8', sky: ['#ff6f9e', '#ffa2c2', '#ffdce9'] }),
+    Object.freeze({ name: 'Meadow',  rim: '#bcecc4', faceTop: '#e6fdea', faceBottom: '#bcf0c8', accent: '#3fbf5a', sky: ['#46bd77', '#8ce0a5', '#dbf6e2'] }),
+    Object.freeze({ name: 'Dusk',    rim: '#b6c0ec', faceTop: '#e4e8fd', faceBottom: '#b8c2f0', accent: '#6a7aff', sky: ['#42538f', '#7284c2', '#c2cdee'] }),
   ]),
 
   /** Rune engravings etched into stone and cells — warm glowing gold. */
