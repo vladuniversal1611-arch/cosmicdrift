@@ -120,6 +120,17 @@ const ICONS = {
     ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.9, cy - s * 0.2); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
   },
+  bolt(r, cx, cy, s, color) { // lightning bolt — combos
+    const ctx = r.ctx; ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 0.35, cy - s);
+    ctx.lineTo(cx - s * 0.5, cy + s * 0.15);
+    ctx.lineTo(cx - s * 0.02, cy + s * 0.15);
+    ctx.lineTo(cx - s * 0.35, cy + s);
+    ctx.lineTo(cx + s * 0.55, cy - s * 0.2);
+    ctx.lineTo(cx + s * 0.05, cy - s * 0.2);
+    ctx.closePath(); ctx.fill();
+  },
   default(r, cx, cy, s, color) { r.fillCircle(cx, cy, s * 0.7, color); },
 };
 

@@ -33,6 +33,17 @@ export const Objectives = Object.freeze([
   { id: 'clearLines', name: 'Clear {n} Lines', icon: 'crystaltile', color: P.accentAlt,
     event: 'game:linesCleared', amount: (p) => p.count ?? p.amount ?? 1, base: 3, per: 0.12, weight: 5, minLevel: 1,
     reward: { gold: 70 } },
+  // Classic, tile-free variety goals (no board hazards) that keep the campaign
+  // fresh level-to-level: chase a score, land multi-line clears, or build combos.
+  { id: 'scorePoints', name: 'Score {n} Points', icon: 'coins', color: '#ffd23d',
+    event: 'gameplay:score', amount: (p) => p.add ?? 0, base: 220, per: 34, weight: 4, minLevel: 3,
+    reward: { gold: 50 } },
+  { id: 'doubleClear', name: 'Make {n} Double Clears', icon: 'crystaltile', color: '#7ad0ff',
+    event: 'game:linesCleared', match: (p) => (p.count ?? p.amount ?? 1) >= 2, amount: () => 1, base: 2, per: 0.05, weight: 3, minLevel: 6,
+    reward: { gold: 60 } },
+  { id: 'bigCombo', name: 'Land {n} Big Combos', icon: 'bolt', color: '#ff9a3d',
+    event: 'gameplay:combo', match: (p) => p.combo >= 3, amount: () => 1, base: 2, per: 0.04, weight: 2, minLevel: 10,
+    reward: { gold: 40 } },
   { id: 'growFlowers', name: 'Grow {n} Magic Flowers', icon: 'flower', color: '#6bef86',
     event: 'moss:bloomed', require: 'moss', base: 3, per: 0.06, weight: 4, minLevel: 1, reward: { essence: 8 } },
   { id: 'restoreTrees', name: 'Restore {n} Ancient Trees', icon: 'tree', color: '#2f9e4f',
