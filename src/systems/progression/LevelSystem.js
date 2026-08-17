@@ -60,24 +60,48 @@ export class LevelSystem extends System {
 
   onInit() {
     const save = this.game.getSystem('save');
-    this._progress = save.registerSlice('progress', () => ({ level: 1, highest: 1 }));
+    this._progress = save.registerSlice('progress', () => ({ level: 1, highest: 1, stars: {} }));
+    if (!this._progress.stars) this._progress.stars = {};   // migrate older saves
     this.level = this._progress.level ?? 1;
 
-    this.listen('game:started', ({ mode } = {}) => {
+    this.listen('game:started', ({ mode, level } = {}) => {
       // Daily Challenge runs on the same score-chasing rails as Endless.
       this._endless = mode === 'endless' || mode === 'daily';
       if (this._endless) this.beginEndless();
-      else this.beginLevel(this.level);
+      // `level` lets the Level Select start (or replay) a chosen level; a plain
+      // "continue" (no level) resumes the frontier.
+      else this.beginLevel(level ?? this._progress.level ?? this.level);
     });
     // A level is now cleared when its OBJECTIVES are all met (not a score goal).
     this.listen('objectives:allComplete', () => { if (!this._endless) this._completeLevel(); });
     this.listen('board:clearComplete', () => this._maybeAdvance());
     // Endless difficulty ramp: the longer you survive, the harder the hands get.
     this.listen('game:linesCleared', ({ count = 1 }) => { if (this._endless) this._rampEndless(count); });
+
+    // Per-level performance signals feed the star rating (skill, no crutches).
+    this.listen('booster:used', () => { this._usedBooster = true; });
+    this.listen('game:linesCleared', ({ count = 1 }) => { if (count >= 2) this._skillClear = true; });
+    this.listen('gameplay:combo', ({ combo = 0 }) => { if (combo >= 2) this._skillClear = true; });
   }
 
   /** Furthest level the player has reached (drives the World Map unlock line). */
   get highest() { return Math.max(this.level, this._progress?.highest ?? 1); }
+  /** The next level to play (levels below it are beaten + replayable). */
+  get frontierLevel() { return this._progress?.level ?? 1; }
+  /** Best star rating (0–3) earned on a level, 0 if never completed. */
+  starsFor(level) { return this._progress?.stars?.[level] ?? 0; }
+
+  /**
+   * Star rating for THIS run: 3 for a clean, skilful clear (no booster used +
+   * at least one combo / multi-line clear), 2 for one of those, 1 for a scrappy
+   * win. Legible and skill-rewarding without punishing the player.
+   */
+  _computeStars() {
+    let s = 3;
+    if (this._usedBooster) s -= 1;
+    if (!this._skillClear) s -= 1;
+    return clamp(s, 1, 3);
+  }
 
   // --- World / goal maths ----------------------------------------------------
   get worldIndex() { return Math.floor((this.level - 1) / Config.progression.levelsPerWorld); }
@@ -90,6 +114,8 @@ export class LevelSystem extends System {
   beginLevel(level) {
     this.level = level;
     this._pending = 0;
+    this._usedBooster = false;   // reset per-level star signals
+    this._skillClear = false;
     const world = this.namedWorld;
 
     // Pure classic (Block Blast style): the campaign is tile-free. No Living
@@ -175,7 +201,13 @@ export class LevelSystem extends System {
     if (this._pending) return;
     this._pending = this.level + 1;
     this.game.getSystem('audio')?.play('levelup');
-    this.events.emit('level:complete', { level: this.level });
+
+    // Rate this run and persist the player's best rating for the level.
+    const stars = this._computeStars();
+    const best = this._progress.stars[this.level] ?? 0;
+    if (stars > best) { this._progress.stars[this.level] = stars; this.game.getSystem('save')?.markDirty(); }
+
+    this.events.emit('level:complete', { level: this.level, stars });
     // If nothing is mid-clear, advance on the next tick; otherwise wait for
     // 'board:clearComplete' so a triggering clear finishes its animation first.
     if (!this.game.getSystem('board')?.isClearing) {
@@ -188,7 +220,9 @@ export class LevelSystem extends System {
     if (!this._pending) return;
     const next = this._pending;
     this._pending = 0;
-    this._progress.level = next;
+    // Only push the frontier forward — replaying an old level must never regress
+    // the player's furthest progress.
+    this._progress.level = Math.max(this._progress.level ?? 1, next);
     this._progress.highest = Math.max(this._progress.highest ?? 1, next);
     this.game.getSystem('save')?.markDirty();
     this.beginLevel(next);

@@ -25,6 +25,7 @@ import { PauseScreen } from './screens/PauseScreen.js';
 import { LevelCompleteScreen } from './screens/LevelCompleteScreen.js';
 import { DailyHubScreen } from './screens/DailyHubScreen.js';
 import { RewardScreen } from './screens/RewardScreen.js';
+import { LevelSelectScreen } from './screens/LevelSelectScreen.js';
 
 export class UISystem extends System {
   constructor(game) {
@@ -50,6 +51,9 @@ export class UISystem extends System {
     this.listen('ui:openSettings', () => open('settings', () => new SettingsScreen(this.game)));
     this.listen('ui:openPause', () => open('pause', () => new PauseScreen(this.game)));
     this.listen('ui:openDaily', () => open('daily', () => new DailyHubScreen(this.game)));
+    this.listen('ui:openLevels', () => open('levels', () => new LevelSelectScreen(this.game)));
+    // Starting/replaying a specific level closes the Level Select first.
+    this.listen('ui:playLevel', () => { if (this.top?.name === 'levels') this.pop(); });
 
     this.listen('ui:back', () => this.pop());
     this.listen('ui:mainMenu', () => { this.events.emit('game:toMenu'); this.replace(new HomeScreen(this.game)); });
@@ -71,7 +75,7 @@ export class UISystem extends System {
 
     // Level-complete celebration: capture the granted reward, then present it.
     this.listen('reward:granted', (rw) => { this._lastReward = rw; });
-    this.listen('level:complete', () => this.push(new LevelCompleteScreen(this.game, this._lastReward)));
+    this.listen('level:complete', ({ stars } = {}) => this.push(new LevelCompleteScreen(this.game, { ...this._lastReward, stars })));
 
     // Boot into the premium home screen.
     this.push(new HomeScreen(this.game));

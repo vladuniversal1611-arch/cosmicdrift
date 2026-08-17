@@ -55,9 +55,11 @@ export class GameplaySystem extends System {
     // Two ways to play: the objective-driven campaign, and an endless survival
     // run (no goals, play for score until the board fills). `ui:restart` keeps
     // whatever mode the current run is in.
-    this.listen('ui:playPressed', () => { this.mode = 'campaign'; this.startGame(); });
-    this.listen('ui:playEndless', () => { this.mode = 'endless'; this.startGame(); });
-    this.listen('ui:playDaily', () => { this.mode = 'daily'; this.startGame(); });
+    this.listen('ui:playPressed', () => { this.mode = 'campaign'; this._startLevel = null; this.startGame(); });
+    // Level Select picks a specific level to play or replay.
+    this.listen('ui:playLevel', ({ level } = {}) => { this.mode = 'campaign'; this._startLevel = level ?? null; this.startGame(); });
+    this.listen('ui:playEndless', () => { this.mode = 'endless'; this._startLevel = null; this.startGame(); });
+    this.listen('ui:playDaily', () => { this.mode = 'daily'; this._startLevel = null; this.startGame(); });
     this.listen('ui:restart', this.startGame);
     this.listen('game:piecePlaced', this._onPiecePlaced);
     this.listen('game:linesCleared', this._onLinesCleared);
@@ -120,7 +122,8 @@ export class GameplaySystem extends System {
     } else {
       this.game.getSystem('pieces')?.seedRandom();
     }
-    this.events.emit('game:started', { mode: this.mode });
+    this.events.emit('game:started', { mode: this.mode, level: this.mode === 'campaign' ? (this._startLevel ?? undefined) : undefined });
+    this._startLevel = null;
     this._broadcast();
     this.events.emit('gameplay:stateChanged', { state: this.state, score: 0, best: this._displayBest() });
   }

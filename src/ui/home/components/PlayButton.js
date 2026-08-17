@@ -2,7 +2,7 @@
  * PlayButton.js  (Home Screen · section: PLAY)
  * -----------------------------------------------------------------------------
  * The primary call to action: the two ways to play, side by side —
- *   • LEVELS   (green, ▶)  → the objective campaign        → emits ui:playPressed
+ *   • LEVELS   (green, ▶)  → opens the campaign Level Select → emits ui:openLevels
  *   • ENDLESS  (orange, ∞) → the survival high-score mode   → emits ui:playEndless
  * Both are full hero buttons so neither feels secondary. Composed in explicit
  * sub-layers (shadow → glow → body → highlight sweep → icon/label) so any layer
@@ -159,7 +159,8 @@ export class PlayButton {
       if (this.state !== 'ready') { this._tap?.('blocked'); return true; }
       this._press('_scaleL');
       this._tap?.('play');
-      this.game.events.emit('ui:playPressed');
+      // Opens the Level Select map (pick / replay levels + see stars).
+      this.game.events.emit('ui:openLevels');
       return true;
     }
     return false;
