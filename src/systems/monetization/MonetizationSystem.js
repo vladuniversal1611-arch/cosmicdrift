@@ -18,7 +18,7 @@
  */
 import { System } from '../../core/System.js';
 import { Products } from './Products.js';
-import { SimulatedAdProvider, AdMobProvider } from './AdProvider.js';
+import { SimulatedAdProvider, AdMobProvider, WebViewAdProvider } from './AdProvider.js';
 import { Config } from '../../config/Config.js';
 import { Logger } from '../../utils/Logger.js';
 
@@ -38,13 +38,18 @@ export class MonetizationSystem extends System {
       () => ({ removeAds: false, vip: false, premiumPass: false, ownedOnce: {} }))
       ?? { removeAds: false, vip: false, premiumPass: false, ownedOnce: {} };
 
-    // Use real AdMob when the native bridge is present (i.e. inside the Android
-    // wrapper); otherwise keep the simulator so the flows work in a browser.
+    // Pick the best real-ad path available at runtime, else keep the simulator so
+    // every flow still works in a plain browser / during development:
+    //   1. Capacitor AdMob plugin (when wrapped with Capacitor), or
+    //   2. a plain Android WebView JS bridge (window.AndroidAds).
     if (Config.ads.enabled && AdMobProvider.available()) {
       const p = new AdMobProvider(Config.ads);
       p.init();
       this._ads = p;
-      Logger.info('Monetization', 'AdMob bridge detected — real ads enabled');
+      Logger.info('Monetization', 'AdMob (Capacitor) bridge detected — real ads enabled');
+    } else if (Config.ads.enabled && WebViewAdProvider.available()) {
+      this._ads = new WebViewAdProvider();
+      Logger.info('Monetization', 'WebView ad bridge detected — real ads enabled');
     }
 
     // Interstitials fire at natural breaks only: count ended runs, and offer one

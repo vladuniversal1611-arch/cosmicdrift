@@ -37,6 +37,69 @@ export class SimulatedAdProvider extends AdProvider {
 }
 
 /**
+ * Real ads through a plain Android WebView JS bridge — the path when the game
+ * is wrapped in a bare WebView activity (not Capacitor). The native side injects
+ * an `window.AndroidAds` object via `webView.addJavascriptInterface(...)` and
+ * calls back into `window.SkydokuAds.onResult(callbackId, ok)` when an ad
+ * finishes (because `@JavascriptInterface` methods are synchronous and cannot
+ * return a Promise).
+ *
+ * BRIDGE CONTRACT — the Android wrapper implements `window.AndroidAds` with:
+ *   isRewardedReady(): boolean            (optional; assume true if absent)
+ *   showRewarded(placement, callbackId)   → later call SkydokuAds.onResult(callbackId, earned:boolean)
+ *   showInterstitial(placement, callbackId)→ later call SkydokuAds.onResult(callbackId, shown:boolean)
+ *   showBanner(): void                    (fire-and-forget)
+ *   hideBanner(): void                    (fire-and-forget)
+ * A method may instead return a boolean synchronously and skip the callback.
+ * If the native side never answers, the call resolves false after a timeout so
+ * the game never hangs.
+ */
+export class WebViewAdProvider extends AdProvider {
+  /** True when a WebView ad bridge has been injected by the host app. */
+  static available() {
+    return typeof window !== 'undefined' && !!window.AndroidAds
+      && typeof window.AndroidAds.showRewarded === 'function';
+  }
+
+  constructor() {
+    super();
+    this._bridge = window.AndroidAds;
+    this._pending = new Map();   // callbackId -> resolve
+    this._seq = 0;
+    // The single global the native side calls back into.
+    window.SkydokuAds = window.SkydokuAds || {};
+    window.SkydokuAds.onResult = (id, ok) => {
+      const r = this._pending.get(String(id));
+      if (r) { this._pending.delete(String(id)); r(!!ok); }
+    };
+  }
+
+  isRewardedReady() {
+    try { return this._bridge.isRewardedReady ? !!this._bridge.isRewardedReady() : true; }
+    catch { return true; }
+  }
+
+  /** Invoke a bridge method that resolves via callback (or a sync boolean). */
+  _call(method, placement) {
+    return new Promise((resolve) => {
+      const id = 'a' + (++this._seq);
+      this._pending.set(id, resolve);
+      let ret;
+      try { ret = this._bridge[method]?.(placement, id); }
+      catch { this._pending.delete(id); resolve(false); return; }
+      if (typeof ret === 'boolean') { this._pending.delete(id); resolve(ret); return; }
+      // Never hang the flow if the native side goes silent.
+      setTimeout(() => { if (this._pending.delete(id)) resolve(false); }, 60000);
+    });
+  }
+
+  showRewarded(placement) { return this._call('showRewarded', placement); }
+  showInterstitial(placement) { return this._call('showInterstitial', placement); }
+  async showBanner() { try { this._bridge.showBanner?.(); return true; } catch { return false; } }
+  async hideBanner() { try { this._bridge.hideBanner?.(); } catch { /* ignore */ } }
+}
+
+/**
  * Real ads via AdMob, through the Capacitor AdMob plugin
  * (@capacitor-community/admob). It talks to the plugin's RUNTIME global
  * (window.Capacitor.Plugins.AdMob) rather than an npm import, so this single-
