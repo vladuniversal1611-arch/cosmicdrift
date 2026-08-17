@@ -38,7 +38,7 @@ export default {
     paused: 'PAUSA', mainMenu: 'MENÚ PRINCIPAL', floatingWorld: 'MUNDO FLOTANTE',
   },
   hud: { level: 'NIVEL {n}', worldMap: 'MAPA DEL MUNDO', dragonEnergy: 'ENERGÍA NOVA', tapToStrike: 'TOCA UN BLOQUE', todaysBest: 'MEJOR DE HOY' },
-  levelComplete: { line1: 'NIVEL', line2: '¡COMPLETADO!', earned: 'MONEDAS GANADAS' },
+  levelComplete: { line1: 'NIVEL', line2: '¡COMPLETADO!', earned: 'MONEDAS GANADAS', next: 'SIGUIENTE NIVEL' },
   gameOver: { title: 'FIN DEL JUEGO', subtitle: 'INTÉNTALO DE NUEVO', score: 'PUNTOS', best: 'RÉCORD', retry: 'TOCA PARA JUGAR DE NUEVO', playAgain: 'JUGAR DE NUEVO', consolation: '¡BUEN INTENTO!' },
   settings: {
     audio: 'Música y sonido', haptics: 'Vibración', reducedMotion: 'Menos animaciones',

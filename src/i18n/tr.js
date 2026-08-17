@@ -38,7 +38,7 @@ export default {
     paused: 'DURAKLATILDI', mainMenu: 'ANA MENÜ', floatingWorld: 'YÜZEN DÜNYA',
   },
   hud: { level: 'BÖLÜM {n}', worldMap: 'DÜNYA HARİTASI', dragonEnergy: 'NOVA ENERJİSİ', tapToStrike: 'BİR BLOĞA DOKUN', todaysBest: 'BUGÜNÜN REKORU' },
-  levelComplete: { line1: 'BÖLÜM', line2: 'TAMAMLANDI!', earned: 'KAZANILAN ALTIN' },
+  levelComplete: { line1: 'BÖLÜM', line2: 'TAMAMLANDI!', earned: 'KAZANILAN ALTIN', next: 'SONRAKİ BÖLÜM' },
   gameOver: { title: 'OYUN BİTTİ', subtitle: 'TEKRAR DENE', score: 'PUAN', best: 'REKOR', retry: 'TEKRAR OYNAMAK İÇİN DOKUN', playAgain: 'TEKRAR OYNA', consolation: 'İYİ DENEME!' },
   settings: {
     audio: 'Müzik ve Ses', haptics: 'Titreşim', reducedMotion: 'Daha Az Animasyon',

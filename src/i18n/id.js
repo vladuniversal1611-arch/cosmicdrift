@@ -38,7 +38,7 @@ export default {
     paused: 'JEDA', mainMenu: 'MENU UTAMA', floatingWorld: 'DUNIA MELAYANG',
   },
   hud: { level: 'LEVEL {n}', worldMap: 'PETA DUNIA', dragonEnergy: 'ENERGI NOVA', tapToStrike: 'KETUK SEBUAH BALOK', todaysBest: 'TERBAIK HARI INI' },
-  levelComplete: { line1: 'LEVEL', line2: 'SELESAI!', earned: 'KOIN DIPEROLEH' },
+  levelComplete: { line1: 'LEVEL', line2: 'SELESAI!', earned: 'KOIN DIPEROLEH', next: 'LEVEL BERIKUTNYA' },
   gameOver: { title: 'GAME OVER', subtitle: 'COBA LAGI', score: 'SKOR', best: 'TERBAIK', retry: 'KETUK UNTUK MAIN LAGI', playAgain: 'MAIN LAGI', consolation: 'USAHA BAGUS!' },
   settings: {
     audio: 'Musik & Suara', haptics: 'Getaran', reducedMotion: 'Kurangi Animasi',

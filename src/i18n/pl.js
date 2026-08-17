@@ -38,7 +38,7 @@ export default {
     paused: 'PAUZA', mainMenu: 'MENU GŁÓWNE', floatingWorld: 'UNOSZĄCY SIĘ ŚWIAT',
   },
   hud: { level: 'POZIOM {n}', worldMap: 'MAPA ŚWIATA', dragonEnergy: 'ENERGIA NOVA', tapToStrike: 'DOTKNIJ BLOKU', todaysBest: 'DZISIEJSZY REKORD' },
-  levelComplete: { line1: 'POZIOM', line2: 'UKOŃCZONY!', earned: 'ZDOBYTE MONETY' },
+  levelComplete: { line1: 'POZIOM', line2: 'UKOŃCZONY!', earned: 'ZDOBYTE MONETY', next: 'NASTĘPNY POZIOM' },
   gameOver: { title: 'KONIEC GRY', subtitle: 'SPRÓBUJ PONOWNIE', score: 'WYNIK', best: 'REKORD', retry: 'DOTKNIJ, ABY ZAGRAĆ PONOWNIE', playAgain: 'ZAGRAJ PONOWNIE', consolation: 'DOBRA PRÓBA!' },
   settings: {
     audio: 'Muzyka i dźwięk', haptics: 'Wibracje', reducedMotion: 'Mniej animacji',

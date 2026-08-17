@@ -38,7 +38,7 @@ export default {
     paused: 'PAUSE', mainMenu: 'MENU PRINCIPAL', floatingWorld: 'MONDE FLOTTANT',
   },
   hud: { level: 'NIVEAU {n}', worldMap: 'CARTE DU MONDE', dragonEnergy: 'ÉNERGIE NOVA', tapToStrike: 'TOUCHE UN BLOC', todaysBest: 'MEILLEUR DU JOUR' },
-  levelComplete: { line1: 'NIVEAU', line2: 'TERMINÉ !', earned: 'PIÈCES GAGNÉES' },
+  levelComplete: { line1: 'NIVEAU', line2: 'TERMINÉ !', earned: 'PIÈCES GAGNÉES', next: 'NIVEAU SUIVANT' },
   gameOver: { title: 'PARTIE TERMINÉE', subtitle: 'RÉESSAYE', score: 'SCORE', best: 'MEILLEUR', retry: 'TOUCHER POUR REJOUER', playAgain: 'REJOUER', consolation: 'BIEN ESSAYÉ !' },
   settings: {
     audio: 'Musique et son', haptics: 'Vibrations', reducedMotion: 'Moins d’animations',
