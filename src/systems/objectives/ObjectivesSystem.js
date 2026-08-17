@@ -85,14 +85,20 @@ export class ObjectivesSystem extends System {
       if (teach) { chosen.push(teach); usedEvents.add(teach.event); }
     }
 
-    // Fill the rest by weighted random over distinct events.
+    // Fill the rest by weighted random over distinct events. At most ONE "skill"
+    // objective (combos / multi-line clears) per level, so the set is never a
+    // double skill-gate and always leaves a couple of goals any player can reach
+    // just by playing on.
     const bag = [];
     for (const d of pool) for (let i = 0; i < d.weight; i++) bag.push(d);
+    let skillCount = chosen.filter((d) => d.skill).length;
     let guard = 0;
     while (chosen.length < count && guard++ < 60 && bag.length) {
       const d = rng.pick(bag);
       if (usedEvents.has(d.event) || chosen.includes(d)) continue;
+      if (d.skill && skillCount >= 1) continue;
       chosen.push(d); usedEvents.add(d.event);
+      if (d.skill) skillCount++;
     }
     // Guarantee at least one objective (the always-available energy collect).
     if (chosen.length === 0) chosen.push(Objectives[0]);

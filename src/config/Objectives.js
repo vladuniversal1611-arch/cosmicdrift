@@ -28,21 +28,24 @@ const P = Palette;
 
 export const Objectives = Object.freeze([
   { id: 'collectEnergy', name: 'Collect {n} Crystal Energy', icon: 'crystal', color: P.accent,
-    event: 'game:piecePlaced', amount: (p) => p.blocks ?? 1, base: 14, per: 0.8, weight: 5, minLevel: 1,
+    event: 'game:piecePlaced', amount: (p) => p.blocks ?? 1, base: 14, per: 0.6, weight: 5, minLevel: 1,
     reward: { gold: 60 } },
   { id: 'clearLines', name: 'Clear {n} Lines', icon: 'crystaltile', color: P.accentAlt,
     event: 'game:linesCleared', amount: (p) => p.count ?? p.amount ?? 1, base: 3, per: 0.12, weight: 5, minLevel: 1,
     reward: { gold: 70 } },
   // Classic, tile-free variety goals (no board hazards) that keep the campaign
   // fresh level-to-level: chase a score, land multi-line clears, or build combos.
+  // The multi-line / combo goals are flagged `skill` — the ObjectivesSystem caps
+  // a level to at most one of them, so a level is never a double skill-gate and
+  // always keeps at least two "just keep playing" goals as a guaranteed path.
   { id: 'scorePoints', name: 'Score {n} Points', icon: 'coins', color: '#ffd23d',
-    event: 'gameplay:score', amount: (p) => p.add ?? 0, base: 220, per: 34, weight: 4, minLevel: 3,
+    event: 'gameplay:score', amount: (p) => p.add ?? 0, base: 200, per: 26, weight: 4, minLevel: 3,
     reward: { gold: 50 } },
-  { id: 'doubleClear', name: 'Make {n} Double Clears', icon: 'crystaltile', color: '#7ad0ff',
+  { id: 'doubleClear', name: 'Make {n} Double Clears', icon: 'crystaltile', color: '#7ad0ff', skill: true,
     event: 'game:linesCleared', match: (p) => (p.count ?? p.amount ?? 1) >= 2, amount: () => 1, base: 2, per: 0.05, weight: 3, minLevel: 6,
     reward: { gold: 60 } },
-  { id: 'bigCombo', name: 'Land {n} Big Combos', icon: 'bolt', color: '#ff9a3d',
-    event: 'gameplay:combo', match: (p) => p.combo >= 3, amount: () => 1, base: 2, per: 0.04, weight: 2, minLevel: 10,
+  { id: 'bigCombo', name: 'Land {n} Big Combos', icon: 'bolt', color: '#ff9a3d', skill: true,
+    event: 'gameplay:combo', match: (p) => p.combo >= 3, amount: () => 1, base: 1, per: 0.04, weight: 2, minLevel: 10,
     reward: { gold: 40 } },
   { id: 'growFlowers', name: 'Grow {n} Magic Flowers', icon: 'flower', color: '#6bef86',
     event: 'moss:bloomed', require: 'moss', base: 3, per: 0.06, weight: 4, minLevel: 1, reward: { essence: 8 } },
@@ -60,7 +63,7 @@ export const Objectives = Object.freeze([
     event: 'tile:frozenFreed', require: 'frozen', base: 2, per: 0.05, weight: 3, minLevel: 1, reward: { materials: 14 } },
   { id: 'activatePortals', name: 'Activate {n} Portals', icon: 'portal', color: '#28e0d0',
     event: 'tile:portalUsed', require: 'portal', base: 3, per: 0.06, weight: 3, minLevel: 1, reward: { essence: 10 } },
-  { id: 'chargeTowers', name: 'Charge {n} Energy Towers', icon: 'towericon', color: '#3aa8ff',
+  { id: 'chargeTowers', name: 'Charge {n} Energy Towers', icon: 'towericon', color: '#3aa8ff', skill: true,
     event: 'gameplay:combo', match: (p) => p.combo >= 2, amount: () => 1, base: 2, per: 0.03, weight: 2, minLevel: 6,
     reward: { gold: 20 } },
   { id: 'defeatBoss', name: 'Purge the Corruption Boss', icon: 'boss', color: P.danger,
