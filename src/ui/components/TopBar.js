@@ -11,6 +11,7 @@
  */
 import { UITheme, UI, Rolling } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
+import { AssetManager } from '../assets/AssetManager.js';
 
 export class TopBar {
   constructor(game) {
@@ -50,10 +51,18 @@ export class TopBar {
 
   _avatar(r, x, y, s) {
     const cx = x + s / 2, cy = y + s / 2;
+    // The mascot sprite keeps the avatar consistent with the home screen.
+    const img = AssetManager.image('mascot');
+    if (img) {
+      const box = s * 1.35, rr = Math.min(box / img.width, box / img.height);
+      const w = img.width * rr, h = img.height * rr;
+      r.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+      return;
+    }
+    // Procedural fallback: a friendly face disc.
     UITheme.shadow(r, x, y, s, s, s / 2, 4, 0.3);
     const g = r.radialGradient(cx, cy, s / 2, [[0, '#9ad7ff'], [1, '#2f6fe0']]);
     r.fillCircle(cx, cy, s / 2, g);
-    // A friendly dragon face.
     r.withGlow('#fff', 4, () => {
       r.fillCircle(cx - s * 0.14, cy - s * 0.06, s * 0.09, '#fff');
       r.fillCircle(cx + s * 0.14, cy - s * 0.06, s * 0.09, '#fff');

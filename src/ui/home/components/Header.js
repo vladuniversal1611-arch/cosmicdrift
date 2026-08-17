@@ -30,9 +30,9 @@ export class Header {
     const S = 96;                          // min-touch round buttons
     const gap = 18;
     const rightX = safe.contentRight;
-    // Right cluster: Settings, Daily (right-to-left).
+    // Right cluster: just Daily (its attention badge is a deliberate retention
+    // hook). Settings lives only in the bottom nav — no need to duplicate it here.
     const defs = [
-      { id: 'settings', icon: (r, x, y, s) => Icons.gear(r, x, y, s), color: UI.btn.blue, event: 'ui:openSettings' },
       { id: 'daily', icon: (r, x, y, s) => Icons.bell(r, x, y, s), color: UI.btn.orange, event: 'ui:openDaily' },
     ];
     this._btns = defs.map((d, i) => {
