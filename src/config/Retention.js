@@ -46,7 +46,9 @@ export const WeeklyChallenges = Object.freeze([
   { id: 'wLines', name: 'Crystal Cascade', icon: 'gem', color: '#3aa8ff', blurb: 'Shatter crystals all week long.',
     text: 'Clear {n} lines this week', event: 'game:linesCleared', goal: 120, reward: { gems: 40, coins: 1500 }, milestones: [0.4, 0.7, 1] },
   { id: 'wPerfect', name: 'Clean Sweep', icon: 'crystal', color: '#3fbf5a', blurb: 'Wipe the board spotless, all week.',
-    text: 'Clear the whole board {n}× this week', event: 'board:fullClear', goal: 10, reward: { coins: 1800 }, milestones: [0.4, 0.7, 1] },
+    // A full-board clear (PERFECT) is a rare skill moment, so the weekly target
+    // is a gentle stretch: chests light on the 1st, 2nd and 3rd sweep.
+    text: 'Clear the whole board {n}× this week', event: 'board:fullClear', goal: 3, reward: { coins: 1800 }, milestones: [0.34, 0.67, 1] },
 ]);
 
 /** Rare post-level surprises. Kept genuinely rare so they stay exciting. */
