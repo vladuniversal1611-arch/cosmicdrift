@@ -15,11 +15,15 @@ import fr from './fr.js';
 import es from './es.js';
 import pt from './pt.js';
 import it from './it.js';
+import tr from './tr.js';
+import pl from './pl.js';
+import id from './id.js';
+import nl from './nl.js';
 
 class Localization {
   constructor() {
     // Order here is the order the Settings language picker cycles through.
-    this._packs = { en, uk, de, fr, es, pt, it };
+    this._packs = { en, uk, de, fr, es, pt, it, tr, pl, id, nl };
     this._lang = 'en';
     this._pack = en;
   }
