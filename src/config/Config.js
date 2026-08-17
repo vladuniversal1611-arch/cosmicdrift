@@ -161,7 +161,7 @@ export const Config = Object.freeze({
     /** Attempts to assemble a difficulty-matched, provably-solvable tray. */
     solveAttempts: 14,
     /** Base chance to slip in a piece that enables an immediate line clear. */
-    giftBaseChance: 0.12,
+    giftBaseChance: 0.18,
     /** Extra gift chance scaled by how much the player is struggling (DDA). */
     giftStruggleBonus: 0.5,
     /** Chance to offer a big, exciting, still-solvable piece once past the

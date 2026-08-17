@@ -214,16 +214,32 @@ export class PieceGenerator {
     return tray;
   }
 
-  /** Find any shape that can be placed to complete a line on the current board. */
+  /** How many rows+columns a placement of `blocks` at (col,row) completes. */
+  _countClears(occ, blocks, col, row, rows, cols) {
+    const o = this._clone(occ); this._place(o, blocks, col, row);
+    let n = 0;
+    for (let r = 0; r < rows; r++) { let full = true; for (let c = 0; c < cols; c++) if (!o[r][c]) { full = false; break; } if (full) n++; }
+    for (let c = 0; c < cols; c++) { let full = true; for (let r = 0; r < rows; r++) if (!o[r][c]) { full = false; break; } if (full) n++; }
+    return n;
+  }
+
+  /**
+   * Find a shape that enables a line clear, PREFERRING one that clears several
+   * lines at once — those big multi-clears are the satisfying "dopamine" moment.
+   * Returns the best shape key, or null if nothing clears anything.
+   */
   _findClearingShape(occ, rows, cols) {
+    let best = null, bestN = 0;
     for (const k of ShapeKeys) {
       const blocks = Shapes[k].blocks;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (this._canPlace(occ, blocks, c, r, rows, cols) && this._wouldClear(occ, blocks, c, r, rows, cols)) return k;
+          if (!this._canPlace(occ, blocks, c, r, rows, cols)) continue;
+          const n = this._countClears(occ, blocks, c, r, rows, cols);
+          if (n > bestN) { bestN = n; best = k; if (n >= 2) return best; }  // a double is plenty
         }
       }
     }
-    return null;
+    return best;
   }
 }
