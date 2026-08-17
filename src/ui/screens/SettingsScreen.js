@@ -73,11 +73,15 @@ export class SettingsScreen extends PanelScreen {
 
     // Reset progress button area (drawn text; tap handled in onContentTap).
     const p = this.panel;
-    const bx = p.centerX - 90, by = p.bottom - 70;
-    this._resetRect = new Rect(bx, by, 180, 46);
-    r.fillRoundRect(bx, by, 180, 46, 23, 'rgba(224,67,63,0.14)');
-    r.strokeRoundRect(bx, by, 180, 46, 23, UI.btn.red[1], 1.5);
-    r.text(t('settings.reset'), p.centerX, by + 23, { font: '800 14px system-ui, sans-serif', color: UI.btn.red[1], align: 'center', baseline: 'middle' });
+    const rw = 200, bx = p.centerX - rw / 2, by = p.bottom - 70;
+    this._resetRect = new Rect(bx, by, rw, 46);
+    r.fillRoundRect(bx, by, rw, 46, 23, 'rgba(224,67,63,0.14)');
+    r.strokeRoundRect(bx, by, rw, 46, 23, UI.btn.red[1], 1.5);
+    // Auto-fit the label so long translations (e.g. German) stay inside.
+    const rLabel = t('settings.reset');
+    let rf = 14; r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
+    while (rf > 9 && r.ctx.measureText(rLabel).width > rw - 22) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
+    r.text(rLabel, p.centerX, by + 23, { font: `800 ${rf}px system-ui, sans-serif`, color: UI.btn.red[1], align: 'center', baseline: 'middle' });
   }
 
   _toggle(r, x, y, w, h, t) {

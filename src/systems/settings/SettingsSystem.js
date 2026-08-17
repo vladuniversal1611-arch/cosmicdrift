@@ -44,10 +44,39 @@ export class SettingsSystem extends System {
       // Presentation / locale.
       theme: 'deepspace',
       language: 'en',
+      langChosen: false,   // true once the player picks a language themselves
     }));
+
+    // First run (no explicit choice yet): open in the device's language if we
+    // ship a pack for it. A manual pick later sets `langChosen` and wins forever.
+    if (!this._settings.langChosen) {
+      const auto = SettingsSystem._detectLanguage(L.languages);
+      if (auto && auto !== this._settings.language) {
+        this._settings.language = auto;
+        this.game.getSystem('save')?.markDirty();
+      }
+    }
 
     L.setLanguage(this._settings.language ?? 'en');
     applyQuality(this);
+  }
+
+  /**
+   * Best-effort match of the browser/device language preferences to an available
+   * pack (by primary subtag, e.g. "de-DE" → "de", "pt-BR" → "pt"). Returns null
+   * when nothing matches (caller keeps the default).
+   */
+  static _detectLanguage(available) {
+    try {
+      const nav = typeof navigator !== 'undefined' ? navigator : null;
+      const cands = nav ? (nav.languages && nav.languages.length ? nav.languages : [nav.language]) : [];
+      for (const c of cands) {
+        if (!c) continue;
+        const primary = String(c).toLowerCase().split('-')[0];
+        if (available.includes(primary)) return primary;
+      }
+    } catch { /* headless / no navigator → keep default */ }
+    return null;
   }
 
   /** Read a single setting. */
@@ -63,7 +92,8 @@ export class SettingsSystem extends System {
   set(key, value) {
     if (this._settings[key] === value) return;
     this._settings[key] = value;
-    if (key === 'language') L.setLanguage(value);
+    // A manual language pick sticks — never auto-override it on later boots.
+    if (key === 'language') { L.setLanguage(value); this._settings.langChosen = true; }
     applyQuality(this);
     this.game.getSystem('save').markDirty();
     this.events.emit('settings:changed', { key, value });

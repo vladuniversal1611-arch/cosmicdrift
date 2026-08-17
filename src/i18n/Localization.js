@@ -10,10 +10,16 @@
  */
 import en from './en.js';
 import uk from './uk.js';
+import de from './de.js';
+import fr from './fr.js';
+import es from './es.js';
+import pt from './pt.js';
+import it from './it.js';
 
 class Localization {
   constructor() {
-    this._packs = { en, uk };
+    // Order here is the order the Settings language picker cycles through.
+    this._packs = { en, uk, de, fr, es, pt, it };
     this._lang = 'en';
     this._pack = en;
   }
