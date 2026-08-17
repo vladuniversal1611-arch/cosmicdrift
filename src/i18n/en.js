@@ -41,7 +41,7 @@ export default {
     paused: 'PAUSED', mainMenu: 'MAIN MENU', floatingWorld: 'FLOATING WORLD',
   },
   hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY', tapToStrike: 'TAP A BLOCK TO STRIKE', todaysBest: "TODAY'S BEST" },
-  levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!' },
+  levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!', earned: 'COINS EARNED' },
   gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {
     audio: 'Music & Sound', haptics: 'Haptics', reducedMotion: 'Reduced Motion',

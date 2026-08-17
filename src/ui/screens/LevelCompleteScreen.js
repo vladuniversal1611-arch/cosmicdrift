@@ -151,6 +151,7 @@ export class LevelCompleteScreen extends Screen {
     this._drawStars(r, b.centerX, b.h * 0.4);
     ctx.restore();
 
+    this._drawReward(r, b.centerX, b.h * 0.54);
     this._drawCoinCounter(r);
     this._drawCoins(r);
 
@@ -205,6 +206,30 @@ export class LevelCompleteScreen extends Screen {
     for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? rr * 0.45 : rr; const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
     ctx.closePath(); ctx.fillStyle = col; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = UI.gold.deep; ctx.stroke();
+  }
+
+  /** Explicit "coins earned this level" pill so the reward is legible (the coin
+   *  fountain shows motion; this shows the actual amount). Pops in with the
+   *  fountain and rides a gentle idle bob. */
+  _drawReward(r, cx, cy) {
+    const k = Math.max(0, Math.min(1, (this._t - T.coin) / 0.4));
+    if (k <= 0) return;
+    const pop = k < 1 ? Easing.backOut(k) : 1;
+    const y = cy + Math.sin(this._t * 2.2) * 4;
+    const label = `+${Math.round(this._reward.gold)}`;
+    const ctx = r.ctx;
+    ctx.save(); ctx.translate(cx, y); ctx.scale(pop, pop); ctx.translate(-cx, -y);
+    // Auto-size a rounded pill to the label + coin.
+    ctx.font = '900 40px system-ui, sans-serif';
+    const tw = r.ctx.measureText(label).width;
+    const padL = 58, padR = 34, h = 68, w = padL + tw + padR;
+    const x = cx - w / 2;
+    UITheme.button(r, x, y - h / 2, w, h, h / 2, UI.btn.orange, { shadow: true });
+    this._coin(r, x + h * 0.5, y, h * 0.34, 0);
+    r.text(label, x + padL, y, { font: '900 40px system-ui, sans-serif', color: '#fff', baseline: 'middle', outline: 'rgba(20,44,92,0.4)', outlineWidth: 4 });
+    ctx.restore();
+    // Small "EARNED" caption under the pill once it has settled.
+    if (k >= 1) r.text(t('levelComplete.earned'), cx, y + h / 2 + 20, { font: '800 20px system-ui, sans-serif', color: 'rgba(255,255,255,0.7)', align: 'center', baseline: 'middle' });
   }
 
   _drawCoinCounter(r) {

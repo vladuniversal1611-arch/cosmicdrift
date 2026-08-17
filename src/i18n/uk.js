@@ -39,7 +39,7 @@ export default {
     paused: 'ПАУЗА', mainMenu: 'ГОЛОВНЕ МЕНЮ', floatingWorld: 'ЛЕТЮЧИЙ СВІТ',
   },
   hud: { level: 'РІВЕНЬ {n}', worldMap: 'КАРТА СВІТУ', dragonEnergy: 'ЕНЕРГІЯ НОВИ', tapToStrike: 'ТОРКНИСЬ БЛОКУ', todaysBest: 'РЕКОРД ДНЯ' },
-  levelComplete: { line1: 'РІВЕНЬ', line2: 'ПРОЙДЕНО!' },
+  levelComplete: { line1: 'РІВЕНЬ', line2: 'ПРОЙДЕНО!', earned: 'МОНЕТ ОТРИМАНО' },
   gameOver: { title: 'ГРУ ЗАВЕРШЕНО', score: 'РАХУНОК', best: 'РЕКОРД', retry: 'ТОРКНИСЬ, ЩОБ ЗІГРАТИ ЗНОВУ', consolation: 'ГАРНА СПРОБА!' },
   settings: {
     audio: 'Музика та звук', haptics: 'Вібрація', reducedMotion: 'Менше анімацій',
