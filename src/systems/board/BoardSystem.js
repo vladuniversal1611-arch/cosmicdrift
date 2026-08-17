@@ -84,14 +84,14 @@ export class BoardSystem extends System {
     this._computeLayout();
     window.addEventListener('resize', () => this._computeLayout());
 
-    // Persist the current board theme so it carries across sessions.
-    const save = this.game.getSystem('save');
-    this._themeSlice = save?.registerSlice('boardtheme', () => ({ index: 0 }));
-    this._themeIndex = (this._themeSlice?.index ?? 0) % Palette.boardThemes.length;
-    this._theme = Palette.boardThemes[this._themeIndex];
+    // The board theme is PER-RUN, not persisted: every new game starts on the
+    // default theme and only advances (on full-board clears) for that run, so a
+    // colour earned this session resets to the standard look on the next game.
+    this._themeIndex = 0;
+    this._theme = Palette.boardThemes[0];
 
     this.listen('save:loaded', ({ data }) => { if (data.board) this.grid.deserialize(data.board); });
-    this.listen('game:started', () => { this.grid.clearAll(); this._hint = null; });
+    this.listen('game:started', () => { this.grid.clearAll(); this._hint = null; this._resetTheme(); });
     // Rewarded hint: highlight the suggested placement for a few seconds.
     this.listen('board:showHint', ({ blocks, col, row }) => { this._hint = { blocks, col, row, t: 4 }; });
     this.listen('game:piecePlaced', () => { this._hint = null; });
@@ -205,15 +205,23 @@ export class BoardSystem extends System {
     return empty;
   }
 
+  /** Reset the board to the default theme (called at the start of every run). */
+  _resetTheme() {
+    this._themeIndex = 0;
+    this._theme = Palette.boardThemes[0];
+    this._prevTheme = null;
+    this._fullClearFx = null;
+  }
+
   /**
-   * A full-board clear ("PERFECT"): advance the board theme (persisted), kick
-   * off the transformation wave + banner, and pay out a celebratory bonus.
+   * A full-board clear ("PERFECT"): advance the board theme for THIS RUN only
+   * (not persisted), kick off the transformation wave + banner, and pay out a
+   * celebratory bonus.
    */
   _onFullClear() {
     this._prevTheme = this._theme;
     this._themeIndex = (this._themeIndex + 1) % Palette.boardThemes.length;
     this._theme = Palette.boardThemes[this._themeIndex];
-    if (this._themeSlice) { this._themeSlice.index = this._themeIndex; this.game.getSystem('save')?.markDirty(); }
 
     this._fullClearFx = { t: 0, dur: 1.15 };
 
