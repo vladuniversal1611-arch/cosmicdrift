@@ -9,7 +9,9 @@
  *
  * Responsibilities:
  *   - track the current level / world / goal (persisted so runs continue)
- *   - hand each level a tile-free board to the TileSystem
+ *   - hand each level a tile-free board to the TileSystem, and give deeper
+ *     levels a distinct opening "shape" of pre-placed gems (ordinary clearable
+ *     cells, never blockers) so boards don't all start identically empty
  *   - advance when the level's objectives are all met (after the clear
  *     animation finishes, so it never cuts a clear short)
  *
@@ -23,6 +25,9 @@
 import { System } from '../../core/System.js';
 import { Config } from '../../config/Config.js';
 import { AuthoredLevels } from '../../config/AuthoredLevels.js';
+import { Random } from '../../utils/Random.js';
+import { clamp } from '../../utils/MathUtils.js';
+import { MaterialKeys } from '../../config/Palette.js';
 
 /**
  * The world table — themed names that flavour the campaign as it deepens. (The
@@ -96,6 +101,14 @@ export class LevelSystem extends System {
     const unlocked = new Set();
     const authored = AuthoredLevels[level] ?? null;
     this.game.getSystem('tiles').buildLevel([], unlocked, level * 2654435761);
+
+    // Give deeper levels a distinct opening "shape" — a small pattern of already
+    // placed gems the player works around and clears. These are ordinary filled
+    // cells (clearly visible, fully clearable), NOT blockers, so each level looks
+    // different without any confusing un-placeable tiles. Runs BEFORE the
+    // level:changed emit so the board-aware generator sees the pre-fill and keeps
+    // the opening tray solvable.
+    if (!authored && level >= 8) this._prefillBoard(level);
 
     // The ObjectivesSystem builds this level's goals from `unlocked` + level,
     // unless the authored opening supplies an explicit objective set.
@@ -179,5 +192,76 @@ export class LevelSystem extends System {
     this._progress.highest = Math.max(this._progress.highest ?? 1, next);
     this.game.getSystem('save')?.markDirty();
     this.beginLevel(next);
+  }
+
+  // --- Opening board patterns ------------------------------------------------
+
+  /**
+   * Paint a small, deterministic pattern of pre-placed gems for a campaign level
+   * so each board has its own opening shape. Purely visual variety + a light
+   * puzzle setup: they are normal filled cells (clearable, obviously occupied),
+   * capped well below a clog, and never pre-complete a line (which would auto-
+   * clear on the first placement the player didn't earn).
+   */
+  _prefillBoard(level) {
+    const grid = this.game.getSystem('board')?.grid;
+    if (!grid) return;
+    const rows = grid.rows, cols = grid.columns;
+    const rng = new Random((level * 0x85ebca6b) >>> 0);
+
+    // Gentle ramp, hard-capped so the board always reads as mostly empty.
+    const maxCells = Math.floor(rows * cols * 0.22);   // ~14 on an 8x8 board
+    const count = clamp(3 + Math.floor((level - 8) / 4), 3, maxCells);
+
+    const set = new Set();
+    const add = (c, r) => { if (c >= 0 && c < cols && r >= 0 && r < rows) set.add(c + ',' + r); };
+    const patterns = ['scatter', 'corners', 'frame', 'diagonal', 'cluster', 'checker'];
+    switch (rng.pick(patterns)) {
+      case 'corners': {
+        const corners = [[0, 0], [cols - 2, 0], [0, rows - 2], [cols - 2, rows - 2]];
+        for (let i = corners.length - 1; i > 0; i--) { const j = rng.int(0, i); [corners[i], corners[j]] = [corners[j], corners[i]]; }
+        for (const [cc, cr] of corners.slice(0, rng.int(2, 3))) { add(cc, cr); add(cc + 1, cr); add(cc, cr + 1); add(cc + 1, cr + 1); }
+        break;
+      }
+      case 'frame':
+        for (let c = 0; c < cols; c += 2) { add(c, 0); add(c, rows - 1); }
+        for (let r = 2; r < rows - 1; r += 2) { add(0, r); add(cols - 1, r); }
+        break;
+      case 'diagonal': {
+        const flip = rng.int(0, 1) === 1;
+        for (let i = 0; i < Math.min(rows, cols); i++) add(flip ? cols - 1 - i : i, i);
+        break;
+      }
+      case 'cluster': {
+        const w = rng.int(2, 3), h = rng.int(2, 3);
+        const c0 = rng.int(1, Math.max(1, cols - w - 1)), r0 = rng.int(1, Math.max(1, rows - h - 1));
+        for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) add(c0 + c, r0 + r);
+        break;
+      }
+      case 'checker': {
+        const w = 4, h = 4, c0 = rng.int(0, cols - w), r0 = rng.int(0, rows - h);
+        for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if ((c + r) % 2 === 0) add(c0 + c, r0 + r);
+        break;
+      }
+      default: // scatter
+        for (let i = 0, n = Math.ceil(count * 1.5); i < n; i++) add(rng.int(0, cols - 1), rng.int(0, rows - 1));
+    }
+
+    // Trim to `count` (patterns may overproduce) via a shuffled subset.
+    let cells = [...set];
+    for (let i = cells.length - 1; i > 0; i--) { const j = rng.int(0, i); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+    cells = cells.slice(0, count);
+
+    // Never leave a fully-filled row or column.
+    const rc = {}, cc = {};
+    for (const k of cells) { const [c, r] = k.split(',').map(Number); rc[r] = (rc[r] ?? 0) + 1; cc[c] = (cc[c] ?? 0) + 1; }
+    cells = cells.filter((k) => { const [c, r] = k.split(',').map(Number); return rc[r] < cols && cc[c] < rows; });
+
+    // Paint with random gem materials so it reads as a normal colourful board.
+    for (const k of cells) {
+      const [c, r] = k.split(',').map(Number);
+      const cell = grid.get(c, r);
+      if (cell && !cell.filled && !cell.tile) cell.fill(rng.pick(MaterialKeys), 0);
+    }
   }
 }
