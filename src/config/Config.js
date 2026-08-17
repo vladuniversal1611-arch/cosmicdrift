@@ -236,10 +236,10 @@ export const Config = Object.freeze({
   ads: Object.freeze({
     enabled: true,
     admob: Object.freeze({
-      appId: 'ca-app-pub-3940256099942544~3347511713',       // TEST app id
-      rewarded: 'ca-app-pub-3940256099942544/5224354917',     // TEST rewarded
-      interstitial: 'ca-app-pub-3940256099942544/1033173712', // TEST interstitial
-      banner: 'ca-app-pub-3940256099942544/6300978111',       // TEST banner
+      appId: 'ca-app-pub-5816871059908402~2130478466',       // Skydoku app id
+      rewarded: 'ca-app-pub-5816871059908402/2050537086',     // Skydoku rewarded
+      interstitial: 'ca-app-pub-5816871059908402/9601724049', // Skydoku interstitial
+      banner: 'ca-app-pub-5816871059908402/4540969050',       // Skydoku banner
     }),
     interstitial: Object.freeze({
       minGames: 2,         // no interstitials until 2 runs have ended

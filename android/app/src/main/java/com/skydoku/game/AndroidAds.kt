@@ -30,9 +30,9 @@ class AndroidAds(
     private val webView: WebView,
     private val bannerContainer: FrameLayout,
 ) {
-    private val rewardedUnitId = "ca-app-pub-3940256099942544/5224354917"      // TEST
-    private val interstitialUnitId = "ca-app-pub-3940256099942544/1033173712"  // TEST
-    private val bannerUnitId = "ca-app-pub-3940256099942544/6300978111"        // TEST
+    private val rewardedUnitId = "ca-app-pub-5816871059908402/2050537086"      // Skydoku rewarded
+    private val interstitialUnitId = "ca-app-pub-5816871059908402/9601724049"  // Skydoku interstitial
+    private val bannerUnitId = "ca-app-pub-5816871059908402/4540969050"        // Skydoku banner
 
     private var bannerView: AdView? = null
 
