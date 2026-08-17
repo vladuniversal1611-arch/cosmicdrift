@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'LEVEL {n}', worldMap: 'WELTKARTE', dragonEnergy: 'NOVA-ENERGIE', tapToStrike: 'TIPPE EINEN BLOCK', todaysBest: 'HEUTE BESTE' },
   levelComplete: { line1: 'LEVEL', line2: 'GESCHAFFT!', earned: 'MÜNZEN ERHALTEN' },
-  gameOver: { title: 'SPIEL VORBEI', score: 'PUNKTE', best: 'BESTE', retry: 'TIPPEN FÜR NEUSTART', consolation: 'GUTER VERSUCH!' },
+  gameOver: { title: 'SPIEL VORBEI', subtitle: 'NOCHMAL VERSUCHEN', score: 'PUNKTE', best: 'BESTE', retry: 'TIPPEN FÜR NEUSTART', playAgain: 'NOCHMAL SPIELEN', consolation: 'GUTER VERSUCH!' },
   settings: {
     audio: 'Musik & Sound', haptics: 'Vibration', reducedMotion: 'Weniger Animationen',
     colorBlind: 'Farbenblind-Modus', lowPerformance: 'Energiesparmodus', largeUI: 'Große Oberfläche',

@@ -763,90 +763,147 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
 
     const a = this._overlayT, cx = b.centerX, rise = (1 - a) * 24;
-    // --- Panel card (large + comfortable to read) ---
-    const cw = Math.min(b.w * 0.9, 900);
-    const cardH = this._canRevive ? 620 : 520;
+    // --- Panel card: clean white with a soft blue border + cloud-tinted foot ---
+    const cw = Math.min(b.w * 0.9, 860);
+    const cardH = this._canRevive ? 660 : 560;
     const cardX = cx - cw / 2;
-    const cardY = Math.round(b.centerY - cardH / 2 + 24 + rise);
+    const cardY = Math.round(b.centerY - cardH / 2 + 20 + rise);
     renderer.setAlpha(a);
-    UITheme.glassPanel(renderer, cardX, cardY, cw, cardH, 40);
+    UITheme.shadow(renderer, cardX, cardY, cw, cardH, 40, 12, 0.32);
+    const cg = renderer.linearGradient(cardX, cardY, cardX, cardY + cardH, [[0, '#ffffff'], [0.68, '#ffffff'], [1, '#e8f3ff']]);
+    renderer.fillRoundRect(cardX, cardY, cw, cardH, 40, cg);
+    renderer.strokeRoundRect(cardX, cardY, cw, cardH, 40, 'rgba(150,200,255,0.95)', 4);
 
-    // Mascot peeking over the top edge of the card (mostly above; feet dip in).
-    const mimg = AssetManager.image('mascot');
+    // Sad mascot peeking over the top edge (falls back to the normal mascot
+    // until a `mascot_sad` sprite is added to assets/sprites).
+    const mimg = AssetManager.image('mascot_sad') ?? AssetManager.image('mascot');
     if (mimg) {
-      const box = cw * 0.40, rr = Math.min(box / mimg.width, box / mimg.height);
+      const box = cw * 0.42, rr = Math.min(box / mimg.width, box / mimg.height);
       const mw = mimg.width * rr, mh = mimg.height * rr;
-      const myTop = cardY - mh * 0.94 + Math.sin(performance.now() / 500) * 5;
+      const myTop = cardY - mh * 0.9 + Math.sin(performance.now() / 520) * 4;
       ctx.drawImage(mimg, cx - mw / 2, myTop, mw, mh);
     }
 
-    // Title (dark/gold on the light panel).
+    // Title + subtitle.
+    renderer.text(t('gameOver.title'), cx, cardY + 96, { font: '900 50px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+    renderer.text(t('gameOver.subtitle'), cx, cardY + 142, { font: '800 20px system-ui, sans-serif', color: 'rgba(20,44,92,0.5)', align: 'center', baseline: 'middle' });
+
+    // Score box (rounded inset): score + best.
+    const boxX = cardX + 44, boxW = cw - 88, boxY = cardY + 176, boxH = 156;
+    renderer.fillRoundRect(boxX, boxY, boxW, boxH, 26, 'rgba(150,185,235,0.16)');
     if (this._newBest) {
-      const beat = 1 + 0.05 * Math.sin(performance.now() / 180);
-      renderer.withGlow('#ffd34e', 18, () => renderer.text(t('common.newBest'), cx, cardY + 88, {
-        font: `900 ${Math.round(52 * beat)}px system-ui, sans-serif`, color: '#ffb020',
-        align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 6,
+      renderer.withGlow('#ffd34e', 12, () => renderer.text(t('common.newBest'), cx, boxY - 4, {
+        font: '900 18px system-ui, sans-serif', color: '#ffb020', align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 4,
       }));
-    } else {
-      renderer.text(t('gameOver.title'), cx, cardY + 88, {
-        font: '900 52px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle',
+    }
+    renderer.text(t('gameOver.score'), cx, boxY + 34, { font: '800 17px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
+    renderer.text(String(this._final), cx, boxY + 88, { font: '900 62px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, boxY + 130, {
+      font: '800 19px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
+    });
+
+    // Consolation coins — subtle, just under the box.
+    if (this._consolation && (this._consolation.reward?.coins ?? 0) > 0) {
+      renderer.text(`${t('gameOver.consolation')}  +${this._consolation.reward.coins}`, cx, boxY + boxH + 22, {
+        font: '800 16px system-ui, sans-serif', color: '#e6892a', align: 'center', baseline: 'middle',
       });
     }
 
-    // Score + best.
-    renderer.text(t('gameOver.score'), cx, cardY + 156, { font: '800 17px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
-    renderer.text(String(this._final), cx, cardY + 214, { font: '900 68px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
-    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, cardY + 270, {
-      font: '800 20px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
-    });
-
-    // --- Buttons (anchored to the card bottom) ---
-    const bw = cw - 96, bx = cx - bw / 2, retryH = 62, bottomPad = 34;
-    const reviveBlock = this._canRevive ? 76 + 16 : 0;
-    let byb = cardY + cardH - bottomPad - retryH - reviveBlock;
-
-    // Consolation reward + tip, tucked just above the buttons.
-    if (this._consolation) {
-      const gold = this._consolation.reward?.coins ?? 0;
-      const label = `${t('gameOver.consolation')}  +${gold}`;
-      ctx.font = '800 18px system-ui, sans-serif';
-      const wtext = ctx.measureText(label).width;
-      const coinR = 11, gap = 14, startX = cx - (wtext + gap + coinR * 2) / 2;
-      renderer.text(label, startX, byb - 58, { font: '800 18px system-ui, sans-serif', color: '#e6892a', align: 'left', baseline: 'middle' });
-      drawObjectiveIcon(renderer, 'coins', startX + wtext + gap * 0.5 + coinR, byb - 58, coinR, '#ffcf5e');
-      renderer.text(this._consolation.tip, cx, byb - 28, { font: '600 15px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
-    }
-
-    this._reviveRect = null;
+    // --- Buttons (stacked, anchored to the card bottom) ---
+    // Revive (watch-ad continue) is offered on top only when available; the base
+    // layout is the clean "Play Again" + "Home" pair.
+    const bw = cw - 88, bx = cx - bw / 2, gap = 14, bottomPad = 30;
+    const btns = [];
     if (this._canRevive) {
-      const rh = 76; this._reviveRect = new Rect(bx, byb, bw, rh);
-      const beat = 1 + 0.03 * Math.sin(performance.now() / 260);
-      const cyp = byb + rh / 2;
-      renderer.save(); renderer.translate(cx, cyp); renderer.scale(beat, beat); renderer.translate(-cx, -cyp);
-      UITheme.button(renderer, bx, byb, bw, rh, rh / 2, UI.btn.play, { shadow: true });
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.moveTo(bx + 48, cyp - 15); ctx.lineTo(bx + 74, cyp); ctx.lineTo(bx + 48, cyp + 15); ctx.closePath(); ctx.fill();
-      renderer.text(t('common.continue'), cx + 18, cyp - 10, { font: '900 26px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-      renderer.text(t('common.watchAd'), cx + 18, cyp + 16, { font: '700 14px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
-      renderer.restore();
-      byb += rh + 16;
+      btns.push({ id: 'revive', colors: UI.btn.play, label: t('common.continue'), sub: t('common.watchAd'), icon: 'play', h: 80 });
+      btns.push({ id: 'retry', colors: UI.btn.blue, label: t('gameOver.playAgain'), icon: 'refresh', h: 66 });
+      btns.push({ id: 'home', ghost: true, label: t('menu.home'), icon: 'home', h: 58 });
+    } else {
+      btns.push({ id: 'retry', colors: UI.btn.play, label: t('gameOver.playAgain'), icon: 'refresh', h: 74 });
+      btns.push({ id: 'home', colors: UI.btn.blue, label: t('menu.home'), icon: 'home', h: 74 });
     }
-    this._retryRect = new Rect(bx + bw * 0.1, byb, bw * 0.8, retryH);
-    UITheme.button(renderer, this._retryRect.x, this._retryRect.y, this._retryRect.w, retryH, retryH / 2, UI.btn.blue, { shadow: true });
-    renderer.text(t('gameOver.retry'), this._retryRect.centerX, this._retryRect.centerY, { font: '800 24px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    const totalH = btns.reduce((s, x) => s + x.h, 0) + gap * (btns.length - 1);
+    let byb = cardY + cardH - bottomPad - totalH;
+    this._reviveRect = this._retryRect = this._homeRect = null;
+    for (const btn of btns) {
+      const rect = new Rect(bx, byb, bw, btn.h);
+      const beat = btn.id === 'revive' ? 1 + 0.025 * Math.sin(performance.now() / 260) : 1;
+      if (beat !== 1) { renderer.save(); renderer.translate(rect.centerX, rect.centerY); renderer.scale(beat, beat); renderer.translate(-rect.centerX, -rect.centerY); }
+      this._goPill(renderer, rect, btn);
+      if (beat !== 1) renderer.restore();
+      if (btn.id === 'revive') this._reviveRect = rect;
+      else if (btn.id === 'retry') this._retryRect = rect;
+      else this._homeRect = rect;
+      byb += btn.h + gap;
+    }
     renderer.setAlpha(1);
+  }
+
+  /** A clean coloured (or ghost) pill button for the game-over card. */
+  _goPill(r, rect, btn) {
+    const ctx = r.ctx, rad = rect.h / 2;
+    const size = btn.sub ? 24 : 26, isz = 17, gap = 16;
+    const col = btn.ghost ? UI.btn.blue[1] : '#fff';
+    if (btn.ghost) {
+      r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, rad, UI.btn.blue[1], 2.5);
+    } else {
+      const c = btn.colors;
+      r.withGlow(c[1], 16, () => r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, c[1]));
+      const g = r.linearGradient(rect.x, rect.y, rect.x, rect.y + rect.h, [[0, c[0]], [1, c[1]]]);
+      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, g);
+      ctx.save(); r.roundRectPath(rect.x, rect.y, rect.w, rect.h, rad); ctx.clip();
+      r.fillRoundRect(rect.x + 3, rect.y + 2, rect.w - 6, rect.h * 0.48, rad, 'rgba(255,255,255,0.26)');
+      ctx.restore();
+    }
+    // Centre the [icon + label] group horizontally.
+    ctx.font = `900 ${size}px system-ui, sans-serif`;
+    const lw = ctx.measureText(btn.label).width;
+    const gx = rect.centerX - (isz * 2 + gap + lw) / 2;
+    const cyp = btn.sub ? rect.centerY - 12 : rect.centerY;
+    this._goIcon(r, btn.icon, gx + isz, cyp, isz, col);
+    r.text(btn.label, gx + isz * 2 + gap, cyp, {
+      font: `900 ${size}px system-ui, sans-serif`, color: col, align: 'left', baseline: 'middle',
+      outline: btn.ghost ? undefined : 'rgba(0,0,0,0.12)', outlineWidth: btn.ghost ? 0 : 3,
+    });
+    if (btn.sub) r.text(btn.sub, rect.centerX, rect.centerY + 16, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
+  }
+
+  /** White (or coloured) glyphs for the game-over buttons. */
+  _goIcon(r, key, cx, cy, s, col) {
+    const ctx = r.ctx;
+    if (key === 'refresh') {
+      ctx.strokeStyle = col; ctx.lineWidth = s * 0.32; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(cx, cy, s * 0.82, Math.PI * 0.55, Math.PI * 2.05); ctx.stroke();
+      const a0 = Math.PI * 0.55, hx = cx + Math.cos(a0) * s * 0.82, hy = cy + Math.sin(a0) * s * 0.82;
+      ctx.fillStyle = col; ctx.beginPath();
+      ctx.moveTo(hx + s * 0.28, hy + s * 0.18);
+      ctx.lineTo(hx - s * 0.34, hy + s * 0.30);
+      ctx.lineTo(hx + s * 0.02, hy - s * 0.42);
+      ctx.closePath(); ctx.fill();
+      return;
+    }
+    if (key === 'home') {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy - s * 0.02); ctx.lineTo(cx - s, cy - s * 0.02); ctx.closePath(); ctx.fill();
+      r.fillRoundRect(cx - s * 0.66, cy - s * 0.12, s * 1.32, s * 0.95, 3, col);
+      return;
+    }
+    // play triangle (revive)
+    ctx.fillStyle = col; ctx.beginPath();
+    ctx.moveTo(cx - s * 0.5, cy - s * 0.72); ctx.lineTo(cx + s * 0.78, cy); ctx.lineTo(cx - s * 0.5, cy + s * 0.72); ctx.closePath(); ctx.fill();
   }
 
   onTap(px, py) {
     if (this._state === 'over' && this._overlayT > 0.6) {
-      // Continue (watch a rewarded ad) or Retry from zero.
+      // Explicit buttons: Continue (rewarded ad) / Play Again / Home.
       if (this._reviveRect?.contains(px, py)) {
         this._reviveRect = null;   // debounce
         this.game.getSystem('monetization')?.offerRewarded('revive', () => this.events.emit('game:revive'));
         return true;
       }
-      this.events.emit('ui:restart');
-      return true;
+      if (this._homeRect?.contains(px, py)) { this.events.emit('ui:mainMenu'); return true; }
+      if (this._retryRect?.contains(px, py)) { this.events.emit('ui:restart'); return true; }
+      return true;   // swallow taps on the veil — no accidental restart
     }
     // Rewarded HINT: watch a short ad → highlight a good move.
     if (this._state === 'playing' && this._hintBtn.contains(px, py)) {

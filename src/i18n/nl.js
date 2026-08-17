@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'LEVEL {n}', worldMap: 'WERELDKAART', dragonEnergy: 'NOVA-ENERGIE', tapToStrike: 'TIK OP EEN BLOK', todaysBest: 'BESTE VAN VANDAAG' },
   levelComplete: { line1: 'LEVEL', line2: 'VOLTOOID!', earned: 'MUNTEN VERDIEND' },
-  gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BESTE', retry: 'TIK OM OPNIEUW TE SPELEN', consolation: 'GOEDE POGING!' },
+  gameOver: { title: 'GAME OVER', subtitle: 'PROBEER OPNIEUW', score: 'SCORE', best: 'BESTE', retry: 'TIK OM OPNIEUW TE SPELEN', playAgain: 'OPNIEUW SPELEN', consolation: 'GOEDE POGING!' },
   settings: {
     audio: 'Muziek & geluid', haptics: 'Trillingen', reducedMotion: 'Minder animaties',
     colorBlind: 'Kleurenblindmodus', lowPerformance: 'Energiebesparing', largeUI: 'Grote interface',

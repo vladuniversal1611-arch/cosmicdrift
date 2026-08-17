@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'NIVEAU {n}', worldMap: 'CARTE DU MONDE', dragonEnergy: 'ÉNERGIE NOVA', tapToStrike: 'TOUCHE UN BLOC', todaysBest: 'MEILLEUR DU JOUR' },
   levelComplete: { line1: 'NIVEAU', line2: 'TERMINÉ !', earned: 'PIÈCES GAGNÉES' },
-  gameOver: { title: 'PARTIE TERMINÉE', score: 'SCORE', best: 'MEILLEUR', retry: 'TOUCHER POUR REJOUER', consolation: 'BIEN ESSAYÉ !' },
+  gameOver: { title: 'PARTIE TERMINÉE', subtitle: 'RÉESSAYE', score: 'SCORE', best: 'MEILLEUR', retry: 'TOUCHER POUR REJOUER', playAgain: 'REJOUER', consolation: 'BIEN ESSAYÉ !' },
   settings: {
     audio: 'Musique et son', haptics: 'Vibrations', reducedMotion: 'Moins d’animations',
     colorBlind: 'Mode daltonien', lowPerformance: 'Mode économie', largeUI: 'Grande interface',

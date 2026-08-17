@@ -40,7 +40,7 @@ export default {
   },
   hud: { level: 'РІВЕНЬ {n}', worldMap: 'КАРТА СВІТУ', dragonEnergy: 'ЕНЕРГІЯ НОВИ', tapToStrike: 'ТОРКНИСЬ БЛОКУ', todaysBest: 'РЕКОРД ДНЯ' },
   levelComplete: { line1: 'РІВЕНЬ', line2: 'ПРОЙДЕНО!', earned: 'МОНЕТ ОТРИМАНО' },
-  gameOver: { title: 'ГРУ ЗАВЕРШЕНО', score: 'РАХУНОК', best: 'РЕКОРД', retry: 'ТОРКНИСЬ, ЩОБ ЗІГРАТИ ЗНОВУ', consolation: 'ГАРНА СПРОБА!' },
+  gameOver: { title: 'ГРУ ЗАВЕРШЕНО', subtitle: 'СПРОБУЙ ЩЕ РАЗ', score: 'РАХУНОК', best: 'РЕКОРД', retry: 'ТОРКНИСЬ, ЩОБ ЗІГРАТИ ЗНОВУ', playAgain: 'ГРАТИ ЗНОВУ', consolation: 'ГАРНА СПРОБА!' },
   settings: {
     audio: 'Музика та звук', haptics: 'Вібрація', reducedMotion: 'Менше анімацій',
     colorBlind: 'Режим дальтоніка', lowPerformance: 'Режим економії', largeUI: 'Великий інтерфейс',

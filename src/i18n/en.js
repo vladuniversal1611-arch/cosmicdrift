@@ -42,7 +42,7 @@ export default {
   },
   hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY', tapToStrike: 'TAP A BLOCK TO STRIKE', todaysBest: "TODAY'S BEST" },
   levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!', earned: 'COINS EARNED' },
-  gameOver: { title: 'GAME OVER', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', consolation: 'NICE TRY!' },
+  gameOver: { title: 'GAME OVER', subtitle: 'TRY AGAIN', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', playAgain: 'PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {
     audio: 'Music & Sound', haptics: 'Haptics', reducedMotion: 'Reduced Motion',
     colorBlind: 'Color-Blind Mode', lowPerformance: 'Low Performance Mode', largeUI: 'Large UI',

@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'LIVELLO {n}', worldMap: 'MAPPA DEL MONDO', dragonEnergy: 'ENERGIA NOVA', tapToStrike: 'TOCCA UN BLOCCO', todaysBest: 'MIGLIORE DI OGGI' },
   levelComplete: { line1: 'LIVELLO', line2: 'COMPLETATO!', earned: 'MONETE GUADAGNATE' },
-  gameOver: { title: 'GAME OVER', score: 'PUNTEGGIO', best: 'RECORD', retry: 'TOCCA PER RIGIOCARE', consolation: 'BEL TENTATIVO!' },
+  gameOver: { title: 'GAME OVER', subtitle: 'RIPROVA', score: 'PUNTEGGIO', best: 'RECORD', retry: 'TOCCA PER RIGIOCARE', playAgain: 'GIOCA ANCORA', consolation: 'BEL TENTATIVO!' },
   settings: {
     audio: 'Musica e suoni', haptics: 'Vibrazione', reducedMotion: 'Meno animazioni',
     colorBlind: 'Modalità daltonici', lowPerformance: 'Modalità risparmio', largeUI: 'Interfaccia grande',

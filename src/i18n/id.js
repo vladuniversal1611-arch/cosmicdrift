@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'LEVEL {n}', worldMap: 'PETA DUNIA', dragonEnergy: 'ENERGI NOVA', tapToStrike: 'KETUK SEBUAH BALOK', todaysBest: 'TERBAIK HARI INI' },
   levelComplete: { line1: 'LEVEL', line2: 'SELESAI!', earned: 'KOIN DIPEROLEH' },
-  gameOver: { title: 'GAME OVER', score: 'SKOR', best: 'TERBAIK', retry: 'KETUK UNTUK MAIN LAGI', consolation: 'USAHA BAGUS!' },
+  gameOver: { title: 'GAME OVER', subtitle: 'COBA LAGI', score: 'SKOR', best: 'TERBAIK', retry: 'KETUK UNTUK MAIN LAGI', playAgain: 'MAIN LAGI', consolation: 'USAHA BAGUS!' },
   settings: {
     audio: 'Musik & Suara', haptics: 'Getaran', reducedMotion: 'Kurangi Animasi',
     colorBlind: 'Mode Buta Warna', lowPerformance: 'Mode Hemat Daya', largeUI: 'Antarmuka Besar',

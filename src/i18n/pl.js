@@ -39,7 +39,7 @@ export default {
   },
   hud: { level: 'POZIOM {n}', worldMap: 'MAPA ŚWIATA', dragonEnergy: 'ENERGIA NOVA', tapToStrike: 'DOTKNIJ BLOKU', todaysBest: 'DZISIEJSZY REKORD' },
   levelComplete: { line1: 'POZIOM', line2: 'UKOŃCZONY!', earned: 'ZDOBYTE MONETY' },
-  gameOver: { title: 'KONIEC GRY', score: 'WYNIK', best: 'REKORD', retry: 'DOTKNIJ, ABY ZAGRAĆ PONOWNIE', consolation: 'DOBRA PRÓBA!' },
+  gameOver: { title: 'KONIEC GRY', subtitle: 'SPRÓBUJ PONOWNIE', score: 'WYNIK', best: 'REKORD', retry: 'DOTKNIJ, ABY ZAGRAĆ PONOWNIE', playAgain: 'ZAGRAJ PONOWNIE', consolation: 'DOBRA PRÓBA!' },
   settings: {
     audio: 'Muzyka i dźwięk', haptics: 'Wibracje', reducedMotion: 'Mniej animacji',
     colorBlind: 'Tryb dla daltonistów', lowPerformance: 'Tryb oszczędzania', largeUI: 'Duży interfejs',
