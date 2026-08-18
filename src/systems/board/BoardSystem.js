@@ -81,11 +81,10 @@ export class BoardSystem extends System {
     this._driftPending = false;
     /** Throttle timer for the idle "no full line lingers" safety sweep. */
     this._sweepT = 0;
-    // Board theme (morphs on full-board clears AND every N cleared lines) + FX.
+    // Board theme (morphs only on a full-board clear) + the transformation FX.
     this._themeIndex = 0;
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
-    this._linesSinceTheme = 0;  // lines cleared toward the next theme morph
     this._fullClearFx = null;   // { t, dur, perfect } while the wave (+ banner) play
     this._hint = null;          // { blocks, col, row, t } rewarded-hint highlight
   }
@@ -153,7 +152,6 @@ export class BoardSystem extends System {
     for (const cell of cells) cell.beginClear(delayOf.get(cell) ?? 0, dur);
 
     this._clearing = true;
-    this._linesSinceTheme = (this._linesSinceTheme ?? 0) + lines.length;
     // `amount` mirrors `count` so the generic MissionSystem can accrue progress.
     this.events.emit('game:linesCleared', { count: lines.length, amount: lines.length });
     // Lines completed by a Cosmic Drift also fire a distinct event so the
@@ -221,7 +219,6 @@ export class BoardSystem extends System {
     this._themeIndex = 0;
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
-    this._linesSinceTheme = 0;
     this._fullClearFx = null;
   }
 
@@ -235,7 +232,6 @@ export class BoardSystem extends System {
     this._prevTheme = this._theme;
     this._themeIndex = (this._themeIndex + 1) % Palette.boardThemes.length;
     this._theme = Palette.boardThemes[this._themeIndex];
-    this._linesSinceTheme = 0;
     this._fullClearFx = { t: 0, dur: 1.15, perfect };
   }
 
@@ -413,13 +409,9 @@ export class BoardSystem extends System {
     if (this._clearing && stillClearing === 0) {
       this._clearing = false;
       this.events.emit('board:clearComplete');
-      // A clear that empties the whole board is a "PERFECT"; otherwise, morph the
-      // theme every N cleared lines so the mood keeps changing as you play.
+      // The theme morphs ONLY on a full-board clear ("PERFECT") — the earned
+      // moment, never mid-play.
       if (this._isBoardEmpty()) this._onFullClear();
-      else if ((this._linesSinceTheme ?? 0) >= BoardSystem.THEME_EVERY_LINES) {
-        this._advanceTheme(false);
-        this.events.emit('fx:flash', { color: this._theme.accent, strength: 0.24 });
-      }
     }
 
     // Advance the full-clear transformation wave.
@@ -904,6 +896,3 @@ export class BoardSystem extends System {
     }
   }
 }
-
-/** Cleared lines between theme morphs (a full-board PERFECT also morphs it). */
-BoardSystem.THEME_EVERY_LINES = 10;
