@@ -765,7 +765,7 @@ export class HudScreen extends Screen {
     const a = this._overlayT, cx = b.centerX, rise = (1 - a) * 24;
     // --- Panel card: glassy white with a very thin blue outline ---
     const cw = Math.min(b.w * 0.9, 820);
-    const cardH = this._canRevive ? 500 : 420;
+    const cardH = this._canRevive ? 470 : 370;
     const cardX = cx - cw / 2;
     const cardY = Math.round(b.centerY - cardH / 2 + 26 + rise);
     renderer.setAlpha(a);
@@ -807,66 +807,67 @@ export class HudScreen extends Screen {
       renderer.text(label, cbx + 30, cby + 13, { font: '800 15px system-ui, sans-serif', color: '#7a4a00', align: 'left', baseline: 'middle' });
     }
 
-    // --- Buttons: max two full pills; Home is a small icon at the foot ---
-    const bw = cw - 80, bx = cx - bw / 2, gap = 14, bottomPad = 20, homeRowH = 46;
-    const btns = [];
-    if (this._canRevive) {
-      btns.push({ id: 'revive', colors: UI.btn.play, label: t('common.continue'), sub: t('common.watchAd'), icon: 'play', h: 76 });
-      btns.push({ id: 'retry', colors: UI.btn.blue, label: t('gameOver.playAgain'), icon: 'refresh', h: 66 });
-    } else {
-      btns.push({ id: 'retry', colors: UI.btn.play, label: t('gameOver.playAgain'), icon: 'refresh', h: 74 });
-    }
-    const totalH = btns.reduce((s, x) => s + x.h, 0) + gap * (btns.length - 1);
-    let byb = cardY + cardH - bottomPad - homeRowH - totalH;
+    // --- Buttons: CONTINUE (if revive) full-width; PLAY AGAIN + HOME share a row.
+    // PLAY AGAIN is the wide coloured action; HOME is a narrower, muted button.
+    const bw = cw - 80, bx = cx - bw / 2, gap = 14, bottomPad = 26, rowH = 68;
+    const homeW = Math.round(bw * 0.30), gapX = 12, playW = bw - homeW - gapX;
     this._reviveRect = this._retryRect = this._homeRect = null;
-    for (const btn of btns) {
-      const rect = new Rect(bx, byb, bw, btn.h);
-      const beat = btn.id === 'revive' ? 1 + 0.025 * Math.sin(performance.now() / 260) : 1;
-      if (beat !== 1) { renderer.save(); renderer.translate(rect.centerX, rect.centerY); renderer.scale(beat, beat); renderer.translate(-rect.centerX, -rect.centerY); }
-      this._goPill(renderer, rect, btn);
-      if (beat !== 1) renderer.restore();
-      if (btn.id === 'revive') this._reviveRect = rect;
-      else this._retryRect = rect;
-      byb += btn.h + gap;
+    let rowY;
+    if (this._canRevive) {
+      const contH = 78;
+      const contY = cardY + cardH - bottomPad - rowH - gap - contH;
+      const cont = new Rect(bx, contY, bw, contH);
+      const beat = 1 + 0.025 * Math.sin(performance.now() / 260);
+      renderer.save(); renderer.translate(cont.centerX, cont.centerY); renderer.scale(beat, beat); renderer.translate(-cont.centerX, -cont.centerY);
+      this._goPill(renderer, cont, { colors: UI.btn.play, label: t('common.continue'), sub: t('common.watchAd'), icon: 'play' });
+      renderer.restore();
+      this._reviveRect = cont;
+      rowY = contY + contH + gap;
+      this._retryRect = new Rect(bx, rowY, playW, rowH);
+      this._goPill(renderer, this._retryRect, { colors: UI.btn.blue, label: t('gameOver.playAgain'), icon: 'refresh' });
+    } else {
+      rowY = cardY + cardH - bottomPad - rowH;
+      this._retryRect = new Rect(bx, rowY, playW, rowH);
+      this._goPill(renderer, this._retryRect, { colors: UI.btn.play, label: t('gameOver.playAgain'), icon: 'refresh' });
     }
-
-    // Small muted HOME control (icon + label) centred at the foot.
-    const hy = cardY + cardH - bottomPad - homeRowH / 2;
-    const hcol = 'rgba(20,44,92,0.5)', hsz = 13, hgap = 10;
-    ctx.font = '800 17px system-ui, sans-serif';
-    const hlw = ctx.measureText(t('menu.home')).width;
-    const hgx = cx - (hsz * 2 + hgap + hlw) / 2;
-    this._goIcon(renderer, 'home', hgx + hsz, hy, hsz, hcol);
-    renderer.text(t('menu.home'), hgx + hsz * 2 + hgap, hy, { font: '800 17px system-ui, sans-serif', color: hcol, align: 'left', baseline: 'middle' });
-    this._homeRect = new Rect(cx - 110, hy - homeRowH / 2, 220, homeRowH);   // generous tap area
+    this._homeRect = new Rect(bx + playW + gapX, rowY, homeW, rowH);
+    this._goPill(renderer, this._homeRect, { muted: true, label: t('menu.home'), icon: 'home' });
     renderer.setAlpha(1);
   }
 
-  /** A clean coloured (or ghost) pill button for the game-over card. */
+  /** A pill button for the game-over card: coloured, ghost, or muted. */
   _goPill(r, rect, btn) {
-    const ctx = r.ctx, rad = rect.h / 2;
-    const size = btn.sub ? 24 : 26, isz = 17, gap = 16;
-    const col = btn.ghost ? UI.btn.blue[1] : '#fff';
-    if (btn.ghost) {
+    const ctx = r.ctx, rad = rect.h / 2, isz = 16, gap = 13;
+    let col;
+    if (btn.muted) {
+      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, 'rgba(150,185,235,0.22)');
+      r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, rad, 'rgba(120,160,220,0.45)', 2);
+      col = 'rgba(20,44,92,0.62)';
+    } else if (btn.ghost) {
       r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, rad, UI.btn.blue[1], 2.5);
+      col = UI.btn.blue[1];
     } else {
       const c = btn.colors;
       r.withGlow(c[1], 16, () => r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, c[1]));
-      const g = r.linearGradient(rect.x, rect.y, rect.x, rect.y + rect.h, [[0, c[0]], [1, c[1]]]);
-      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, g);
+      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, r.linearGradient(rect.x, rect.y, rect.x, rect.y + rect.h, [[0, c[0]], [1, c[1]]]));
       ctx.save(); r.roundRectPath(rect.x, rect.y, rect.w, rect.h, rad); ctx.clip();
       r.fillRoundRect(rect.x + 3, rect.y + 2, rect.w - 6, rect.h * 0.48, rad, 'rgba(255,255,255,0.26)');
       ctx.restore();
+      col = '#fff';
     }
-    // Centre the [icon + label] group horizontally.
+    // Auto-fit the [icon + label] group to the button width (handles the narrow
+    // Home button and long translations).
+    let size = btn.sub ? 24 : 25;
     ctx.font = `900 ${size}px system-ui, sans-serif`;
+    while (size > 13 && ctx.measureText(btn.label).width + isz * 2 + gap > rect.w - 22) { size -= 1; ctx.font = `900 ${size}px system-ui, sans-serif`; }
     const lw = ctx.measureText(btn.label).width;
     const gx = rect.centerX - (isz * 2 + gap + lw) / 2;
     const cyp = btn.sub ? rect.centerY - 12 : rect.centerY;
     this._goIcon(r, btn.icon, gx + isz, cyp, isz, col);
+    const plain = btn.muted || btn.ghost;
     r.text(btn.label, gx + isz * 2 + gap, cyp, {
       font: `900 ${size}px system-ui, sans-serif`, color: col, align: 'left', baseline: 'middle',
-      outline: btn.ghost ? undefined : 'rgba(0,0,0,0.12)', outlineWidth: btn.ghost ? 0 : 3,
+      outline: plain ? undefined : 'rgba(0,0,0,0.12)', outlineWidth: plain ? 0 : 3,
     });
     if (btn.sub) r.text(btn.sub, rect.centerX, rect.centerY + 16, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', align: 'center', baseline: 'middle' });
   }
