@@ -763,67 +763,61 @@ export class HudScreen extends Screen {
     renderer.setAlpha(1);
 
     const a = this._overlayT, cx = b.centerX, rise = (1 - a) * 24;
-    // --- Panel card: clean white with a soft blue border + cloud-tinted foot ---
-    const cw = Math.min(b.w * 0.9, 860);
-    const cardH = this._canRevive ? 660 : 560;
+    // --- Panel card: glassy white with a very thin blue outline ---
+    const cw = Math.min(b.w * 0.9, 820);
+    const cardH = this._canRevive ? 500 : 420;
     const cardX = cx - cw / 2;
-    const cardY = Math.round(b.centerY - cardH / 2 + 20 + rise);
+    const cardY = Math.round(b.centerY - cardH / 2 + 26 + rise);
     renderer.setAlpha(a);
-    UITheme.shadow(renderer, cardX, cardY, cw, cardH, 40, 12, 0.32);
-    const cg = renderer.linearGradient(cardX, cardY, cardX, cardY + cardH, [[0, '#ffffff'], [0.68, '#ffffff'], [1, '#e8f3ff']]);
-    renderer.fillRoundRect(cardX, cardY, cw, cardH, 40, cg);
-    renderer.strokeRoundRect(cardX, cardY, cw, cardH, 40, 'rgba(150,200,255,0.95)', 4);
+    UITheme.shadow(renderer, cardX, cardY, cw, cardH, 38, 12, 0.30);
+    const cg = renderer.linearGradient(cardX, cardY, cardX, cardY + cardH, [[0, 'rgba(255,255,255,0.96)'], [1, 'rgba(231,242,255,0.94)']]);
+    renderer.fillRoundRect(cardX, cardY, cw, cardH, 38, cg);
+    renderer.strokeRoundRect(cardX, cardY, cw, cardH, 38, 'rgba(140,195,255,0.8)', 2.5);
 
-    // Sad mascot peeking over the top edge (falls back to the normal mascot
-    // until a `mascot_sad` sprite is added to assets/sprites).
+    // Sad mascot resting on the top edge (raised so it barely overlaps).
     const mimg = AssetManager.image('mascot_sad') ?? AssetManager.image('mascot');
     if (mimg) {
-      const box = cw * 0.42, rr = Math.min(box / mimg.width, box / mimg.height);
+      const box = cw * 0.40, rr = Math.min(box / mimg.width, box / mimg.height);
       const mw = mimg.width * rr, mh = mimg.height * rr;
-      const myTop = cardY - mh * 0.9 + Math.sin(performance.now() / 520) * 4;
+      const myTop = cardY - mh * 0.82 + Math.sin(performance.now() / 520) * 4;
       ctx.drawImage(mimg, cx - mw / 2, myTop, mw, mh);
     }
 
-    // Title + subtitle.
-    renderer.text(t('gameOver.title'), cx, cardY + 96, { font: '900 50px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
-    renderer.text(t('gameOver.subtitle'), cx, cardY + 142, { font: '800 20px system-ui, sans-serif', color: 'rgba(20,44,92,0.5)', align: 'center', baseline: 'middle' });
+    // Title (no subtitle).
+    renderer.text(t('gameOver.title'), cx, cardY + 68, { font: '900 46px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
 
-    // Score box (rounded inset): score + best.
-    const boxX = cardX + 44, boxW = cw - 88, boxY = cardY + 176, boxH = 156;
-    renderer.fillRoundRect(boxX, boxY, boxW, boxH, 26, 'rgba(150,185,235,0.16)');
-    if (this._newBest) {
-      renderer.withGlow('#ffd34e', 12, () => renderer.text(t('common.newBest'), cx, boxY - 4, {
-        font: '900 18px system-ui, sans-serif', color: '#ffb020', align: 'center', baseline: 'middle', outline: '#c8880f', outlineWidth: 4,
-      }));
-    }
-    renderer.text(t('gameOver.score'), cx, boxY + 34, { font: '800 17px system-ui, sans-serif', color: 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle' });
-    renderer.text(String(this._final), cx, boxY + 88, { font: '900 62px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
-    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')}  ${this._best}`, cx, boxY + 130, {
-      font: '800 19px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.6)', align: 'center', baseline: 'middle',
+    // Compact score: small SCORE label, big number, small BEST — no big card.
+    renderer.text(t('gameOver.score'), cx, cardY + 114, { font: '800 15px system-ui, sans-serif', color: 'rgba(20,44,92,0.5)', align: 'center', baseline: 'middle' });
+    renderer.text(String(this._final), cx, cardY + 156, { font: '900 56px system-ui, sans-serif', color: UI.ink, align: 'center', baseline: 'middle' });
+    renderer.text(`${this._daily ? t('hud.todaysBest') : t('gameOver.best')} ${this._best}`, cx, cardY + 196, {
+      font: '800 18px system-ui, sans-serif', color: this._newBest ? '#e0a41e' : 'rgba(20,44,92,0.55)', align: 'center', baseline: 'middle',
     });
 
-    // Consolation coins — subtle, just under the box.
-    if (this._consolation && (this._consolation.reward?.coins ?? 0) > 0) {
-      renderer.text(`${t('gameOver.consolation')}  +${this._consolation.reward.coins}`, cx, boxY + boxH + 22, {
-        font: '800 16px system-ui, sans-serif', color: '#e6892a', align: 'center', baseline: 'middle',
-      });
+    // Tiny reward/new-best badge — secondary, small.
+    if (this._newBest) {
+      const cnw = 128, cbx = cx - cnw / 2, cby = cardY + 220;
+      renderer.fillRoundRect(cbx, cby, cnw, 26, 13, 'rgba(255,196,80,0.95)');
+      renderer.text(t('common.newBest'), cx, cby + 13, { font: '900 14px system-ui, sans-serif', color: '#7a4a00', align: 'center', baseline: 'middle' });
+    } else if (this._consolation && (this._consolation.reward?.coins ?? 0) > 0) {
+      const label = `+${this._consolation.reward.coins}`;
+      ctx.font = '800 15px system-ui, sans-serif';
+      const cnw = ctx.measureText(label).width + 46, cbx = cx - cnw / 2, cby = cardY + 220;
+      renderer.fillRoundRect(cbx, cby, cnw, 26, 13, 'rgba(255,196,80,0.95)');
+      drawObjectiveIcon(renderer, 'coins', cbx + 16, cby + 13, 8, '#fff8e0');
+      renderer.text(label, cbx + 30, cby + 13, { font: '800 15px system-ui, sans-serif', color: '#7a4a00', align: 'left', baseline: 'middle' });
     }
 
-    // --- Buttons (stacked, anchored to the card bottom) ---
-    // Revive (watch-ad continue) is offered on top only when available; the base
-    // layout is the clean "Play Again" + "Home" pair.
-    const bw = cw - 88, bx = cx - bw / 2, gap = 14, bottomPad = 30;
+    // --- Buttons: max two full pills; Home is a small icon at the foot ---
+    const bw = cw - 80, bx = cx - bw / 2, gap = 14, bottomPad = 20, homeRowH = 46;
     const btns = [];
     if (this._canRevive) {
-      btns.push({ id: 'revive', colors: UI.btn.play, label: t('common.continue'), sub: t('common.watchAd'), icon: 'play', h: 80 });
+      btns.push({ id: 'revive', colors: UI.btn.play, label: t('common.continue'), sub: t('common.watchAd'), icon: 'play', h: 76 });
       btns.push({ id: 'retry', colors: UI.btn.blue, label: t('gameOver.playAgain'), icon: 'refresh', h: 66 });
-      btns.push({ id: 'home', ghost: true, label: t('menu.home'), icon: 'home', h: 58 });
     } else {
       btns.push({ id: 'retry', colors: UI.btn.play, label: t('gameOver.playAgain'), icon: 'refresh', h: 74 });
-      btns.push({ id: 'home', colors: UI.btn.blue, label: t('menu.home'), icon: 'home', h: 74 });
     }
     const totalH = btns.reduce((s, x) => s + x.h, 0) + gap * (btns.length - 1);
-    let byb = cardY + cardH - bottomPad - totalH;
+    let byb = cardY + cardH - bottomPad - homeRowH - totalH;
     this._reviveRect = this._retryRect = this._homeRect = null;
     for (const btn of btns) {
       const rect = new Rect(bx, byb, bw, btn.h);
@@ -832,10 +826,19 @@ export class HudScreen extends Screen {
       this._goPill(renderer, rect, btn);
       if (beat !== 1) renderer.restore();
       if (btn.id === 'revive') this._reviveRect = rect;
-      else if (btn.id === 'retry') this._retryRect = rect;
-      else this._homeRect = rect;
+      else this._retryRect = rect;
       byb += btn.h + gap;
     }
+
+    // Small muted HOME control (icon + label) centred at the foot.
+    const hy = cardY + cardH - bottomPad - homeRowH / 2;
+    const hcol = 'rgba(20,44,92,0.5)', hsz = 13, hgap = 10;
+    ctx.font = '800 17px system-ui, sans-serif';
+    const hlw = ctx.measureText(t('menu.home')).width;
+    const hgx = cx - (hsz * 2 + hgap + hlw) / 2;
+    this._goIcon(renderer, 'home', hgx + hsz, hy, hsz, hcol);
+    renderer.text(t('menu.home'), hgx + hsz * 2 + hgap, hy, { font: '800 17px system-ui, sans-serif', color: hcol, align: 'left', baseline: 'middle' });
+    this._homeRect = new Rect(cx - 110, hy - homeRowH / 2, 220, homeRowH);   // generous tap area
     renderer.setAlpha(1);
   }
 
