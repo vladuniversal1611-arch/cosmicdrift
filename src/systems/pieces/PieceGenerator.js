@@ -173,11 +173,13 @@ export class PieceGenerator {
     const struggle = Math.max(0, generosity);
     const tightness = fill > 0.5 ? (fill - 0.5) * 0.9 : 0;
     const finishHelp = (endless && filled > 0 && filled <= rows * 3) ? 0.6 : 0;
-    const giftChance = Config.generator.giftBaseChance + struggle * Config.generator.giftStruggleBonus + tightness + finishHelp;
-    if (this.rng.next() < giftChance) {
-      const gift = this._findClearingShape(occ, rows, cols);
-      if (gift) this._trySwap(tray, gift, occ, rows, cols);
-    }
+    // Find the best clear-enabling shape (prefers a multi-line clear). When a
+    // clear is genuinely available, strongly favour handing the player the
+    // finishing piece — that "I cleared it!" moment is the core dopamine.
+    const gift = this._findClearingShape(occ, rows, cols);
+    const primedBoost = gift ? 0.5 : 0;
+    const giftChance = Config.generator.giftBaseChance + struggle * Config.generator.giftStruggleBonus + tightness + finishHelp + primedBoost;
+    if (gift && this.rng.next() < giftChance) this._trySwap(tray, gift, occ, rows, cols);
 
     // Exciting big piece — a deliberate spike, but only when there's ROOM for it
     // (in endless, gated on a fairly open board) so it never clogs a tight one.

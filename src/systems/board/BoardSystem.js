@@ -81,11 +81,12 @@ export class BoardSystem extends System {
     this._driftPending = false;
     /** Throttle timer for the idle "no full line lingers" safety sweep. */
     this._sweepT = 0;
-    // Board theme (cycled on every full-board clear) + the transformation FX.
+    // Board theme (morphs on full-board clears AND every N cleared lines) + FX.
     this._themeIndex = 0;
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
-    this._fullClearFx = null;   // { t, dur } while the wave + PERFECT banner play
+    this._linesSinceTheme = 0;  // lines cleared toward the next theme morph
+    this._fullClearFx = null;   // { t, dur, perfect } while the wave (+ banner) play
     this._hint = null;          // { blocks, col, row, t } rewarded-hint highlight
   }
 
@@ -152,6 +153,7 @@ export class BoardSystem extends System {
     for (const cell of cells) cell.beginClear(delayOf.get(cell) ?? 0, dur);
 
     this._clearing = true;
+    this._linesSinceTheme = (this._linesSinceTheme ?? 0) + lines.length;
     // `amount` mirrors `count` so the generic MissionSystem can accrue progress.
     this.events.emit('game:linesCleared', { count: lines.length, amount: lines.length });
     // Lines completed by a Cosmic Drift also fire a distinct event so the
@@ -219,20 +221,30 @@ export class BoardSystem extends System {
     this._themeIndex = 0;
     this._theme = Palette.boardThemes[0];
     this._prevTheme = null;
+    this._linesSinceTheme = 0;
     this._fullClearFx = null;
   }
 
   /**
-   * A full-board clear ("PERFECT"): advance the board theme for THIS RUN only
-   * (not persisted), kick off the transformation wave + banner, and pay out a
-   * celebratory bonus.
+   * Advance to the next theme (this run only, not persisted) and kick off the
+   * transformation wave that morphs the cells + whole-screen sky. `perfect`
+   * marks a full-board clear (shows the PERFECT banner); a regular line-clear
+   * milestone morphs the mood without the banner.
    */
-  _onFullClear() {
+  _advanceTheme(perfect) {
     this._prevTheme = this._theme;
     this._themeIndex = (this._themeIndex + 1) % Palette.boardThemes.length;
     this._theme = Palette.boardThemes[this._themeIndex];
+    this._linesSinceTheme = 0;
+    this._fullClearFx = { t: 0, dur: 1.15, perfect };
+  }
 
-    this._fullClearFx = { t: 0, dur: 1.15 };
+  /**
+   * A full-board clear ("PERFECT"): morph the theme, kick off the transformation
+   * wave + banner, and pay out a celebratory bonus.
+   */
+  _onFullClear() {
+    this._advanceTheme(true);
 
     const bonus = 50;
     this.game.getSystem('economy')?.credit('gold', bonus);
@@ -401,9 +413,13 @@ export class BoardSystem extends System {
     if (this._clearing && stillClearing === 0) {
       this._clearing = false;
       this.events.emit('board:clearComplete');
-      // A clear that empties the whole board is a "PERFECT" — celebrate + swap
-      // the board theme with a transformation wave.
+      // A clear that empties the whole board is a "PERFECT"; otherwise, morph the
+      // theme every N cleared lines so the mood keeps changing as you play.
       if (this._isBoardEmpty()) this._onFullClear();
+      else if ((this._linesSinceTheme ?? 0) >= BoardSystem.THEME_EVERY_LINES) {
+        this._advanceTheme(false);
+        this.events.emit('fx:flash', { color: this._theme.accent, strength: 0.24 });
+      }
     }
 
     // Advance the full-clear transformation wave.
@@ -796,6 +812,9 @@ export class BoardSystem extends System {
       ctx.beginPath(); ctx.arc(a.centerX, a.centerY, rad, 0, Math.PI * 2); ctx.stroke();
     });
     renderer.setAlpha(1);
+    // Only a genuine full-board clear shows the "PERFECT!" banner; a line-clear
+    // theme morph just rides the wave + background change.
+    if (!fx.perfect) return;
     // "PERFECT!" banner — backOut pop in, hold, fade out.
     const pop = Easing.backOut(clamp(p / 0.25, 0, 1));
     const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
@@ -885,3 +904,6 @@ export class BoardSystem extends System {
     }
   }
 }
+
+/** Cleared lines between theme morphs (a full-board PERFECT also morphs it). */
+BoardSystem.THEME_EVERY_LINES = 10;
