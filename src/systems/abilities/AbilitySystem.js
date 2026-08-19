@@ -25,10 +25,26 @@
 import { System } from '../../core/System.js';
 import { Haptics } from '../../utils/Haptics.js';
 
-/** Material key that IS the dragon (see Palette.materials). */
-const DRAGON_KEY = 'ruby';
-/** Lines to clear before the Dragon's fire is ready. */
+/** Lines to clear before a character's power is ready. */
 const CHARGE_CAP = 4;
+
+/**
+ * Each colour's power, keyed by material. `kind` selects the effect:
+ *   row/col   — burn the tapped block's whole row / column
+ *   cross     — both diagonals through it (an X)
+ *   area      — the 3×3 around it
+ *   colour    — every block of that colour on the board
+ *   tray      — deal a fresh tray of pieces
+ * `fx` tints the burst.
+ */
+const POWERS = {
+  ruby:     { kind: 'row',    fx: '#ff7a2e' },   // dragon — fire a row
+  sapphire: { kind: 'col',    fx: '#3aa8ff' },   // whale  — flood a column
+  amethyst: { kind: 'cross',  fx: '#a94fe0' },   // unicorn — clear diagonals
+  emerald:  { kind: 'area',   fx: '#2fd07f' },   // frog   — splash a 3×3
+  coral:    { kind: 'colour', fx: '#ff8a3d' },   // cat    — sweep its colour
+  amber:    { kind: 'tray',   fx: '#ffd24a' },   // chick  — deal a fresh tray
+};
 
 export class AbilitySystem extends System {
   constructor(game) {
@@ -58,9 +74,9 @@ export class AbilitySystem extends System {
   _emit() { this.events.emit('ability:charge', { ratio: this.chargeRatio, ready: this.ready }); }
 
   /**
-   * A tap while the power is READY, landing on a dragon block, breathes fire and
-   * clears that block's whole row. Anything else (not ready, a booster armed, a
-   * modal open, an empty cell, a non-dragon block) is left alone.
+   * A tap while a power is READY, landing on a character block, triggers THAT
+   * character's power (see POWERS). Anything else (not ready, a booster armed, a
+   * modal open, an empty cell, a colour with no power) is left alone.
    */
   _tryStrike(x, y) {
     if (!this.ready || this._modal) return;
@@ -72,26 +88,54 @@ export class AbilitySystem extends System {
     if (!hit) return;
     const cell = grid.get(hit.col, hit.row);
     if (!cell || !cell.filled || cell.isClearing) return;
-    if (cell.materialKey !== DRAGON_KEY) return;         // only dragons burn
+    const power = POWERS[cell.materialKey];
+    if (!power) return;
 
-    // Collect the whole row's live blocks and torch them.
-    const rowCells = [];
-    for (let c = 0; c < grid.columns; c++) {
-      const rc = grid.get(c, hit.row);
-      if (rc && rc.filled && !rc.isClearing) rowCells.push(rc);
-    }
-    if (!board.clearCells(rowCells, { col: hit.col, row: hit.row })) return;
+    const fired = power.kind === 'tray'
+      ? this._fireTray()
+      : board.clearCells(this._collectCells(grid, power.kind, hit, cell.materialKey), { col: hit.col, row: hit.row });
+    if (!fired) return;
 
-    // Fiery punch: an orange flash, a burst at the dragon, a firm shake.
+    // Punchy feedback tinted to the character's colour.
     const ctr = grid.cellCenter(hit.col, hit.row);
-    this.events.emit('fx:flash', { color: '#ff8a3d', strength: 0.4 });
-    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: '#ff7a2e', count: 40 });
-    this.events.emit('fx:shake', { mag: 12 });
+    this.events.emit('fx:flash', { color: power.fx, strength: 0.36 });
+    this.events.emit('fx:burst', { x: ctr.x, y: ctr.y, color: power.fx, count: 40 });
+    this.events.emit('fx:shake', { mag: 11 });
     Haptics.victory(this.game);
-    this.game.getSystem('audio')?.play('clear', { rate: 0.7 });
+    this.game.getSystem('audio')?.play('clear', { rate: 0.72 });
 
     this._charge = 0;
     this._emit();
-    this.events.emit('ability:used', { kind: 'dragonfire' });
+    this.events.emit('ability:used', { kind: power.kind });
+  }
+
+  /** Deal a fresh tray (the chick's power). */
+  _fireTray() {
+    const pieces = this.game.getSystem('pieces');
+    if (!pieces?.refill) return false;
+    pieces.refill();
+    return true;
+  }
+
+  /** Gather the live blocks a clearing power targets. */
+  _collectCells(grid, kind, hit, key) {
+    const out = [];
+    const push = (c, r) => {
+      const cell = grid.get(c, r);
+      if (cell && cell.filled && !cell.isClearing) out.push(cell);
+    };
+    if (kind === 'row') for (let c = 0; c < grid.columns; c++) push(c, hit.row);
+    else if (kind === 'col') for (let r = 0; r < grid.rows; r++) push(hit.col, r);
+    else if (kind === 'cross') {
+      for (let d = -Math.max(grid.rows, grid.columns); d <= Math.max(grid.rows, grid.columns); d++) {
+        push(hit.col + d, hit.row + d);
+        push(hit.col + d, hit.row - d);
+      }
+    } else if (kind === 'area') {
+      for (let r = hit.row - 1; r <= hit.row + 1; r++) for (let c = hit.col - 1; c <= hit.col + 1; c++) push(c, r);
+    } else if (kind === 'colour') {
+      grid.forEach((cell) => { if (cell.filled && !cell.isClearing && cell.materialKey === key) out.push(cell); });
+    }
+    return out;
   }
 }

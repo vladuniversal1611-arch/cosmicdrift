@@ -856,17 +856,23 @@ export class BoardSystem extends System {
     ctx.globalAlpha = 1;
   }
 
-  /** Placed crystal with landing squash/pop. */
+  /** Placed crystal with landing squash/pop + a gentle idle "alive" bob. */
   _drawPlacedCell(renderer, x, y, size, cell) {
     const mat = Palette.materials[cell.materialKey];
-    let scale = 1;
+    let scale = 1, dy = 0;
     let glow = 0.5 + 0.12 * Math.sin(this._time * 2 + cell.phase);
     if (cell.placeDur > 0) {
       const p = clamp(cell.placeT / cell.placeDur, 0, 1);
       scale = Easing.backOut(p);           // 0 → overshoot → settle at 1
       glow += (1 - p) * 0.6;               // bright flash on arrival
+    } else {
+      // Settled: a tiny phase-offset breathe + bob so the board feels alive
+      // without a synchronised wobble. One sin per cell — free on the FPS budget.
+      const b = Math.sin(this._time * 1.7 + cell.phase);
+      dy = b * size * 0.02;                 // ~2px gentle bob
+      scale = 1 + b * 0.012;                // subtle breathe
     }
-    drawCrystal(renderer, x, y, size, mat, { scale, glow });
+    drawCrystal(renderer, x, y + dy, size, mat, { scale, glow });
   }
 
   /** A cell mid-clear: the little character gives an excited wiggle while it

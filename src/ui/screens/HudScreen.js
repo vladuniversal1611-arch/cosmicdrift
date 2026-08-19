@@ -472,11 +472,21 @@ export class HudScreen extends Screen {
     r.withGlow(ready ? `rgba(255,150,60,${0.4 + 0.5 * pulse})` : 'rgba(0,0,0,0)', ready ? 16 : 0, () => {
       r.fillCircle(cx, cy, rad, r.linearGradient(x, y, x, y + bd, [[0, '#3a2350'], [1, '#22143a']]));
     });
-    // Dragon face (dim until ready).
-    const img = AssetManager.image('friend_dragon');
-    const s = bd * 0.78;
-    r.setAlpha(ready ? 1 : 0.55);
-    if (img) ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+    // Gold power-star (dim until ready) — a character power is available.
+    const sr = bd * 0.3;
+    r.setAlpha(ready ? 1 : 0.5);
+    r.withGlow(ready ? `rgba(255,210,74,${0.5 + 0.5 * pulse})` : 'rgba(0,0,0,0)', ready ? 12 : 0, () => {
+      ctx.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + k * Math.PI / 5, rad = k % 2 ? sr * 0.44 : sr;
+        const pxk = cx + Math.cos(a) * rad, pyk = cy + Math.sin(a) * rad;
+        k ? ctx.lineTo(pxk, pyk) : ctx.moveTo(pxk, pyk);
+      }
+      ctx.closePath();
+      ctx.fillStyle = r.linearGradient(cx, cy - sr, cx, cy + sr, [[0, '#fff2b0'], [1, '#ffbf3d']]);
+      ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#e0961e'; ctx.stroke();
+    });
     r.setAlpha(1);
     // Charge ring: faint track + a filling arc from the top.
     ctx.save();
