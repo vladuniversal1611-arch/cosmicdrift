@@ -52,11 +52,31 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
 
   // --- Cute-friends skin ----------------------------------------------------
   // When the player has the "friends" block skin on, each colour is its own
-  // little character instead of a gem. Handled before the gem sprite/procedural
-  // paths so it fully replaces the block look.
+  // hand-painted character instead of a gem. Handled before the gem sprite /
+  // procedural paths so it fully replaces the block look.
   if (Quality.blockSkin === 'friends') {
     const type = CRITTER_TYPE.get(material);
-    if (type) { drawCritter(renderer, x, y, size, material, type, { scale, ignite, radius }); return; }
+    if (type) {
+      const fimg = AssetManager.image(`friend_${type}`);
+      if (fimg) {
+        // The character head nearly fills the cell so completed lines still read
+        // as a solid bar; `s`/`px`/`py` fold in the landing-pop scale.
+        ctx.drawImage(fimg, px, py, s, s);
+        if (ignite > 0) {
+          // Additive re-draw brightens the character toward a white flash, and
+          // is masked by the sprite's own alpha (no whitened cell corners).
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, ignite);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.drawImage(fimg, px, py, s, s);
+          ctx.restore();
+        }
+        return;
+      }
+      // Sprite not decoded yet → procedural face for this frame.
+      drawCritter(renderer, x, y, size, material, type, { scale, ignite, radius });
+      return;
+    }
   }
 
   // --- Sprite path ----------------------------------------------------------

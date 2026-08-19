@@ -14,14 +14,23 @@
  */
 import { Config } from '../config/Config.js';
 
-// Which character each material colour becomes. Distinct silhouettes so the five
-// colours stay instantly tellable apart even for colour-blind players.
+// Which character each material colour becomes — the hand-painted friend sprite
+// (friend_<name>) blits when decoded; the procedural face below is the pre-load
+// fallback. Distinct silhouettes so colours stay tellable apart even for
+// colour-blind players.
 export const CritterType = Object.freeze({
   emerald: 'frog',
-  ruby: 'cat',
+  ruby: 'dragon',
   sapphire: 'whale',
   amber: 'chick',
-  amethyst: 'dino',
+  amethyst: 'unicorn',
+  coral: 'cat',
+});
+
+// The procedural fallback can't draw every animal, so map each to its closest
+// simple face (only ever visible for the split second before the sprite loads).
+const FALLBACK_FACE = Object.freeze({
+  frog: 'frog', dragon: 'cat', whale: 'whale', chick: 'chick', unicorn: 'dino', cat: 'cat',
 });
 
 /**
@@ -42,16 +51,17 @@ export function drawCritter(renderer, x, y, size, material, type, opts = {}) {
   const py = y + (size - s) * 0.5;
   const r = Math.max(2, radius * scale);
   const cx = px + s * 0.5;
+  const face = FALLBACK_FACE[type] || type;
 
   // Toppers that sit BEHIND the head (ears, spikes) draw first so the head hides
   // their base.
-  if (type === 'cat') _catEars(renderer, px, py, s, material);
-  else if (type === 'dino') _dinoSpikes(renderer, px, py, s, material);
+  if (face === 'cat') _catEars(renderer, px, py, s, material);
+  else if (face === 'dino') _dinoSpikes(renderer, px, py, s, material);
 
   _head(renderer, px, py, s, r, material);
 
   // Face + per-type features.
-  switch (type) {
+  switch (face) {
     case 'frog': _frog(renderer, px, py, s, cx, material); break;
     case 'cat': _cat(renderer, px, py, s, cx, material); break;
     case 'whale': _whale(renderer, px, py, s, cx, material); break;

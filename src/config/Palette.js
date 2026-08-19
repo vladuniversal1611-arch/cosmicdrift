@@ -106,9 +106,11 @@ export const Palette = Object.freeze({
     ruby: Object.freeze({ light: '#ffc0d0', core: '#ff3d6f', deep: '#c11844', glow: '#ff5c86', spark: '#ffe0e8', symbol: 'triangle' }),
     sapphire: Object.freeze({ light: '#bfe0ff', core: '#2f8bff', deep: '#1257c4', glow: '#54a6ff', spark: '#e2f0ff', symbol: 'square' }),
     amber: Object.freeze({ light: '#ffe6ad', core: '#ffb020', deep: '#d98307', glow: '#ffc84d', spark: '#fff3d6', symbol: 'diamond' }),
-    // Kept under the legacy `amethyst` key (saves + fallbacks reference it) but
-    // recoloured to a bright, sunny turquoise so nothing reads as dark violet.
-    amethyst: Object.freeze({ light: '#c2fff4', core: '#1fd6c4', deep: '#0f9488', glow: '#3ff0dd', spark: '#e2fffb', symbol: 'cross' }),
+    // Purple (the unicorn friend). Kept under the legacy `amethyst` key that
+    // saves + fallbacks reference.
+    amethyst: Object.freeze({ light: '#e8ccff', core: '#a24fe0', deep: '#6f2caf', glow: '#c891ff', spark: '#f1e3ff', symbol: 'cross' }),
+    // Warm orange (the cat friend) — a sixth colour for more board variety.
+    coral: Object.freeze({ light: '#ffd9b0', core: '#ff8a3d', deep: '#d15f12', glow: '#ffb066', spark: '#fff0dd', symbol: 'diamond' }),
   }),
 
   /**
