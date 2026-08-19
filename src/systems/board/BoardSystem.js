@@ -861,22 +861,34 @@ export class BoardSystem extends System {
     drawCrystal(renderer, x, y, size, mat, { scale, glow });
   }
 
-  /** A cell mid-clear: ignites bright, swells, then dissolves away. */
+  /** A cell mid-clear: the little character gives an excited wiggle while it
+   *  waits for the energy wave, then hops up with a joyful wobble and poofs —
+   *  so a line clear reads as the friends celebrating, staggered into a wave. */
   _drawClearingCell(renderer, x, y, size, cell) {
+    const ctx = renderer.ctx;
+    const cxp = x + size / 2, cyp = y + size / 2;
     const mat = Palette.materials[cell.clearMaterial] ?? Palette.materials.amethyst;
     if (cell.clearDelay > 0) {
-      // Waiting for the wave — brighten slightly in anticipation.
-      drawCrystal(renderer, x, y, size, mat, { scale: 1, glow: 0.7 });
+      // Anticipation: a quick excited wiggle + squash while awaiting the wave.
+      const w = Math.sin(this._time * 22 + cell.phase) * 0.05;
+      ctx.save(); ctx.translate(cxp, cyp); ctx.rotate(w); ctx.translate(-cxp, -cyp);
+      drawCrystal(renderer, x, y, size, mat, { scale: 1.06, glow: 0.8 });
+      ctx.restore();
       return;
     }
     const t = clamp(cell.clearT / cell.clearDur, 0, 1);
     const bump = Math.sin(t * Math.PI);    // 0 → 1 → 0
-    renderer.setAlpha(1 - t * 0.15);
+    const hop = size * 0.42 * bump;        // joyful jump up
+    const rot = Math.sin(t * Math.PI * 3) * 0.16;  // happy wobble
+    renderer.setAlpha(1 - t * 0.18);
+    ctx.save();
+    ctx.translate(cxp, cyp - hop); ctx.rotate(rot); ctx.translate(-cxp, -cyp);
     drawCrystal(renderer, x, y, size, mat, {
       scale: 1 + 0.42 * bump,
       glow: 0.9 + bump,
       ignite: bump,
     });
+    ctx.restore();
     renderer.setAlpha(1);
   }
 

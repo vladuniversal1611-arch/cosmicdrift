@@ -64,8 +64,10 @@ export class Piece {
     const pulse = 0.5 + 0.32 * Math.sin((time / period) * Math.PI * 2 + this.glowPhase);
     // Held relics glow noticeably hotter than resting ones.
     const glow = this.dragging ? 0.9 + 0.2 * pulse : 0.45 + 0.35 * pulse;
-    // Fast horizontal jitter while a rejected relic springs home.
+    // Fast horizontal jitter + a little rotational "nuh-uh" head-shake while a
+    // rejected relic springs home (funny "can't go there" reaction).
     const shakeX = this.shake ? Math.sin(time * 46) * this.shake : 0;
+    const wobble = this.shake ? Math.sin(time * 40) * this.shake * 0.014 : 0;
     const ctx = renderer.ctx;
     const radius = Config.board.cellRadius * this.scale;
 
@@ -83,7 +85,7 @@ export class Piece {
     ctx.save();
     // Pivot both the intro/breathing scale and the drag tilt about the centre.
     ctx.translate(pcx, pcy);
-    if (tilt) ctx.rotate(tilt);
+    if (tilt || wobble) ctx.rotate(tilt + wobble);
     if (vis !== 1) ctx.scale(vis, vis);
     ctx.translate(-pcx, -pcy);
 
