@@ -75,6 +75,10 @@ export class LevelSystem extends System {
     // A level is now cleared when its OBJECTIVES are all met (not a score goal).
     this.listen('objectives:allComplete', () => { if (!this._endless) this._completeLevel(); });
     this.listen('board:clearComplete', () => this._maybeAdvance());
+    // Tapping "Next Level" on the victory screen must reveal the ADVANCED level
+    // even if the triggering clear is still animating — force the queued advance
+    // now (no-op if it already happened).
+    this.listen('ui:reveal-next', () => this._maybeAdvance());
     // Endless difficulty ramp: the longer you survive, the harder the hands get.
     this.listen('game:linesCleared', ({ count = 1 }) => { if (this._endless) this._rampEndless(count); });
 

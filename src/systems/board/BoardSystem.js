@@ -101,6 +101,10 @@ export class BoardSystem extends System {
 
     this.listen('save:loaded', ({ data }) => { if (data.board) this.grid.deserialize(data.board); });
     this.listen('game:started', () => { this.grid.clearAll(); this._hint = null; this._resetTheme(); });
+    // A level change hands us a fresh board (cells already cleared by the tiles
+    // system). Drop any stale mid-clear state so advancing while a clear is still
+    // animating can't fire a spurious board:clearComplete / PERFECT.
+    this.listen('level:changed', () => { this._clearing = false; this._hint = null; });
     // Rewarded hint: highlight the suggested placement for a few seconds.
     this.listen('board:showHint', ({ blocks, col, row }) => { this._hint = { blocks, col, row, t: 4 }; });
     this.listen('game:piecePlaced', () => { this._hint = null; });
