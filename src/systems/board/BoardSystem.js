@@ -506,6 +506,12 @@ export class BoardSystem extends System {
       else ctx.drawImage(img, c.x - cw / 2, c.y - ch / 2, cw, ch);
       renderer.setAlpha(1);
     }
+    // Soft vignette: darken the far edges so the play area reads as the focus
+    // and the whole screen feels finished rather than a flat wash. One cheap
+    // radial per frame.
+    const vig = renderer.radialGradient(w * 0.5, h * 0.44, h * 0.62,
+      [[0, 'rgba(10,30,70,0)'], [0.72, 'rgba(10,30,70,0)'], [1, 'rgba(10,30,70,0.30)']]);
+    renderer.fillRect(0, 0, w, h, vig);
   }
 
   render(renderer) {
@@ -780,13 +786,15 @@ export class BoardSystem extends System {
     // above, so the top lip casts down), a crisp rim-light rides that shadow,
     // and a deeper bottom shade grounds the socket — so each empty cell reads
     // as a real engraved slot and placed crystals pop out of it.
-    renderer.setAlpha(0.22);
-    renderer.fillRoundRect(x + size * 0.08, y + size * 0.04, size * 0.84, size * 0.12, r * 0.5, 'rgba(40,74,130,0.55)');
-    renderer.setAlpha(0.5);
-    renderer.fillRoundRect(x + size * 0.12, y + size * 0.15, size * 0.76, size * 0.1, r * 0.5, 'rgba(255,255,255,0.9)');
-    renderer.setAlpha(0.22);
-    renderer.fillRoundRect(x + size * 0.1, y + size * 0.78, size * 0.8, size * 0.13, r * 0.5, 'rgba(30,60,110,0.7)');
+    renderer.setAlpha(0.32);
+    renderer.fillRoundRect(x + size * 0.06, y + size * 0.03, size * 0.88, size * 0.17, r * 0.6, 'rgba(26,58,116,0.62)');
+    renderer.setAlpha(0.6);
+    renderer.fillRoundRect(x + size * 0.14, y + size * 0.17, size * 0.72, size * 0.07, r * 0.4, 'rgba(255,255,255,0.95)');
+    renderer.setAlpha(0.28);
+    renderer.fillRoundRect(x + size * 0.08, y + size * 0.79, size * 0.84, size * 0.13, r * 0.5, 'rgba(18,46,104,0.78)');
     renderer.setAlpha(1);
+    // Thin crisp inner edge so each slot reads as a cleanly "cut" recess.
+    renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(34,74,140,0.30)', 1.5);
     // Transformation-wave accent: a bright bloom on the cell as the front passes.
     if (flash > 0) {
       renderer.setAlpha(flash * 0.7);
