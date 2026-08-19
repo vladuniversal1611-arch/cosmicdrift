@@ -206,6 +206,7 @@ export const Config = Object.freeze({
     economy: true,
     shop: true,
     boosters: true,
+    abilities: true,    // character powers (prototype: the Dragon's fire)
     // Pared down to a focused, Block-Blast-style game: two modes (Levels +
     // Endless) plus boosters. The heavier meta layers below are switched off —
     // their systems simply never register, and every caller already reaches

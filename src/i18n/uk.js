@@ -38,7 +38,7 @@ export default {
     shop: 'МАГАЗИН', settings: 'НАЛАШТУВАННЯ', collection: 'КОЛЕКЦІЯ', events: 'ПОДІЇ',
     paused: 'ПАУЗА', mainMenu: 'ГОЛОВНЕ МЕНЮ', floatingWorld: 'ЛЕТЮЧИЙ СВІТ',
   },
-  hud: { level: 'РІВЕНЬ {n}', worldMap: 'КАРТА СВІТУ', dragonEnergy: 'ЕНЕРГІЯ НОВИ', tapToStrike: 'ТОРКНИСЬ БЛОКУ', todaysBest: 'РЕКОРД ДНЯ' },
+  hud: { level: 'РІВЕНЬ {n}', worldMap: 'КАРТА СВІТУ', dragonEnergy: 'ЕНЕРГІЯ НОВИ', tapToStrike: 'ТОРКНИСЬ БЛОКУ', burnHint: 'ТОРКНИСЬ ДРАКОНА — СПАЛИТЬ РЯД!', todaysBest: 'РЕКОРД ДНЯ' },
   levelComplete: { line1: 'РІВЕНЬ', line2: 'ПРОЙДЕНО!', earned: 'МОНЕТ ОТРИМАНО', next: 'НАСТУПНИЙ РІВЕНЬ' },
   gameOver: { title: 'ГРУ ЗАВЕРШЕНО', subtitle: 'СПРОБУЙ ЩЕ РАЗ', score: 'РАХУНОК', best: 'РЕКОРД', retry: 'ТОРКНИСЬ, ЩОБ ЗІГРАТИ ЗНОВУ', playAgain: 'ГРАТИ ЗНОВУ', consolation: 'ГАРНА СПРОБА!' },
   settings: {

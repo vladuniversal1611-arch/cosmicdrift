@@ -40,7 +40,7 @@ export default {
     shop: 'SHOP', settings: 'SETTINGS', collection: 'COLLECTION', events: 'EVENTS',
     paused: 'PAUSED', mainMenu: 'MAIN MENU', floatingWorld: 'FLOATING WORLD',
   },
-  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY', tapToStrike: 'TAP A BLOCK TO STRIKE', todaysBest: "TODAY'S BEST" },
+  hud: { level: 'LEVEL {n}', worldMap: 'WORLD MAP', dragonEnergy: 'NOVA ENERGY', tapToStrike: 'TAP A BLOCK TO STRIKE', burnHint: 'TAP A DRAGON TO BURN ITS ROW!', todaysBest: "TODAY'S BEST" },
   levelComplete: { line1: 'LEVEL', line2: 'COMPLETE!', earned: 'COINS EARNED', next: 'NEXT LEVEL' },
   gameOver: { title: 'GAME OVER', subtitle: 'TRY AGAIN', score: 'SCORE', best: 'BEST', retry: 'TAP TO PLAY AGAIN', playAgain: 'PLAY AGAIN', consolation: 'NICE TRY!' },
   settings: {

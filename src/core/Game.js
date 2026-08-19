@@ -42,6 +42,7 @@ import { WorldSystem } from '../systems/world/WorldSystem.js';
 import { EconomySystem } from '../systems/economy/EconomySystem.js';
 import { ShopSystem } from '../systems/shop/ShopSystem.js';
 import { BoosterSystem } from '../systems/boosters/BoosterSystem.js';
+import { AbilitySystem } from '../systems/abilities/AbilitySystem.js';
 import { AchievementSystem } from '../systems/achievements/AchievementSystem.js';
 import { UISystem } from '../ui/UISystem.js';
 import { PerformanceManager } from '../systems/performance/PerformanceManager.js';
@@ -140,6 +141,8 @@ export class Game {
     this.systems.register(new PieceSystem(this));
     // In-level power-ups (additive help; never feeds score/objectives).
     if (f.boosters) this.systems.register(new BoosterSystem(this));
+    // Character powers (prototype: the Dragon's fire).
+    if (f.abilities) this.systems.register(new AbilitySystem(this));
 
     // Presentation — updated after gameplay, drawn on top.
     this.systems.register(new AnimationSystem(this));

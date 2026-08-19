@@ -442,7 +442,7 @@ export class HudScreen extends Screen {
     for (const child of this.children) child.render(renderer);
     this._drawObjectives(renderer);
     this._drawBestPill(renderer);
-    if (this._state === 'playing') { this._drawBoosters(renderer); this._drawHintButton(renderer); }
+    if (this._state === 'playing') { this._drawBoosters(renderer); this._drawHintButton(renderer); this._drawAbility(renderer); }
     this._drawCombo(renderer);
     this._drawClearCoins(renderer);
     this._drawScorePops(renderer);
@@ -451,6 +451,53 @@ export class HudScreen extends Screen {
     if (this._banner) this._drawBanner(renderer);
     if (this._goalCard) this._drawGoalCard(renderer);
     if (this._state === 'over') this._drawGameOver(renderer);
+  }
+
+  /**
+   * The Dragon-fire charge meter (left of the booster row): the dragon's face
+   * ringed by a charge arc that fills as lines clear. When full it glows and a
+   * hint invites tapping a dragon on the board to burn its row.
+   */
+  _drawAbility(r) {
+    const ab = this.game.getSystem('ability');
+    if (!ab) return;
+    const b0 = this._boosterBtns[0]?.rect;
+    const bd = b0 ? b0.h : 88;
+    const y = b0 ? b0.y : this.bounds.h * 0.2;
+    const x = 20, cx = x + bd / 2, cy = y + bd / 2, rad = bd / 2;
+    const ratio = ab.chargeRatio, ready = ab.ready, ctx = r.ctx;
+    const pulse = 0.5 + 0.5 * Math.sin(this._boosterT * 5);
+
+    // Base disc (glows when ready).
+    r.withGlow(ready ? `rgba(255,150,60,${0.4 + 0.5 * pulse})` : 'rgba(0,0,0,0)', ready ? 16 : 0, () => {
+      r.fillCircle(cx, cy, rad, r.linearGradient(x, y, x, y + bd, [[0, '#3a2350'], [1, '#22143a']]));
+    });
+    // Dragon face (dim until ready).
+    const img = AssetManager.image('friend_dragon');
+    const s = bd * 0.78;
+    r.setAlpha(ready ? 1 : 0.55);
+    if (img) ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+    r.setAlpha(1);
+    // Charge ring: faint track + a filling arc from the top.
+    ctx.save();
+    ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.arc(cx, cy, rad - 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = ready ? '#ffd24a' : '#ff8a3d';
+    ctx.beginPath(); ctx.arc(cx, cy, rad - 3, -Math.PI / 2, -Math.PI / 2 + clamp(ratio, 0, 1) * Math.PI * 2); ctx.stroke();
+    ctx.restore();
+
+    // "Tap a dragon" hint over the board when ready (unless a booster owns the tap).
+    if (ready && !this.game.getSystem('booster')?.armed) {
+      const board = this.game.getSystem('board')?.area;
+      const hy = board ? board.bottom + 8 : this.bounds.h * 0.62;
+      r.setAlpha(0.6 + 0.4 * pulse);
+      r.withGlow('#ffb060', 12, () => r.text(t('hud.burnHint'), this.bounds.centerX, hy, {
+        font: '900 24px system-ui, sans-serif', color: '#ffd89a', align: 'center', baseline: 'middle',
+        outline: 'rgba(120,60,10,0.7)', outlineWidth: 4,
+      }));
+      r.setAlpha(1);
+    }
   }
 
   /** Soft vertical light beam over the board during a line clear. */
