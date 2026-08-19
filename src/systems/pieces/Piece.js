@@ -89,13 +89,18 @@ export class Piece {
     if (vis !== 1) ctx.scale(vis, vis);
     ctx.translate(-pcx, -pcy);
 
-    // Soft drop-shadow beneath a lifted relic gives it weight.
+    // Soft drop-shadow beneath a lifted piece gives it weight. A centred, soft
+    // ellipse under each block (not an offset square) so it reads as an even
+    // shadow beneath the round character instead of a panel poking out a corner.
     if (this.dragging) {
-      renderer.setAlpha(0.3);
+      renderer.setAlpha(0.2);
+      ctx.fillStyle = 'rgba(0,0,0,1)';
       for (const [bc, br] of this.blocks) {
         const bx = this.x + bc * size + shakeX;
         const by = this.y + br * size;
-        renderer.fillRoundRect(bx + size * 0.12, by + size * 0.22, size - 2, size - 2, radius, 'rgba(0,0,0,1)');
+        ctx.beginPath();
+        ctx.ellipse(bx + size / 2, by + size * 0.6, size * 0.42, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       renderer.setAlpha(1);
     }

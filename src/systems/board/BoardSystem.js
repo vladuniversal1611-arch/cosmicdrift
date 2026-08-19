@@ -576,7 +576,7 @@ export class BoardSystem extends System {
     this._drawBoardMotes(renderer);
     if (this._fullClearFx) this._drawFullClearFx(renderer);
     if (this._hint && !this._hover) this._drawHint(renderer);
-    if (this._hover) this._drawGhost(renderer);
+    if (this._hover) { this._drawClearPreview(renderer); this._drawGhost(renderer); }
   }
 
   /** Carved stone frame with beveled lighting and corner runes. */
@@ -904,6 +904,63 @@ export class BoardSystem extends System {
     });
     ctx.restore();
     renderer.setAlpha(1);
+  }
+
+  /**
+   * Clear preview: while hovering a VALID placement, light up in gold every row
+   * and column that this drop would COMPLETE — so the player sees the lines that
+   * are about to pop before committing (the Block Blast "this will clear" read).
+   */
+  _drawClearPreview(renderer) {
+    const { piece, col, row, valid } = this._hover;
+    if (!valid) return;
+    const g = this.grid;
+
+    // Cells the piece would occupy.
+    const occ = new Set();
+    for (const [bc, br] of piece.blocks) {
+      const c = col + bc, r = row + br;
+      if (g.inRange(c, r)) occ.add(c + ',' + r);
+    }
+    const isSet = (c, r) => {
+      if (occ.has(c + ',' + r)) return true;
+      const cell = g.get(c, r);
+      return !!(cell && cell.filled && !cell.isClearing);
+    };
+
+    // Only rows/cols the piece actually touches can newly complete.
+    const rows = new Set(), cols = new Set();
+    for (const [bc, br] of piece.blocks) { rows.add(row + br); cols.add(col + bc); }
+    const lines = [];
+    for (const r of rows) {
+      if (r < 0 || r >= g.rows) continue;
+      let full = true;
+      for (let c = 0; c < g.columns && full; c++) if (!isSet(c, r)) full = false;
+      if (full) lines.push(['row', r]);
+    }
+    for (const c of cols) {
+      if (c < 0 || c >= g.columns) continue;
+      let full = true;
+      for (let r = 0; r < g.rows && full; r++) if (!isSet(c, r)) full = false;
+      if (full) lines.push(['col', c]);
+    }
+    if (!lines.length) return;
+
+    const size = g.cellSize, rad = Config.board.cellRadius;
+    const pulse = 0.5 + 0.5 * Math.sin(this._time * 7);
+    for (const [type, idx] of lines) {
+      const n = type === 'row' ? g.columns : g.rows;
+      for (let k = 0; k < n; k++) {
+        const c = type === 'row' ? k : idx;
+        const r = type === 'row' ? idx : k;
+        const { x, y } = g.cellToPixel(c, r);
+        renderer.setAlpha(0.22 + pulse * 0.26);
+        renderer.fillRoundRect(x, y, size, size, rad, '#ffd24a');
+        renderer.setAlpha(0.55 + pulse * 0.4);
+        renderer.withGlow('#ffd24a', 8 + pulse * 12, () => renderer.strokeRoundRect(x + 1.5, y + 1.5, size - 3, size - 3, rad, '#fff2b0', 3));
+        renderer.setAlpha(1);
+      }
+    }
   }
 
   /**
