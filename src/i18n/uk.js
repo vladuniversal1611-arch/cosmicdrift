@@ -45,6 +45,7 @@ export default {
     audio: 'Музика та звук', haptics: 'Вібрація', reducedMotion: 'Менше анімацій',
     colorBlind: 'Режим дальтоніка', lowPerformance: 'Режим економії', largeUI: 'Великий інтерфейс',
     reset: 'СКИНУТИ ПРОГРЕС', language: 'Мова',
+    blockStyle: 'Стиль блоків', blockFriends: 'Друзі', blockGems: 'Самоцвіти',
   },
   shop: {
     dailyGift: 'ЩОДЕННИЙ ПОДАРУНОК', dailySub: 'Заходь щодня!', boosterStore: 'МАГАЗИН БУСТЕРІВ',

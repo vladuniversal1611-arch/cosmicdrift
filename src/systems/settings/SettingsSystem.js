@@ -41,6 +41,8 @@ export class SettingsSystem extends System {
       colorBlind: false,
       lowPerformance: false,
       largeUI: false,
+      // Block look: 'friends' (cute characters) or 'gems' (classic faceted).
+      blockSkin: 'friends',
       // Presentation / locale.
       theme: 'deepspace',
       language: 'en',

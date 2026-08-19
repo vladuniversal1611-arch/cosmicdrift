@@ -47,6 +47,7 @@ export default {
     audio: 'Music & Sound', haptics: 'Haptics', reducedMotion: 'Reduced Motion',
     colorBlind: 'Color-Blind Mode', lowPerformance: 'Low Performance Mode', largeUI: 'Large UI',
     reset: 'RESET PROGRESS', language: 'Language',
+    blockStyle: 'Block Style', blockFriends: 'Friends', blockGems: 'Gems',
   },
   shop: {
     dailyGift: 'DAILY GIFT', dailySub: 'Come back every day!', boosterStore: 'BOOSTER STORE',

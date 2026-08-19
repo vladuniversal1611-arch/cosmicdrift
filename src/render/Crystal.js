@@ -18,10 +18,14 @@ import { Config } from '../config/Config.js';
 import { Quality } from '../config/Quality.js';
 import { Palette } from '../config/Palette.js';
 import { AssetManager } from '../ui/assets/AssetManager.js';
+import { drawCritter, CritterType } from './Critter.js';
 
 // Map each material object → its gem sprite key (gem_<materialKey>). Built once.
 const SPRITE_KEY = new Map();
 for (const [k, m] of Object.entries(Palette.materials)) SPRITE_KEY.set(m, `gem_${k}`);
+// Map each material object → its "cute friends" critter type (frog/cat/...).
+const CRITTER_TYPE = new Map();
+for (const [k, m] of Object.entries(Palette.materials)) CRITTER_TYPE.set(m, CritterType[k] ?? 'frog');
 
 /**
  * @param {import('../core/Renderer.js').Renderer} renderer
@@ -45,6 +49,15 @@ export function drawCrystal(renderer, x, y, size, material, opts = {}) {
   const px = x + (size - s) * 0.5;
   const py = y + (size - s) * 0.5;
   const r = Math.max(2, radius * scale);
+
+  // --- Cute-friends skin ----------------------------------------------------
+  // When the player has the "friends" block skin on, each colour is its own
+  // little character instead of a gem. Handled before the gem sprite/procedural
+  // paths so it fully replaces the block look.
+  if (Quality.blockSkin === 'friends') {
+    const type = CRITTER_TYPE.get(material);
+    if (type) { drawCritter(renderer, x, y, size, material, type, { scale, ignite, radius }); return; }
+  }
 
   // --- Sprite path ----------------------------------------------------------
   // When the gem PNG has decoded, blit it (cheap, GPU-accelerated) instead of

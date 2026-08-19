@@ -32,8 +32,9 @@ export class SettingsScreen extends PanelScreen {
 
   _on(s, row) { const v = s?.get(row.key); return row.invert ? !v : !!v; }
 
-  // Toggle rows (from p.y+40) + a language row + the reset button at the foot.
-  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 80 + 94; }
+  // Toggle rows (from p.y+40) + a language row + a block-style row + the reset
+  // button at the foot.
+  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 80 + 80 + 94; }
 
   _rows() {
     const p = this.panel;
@@ -70,6 +71,18 @@ export class SettingsScreen extends PanelScreen {
     const pw = 150, px2 = lr.right - pw - 12, ph = 40, py2 = lr.centerY - ph / 2;
     r.fillRoundRect(px2, py2, pw, ph, ph / 2, UI.btn.blue[1]);
     r.text(L.currentName(), px2 + pw / 2, lr.centerY, { font: '800 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+
+    // Block-style row — tap the pill to switch between the cute "Friends"
+    // characters and the classic faceted "Gems".
+    const br = new Rect(lr.x, lr.bottom + 18, lr.w, 62);
+    this._blockRect = br;
+    r.fillRoundRect(br.x, br.y, br.w, br.h, 16, 'rgba(255,255,255,0.6)');
+    r.strokeRoundRect(br.x, br.y, br.w, br.h, 16, 'rgba(120,140,200,0.4)', 1.5);
+    r.text(t('settings.blockStyle'), br.x + 20, br.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+    const skin = this.game.getSystem('settings')?.get('blockSkin') || 'friends';
+    const bpx = br.right - pw - 12, bpy = br.centerY - ph / 2;
+    r.fillRoundRect(bpx, bpy, pw, ph, ph / 2, UI.btn.play[1]);
+    r.text(t(skin === 'gems' ? 'settings.blockGems' : 'settings.blockFriends'), bpx + pw / 2, br.centerY, { font: '800 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
     // Reset progress button area (drawn text; tap handled in onContentTap).
     const p = this.panel;
@@ -108,6 +121,13 @@ export class SettingsScreen extends PanelScreen {
       const langs = L.languages;
       const next = langs[(langs.indexOf(L.language) + 1) % langs.length];
       this.game.getSystem('settings')?.set('language', next);
+      this.game.getSystem('audio')?.play('pickup');
+      return true;
+    }
+    // Switch block style (Friends ↔ Gems); takes effect live everywhere.
+    if (this._blockRect?.contains(px, py)) {
+      const s = this.game.getSystem('settings');
+      s?.set('blockSkin', (s.get('blockSkin') || 'friends') === 'friends' ? 'gems' : 'friends');
       this.game.getSystem('audio')?.play('pickup');
       return true;
     }

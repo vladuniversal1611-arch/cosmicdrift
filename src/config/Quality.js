@@ -22,6 +22,8 @@ export const Quality = {
   colorBlind: false,
   /** Multiplier for UI text / button sizing (Large UI mode). */
   uiScale: 1,
+  /** Block look: 'friends' (cute characters) or 'gems' (classic faceted). */
+  blockSkin: 'friends',
 };
 
 /**
@@ -38,4 +40,5 @@ export function applyQuality(settings) {
   Quality.animationScale = reduced ? 0 : (lowPerf ? 0.6 : 1) * (intensity ?? 1);
   Quality.colorBlind = !!settings.get('colorBlind');
   Quality.uiScale = settings.get('largeUI') ? 1.16 : 1;
+  Quality.blockSkin = settings.get('blockSkin') || 'friends';
 }
