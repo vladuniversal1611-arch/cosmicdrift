@@ -90,19 +90,40 @@ export class HudScreen extends Screen {
     this._hintBtn = new Rect(this.bounds.w - 20 - bd, by, bd, bd);
     this._hintPending = false;
 
-    this._bind();
+    // Level the goals card was last shown for, so re-entering the HUD (e.g.
+    // returning from Pause) doesn't re-pop it — only a genuinely new level does.
+    this._goalCardLevel = 0;
+    // Subscriptions + initial state sync happen in onEnter (see below), so the
+    // HUD re-binds and re-reads the current level every time it's revealed after
+    // an overlay covers it — never going deaf after a level-complete / pause.
+  }
+
+  /**
+   * (Re)attach listeners and pull the current progression state. Runs every time
+   * the HUD becomes the active screen — the first time it's shown AND each time
+   * an overlay (level-complete, pause, shop, settings) that covered it is popped.
+   * onExit tears the listeners down, so without this re-sync the HUD would miss
+   * the 'level:changed' emitted while it was covered and keep showing the old
+   * level/objectives.
+   */
+  onEnter() {
+    if (this._subs.length === 0) this._bind();
 
     // The first level's objectives + level are built (LevelSystem runs before
-    // the UI on game:started) before this HUD exists, so it misses the initial
-    // 'level:changed' / 'objectives:set'. Pull current state now; later levels
-    // arrive live.
+    // the UI on game:started) before this HUD exists, and later advances happen
+    // while a victory overlay covers us — so always pull the live state on enter
+    // rather than relying solely on events landing while visible.
     this._endless = this.game.getSystem('gameplay')?.isEndless ?? false;
     const levelSys = this.game.getSystem('level');
     if (levelSys) { this._level = levelSys.level ?? this._level; this._worldName = levelSys.worldName ?? this._worldName; }
     const objs0 = this.game.getSystem('objectives')?.objectives;
     if (objs0 && objs0.length) {
       this._objectives = objs0.slice();
-      if (this._canShowGoalCard()) this._goalCard = { objectives: objs0.slice(), t: 0, dur: 3.0 };
+      // Show the level-start goals card once per new level (not on every reveal).
+      if (this._canShowGoalCard() && this._level !== this._goalCardLevel) {
+        this._goalCard = { objectives: objs0.slice(), t: 0, dur: 3.0 };
+        this._goalCardLevel = this._level;
+      }
     }
   }
 
@@ -174,6 +195,7 @@ export class HudScreen extends Screen {
       // during the first-run tutorial, where it would fight the coach panel.
       if (objectives && objectives.length && this._canShowGoalCard()) {
         this._goalCard = { objectives: objectives.slice(), t: 0, dur: 3.0 };
+        this._goalCardLevel = this._level;
       }
     }));
     this._subs.push(this.events.on('structure:completed', ({ name }) => {

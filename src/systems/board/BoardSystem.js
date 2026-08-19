@@ -412,10 +412,15 @@ export class BoardSystem extends System {
 
     if (this._clearing && stillClearing === 0) {
       this._clearing = false;
+      // Was THIS clear a genuine full-board wipe? Check BEFORE emitting
+      // 'board:clearComplete' — that event can advance the level, whose fresh
+      // board is empty too, which would otherwise fire a spurious PERFECT (and
+      // an unearned theme morph) on a clear that didn't actually empty the board.
+      const wasFullClear = this._isBoardEmpty();
       this.events.emit('board:clearComplete');
       // The theme morphs ONLY on a full-board clear ("PERFECT") — the earned
       // moment, never mid-play.
-      if (this._isBoardEmpty()) this._onFullClear();
+      if (wasFullClear) this._onFullClear();
     }
 
     // Advance the full-clear transformation wave.
