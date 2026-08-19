@@ -35,8 +35,6 @@ export class LevelCompleteScreen extends Screen {
     this._starCount = clamp(reward.stars ?? 3, 1, 3);
     this._starPops = [0, 0, 0];
     this._contShown = false;
-    this._nextRect = null;
-    this._homeRect = null;
 
     // Ambient motes drifting up behind the card.
     this._particles = [];
@@ -119,7 +117,7 @@ export class LevelCompleteScreen extends Screen {
     this._drawReward(r, cx, cardY + 330);
 
     // Buttons (Next Level + Home), sliding up once the ceremony settles.
-    this._drawButtons(r, cx, cardX, cw, cardY, cardH);
+    this._drawButtons(r);
 
     if (!this._contShown) r.text(t('common.tapToSkip'), cx, b.h - 40, { font: '700 22px system-ui, sans-serif', color: 'rgba(255,255,255,0.55)', align: 'center', baseline: 'middle' });
   }
@@ -171,18 +169,27 @@ export class LevelCompleteScreen extends Screen {
     r.text('★', x, y + 1, { font: `900 ${rr}px system-ui, sans-serif`, color: '#e0a41e', align: 'center', baseline: 'middle' });
   }
 
-  _drawButtons(r, cx, cardX, cw, cardY, cardH) {
-    const slide = this._contShown ? 1 : Easing.smooth(clamp((this._t - (T.cont - 0.3)) / 0.3, 0, 1));
-    if (slide <= 0) { this._nextRect = this._homeRect = null; return; }
+  /** Deterministic Next / Home button rects — so taps hit-test even mid-ceremony
+   *  (before the buttons have been drawn). Kept in sync with render geometry. */
+  _buttonRects() {
+    const b = this.bounds, cx = b.centerX;
+    const cw = Math.min(b.w * 0.9, 860), cardH = 620;
+    const cardY = Math.round(b.centerY - cardH / 2 + 20);
     const bw = cw - 88, bx = cx - bw / 2, gap = 14, bottomPad = 30, bh = 74;
+    return {
+      next: new Rect(bx, cardY + cardH - bottomPad - bh * 2 - gap, bw, bh),
+      home: new Rect(bx, cardY + cardH - bottomPad - bh, bw, bh),
+    };
+  }
+
+  _drawButtons(r) {
+    const slide = this._contShown ? 1 : Easing.smooth(clamp((this._t - (T.cont - 0.3)) / 0.3, 0, 1));
+    if (slide <= 0) return;
     const off = (1 - slide) * 40;
-    const nextY = cardY + cardH - bottomPad - bh * 2 - gap + off;
-    const homeY = cardY + cardH - bottomPad - bh + off;
+    const { next, home } = this._buttonRects();
     r.setAlpha(slide);
-    this._nextRect = new Rect(bx, nextY, bw, bh);
-    this._homeRect = new Rect(bx, homeY, bw, bh);
-    this._pill(r, this._nextRect, UI.btn.play, t('levelComplete.next'), 'next');
-    this._pill(r, this._homeRect, UI.btn.blue, t('menu.home'), 'home');
+    this._pill(r, new Rect(next.x, next.y + off, next.w, next.h), UI.btn.play, t('levelComplete.next'), 'next');
+    this._pill(r, new Rect(home.x, home.y + off, home.w, home.h), UI.btn.blue, t('menu.home'), 'home');
     r.setAlpha(1);
   }
 
@@ -225,18 +232,20 @@ export class LevelCompleteScreen extends Screen {
 
   // --- Input -----------------------------------------------------------------
   onTap(px, py) {
-    if (!this._contShown) {          // first tap fast-forwards the ceremony
-      this._t = T.cont + 0.01;
+    // If the ceremony is still playing, reveal the buttons — but let the SAME
+    // tap also act on a button, so Next Level never feels unresponsive.
+    if (!this._contShown) {
       this._contShown = true;
+      this._t = Math.max(this._t, T.cont + 0.01);
       this.game.getSystem('audio')?.play('levelup'); Haptics.victory(this.game);
-      return true;
     }
-    if (this._nextRect?.contains(px, py)) {
+    const { next, home } = this._buttonRects();
+    if (next.contains(px, py)) {
       this.game.getSystem('monetization')?.interstitialAtLevelEnd();
       this.events.emit('ui:reveal-next');
       return true;
     }
-    if (this._homeRect?.contains(px, py)) { this.events.emit('ui:mainMenu'); return true; }
+    if (home.contains(px, py)) { this.events.emit('ui:mainMenu'); return true; }
     return true;
   }
 }
