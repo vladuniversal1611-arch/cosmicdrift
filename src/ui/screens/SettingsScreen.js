@@ -32,15 +32,20 @@ export class SettingsScreen extends PanelScreen {
 
   _on(s, row) { const v = s?.get(row.key); return row.invert ? !v : !!v; }
 
-  // Toggle rows (from p.y+40) + a language row + a block-style row + the reset
-  // button at the foot.
-  contentHeight() { return 40 + ROWS.length * 62 + (ROWS.length - 1) * 18 + 80 + 80 + 94; }
+  // Big, generously-spaced rows; PanelScreen hugs + vertically centres the panel
+  // so it reads as a substantial card, not a tiny one floating up top.
+  contentHeight() { return 34 + (ROWS.length + 2) * 76 + (ROWS.length + 1) * 16 + 28 + 54 + 26; }
 
-  _rows() {
+  /** Row rects (6 toggles + language + block) followed by the reset button. */
+  _layout() {
     const p = this.panel;
-    const x = p.x + 30, w = p.w - 60, h = 62, gap = 18;
-    const y0 = p.y + 40;
-    return ROWS.map((row, i) => ({ row, rect: new Rect(x, y0 + i * (h + gap), w, h) }));
+    const x = p.x + 30, w = p.w - 60, gap = 16, rowH = 76;
+    const top = p.y + 34;
+    const N = ROWS.length + 2;   // + language + block-style
+    const rows = [];
+    for (let i = 0; i < N; i++) rows.push(new Rect(x, top + i * (rowH + gap), w, rowH));
+    const reset = new Rect(p.centerX - 120, rows[N - 1].bottom + 28, 240, 54);
+    return { rows, rowH, reset };
   }
 
   onUpdate(dt) {
@@ -51,50 +56,51 @@ export class SettingsScreen extends PanelScreen {
     }
   }
 
+  _rowCard(r, rect, label) {
+    r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, 18, 'rgba(255,255,255,0.62)');
+    r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, 18, 'rgba(120,140,200,0.4)', 1.5);
+    r.text(label, rect.x + 24, rect.centerY, { font: '800 21px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+  }
+
   drawContent(r) {
-    for (const { row, rect } of this._rows()) {
-      // Row card.
-      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, 16, 'rgba(255,255,255,0.6)');
-      r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, 16, 'rgba(120,140,200,0.4)', 1.5);
-      r.text(t(row.labelKey), rect.x + 20, rect.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
-      this._toggle(r, rect.right - 82, rect.centerY - 17, 66, 34, this._anim[row.key]);
-    }
+    const { rows, reset } = this._layout();
+    this._toggleRects = [];
+    // 6 toggle rows.
+    ROWS.forEach((row, i) => {
+      const rect = rows[i];
+      this._toggleRects.push({ row, rect });
+      this._rowCard(r, rect, t(row.labelKey));
+      const tw = 78, thh = 42;
+      this._toggle(r, rect.right - tw - 18, rect.centerY - thh / 2, tw, thh, this._anim[row.key]);
+    });
 
-    // Language row — tap the pill to cycle available languages (updates live).
-    const rows = this._rows();
-    const last = rows[rows.length - 1].rect;
-    const lr = new Rect(last.x, last.bottom + 18, last.w, 62);
+    // Pill dimensions for the two selector rows.
+    const pw = 176, ph = 48;
+    // Language row.
+    const lr = rows[ROWS.length];
     this._langRect = lr;
-    r.fillRoundRect(lr.x, lr.y, lr.w, lr.h, 16, 'rgba(255,255,255,0.6)');
-    r.strokeRoundRect(lr.x, lr.y, lr.w, lr.h, 16, 'rgba(120,140,200,0.4)', 1.5);
-    r.text(t('settings.language'), lr.x + 20, lr.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
-    const pw = 150, px2 = lr.right - pw - 12, ph = 40, py2 = lr.centerY - ph / 2;
+    this._rowCard(r, lr, t('settings.language'));
+    let px2 = lr.right - pw - 16, py2 = lr.centerY - ph / 2;
     r.fillRoundRect(px2, py2, pw, ph, ph / 2, UI.btn.blue[1]);
-    r.text(L.currentName(), px2 + pw / 2, lr.centerY, { font: '800 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(L.currentName(), px2 + pw / 2, lr.centerY, { font: '800 18px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
-    // Block-style row — tap the pill to switch between the cute "Friends"
-    // characters and the classic faceted "Gems".
-    const br = new Rect(lr.x, lr.bottom + 18, lr.w, 62);
+    // Block-style row.
+    const br = rows[ROWS.length + 1];
     this._blockRect = br;
-    r.fillRoundRect(br.x, br.y, br.w, br.h, 16, 'rgba(255,255,255,0.6)');
-    r.strokeRoundRect(br.x, br.y, br.w, br.h, 16, 'rgba(120,140,200,0.4)', 1.5);
-    r.text(t('settings.blockStyle'), br.x + 20, br.centerY, { font: '800 18px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+    this._rowCard(r, br, t('settings.blockStyle'));
     const skin = this.game.getSystem('settings')?.get('blockSkin') || 'friends';
-    const bpx = br.right - pw - 12, bpy = br.centerY - ph / 2;
+    let bpx = br.right - pw - 16, bpy = br.centerY - ph / 2;
     r.fillRoundRect(bpx, bpy, pw, ph, ph / 2, UI.btn.play[1]);
-    r.text(t(skin === 'gems' ? 'settings.blockGems' : 'settings.blockFriends'), bpx + pw / 2, br.centerY, { font: '800 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(t(skin === 'gems' ? 'settings.blockGems' : 'settings.blockFriends'), bpx + pw / 2, br.centerY, { font: '800 18px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
 
-    // Reset progress button area (drawn text; tap handled in onContentTap).
-    const p = this.panel;
-    const rw = 200, bx = p.centerX - rw / 2, by = p.bottom - 70;
-    this._resetRect = new Rect(bx, by, rw, 46);
-    r.fillRoundRect(bx, by, rw, 46, 23, 'rgba(224,67,63,0.14)');
-    r.strokeRoundRect(bx, by, rw, 46, 23, UI.btn.red[1], 1.5);
-    // Auto-fit the label so long translations (e.g. German) stay inside.
+    // Reset progress button (pinned at the foot).
+    this._resetRect = reset;
+    r.fillRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, 'rgba(224,67,63,0.14)');
+    r.strokeRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, UI.btn.red[1], 2);
     const rLabel = t('settings.reset');
-    let rf = 14; r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
-    while (rf > 9 && r.ctx.measureText(rLabel).width > rw - 22) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
-    r.text(rLabel, p.centerX, by + 23, { font: `800 ${rf}px system-ui, sans-serif`, color: UI.btn.red[1], align: 'center', baseline: 'middle' });
+    let rf = 16; r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
+    while (rf > 10 && r.ctx.measureText(rLabel).width > reset.w - 28) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
+    r.text(rLabel, reset.centerX, reset.centerY, { font: `800 ${rf}px system-ui, sans-serif`, color: UI.btn.red[1], align: 'center', baseline: 'middle' });
   }
 
   _toggle(r, x, y, w, h, t) {
@@ -109,7 +115,7 @@ export class SettingsScreen extends PanelScreen {
   }
 
   onContentTap(px, py) {
-    for (const { row, rect } of this._rows()) {
+    for (const { row, rect } of (this._toggleRects || [])) {
       if (rect.contains(px, py)) {
         this.game.getSystem('settings')?.toggle(row.key);
         this.game.getSystem('audio')?.play('pickup');

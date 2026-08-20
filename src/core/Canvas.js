@@ -75,7 +75,14 @@ export class Canvas {
 
     this._dpr = clamp(window.devicePixelRatio || 1, 1, Config.render.maxDpr);
 
-    // Fit the logical (portrait) resolution inside the box (contain).
+    // FULL-SCREEN fit: keep the design WIDTH but derive the logical HEIGHT from
+    // the device's aspect ratio, so the canvas fills the whole viewport with no
+    // letterbox bands (the old "contain" fit left sky-coloured bars top/bottom on
+    // tall phones). The aspect is clamped so ultra-tall/short screens stay sane;
+    // layout reads canvas.height live, so the board/tray simply get the extra
+    // room. Width stays fixed at the design width so nothing horizontal reflows.
+    this.width = Config.render.width;
+    this.height = Math.round(this.width * clamp(boxH / boxW, 1.4, 2.4));
     this.scale = Math.min(boxW / this.width, boxH / this.height);
     const cssW = this.width * this.scale;
     const cssH = this.height * this.scale;
