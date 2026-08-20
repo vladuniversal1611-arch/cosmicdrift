@@ -118,6 +118,8 @@ export class BoardSystem extends System {
 
   get area() { return this._area; }
   get isClearing() { return this._clearing; }
+  /** The active (per-run) board theme — so other systems (the tray) can match it. */
+  get theme() { return this._theme; }
 
   _computeLayout() {
     const w = this.game.canvas.width;
@@ -476,10 +478,12 @@ export class BoardSystem extends System {
    *  drawn behind the board. Only visible in-game (the menus paint their own
    *  opaque background on top). */
   _drawSky(renderer) {
-    const w = this.game.canvas.width, h = this.game.canvas.height, ctx = renderer.ctx;
-    // The background is the current theme's sky mood, cross-fading from the
-    // previous theme during the full-clear transformation wave.
-    const DEF = ['#5db4ff', '#96d4ff', '#dff2ff'];
+    const w = this.game.canvas.width, h = this.game.canvas.height;
+    // A plain, saturated backdrop canvas in the current theme's colour, cross-
+    // fading to the next colour during a full-clear ("PERFECT") transformation —
+    // so clearing the board repaints the WHOLE screen the next rainbow hue. No
+    // clouds/sun: just a clean gradient, so the board reads as the clear focus.
+    const DEF = ['#2f7ad0', '#4f9ae6', '#84baf0'];
     let sky = this._theme?.sky ?? DEF;
     const fx = this._fullClearFx, prev = this._prevTheme?.sky;
     if (fx && prev) {
@@ -487,26 +491,9 @@ export class BoardSystem extends System {
       sky = sky.map((c, i) => hexLerp(prev[i] ?? prev[prev.length - 1], c, k));
     }
     renderer.fillBackgroundGradient(sky);
-    // A soft cool glow from the top instead of a bright sun (this is a dark,
-    // premium night board — a white sun would blow it out).
-    const sun = renderer.radialGradient(w * 0.5, h * 0.1, h * 0.42,
-      [[0, `rgba(120,170,${240},0.16)`], [0.55, 'rgba(80,130,210,0.06)'], [1, 'rgba(0,0,0,0)']]);
-    renderer.fillRect(0, 0, w, h, sun);
-    // Faint drifting clouds, dimmed so they read as distant haze on the dark sky.
-    for (const c of this._skyClouds) {
-      const img = AssetManager.image(c.key);
-      if (!img) continue;
-      const cw = c.s * 200, ch = cw * img.height / img.width;
-      renderer.setAlpha(c.s < 0.95 ? 0.34 : 0.46);
-      if (c.flip) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(-1, 1); ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch); ctx.restore(); }
-      else ctx.drawImage(img, c.x - cw / 2, c.y - ch / 2, cw, ch);
-      renderer.setAlpha(1);
-    }
-    // Soft vignette: darken the far edges so the play area reads as the focus
-    // and the whole screen feels finished rather than a flat wash. One cheap
-    // radial per frame.
-    const vig = renderer.radialGradient(w * 0.5, h * 0.44, h * 0.62,
-      [[0, 'rgba(12,28,58,0)'], [0.72, 'rgba(12,28,58,0)'], [1, 'rgba(12,28,58,0.22)']]);
+    // A gentle edge vignette for depth (keeps the flat canvas from feeling bare).
+    const vig = renderer.radialGradient(w * 0.5, h * 0.44, h * 0.66,
+      [[0, 'rgba(0,0,0,0)'], [0.7, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.18)']]);
     renderer.fillRect(0, 0, w, h, vig);
   }
 
@@ -771,33 +758,33 @@ export class BoardSystem extends System {
   _drawSocket(renderer, x, y, size, socketGrad, rim = Palette.socket.rim, flash = 0, accent = '#22b7ff') {
     const r = Config.board.cellRadius;
     const ctx = renderer.ctx;
-    // Premium dark-navy tile (fixed palette, per the design spec): a lighter
-    // navy contour, a top-lit face gradient, a soft top sheen and a deep bottom
-    // shadow so each empty slot reads as a crisp, moulded tile on a dark board.
-    // Contour / outer edge (#375C91).
-    renderer.fillRoundRect(x - 1.5, y - 1.5, size + 3, size + 3, r + 1.5, '#375c91');
-    // Base face: #243A63 (top) → #1B2942 (bottom).
+    // Premium moulded tile in the CURRENT theme's colour: a lighter contour
+    // (theme rim), a deep face gradient (theme faceTop→faceBottom), then a
+    // hue-agnostic top sheen (white) and bottom shadow (black) so the same bevel
+    // reads on any rainbow colour. The face is a deep shade of the backdrop's
+    // hue, so the board never blends into the plain background behind it.
+    renderer.fillRoundRect(x - 1.5, y - 1.5, size + 3, size + 3, r + 1.5, rim);
     ctx.save();
     ctx.translate(x, y);
     renderer.roundRectPath(0, 0, size, size, r);
-    ctx.fillStyle = renderer.linearGradient(0, 0, 0, size, [[0, '#26406b'], [0.55, '#1f3255'], [1, '#172640']]);
+    ctx.fillStyle = socketGrad;
     ctx.fill();
     ctx.restore();
-    // Top highlight sheen (#4A7BBE), fading down.
     ctx.save();
     renderer.roundRectPath(x, y, size, size, r);
     ctx.clip();
-    renderer.setAlpha(0.5);
+    // Top sheen.
+    renderer.setAlpha(0.22);
     renderer.fillRoundRect(x + size * 0.08, y + size * 0.06, size * 0.84, size * 0.34,
-      r * 0.7, renderer.linearGradient(x, y, x, y + size * 0.42, [[0, 'rgba(74,123,190,0.9)'], [1, 'rgba(74,123,190,0)']]));
-    // Deep bottom shadow (#0A1020).
-    renderer.setAlpha(0.45);
+      r * 0.7, renderer.linearGradient(x, y, x, y + size * 0.42, [[0, 'rgba(255,255,255,0.85)'], [1, 'rgba(255,255,255,0)']]));
+    // Deep bottom shadow.
+    renderer.setAlpha(0.4);
     renderer.fillRoundRect(x + size * 0.06, y + size * 0.72, size * 0.88, size * 0.24,
-      r * 0.7, renderer.linearGradient(x, y + size * 0.7, x, y + size, [[0, 'rgba(10,16,32,0)'], [1, 'rgba(10,16,32,0.85)']]));
+      r * 0.7, renderer.linearGradient(x, y + size * 0.7, x, y + size, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']]));
     renderer.setAlpha(1);
     ctx.restore();
     // Thin dark inner edge for a clean "cut".
-    renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(8,14,28,0.55)', 1.5);
+    renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(0,0,0,0.4)', 1.5);
     // Transformation-wave accent: a bright bloom on the cell as the front passes.
     if (flash > 0) {
       renderer.setAlpha(flash * 0.7);

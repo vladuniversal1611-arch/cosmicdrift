@@ -17,7 +17,7 @@
 
 export const Palette = Object.freeze({
   /** Bright sky gradient, top -> bottom (used as a safe fallback backdrop). */
-  background: Object.freeze(['#345f96', '#4d80ba', '#72a2d4']),
+  background: Object.freeze(['#2f7ad0', '#4f9ae6', '#84baf0']),
 
   /** Neutral surfaces (panels, cards) — glossy warm white glass. */
   surface: 'rgba(255,255,255,0.92)',
@@ -74,15 +74,18 @@ export const Palette = Object.freeze({
   // whole background gradient (`sky`, top→bottom), so a full-board clear morphs
   // the entire screen — not just the tiles.
   boardThemes: Object.freeze([
-    // Dark-navy board: tiles are a fixed premium navy (see _drawSocket); a theme
-    // only shifts the deep background MOOD + accent, so a full-clear still morphs
-    // the whole screen without lightening the board.
-    Object.freeze({ name: 'Sky',     rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3aa8ff', sky: ['#345f96', '#4d80ba', '#72a2d4'] }),
-    Object.freeze({ name: 'Sunset',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff8a2e', sky: ['#7a4a5a', '#a5626a', '#c98a78'] }),
-    Object.freeze({ name: 'Orchid',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#b06aff', sky: ['#4a3a72', '#6a52a0', '#8f74c0'] }),
-    Object.freeze({ name: 'Rose',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff5a98', sky: ['#7a4a68', '#a5627e', '#c98a9e'] }),
-    Object.freeze({ name: 'Meadow',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3fd07a', sky: ['#3a6a52', '#529078', '#79b598'] }),
-    Object.freeze({ name: 'Dusk',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#6a7aff', sky: ['#3a4270', '#525da8', '#727ec0'] }),
+    // Saturated RAINBOW themes cycled on every full-board ("PERFECT") clear. The
+    // whole scene morphs: `sky` is a vivid plain backdrop, `faceTop/faceBottom`
+    // are a DEEP shade of the same hue for the board tiles (so the board always
+    // stands apart from the backdrop by value, never blending), and `accent`
+    // drives the transformation wave. Bright animal characters pop on the dark
+    // tiles in every colour.
+    Object.freeze({ name: 'Blue',   rim: '#1e527a', faceTop: '#123056', faceBottom: '#0c2440', accent: '#3aa8ff', sky: ['#2f7ad0', '#4f9ae6', '#84baf0'] }),
+    Object.freeze({ name: 'Green',  rim: '#1f5e30', faceTop: '#123e20', faceBottom: '#0c2e18', accent: '#3fd07a', sky: ['#22a850', '#42c46e', '#78dc96'] }),
+    Object.freeze({ name: 'Yellow', rim: '#8a6a1a', faceTop: '#5a4410', faceBottom: '#40300a', accent: '#ffd23a', sky: ['#f0b81e', '#ffd23a', '#ffe470'] }),
+    Object.freeze({ name: 'Orange', rim: '#8a4a18', faceTop: '#5e2e0c', faceBottom: '#432008', accent: '#ff8a2e', sky: ['#f47a1e', '#ff9a42', '#ffb877'] }),
+    Object.freeze({ name: 'Red',    rim: '#8a2532', faceTop: '#5e1620', faceBottom: '#431018', accent: '#ff5a68', sky: ['#e63e4e', '#f4606c', '#ff8a92'] }),
+    Object.freeze({ name: 'Violet', rim: '#522a84', faceTop: '#341858', faceBottom: '#261042', accent: '#b06aff', sky: ['#8a48c8', '#a468e0', '#c090ee'] }),
   ]),
 
   /** Rune engravings etched into stone and cells — warm glowing gold. */

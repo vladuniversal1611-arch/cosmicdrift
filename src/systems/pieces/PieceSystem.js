@@ -409,25 +409,27 @@ export class PieceSystem extends System {
     const cyBand = band.top + band.height / 2;
     const h = Math.min(band.height + 28, 360);
     const y = cyBand - h / 2;
-    // --- Dark-navy panel base, matching the board (deep gradient + navy edge) ---
+    // --- Panel base matching the board's CURRENT theme (deep hue + rim) so the
+    // tray recolours together with the board on a full-clear rainbow shift. ---
     const ctx = renderer.ctx;
+    const th = this.game.getSystem('board')?.theme;
+    const top = th?.faceTop ?? '#1e2f4d', bot = th?.faceBottom ?? '#101d33', rim = th?.rim ?? '#375c91';
     UITheme.shadow?.(renderer, x, y, w, h, 40, 14, 0.4);
-    renderer.fillRoundRect(x, y, w, h, 40, renderer.linearGradient(x, y, x, y + h, [[0, '#1e2f4d'], [1, '#101d33']]));
-    renderer.strokeRoundRect(x, y, w, h, 40, '#375c91', 2.5);
+    renderer.fillRoundRect(x, y, w, h, 40, renderer.linearGradient(x, y, x, y + h, [[0, top], [1, bot]]));
+    renderer.strokeRoundRect(x, y, w, h, 40, rim, 2.5);
     ctx.save(); renderer.roundRectPath(x, y, w, h, 40); ctx.clip();
-    renderer.setAlpha(0.1); renderer.fillRoundRect(x + 4, y + 3, w - 8, h * 0.3, 34, 'rgba(120,170,230,1)'); renderer.setAlpha(1);
+    renderer.setAlpha(0.12); renderer.fillRoundRect(x + 4, y + 3, w - 8, h * 0.3, 34, 'rgba(255,255,255,1)'); renderer.setAlpha(1);
     ctx.restore();
 
-    // --- Three slots with a soft blue magical light ---
+    // --- Three slots (dark recess + themed rim) ---
     const filledCount = this.tray.length;
     for (let i = 0; i < band.n; i++) {
       const sx = band.slotW * i + band.slotW * 0.5;
       const sw = band.slotW * 0.78, sh = h - 48;
       const rx = sx - sw / 2, ry = y + 24;
-      // Dark recess with a subtle navy rim.
-      renderer.fillRoundRect(rx, ry, sw, sh, 24, 'rgba(8,16,32,0.45)');
-      renderer.strokeRoundRect(rx, ry, sw, sh, 24, 'rgba(90,140,205,0.5)', 2);
-      renderer.setAlpha(0.16); renderer.fillRoundRect(rx + 4, ry + 4, sw - 8, sh * 0.22, 20, 'rgba(120,170,230,0.9)'); renderer.setAlpha(1);
+      renderer.fillRoundRect(rx, ry, sw, sh, 24, 'rgba(0,0,0,0.28)');
+      renderer.strokeRoundRect(rx, ry, sw, sh, 24, rim, 2);
+      renderer.setAlpha(0.14); renderer.fillRoundRect(rx + 4, ry + 4, sw - 8, sh * 0.22, 20, 'rgba(255,255,255,0.9)'); renderer.setAlpha(1);
       // Soft blue magical light pooling in a slot that still holds a relic.
       if (i < filledCount) {
         const pulse = 0.5 + 0.5 * Math.sin(this._time * 2.4 + i);
