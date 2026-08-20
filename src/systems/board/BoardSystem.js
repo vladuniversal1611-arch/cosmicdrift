@@ -238,7 +238,7 @@ export class BoardSystem extends System {
     this._prevTheme = this._theme;
     this._themeIndex = (this._themeIndex + 1) % Palette.boardThemes.length;
     this._theme = Palette.boardThemes[this._themeIndex];
-    this._fullClearFx = { t: 0, dur: 1.15, perfect };
+    this._fullClearFx = { t: 0, dur: 1.35, perfect };
   }
 
   /**
@@ -253,11 +253,19 @@ export class BoardSystem extends System {
     this.events.emit('board:fullClear', { bonus, theme: this._theme.name });
 
     const a = this._area;
-    this.events.emit('fx:flash', { color: this._theme.accent, strength: 0.42 });
-    this.events.emit('fx:burst', { x: a.centerX, y: a.centerY, color: this._theme.accent, count: 60 });
-    this.events.emit('fx:shake', { mag: 14 });
+    // A brighter full-screen flash in the NEW colour, a firmer shake, and a
+    // spread of confetti bursts (centre + around the board) so the colour change
+    // lands as a real celebration rather than a quiet swap.
+    this.events.emit('fx:flash', { color: this._theme.accent, strength: 0.6 });
+    this.events.emit('fx:shake', { mag: 20 });
+    this.events.emit('fx:burst', { x: a.centerX, y: a.centerY, color: this._theme.accent, count: 90 });
+    const prevAccent = this._prevTheme?.accent ?? this._theme.accent;
+    for (const [fx, fy] of [[0.2, 0.25], [0.8, 0.25], [0.2, 0.75], [0.8, 0.75], [0.5, 0.1], [0.5, 0.9]]) {
+      this.events.emit('fx:burst', { x: a.x + a.w * fx, y: a.y + a.h * fy, color: Math.random() < 0.5 ? this._theme.accent : prevAccent, count: 22 });
+    }
     Haptics.victory(this.game);
     this.game.getSystem('audio')?.play('levelup');
+    this.game.getSystem('audio')?.play('reward', { rate: 1.15 });
   }
 
   /**
@@ -483,14 +491,34 @@ export class BoardSystem extends System {
     // fading to the next colour during a full-clear ("PERFECT") transformation —
     // so clearing the board repaints the WHOLE screen the next rainbow hue. No
     // clouds/sun: just a clean gradient, so the board reads as the clear focus.
+    const ctx = renderer.ctx;
     const DEF = ['#2f7ad0', '#4f9ae6', '#84baf0'];
-    let sky = this._theme?.sky ?? DEF;
+    const sky = this._theme?.sky ?? DEF;
     const fx = this._fullClearFx, prev = this._prevTheme?.sky;
     if (fx && prev) {
-      const k = Easing.smooth(Math.min(1, fx.t / fx.dur));
-      sky = sky.map((c, i) => hexLerp(prev[i] ?? prev[prev.length - 1], c, k));
+      // COLOUR SWEEP: the old colour sits underneath while the new colour wipes
+      // outward as a growing disc from the board centre — a dramatic repaint of
+      // the whole screen, not a flat fade — with a bright ring riding the front.
+      renderer.fillBackgroundGradient(prev);
+      const a = this._area, cx = a.centerX, cy = a.centerY;
+      const p = Easing.smooth(clamp(fx.t / fx.dur, 0, 1));
+      const maxR = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) + 60;
+      const rad = p * maxR;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.clip();
+      renderer.fillBackgroundGradient(sky);
+      ctx.restore();
+      if (p < 1) {
+        renderer.setAlpha(0.6 * (1 - p));
+        renderer.withGlow(this._theme.accent, 26, () => {
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 12 + 30 * (1 - p); ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+        });
+        renderer.setAlpha(1);
+      }
+    } else {
+      renderer.fillBackgroundGradient(sky);
     }
-    renderer.fillBackgroundGradient(sky);
     // A gentle edge vignette for depth (keeps the flat canvas from feeling bare).
     const vig = renderer.radialGradient(w * 0.5, h * 0.44, h * 0.66,
       [[0, 'rgba(0,0,0,0)'], [0.7, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.18)']]);
@@ -801,14 +829,19 @@ export class BoardSystem extends System {
     const fx = this._fullClearFx, a = this._area, ctx = renderer.ctx;
     const p = clamp(fx.t / fx.dur, 0, 1);
     const e = Easing.smooth(p);
-    // Shockwave ring expanding from the board centre.
-    const maxR = Math.hypot(a.w, a.h) * 0.5;
+    // Double shockwave from the board centre: a bright white front with an
+    // accent-coloured trail chasing it — reads far punchier than one ring.
+    const maxR = Math.hypot(a.w, a.h) * 0.62;
     const rad = e * maxR;
-    renderer.setAlpha((1 - p) * 0.6);
-    renderer.withGlow(this._theme.accent, 18, () => {
-      ctx.strokeStyle = this._theme.accent;
-      ctx.lineWidth = 6 + 10 * (1 - p);
+    renderer.setAlpha((1 - p) * 0.85);
+    renderer.withGlow(this._theme.accent, 24, () => {
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 9 + 18 * (1 - p);
       ctx.beginPath(); ctx.arc(a.centerX, a.centerY, rad, 0, Math.PI * 2); ctx.stroke();
+    });
+    renderer.setAlpha((1 - p) * 0.55);
+    renderer.withGlow(this._theme.accent, 18, () => {
+      ctx.strokeStyle = this._theme.accent; ctx.lineWidth = 5 + 10 * (1 - p);
+      ctx.beginPath(); ctx.arc(a.centerX, a.centerY, rad * 0.8, 0, Math.PI * 2); ctx.stroke();
     });
     renderer.setAlpha(1);
     // Only a genuine full-board clear shows the "PERFECT!" banner; a line-clear
@@ -816,8 +849,8 @@ export class BoardSystem extends System {
     if (!fx.perfect) return;
     // "PERFECT!" banner — backOut pop in, hold, fade out.
     const pop = Easing.backOut(clamp(p / 0.25, 0, 1));
-    const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
-    const size = 64 * pop;
+    const fade = p > 0.78 ? 1 - (p - 0.78) / 0.22 : 1;
+    const size = 78 * pop;
     renderer.setAlpha(fade);
     ctx.save();
     ctx.translate(a.centerX, a.centerY - a.h * 0.06);
