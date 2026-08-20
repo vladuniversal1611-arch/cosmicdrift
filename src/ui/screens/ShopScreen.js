@@ -11,6 +11,7 @@
  */
 import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
+import { clamp } from '../../utils/MathUtils.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { drawObjectiveIcon } from '../../systems/objectives/ObjectiveIcons.js';
 import { AssetManager } from '../assets/AssetManager.js';
@@ -52,9 +53,13 @@ export class ShopScreen extends PanelScreen {
   get _giftAvailable() { return this._shop.lastGift !== this._today(); }
 
   // Daily banner (34+118) + ad banner (12+70) + store (40 + 2 rows*150 +16) + pad.
+  // Comfortably-big, fixed-scale layout; PanelScreen hugs + centres it so it
+  // reads as a large card. (The shop has few blocks, so filling 100% would make
+  // the cards oversized — big + centred looks better than stretched.)
+  _S = { pad: 0, dgH: 210, adH: 140, headerH: 64, cardH: 262, gap: 26 };
   contentHeight() {
-    const rows = Math.ceil(OFFERS.length / 2);
-    return 34 + 118 + 12 + 70 + 40 + rows * 150 + (rows - 1) * 16 + 26;
+    const s = this._S;
+    return 30 + s.dgH + s.gap + s.adH + s.headerH + s.cardH * 2 + s.gap + 34;
   }
 
   onUpdate(dt) {
@@ -69,70 +74,82 @@ export class ShopScreen extends PanelScreen {
   _balance() { return this.game.getSystem('economy')?.balance('gold') ?? 0; }
 
   drawContent(r, p) {
-    const pad = 24;
+    // Fixed, comfortably-big sizes (see contentHeight); PanelScreen centres the card.
+    const s = this._S;
+    const pad = p.w * 0.045, innerW = p.w - pad * 2;
+    const gap = s.gap;
+    const top = p.y + 30;
+    const dgH = s.dgH, adH = s.adH, headerH = s.headerH;
+
     // --- Daily gift banner (free coins) ---
-    const dg = new Rect(p.x + pad, p.y + 34, p.w - pad * 2, 118);
+    const dg = new Rect(p.x + pad, top, innerW, dgH);
     this._dailyRect = dg;
-    UITheme.button(r, dg.x, dg.y, dg.w, dg.h, 20, UI.btn.teal);
-    this._chest(r, dg.x + 60, dg.centerY, 40, this._chestT >= 0);
+    UITheme.button(r, dg.x, dg.y, dg.w, dg.h, dgH * 0.18, UI.btn.teal);
+    this._chest(r, dg.x + dgH * 0.55, dg.centerY, dgH * 0.36, this._chestT >= 0);
     const avail = this._giftAvailable;
-    r.text(t('shop.dailyGift'), dg.x + 118, dg.centerY - 14, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    r.text(avail ? t('shop.dailySub') : t('shop.dailyDone'), dg.x + 118, dg.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
-    const claimW = 96, claimH = 44, cx = dg.right - claimW - 16, cyy = dg.centerY - claimH / 2;
-    // Once claimed, the button greys out until tomorrow so it can't be re-tapped.
+    const tx = dg.x + dgH * 1.05;
+    const claimW = innerW * 0.24, claimH = dgH * 0.44, cx = dg.right - claimW - dgH * 0.16, cyy = dg.centerY - claimH / 2;
+    // Auto-fit the title + subtitle so they never run under the claim button.
+    const textW = cx - tx - 16;
+    let tf = Math.round(dgH * 0.2); r.ctx.font = `900 ${tf}px system-ui, sans-serif`;
+    while (tf > 14 && r.ctx.measureText(t('shop.dailyGift')).width > textW) { tf -= 1; r.ctx.font = `900 ${tf}px system-ui, sans-serif`; }
+    r.text(t('shop.dailyGift'), tx, dg.centerY - dgH * 0.13, { font: `900 ${tf}px system-ui, sans-serif`, color: '#fff', baseline: 'middle' });
+    let sf = Math.round(dgH * 0.12); r.ctx.font = `700 ${sf}px system-ui, sans-serif`;
+    const subT = avail ? t('shop.dailySub') : t('shop.dailyDone');
+    while (sf > 11 && r.ctx.measureText(subT).width > textW) { sf -= 1; r.ctx.font = `700 ${sf}px system-ui, sans-serif`; }
+    r.text(subT, tx, dg.centerY + dgH * 0.14, { font: `700 ${sf}px system-ui, sans-serif`, color: 'rgba(255,255,255,0.92)', baseline: 'middle' });
     this._claimRect = avail ? new Rect(cx, cyy, claimW, claimH) : null;
     UITheme.button(r, cx, cyy, claimW, claimH, claimH / 2, avail ? UI.btn.play : UI.btn.muted ?? ['#7f8aa0', '#5f6a80']);
     r.setAlpha(avail ? 1 : 0.85);
-    r.text(avail ? t('common.claim') : '✓', cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(avail ? t('common.claim') : '✓', cx + claimW / 2, cyy + claimH / 2, { font: `900 ${Math.round(claimH * 0.36)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
     r.setAlpha(1);
 
     // --- Watch-ad → free COINS banner ---
-    const ad = new Rect(p.x + pad, dg.bottom + 12, p.w - pad * 2, 70);
+    const ad = new Rect(p.x + pad, dg.bottom + gap, innerW, adH);
     this._adRect = ad;
-    UITheme.button(r, ad.x, ad.y, ad.w, ad.h, 18, UI.btn.play);
-    this._playIcon(r, ad.x + 44, ad.centerY, 18);
-    r.text(this._adPending ? t('shop.watching') : t('shop.freeCoins'), ad.x + 84, ad.centerY - 12, { font: '900 20px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    // Subtitle: "+100" with a coin so it's clear the reward is coins, not a booster.
-    drawObjectiveIcon(r, 'coins', ad.x + 90, ad.centerY + 13, 8, '#ffcf5e');
-    r.text(`+${AD_COINS}`, ad.x + 104, ad.centerY + 12, { font: '800 14px system-ui, sans-serif', color: 'rgba(255,255,255,0.95)', baseline: 'middle' });
-    UITheme.chip(r, ad.right - 96, ad.centerY - 17, 80, 34, '#ff8a3d');
-    r.text(t('common.watch'), ad.right - 56, ad.centerY, { font: '900 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    UITheme.button(r, ad.x, ad.y, ad.w, ad.h, adH * 0.24, UI.btn.play);
+    this._playIcon(r, ad.x + adH * 0.6, ad.centerY, adH * 0.26);
+    r.text(this._adPending ? t('shop.watching') : t('shop.freeCoins'), ad.x + adH * 1.15, ad.centerY - adH * 0.16, { font: `900 ${Math.round(adH * 0.28)}px system-ui, sans-serif`, color: '#fff', baseline: 'middle' });
+    drawObjectiveIcon(r, 'coins', ad.x + adH * 1.22, ad.centerY + adH * 0.2, adH * 0.11, '#ffcf5e');
+    r.text(`+${AD_COINS}`, ad.x + adH * 1.4, ad.centerY + adH * 0.18, { font: `800 ${Math.round(adH * 0.2)}px system-ui, sans-serif`, color: 'rgba(255,255,255,0.95)', baseline: 'middle' });
+    const chipW = innerW * 0.2, chipH = adH * 0.48;
+    UITheme.chip(r, ad.right - chipW - adH * 0.2, ad.centerY - chipH / 2, chipW, chipH, '#ff8a3d');
+    r.text(t('common.watch'), ad.right - chipW / 2 - adH * 0.2, ad.centerY, { font: `900 ${Math.round(chipH * 0.42)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
 
     // --- Booster store header ---
-    r.text(t('shop.boosterStore'), p.centerX, ad.bottom + 22, { font: '900 18px system-ui, sans-serif', color: UI.gold.deep, align: 'center', baseline: 'middle' });
+    const headerY = ad.bottom + headerH * 0.6;
+    r.text(t('shop.boosterStore'), p.centerX, headerY, { font: `900 ${Math.round(headerH * 0.5)}px system-ui, sans-serif`, color: UI.gold.deep, align: 'center', baseline: 'middle' });
 
-    // --- Offer cards (2×2), priced in Coins ---
-    const cols = 2, cw = (p.w - pad * 2 - 16) / cols, ch = 150;
-    const gy = ad.bottom + 40;
+    // --- Offer cards (2×2), sized to FILL the remaining panel height ---
+    const cols = 2, cw = (innerW - gap) / cols;
+    const gy = ad.bottom + headerH;
+    const ch = s.cardH;
     const coins = this._balance();
     this._packRects = [];
     OFFERS.forEach((o, i) => {
       const col = i % cols, row = Math.floor(i / cols);
-      const x = p.x + pad + col * (cw + 16);
-      const y = gy + row * (ch + 16);
+      const x = p.x + pad + col * (cw + gap);
+      const y = gy + row * (ch + gap);
       this._packRects.push({ rect: new Rect(x, y, cw, ch), o });
       const afford = coins >= o.cost;
-      UITheme.button(r, x, y, cw, ch, 18, o.color, { shadow: true });
+      UITheme.button(r, x, y, cw, ch, ch * 0.12, o.color, { shadow: true });
       r.setAlpha(0.5); r.fillRoundRect(x + 8, y + 8, cw - 16, ch * 0.34, 12, 'rgba(255,255,255,0.55)'); r.setAlpha(1);
-      if (o.best) { r.withGlow('#ffe08a', 8, () => UITheme.chip(r, x + cw - 66, y + 10, 56, 26, '#ff7ab0')); r.text('BEST', x + cw - 38, y + 23, { font: '900 12px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' }); }
-      // Booster sprite + quantity (sprite to the left, "×N" to the right); the
-      // bundle has no single sprite, so its "ALL" stays centred.
+      if (o.best) { const chw = cw * 0.28, chh = ch * 0.17; r.withGlow('#ffe08a', 8, () => UITheme.chip(r, x + cw - chw - 10, y + 10, chw, chh, '#ff7ab0')); r.text('BEST', x + cw - chw / 2 - 10, y + 10 + chh / 2, { font: `900 ${Math.round(chh * 0.5)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' }); }
       const bImg = AssetManager.image(`booster_${o.id}`);
       if (bImg) {
         const box = ch * 0.42, rr = Math.min(box / bImg.width, box / bImg.height);
         const iw = bImg.width * rr, ih = bImg.height * rr;
         r.ctx.drawImage(bImg, x + cw * 0.32 - iw / 2, y + ch * 0.32 - ih / 2, iw, ih);
-        r.text(o.qty, x + cw * 0.66, y + ch * 0.32, { font: '900 32px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
+        r.text(o.qty, x + cw * 0.66, y + ch * 0.32, { font: `900 ${Math.round(ch * 0.22)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
       } else {
-        r.text(o.qty, x + cw / 2, y + ch * 0.34, { font: '900 34px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
+        r.text(o.qty, x + cw / 2, y + ch * 0.34, { font: `900 ${Math.round(ch * 0.23)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(20,44,92,0.35)', outlineWidth: 3 });
       }
-      r.text(o.label, x + cw / 2, y + ch * 0.58, { font: '800 15px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
-      // Coin-price pill (dim when unaffordable).
-      const bw = cw * 0.66, bh = 34, bx = x + cw / 2 - bw / 2, by = y + ch - bh - 10;
+      r.text(o.label, x + cw / 2, y + ch * 0.58, { font: `800 ${Math.round(ch * 0.1)}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
+      const bw = cw * 0.66, bh = ch * 0.24, bx = x + cw / 2 - bw / 2, by = y + ch - bh - ch * 0.08;
       r.setAlpha(afford ? 1 : 0.5);
       UITheme.button(r, bx, by, bw, bh, bh / 2, afford ? UI.btn.orange : ['#8a97ad', '#6b7890'], { shadow: false });
       drawObjectiveIcon(r, 'coins', bx + bh * 0.5, by + bh / 2, bh * 0.28, '#ffcf5e');
-      r.text(String(o.cost), bx + bh * 0.9, by + bh / 2, { font: '900 17px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
+      r.text(String(o.cost), bx + bh * 0.9, by + bh / 2, { font: `900 ${Math.round(bh * 0.5)}px system-ui, sans-serif`, color: '#fff', baseline: 'middle' });
       r.setAlpha(1);
     });
 

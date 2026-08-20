@@ -32,19 +32,28 @@ export class SettingsScreen extends PanelScreen {
 
   _on(s, row) { const v = s?.get(row.key); return row.invert ? !v : !!v; }
 
-  // Big, generously-spaced rows; PanelScreen hugs + vertically centres the panel
-  // so it reads as a substantial card, not a tiny one floating up top.
-  contentHeight() { return 34 + (ROWS.length + 2) * 76 + (ROWS.length + 1) * 16 + 28 + 54 + 26; }
+  // Use the FULL panel (~80% of the screen) — content is scaled up and spread to
+  // fill it comfortably, not shrunk into a small card.
+  contentHeight() { return null; }
 
-  /** Row rects (6 toggles + language + block) followed by the reset button. */
+  /** Row rects (6 toggles + language + block) spread to FILL the panel, with the
+   *  reset button pinned near the foot. Row height + gaps derive from the panel
+   *  height, so elements + fonts scale up on tall screens. Shared by draw + tap. */
   _layout() {
     const p = this.panel;
-    const x = p.x + 30, w = p.w - 60, gap = 16, rowH = 76;
-    const top = p.y + 34;
-    const N = ROWS.length + 2;   // + language + block-style
+    const x = p.x + p.w * 0.05, w = p.w * 0.9;
+    const top = p.y + p.h * 0.06;
+    const resetH = clamp(p.h * 0.07, 48, 78);
+    const bottom = p.bottom - resetH - p.h * 0.05;   // rows live above the reset
+    const N = ROWS.length + 2;                        // + language + block-style
+    const region = bottom - top;
+    // Comfortable row height, then distribute any leftover space as even gaps so
+    // the rows fill the region without becoming oversized.
+    const rowH = clamp(region / (N * 1.35), 84, 150);
+    const gap = Math.max(10, (region - rowH * N) / (N - 1));
     const rows = [];
     for (let i = 0; i < N; i++) rows.push(new Rect(x, top + i * (rowH + gap), w, rowH));
-    const reset = new Rect(p.centerX - 120, rows[N - 1].bottom + 28, 240, 54);
+    const reset = new Rect(p.centerX - w * 0.28, p.bottom - resetH - p.h * 0.035, w * 0.56, resetH);
     return { rows, rowH, reset };
   }
 
@@ -56,50 +65,57 @@ export class SettingsScreen extends PanelScreen {
     }
   }
 
-  _rowCard(r, rect, label) {
-    r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, 18, 'rgba(255,255,255,0.62)');
-    r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, 18, 'rgba(120,140,200,0.4)', 1.5);
-    r.text(label, rect.x + 24, rect.centerY, { font: '800 21px system-ui, sans-serif', color: UI.ink, baseline: 'middle' });
+  _rowCard(r, rect, label, fontPx) {
+    const rad = Math.min(28, rect.h * 0.28);
+    r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, rad, 'rgba(255,255,255,0.66)');
+    r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, rad, 'rgba(120,140,200,0.42)', 2);
+    r.text(label, rect.x + rect.h * 0.42, rect.centerY, { font: `800 ${fontPx}px system-ui, sans-serif`, color: UI.ink, baseline: 'middle' });
   }
 
   drawContent(r) {
-    const { rows, reset } = this._layout();
+    const { rows, rowH, reset } = this._layout();
+    // Everything scales with the (panel-derived) row height so the card reads big
+    // and comfortable on tall screens instead of tiny.
+    const labelFont = clamp(Math.round(rowH * 0.3), 20, 40);
+    const pillFont = clamp(Math.round(rowH * 0.26), 18, 34);
+    const tw = clamp(rowH * 1.55, 78, 150), thh = clamp(rowH * 0.62, 40, 78);
+    const pw = clamp(rows[0].w * 0.34, 170, 340), ph = clamp(rowH * 0.66, 46, 90);
+    const pad = rowH * 0.42;
+
     this._toggleRects = [];
-    // 6 toggle rows.
     ROWS.forEach((row, i) => {
       const rect = rows[i];
       this._toggleRects.push({ row, rect });
-      this._rowCard(r, rect, t(row.labelKey));
-      const tw = 78, thh = 42;
-      this._toggle(r, rect.right - tw - 18, rect.centerY - thh / 2, tw, thh, this._anim[row.key]);
+      this._rowCard(r, rect, t(row.labelKey), labelFont);
+      this._toggle(r, rect.right - tw - pad, rect.centerY - thh / 2, tw, thh, this._anim[row.key]);
     });
 
-    // Pill dimensions for the two selector rows.
-    const pw = 176, ph = 48;
+    const pill = (rect, colors, text) => {
+      const px = rect.right - pw - pad, py = rect.centerY - ph / 2;
+      r.fillRoundRect(px, py, pw, ph, ph / 2, colors);
+      r.text(text, px + pw / 2, rect.centerY, { font: `800 ${pillFont}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
+    };
+
     // Language row.
     const lr = rows[ROWS.length];
     this._langRect = lr;
-    this._rowCard(r, lr, t('settings.language'));
-    let px2 = lr.right - pw - 16, py2 = lr.centerY - ph / 2;
-    r.fillRoundRect(px2, py2, pw, ph, ph / 2, UI.btn.blue[1]);
-    r.text(L.currentName(), px2 + pw / 2, lr.centerY, { font: '800 18px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    this._rowCard(r, lr, t('settings.language'), labelFont);
+    pill(lr, UI.btn.blue[1], L.currentName());
 
     // Block-style row.
     const br = rows[ROWS.length + 1];
     this._blockRect = br;
-    this._rowCard(r, br, t('settings.blockStyle'));
+    this._rowCard(r, br, t('settings.blockStyle'), labelFont);
     const skin = this.game.getSystem('settings')?.get('blockSkin') || 'friends';
-    let bpx = br.right - pw - 16, bpy = br.centerY - ph / 2;
-    r.fillRoundRect(bpx, bpy, pw, ph, ph / 2, UI.btn.play[1]);
-    r.text(t(skin === 'gems' ? 'settings.blockGems' : 'settings.blockFriends'), bpx + pw / 2, br.centerY, { font: '800 18px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    pill(br, UI.btn.play[1], t(skin === 'gems' ? 'settings.blockGems' : 'settings.blockFriends'));
 
     // Reset progress button (pinned at the foot).
     this._resetRect = reset;
-    r.fillRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, 'rgba(224,67,63,0.14)');
-    r.strokeRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, UI.btn.red[1], 2);
+    r.fillRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, 'rgba(224,67,63,0.16)');
+    r.strokeRoundRect(reset.x, reset.y, reset.w, reset.h, reset.h / 2, UI.btn.red[1], 2.5);
     const rLabel = t('settings.reset');
-    let rf = 16; r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
-    while (rf > 10 && r.ctx.measureText(rLabel).width > reset.w - 28) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
+    let rf = clamp(Math.round(reset.h * 0.34), 16, 30); r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
+    while (rf > 12 && r.ctx.measureText(rLabel).width > reset.w - 30) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
     r.text(rLabel, reset.centerX, reset.centerY, { font: `800 ${rf}px system-ui, sans-serif`, color: UI.btn.red[1], align: 'center', baseline: 'middle' });
   }
 
