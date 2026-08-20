@@ -21,6 +21,10 @@ import { Shapes, ShapeKeys } from './Shapes.js';
 import { Config } from '../../config/Config.js';
 import { clamp } from '../../utils/MathUtils.js';
 
+/** Big space-hogs the design wants to see MORE of (3×3 + both 2×3 rects). Given
+ *  an extra push on an open board so hands feel chunky and Block-Blast-like. */
+const BIG_WANTED = new Set(['bigSquare', 'rect23', 'rect32']);
+
 export class PieceGenerator {
   /**
    * @param {import('../../utils/Random.js').Random} rng
@@ -146,7 +150,8 @@ export class PieceGenerator {
         // trending toward empty instead of being refilled by big space-hogs.
         if (filled > 0 && filled <= rows * 3) return Math.max(0.05, 1.4 - bigness * 1.25);
         const fillPenalty = 1 - bigness * fill * 0.9;    // big pieces fade as the board fills
-        return Math.max(0.06, (1 + 0.12 * (n - 1)) * fillPenalty);
+        const wantBoost = BIG_WANTED.has(k) ? 2.4 : 1;   // extra push for 3×3 / 2×3
+        return Math.max(0.06, (1 + 0.12 * (n - 1)) * fillPenalty * wantBoost);
       }
       const g = Math.exp(-((this.hardness[k] - target) ** 2) / (2 * sigma * sigma));
       return (Shapes[k].weight ?? 1) * g + 0.001;

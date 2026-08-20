@@ -61,9 +61,9 @@ export const Shapes = Object.freeze({
   // planning: a five-bar wants a clean line, the 3×3 a clean square.
   quint: { blocks: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], weight: 1 },
   quintV: { blocks: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]], weight: 1 },
-  rect23: { blocks: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]], weight: 1 },
-  rect32: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], weight: 1 },
-  bigSquare: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2]], weight: 1 },
+  rect23: { blocks: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]], weight: 3 },
+  rect32: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], weight: 3 },
+  bigSquare: { blocks: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2]], weight: 3 },
 });
 
 /** Flat list of shape keys, for convenient iteration. */

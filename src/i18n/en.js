@@ -50,7 +50,7 @@ export default {
     blockStyle: 'Block Style', blockFriends: 'Friends', blockGems: 'Gems',
   },
   shop: {
-    dailyGift: 'DAILY GIFT', dailySub: 'Come back every day!', boosterStore: 'BOOSTER STORE',
+    dailyGift: 'DAILY GIFT', dailySub: 'Come back every day!', dailyDone: 'Claimed — back tomorrow!', boosterStore: 'BOOSTER STORE',
     freeBooster: 'FREE BOOSTER', freeCoins: 'FREE COINS', watching: 'WATCHING…', loadingAd: 'Loading ad…', noAd: 'No ad available',
     notEnough: 'NOT ENOUGH COINS',
   },

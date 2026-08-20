@@ -38,7 +38,18 @@ export class ShopScreen extends PanelScreen {
     this._coins = [];       // local coin-burst particles
     this._toast = null;
     this._adPending = false;
+    // Persist the day the free gift was last claimed, so it's ONCE per day
+    // (was previously payable on every tap).
+    this._shop = game.getSystem('save')?.registerSlice('shop', () => ({ lastGift: '' })) ?? { lastGift: '' };
   }
+
+  /** Local calendar day key (YYYYMMDD). */
+  _today() {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  }
+  /** True while today's free gift is still unclaimed. */
+  get _giftAvailable() { return this._shop.lastGift !== this._today(); }
 
   // Daily banner (34+118) + ad banner (12+70) + store (40 + 2 rows*150 +16) + pad.
   contentHeight() {
@@ -64,12 +75,16 @@ export class ShopScreen extends PanelScreen {
     this._dailyRect = dg;
     UITheme.button(r, dg.x, dg.y, dg.w, dg.h, 20, UI.btn.teal);
     this._chest(r, dg.x + 60, dg.centerY, 40, this._chestT >= 0);
+    const avail = this._giftAvailable;
     r.text(t('shop.dailyGift'), dg.x + 118, dg.centerY - 14, { font: '900 22px system-ui, sans-serif', color: '#fff', baseline: 'middle' });
-    r.text(t('shop.dailySub'), dg.x + 118, dg.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
+    r.text(avail ? t('shop.dailySub') : t('shop.dailyDone'), dg.x + 118, dg.centerY + 12, { font: '700 13px system-ui, sans-serif', color: 'rgba(255,255,255,0.9)', baseline: 'middle' });
     const claimW = 96, claimH = 44, cx = dg.right - claimW - 16, cyy = dg.centerY - claimH / 2;
-    this._claimRect = new Rect(cx, cyy, claimW, claimH);
-    UITheme.button(r, cx, cyy, claimW, claimH, claimH / 2, UI.btn.play);
-    r.text(t('common.claim'), cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    // Once claimed, the button greys out until tomorrow so it can't be re-tapped.
+    this._claimRect = avail ? new Rect(cx, cyy, claimW, claimH) : null;
+    UITheme.button(r, cx, cyy, claimW, claimH, claimH / 2, avail ? UI.btn.play : UI.btn.muted ?? ['#7f8aa0', '#5f6a80']);
+    r.setAlpha(avail ? 1 : 0.85);
+    r.text(avail ? t('common.claim') : '✓', cx + claimW / 2, cyy + claimH / 2, { font: '900 16px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.setAlpha(1);
 
     // --- Watch-ad → free COINS banner ---
     const ad = new Rect(p.x + pad, dg.bottom + 12, p.w - pad * 2, 70);
@@ -163,8 +178,11 @@ export class ShopScreen extends PanelScreen {
 
   onContentTap(px, py) {
     const eco = this.game.getSystem('economy');
-    // Free daily gift (coins).
+    // Free daily gift (coins) — ONCE per calendar day.
     if (this._claimRect?.contains(px, py) || this._dailyRect?.contains(px, py)) {
+      if (!this._giftAvailable) { this._toast = { text: t('shop.dailyDone'), t: 1.6 }; return true; }
+      this._shop.lastGift = this._today();
+      this.game.getSystem('save')?.markDirty();
       this._chestT = 0;
       eco?.credit('gold', 300);
       this.game.getSystem('audio')?.play('reward'); Haptics.success(this.game);

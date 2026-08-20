@@ -487,21 +487,17 @@ export class BoardSystem extends System {
       sky = sky.map((c, i) => hexLerp(prev[i] ?? prev[prev.length - 1], c, k));
     }
     renderer.fillBackgroundGradient(sky);
-    const sun = renderer.radialGradient(w * 0.5, h * 0.12, h * 0.4,
-      [[0, 'rgba(255,255,255,0.5)'], [0.5, 'rgba(255,247,214,0.22)'], [1, 'rgba(255,255,255,0)']]);
+    // A soft cool glow from the top instead of a bright sun (this is a dark,
+    // premium night board — a white sun would blow it out).
+    const sun = renderer.radialGradient(w * 0.5, h * 0.1, h * 0.42,
+      [[0, `rgba(120,170,${240},0.16)`], [0.55, 'rgba(80,130,210,0.06)'], [1, 'rgba(0,0,0,0)']]);
     renderer.fillRect(0, 0, w, h, sun);
-    renderer.setAlpha(0.05);
-    for (let i = 0; i < 5; i++) {
-      const a = -0.5 + i * 0.24;
-      ctx.save(); ctx.translate(w * 0.5, h * 0.1); ctx.rotate(a);
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(-40, 0, 80, h); ctx.restore();
-    }
-    renderer.setAlpha(1);
+    // Faint drifting clouds, dimmed so they read as distant haze on the dark sky.
     for (const c of this._skyClouds) {
       const img = AssetManager.image(c.key);
       if (!img) continue;
       const cw = c.s * 200, ch = cw * img.height / img.width;
-      renderer.setAlpha(c.s < 0.95 ? 0.8 : 1);
+      renderer.setAlpha(0.1);
       if (c.flip) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(-1, 1); ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch); ctx.restore(); }
       else ctx.drawImage(img, c.x - cw / 2, c.y - ch / 2, cw, ch);
       renderer.setAlpha(1);
@@ -774,27 +770,34 @@ export class BoardSystem extends System {
    */
   _drawSocket(renderer, x, y, size, socketGrad, rim = Palette.socket.rim, flash = 0, accent = '#22b7ff') {
     const r = Config.board.cellRadius;
-    renderer.fillRoundRect(x - 1, y - 1, size + 2, size + 2, r + 1, rim);
     const ctx = renderer.ctx;
+    // Premium dark-navy tile (fixed palette, per the design spec): a lighter
+    // navy contour, a top-lit face gradient, a soft top sheen and a deep bottom
+    // shadow so each empty slot reads as a crisp, moulded tile on a dark board.
+    // Contour / outer edge (#375C91).
+    renderer.fillRoundRect(x - 1.5, y - 1.5, size + 3, size + 3, r + 1.5, '#375c91');
+    // Base face: #243A63 (top) → #1B2942 (bottom).
     ctx.save();
     ctx.translate(x, y);
     renderer.roundRectPath(0, 0, size, size, r);
-    ctx.fillStyle = socketGrad;
+    ctx.fillStyle = renderer.linearGradient(0, 0, 0, size, [[0, '#26406b'], [0.55, '#1f3255'], [1, '#172640']]);
     ctx.fill();
     ctx.restore();
-    // Carved depth. A soft inner-top shadow sells the recess (light comes from
-    // above, so the top lip casts down), a crisp rim-light rides that shadow,
-    // and a deeper bottom shade grounds the socket — so each empty cell reads
-    // as a real engraved slot and placed crystals pop out of it.
-    renderer.setAlpha(0.32);
-    renderer.fillRoundRect(x + size * 0.06, y + size * 0.03, size * 0.88, size * 0.17, r * 0.6, 'rgba(26,58,116,0.62)');
-    renderer.setAlpha(0.6);
-    renderer.fillRoundRect(x + size * 0.14, y + size * 0.17, size * 0.72, size * 0.07, r * 0.4, 'rgba(255,255,255,0.95)');
-    renderer.setAlpha(0.28);
-    renderer.fillRoundRect(x + size * 0.08, y + size * 0.79, size * 0.84, size * 0.13, r * 0.5, 'rgba(18,46,104,0.78)');
+    // Top highlight sheen (#4A7BBE), fading down.
+    ctx.save();
+    renderer.roundRectPath(x, y, size, size, r);
+    ctx.clip();
+    renderer.setAlpha(0.5);
+    renderer.fillRoundRect(x + size * 0.08, y + size * 0.06, size * 0.84, size * 0.34,
+      r * 0.7, renderer.linearGradient(x, y, x, y + size * 0.42, [[0, 'rgba(74,123,190,0.9)'], [1, 'rgba(74,123,190,0)']]));
+    // Deep bottom shadow (#0A1020).
+    renderer.setAlpha(0.45);
+    renderer.fillRoundRect(x + size * 0.06, y + size * 0.72, size * 0.88, size * 0.24,
+      r * 0.7, renderer.linearGradient(x, y + size * 0.7, x, y + size, [[0, 'rgba(10,16,32,0)'], [1, 'rgba(10,16,32,0.85)']]));
     renderer.setAlpha(1);
-    // Thin crisp inner edge so each slot reads as a cleanly "cut" recess.
-    renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(34,74,140,0.30)', 1.5);
+    ctx.restore();
+    // Thin dark inner edge for a clean "cut".
+    renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(8,14,28,0.55)', 1.5);
     // Transformation-wave accent: a bright bloom on the cell as the front passes.
     if (flash > 0) {
       renderer.setAlpha(flash * 0.7);

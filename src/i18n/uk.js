@@ -48,7 +48,7 @@ export default {
     blockStyle: 'Стиль блоків', blockFriends: 'Друзі', blockGems: 'Самоцвіти',
   },
   shop: {
-    dailyGift: 'ЩОДЕННИЙ ПОДАРУНОК', dailySub: 'Заходь щодня!', boosterStore: 'МАГАЗИН БУСТЕРІВ',
+    dailyGift: 'ЩОДЕННИЙ ПОДАРУНОК', dailySub: 'Заходь щодня!', dailyDone: 'Отримано — завтра ще!', boosterStore: 'МАГАЗИН БУСТЕРІВ',
     freeBooster: 'БЕЗКОШТОВНИЙ БУСТЕР', freeCoins: 'МОНЕТИ ЗА РЕКЛАМУ', watching: 'ПЕРЕГЛЯД…', loadingAd: 'Завантаження реклами…', noAd: 'Реклама недоступна',
     notEnough: 'НЕ ВИСТАЧАЄ МОНЕТ',
   },
