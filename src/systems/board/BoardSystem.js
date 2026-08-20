@@ -497,7 +497,7 @@ export class BoardSystem extends System {
       const img = AssetManager.image(c.key);
       if (!img) continue;
       const cw = c.s * 200, ch = cw * img.height / img.width;
-      renderer.setAlpha(0.1);
+      renderer.setAlpha(c.s < 0.95 ? 0.34 : 0.46);
       if (c.flip) { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(-1, 1); ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch); ctx.restore(); }
       else ctx.drawImage(img, c.x - cw / 2, c.y - ch / 2, cw, ch);
       renderer.setAlpha(1);
@@ -506,7 +506,7 @@ export class BoardSystem extends System {
     // and the whole screen feels finished rather than a flat wash. One cheap
     // radial per frame.
     const vig = renderer.radialGradient(w * 0.5, h * 0.44, h * 0.62,
-      [[0, 'rgba(10,30,70,0)'], [0.72, 'rgba(10,30,70,0)'], [1, 'rgba(10,30,70,0.30)']]);
+      [[0, 'rgba(12,28,58,0)'], [0.72, 'rgba(12,28,58,0)'], [1, 'rgba(12,28,58,0.22)']]);
     renderer.fillRect(0, 0, w, h, vig);
   }
 

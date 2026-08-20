@@ -17,7 +17,7 @@
 
 export const Palette = Object.freeze({
   /** Bright sky gradient, top -> bottom (used as a safe fallback backdrop). */
-  background: Object.freeze(['#0f1624', '#13203a', '#1b2942']),
+  background: Object.freeze(['#345f96', '#4d80ba', '#72a2d4']),
 
   /** Neutral surfaces (panels, cards) — glossy warm white glass. */
   surface: 'rgba(255,255,255,0.92)',
@@ -77,12 +77,12 @@ export const Palette = Object.freeze({
     // Dark-navy board: tiles are a fixed premium navy (see _drawSocket); a theme
     // only shifts the deep background MOOD + accent, so a full-clear still morphs
     // the whole screen without lightening the board.
-    Object.freeze({ name: 'Sky',     rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3aa8ff', sky: ['#0f1624', '#152340', '#20365c'] }),
-    Object.freeze({ name: 'Sunset',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff8a2e', sky: ['#1a1018', '#2c1a22', '#432634'] }),
-    Object.freeze({ name: 'Orchid',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#b06aff', sky: ['#140f22', '#221a3a', '#352a58'] }),
-    Object.freeze({ name: 'Rose',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff5a98', sky: ['#190f18', '#2c1a28', '#43263a'] }),
-    Object.freeze({ name: 'Meadow',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3fd07a', sky: ['#0d1a14', '#152a1f', '#1f3d2c'] }),
-    Object.freeze({ name: 'Dusk',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#6a7aff', sky: ['#0d1020', '#161c38', '#242c58'] }),
+    Object.freeze({ name: 'Sky',     rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3aa8ff', sky: ['#345f96', '#4d80ba', '#72a2d4'] }),
+    Object.freeze({ name: 'Sunset',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff8a2e', sky: ['#7a4a5a', '#a5626a', '#c98a78'] }),
+    Object.freeze({ name: 'Orchid',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#b06aff', sky: ['#4a3a72', '#6a52a0', '#8f74c0'] }),
+    Object.freeze({ name: 'Rose',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#ff5a98', sky: ['#7a4a68', '#a5627e', '#c98a9e'] }),
+    Object.freeze({ name: 'Meadow',  rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#3fd07a', sky: ['#3a6a52', '#529078', '#79b598'] }),
+    Object.freeze({ name: 'Dusk',    rim: '#375c91', faceTop: '#243a63', faceBottom: '#1b2942', accent: '#6a7aff', sky: ['#3a4270', '#525da8', '#727ec0'] }),
   ]),
 
   /** Rune engravings etched into stone and cells — warm glowing gold. */
