@@ -60,7 +60,13 @@ export class GameplaySystem extends System {
     this.listen('ui:playLevel', ({ level } = {}) => { this.mode = 'campaign'; this._startLevel = level ?? null; this.startGame(); });
     this.listen('ui:playEndless', () => { this.mode = 'endless'; this._startLevel = null; this.startGame(); });
     this.listen('ui:playDaily', () => { this.mode = 'daily'; this._startLevel = null; this.startGame(); });
-    this.listen('ui:restart', this.startGame);
+    // Restart the CURRENT run. In campaign that means replaying the level being
+    // played (not falling back to the frontier level) — so restarting level 1
+    // restarts level 1, not the furthest unlocked level.
+    this.listen('ui:restart', () => {
+      if (this.mode === 'campaign') this._startLevel = this.game.getSystem('level')?.level ?? null;
+      this.startGame();
+    });
     this.listen('game:piecePlaced', this._onPiecePlaced);
     this.listen('game:linesCleared', this._onLinesCleared);
     this.listen('game:noClears', this._onNoClears);
