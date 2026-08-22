@@ -18,7 +18,6 @@ const ROWS = [
   { key: 'reducedMotion', labelKey: 'settings.reducedMotion' },
   { key: 'colorBlind', labelKey: 'settings.colorBlind' },
   { key: 'lowPerformance', labelKey: 'settings.lowPerformance' },
-  { key: 'largeUI', labelKey: 'settings.largeUI' },
 ];
 
 export class SettingsScreen extends PanelScreen {

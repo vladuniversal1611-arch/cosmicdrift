@@ -27,9 +27,12 @@ export class PauseScreen extends Screen {
     const btn = (i, label, colors, ev) => this.add(new PremiumButton(bx, by + (bh + gap) * i, bw, bh,
       () => this.events.emit(ev), { label, colors, radius: 24, font: '900 26px system-ui, sans-serif' }));
     btn(0, t('common.resume'), UI.btn.play, 'ui:back');
-    // Restart the current run, then close the pause panel so play resumes.
+    // Restart the current run. `ui:restart` → game:started → the UI REPLACES the
+    // whole stack with a fresh HUD (which already removes this pause panel), so
+    // we must NOT also emit `ui:back` — that would pop the new HUD and leave the
+    // board with no HUD at all (no pause / boosters / hint).
     this.add(new PremiumButton(bx, by + (bh + gap) * 1, bw, bh,
-      () => { this.events.emit('ui:restart'); this.events.emit('ui:back'); },
+      () => this.events.emit('ui:restart'),
       { label: 'RESTART', colors: UI.btn.teal, radius: 24, font: '900 26px system-ui, sans-serif' }));
     btn(2, t('menu.settings'), UI.btn.blue, 'ui:openSettings');
     btn(3, t('titles.mainMenu'), UI.btn.orange, 'ui:mainMenu');
