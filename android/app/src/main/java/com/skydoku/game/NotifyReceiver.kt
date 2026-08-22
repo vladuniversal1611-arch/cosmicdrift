@@ -23,8 +23,11 @@ class NotifyReceiver : BroadcastReceiver() {
             (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         val contentPi = PendingIntent.getActivity(ctx, nid, launch, flags)
 
+        // Prefer the dedicated white status-bar icon; fall back to the app icon.
+        val smallIcon = ctx.resources.getIdentifier("ic_stat_notify", "drawable", ctx.packageName)
+            .let { if (it != 0) it else ctx.applicationInfo.icon }
         val notif = NotificationCompat.Builder(ctx, AndroidNotify.CHANNEL_ID)
-            .setSmallIcon(ctx.applicationInfo.icon)   // swap for a white ic_stat_* icon for best results
+            .setSmallIcon(smallIcon)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
