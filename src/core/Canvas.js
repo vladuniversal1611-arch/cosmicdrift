@@ -58,6 +58,9 @@ export class Canvas {
   resize() {
     const availW = window.innerWidth;
     const availH = window.innerHeight;
+    // Ignore degenerate viewports (0×N while backgrounded / mid-rotation) so we
+    // never derive NaN/0 dimensions that would feed non-finite gradient maths.
+    if (!(availW > 0) || !(availH > 0)) return;
     this._rotated = availW > availH;              // landscape device → rotate
     // Counter-rotate against the OS so BOTH landscape orientations come out
     // upright (fallback for browsers where an orientation lock isn't honoured).

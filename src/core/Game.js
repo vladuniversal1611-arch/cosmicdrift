@@ -27,6 +27,7 @@ import { SaveSystem } from '../systems/save/SaveSystem.js';
 import { SettingsSystem } from '../systems/settings/SettingsSystem.js';
 import { AnalyticsSystem } from '../systems/analytics/AnalyticsSystem.js';
 import { MonetizationSystem } from '../systems/monetization/MonetizationSystem.js';
+import { NotificationSystem } from '../systems/notifications/NotificationSystem.js';
 import { AudioSystem } from '../systems/audio/AudioSystem.js';
 import { AnimationSystem } from '../systems/animation/AnimationSystem.js';
 import { ParticleSystem } from '../systems/particles/ParticleSystem.js';
@@ -127,6 +128,8 @@ export class Game {
     this.systems.register(new AchievementSystem(this));
     // Store / ads / entitlements architecture (player-first, nothing shown).
     this.systems.register(new MonetizationSystem(this));
+    // Re-engagement local notifications ("don't forget to play"), native-only.
+    this.systems.register(new NotificationSystem(this));
 
     // Core gameplay: the rules brain updates before the board/pieces so its
     // screen-shake offset is set before anything renders this frame. The

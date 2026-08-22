@@ -113,6 +113,9 @@ export class Renderer {
    * can be passed anywhere a colour string is accepted (fillRoundRect etc.).
    */
   linearGradient(x0, y0, x1, y1, stops) {
+    // Guard against non-finite coords (e.g. a degenerate frame during a
+    // background/rotation transition) — createLinearGradient throws on NaN.
+    if (!Number.isFinite(x0 + y0 + x1 + y1)) return stops[stops.length - 1]?.[1] ?? '#000';
     const g = this.ctx.createLinearGradient(x0, y0, x1, y1);
     for (const [offset, color] of stops) g.addColorStop(offset, color);
     return g;
@@ -120,6 +123,7 @@ export class Renderer {
 
   /** Build a radial gradient from stops (see linearGradient). */
   radialGradient(x, y, r, stops) {
+    if (!Number.isFinite(x + y + r) || r < 0) return stops[stops.length - 1]?.[1] ?? '#000';
     const g = this.ctx.createRadialGradient(x, y, 0, x, y, r);
     for (const [offset, color] of stops) g.addColorStop(offset, color);
     return g;

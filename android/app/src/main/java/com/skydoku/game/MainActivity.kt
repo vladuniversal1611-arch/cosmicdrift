@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var ads: AndroidAds
+    private lateinit var notify: AndroidNotify
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,6 +56,11 @@ class MainActivity : AppCompatActivity() {
         // Wire the JS ad bridge: the game calls window.AndroidAds.*
         ads = AndroidAds(this, webView, bannerContainer)
         webView.addJavascriptInterface(ads, "AndroidAds")
+
+        // Wire the JS notification bridge: the game calls window.AndroidNotify.*
+        // to schedule "come back and play" reminders.
+        notify = AndroidNotify(this)
+        webView.addJavascriptInterface(notify, "AndroidNotify")
 
         webView.loadUrl("file:///android_asset/Skydoku.html")
 

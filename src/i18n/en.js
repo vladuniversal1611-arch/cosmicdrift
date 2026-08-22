@@ -55,4 +55,9 @@ export default {
     notEnough: 'NOT ENOUGH COINS',
   },
   collection: { tabs: { dragons: 'DRAGONS', buildings: 'BUILDINGS', artifacts: 'ARTIFACTS', awards: 'AWARDS' } },
+  notif: {
+    gift: { title: 'Your daily gift is ready! 🎁', body: 'Pop back in and grab your free coins.' },
+    miss: { title: 'Your friends miss you! 🐸', body: 'The board is waiting — come play a round.' },
+    levels: { title: 'New levels are calling ✨', body: 'Fresh puzzles are ready for you in Skydoku.' },
+  },
 };
