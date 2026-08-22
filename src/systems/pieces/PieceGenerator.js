@@ -150,8 +150,12 @@ export class PieceGenerator {
         // trending toward empty instead of being refilled by big space-hogs.
         if (filled > 0 && filled <= rows * 3) return Math.max(0.05, 1.4 - bigness * 1.25);
         const fillPenalty = 1 - bigness * fill * 0.9;    // big pieces fade as the board fills
-        const wantBoost = BIG_WANTED.has(k) ? 2.4 : 1;   // extra push for 3×3 / 2×3
-        return Math.max(0.06, (1 + 0.12 * (n - 1)) * fillPenalty * wantBoost);
+        const wantBoost = BIG_WANTED.has(k) ? 2.8 : 1;   // extra push for 3×3 / 2×3
+        // Favour chunky hands: 1–2 block pieces are rare, mid/big are common, so
+        // the player fills + clears the board fast (or busts fast) instead of
+        // fiddling with lots of tiny scraps.
+        const sizeBias = n <= 2 ? 0.28 : 0.6 + 0.22 * (n - 3);   // n1-2 ~0.28, n3 0.6 … n9 1.92
+        return Math.max(0.05, sizeBias * fillPenalty * wantBoost);
       }
       const g = Math.exp(-((this.hardness[k] - target) ** 2) / (2 * sigma * sigma));
       return (Shapes[k].weight ?? 1) * g + 0.001;
