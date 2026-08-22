@@ -36,6 +36,8 @@ class Localization {
   get language() { return this._lang; }
   /** The active language's own display name (e.g. "Українська"). */
   currentName() { return this._pack?.meta?.language ?? this._lang; }
+  /** A language's own display name by code (for the picker list). */
+  nameOf(code) { return this._packs[code]?.meta?.language ?? code; }
 
   /** Switch language if the pack exists. */
   setLanguage(lang) {

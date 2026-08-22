@@ -8,8 +8,9 @@
  */
 import { PanelScreen } from './PanelScreen.js';
 import { Rect } from '../../utils/Rect.js';
-import { UI } from '../theme/UITheme.js';
+import { UITheme, UI } from '../theme/UITheme.js';
 import { clamp } from '../../utils/MathUtils.js';
+import { drawFlag } from '../theme/Flags.js';
 import { t, L } from '../../i18n/Localization.js';
 
 const ROWS = [
@@ -25,6 +26,7 @@ export class SettingsScreen extends PanelScreen {
     super(game, t('titles.settings'));
     this.name = 'settings';
     this._anim = {};                 // eased 0..1 per row
+    this._langOpen = false;          // language-picker overlay open?
     const s = game.getSystem('settings');
     for (const row of ROWS) this._anim[row.key] = this._on(s, row) ? 1 : 0;
   }
@@ -95,11 +97,17 @@ export class SettingsScreen extends PanelScreen {
       r.text(text, px + pw / 2, rect.centerY, { font: `800 ${pillFont}px system-ui, sans-serif`, color: '#fff', align: 'center', baseline: 'middle' });
     };
 
-    // Language row.
+    // Language row — the pill shows the current flag + name and opens a picker.
     const lr = rows[ROWS.length];
     this._langRect = lr;
     this._rowCard(r, lr, t('settings.language'), labelFont);
-    pill(lr, UI.btn.blue[1], L.currentName());
+    {
+      const px = lr.right - pw - pad, py = lr.centerY - ph / 2;
+      r.fillRoundRect(px, py, pw, ph, ph / 2, UI.btn.blue[1]);
+      const fh = ph * 0.58, fw = fh * 1.5, fx = px + ph * 0.32;
+      drawFlag(r, fx, lr.centerY - fh / 2, fw, fh, L.language);
+      r.text(L.currentName(), fx + fw + 12, lr.centerY, { font: `800 ${pillFont}px system-ui, sans-serif`, color: '#fff', align: 'left', baseline: 'middle' });
+    }
 
     // Block-style row.
     const br = rows[ROWS.length + 1];
@@ -116,6 +124,47 @@ export class SettingsScreen extends PanelScreen {
     let rf = clamp(Math.round(reset.h * 0.34), 16, 30); r.ctx.font = `800 ${rf}px system-ui, sans-serif`;
     while (rf > 12 && r.ctx.measureText(rLabel).width > reset.w - 30) { rf -= 1; r.ctx.font = `800 ${rf}px system-ui, sans-serif`; }
     r.text(rLabel, reset.centerX, reset.centerY, { font: `800 ${rf}px system-ui, sans-serif`, color: UI.btn.red[1], align: 'center', baseline: 'middle' });
+
+    // Language picker overlay (on top of everything).
+    if (this._langOpen) this._drawLangPicker(r);
+  }
+
+  /** Layout for the language-picker grid (flag + native name per cell). */
+  _langLayout() {
+    const b = this.bounds, codes = L.languages, cols = 2;
+    const pw = Math.min(b.w * 0.88, 760);
+    const rowsN = Math.ceil(codes.length / cols);
+    const titleH = 70, pad = 26, gap = 16;
+    const cellH = clamp((b.h * 0.66 - titleH - pad * 2) / rowsN - gap, 72, 118);
+    const ph = titleH + pad + rowsN * cellH + (rowsN - 1) * gap + pad;
+    const px = (b.w - pw) / 2, py = (b.h - ph) / 2;
+    const cellW = (pw - pad * 2 - gap * (cols - 1)) / cols;
+    const cells = codes.map((code, i) => {
+      const c = i % cols, ri = Math.floor(i / cols);
+      return { code, rect: new Rect(px + pad + c * (cellW + gap), py + titleH + pad + ri * (cellH + gap), cellW, cellH) };
+    });
+    return { px, py, pw, ph, titleH, cells, cellH };
+  }
+
+  _drawLangPicker(r) {
+    const b = this.bounds;
+    r.setAlpha(0.6); r.fillRect(0, 0, b.w, b.h, '#0c2036'); r.setAlpha(1);
+    const { px, py, pw, ph, titleH, cells, cellH } = this._langLayout();
+    this._langCells = cells;
+    UITheme.glassPanel(r, px, py, pw, ph, 28);
+    // Title ribbon.
+    const rw = Math.min(pw * 0.6, 300), rh = 48, rx = px + (pw - rw) / 2, ry = py - rh * 0.5;
+    UITheme.button(r, rx, ry, rw, rh, rh / 2, UI.btn.orange);
+    r.text(t('settings.language'), px + pw / 2, ry + rh / 2, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    const nameFont = clamp(Math.round(cellH * 0.28), 16, 30);
+    for (const { code, rect } of cells) {
+      const active = code === L.language;
+      r.fillRoundRect(rect.x, rect.y, rect.w, rect.h, 18, active ? 'rgba(70,190,120,0.28)' : 'rgba(255,255,255,0.66)');
+      r.strokeRoundRect(rect.x, rect.y, rect.w, rect.h, 18, active ? UI.btn.play[1] : 'rgba(120,140,200,0.42)', active ? 3 : 2);
+      const fh = rect.h * 0.5, fw = fh * 1.5, fx = rect.x + rect.h * 0.28;
+      drawFlag(r, fx, rect.centerY - fh / 2, fw, fh, code);
+      r.text(L.nameOf(code), fx + fw + 16, rect.centerY, { font: `800 ${nameFont}px system-ui, sans-serif`, color: UI.ink, align: 'left', baseline: 'middle' });
+    }
   }
 
   _toggle(r, x, y, w, h, t) {
@@ -130,6 +179,20 @@ export class SettingsScreen extends PanelScreen {
   }
 
   onContentTap(px, py) {
+    // Language picker (modal within the screen) takes taps first.
+    if (this._langOpen) {
+      for (const { code, rect } of (this._langCells || [])) {
+        if (rect.contains(px, py)) {
+          if (code !== L.language) this.game.getSystem('settings')?.set('language', code);
+          this.game.getSystem('audio')?.play('pickup');
+          this._langOpen = false;
+          return true;
+        }
+      }
+      // Tap anywhere outside a cell dismisses the picker.
+      this._langOpen = false;
+      return true;
+    }
     for (const { row, rect } of (this._toggleRects || [])) {
       if (rect.contains(px, py)) {
         this.game.getSystem('settings')?.toggle(row.key);
@@ -137,11 +200,9 @@ export class SettingsScreen extends PanelScreen {
         return true;
       }
     }
-    // Cycle language (EN ↔ UK …). Takes effect on the next frame everywhere.
+    // Open the language picker (choose from a flagged list) instead of cycling.
     if (this._langRect?.contains(px, py)) {
-      const langs = L.languages;
-      const next = langs[(langs.indexOf(L.language) + 1) % langs.length];
-      this.game.getSystem('settings')?.set('language', next);
+      this._langOpen = true;
       this.game.getSystem('audio')?.play('pickup');
       return true;
     }
