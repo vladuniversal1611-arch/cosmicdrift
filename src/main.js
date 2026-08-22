@@ -33,6 +33,24 @@ function boot() {
   const game = new Game(canvas);
   game.start();
 
+  // Fade out the boot loading splash once the game is ready (with a short
+  // minimum so it doesn't just flash), then remove it from the DOM.
+  const loader = document.getElementById('loading');
+  if (loader) {
+    const shownAt = performance.now();
+    let hidden = false;
+    const hideLoader = () => {
+      if (hidden) return; hidden = true;
+      const wait = Math.max(0, 800 - (performance.now() - shownAt));
+      setTimeout(() => {
+        loader.classList.add('hide');
+        setTimeout(() => loader.remove(), 600);
+      }, wait);
+    };
+    game.events.on('game:ready', hideLoader);
+    setTimeout(hideLoader, 2500);   // safety net if game:ready never fires
+  }
+
   // Flush the save when the app is hidden/backgrounded (tab switch, home btn).
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {

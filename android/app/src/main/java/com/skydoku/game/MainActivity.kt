@@ -7,6 +7,9 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.ads.MobileAds
 
 /**
@@ -25,6 +28,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Immersive full-screen: hide the top status shade + nav bar so the game
+        // owns the whole screen. Sticky — a swipe reveals them briefly, then they
+        // auto-hide again.
+        hideSystemBars()
 
         // Initialise the Google Mobile Ads SDK once, at boot.
         MobileAds.initialize(this) {}
@@ -61,4 +69,19 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() { webView.onPause(); super.onPause() }
     override fun onResume() { super.onResume(); webView.onResume() }
     override fun onDestroy() { ads.destroy(); webView.destroy(); super.onDestroy() }
+
+    /** Re-hide the system bars whenever we regain focus (e.g. after the shade
+     *  was pulled down or a dialog was dismissed). */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
+    private fun hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
 }

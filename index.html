@@ -43,12 +43,44 @@
     /* The Canvas class positions this: fixed + centred on the viewport, rotated
        90° in landscape so the game is always presented in portrait. */
     #game { display: block; }
+
+    /* Loading splash shown while the game boots, then faded out. */
+    #loading {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 30px;
+      background: linear-gradient(180deg, #2f7ad0 0%, #4f9ae6 55%, #84baf0 100%);
+      transition: opacity 0.5s ease;
+    }
+    #loading.hide { opacity: 0; pointer-events: none; }
+    #loading .logo {
+      font: 900 clamp(44px, 13vw, 92px)/1 system-ui, -apple-system, sans-serif;
+      color: #fff; letter-spacing: 2px;
+      text-shadow: 0 4px 0 rgba(20,60,120,0.35), 0 10px 24px rgba(0,0,0,0.28);
+    }
+    #loading .dots { display: flex; gap: 16px; }
+    #loading .dots i {
+      width: 20px; height: 20px; border-radius: 50%; display: block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      animation: ld-bounce 0.9s ease-in-out infinite;
+    }
+    #loading .dots i:nth-child(1) { background: #3fd07a; animation-delay: 0s; }
+    #loading .dots i:nth-child(2) { background: #ff5a68; animation-delay: 0.15s; }
+    #loading .dots i:nth-child(3) { background: #ffd23a; animation-delay: 0.3s; }
+    #loading .dots i:nth-child(4) { background: #b06aff; animation-delay: 0.45s; }
+    @keyframes ld-bounce { 0%,80%,100% { transform: translateY(0); opacity: 0.75; } 40% { transform: translateY(-18px); opacity: 1; } }
   </style>
 </head>
 <body>
   <!-- The Canvas core class sizes and positions this element every resize. -->
   <div id="stage">
     <canvas id="game"></canvas>
+  </div>
+
+  <!-- Boot loading splash (removed by main.js once the game is ready). -->
+  <div id="loading">
+    <div class="logo">Skydoku</div>
+    <div class="dots"><i></i><i></i><i></i><i></i></div>
   </div>
 
   <!-- Immersive portrait: on the first tap, go fullscreen (hides the phone's
@@ -58,18 +90,25 @@
   <script>
     (function () {
       function goImmersive() {
+        // Fullscreen (hides the phone's top status shade) — only if not already,
+        // so re-tapping never throws. Requires a user gesture, hence on tap.
         try {
-          var el = document.documentElement;
-          var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
-          if (req) { var p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(function () {}); }
+          if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            var el = document.documentElement;
+            var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+            if (req) { var p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(function () {}); }
+          }
         } catch (e) {}
+        // Lock to portrait where the platform allows it (WebView/PWA).
         try {
           if (screen.orientation && screen.orientation.lock) {
             var q = screen.orientation.lock('portrait'); if (q && q.catch) q.catch(function () {});
           }
         } catch (e) {}
       }
-      window.addEventListener('pointerdown', goImmersive, { once: true });
+      // Re-arm on every tap so immersive/portrait is re-applied if the phone
+      // dropped it (e.g. after the status shade was pulled down).
+      window.addEventListener('pointerdown', goImmersive);
     })();
   </script>
 
