@@ -58,6 +58,13 @@ function boot() {
     }
   });
 
+  // Immersive on native (Capacitor): hide the status bar and let the game draw
+  // under it. Web/no-Capacitor → no-op (the HTML fullscreen-on-tap handles it).
+  try {
+    const sb = window.Capacitor?.Plugins?.StatusBar;
+    if (sb) { sb.setOverlaysWebView?.({ overlay: true }); sb.hide?.(); }
+  } catch { /* plugin absent */ }
+
   // Expose for debugging in dev consoles / WebView bridges.
   if (typeof window !== 'undefined') window.Skydoku = game;
 }

@@ -8,9 +8,9 @@
  *   node scripts/build.mjs
  * -----------------------------------------------------------------------------
  */
-import esbuild from '/opt/node22/lib/node_modules/esbuild/lib/main.js';
+import esbuild from 'esbuild';
 const { build } = esbuild;
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, extname, basename } from 'node:path';
 
@@ -56,4 +56,9 @@ const out = html.replace(
 if (out === html) throw new Error('build: could not find module script tag to inline');
 
 writeFileSync(resolve(root, 'Skydoku.html'), out);
-console.log(`built Skydoku.html (${(out.length / 1024).toFixed(0)}kb)`);
+// Also emit the Capacitor web root (webDir: "www") so `cap sync` copies the
+// game into the Android app. index.html is what Capacitor loads.
+const wwwDir = resolve(root, 'www');
+if (!existsSync(wwwDir)) mkdirSync(wwwDir, { recursive: true });
+writeFileSync(resolve(wwwDir, 'index.html'), out);
+console.log(`built Skydoku.html + www/index.html (${(out.length / 1024).toFixed(0)}kb)`);
