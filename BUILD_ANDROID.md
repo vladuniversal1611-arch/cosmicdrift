@@ -10,27 +10,17 @@
 
 ## Команди (у папці проєкту)
 
+Папка `android/` уже в репозиторії (з іконками, AdMob App ID і портретом), тому
+`npx cap add` НЕ потрібен:
+
 ```bash
 npm install                 # ставить Capacitor + плагіни + esbuild
-npx cap add android         # ПЕРШИЙ РАЗ: створює папку android/ (Capacitor-проєкт)
-npm run cap:sync            # збирає гру (www/) і копіює її в додаток
-npm run icons               # генерує іконки з assets/icon.png (усі щільності + адаптивна)
+npm run cap:sync            # збирає гру і копіює її в android/
 npx cap open android        # відкриває Android Studio → тисни Run ▶
 ```
 
 Далі, коли щось змінюєш у грі — досить `npm run cap:sync` і знову Run.
-
-## Один обов'язковий крок після `npx cap add android`
-Плагін реклами AdMob вимагає **App ID у маніфесті**. Відкрий
-`android/app/src/main/AndroidManifest.xml` і додай усередину `<application …>`:
-
-```xml
-<meta-data
-    android:name="com.google.android.gms.ads.APPLICATION_ID"
-    android:value="ca-app-pub-5816871059908402~2130478466" />
-```
-
-(це твій Skydoku App ID; рекламні unit-ID уже прописані в `src/config/Config.js`).
+(Іконки вже згенеровані; перегенерувати після заміни `assets/icon.png` — `npm run icons`.)
 
 ## Що вже підключено (нічого робити не треба)
 - 🎮 **Гра** — `webDir: www` (Capacitor вантажить `www/index.html`).
