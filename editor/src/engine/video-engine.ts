@@ -1,6 +1,6 @@
 // Core canvas-based rendering / compositing engine for the preview.
 
-import { Clip, EasingType, Effect, Keyframe, MediaFile, Project, Track } from '../types';
+import { Clip, EasingType, Keyframe, MediaFile, Project, Track } from '../types';
 
 type MediaEl = HTMLVideoElement | HTMLImageElement;
 
