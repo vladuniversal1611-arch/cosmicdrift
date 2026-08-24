@@ -39,12 +39,12 @@ resize();
 // CONSTANTS
 // ============================================================
 const LANE_COUNT = 3;
-const BASE_SPEED = 2.8;
-const MAX_SPEED = 7.5;
-const JUMP_DURATION = 0.35;
+const BASE_SPEED = 2.2;
+const MAX_SPEED = 5.5;
+const JUMP_DURATION = 0.55;
 const PAD_SPACING = 120;
 const LOOKAHEAD = 14;
-const LOOKBEHIND = 3;
+const LOOKBEHIND = 4;
 
 // ============================================================
 // GAME STATE
@@ -83,6 +83,9 @@ let frogIdleTime = 0;
 let frogOnPad = true;
 let autoJumpTimer = 0;
 let frogY = 0;
+
+// Smooth camera
+let cameraRow = 0;          // smooth float that follows frogRow
 
 // Touch drag control
 let touchActive = false;   // is finger on screen?
@@ -451,38 +454,38 @@ function addParticle(x, y, vx, vy, color, size, life, type = 'circle') {
 }
 
 function addSplash(x, y, scale = 1) {
-  for (let i = 0; i < 12; i++) {
-    const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.3;
-    const sp = (2 + Math.random() * 3) * scale;
-    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp - 2,
-      'rgba(150,220,255,0.8)', 2 + Math.random() * 3, 0.4 + Math.random() * 0.3);
+  for (let i = 0; i < 10; i++) {
+    const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+    const sp = (1.5 + Math.random() * 2) * scale;
+    addParticle(x, y, Math.cos(angle) * sp * 0.05, Math.sin(angle) * sp * 0.05 - 0.04,
+      'rgba(150,220,255,0.7)', 2 + Math.random() * 2.5, 0.5 + Math.random() * 0.3);
   }
 }
 
 function addPerfectEffect(x, y) {
-  for (let i = 0; i < 20; i++) {
-    const angle = (Math.PI * 2 * i) / 20;
-    const sp = 3 + Math.random() * 4;
+  for (let i = 0; i < 14; i++) {
+    const angle = (Math.PI * 2 * i) / 14;
+    const sp = 0.04 + Math.random() * 0.06;
     const colors = ['#FFD700', '#FFF176', '#FFEB3B', '#FF9800', '#FFFFFF'];
-    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp - 1,
-      colors[Math.floor(Math.random() * colors.length)], 2 + Math.random() * 4, 0.5 + Math.random() * 0.3, 'star');
+    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp - 0.02,
+      colors[Math.floor(Math.random() * colors.length)], 2 + Math.random() * 3, 0.6 + Math.random() * 0.3, 'star');
   }
 }
 
 function addCoinEffect(x, y) {
-  for (let i = 0; i < 8; i++) {
-    const angle = (Math.PI * 2 * i) / 8;
-    addParticle(x, y, Math.cos(angle) * 2, Math.sin(angle) * 2 - 1,
-      '#FFD700', 2 + Math.random() * 2, 0.3 + Math.random() * 0.2);
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 * i) / 6;
+    addParticle(x, y, Math.cos(angle) * 0.03, Math.sin(angle) * 0.03 - 0.01,
+      '#FFD700', 2 + Math.random() * 2, 0.4 + Math.random() * 0.2);
   }
 }
 
 function addLandRipple(x, y, scale) {
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-    const sp = (1 + Math.random() * 1.5) * scale;
+  for (let i = 0; i < 5; i++) {
+    const angle = (Math.PI * 2 * i) / 5 + Math.random() * 0.4;
+    const sp = (0.015 + Math.random() * 0.02) * scale;
     addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp * 0.3,
-      'rgba(100,200,255,0.6)', 1.5 * scale, 0.3, 'circle');
+      'rgba(100,200,255,0.5)', 1.5 * scale, 0.4, 'circle');
   }
 }
 
@@ -493,19 +496,21 @@ function addFloatingText(text, x, y, color = '#FFD700', size = 20) {
 function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 3 * dt;
+    p.x += p.vx * dt * 60;
+    p.y += p.vy * dt * 60;
+    p.vy += 2.5 * dt;
+    p.vx *= 0.98; // gentle drag
     p.life -= dt;
-    p.alpha = Math.max(0, p.life / p.maxLife);
+    p.alpha = Math.max(0, Math.pow(p.life / p.maxLife, 0.7)); // smoother fade
     if (p.life <= 0) particles.splice(i, 1);
   }
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const ft = floatingTexts[i];
-    ft.y += ft.vy;
+    ft.vy *= 0.97; // decelerate gently
+    ft.y += ft.vy * dt * 60;
     ft.life -= dt;
-    ft.alpha = Math.max(0, ft.life);
-    ft.scale = 1 + (1 - ft.life) * 0.3;
+    ft.alpha = Math.max(0, Math.pow(ft.life, 0.5)); // smoother fade
+    ft.scale = 1 + (1 - ft.life) * 0.2;
     if (ft.life <= 0) floatingTexts.splice(i, 1);
   }
 }
@@ -652,6 +657,7 @@ function startGame() {
   frogLane = 1;
   frogTargetLane = 1;
   frogRow = 0;
+  cameraRow = 0;
   frogJumping = false;
   frogJumpProgress = 0;
   frogAlive = true;
@@ -662,7 +668,7 @@ function startGame() {
   frogRotation = 0;
   frogOnPad = true;
   frogY = 0;
-  autoJumpTimer = 0.4;
+  autoJumpTimer = 0.6;
   hasShield = false;
   hasMagnet = false;
   magnetTimer = 0;
@@ -752,9 +758,18 @@ function gameOver() {
   setTimeout(() => { gameState = STATE.GAMEOVER; }, 1200);
 }
 
+// Smooth easing helpers
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
+function smoothDamp(current, target, speed, dt) {
+  return current + (target - current) * (1 - Math.exp(-speed * dt));
+}
+
 function updateGame(dt) {
   if (!frogAlive) {
-    frogFallProgress += dt * 2;
+    frogFallProgress += dt * 1.5;
+    // Keep smooth camera even during fall
+    cameraRow = smoothDamp(cameraRow, frogRow, 4, dt);
     updateParticles(dt);
     return;
   }
@@ -763,10 +778,11 @@ function updateGame(dt) {
   distance += speed * dt * 0.3;
   difficultyLevel = Math.min(distance / 50, 1);
 
-  // Speed increase
-  speed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * difficultyLevel;
+  // Speed increase — smooth curve
+  const targetSpeed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * easeOutCubic(difficultyLevel);
+  speed = smoothDamp(speed, targetSpeed, 2, dt);
   if (hasSpeedBoost) {
-    speed *= 1.4;
+    speed *= 1.3;
     speedBoostTimer -= dt;
     if (speedBoostTimer <= 0) hasSpeedBoost = false;
   }
@@ -777,16 +793,23 @@ function updateGame(dt) {
   }
 
   // Keyboard continuous input
-  const keySpeed = 3.5;
+  const keySpeed = 3.0;
   if (keyLeftHeld) frogTargetLane = Math.max(0, frogTargetLane - keySpeed * dt);
   if (keyRightHeld) frogTargetLane = Math.min(2, frogTargetLane + keySpeed * dt);
 
-  // Smoothly move frog toward target lane (responsive lerp)
-  const lerpSpeed = 12; // fast follow
-  frogLane += (frogTargetLane - frogLane) * Math.min(1, lerpSpeed * dt);
+  // Smoothly move frog toward target lane — use smoothDamp for buttery feel
+  frogLane = smoothDamp(frogLane, frogTargetLane, 10, dt);
   frogLane = Math.max(0, Math.min(2, frogLane));
 
-  // Update pad animations
+  // *** SMOOTH CAMERA — the key to removing jerkiness ***
+  // Camera smoothly tracks the frog's current row + jump progress
+  let targetCamRow = frogRow;
+  if (frogJumping) {
+    targetCamRow = frogJumpFromRow + frogJumpProgress;
+  }
+  cameraRow = smoothDamp(cameraRow, targetCamRow, 6, dt);
+
+  // Update pad animations — smooth dip recovery
   for (const pad of pads) {
     if (pad.moving) {
       pad.moveOffset += pad.moveDir * pad.moveSpeed * dt;
@@ -794,17 +817,18 @@ function updateGame(dt) {
     }
     if (pad.landed && pad.disappearing) {
       pad.disappearTimer += dt;
-      pad.opacity = Math.max(0, 1 - pad.disappearTimer * 2);
+      pad.opacity = Math.max(0, 1 - pad.disappearTimer * 1.5);
     }
-    pad.dip *= 0.9;
+    // Smooth dip recovery instead of multiplicative decay
+    pad.dip = smoothDamp(pad.dip, 0, 8, dt);
   }
 
   // Shield flash
   if (shieldFlash > 0) shieldFlash -= dt;
 
-  // Auto jump logic
+  // Auto jump logic — comfortable pause on each pad
   if (!frogJumping && frogOnPad) {
-    autoJumpTimer -= dt * speed * 0.5;
+    autoJumpTimer -= dt * speed * 0.4;
     frogIdleTime += dt;
 
     if (autoJumpTimer <= 0) {
@@ -812,7 +836,6 @@ function updateGame(dt) {
       frogJumpFromRow = frogRow;
       frogJumpToRow = frogRow + 1;
       frogJumpFromLane = frogLane;
-      // frogJumpToLane will be updated continuously during the jump
       frogJumpToLane = frogLane;
       frogJumping = true;
       frogJumpProgress = 0;
@@ -822,22 +845,19 @@ function updateGame(dt) {
     }
   }
 
-  // Update jump
+  // Update jump — smoother arc, smoother squash/stretch
   if (frogJumping) {
-    // During the jump, the frog's horizontal position follows the finger in real-time
-    // frogLane is already being lerped above, so frogJumpToLane tracks it
     frogJumpToLane = frogLane;
 
-    const jumpSpeed = speed * 0.8;
+    const jumpSpeed = speed * 0.65;
     frogJumpProgress += dt * jumpSpeed / JUMP_DURATION;
 
     if (frogJumpProgress >= 1) {
       frogJumpProgress = 1;
       frogJumping = false;
       frogRow = frogJumpToRow;
-      // frogLane is already at the current position from lerp
 
-      // Check if we landed on a pad — use generous threshold for continuous movement
+      // Check landing
       const landThreshold = 0.55;
       const landPad = pads.find(p => p.row === frogRow &&
         Math.abs(p.lane + (p.moving ? p.moveOffset : 0) - frogLane) < landThreshold &&
@@ -846,31 +866,31 @@ function updateGame(dt) {
       if (landPad) {
         frogOnPad = true;
         landPad.landed = true;
-        landPad.dip = 0.3;
-        autoJumpTimer = 0.35 - difficultyLevel * 0.12;
+        landPad.dip = 0.25;
+        autoJumpTimer = 0.45 - difficultyLevel * 0.15;
 
-        // Squash on landing
-        frogSquash = 1.3;
-        frogStretch = 0.7;
+        // Soft squash on landing — will smoothly recover
+        frogSquash = 1.25;
+        frogStretch = 0.78;
 
         // Landing effects
         const lp = project(frogLane, 1);
         addLandRipple(lp.x, lp.y, landPad.size);
         sfxLand();
 
-        // Check perfect landing (close to center)
+        // Perfect landing check
         const padCenter = landPad.lane + (landPad.moving ? landPad.moveOffset : 0);
         const dist = Math.abs(padCenter - frogLane);
         if (dist < 0.2) {
           combo++;
           if (combo > maxCombo) maxCombo = combo;
-          perfectFlash = 0.8;
+          perfectFlash = 0.6;
           addPerfectEffect(lp.x, lp.y - 30);
           addFloatingText('PERFECT!', lp.x, lp.y - 50, '#FFD700', 24);
           sfxPerfect();
           if (combo > 1) {
             sfxCombo();
-            comboScale = 1.5;
+            comboScale = 1.4;
             addFloatingText('COMBO x' + combo + '!', lp.x, lp.y - 80, '#FF5722', 20);
           }
           score += combo * 2;
@@ -879,69 +899,76 @@ function updateGame(dt) {
         }
 
         score++;
-
-        // Collect coins on this pad
         collectItems(frogRow, frogLane);
 
-        // Check for gold pad bonus
         if (landPad.type === 'gold') {
           runCoins += 5;
           addFloatingText('+5 🪙', lp.x, lp.y - 40, '#FFD700', 22);
           sfxCoin();
         }
       } else {
-        // Missed! Fall in water
         gameOver();
       }
     }
 
-    // Jump animation
+    // Smooth jump arc — use eased sine for gentler motion
     const t = frogJumpProgress;
-    const jumpHeight = 0.4 + (hasBigJump ? 0.3 : 0);
-    frogY = Math.sin(t * Math.PI) * jumpHeight;
-    // Rotation based on current movement direction
-    const laneDelta = frogLane - frogJumpFromLane;
-    frogRotation = Math.sin(t * Math.PI) * 0.15 * Math.max(-1, Math.min(1, laneDelta));
+    const eased = easeInOutQuad(t);
+    const jumpHeight = 0.35 + (hasBigJump ? 0.25 : 0);
+    frogY = Math.sin(eased * Math.PI) * jumpHeight;
 
-    if (t < 0.3) {
-      frogSquash = 0.8;
-      frogStretch = 1.2;
-    } else if (t > 0.7) {
-      frogSquash = 1.2;
-      frogStretch = 0.8;
+    // Gentle rotation based on lateral movement
+    const laneDelta = frogLane - frogJumpFromLane;
+    const targetRot = Math.sin(eased * Math.PI) * 0.1 * Math.max(-1, Math.min(1, laneDelta));
+    frogRotation = smoothDamp(frogRotation, targetRot, 8, dt);
+
+    // Smooth squash/stretch transitions (no hard switches!)
+    const jumpPhase = eased;
+    if (jumpPhase < 0.2) {
+      // Takeoff — stretch vertically
+      const p = jumpPhase / 0.2;
+      frogSquash = smoothDamp(frogSquash, 0.82 + p * 0.18, 12, dt);
+      frogStretch = smoothDamp(frogStretch, 1.18 - p * 0.18, 12, dt);
+    } else if (jumpPhase > 0.8) {
+      // Landing approach — squash horizontally
+      const p = (jumpPhase - 0.8) / 0.2;
+      frogSquash = smoothDamp(frogSquash, 1 + p * 0.15, 12, dt);
+      frogStretch = smoothDamp(frogStretch, 1 - p * 0.12, 12, dt);
     } else {
-      frogSquash = 1;
-      frogStretch = 1;
+      // Mid-air — neutral
+      frogSquash = smoothDamp(frogSquash, 1, 8, dt);
+      frogStretch = smoothDamp(frogStretch, 1, 8, dt);
     }
 
     if (hasBigJump && t >= 1) hasBigJump = false;
   } else {
-    frogY *= 0.85;
-    frogSquash += (1 - frogSquash) * 0.15;
-    frogStretch += (1 - frogStretch) * 0.15;
-    frogRotation *= 0.85;
+    // On pad — smoothly return to neutral
+    frogY = smoothDamp(frogY, 0, 6, dt);
+    frogSquash = smoothDamp(frogSquash, 1, 6, dt);
+    frogStretch = smoothDamp(frogStretch, 1, 6, dt);
+    frogRotation = smoothDamp(frogRotation, 0, 5, dt);
   }
 
-  // Perfect flash decay
-  if (perfectFlash > 0) perfectFlash -= dt * 2;
-  if (comboScale > 1) comboScale += (1 - comboScale) * 0.1;
+  // Smooth decay for visual effects
+  if (perfectFlash > 0) perfectFlash = smoothDamp(perfectFlash, 0, 4, dt);
+  if (comboScale > 1) comboScale = smoothDamp(comboScale, 1, 5, dt);
 
-  // Screen shake decay
+  // Smooth screen shake (less jarring)
   if (screenShake > 0) {
-    screenShake -= dt * 3;
-    screenShakeX = (Math.random() - 0.5) * screenShake * 10;
-    screenShakeY = (Math.random() - 0.5) * screenShake * 10;
+    screenShake = smoothDamp(screenShake, 0, 5, dt);
+    screenShakeX = Math.sin(gameTime * 37) * screenShake * 6;
+    screenShakeY = Math.cos(gameTime * 43) * screenShake * 4;
   } else {
-    screenShakeX = 0;
-    screenShakeY = 0;
+    screenShakeX = smoothDamp(screenShakeX, 0, 10, dt);
+    screenShakeY = smoothDamp(screenShakeY, 0, 10, dt);
   }
 
   // Magnet: attract nearby coins
   if (hasMagnet) {
     for (const c of coins) {
       if (!c.collected && Math.abs(c.row - frogRow) < 3) {
-        c.lane += (frogLane - c.lane) * 0.1;
-        c.row += (frogRow - c.row) * 0.05;
+        c.lane = smoothDamp(c.lane, frogLane, 4, dt);
+        c.row = smoothDamp(c.row, frogRow, 2, dt);
         if (Math.abs(c.row - frogRow) < 0.5 && Math.abs(c.lane - frogLane) < 0.5) {
           collectCoin(c);
         }
@@ -1622,35 +1649,33 @@ function drawGame() {
   drawWater();
   drawButterflies();
 
+  // *** ALL rendering uses smooth cameraRow instead of discrete frogRow ***
+  // This eliminates the "tink tink" jerky camera
+
   // Draw pads, coins, powerups from far to near
   const sortedPads = [...pads].sort((a, b) => b.row - a.row);
 
   for (const pad of sortedPads) {
-    const rowOff = pad.row - frogRow;
-    let visualRow = rowOff;
-
-    // Smooth scrolling based on jump progress
-    if (frogJumping) {
-      visualRow = pad.row - frogJumpFromRow - frogJumpProgress;
-    }
-    visualRow += 1; // offset so frog is at row 1, not 0
-
-    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+    // Use cameraRow for smooth continuous scrolling
+    const visualRow = pad.row - cameraRow + 1;
+    if (visualRow < -1 || visualRow > LOOKAHEAD) continue;
 
     const lanePos = pad.lane + (pad.moving ? pad.moveOffset : 0);
     const p = project(lanePos, visualRow);
 
     drawLilyPad(p.x, p.y, p.scale, pad.type, pad.size, pad.dip, pad.opacity, pad.moving);
 
-    // Draw indicator for lane switch pads
-    if (pad.switched && visualRow > 1 && visualRow < 6) {
+    // Draw subtle guide arrow for lane switches
+    if (pad.switched && visualRow > 1.5 && visualRow < 5) {
       const prevPad = pads.find(pp => pp.row === pad.row - 1);
       if (prevPad && prevPad.lane !== pad.lane) {
-        ctx.globalAlpha = Math.max(0, 0.6 - visualRow * 0.1);
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2 * p.scale;
-        ctx.setLineDash([4, 4]);
-        const pp = project(prevPad.lane, visualRow + 1);
+        const alpha = Math.max(0, 0.4 - (visualRow - 1.5) * 0.08);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 1.5 * p.scale;
+        ctx.setLineDash([3, 5]);
+        const ppVis = prevPad.row - cameraRow + 1;
+        const pp = project(prevPad.lane, ppVis);
         ctx.beginPath();
         ctx.moveTo(pp.x, pp.y);
         ctx.lineTo(p.x, p.y);
@@ -1661,50 +1686,51 @@ function drawGame() {
     }
   }
 
-  // Draw coins
+  // Draw coins — using smooth cameraRow
   for (const c of coins) {
     if (c.collected) continue;
-    let visualRow = c.row - frogRow;
-    if (frogJumping) visualRow = c.row - frogJumpFromRow - frogJumpProgress;
-    visualRow += 1;
-    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+    const visualRow = c.row - cameraRow + 1;
+    if (visualRow < -1 || visualRow > LOOKAHEAD) continue;
 
     const p = project(c.lane, visualRow);
     drawCoin(p.x, p.y, p.scale, c.bobOffset);
   }
 
-  // Draw power-ups
+  // Draw power-ups — using smooth cameraRow
   for (const pu of powerUps) {
     if (pu.collected) continue;
-    let visualRow = pu.row - frogRow;
-    if (frogJumping) visualRow = pu.row - frogJumpFromRow - frogJumpProgress;
-    visualRow += 1;
-    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+    const visualRow = pu.row - cameraRow + 1;
+    if (visualRow < -1 || visualRow > LOOKAHEAD) continue;
 
     const p = project(pu.lane, visualRow);
     drawPowerUpIcon(p.x, p.y, p.scale, pu.type, pu.bobOffset);
   }
 
-  // Draw frog — position directly from frogLane (continuous)
+  // Draw frog — smooth position from continuous frogLane + cameraRow
   if (frogAlive || frogFallProgress < 1.5) {
     let fx, fy, fScale;
 
-    // Frog always renders at its current continuous lane position
-    const fp = project(frogLane, 1);
+    // Frog's forward visual position relative to smooth camera
+    const frogVisualRow = (frogJumping
+      ? frogJumpFromRow + frogJumpProgress
+      : frogRow) - cameraRow + 1;
+
+    const fp = project(frogLane, frogVisualRow);
     fx = fp.x;
     fy = fp.y;
     fScale = fp.scale;
 
     if (frogFalling) {
       const fallT = Math.min(frogFallProgress, 1);
-      fy += fallT * 50;
-      fScale *= (1 - fallT * 0.5);
-      ctx.globalAlpha = 1 - fallT;
+      const fallEased = easeInOutQuad(fallT);
+      fy += fallEased * 60;
+      fScale *= (1 - fallEased * 0.4);
+      ctx.globalAlpha = 1 - fallEased * 0.8;
     }
 
-    // Idle bobbing
+    // Gentle idle bobbing
     if (!frogJumping && !frogFalling && frogOnPad) {
-      fy += Math.sin(gameTime * 3) * 2;
+      fy += Math.sin(gameTime * 2.5) * 1.5;
     }
 
     drawFrog(fx, fy, fScale, frogRotation, frogSquash, frogStretch, frogJumping, frogY);
