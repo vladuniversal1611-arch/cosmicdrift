@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>Frog Endless Runner 🐸</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<canvas id="gc"></canvas>
+<script>
+'use strict';
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+let W, H, DPR;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const LANE_COUNT = 3;
+const BASE_SPEED = 2.8;
+const MAX_SPEED = 7.5;
+const JUMP_DURATION = 0.35;
+const PAD_SPACING = 120;
+const LOOKAHEAD = 14;
+const LOOKBEHIND = 3;
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const STATE = { MENU: 0, PLAYING: 1, GAMEOVER: 2, SKINS: 3 };
+let gameState = STATE.MENU;
+let score = 0;
+let highScore = parseInt(localStorage.getItem('frogHS') || '0');
+let totalCoins = parseInt(localStorage.getItem('frogCoins') || '0');
+let runCoins = 0;
+let combo = 0;
+let maxCombo = 0;
+let distance = 0;
+let speed = BASE_SPEED;
+let gameTime = 0;
+let newRecord = false;
+let difficultyLevel = 0;
+
+// Frog
+let frogLane = 1;
+let frogTargetLane = 1;
+let frogRow = 0;
+let frogJumping = false;
+let frogJumpProgress = 0;
+let frogJumpFromLane = 1;
+let frogJumpToLane = 1;
+let frogJumpFromRow = 0;
+let frogJumpToRow = 1;
+let frogAlive = true;
+let frogFalling = false;
+let frogFallProgress = 0;
+let frogSquash = 1;
+let frogStretch = 1;
+let frogRotation = 0;
+let frogIdleTime = 0;
+let frogOnPad = true;
+let autoJumpTimer = 0;
+let frogY = 0;
+
+// Power-ups
+let hasShield = false;
+let hasMagnet = false;
+let magnetTimer = 0;
+let hasSpeedBoost = false;
+let speedBoostTimer = 0;
+let hasBigJump = false;
+let shieldFlash = 0;
+
+// Pads
+let pads = [];
+let padIdCounter = 0;
+
+// Particles
+let particles = [];
+
+// Floating texts
+let floatingTexts = [];
+
+// Coins on map
+let coins = [];
+let coinIdCounter = 0;
+
+// Power-ups on map
+let powerUps = [];
+
+// Decorations
+let clouds = [];
+let butterflies = [];
+let flowers = [];
+let trees = [];
+
+// Skins
+const SKINS = [
+  { name: 'Класична', color: '#4CAF50', eyeColor: '#222', cheekColor: '#FF8A80', price: 0, owned: true },
+  { name: 'Блакитна', color: '#42A5F5', eyeColor: '#1A237E', cheekColor: '#90CAF9', price: 100, owned: false },
+  { name: 'Рожева', color: '#F48FB1', eyeColor: '#880E4F', cheekColor: '#FCE4EC', price: 150, owned: false },
+  { name: 'Фіолетова', color: '#AB47BC', eyeColor: '#4A148C', cheekColor: '#E1BEE7', price: 200, owned: false },
+  { name: 'Золота', color: '#FFD54F', eyeColor: '#F57F17', cheekColor: '#FFF9C4', price: 500, owned: false },
+  { name: 'Райдужна', color: 'rainbow', eyeColor: '#333', cheekColor: '#FFB3B3', price: 1000, owned: false },
+];
+let currentSkin = 0;
+
+// Load saved data
+try {
+  const saved = JSON.parse(localStorage.getItem('frogSkins') || '[]');
+  saved.forEach((owned, i) => { if (SKINS[i]) SKINS[i].owned = owned; });
+  currentSkin = parseInt(localStorage.getItem('frogCurrentSkin') || '0');
+} catch(e) {}
+
+function saveSkins() {
+  localStorage.setItem('frogSkins', JSON.stringify(SKINS.map(s => s.owned)));
+  localStorage.setItem('frogCurrentSkin', currentSkin.toString());
+}
+
+// UI Animation
+let menuFrogBob = 0;
+let menuBgScroll = 0;
+let screenShake = 0;
+let screenShakeX = 0;
+let screenShakeY = 0;
+let perfectFlash = 0;
+let comboScale = 1;
+let gameOverAnim = 0;
+let menuAnim = 0;
+let skinsScrollY = 0;
+let transitionAlpha = 0;
+let transitionTarget = -1;
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx = null;
+let musicGain = null;
+let sfxGain = null;
+let musicPlaying = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  musicGain = audioCtx.createGain();
+  musicGain.gain.value = 0.15;
+  musicGain.connect(audioCtx.destination);
+  sfxGain = audioCtx.createGain();
+  sfxGain.gain.value = 0.3;
+  sfxGain.connect(audioCtx.destination);
+}
+
+function playTone(freq, duration, type = 'sine', vol = 0.3, delay = 0) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.value = vol;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+  osc.connect(gain);
+  gain.connect(sfxGain);
+  osc.start(audioCtx.currentTime + delay);
+  osc.stop(audioCtx.currentTime + delay + duration);
+}
+
+function playNoise(duration, vol = 0.2) {
+  if (!audioCtx) return;
+  const bufferSize = audioCtx.sampleRate * duration;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * vol;
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 1;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  source.connect(gain);
+  gain.connect(sfxGain);
+  source.start();
+}
+
+function sfxJump() {
+  playTone(400, 0.15, 'sine', 0.2);
+  playTone(600, 0.1, 'sine', 0.15, 0.05);
+}
+
+function sfxLand() {
+  playTone(200, 0.1, 'triangle', 0.15);
+  playNoise(0.05, 0.1);
+}
+
+function sfxPerfect() {
+  playTone(800, 0.15, 'sine', 0.2);
+  playTone(1000, 0.15, 'sine', 0.15, 0.1);
+  playTone(1200, 0.2, 'sine', 0.1, 0.2);
+}
+
+function sfxCoin() {
+  playTone(1200, 0.1, 'square', 0.1);
+  playTone(1600, 0.15, 'square', 0.08, 0.05);
+}
+
+function sfxCombo() {
+  playTone(600, 0.1, 'sine', 0.15);
+  playTone(900, 0.15, 'sine', 0.12, 0.08);
+}
+
+function sfxPowerUp() {
+  for (let i = 0; i < 5; i++) playTone(400 + i * 200, 0.15, 'sine', 0.1, i * 0.05);
+}
+
+function sfxSplash() {
+  playNoise(0.4, 0.3);
+  playTone(150, 0.3, 'sine', 0.15);
+}
+
+function sfxGameOver() {
+  playTone(400, 0.3, 'sine', 0.2);
+  playTone(300, 0.3, 'sine', 0.18, 0.15);
+  playTone(200, 0.5, 'sine', 0.15, 0.3);
+}
+
+function sfxClick() {
+  playTone(800, 0.08, 'square', 0.1);
+}
+
+// Simple background music
+let musicInterval = null;
+const MELODY = [
+  523, 587, 659, 784, 659, 587, 523, 0,
+  659, 784, 880, 784, 659, 523, 587, 0,
+  784, 880, 988, 880, 784, 659, 523, 0,
+  659, 523, 587, 659, 784, 659, 523, 0
+];
+let melodyIndex = 0;
+
+function startMusic() {
+  if (musicPlaying) return;
+  musicPlaying = true;
+  melodyIndex = 0;
+  if (musicInterval) clearInterval(musicInterval);
+  musicInterval = setInterval(() => {
+    if (!audioCtx || gameState !== STATE.PLAYING) return;
+    const freq = MELODY[melodyIndex % MELODY.length];
+    if (freq > 0) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = 0.06;
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(musicGain);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    }
+    melodyIndex++;
+  }, 200);
+}
+
+function stopMusic() {
+  musicPlaying = false;
+  if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+}
+
+// ============================================================
+// PERSPECTIVE PROJECTION
+// ============================================================
+function getVanishY() { return H * 0.28; }
+function getBaseY() { return H * 0.82; }
+function getLaneWidth() { return W * 0.24; }
+
+function project(lane, rowOffset) {
+  const vanishX = W / 2;
+  const vanishY = getVanishY();
+  const baseY = getBaseY();
+  const baseLW = getLaneWidth();
+  const maxDist = LOOKAHEAD;
+  const t = Math.max(0, Math.min(rowOffset / maxDist, 1));
+  const p = Math.pow(1 - t * 0.85, 1.8);
+  const sy = vanishY + (baseY - vanishY) * p;
+  const laneOff = (lane - 1) * baseLW * p;
+  const sx = vanishX + laneOff;
+  return { x: sx, y: sy, scale: Math.max(p, 0.04) };
+}
+
+// ============================================================
+// PAD GENERATION
+// ============================================================
+let genLane = 1;
+let genStraightCount = 0;
+let genRow = 0;
+
+function getDifficulty() {
+  const d = Math.min(distance / 50, 1);
+  return {
+    switchChance: 0.15 + d * 0.35,
+    maxStraight: Math.max(8 - Math.floor(d * 5), 2),
+    minStraight: Math.max(3 - Math.floor(d * 2), 1),
+    movingChance: d * 0.15,
+    disappearChance: d * 0.08,
+    coinChance: 0.25 + d * 0.1,
+    powerUpChance: 0.02 + d * 0.01,
+  };
+}
+
+function generatePad(row) {
+  const diff = getDifficulty();
+
+  let switched = false;
+  if (genStraightCount >= diff.maxStraight ||
+      (genStraightCount >= diff.minStraight && Math.random() < diff.switchChance)) {
+    const oldLane = genLane;
+    if (genLane === 0) genLane = 1;
+    else if (genLane === 2) genLane = 1;
+    else genLane = Math.random() < 0.5 ? 0 : 2;
+    switched = (genLane !== oldLane);
+    genStraightCount = 0;
+  } else {
+    genStraightCount++;
+  }
+
+  let type = 'normal';
+  let size = 1;
+  const r = Math.random();
+  if (r < 0.08) { type = 'flower'; size = 1.1; }
+  else if (r < 0.12 && distance > 10) { type = 'gold'; size = 0.95; }
+  else if (r < 0.2 && distance > 20) { type = 'small'; size = 0.75; }
+
+  let moving = false;
+  let disappearing = false;
+  if (distance > 15 && Math.random() < diff.movingChance) moving = true;
+  if (distance > 25 && Math.random() < diff.disappearChance) disappearing = true;
+
+  const pad = {
+    id: padIdCounter++,
+    row: row,
+    lane: genLane,
+    type: type,
+    size: size,
+    moving: moving,
+    moveOffset: 0,
+    moveDir: Math.random() < 0.5 ? 1 : -1,
+    moveSpeed: 0.3 + Math.random() * 0.4,
+    disappearing: disappearing,
+    disappearTimer: 0,
+    opacity: 1,
+    dip: 0,
+    landed: false,
+    switched: switched,
+  };
+
+  // Possibly add coin
+  if (Math.random() < diff.coinChance) {
+    coins.push({
+      id: coinIdCounter++,
+      row: row,
+      lane: genLane,
+      collected: false,
+      bobOffset: Math.random() * Math.PI * 2,
+      sparkle: 0,
+    });
+  }
+
+  // Possibly add power-up
+  if (Math.random() < diff.powerUpChance && distance > 8) {
+    const types = ['shield', 'magnet', 'speed', 'bigjump'];
+    powerUps.push({
+      row: row,
+      lane: genLane,
+      type: types[Math.floor(Math.random() * types.length)],
+      collected: false,
+      bobOffset: Math.random() * Math.PI * 2,
+    });
+  }
+
+  return pad;
+}
+
+function ensurePads() {
+  while (genRow < frogRow + LOOKAHEAD) {
+    pads.push(generatePad(genRow));
+    genRow++;
+  }
+  // Remove old pads
+  pads = pads.filter(p => p.row >= frogRow - LOOKBEHIND);
+  coins = coins.filter(c => c.row >= frogRow - LOOKBEHIND);
+  powerUps = powerUps.filter(p => p.row >= frogRow - LOOKBEHIND);
+}
+
+// ============================================================
+// DECORATIONS
+// ============================================================
+function initDecorations() {
+  clouds = [];
+  for (let i = 0; i < 6; i++) {
+    clouds.push({
+      x: Math.random() * W,
+      y: H * 0.05 + Math.random() * H * 0.2,
+      size: 30 + Math.random() * 50,
+      speed: 0.2 + Math.random() * 0.3,
+      opacity: 0.5 + Math.random() * 0.4,
+    });
+  }
+  butterflies = [];
+  for (let i = 0; i < 4; i++) {
+    butterflies.push({
+      x: Math.random() * W,
+      y: H * 0.2 + Math.random() * H * 0.3,
+      angle: Math.random() * Math.PI * 2,
+      wingPhase: Math.random() * Math.PI * 2,
+      color: ['#FF69B4', '#FFD700', '#87CEEB', '#DDA0DD'][i % 4],
+      speed: 0.3 + Math.random() * 0.5,
+    });
+  }
+}
+
+// ============================================================
+// PARTICLES
+// ============================================================
+function addParticle(x, y, vx, vy, color, size, life, type = 'circle') {
+  particles.push({ x, y, vx, vy, color, size, life, maxLife: life, type, alpha: 1 });
+}
+
+function addSplash(x, y, scale = 1) {
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.3;
+    const sp = (2 + Math.random() * 3) * scale;
+    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp - 2,
+      'rgba(150,220,255,0.8)', 2 + Math.random() * 3, 0.4 + Math.random() * 0.3);
+  }
+}
+
+function addPerfectEffect(x, y) {
+  for (let i = 0; i < 20; i++) {
+    const angle = (Math.PI * 2 * i) / 20;
+    const sp = 3 + Math.random() * 4;
+    const colors = ['#FFD700', '#FFF176', '#FFEB3B', '#FF9800', '#FFFFFF'];
+    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp - 1,
+      colors[Math.floor(Math.random() * colors.length)], 2 + Math.random() * 4, 0.5 + Math.random() * 0.3, 'star');
+  }
+}
+
+function addCoinEffect(x, y) {
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI * 2 * i) / 8;
+    addParticle(x, y, Math.cos(angle) * 2, Math.sin(angle) * 2 - 1,
+      '#FFD700', 2 + Math.random() * 2, 0.3 + Math.random() * 0.2);
+  }
+}
+
+function addLandRipple(x, y, scale) {
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
+    const sp = (1 + Math.random() * 1.5) * scale;
+    addParticle(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp * 0.3,
+      'rgba(100,200,255,0.6)', 1.5 * scale, 0.3, 'circle');
+  }
+}
+
+function addFloatingText(text, x, y, color = '#FFD700', size = 20) {
+  floatingTexts.push({ text, x, y, vy: -2, alpha: 1, life: 1, color, size, scale: 1.5 });
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 3 * dt;
+    p.life -= dt;
+    p.alpha = Math.max(0, p.life / p.maxLife);
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y += ft.vy;
+    ft.life -= dt;
+    ft.alpha = Math.max(0, ft.life);
+    ft.scale = 1 + (1 - ft.life) * 0.3;
+    if (ft.life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+let inputQueue = [];
+
+function handleSwipe(dx, dy) {
+  if (gameState === STATE.PLAYING && frogAlive) {
+    if (Math.abs(dx) > 20) {
+      inputQueue.push(dx > 0 ? 1 : -1);
+    }
+  }
+}
+
+function handleTap(x, y) {
+  if (gameState === STATE.MENU) {
+    handleMenuTap(x, y);
+  } else if (gameState === STATE.PLAYING) {
+    if (y < 60 && x > W - 60) {
+      // Pause - ignore for simplicity
+      return;
+    }
+    if (x < W / 2) inputQueue.push(-1);
+    else inputQueue.push(1);
+  } else if (gameState === STATE.GAMEOVER) {
+    handleGameOverTap(x, y);
+  } else if (gameState === STATE.SKINS) {
+    handleSkinsTap(x, y);
+  }
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  initAudio();
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  touchStartTime = Date.now();
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (e.changedTouches.length === 0) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const dt = Date.now() - touchStartTime;
+
+  if (dist > 30 && dt < 500) {
+    handleSwipe(dx, dy);
+  } else {
+    handleTap(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+// Mouse fallback
+canvas.addEventListener('mousedown', (e) => {
+  initAudio();
+  touchStartX = e.clientX;
+  touchStartY = e.clientY;
+  touchStartTime = Date.now();
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  const dx = e.clientX - touchStartX;
+  const dy = e.clientY - touchStartY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const dt = Date.now() - touchStartTime;
+  if (dist > 30 && dt < 500) handleSwipe(dx, dy);
+  else handleTap(e.clientX, e.clientY);
+});
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  initAudio();
+  if (gameState === STATE.PLAYING) {
+    if (e.key === 'ArrowLeft' || e.key === 'a') inputQueue.push(-1);
+    if (e.key === 'ArrowRight' || e.key === 'd') inputQueue.push(1);
+  } else if (gameState === STATE.MENU) {
+    if (e.key === 'Enter' || e.key === ' ') startGame();
+  } else if (gameState === STATE.GAMEOVER) {
+    if (e.key === 'Enter' || e.key === ' ') startGame();
+    if (e.key === 'Escape') { gameState = STATE.MENU; menuAnim = 0; }
+  } else if (gameState === STATE.SKINS) {
+    if (e.key === 'Escape') { gameState = STATE.MENU; menuAnim = 0; }
+  }
+});
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function startGame() {
+  sfxClick();
+  gameState = STATE.PLAYING;
+  score = 0;
+  runCoins = 0;
+  combo = 0;
+  maxCombo = 0;
+  distance = 0;
+  speed = BASE_SPEED;
+  gameTime = 0;
+  newRecord = false;
+  frogLane = 1;
+  frogTargetLane = 1;
+  frogRow = 0;
+  frogJumping = false;
+  frogJumpProgress = 0;
+  frogAlive = true;
+  frogFalling = false;
+  frogFallProgress = 0;
+  frogSquash = 1;
+  frogStretch = 1;
+  frogRotation = 0;
+  frogOnPad = true;
+  frogY = 0;
+  autoJumpTimer = 0.4;
+  hasShield = false;
+  hasMagnet = false;
+  magnetTimer = 0;
+  hasSpeedBoost = false;
+  speedBoostTimer = 0;
+  hasBigJump = false;
+  shieldFlash = 0;
+  screenShake = 0;
+  perfectFlash = 0;
+
+  pads = [];
+  particles = [];
+  floatingTexts = [];
+  coins = [];
+  powerUps = [];
+  inputQueue = [];
+  padIdCounter = 0;
+  coinIdCounter = 0;
+  genLane = 1;
+  genStraightCount = 0;
+  genRow = 0;
+  difficultyLevel = 0;
+
+  // Generate initial pads
+  for (let i = 0; i < LOOKAHEAD; i++) {
+    pads.push(generatePad(i));
+    genRow = i + 1;
+  }
+
+  initDecorations();
+  startMusic();
+}
+
+function gameOver() {
+  if (!frogAlive) return;
+
+  if (hasShield) {
+    hasShield = false;
+    shieldFlash = 0.5;
+    sfxPowerUp();
+    addFloatingText('🛡️ ВРЯТОВАНО!', W / 2, H * 0.4, '#4FC3F7', 28);
+    // Place frog on nearest available pad
+    const nearPad = pads.find(p => p.row === frogRow || p.row === frogRow + 1);
+    if (nearPad) {
+      frogRow = nearPad.row;
+      frogLane = nearPad.lane;
+      frogTargetLane = nearPad.lane;
+    }
+    frogJumping = false;
+    frogFalling = false;
+    frogOnPad = true;
+    autoJumpTimer = 0.6;
+    const fp = project(frogLane, 1);
+    addSplash(fp.x, fp.y, 1.5);
+    return;
+  }
+
+  frogAlive = false;
+  frogFalling = true;
+  frogFallProgress = 0;
+  sfxSplash();
+  sfxGameOver();
+  stopMusic();
+
+  // Splash effect at frog position
+  const fp = project(frogLane, 1);
+  addSplash(fp.x, fp.y, 2);
+
+  screenShake = 0.3;
+
+  // Save score
+  const finalDist = Math.floor(distance);
+  if (finalDist > highScore) {
+    highScore = finalDist;
+    localStorage.setItem('frogHS', highScore.toString());
+    newRecord = true;
+  }
+  totalCoins += runCoins;
+  localStorage.setItem('frogCoins', totalCoins.toString());
+
+  gameOverAnim = 0;
+  setTimeout(() => { gameState = STATE.GAMEOVER; }, 1200);
+}
+
+function processInput() {
+  if (inputQueue.length === 0) return;
+  const dir = inputQueue.shift();
+
+  const newLane = Math.max(0, Math.min(2, frogTargetLane + dir));
+  if (newLane !== frogTargetLane) {
+    frogTargetLane = newLane;
+  }
+}
+
+function updateGame(dt) {
+  if (!frogAlive) {
+    frogFallProgress += dt * 2;
+    updateParticles(dt);
+    return;
+  }
+
+  gameTime += dt;
+  distance += speed * dt * 0.3;
+  difficultyLevel = Math.min(distance / 50, 1);
+
+  // Speed increase
+  speed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * difficultyLevel;
+  if (hasSpeedBoost) {
+    speed *= 1.4;
+    speedBoostTimer -= dt;
+    if (speedBoostTimer <= 0) hasSpeedBoost = false;
+  }
+
+  if (hasMagnet) {
+    magnetTimer -= dt;
+    if (magnetTimer <= 0) hasMagnet = false;
+  }
+
+  // Process input
+  processInput();
+
+  // Update pad animations
+  for (const pad of pads) {
+    if (pad.moving) {
+      pad.moveOffset += pad.moveDir * pad.moveSpeed * dt;
+      if (Math.abs(pad.moveOffset) > 0.3) pad.moveDir *= -1;
+    }
+    if (pad.landed && pad.disappearing) {
+      pad.disappearTimer += dt;
+      pad.opacity = Math.max(0, 1 - pad.disappearTimer * 2);
+    }
+    pad.dip *= 0.9;
+  }
+
+  // Shield flash
+  if (shieldFlash > 0) shieldFlash -= dt;
+
+  // Auto jump logic
+  if (!frogJumping && frogOnPad) {
+    autoJumpTimer -= dt * speed * 0.5;
+    frogIdleTime += dt;
+
+    if (autoJumpTimer <= 0) {
+      // Start jump to next row
+      frogJumpFromRow = frogRow;
+      frogJumpToRow = frogRow + 1;
+      frogJumpFromLane = frogLane;
+      frogJumpToLane = frogTargetLane;
+      frogJumping = true;
+      frogJumpProgress = 0;
+      frogOnPad = false;
+      frogIdleTime = 0;
+      sfxJump();
+    }
+  }
+
+  // Update jump
+  if (frogJumping) {
+    const jumpSpeed = speed * 0.8;
+    frogJumpProgress += dt * jumpSpeed / JUMP_DURATION;
+
+    if (frogJumpProgress >= 1) {
+      frogJumpProgress = 1;
+      frogJumping = false;
+      frogRow = frogJumpToRow;
+      frogLane = frogJumpToLane;
+      frogTargetLane = frogLane;
+
+      // Check if we landed on a pad
+      const landPad = pads.find(p => p.row === frogRow &&
+        Math.abs(p.lane + (p.moving ? p.moveOffset : 0) - frogLane) < 0.5 &&
+        p.opacity > 0.3);
+
+      if (landPad) {
+        frogOnPad = true;
+        landPad.landed = true;
+        landPad.dip = 0.3;
+        autoJumpTimer = 0.35 - difficultyLevel * 0.12;
+
+        // Squash on landing
+        frogSquash = 1.3;
+        frogStretch = 0.7;
+
+        // Landing effects
+        const lp = project(frogLane, 1);
+        addLandRipple(lp.x, lp.y, landPad.size);
+        sfxLand();
+
+        // Check perfect landing (close to center)
+        const padCenter = landPad.lane + (landPad.moving ? landPad.moveOffset : 0);
+        const dist = Math.abs(padCenter - frogLane);
+        if (dist < 0.15) {
+          combo++;
+          if (combo > maxCombo) maxCombo = combo;
+          perfectFlash = 0.8;
+          addPerfectEffect(lp.x, lp.y - 30);
+          addFloatingText('PERFECT!', lp.x, lp.y - 50, '#FFD700', 24);
+          sfxPerfect();
+          if (combo > 1) {
+            sfxCombo();
+            comboScale = 1.5;
+            addFloatingText('COMBO x' + combo + '!', lp.x, lp.y - 80, '#FF5722', 20);
+          }
+          score += combo * 2;
+        } else {
+          combo = 0;
+        }
+
+        score++;
+
+        // Collect coins on this pad
+        collectItems(frogRow, frogLane);
+
+        // Check for gold pad bonus
+        if (landPad.type === 'gold') {
+          runCoins += 5;
+          addFloatingText('+5 🪙', lp.x, lp.y - 40, '#FFD700', 22);
+          sfxCoin();
+        }
+      } else {
+        // Missed! Fall in water
+        gameOver();
+      }
+    }
+
+    // Jump animation
+    const t = frogJumpProgress;
+    const jumpHeight = 0.4 + (hasBigJump ? 0.3 : 0);
+    frogY = Math.sin(t * Math.PI) * jumpHeight;
+    frogRotation = Math.sin(t * Math.PI) * 0.2 * (frogJumpToLane - frogJumpFromLane);
+
+    if (t < 0.3) {
+      frogSquash = 0.8;
+      frogStretch = 1.2;
+    } else if (t > 0.7) {
+      frogSquash = 1.2;
+      frogStretch = 0.8;
+    } else {
+      frogSquash = 1;
+      frogStretch = 1;
+    }
+
+    if (hasBigJump && t >= 1) hasBigJump = false;
+  } else {
+    frogY *= 0.85;
+    frogSquash += (1 - frogSquash) * 0.15;
+    frogStretch += (1 - frogStretch) * 0.15;
+    frogRotation *= 0.85;
+  }
+
+  // Perfect flash decay
+  if (perfectFlash > 0) perfectFlash -= dt * 2;
+  if (comboScale > 1) comboScale += (1 - comboScale) * 0.1;
+
+  // Screen shake decay
+  if (screenShake > 0) {
+    screenShake -= dt * 3;
+    screenShakeX = (Math.random() - 0.5) * screenShake * 10;
+    screenShakeY = (Math.random() - 0.5) * screenShake * 10;
+  } else {
+    screenShakeX = 0;
+    screenShakeY = 0;
+  }
+
+  // Magnet: attract nearby coins
+  if (hasMagnet) {
+    for (const c of coins) {
+      if (!c.collected && Math.abs(c.row - frogRow) < 3) {
+        c.lane += (frogLane - c.lane) * 0.1;
+        c.row += (frogRow - c.row) * 0.05;
+        if (Math.abs(c.row - frogRow) < 0.5 && Math.abs(c.lane - frogLane) < 0.5) {
+          collectCoin(c);
+        }
+      }
+    }
+  }
+
+  ensurePads();
+  updateDecorations(dt);
+  updateParticles(dt);
+}
+
+function collectItems(row, lane) {
+  // Coins
+  for (const c of coins) {
+    if (!c.collected && c.row === row && Math.abs(c.lane - lane) < 0.6) {
+      collectCoin(c);
+    }
+  }
+  // Power-ups
+  for (const p of powerUps) {
+    if (!p.collected && p.row === row && Math.abs(p.lane - lane) < 0.6) {
+      collectPowerUp(p);
+    }
+  }
+}
+
+function collectCoin(c) {
+  c.collected = true;
+  runCoins++;
+  const cp = project(c.lane, c.row - frogRow + 1);
+  addCoinEffect(cp.x, cp.y - 15);
+  addFloatingText('+1', cp.x, cp.y - 30, '#FFD700', 18);
+  sfxCoin();
+}
+
+function collectPowerUp(p) {
+  p.collected = true;
+  const pp = project(p.lane, p.row - frogRow + 1);
+  sfxPowerUp();
+
+  switch (p.type) {
+    case 'shield':
+      hasShield = true;
+      addFloatingText('🛡️ ЩИТ!', pp.x, pp.y - 40, '#4FC3F7', 24);
+      break;
+    case 'magnet':
+      hasMagnet = true;
+      magnetTimer = 8;
+      addFloatingText('🧲 МАГНІТ!', pp.x, pp.y - 40, '#F44336', 24);
+      break;
+    case 'speed':
+      hasSpeedBoost = true;
+      speedBoostTimer = 5;
+      addFloatingText('⚡ ШВИДКІСТЬ!', pp.x, pp.y - 40, '#FFEB3B', 24);
+      break;
+    case 'bigjump':
+      hasBigJump = true;
+      addFloatingText('🐸 ДАЛЕКИЙ СТРИБОК!', pp.x, pp.y - 40, '#66BB6A', 24);
+      break;
+  }
+}
+
+function updateDecorations(dt) {
+  for (const c of clouds) {
+    c.x += c.speed * dt * 20;
+    if (c.x > W + c.size) c.x = -c.size;
+  }
+  for (const b of butterflies) {
+    b.angle += dt * b.speed;
+    b.x += Math.cos(b.angle) * dt * 30;
+    b.y += Math.sin(b.angle * 1.3) * dt * 15;
+    b.wingPhase += dt * 8;
+    if (b.x > W + 20) b.x = -20;
+    if (b.x < -20) b.x = W + 20;
+    if (b.y < H * 0.1) b.y = H * 0.1;
+    if (b.y > H * 0.45) b.y = H * 0.45;
+  }
+  menuBgScroll += dt * 20;
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawBackground() {
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+  skyGrad.addColorStop(0, '#87CEEB');
+  skyGrad.addColorStop(0.5, '#B3E5FC');
+  skyGrad.addColorStop(1, '#E1F5FE');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H * 0.5);
+
+  // Sun
+  const sunX = W * 0.8;
+  const sunY = H * 0.1;
+  const sunGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 60);
+  sunGrad.addColorStop(0, 'rgba(255,255,200,1)');
+  sunGrad.addColorStop(0.3, 'rgba(255,235,59,0.8)');
+  sunGrad.addColorStop(1, 'rgba(255,235,59,0)');
+  ctx.fillStyle = sunGrad;
+  ctx.fillRect(sunX - 80, sunY - 80, 160, 160);
+
+  // Mountains
+  ctx.fillStyle = '#81C784';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.35);
+  ctx.lineTo(W * 0.15, H * 0.22);
+  ctx.lineTo(W * 0.3, H * 0.32);
+  ctx.lineTo(W * 0.5, H * 0.18);
+  ctx.lineTo(W * 0.7, H * 0.28);
+  ctx.lineTo(W * 0.85, H * 0.2);
+  ctx.lineTo(W, H * 0.3);
+  ctx.lineTo(W, H * 0.4);
+  ctx.lineTo(0, H * 0.4);
+  ctx.closePath();
+  ctx.fill();
+
+  // Trees silhouette
+  ctx.fillStyle = '#66BB6A';
+  for (let i = 0; i < 12; i++) {
+    const tx = (i / 12) * W + Math.sin(i * 3.7) * 20;
+    const ty = H * 0.32 + Math.sin(i * 2.1) * 15;
+    const ts = 15 + Math.sin(i * 4.3) * 8;
+    drawTree(tx, ty, ts);
+  }
+
+  // Clouds
+  for (const c of clouds) {
+    drawCloud(c.x, c.y, c.size, c.opacity);
+  }
+}
+
+function drawTree(x, y, size) {
+  ctx.beginPath();
+  ctx.moveTo(x - size * 0.5, y);
+  ctx.lineTo(x, y - size * 1.2);
+  ctx.lineTo(x + size * 0.5, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x - size * 0.4, y - size * 0.4);
+  ctx.lineTo(x, y - size * 1.5);
+  ctx.lineTo(x + size * 0.4, y - size * 0.4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCloud(x, y, size, opacity) {
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.4, y - size * 0.1, size * 0.4, 0, Math.PI * 2);
+  ctx.arc(x - size * 0.35, y + size * 0.05, size * 0.35, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.2, y + size * 0.15, size * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawWater() {
+  const waterTop = H * 0.35;
+  const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
+  waterGrad.addColorStop(0, '#4DD0E1');
+  waterGrad.addColorStop(0.3, '#26C6DA');
+  waterGrad.addColorStop(0.7, '#00BCD4');
+  waterGrad.addColorStop(1, '#0097A7');
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(0, waterTop, W, H - waterTop);
+
+  // Water waves
+  const time = gameTime * 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1.5;
+  for (let row = 0; row < 15; row++) {
+    const wy = waterTop + 20 + row * ((H - waterTop) / 15);
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 5) {
+      const wave = Math.sin(x * 0.02 + time + row * 0.5) * 3 +
+                   Math.sin(x * 0.04 - time * 0.7 + row) * 2;
+      if (x === 0) ctx.moveTo(x, wy + wave);
+      else ctx.lineTo(x, wy + wave);
+    }
+    ctx.stroke();
+  }
+
+  // Sparkles on water
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 20; i++) {
+    const sx = ((i * 137.5 + time * 30) % (W + 40)) - 20;
+    const sy = waterTop + 30 + ((i * 73.1 + Math.sin(time + i) * 20) % (H - waterTop - 40));
+    const sparkSize = 1.5 + Math.sin(time * 3 + i * 2) * 1;
+    if (sparkSize > 1) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawLanes() {
+  // Draw lane guide lines (subtle)
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2;
+
+  for (let lane = 0; lane < 3; lane++) {
+    ctx.beginPath();
+    for (let d = 0; d <= LOOKAHEAD; d += 0.5) {
+      const p = project(lane, d);
+      if (d === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawLilyPad(x, y, scale, type, size, dip, opacity, moving) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale * size, scale * size * 0.6);
+  ctx.globalAlpha = opacity;
+
+  const padW = 40;
+  const padH = 35;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,80,80,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(3, 5, padW + 2, padH + 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Main pad
+  let padColor, padLight, padDark;
+  switch (type) {
+    case 'gold':
+      padColor = '#FFD54F';
+      padLight = '#FFF176';
+      padDark = '#FFC107';
+      break;
+    case 'flower':
+      padColor = '#66BB6A';
+      padLight = '#81C784';
+      padDark = '#4CAF50';
+      break;
+    case 'small':
+      padColor = '#43A047';
+      padLight = '#66BB6A';
+      padDark = '#2E7D32';
+      break;
+    default:
+      padColor = '#4CAF50';
+      padLight = '#66BB6A';
+      padDark = '#388E3C';
+  }
+
+  const dipOffset = dip * 5;
+
+  // Pad shape
+  const padGrad = ctx.createRadialGradient(-5, -5 + dipOffset, 0, 0, dipOffset, padW);
+  padGrad.addColorStop(0, padLight);
+  padGrad.addColorStop(0.7, padColor);
+  padGrad.addColorStop(1, padDark);
+  ctx.fillStyle = padGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, dipOffset, padW, padH, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pad cut (V notch)
+  ctx.fillStyle = 'rgba(0,150,136,0.4)';
+  ctx.beginPath();
+  ctx.moveTo(0, dipOffset);
+  ctx.lineTo(padW * 0.4, -padH * 0.8 + dipOffset);
+  ctx.lineTo(padW * 0.6, -padH * 0.3 + dipOffset);
+  ctx.closePath();
+  ctx.fill();
+
+  // Veins
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const angle = -Math.PI * 0.4 + (Math.PI * 0.8 * i) / 4;
+    ctx.beginPath();
+    ctx.moveTo(0, dipOffset);
+    ctx.lineTo(Math.cos(angle) * padW * 0.8, Math.sin(angle) * padH * 0.8 + dipOffset);
+    ctx.stroke();
+  }
+
+  // Glossy highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(-8, -8 + dipOffset, padW * 0.4, padH * 0.3, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Flower on pad
+  if (type === 'flower') {
+    drawFlower(padW * 0.3, -padH * 0.5 + dipOffset, 8 * scale);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawFlower(x, y, size) {
+  const colors = ['#F48FB1', '#CE93D8', '#FFB74D', '#FFF176'];
+  const c = colors[Math.floor(gameTime * 0.5) % colors.length];
+  for (let i = 0; i < 5; i++) {
+    const angle = (Math.PI * 2 * i) / 5 + gameTime * 0.5;
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.ellipse(
+      x + Math.cos(angle) * size * 0.5,
+      y + Math.sin(angle) * size * 0.5,
+      size * 0.4, size * 0.25, angle, 0, Math.PI * 2
+    );
+    ctx.fill();
+  }
+  ctx.fillStyle = '#FFF176';
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function getFrogColor() {
+  const skin = SKINS[currentSkin];
+  if (skin.color === 'rainbow') {
+    const hue = (gameTime * 60) % 360;
+    return `hsl(${hue}, 70%, 55%)`;
+  }
+  return skin.color;
+}
+
+function drawFrog(x, y, scale, rotation, squash, stretch, jumping, yOffset) {
+  ctx.save();
+  ctx.translate(x, y - yOffset * 80 * scale);
+  ctx.rotate(rotation);
+  ctx.scale(scale * squash, scale * stretch);
+
+  const skin = SKINS[currentSkin];
+  const bodyColor = getFrogColor();
+  const eyeColor = skin.eyeColor;
+  const cheekColor = skin.cheekColor;
+
+  const s = 20; // base size
+
+  // Shield effect
+  if (hasShield) {
+    ctx.strokeStyle = 'rgba(79,195,247,0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.3, s * 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const shieldGlow = ctx.createRadialGradient(0, -s * 0.3, s, 0, -s * 0.3, s * 2);
+    shieldGlow.addColorStop(0, 'rgba(79,195,247,0)');
+    shieldGlow.addColorStop(1, 'rgba(79,195,247,0.15)');
+    ctx.fillStyle = shieldGlow;
+    ctx.fill();
+  }
+
+  // Shadow under frog
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.5 + yOffset * 30, s * 1.2, s * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Back legs
+  if (jumping) {
+    // Legs stretched back
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.8, s * 0.6, s * 0.5, s * 0.25, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.8, s * 0.6, s * 0.5, s * 0.25, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Legs tucked
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.7, s * 0.3, s * 0.45, s * 0.3, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.7, s * 0.3, s * 0.45, s * 0.3, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Feet
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.ellipse(-s * 1.1, s * 0.5, s * 0.3, s * 0.15, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 1.1, s * 0.5, s * 0.3, s * 0.15, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Body
+  const bodyGrad = ctx.createRadialGradient(-3, -s * 0.2, 0, 0, 0, s * 1.2);
+  bodyGrad.addColorStop(0, lightenColor(bodyColor, 30));
+  bodyGrad.addColorStop(0.7, bodyColor);
+  bodyGrad.addColorStop(1, darkenColor(bodyColor, 20));
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 1.0, s * 0.85, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = lightenColor(bodyColor, 50);
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.15, s * 0.6, s * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  const headY = -s * 0.85;
+  const headGrad = ctx.createRadialGradient(-2, headY - 3, 0, 0, headY, s * 1.1);
+  headGrad.addColorStop(0, lightenColor(bodyColor, 30));
+  headGrad.addColorStop(0.8, bodyColor);
+  headGrad.addColorStop(1, darkenColor(bodyColor, 15));
+  ctx.fillStyle = headGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, headY, s * 1.1, s * 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  const eyeSize = s * 0.38;
+  const eyeY = headY - s * 0.15;
+
+  // Eye whites
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.arc(-s * 0.4, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(s * 0.4, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye outline
+  ctx.strokeStyle = darkenColor(bodyColor, 30);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(-s * 0.4, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(s * 0.4, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Pupils
+  const blinkPhase = Math.sin(gameTime * 2);
+  const pupilScale = blinkPhase > 0.95 ? 0.1 : 1;
+  ctx.fillStyle = eyeColor;
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.4, eyeY + 1, eyeSize * 0.5, eyeSize * 0.5 * pupilScale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(s * 0.4, eyeY + 1, eyeSize * 0.5, eyeSize * 0.5 * pupilScale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye shine
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath();
+  ctx.arc(-s * 0.4 - 2, eyeY - 3, eyeSize * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(s * 0.4 - 2, eyeY - 3, eyeSize * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cheeks
+  ctx.fillStyle = cheekColor;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.7, headY + s * 0.2, s * 0.25, s * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(s * 0.7, headY + s * 0.2, s * 0.25, s * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Mouth - cute smile
+  ctx.strokeStyle = darkenColor(bodyColor, 40);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, headY + s * 0.25, s * 0.3, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  // Front legs
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.85, s * 0.1, s * 0.2, s * 0.15, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(s * 0.85, s * 0.1, s * 0.2, s * 0.15, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Glossy highlight on head
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(-3, headY - s * 0.3, s * 0.5, s * 0.3, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawCoin(x, y, scale, bobOffset) {
+  const bob = Math.sin(gameTime * 4 + bobOffset) * 3;
+  ctx.save();
+  ctx.translate(x, y - 20 * scale + bob);
+  ctx.scale(scale, scale);
+
+  // Coin shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0, 20 - bob, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Coin glow
+  const glow = ctx.createRadialGradient(0, 0, 3, 0, 0, 15);
+  glow.addColorStop(0, 'rgba(255,215,0,0.3)');
+  glow.addColorStop(1, 'rgba(255,215,0,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Coin body
+  const coinGrad = ctx.createRadialGradient(-2, -2, 0, 0, 0, 10);
+  coinGrad.addColorStop(0, '#FFF176');
+  coinGrad.addColorStop(0.6, '#FFD54F');
+  coinGrad.addColorStop(1, '#FFA000');
+  ctx.fillStyle = coinGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Coin inner circle
+  ctx.strokeStyle = '#FFA000';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 6, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // $ sign
+  ctx.fillStyle = '#F57F17';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('¢', 0, 1);
+
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath();
+  ctx.arc(-3, -3, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPowerUpIcon(x, y, scale, type, bobOffset) {
+  const bob = Math.sin(gameTime * 3 + bobOffset) * 5;
+  ctx.save();
+  ctx.translate(x, y - 25 * scale + bob);
+  ctx.scale(scale, scale);
+
+  // Glow
+  let glowColor;
+  switch (type) {
+    case 'shield': glowColor = '79,195,247'; break;
+    case 'magnet': glowColor = '244,67,54'; break;
+    case 'speed': glowColor = '255,235,59'; break;
+    case 'bigjump': glowColor = '102,187,106'; break;
+    default: glowColor = '255,255,255';
+  }
+
+  const glow = ctx.createRadialGradient(0, 0, 5, 0, 0, 20);
+  glow.addColorStop(0, `rgba(${glowColor},0.5)`);
+  glow.addColorStop(1, `rgba(${glowColor},0)`);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Icon
+  ctx.font = '20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const icons = { shield: '🛡️', magnet: '🧲', speed: '⚡', bigjump: '🐸' };
+  ctx.fillText(icons[type] || '?', 0, 0);
+
+  ctx.restore();
+}
+
+function drawButterflies() {
+  for (const b of butterflies) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    const wingAngle = Math.sin(b.wingPhase) * 0.5;
+
+    ctx.fillStyle = b.color;
+    // Left wing
+    ctx.save();
+    ctx.rotate(-wingAngle);
+    ctx.beginPath();
+    ctx.ellipse(-4, 0, 6, 4, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Right wing
+    ctx.save();
+    ctx.rotate(wingAngle);
+    ctx.beginPath();
+    ctx.ellipse(4, 0, 6, 4, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Body
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 1.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    if (p.type === 'star') {
+      drawStar(p.x, p.y, p.size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  for (const ft of floatingTexts) {
+    ctx.globalAlpha = ft.alpha;
+    ctx.fillStyle = ft.color;
+    ctx.font = `bold ${ft.size * ft.scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Text shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawStar(x, y, size) {
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+    const outerX = x + Math.cos(angle) * size;
+    const outerY = y + Math.sin(angle) * size;
+    const innerAngle = angle + Math.PI / 5;
+    const innerX = x + Math.cos(innerAngle) * size * 0.4;
+    const innerY = y + Math.sin(innerAngle) * size * 0.4;
+    if (i === 0) ctx.moveTo(outerX, outerY);
+    else ctx.lineTo(outerX, outerY);
+    ctx.lineTo(innerX, innerY);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ============================================================
+// GAME RENDERING
+// ============================================================
+function drawGame() {
+  ctx.save();
+  ctx.translate(screenShakeX, screenShakeY);
+
+  drawBackground();
+  drawWater();
+  drawButterflies();
+
+  // Draw pads, coins, powerups from far to near
+  const sortedPads = [...pads].sort((a, b) => b.row - a.row);
+
+  for (const pad of sortedPads) {
+    const rowOff = pad.row - frogRow;
+    let visualRow = rowOff;
+
+    // Smooth scrolling based on jump progress
+    if (frogJumping) {
+      visualRow = pad.row - frogJumpFromRow - frogJumpProgress;
+    }
+    visualRow += 1; // offset so frog is at row 1, not 0
+
+    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+
+    const lanePos = pad.lane + (pad.moving ? pad.moveOffset : 0);
+    const p = project(lanePos, visualRow);
+
+    drawLilyPad(p.x, p.y, p.scale, pad.type, pad.size, pad.dip, pad.opacity, pad.moving);
+
+    // Draw indicator for lane switch pads
+    if (pad.switched && visualRow > 1 && visualRow < 6) {
+      const prevPad = pads.find(pp => pp.row === pad.row - 1);
+      if (prevPad && prevPad.lane !== pad.lane) {
+        ctx.globalAlpha = Math.max(0, 0.6 - visualRow * 0.1);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2 * p.scale;
+        ctx.setLineDash([4, 4]);
+        const pp = project(prevPad.lane, visualRow + 1);
+        ctx.beginPath();
+        ctx.moveTo(pp.x, pp.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // Draw coins
+  for (const c of coins) {
+    if (c.collected) continue;
+    let visualRow = c.row - frogRow;
+    if (frogJumping) visualRow = c.row - frogJumpFromRow - frogJumpProgress;
+    visualRow += 1;
+    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+
+    const p = project(c.lane, visualRow);
+    drawCoin(p.x, p.y, p.scale, c.bobOffset);
+  }
+
+  // Draw power-ups
+  for (const pu of powerUps) {
+    if (pu.collected) continue;
+    let visualRow = pu.row - frogRow;
+    if (frogJumping) visualRow = pu.row - frogJumpFromRow - frogJumpProgress;
+    visualRow += 1;
+    if (visualRow < -0.5 || visualRow > LOOKAHEAD) continue;
+
+    const p = project(pu.lane, visualRow);
+    drawPowerUpIcon(p.x, p.y, p.scale, pu.type, pu.bobOffset);
+  }
+
+  // Draw frog
+  if (frogAlive || frogFallProgress < 1.5) {
+    let fx, fy, fScale;
+
+    if (frogJumping) {
+      const fromP = project(frogJumpFromLane, 1);
+      const toP = project(frogJumpToLane, 1);
+      const t = frogJumpProgress;
+      // Smooth interpolation
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      fx = fromP.x + (toP.x - fromP.x) * ease;
+      fy = fromP.y + (toP.y - fromP.y) * ease;
+      fScale = fromP.scale + (toP.scale - fromP.scale) * ease;
+    } else {
+      const fp = project(frogLane, 1);
+      fx = fp.x;
+      fy = fp.y;
+      fScale = fp.scale;
+    }
+
+    if (frogFalling) {
+      const fallT = Math.min(frogFallProgress, 1);
+      fy += fallT * 50;
+      fScale *= (1 - fallT * 0.5);
+      ctx.globalAlpha = 1 - fallT;
+    }
+
+    // Idle bobbing
+    if (!frogJumping && !frogFalling && frogOnPad) {
+      fy += Math.sin(gameTime * 3) * 2;
+    }
+
+    drawFrog(fx, fy, fScale, frogRotation, frogSquash, frogStretch, frogJumping, frogY);
+    ctx.globalAlpha = 1;
+  }
+
+  drawParticles();
+
+  // Perfect flash overlay
+  if (perfectFlash > 0) {
+    ctx.fillStyle = `rgba(255,215,0,${perfectFlash * 0.15})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Shield flash
+  if (shieldFlash > 0) {
+    ctx.fillStyle = `rgba(79,195,247,${shieldFlash * 0.2})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.restore();
+
+  // HUD
+  drawHUD();
+}
+
+function drawHUD() {
+  const pad = 15;
+  const topY = 20;
+
+  // Distance
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  roundRect(pad, topY - 5, 140, 50, 12);
+  ctx.fill();
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🏆 ДИСТАНЦІЯ', pad + 10, topY + 12);
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText(Math.floor(distance) + ' м', pad + 10, topY + 36);
+
+  // Coins
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  roundRect(W - 100 - pad, topY - 5, 100, 35, 12);
+  ctx.fill();
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('🪙 ' + runCoins, W - pad - 10, topY + 20);
+
+  // High score
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Рекорд: ' + highScore + ' м', pad + 10, topY + 60);
+
+  // Combo
+  if (combo > 1) {
+    ctx.save();
+    const comboX = pad + 10;
+    const comboY = topY + 85;
+    ctx.translate(comboX + 40, comboY);
+    ctx.scale(comboScale, comboScale);
+    ctx.translate(-(comboX + 40), -comboY);
+
+    ctx.fillStyle = 'rgba(255,87,34,0.8)';
+    roundRect(comboX, comboY - 15, 80, 30, 8);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('COMBO x' + combo, comboX + 40, comboY + 5);
+    ctx.restore();
+  }
+
+  // Power-up indicators
+  let puY = topY + 110;
+  if (hasShield) {
+    drawPowerUpHUD('🛡️ Щит', puY, '#4FC3F7');
+    puY += 25;
+  }
+  if (hasMagnet) {
+    drawPowerUpHUD(`🧲 ${Math.ceil(magnetTimer)}с`, puY, '#F44336');
+    puY += 25;
+  }
+  if (hasSpeedBoost) {
+    drawPowerUpHUD(`⚡ ${Math.ceil(speedBoostTimer)}с`, puY, '#FFEB3B');
+    puY += 25;
+  }
+  if (hasBigJump) {
+    drawPowerUpHUD('🐸 Далекий', puY, '#66BB6A');
+    puY += 25;
+  }
+
+  // Speed indicator (subtle)
+  const speedPct = (speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED);
+  if (speedPct > 0.1) {
+    ctx.fillStyle = `rgba(255,${Math.floor(255 * (1 - speedPct))},0,0.5)`;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('ШВИДКІСТЬ ' + Math.floor(speedPct * 100) + '%', W - pad, H - 20);
+  }
+}
+
+function drawPowerUpHUD(text, y, color) {
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.7;
+  roundRect(15, y - 8, 90, 20, 6);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(text, 22, y + 6);
+}
+
+// ============================================================
+// MENU
+// ============================================================
+function drawMenu() {
+  menuAnim = Math.min(menuAnim + 0.02, 1);
+  menuFrogBob += 0.03;
+
+  drawBackground();
+  drawWater();
+
+  // Draw decorative lily pads on menu
+  for (let i = 0; i < 7; i++) {
+    const mx = W * 0.15 + (i % 3) * W * 0.3 + Math.sin(gameTime + i) * 10;
+    const my = H * 0.5 + (i % 2) * H * 0.12 + Math.cos(gameTime * 0.7 + i * 2) * 5;
+    drawLilyPad(mx, my, 0.5 + (i % 3) * 0.1, i % 3 === 0 ? 'flower' : 'normal', 1, 0, 0.7, false);
+  }
+
+  drawButterflies();
+
+  // Frog on center lily pad
+  const frogMX = W / 2;
+  const frogMY = H * 0.42;
+  drawLilyPad(frogMX, frogMY + 20, 0.8, 'flower', 1.3, 0, 1, false);
+  drawFrog(frogMX, frogMY + Math.sin(menuFrogBob) * 5, 1, 0, 1, 1, false, 0);
+
+  // Title
+  const titleY = H * 0.13;
+  ctx.save();
+  ctx.translate(W / 2, titleY);
+  const titleScale = 0.8 + Math.sin(gameTime * 1.5) * 0.03;
+  ctx.scale(titleScale, titleScale);
+
+  // Title shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🐸 FROG RUNNER', 2, 2);
+
+  // Title gradient
+  const titleGrad = ctx.createLinearGradient(-100, -20, 100, 20);
+  titleGrad.addColorStop(0, '#4CAF50');
+  titleGrad.addColorStop(0.5, '#8BC34A');
+  titleGrad.addColorStop(1, '#CDDC39');
+  ctx.fillStyle = titleGrad;
+  ctx.fillText('🐸 FROG RUNNER', 0, 0);
+
+  ctx.restore();
+
+  // Subtitle
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.font = '14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Endless Lily Pad Adventure', W / 2, titleY + 30);
+
+  // Play button
+  const btnW = 200;
+  const btnH = 56;
+  const btnX = W / 2 - btnW / 2;
+  const btnY = H * 0.62;
+
+  // Button shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  roundRect(btnX + 3, btnY + 3, btnW, btnH, 28);
+  ctx.fill();
+
+  // Button gradient
+  const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+  btnGrad.addColorStop(0, '#66BB6A');
+  btnGrad.addColorStop(1, '#43A047');
+  ctx.fillStyle = btnGrad;
+  roundRect(btnX, btnY, btnW, btnH, 28);
+  ctx.fill();
+
+  // Button highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  roundRect(btnX + 4, btnY + 2, btnW - 8, btnH / 2, 20);
+  ctx.fill();
+
+  // Button text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('▶ ГРАТИ', W / 2, btnY + btnH / 2 + 8);
+
+  // High score
+  if (highScore > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('🏆 Рекорд: ' + highScore + ' м', W / 2, btnY + btnH + 30);
+  }
+
+  // Bottom nav buttons
+  const navY = H - 70;
+  const navBtns = [
+    { icon: '🐸', label: 'СКІНИ', x: W * 0.2 },
+    { icon: '🎯', label: 'ЗАВДАННЯ', x: W * 0.5 },
+    { icon: '🛒', label: 'МАГАЗИН', x: W * 0.8 },
+  ];
+
+  for (const btn of navBtns) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    roundRect(btn.x - 40, navY - 5, 80, 50, 12);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(btn.icon, btn.x, navY + 16);
+    ctx.font = '10px sans-serif';
+    ctx.fillText(btn.label, btn.x, navY + 36);
+  }
+
+  // Coins display
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  roundRect(W - 110, 15, 100, 30, 10);
+  ctx.fill();
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('🪙 ' + totalCoins, W - 20, 35);
+}
+
+function handleMenuTap(x, y) {
+  // Play button
+  const btnW = 200;
+  const btnH = 56;
+  const btnX = W / 2 - btnW / 2;
+  const btnY = H * 0.62;
+  if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+    startGame();
+    return;
+  }
+
+  // Bottom nav
+  const navY = H - 70;
+  if (y >= navY - 10 && y <= navY + 50) {
+    if (x < W * 0.35) {
+      sfxClick();
+      gameState = STATE.SKINS;
+      skinsScrollY = 0;
+    }
+    // Tasks and shop are placeholders
+  }
+}
+
+// ============================================================
+// GAME OVER SCREEN
+// ============================================================
+function drawGameOver() {
+  gameOverAnim = Math.min(gameOverAnim + 0.03, 1);
+
+  // Dim background
+  ctx.fillStyle = `rgba(0,0,0,${0.5 * gameOverAnim})`;
+  ctx.fillRect(0, 0, W, H);
+
+  const panelW = Math.min(W * 0.85, 320);
+  const panelH = 340;
+  const panelX = W / 2 - panelW / 2;
+  const panelY = H / 2 - panelH / 2;
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  const scaleAnim = 0.5 + gameOverAnim * 0.5;
+  ctx.scale(scaleAnim, scaleAnim);
+  ctx.translate(-W / 2, -H / 2);
+  ctx.globalAlpha = gameOverAnim;
+
+  // Panel background
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  roundRect(panelX, panelY, panelW, panelH, 24);
+  ctx.fill();
+
+  // Panel border
+  ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+  ctx.lineWidth = 2;
+  roundRect(panelX, panelY, panelW, panelH, 24);
+  ctx.stroke();
+
+  const cx = W / 2;
+  let ty = panelY + 30;
+
+  // New record badge
+  if (newRecord) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏆 НОВИЙ РЕКОРД! 🏆', cx, ty + 10);
+    ty += 35;
+  }
+
+  // Title
+  ctx.fillStyle = '#F44336';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ГРА ЗАКІНЧЕНА', cx, ty + 10);
+  ty += 45;
+
+  // Sad frog emoji
+  ctx.font = '40px sans-serif';
+  ctx.fillText('🐸💧', cx, ty + 10);
+  ty += 50;
+
+  // Stats
+  ctx.fillStyle = '#555';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('Дистанція', cx, ty);
+  ty += 5;
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.fillText(Math.floor(distance) + ' м', cx, ty + 25);
+  ty += 40;
+
+  ctx.fillStyle = '#888';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('Рекорд: ' + highScore + ' м    Монети: +' + runCoins, cx, ty + 5);
+  ty += 15;
+
+  if (maxCombo > 1) {
+    ctx.fillText('Макс. комбо: x' + maxCombo, cx, ty + 10);
+    ty += 15;
+  }
+  ty += 15;
+
+  // Retry button
+  const retryW = panelW * 0.7;
+  const retryH = 48;
+  const retryX = cx - retryW / 2;
+  const retryY = ty;
+
+  const retryGrad = ctx.createLinearGradient(retryX, retryY, retryX, retryY + retryH);
+  retryGrad.addColorStop(0, '#66BB6A');
+  retryGrad.addColorStop(1, '#43A047');
+  ctx.fillStyle = retryGrad;
+  roundRect(retryX, retryY, retryW, retryH, 24);
+  ctx.fill();
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.fillText('▶ СПРОБУВАТИ ЗНОВУ', cx, retryY + retryH / 2 + 6);
+
+  // Menu button
+  ty += retryH + 15;
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  roundRect(retryX, ty, retryW, 40, 20);
+  ctx.fill();
+
+  ctx.fillStyle = '#666';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('ГОЛОВНЕ МЕНЮ', cx, ty + 25);
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function handleGameOverTap(x, y) {
+  const panelW = Math.min(W * 0.85, 320);
+  const panelH = 340;
+  const panelY = H / 2 - panelH / 2;
+  const cx = W / 2;
+
+  let ty = panelY + 30;
+  if (newRecord) ty += 35;
+  ty += 45 + 50 + 40 + 15;
+  if (maxCombo > 1) ty += 15;
+  ty += 15;
+
+  const retryW = panelW * 0.7;
+  const retryH = 48;
+  const retryX = cx - retryW / 2;
+  const retryY = ty;
+
+  if (x >= retryX && x <= retryX + retryW && y >= retryY && y <= retryY + retryH) {
+    startGame();
+    return;
+  }
+
+  ty += retryH + 15;
+  if (x >= retryX && x <= retryX + retryW && y >= ty && y <= ty + 40) {
+    sfxClick();
+    gameState = STATE.MENU;
+    menuAnim = 0;
+    return;
+  }
+}
+
+// ============================================================
+// SKINS SCREEN
+// ============================================================
+function drawSkins() {
+  drawBackground();
+  drawWater();
+
+  // Overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Header
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  roundRect(10, 10, W - 20, 50, 15);
+  ctx.fill();
+
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🐸 СКІНИ', W / 2, 42);
+
+  // Back button
+  ctx.fillStyle = '#666';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('← Назад', 25, 42);
+
+  // Coins
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('🪙 ' + totalCoins, W - 25, 42);
+
+  // Skin cards
+  const cardW = Math.min(W - 40, 300);
+  const cardH = 80;
+  const startY = 80;
+
+  for (let i = 0; i < SKINS.length; i++) {
+    const skin = SKINS[i];
+    const cardX = W / 2 - cardW / 2;
+    const cardY = startY + i * (cardH + 10) + skinsScrollY;
+
+    if (cardY < -cardH || cardY > H) continue;
+
+    // Card bg
+    const isSelected = i === currentSkin;
+    ctx.fillStyle = isSelected ? 'rgba(76,175,80,0.2)' : 'rgba(255,255,255,0.9)';
+    roundRect(cardX, cardY, cardW, cardH, 16);
+    ctx.fill();
+
+    if (isSelected) {
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 3;
+      roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.stroke();
+    }
+
+    // Frog preview
+    ctx.save();
+    const oldSkin = currentSkin;
+    currentSkin = i;
+    drawFrog(cardX + 45, cardY + cardH / 2, 0.7, 0, 1, 1, false, 0);
+    currentSkin = oldSkin;
+    ctx.restore();
+
+    // Skin name
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(skin.name, cardX + 80, cardY + 30);
+
+    // Status
+    if (skin.owned) {
+      if (isSelected) {
+        ctx.fillStyle = '#4CAF50';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('✅ Обрано', cardX + 80, cardY + 55);
+      } else {
+        ctx.fillStyle = '#888';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('Натисніть щоб обрати', cardX + 80, cardY + 55);
+      }
+    } else {
+      ctx.fillStyle = '#FF9800';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('🪙 ' + skin.price, cardX + 80, cardY + 55);
+    }
+  }
+}
+
+function handleSkinsTap(x, y) {
+  // Back button
+  if (y < 60 && x < 100) {
+    sfxClick();
+    gameState = STATE.MENU;
+    menuAnim = 0;
+    return;
+  }
+
+  const cardW = Math.min(W - 40, 300);
+  const cardH = 80;
+  const startY = 80;
+  const cardX = W / 2 - cardW / 2;
+
+  for (let i = 0; i < SKINS.length; i++) {
+    const cardY = startY + i * (cardH + 10) + skinsScrollY;
+    if (x >= cardX && x <= cardX + cardW && y >= cardY && y <= cardY + cardH) {
+      const skin = SKINS[i];
+      if (skin.owned) {
+        currentSkin = i;
+        sfxClick();
+        saveSkins();
+      } else if (totalCoins >= skin.price) {
+        totalCoins -= skin.price;
+        skin.owned = true;
+        currentSkin = i;
+        localStorage.setItem('frogCoins', totalCoins.toString());
+        sfxPowerUp();
+        saveSkins();
+      } else {
+        sfxLand();
+      }
+      return;
+    }
+  }
+}
+
+// ============================================================
+// UTILITY DRAWING
+// ============================================================
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function lightenColor(hex, amount) {
+  if (hex.startsWith('hsl')) return hex;
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, ((num >> 16) & 255) + amount);
+  const g = Math.min(255, ((num >> 8) & 255) + amount);
+  const b = Math.min(255, (num & 255) + amount);
+  return `rgb(${r},${g},${b})`;
+}
+
+function darkenColor(hex, amount) {
+  if (hex.startsWith('hsl')) return hex;
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, ((num >> 16) & 255) - amount);
+  const g = Math.max(0, ((num >> 8) & 255) - amount);
+  const b = Math.max(0, (num & 255) - amount);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // gameTime is updated per-state (updateGame does it for PLAYING)
+  if (gameState !== STATE.PLAYING) gameTime += dt;
+
+  switch (gameState) {
+    case STATE.MENU:
+      drawMenu();
+      break;
+    case STATE.PLAYING:
+      updateGame(dt);
+      drawGame();
+      break;
+    case STATE.GAMEOVER:
+      // Keep drawing game in background
+      drawGame();
+      drawGameOver();
+      break;
+    case STATE.SKINS:
+      drawSkins();
+      break;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Prevent default touch behaviors
+document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+// Start
+initDecorations();
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
