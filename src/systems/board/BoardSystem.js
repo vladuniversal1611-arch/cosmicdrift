@@ -798,19 +798,16 @@ export class BoardSystem extends System {
     ctx.fillStyle = socketGrad;
     ctx.fill();
     ctx.restore();
-    ctx.save();
-    renderer.roundRectPath(x, y, size, size, r);
-    ctx.clip();
-    // Top sheen.
-    renderer.setAlpha(0.22);
-    renderer.fillRoundRect(x + size * 0.08, y + size * 0.06, size * 0.84, size * 0.34,
-      r * 0.7, renderer.linearGradient(x, y, x, y + size * 0.42, [[0, 'rgba(255,255,255,0.85)'], [1, 'rgba(255,255,255,0)']]));
-    // Deep bottom shadow.
-    renderer.setAlpha(0.4);
-    renderer.fillRoundRect(x + size * 0.06, y + size * 0.72, size * 0.88, size * 0.24,
-      r * 0.7, renderer.linearGradient(x, y + size * 0.7, x, y + size, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']]));
+    // Hue-agnostic bevel WITHOUT per-cell gradients or clips (both are very
+    // expensive on mobile at 64 cells/frame): a flat white sheen strip up top
+    // and a flat black shadow strip along the bottom, both inset so they stay
+    // within the rounded face and never need clipping. Reads the same on any
+    // rainbow colour and costs zero gradient allocations.
+    renderer.setAlpha(0.16);
+    renderer.fillRoundRect(x + size * 0.1, y + size * 0.07, size * 0.8, size * 0.18, r * 0.6, '#ffffff');
+    renderer.setAlpha(0.28);
+    renderer.fillRoundRect(x + size * 0.1, y + size * 0.76, size * 0.8, size * 0.16, r * 0.6, '#000000');
     renderer.setAlpha(1);
-    ctx.restore();
     // Thin dark inner edge for a clean "cut".
     renderer.strokeRoundRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5, r, 'rgba(0,0,0,0.4)', 1.5);
     // Transformation-wave accent: a bright bloom on the cell as the front passes.

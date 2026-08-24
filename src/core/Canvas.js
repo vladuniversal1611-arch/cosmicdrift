@@ -11,6 +11,7 @@
  * -----------------------------------------------------------------------------
  */
 import { Config } from '../config/Config.js';
+import { Quality } from '../config/Quality.js';
 import { clamp } from '../utils/MathUtils.js';
 import { Logger } from '../utils/Logger.js';
 
@@ -76,7 +77,12 @@ export class Canvas {
     const boxW = this._rotated ? availH : availW;
     const boxH = this._rotated ? availW : availH;
 
-    this._dpr = clamp(window.devicePixelRatio || 1, 1, Config.render.maxDpr);
+    // Physical backing-store resolution. `Quality.dprScale` (lowered by the
+    // PerformanceManager on weak devices) shrinks the number of real pixels we
+    // fill — the biggest single win for fill-rate-bound phones — while the CSS
+    // size stays the same so the game still fills the screen, just softer.
+    const baseDpr = clamp(window.devicePixelRatio || 1, 1, Config.render.maxDpr);
+    this._dpr = clamp(baseDpr * (Quality.dprScale || 1), 0.5, Config.render.maxDpr);
 
     // FULL-SCREEN fit: keep the design WIDTH but derive the logical HEIGHT from
     // the device's aspect ratio, so the canvas fills the whole viewport with no

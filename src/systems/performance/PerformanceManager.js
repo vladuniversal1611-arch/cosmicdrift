@@ -74,6 +74,12 @@ export class PerformanceManager extends System {
     if (this._high === high) return;
     this._high = high;
     Quality.highQuality = high;
+    // When we drop tiers, also shed physical pixels and particle load — the two
+    // biggest fill-rate costs on weak phones — and restore them when headroom
+    // returns. dprScale change requires a canvas re-layout to take effect.
+    Quality.dprScale = high ? 1 : 0.7;
+    Quality.maxParticles = high ? 400 : 160;
+    this.game.canvas?.resize();
     this._lowFor = 0; this._okFor = 0;
     this.events.emit('perf:quality', { high });
   }

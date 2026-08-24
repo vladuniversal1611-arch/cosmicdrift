@@ -16,6 +16,10 @@ export const Quality = {
   highQuality: Config.render.highQuality,
   /** Hard cap on live particles. */
   maxParticles: 400,
+  /** Device-pixel-ratio multiplier (1 = full sharpness). The PerformanceManager
+   *  lowers this on sustained low FPS so a weak GPU renders fewer physical
+   *  pixels — the single biggest fill-rate win on low-end phones. */
+  dprScale: 1,
   /** 0 = no motion FX, 1 = full. Scales shake / flash / particle counts. */
   animationScale: 1,
   /** Draw distinguishing symbols on crystals for colour-blind players. */
@@ -37,6 +41,7 @@ export function applyQuality(settings) {
   const intensity = settings.get('animationIntensity');
   Quality.highQuality = !lowPerf;
   Quality.maxParticles = lowPerf ? 140 : 400;
+  Quality.dprScale = lowPerf ? 0.75 : 1;
   Quality.animationScale = reduced ? 0 : (lowPerf ? 0.6 : 1) * (intensity ?? 1);
   Quality.colorBlind = !!settings.get('colorBlind');
   Quality.uiScale = settings.get('largeUI') ? 1.16 : 1;
