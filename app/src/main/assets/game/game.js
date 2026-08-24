@@ -416,7 +416,7 @@ class TextParticle{
     ctx.save();
     ctx.globalAlpha=this.alpha;
     ctx.fillStyle=this.color;
-    ctx.font=`bold ${Math.round(20*this.scale)}px Arial`;
+    ctx.font=`bold ${Math.round(20*this.scale)}px "Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor=this.color;ctx.shadowBlur=8;
     ctx.fillText(this.text,this.x,this.y);
@@ -509,7 +509,7 @@ class WorldObject{
       const scale=1-this.absorbProgress*0.3;
       ctx.scale(scale,scale);
     }
-    ctx.font=`${Math.max(8,this.size)}px Arial`;
+    ctx.font=`${Math.max(8,this.size)}px "Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(this.cfg.e,0,0);
     ctx.restore();
@@ -555,7 +555,7 @@ class Boss{
     ctx.fillStyle='#e74c3c';
     ctx.fillRect(-bw/2,this.size+4,bw*(this.hp/this.maxHp),8);
     // Boss emoji
-    ctx.font=`${this.size*1.4}px Arial`;
+    ctx.font=`${this.size*1.4}px "Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(this.cfg.e,0,0);
     // Boss name
@@ -726,9 +726,18 @@ class GameScreen{
   }
 
   _spawnInitialObjects(count){
+    // First 8 spawns: force small objects (tier 1) so hole can absorb immediately
+    const cfgList=CFG.worldObjects[this.worldId]||CFG.worldObjects[0];
+    const smallObjs=cfgList.filter(o=>o.t<=1);
     for(let i=0;i<count;i++){
-      const x=rnd(60,this.W-60),y=rnd(80,this.H-80);
-      this._spawnObject(x,y);
+      const x=rnd(50,this.W-50),y=rnd(100,this.H-120);
+      if(i<8&&smallObjs.length>0){
+        // Force tier-1 object so player can absorb right away
+        const cfg=smallObjs[Math.floor(Math.random()*smallObjs.length)];
+        this.objects.push(new WorldObject(cfg,x,y,1,false));
+      } else {
+        this._spawnObject(x,y);
+      }
     }
   }
 
@@ -736,9 +745,10 @@ class GameScreen{
     const cfgList=CFG.worldObjects[this.worldId]||CFG.worldObjects[0];
     const holeR=this.hole?this.hole.radius:30;
     // Only spawn objects up to 3x current hole size
-    const eligible=cfgList.filter(o=>o.s<=holeR*3.5);
+    // Always include small objects (tier 1-2) plus objects up to 3.5x hole size
+    const eligible=cfgList.filter(o=>o.s<=holeR*3.5||o.t<=2);
     if(eligible.length===0)return;
-    const cfg=weightedRandom(eligible,i=>i.w);
+    const cfg=weightedRandom(eligible,'w');
     const golden=this.game.state.dailyEventActive==='goldenObjects'&&Math.random()<0.15;
     const scaleMult=1+this.level*0.03;
     this.objects.push(new WorldObject(cfg,x,y,scaleMult,golden));
@@ -789,7 +799,7 @@ class GameScreen{
     // Collision: hole vs objects
     for(const obj of this.objects){
       if(obj.absorbing)continue;
-      if(obj.size<=this.hole.radius*1.0){
+      if(obj.size<=this.hole.radius*1.2){
         const d2=dist2(this.hole.x,this.hole.y,obj.x,obj.y);
         const absorb_dist=this.hole.radius*0.9;
         if(d2<absorb_dist*absorb_dist){
