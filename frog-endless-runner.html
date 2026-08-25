@@ -209,30 +209,26 @@ function project(relZ,l){
   return{x,y,s:Math.max(p,.02)};
 }
 
-// ========== INPUT (SWIPE + TAP for lanes) ==========
-let tSX=0,tSY=0,tST=0,swiped=false;
+// ========== INPUT (DRAG / HOLD — frog follows finger horizontally) ==========
+let touching=false,frogCont=1; // continuous lane pos 0.0–2.0
+let tSX=0,tSY=0,tST=0;
 
-function swipeLane(dir){
-  const nl=clamp(lane+dir,0,2);
-  if(nl!==lane){lane=nl;sfxSwipe()}
+function xToLane(sx){
+  const margin=W*.12;
+  return clamp((sx-margin)/(W-margin*2),0,1)*2; // 0.0–2.0
 }
 
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
-  const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();swiped=false;
+  const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
+  if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(t.clientX);lane=Math.round(frogCont)}
 },{passive:false});
 
 canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
-  if(state===ST.PLAY&&alive){
-    for(const t of e.changedTouches){
-      const dx=t.clientX-tSX;
-      if(Math.abs(dx)>20&&!swiped){
-        swipeLane(dx>0?1:-1);
-        swiped=true;tSX=t.clientX;
-        setTimeout(()=>{swiped=false},100); // rapid re-swipe
-      }
-    }
+  if(state===ST.PLAY&&alive&&touching){
+    const t=e.touches[0];
+    frogCont=xToLane(t.clientX);lane=Math.round(frogCont);
   }
 },{passive:false});
 
@@ -242,34 +238,38 @@ canvas.addEventListener('touchend',e=>{
   const dx=t.clientX-tSX,dy=t.clientY-tSY;
   const d=Math.sqrt(dx*dx+dy*dy);
   const dt=Date.now()-tST;
+  if(state===ST.PLAY&&alive){lane=Math.round(frogCont);touching=false}
   if(d<30&&dt<300){
     if(state===ST.MENU)menuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
-    else if(state===ST.PLAY&&alive){
-      if(t.clientX<W*.33)swipeLane(-1);
-      else if(t.clientX>W*.67)swipeLane(1);
-    }
   }
 },{passive:false});
 
-// Mouse
-canvas.addEventListener('mousedown',e=>{initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();swiped=false});
+// Mouse (desktop)
+let mouseDown=false;
+canvas.addEventListener('mousedown',e=>{
+  initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
+  if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(e.clientX);lane=Math.round(frogCont)}
+});
+canvas.addEventListener('mousemove',e=>{
+  if(mouseDown&&state===ST.PLAY&&alive&&touching){frogCont=xToLane(e.clientX);lane=Math.round(frogCont)}
+});
 canvas.addEventListener('mouseup',e=>{
-  const dx=e.clientX-tSX,d=Math.sqrt(dx*dx+(e.clientY-tSY)**2);
-  if(d>30){if(state===ST.PLAY&&alive)swipeLane(dx>0?1:-1)}
-  else{
+  mouseDown=false;
+  if(state===ST.PLAY&&alive){lane=Math.round(frogCont);touching=false}
+  const d=Math.sqrt((e.clientX-tSX)**2+(e.clientY-tSY)**2);
+  if(d<30&&Date.now()-tST<300){
     if(state===ST.MENU)menuTap(e.clientX,e.clientY);
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
-    else if(state===ST.PLAY&&alive){if(e.clientX<W*.33)swipeLane(-1);else if(e.clientX>W*.67)swipeLane(1)}
   }
 });
 document.addEventListener('keydown',e=>{
   initAudio();
   if(state===ST.PLAY){
-    if(e.key==='ArrowLeft'||e.key==='a')swipeLane(-1);
-    if(e.key==='ArrowRight'||e.key==='d')swipeLane(1);
+    if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-1,0,2);lane=Math.round(frogCont)}
+    if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+1,0,2);lane=Math.round(frogCont)}
   }else if(state===ST.MENU&&(e.key==='Enter'||e.key===' '))startGame();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
@@ -316,7 +316,7 @@ function startGame(){
   alive=true;falling=false;fallT=0;dist=0;score=0;combo=0;maxCombo=0;runCoins=0;
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;comboSc=1;shake=0;shX=0;shY=0;
-  pads=[];genLane=1;pts=[];floats=[];spdLines=[];
+  pads=[];genLane=1;pts=[];floats=[];spdLines=[];touching=false;frogCont=1;
   // Initial straight pads so player starts easy
   for(let i=0;i<10;i++)pads.push({lane:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
   ensurePads();initClouds();initBflies();startMus();
@@ -414,7 +414,7 @@ function updateGame(dt){
   }
 
   // Smooth visual lane — fast diagonal jump feel
-  visLane=sd(visLane,lane,16,dt);
+  visLane=sd(visLane,touching?frogCont:lane,18,dt);
 
   // Effects
   if(shFlash>0)shFlash-=dt*2.5;
@@ -746,7 +746,7 @@ function drawHUD(){
   const sn=(spd-BASE_SPD)/(MAX_SPD-BASE_SPD);
   if(sn>.12){ctx.fillStyle=`rgba(255,${Math.floor(255*(1-sn))},0,.35)`;ctx.font='8px sans-serif';ctx.textAlign='right';ctx.fillText('ШВИДКІСТЬ '+Math.floor(sn*100)+'%',W-p,H-12)}
   // Hint
-  if(dist<3&&alive){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('← свайп або тап →',W/2,H*.91);ctx.globalAlpha=1}
+  if(dist<3&&alive){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і води',W/2,H*.91);ctx.globalAlpha=1}
 }
 
 // ========== MENU ==========
