@@ -25,20 +25,20 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx
 // ========== CONSTANTS ==========
 const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
 const BASE_SPD=2.4;    // pads/sec — constant speed, no ramp
-const VIEW_Z=1.8;      // frog screen position (pads from bottom)
-const VIEW_AHEAD=10;   // how far ahead to render
+const VIEW_Z=3.2;      // frog screen position — higher up, away from finger
+const VIEW_AHEAD=15;   // how far ahead to render — see pads from distance
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
 // game
 let seq=0,spd=BASE_SPD,lane=1,visLane=1,lastIdx=-1;
 let alive=true,falling=false,fallT=0;
-let dist=0,score=0,combo=0,maxCombo=0,runCoins=0;
+let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
 let coins=+localStorage.getItem('fCoins')||0;
 let newRec=false;
 let shield=false,magnet=false,magnetT=0,boost=false,boostT=0;
-let shFlash=0,pfFlash=0,comboSc=1,shake=0,shX=0,shY=0,goT=0;
+let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0;
 // pads
 let pads=[],genLane=1;
 // fx
@@ -121,9 +121,9 @@ function ensurePads(){
 // ========== PROJECTION ==========
 function project(relZ,l){
   const t=clamp(relZ/VIEW_AHEAD,0,1);
-  // Perspective curve — more aggressive for speed feeling
-  const p=Math.pow(1-t*.88,1.8);
-  const vanY=H*.25,baseY=H*.84;
+  // Perspective curve — adjusted for further view
+  const p=Math.pow(1-t*.9,1.6);
+  const vanY=H*.22,baseY=H*.78;
   const y=vanY+(baseY-vanY)*p;
   // Lane width scales with perspective — wide for big pads
   const lw=W*.28*p;
@@ -234,9 +234,9 @@ function updSpdLines(dt){
 function startGame(){
   sfxClick();state=ST.PLAY;
   seq=0;spd=BASE_SPD;lane=1;visLane=1;lastIdx=-1;
-  alive=true;falling=false;fallT=0;dist=0;score=0;combo=0;maxCombo=0;runCoins=0;
+  alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
-  shFlash=0;pfFlash=0;comboSc=1;shake=0;shX=0;shY=0;
+  shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;
   pads=[];genLane=1;pts=[];floats=[];spdLines=[];touching=false;frogCont=1;
   // Initial straight pads so player starts easy
   for(let i=0;i<10;i++)pads.push({lane:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
@@ -269,27 +269,7 @@ function onLand(idx){
   pad.landed=true;pad.dip=.35;
   sfxLand();score++;
   const lp=project(VIEW_Z,pad.lane);
-  addLandFX(lp.x,lp.y,1+combo*.03);
-
-  // Perfect landing — visual lane close to pad lane
-  const ld=Math.abs(visLane-pad.lane);
-  if(ld<.3){
-    combo++;if(combo>maxCombo)maxCombo=combo;
-    if(combo>=2){
-      pfFlash=.4;
-      addPerfFX(lp.x,lp.y-20);
-      if(combo>=10)addFloat('🔥 x'+combo+'!',lp.x,lp.y-50,'#FF5722',26);
-      else if(combo>=5)addFloat('AMAZING! x'+combo,lp.x,lp.y-45,'#FFD700',24);
-      else if(combo>=3)addFloat('PERFECT! x'+combo,lp.x,lp.y-42,'#FFD700',22);
-      else addFloat('GREAT!',lp.x,lp.y-40,'#FFF176',20);
-      sfxPerfect();if(combo>4)sfxCombo();
-      comboSc=1.35;score+=combo;
-      if(navigator.vibrate)navigator.vibrate(30);
-    }
-  }else{
-    if(combo>=3)addFloat('combo lost',lp.x,lp.y-30,'#aaa',14);
-    combo=0;
-  }
+  addLandFX(lp.x,lp.y,1);
 
   // Coin
   if(pad.coin){pad.coin=false;runCoins++;addCoinFX(lp.x,lp.y-12);sfxCoin()}
@@ -337,7 +317,6 @@ function updateGame(dt){
   // Effects
   if(shFlash>0)shFlash-=dt*2.5;
   if(pfFlash>0)pfFlash=sd(pfFlash,0,6,dt);
-  if(comboSc>1)comboSc=sd(comboSc,1,7,dt);
   for(const p of pads)if(p.dip>0)p.dip=sd(p.dip,0,10,dt);
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
 
@@ -351,12 +330,6 @@ function updateGame(dt){
         addCoinFX(pp.x,pp.y);sfxCoin();
       }
     }
-  }
-
-  // Trail particles
-  if(combo>=3&&Math.random()<.2){
-    const fp=project(VIEW_Z,visLane);
-    addTrail(fp.x,fp.y+15,.4);
   }
 
   // Water splash particles
@@ -475,16 +448,8 @@ function lighten(h,a){if(h.startsWith('hsl'))return h;const n=parseInt(h.replace
 function darken(h,a){if(h.startsWith('hsl'))return h;const n=parseInt(h.replace('#',''),16);return`rgb(${Math.max(0,((n>>16)&255)-a)},${Math.max(0,((n>>8)&255)-a)},${Math.max(0,(n&255)-a)})`}
 
 function drawFrog(x,y,sc,rot,sqX,sqY,inAir,height){
-  ctx.save();ctx.translate(x,y-height*80*sc);ctx.rotate(rot);ctx.scale(sc*sqX,sc*sqY);
+  ctx.save();ctx.translate(x,y-height*120*sc);ctx.rotate(rot);ctx.scale(sc*sqX,sc*sqY);
   const sk=SKINS[curSkin],bc=getSkinCol(),s=28;
-  // Combo aura
-  if(combo>=5){
-    const ca=Math.min(combo/20,.6);
-    const cg=ctx.createRadialGradient(0,-s*.3,s*.5,0,-s*.3,s*2.2);
-    cg.addColorStop(0,`rgba(255,${combo>=10?'100':'200'},0,${ca*.3})`);
-    cg.addColorStop(1,`rgba(255,200,0,0)`);
-    ctx.fillStyle=cg;ctx.beginPath();ctx.arc(0,-s*.3,s*2.2,0,Math.PI*2);ctx.fill();
-  }
   // Shield aura
   if(shield){ctx.strokeStyle='rgba(79,195,247,.4)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,-s*.3,s*1.8,0,Math.PI*2);ctx.stroke()}
   // Shadow
@@ -615,12 +580,12 @@ function drawGame(){
       fy+=ft*70;fs*=(1-ft*.5);ctx.globalAlpha=1-ft*.9;
     }
 
-    drawFrog(fx,fy,fs,rot,sqX,sqY,airness>.25,height*.38);
+    drawFrog(fx,fy,fs,rot,sqX,sqY,airness>.25,height*.55);
     ctx.globalAlpha=1;
 
-    // Trail at high speed or high combo
-    if((spd>3||combo>=5)&&airness>.3&&Math.random()<.4){
-      addTrail(fx+rand(-4,4),fy+12,combo>=10?.8:.4);
+    // Trail at high speed
+    if(spd>3&&airness>.3&&Math.random()<.4){
+      addTrail(fx+rand(-4,4),fy+12,.4);
     }
   }
 
@@ -644,16 +609,8 @@ function drawHUD(){
   // Coins
   ctx.fillStyle='rgba(0,0,0,.25)';rr(W-105-p,ty,105,36,12);ctx.fill();
   ctx.fillStyle='#FFD700';ctx.font='bold 17px sans-serif';ctx.textAlign='right';ctx.fillText('🪙 '+runCoins,W-p-8,ty+25);
-  // Combo
-  if(combo>=2){
-    ctx.save();const cx=p+10,cy=ty+65;ctx.translate(cx+42,cy);ctx.scale(comboSc,comboSc);ctx.translate(-(cx+42),-cy);
-    const ci=Math.min(combo/15,1);
-    const cr=Math.floor(255*(1-ci*.4)),cg=Math.floor(87+ci*100),cb=Math.floor(34+ci*50);
-    ctx.fillStyle=`rgba(${cr},${cg},${cb},.85)`;rr(cx,cy-14,90,32,11);ctx.fill();
-    ctx.fillStyle='#fff';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('🔥 x'+combo,cx+45,cy+6);ctx.restore();
-  }
   // Power-up indicators
-  let py=ty+105;
+  let py=ty+60;
   if(shield){ctx.fillStyle='rgba(79,195,247,.6)';rr(p,py,95,22,8);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';ctx.fillText('🛡️ Щит',p+6,py+16);py+=26}
   if(magnet){ctx.fillStyle='rgba(244,67,54,.6)';rr(p,py,95,22,8);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';ctx.fillText('🧲 '+Math.ceil(magnetT)+'с',p+6,py+16);py+=26}
   if(boost){ctx.fillStyle='rgba(255,235,59,.6)';rr(p,py,95,22,8);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';ctx.fillText('⚡ '+Math.ceil(boostT)+'с',p+6,py+16);py+=26}
@@ -703,7 +660,7 @@ function drawOver(){
   ctx.fillStyle='#555';ctx.font='15px sans-serif';ctx.fillText('Дистанція',cx,ty);ty+=3;
   ctx.fillStyle='#333';ctx.font='bold 30px sans-serif';ctx.fillText(Math.floor(dist)+' м',cx,ty+24);ty+=40;
   ctx.fillStyle='#888';ctx.font='13px sans-serif';
-  ctx.fillText('Рекорд: '+hs+' м   Монети: +'+runCoins+(maxCombo>2?'   Комбо: x'+maxCombo:''),cx,ty+5);ty+=25;
+  ctx.fillText('Рекорд: '+hs+' м   Монети: +'+runCoins,cx,ty+5);ty+=25;
   const rw=pw*.68,rh=44,rx=cx-rw/2,ry=ty+5;
   const rg=ctx.createLinearGradient(rx,ry,rx,ry+rh);rg.addColorStop(0,'#66BB6A');rg.addColorStop(1,'#43A047');ctx.fillStyle=rg;rr(rx,ry,rw,rh,22);ctx.fill();
   ctx.fillStyle='#fff';ctx.font='bold 16px sans-serif';ctx.fillText('▶ СПРОБУВАТИ ЗНОВУ',cx,ry+rh/2+5);
