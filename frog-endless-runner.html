@@ -208,34 +208,34 @@ function project(relZ,lane){
 }
 
 // ===================== INPUT =====================
-let touchId=-1,touchSX=0,touchSY=0,touchST=0,swiped=false;
-let inputQueue=[];
+let touching=false; // is finger currently on screen during gameplay
+let touchSX=0,touchSY=0,touchST=0;
+let frogCont=1; // continuous lane position (0.0 - 2.0) — follows finger
 
-function queueLane(dir){
-  const nl=clamp(frogLane+dir,0,2);
-  if(nl!==frogLane){frogLane=nl;inputQueue.push(dir)}
+// Map screen X to lane value (0-2) using the playfield width
+function xToLane(sx){
+  // Use wider zone so edges are reachable comfortably
+  const margin=W*.12;
+  const t=clamp((sx-margin)/(W-margin*2),0,1);
+  return t*2; // 0.0 (left) to 2.0 (right)
 }
 
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
+  const t=e.touches[0];touchSX=t.clientX;touchSY=t.clientY;touchST=Date.now();
   if(state===ST.PLAY&&alive){
-    const t=e.touches[0];touchId=t.identifier;touchSX=t.clientX;touchSY=t.clientY;touchST=Date.now();swiped=false;
-  }else{
-    const t=e.touches[0];touchSX=t.clientX;touchSY=t.clientY;touchST=Date.now();swiped=false;
+    touching=true;
+    frogCont=xToLane(t.clientX);
+    frogLane=Math.round(frogCont);
   }
 },{passive:false});
 
 canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
-  if(state===ST.PLAY&&alive&&!swiped){
-    for(const t of e.changedTouches){
-      const dx=t.clientX-touchSX;
-      if(Math.abs(dx)>18){
-        queueLane(dx>0?1:-1);
-        swiped=true;touchSX=t.clientX; // allow re-swipe
-        setTimeout(()=>{swiped=false},120); // allow rapid re-swipe
-      }
-    }
+  if(state===ST.PLAY&&alive&&touching){
+    const t=e.touches[0];
+    frogCont=xToLane(t.clientX);
+    frogLane=Math.round(frogCont);
   }
 },{passive:false});
 
@@ -245,36 +245,45 @@ canvas.addEventListener('touchend',e=>{
   const dx=t.clientX-touchSX,dy=t.clientY-touchSY;
   const d=Math.sqrt(dx*dx+dy*dy);
   const dt=Date.now()-touchST;
+  if(state===ST.PLAY&&alive){
+    // Snap to nearest lane on release
+    frogLane=Math.round(frogCont);
+    touching=false;
+  }
   if(d<25&&dt<300){
-    // Tap
+    // Tap for menus
     if(state===ST.MENU)handleMenuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)handleOverTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)handleSkinsTap(t.clientX,t.clientY);
-    else if(state===ST.PLAY&&alive){
-      // Tap left/right half
-      if(t.clientX<W/2)queueLane(-1);else queueLane(1);
-    }
   }
 },{passive:false});
 
-// Mouse
-canvas.addEventListener('mousedown',e=>{initAudio();touchSX=e.clientX;touchSY=e.clientY;touchST=Date.now();swiped=false});
+// Mouse (desktop fallback)
+let mouseDown=false;
+canvas.addEventListener('mousedown',e=>{
+  initAudio();touchSX=e.clientX;touchSY=e.clientY;touchST=Date.now();mouseDown=true;
+  if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(e.clientX);frogLane=Math.round(frogCont)}
+});
+canvas.addEventListener('mousemove',e=>{
+  if(mouseDown&&state===ST.PLAY&&alive&&touching){
+    frogCont=xToLane(e.clientX);frogLane=Math.round(frogCont);
+  }
+});
 canvas.addEventListener('mouseup',e=>{
+  mouseDown=false;
+  if(state===ST.PLAY&&alive){frogLane=Math.round(frogCont);touching=false}
   const dx=e.clientX-touchSX,d=Math.sqrt(dx*dx+(e.clientY-touchSY)**2);
-  if(d>25&&Date.now()-touchST<400){
-    if(state===ST.PLAY&&alive)queueLane(dx>0?1:-1);
-  }else{
+  if(d<25&&Date.now()-touchST<300){
     if(state===ST.MENU)handleMenuTap(e.clientX,e.clientY);
     else if(state===ST.OVER)handleOverTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)handleSkinsTap(e.clientX,e.clientY);
-    else if(state===ST.PLAY&&alive){if(e.clientX<W/2)queueLane(-1);else queueLane(1)}
   }
 });
 document.addEventListener('keydown',e=>{
   initAudio();
   if(state===ST.PLAY){
-    if(e.key==='ArrowLeft'||e.key==='a')queueLane(-1);
-    if(e.key==='ArrowRight'||e.key==='d')queueLane(1);
+    if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-1,0,2);frogLane=Math.round(frogCont)}
+    if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+1,0,2);frogLane=Math.round(frogCont)}
   }else if(state===ST.MENU&&(e.key==='Enter'||e.key===' '))startGame();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape'){state=ST.MENU}}
   else if(state===ST.SKINS&&e.key==='Escape'){state=ST.MENU}
@@ -299,7 +308,7 @@ function startGame(){
   alive=true;falling=false;fallT=0;dist=0;score=0;combo=0;maxCombo=0;runCoins=0;
   newRecord=false;hasShield=false;hasMagnet=false;magnetT=0;hasBoost=false;boostT=0;
   shieldFlash=0;perfectFlash=0;comboScale=1;screenShake=0;shakeX=0;shakeY=0;
-  pads=[];padGenLane=1;particles=[];floats=[];inputQueue=[];
+  pads=[];padGenLane=1;particles=[];floats=[];touching=false;frogCont=1;
   // Initial straight pads
   for(let i=0;i<8;i++)pads.push({lane:1,type:'normal',coin:false,pu:null,landed:false,dip:0});
   ensurePads();initClouds();startMus();
@@ -400,8 +409,9 @@ function updateGame(dt){
     }
   }
 
-  // Smooth visual lane
-  frogVisLane=smoothDamp(frogVisLane,frogLane,14,dt);
+  // Smooth visual lane — follows continuous finger position when touching, snaps to lane when not
+  const visTgt=touching?frogCont:frogLane;
+  frogVisLane=smoothDamp(frogVisLane,visTgt,18,dt);
 
   // Shield flash
   if(shieldFlash>0)shieldFlash-=dt*2;
@@ -692,7 +702,7 @@ function drawHUD(){
   const sp=(speed-BASE_SPEED)/(MAX_SPEED-BASE_SPEED);
   if(sp>.1){ctx.fillStyle=`rgba(255,${Math.floor(255*(1-sp))},0,.4)`;ctx.font='9px sans-serif';ctx.textAlign='right';ctx.fillText('ШВИДКІСТЬ '+Math.floor(sp*100)+'%',W-p,H-15)}
   // Hint
-  if(dist<2&&alive){const ha=Math.max(0,1-dist/2)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('← свайп або тап →',W/2,H*.9);ctx.globalAlpha=1}
+  if(dist<2&&alive){const ha=Math.max(0,1-dist/2)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.9);ctx.globalAlpha=1}
 }
 
 // ===================== MENU =====================
