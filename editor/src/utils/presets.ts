@@ -128,10 +128,21 @@ export interface TemplatePreset {
 }
 
 export const TEMPLATE_PRESETS: TemplatePreset[] = [
-  { id: 'vlog-intro', name: 'Vlog Intro', category: 'Social', aspectRatio: '9:16', thumb: 'linear-gradient(160deg,#7c3aed,#06b6d4)' },
+  { id: 'tiktok', name: 'TikTok', category: 'Social', aspectRatio: '9:16', thumb: 'linear-gradient(160deg,#7c3aed,#06b6d4)' },
+  { id: 'yt-shorts', name: 'YouTube Shorts', category: 'Social', aspectRatio: '9:16', thumb: 'linear-gradient(160deg,#ef4444,#fbbf24)' },
+  { id: 'ig-reels', name: 'Instagram Reels', category: 'Social', aspectRatio: '9:16', thumb: 'linear-gradient(160deg,#f093fb,#f5576c)' },
+  { id: 'youtube', name: 'YouTube', category: 'Content', aspectRatio: '16:9', thumb: 'linear-gradient(160deg,#fa709a,#fee140)' },
+  { id: 'ig-post', name: 'Instagram Post', category: 'Social', aspectRatio: '1:1', thumb: 'linear-gradient(160deg,#43e97b,#38f9d7)' },
+  { id: 'ig-story', name: 'Instagram Story', category: 'Social', aspectRatio: '4:5', thumb: 'linear-gradient(160deg,#a18cd1,#fbc2eb)' },
+  { id: 'vlog-intro', name: 'Vlog Intro', category: 'Content', aspectRatio: '16:9', thumb: 'linear-gradient(160deg,#667eea,#764ba2)' },
   { id: 'product-promo', name: 'Product Promo', category: 'Marketing', aspectRatio: '1:1', thumb: 'linear-gradient(160deg,#f093fb,#f5576c)' },
+  { id: 'gaming', name: 'Gaming', category: 'Content', aspectRatio: '16:9', thumb: 'linear-gradient(160deg,#0f2027,#2c5364)' },
   { id: 'travel-story', name: 'Travel Story', category: 'Social', aspectRatio: '9:16', thumb: 'linear-gradient(160deg,#43e97b,#38f9d7)' },
-  { id: 'youtube-intro', name: 'YouTube Intro', category: 'Content', aspectRatio: '16:9', thumb: 'linear-gradient(160deg,#fa709a,#fee140)' },
-  { id: 'slideshow', name: 'Photo Slideshow', category: 'Memories', aspectRatio: '4:5', thumb: 'linear-gradient(160deg,#30cfd0,#330867)' },
+  { id: 'meme', name: 'Meme', category: 'Fun', aspectRatio: '1:1', thumb: 'linear-gradient(160deg,#ffecd2,#fcb69f)' },
   { id: 'podcast-clip', name: 'Podcast Clip', category: 'Content', aspectRatio: '1:1', thumb: 'linear-gradient(160deg,#a8edea,#fed6e3)' },
+  { id: 'cinematic', name: 'Cinematic', category: 'Film', aspectRatio: '16:9', thumb: 'linear-gradient(160deg,#0f2027,#203a43)' },
+  { id: 'slideshow', name: 'Photo Slideshow', category: 'Memories', aspectRatio: '4:5', thumb: 'linear-gradient(160deg,#30cfd0,#330867)' },
 ];
+
+// Speed presets for the Inspector
+export const SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4];

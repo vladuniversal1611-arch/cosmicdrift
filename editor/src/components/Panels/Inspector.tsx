@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useEditor } from '../../state/EditorContext';
-import { ASPECT_RATIO_DIMENSIONS, AspectRatio, Clip } from '../../types';
+import { ASPECT_RATIO_DIMENSIONS, AspectRatio, Clip, EasingType, Keyframe } from '../../types';
 import { SliderControl, ColorControl, NumberControl, SelectControl, ToggleControl } from '../common/Controls';
 import { FONT_FAMILIES, TEXT_ANIMATIONS } from '../../utils/presets';
+import { v4 as uuidv4 } from 'uuid';
 import './Inspector.css';
 
 export const Inspector: React.FC = () => {
@@ -55,6 +56,11 @@ export const Inspector: React.FC = () => {
       {(clip.type === 'video' || clip.type === 'audio') && (
         <Section title="Playback">
           <SliderControl label="Speed" value={clip.speed} min={0.25} max={4} step={0.05} onChange={(v) => update({ speed: v })} unit="x" />
+          <div className="speed-presets">
+            {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4].map((s) => (
+              <button key={s} className={`speed-btn ${clip.speed === s ? 'active' : ''}`} onClick={() => update({ speed: s })}>{s}x</button>
+            ))}
+          </div>
           <SliderControl label="Volume" value={clip.volume * 100} min={0} max={100} onChange={(v) => update({ volume: v / 100 })} unit="%" />
           <ToggleControl label="Muted" value={clip.muted} onChange={(v) => update({ muted: v })} />
           <ToggleControl label="Reversed" value={clip.reversed} onChange={(v) => update({ reversed: v })} />
@@ -110,6 +116,10 @@ export const Inspector: React.FC = () => {
             </button>
           </div>
         ))}
+      </Section>
+
+      <Section title="Keyframes">
+        <KeyframePanel clip={clip} dispatch={dispatch} />
       </Section>
 
       <Section title="Clip">
@@ -240,6 +250,77 @@ const ProjectSettingsInspector: React.FC = () => {
       </Section>
       <div className="inspector-empty" style={{ marginTop: 24 }}>
         Select a clip on the timeline to edit its properties.
+      </div>
+    </div>
+  );
+};
+
+const KEYFRAME_PROPERTIES = [
+  { value: 'x', label: 'Position X' },
+  { value: 'y', label: 'Position Y' },
+  { value: 'scaleX', label: 'Scale X' },
+  { value: 'scaleY', label: 'Scale Y' },
+  { value: 'rotation', label: 'Rotation' },
+  { value: 'opacity', label: 'Opacity' },
+];
+
+const EASING_OPTIONS = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'easeIn', label: 'Ease In' },
+  { value: 'easeOut', label: 'Ease Out' },
+  { value: 'easeInOut', label: 'Ease In Out' },
+];
+
+const KeyframePanel: React.FC<{ clip: Clip; dispatch: any }> = ({ clip, dispatch }) => {
+  const [newProp, setNewProp] = useState('x');
+  const [newTime, setNewTime] = useState(0);
+  const [newValue, setNewValue] = useState(0);
+  const [newEasing, setNewEasing] = useState<EasingType>('linear');
+
+  const addKeyframe = () => {
+    const kf: Keyframe = {
+      id: uuidv4(),
+      time: newTime,
+      property: newProp,
+      value: newValue,
+      easing: newEasing,
+    };
+    dispatch({ type: 'ADD_KEYFRAME', clipId: clip.id, keyframe: kf });
+  };
+
+  const grouped = new Map<string, Keyframe[]>();
+  clip.keyframes.forEach((kf) => {
+    const list = grouped.get(kf.property) || [];
+    list.push(kf);
+    grouped.set(kf.property, list);
+  });
+
+  return (
+    <div className="keyframe-panel">
+      {clip.keyframes.length === 0 && (
+        <div className="inspector-empty">No keyframes. Add one below for animated properties.</div>
+      )}
+      {Array.from(grouped.entries()).map(([prop, kfs]) => (
+        <div key={prop} className="kf-group">
+          <div className="kf-group-label">{KEYFRAME_PROPERTIES.find((p) => p.value === prop)?.label || prop}</div>
+          {kfs.map((kf) => (
+            <div key={kf.id} className="kf-row">
+              <span className="kf-diamond">◆</span>
+              <span className="kf-time">{kf.time.toFixed(2)}s</span>
+              <span className="kf-val">{kf.value.toFixed(2)}</span>
+              <span className="kf-easing">{kf.easing}</span>
+              <button className="kf-remove" onClick={() => dispatch({ type: 'REMOVE_KEYFRAME', clipId: clip.id, keyframeId: kf.id })}>✕</button>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="kf-add">
+        <h5>Add Keyframe</h5>
+        <SelectControl label="Property" value={newProp} options={KEYFRAME_PROPERTIES} onChange={setNewProp} />
+        <NumberControl label="Time (s)" value={newTime} min={0} max={clip.duration} step={0.1} onChange={setNewTime} />
+        <NumberControl label="Value" value={newValue} min={-200} max={200} step={0.1} onChange={setNewValue} />
+        <SelectControl label="Easing" value={newEasing} options={EASING_OPTIONS} onChange={(v) => setNewEasing(v as EasingType)} />
+        <button className="primary-btn" onClick={addKeyframe}>+ Add Keyframe</button>
       </div>
     </div>
   );
