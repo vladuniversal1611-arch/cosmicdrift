@@ -562,7 +562,11 @@ function die(){
     return;
   }
   alive=false;falling=true;fallT=0;sfxSplash();sfxDie();stopMus();
-  const fp=project(VIEW_Z,visLane);
+  // Splash at frog's actual position
+  const ci=getCurrentPadIdx();
+  const curP=padPositions[ci]||0;
+  const frogRelZ=curP-seq+VIEW_Z;
+  const fp=project(Math.max(frogRelZ,.1),visLane);
   addSplash(fp.x,fp.y,2.5);shake=.5;
   if(navigator.vibrate)navigator.vibrate(100);
   const fd=Math.floor(dist);
@@ -997,36 +1001,35 @@ function drawGame(){
   // Landing ripples (on water surface, after pads)
   drawRipples();
 
-  // Draw frog
+  // Draw frog — anchored to actual pad positions
   if(alive||fallT<1.2){
-    // Smoother parabolic arc with hang time at peak
-    const bounce=seq%getPadSpacing()/getPadSpacing();
+    // Find current and next pad to interpolate between
+    const curIdx=getCurrentPadIdx();
+    const nextIdx=Math.min(curIdx+1,padPositions.length-1);
+    const curPos=padPositions[curIdx]||0;
+    const nextPos=padPositions[nextIdx]||curPos+1;
+    const gap=nextPos-curPos;
+    const bounce=gap>0?clamp((seq-curPos)/gap,0,1):0;
+
     // Improved jump curve: more hang time at peak, snappier takeoff/landing
     const rawAir=Math.sin(bounce*Math.PI);
-    const airness=Math.pow(rawAir,.7); // flatter peak, sharper base = more hang time
+    const airness=Math.pow(rawAir,.7);
 
     // Enhanced squash/stretch
-    // Takeoff: squash then stretch
-    // Peak: elongated
-    // Landing: squash
     let sqX,sqY;
     if(bounce<.15){
-      // Takeoff squash
       const t=bounce/.15;
       sqX=1+.22*(1-t);
       sqY=1-.18*(1-t);
     } else if(bounce<.5){
-      // Rising: stretch
       const t=(bounce-.15)/.35;
       sqX=1-.12*t;
       sqY=1+.15*t;
     } else if(bounce<.85){
-      // Falling: stretch
       const t=(bounce-.5)/.35;
       sqX=1-.12*(1-t);
       sqY=1+.15*(1-t);
     } else {
-      // Landing squash
       const t=(bounce-.85)/.15;
       sqX=1+.25*t;
       sqY=1-.2*t;
@@ -1035,8 +1038,11 @@ function drawGame(){
     const ld=visLane-lane;
     const rot=airness*.12*clamp(ld,-1,1);
 
-    const fp=project(VIEW_Z,visLane);
-    let fx=fp.x,fy=fp.y,fs=fp.s*1.7; // bigger frog for wider road
+    // Frog Z position: interpolate between current pad and next pad
+    const frogZ=lerp(curPos,nextPos,bounce)-seq+VIEW_Z;
+    // Frog lane: use visLane for smooth horizontal movement
+    const fp=project(frogZ,visLane);
+    let fx=fp.x,fy=fp.y,fs=fp.s*1.7;
 
     if(falling){
       const ft=Math.min(fallT,1);
