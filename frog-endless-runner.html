@@ -28,10 +28,10 @@ const START_SPD=2.0;
 const MAX_SPD=4.2;
 const RAMP_TIME=45;
 const FOCAL_LEN=3.5;
-const VIEW_Z=3.3;
-const VIEW_AHEAD=16; // increased for wider spacing visibility
-const PAD_SPACE_START=1.8; // starting pad spacing (was 1.0)
-const PAD_SPACE_END=1.4;   // late-game spacing (still wider than original)
+const VIEW_Z=3.0;
+const VIEW_AHEAD=18;
+const PAD_SPACE_START=3.2; // big gaps — only 4-5 pads visible
+const PAD_SPACE_END=2.4;   // late-game: tighter but still roomy
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
@@ -418,7 +418,9 @@ function ensurePads(){
       pu=['shield','magnet','boost','superjump'][Math.floor(Math.random()*4)];
     const type=Math.random()<.05?'flower':(Math.random()<.03&&dist>8?'gold':'normal');
 
-    pads.push({lane:l,type,coin:hasCoin,pu,landed:false,dip:0,riskCoin:null});
+    // Add slight X variation — pads aren't locked to rigid grid
+    const xVar=rand(-.15,.15); // small offset from lane center
+    pads.push({lane:l,laneX:l+xVar,type,coin:hasCoin,pu,landed:false,dip:0,riskCoin:null});
   }
 }
 
@@ -546,7 +548,7 @@ function startGame(){
   // Initial straight pads
   for(let i=0;i<10;i++){
     padPositions.push(i*PAD_SPACE_START);
-    pads.push({lane:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
+    pads.push({lane:1,laneX:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
   }
   ensurePads();initClouds();initBflies();initSideObjects();initAtmo();startMus();
 }
@@ -588,7 +590,7 @@ function onLand(idx){
   pad.landed=true;pad.dip=.4;
   sfxLand();score++;
   const padZ=padPositions[idx]-seq+VIEW_Z;
-  const lp=project(padZ,pad.lane);
+  const lp=project(padZ,pad.laneX||pad.lane);
   addLandFX(lp.x,lp.y,1.2);
   addRipple(lp.x,lp.y+5*lp.s,lp.s); // ripple on landing
 
@@ -758,91 +760,130 @@ function drawWater(){
 
 function drawPad(x,y,s,type,dip,isCurrent){
   ctx.save();ctx.translate(x,y);
-  const pw=140*s,ph=58*s; // bigger pads like Tiles Hop
-  const boxH=22*s;
-  const dO=dip*6*s;
-  const rad=12*s;
+
+  // 3D square tile — like Tiles Hop
+  // Top face is a perspective trapezoid (narrower at back, wider at front)
+  const hw=120*s;       // half-width of tile at front edge
+  const topNarrow=.82;  // back edge is 82% of front width (perspective)
+  const topH=90*s;      // depth of top face (how tall the square looks)
+  const sideH=32*s;     // thickness of the 3D box
+  const dO=dip*8*s;
+  const rad=14*s;
 
   let c1,c2,c3,glow;
   if(type==='gold'){c1='#FFF176';c2='#FFD54F';c3='#F9A825';glow='rgba(255,215,0,'}
   else if(type==='flower'){c1='#81C784';c2='#66BB6A';c3='#2E7D32';glow='rgba(129,199,132,'}
   else{c1='#66BB6A';c2='#43A047';c3='#1B5E20';glow='rgba(76,175,80,'}
 
-  // Neon glow under pad
-  ctx.shadowColor=glow+'.6)';ctx.shadowBlur=25*s;
-  ctx.fillStyle='transparent';rr(x-pw-2,y-ph+dO-2,1,1,0);
+  // Neon glow underneath
+  ctx.shadowColor=glow+'.5)';ctx.shadowBlur=30*s;
+  ctx.fillStyle=glow+'.01)';
+  ctx.fillRect(-hw,-topH+dO,hw*2,topH);
   ctx.shadowBlur=0;
 
-  // 3D front face
-  const sg=ctx.createLinearGradient(0,dO,0,boxH+dO);
-  sg.addColorStop(0,c3);sg.addColorStop(1,'rgba(0,40,0,.8)');
-  ctx.fillStyle=sg;
+  // === FRONT FACE (3D thickness) ===
+  const frontTop=dO;           // where top face ends (front edge)
+  const frontBot=sideH+dO;     // bottom of front face
+  const fg=ctx.createLinearGradient(0,frontTop,0,frontBot);
+  fg.addColorStop(0,c3);fg.addColorStop(.6,darken(c3,30));fg.addColorStop(1,'rgba(0,30,0,.9)');
+  ctx.fillStyle=fg;
+  // Front face — rounded rect
+  rr(-hw,frontTop,hw*2,sideH,rad*.5);ctx.fill();
+
+  // === LEFT SIDE FACE ===
+  const backHW=hw*topNarrow;
+  ctx.fillStyle=darken(c3,20);
   ctx.beginPath();
-  ctx.moveTo(-pw+rad,ph*.3+dO);ctx.lineTo(pw-rad,ph*.3+dO);
-  ctx.quadraticCurveTo(pw,ph*.3+dO,pw,ph*.3-rad*.3+dO);
-  ctx.lineTo(pw,ph*.3+boxH+dO);
-  ctx.quadraticCurveTo(pw,ph*.3+boxH+rad*.3+dO,pw-rad,ph*.3+boxH+dO);
-  ctx.lineTo(-pw+rad,ph*.3+boxH+dO);
-  ctx.quadraticCurveTo(-pw,ph*.3+boxH+rad*.3+dO,-pw,ph*.3+boxH+dO);
-  ctx.lineTo(-pw,ph*.3-rad*.3+dO);
-  ctx.quadraticCurveTo(-pw,ph*.3+dO,-pw+rad,ph*.3+dO);
+  ctx.moveTo(-hw,frontTop);              // front-left top
+  ctx.lineTo(-backHW,-topH+dO);          // back-left top
+  ctx.lineTo(-backHW,-topH+sideH*.3+dO); // back-left bottom (less visible)
+  ctx.lineTo(-hw,frontBot);              // front-left bottom
   ctx.closePath();ctx.fill();
 
-  // Top face
-  const pg=ctx.createLinearGradient(0,-ph+dO,0,ph*.3+dO);
-  pg.addColorStop(0,c1);pg.addColorStop(.5,c2);pg.addColorStop(1,c3);
-  ctx.fillStyle=pg;
-  rr(-pw,-ph+dO,pw*2,ph*1.3,rad);ctx.fill();
+  // === RIGHT SIDE FACE ===
+  ctx.fillStyle=darken(c3,35);
+  ctx.beginPath();
+  ctx.moveTo(hw,frontTop);
+  ctx.lineTo(backHW,-topH+dO);
+  ctx.lineTo(backHW,-topH+sideH*.3+dO);
+  ctx.lineTo(hw,frontBot);
+  ctx.closePath();ctx.fill();
 
-  // Neon border
-  ctx.shadowColor=glow+'.5)';ctx.shadowBlur=12*s;
-  ctx.strokeStyle=glow+'.7)';ctx.lineWidth=2.5*s;
-  rr(-pw,-ph+dO,pw*2,ph*1.3,rad);ctx.stroke();
+  // === TOP FACE (perspective trapezoid) ===
+  const tg=ctx.createLinearGradient(0,-topH+dO,0,dO);
+  tg.addColorStop(0,c1);tg.addColorStop(.4,c2);tg.addColorStop(1,c3);
+  ctx.fillStyle=tg;
+  ctx.beginPath();
+  // Back edge (narrower)
+  ctx.moveTo(-backHW+rad*.6,-topH+dO);
+  ctx.lineTo(backHW-rad*.6,-topH+dO);
+  ctx.quadraticCurveTo(backHW,-topH+dO,backHW,-topH+rad*.4+dO);
+  // Right edge
+  ctx.lineTo(hw,-rad*.4+dO);
+  ctx.quadraticCurveTo(hw,dO,hw-rad,dO);
+  // Front edge (wider)
+  ctx.lineTo(-hw+rad,dO);
+  ctx.quadraticCurveTo(-hw,dO,-hw,-rad*.4+dO);
+  // Left edge
+  ctx.lineTo(-backHW,-topH+rad*.4+dO);
+  ctx.quadraticCurveTo(-backHW,-topH+dO,-backHW+rad*.6,-topH+dO);
+  ctx.closePath();ctx.fill();
+
+  // Neon border on top face
+  ctx.shadowColor=glow+'.6)';ctx.shadowBlur=15*s;
+  ctx.strokeStyle=glow+'.8)';ctx.lineWidth=3*s;
+  ctx.stroke(); // strokes the same trapezoid path
   ctx.shadowBlur=0;
 
-  // Inner glow line
-  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1*s;
-  rr(-pw+3*s,-ph+dO+3*s,pw*2-6*s,ph*1.3-6*s,rad*.7);ctx.stroke();
+  // Inner border glow
+  const inset=5*s;
+  const ib=backHW-inset,ih=hw-inset;
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5*s;
+  ctx.beginPath();
+  ctx.moveTo(-ib+rad*.4,-topH+inset+dO);
+  ctx.lineTo(ib-rad*.4,-topH+inset+dO);
+  ctx.quadraticCurveTo(ib,-topH+inset+dO,ib,-topH+inset+rad*.3+dO);
+  ctx.lineTo(ih,-inset-rad*.3+dO);
+  ctx.quadraticCurveTo(ih,-inset+dO,ih-rad,-inset+dO);
+  ctx.lineTo(-ih+rad,-inset+dO);
+  ctx.quadraticCurveTo(-ih,-inset+dO,-ih,-inset-rad*.3+dO);
+  ctx.lineTo(-ib,-topH+inset+rad*.3+dO);
+  ctx.quadraticCurveTo(-ib,-topH+inset+dO,-ib+rad*.4,-topH+inset+dO);
+  ctx.closePath();ctx.stroke();
 
-  // Bright center glow (center lane readability)
-  const cg=ctx.createRadialGradient(0,-ph*.2+dO,0,0,-ph*.2+dO,pw*.6);
-  cg.addColorStop(0,'rgba(255,255,255,.12)');cg.addColorStop(.5,'rgba(200,255,220,.05)');
+  // Center glow on top face
+  const centerY=-topH*.45+dO;
+  const cg=ctx.createRadialGradient(0,centerY,0,0,centerY,hw*.5);
+  cg.addColorStop(0,'rgba(255,255,255,.1)');
   cg.addColorStop(1,'rgba(200,255,220,0)');
   ctx.fillStyle=cg;
-  ctx.beginPath();ctx.ellipse(0,-ph*.2+dO,pw*.6,ph*.4,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(0,centerY,hw*.5,topH*.25,0,0,Math.PI*2);ctx.fill();
 
-  // Diamond icon
-  const ds=12*s;
-  ctx.save();ctx.translate(0,-ph*.2+dO);ctx.rotate(Math.PI/4);
+  // Diamond icon at center
+  const ds=14*s;
+  ctx.save();ctx.translate(0,centerY);ctx.rotate(Math.PI/4);
   ctx.fillStyle='rgba(255,255,255,.3)';
   ctx.fillRect(-ds,-ds,ds*2,ds*2);
-  // Inner diamond glow
   const dg=ctx.createRadialGradient(0,0,0,0,0,ds);
-  dg.addColorStop(0,'rgba(255,255,200,.15)');dg.addColorStop(1,'rgba(255,255,200,0)');
+  dg.addColorStop(0,'rgba(255,255,200,.2)');dg.addColorStop(1,'rgba(255,255,200,0)');
   ctx.fillStyle=dg;ctx.fillRect(-ds,-ds,ds*2,ds*2);
-  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.2*s;
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5*s;
   ctx.strokeRect(-ds*.6,-ds*.6,ds*1.2,ds*1.2);
   ctx.restore();
 
-  // Gloss
-  ctx.fillStyle='rgba(255,255,255,.12)';
-  ctx.beginPath();ctx.ellipse(-pw*.15,-ph*.5+dO,pw*.55,ph*.2,-.05,0,Math.PI*2);ctx.fill();
+  // Gloss highlight across top
+  ctx.fillStyle='rgba(255,255,255,.1)';
+  ctx.beginPath();
+  ctx.ellipse(0,-topH*.7+dO,hw*.6,topH*.12,0,0,Math.PI*2);
+  ctx.fill();
 
-  // Lily veins
-  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=.7*s;
-  for(let i=0;i<3;i++){
-    const a=-Math.PI*.3+(Math.PI*.6*i)/2;
-    ctx.beginPath();ctx.moveTo(0,-ph*.15+dO);
-    ctx.lineTo(Math.cos(a)*pw*.6,Math.sin(a)*ph*.4-ph*.15+dO);ctx.stroke();
-  }
-
-  // Flower
+  // Flower decoration
   if(type==='flower'){
     const fc=['#F48FB1','#CE93D8','#FFB74D','#FFF176'][Math.floor(gt*.6)%4];
     for(let i=0;i<5;i++){const a=Math.PI*2*i/5+gt*.5;
       ctx.fillStyle=fc;ctx.beginPath();
-      ctx.ellipse(pw*.35*s+Math.cos(a)*4*s,-ph*.5+Math.sin(a)*4*s+dO,5*s,3*s,a,0,Math.PI*2);ctx.fill()}
-    ctx.fillStyle='#FFF176';ctx.beginPath();ctx.arc(pw*.35*s,-ph*.5+dO,3*s,0,Math.PI*2);ctx.fill();
+      ctx.ellipse(hw*.3+Math.cos(a)*4*s,centerY+Math.sin(a)*4*s,5*s,3*s,a,0,Math.PI*2);ctx.fill()}
+    ctx.fillStyle='#FFF176';ctx.beginPath();ctx.arc(hw*.3,centerY,3*s,0,Math.PI*2);ctx.fill();
   }
 
   ctx.restore();
@@ -988,7 +1029,7 @@ function drawGame(){
   const curIdx=getCurrentPadIdx();
   for(const{i,rz}of order){
     const pad=pads[i];
-    const p=project(rz,pad.lane);
+    const p=project(rz,pad.laneX||pad.lane);
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx);
     if(pad.coin)drawCoin(p.x,p.y,p.s,i*1.7);
     if(pad.pu)drawPUIcon(p.x,p.y,p.s,pad.pu,i*2.3);
