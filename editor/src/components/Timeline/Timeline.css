@@ -1,3 +1,5 @@
+/* Timeline — CapCut-style timeline with tracks, clips, and playhead */
+
 .timeline-panel {
   display: flex;
   flex-direction: column;
@@ -8,23 +10,31 @@
   min-height: 0;
 }
 
+/* ── Compact toolbar (38px like CapCut) ── */
 .timeline-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 0 12px;
+  height: 38px;
+  min-height: 38px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  background: var(--bg-panel-accent);
 }
 .tl-toolbar-group {
   display: flex;
   gap: 2px;
 }
+.tl-toolbar-group button {
+  transition: all 0.15s ease;
+}
 .tl-toolbar-divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--border-color);
-  margin: 0 4px;
+  margin: 0 6px;
+  flex-shrink: 0;
 }
 .tl-toolbar-spacer {
   flex: 1;
@@ -32,12 +42,27 @@
 .tl-zoom-control {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .tl-zoom-control input[type='range'] {
-  width: 90px;
+  width: 80px;
+  height: 3px;
+  appearance: none;
+  background: var(--track-bg);
+  border-radius: 2px;
+  outline: none;
+}
+.tl-zoom-control input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-purple);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
+/* ── Body layout ── */
 .timeline-body {
   flex: 1;
   display: flex;
@@ -45,12 +70,17 @@
   overflow: hidden;
 }
 
+/* ── Track headers column ── */
 .track-headers-col {
   width: 180px;
   flex-shrink: 0;
   border-right: 1px solid var(--border-color);
   overflow-y: auto;
   background: var(--bg-panel);
+  scrollbar-width: none;
+}
+.track-headers-col::-webkit-scrollbar {
+  display: none;
 }
 
 .ruler-spacer {
@@ -66,30 +96,41 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
+  transition: background 0.15s;
+}
+.track-header:hover {
+  background: rgba(255, 255, 255, 0.02);
 }
 .track-header.selected {
   background: var(--hover-bg);
+  border-left: 2px solid var(--accent-purple);
+  padding-left: 8px;
 }
 .track-icon {
   font-size: 13px;
   flex-shrink: 0;
+  opacity: 0.7;
 }
 .track-name-input {
   background: transparent;
   border: none;
   color: var(--text-primary);
   font-size: 12px;
+  font-weight: 500;
   width: 60px;
   flex: 1;
   min-width: 0;
+  padding: 2px 0;
 }
 .track-name-input:focus {
-  outline: 1px solid var(--accent-purple);
+  outline: none;
   background: var(--input-bg);
   border-radius: 4px;
+  padding: 2px 6px;
+  box-shadow: 0 0 0 1px var(--accent-purple);
 }
 .track-controls {
   display: flex;
@@ -102,29 +143,38 @@
   color: var(--text-tertiary);
   font-size: 11px;
   cursor: pointer;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s;
 }
 .track-mini-btn:hover {
   background: var(--hover-bg);
+  color: var(--text-primary);
 }
 .track-mini-btn.active-warn {
   color: var(--warning);
+}
+.track-remove {
+  transition: color 0.15s;
 }
 .track-remove:hover {
   color: var(--danger);
 }
 
+/* ── Scroll area ── */
 .timeline-scroll-area {
   flex: 1;
   overflow: auto;
   position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
 }
 
+/* ── Ruler ── */
 .ruler-sticky {
   position: sticky;
   top: 0;
@@ -146,20 +196,22 @@
 }
 .ruler-tick-line {
   width: 1px;
-  height: 6px;
-  background: var(--text-tertiary);
-  margin-top: 22px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  margin-top: 20px;
 }
 .ruler-tick-label {
   position: absolute;
-  top: 4px;
+  top: 5px;
   left: 4px;
   font-size: 10px;
   color: var(--text-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
+/* ── Track rows ── */
 .tracks-scroll-container {
   position: relative;
 }
@@ -167,42 +219,50 @@
 .track-row {
   position: relative;
   border-bottom: 1px solid var(--border-color);
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.015) 0,
-    rgba(255, 255, 255, 0.015) 1px,
-    transparent 1px,
-    transparent 60px
-  );
+  background: var(--bg-panel);
+}
+.track-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.01);
 }
 .track-row.hidden-track {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
+/* ── Clip blocks ── */
 .clip-block {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: grab;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  border: 1.5px solid transparent;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
   user-select: none;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+}
+.clip-block:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 .clip-block:active {
   cursor: grabbing;
 }
 .clip-block.selected {
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 0 1px var(--accent-cyan), 0 2px 8px rgba(6, 182, 212, 0.4);
+  box-shadow:
+    0 0 0 1px var(--accent-cyan),
+    0 0 12px rgba(0, 210, 255, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .clip-block.trimming {
   border-color: var(--warning);
+  box-shadow: 0 0 0 1px var(--warning), 0 2px 8px rgba(255, 179, 0, 0.2);
 }
 .clip-block.locked {
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.6;
+  filter: saturate(0.5);
 }
 
 .clip-content {
@@ -210,14 +270,14 @@
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 8px;
 }
 .clip-thumb-strip {
   position: absolute;
   inset: 0;
   background-size: auto 100%;
   background-repeat: repeat-x;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 .clip-waveform {
   position: absolute;
@@ -231,12 +291,14 @@
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.2px;
 }
 
+/* ── Trim handles ── */
 .clip-trim-handle {
   position: absolute;
   top: 0;
@@ -244,18 +306,38 @@
   width: 8px;
   z-index: 2;
   cursor: ew-resize;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s;
 }
 .clip-trim-handle:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.3);
+}
+.clip-trim-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.4);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.clip-trim-handle:hover::after {
+  opacity: 1;
 }
 .clip-trim-handle.left {
   left: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .clip-trim-handle.right {
   right: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/* ── Fades ── */
 .clip-fade {
   position: absolute;
   top: 0;
@@ -265,20 +347,22 @@
 }
 .clip-fade.fade-in {
   left: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55), transparent);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.6), transparent);
 }
 .clip-fade.fade-out {
   right: 0;
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.55), transparent);
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.6), transparent);
 }
 
 .clip-lock-badge {
   position: absolute;
-  top: 2px;
-  right: 4px;
+  top: 3px;
+  right: 5px;
   font-size: 10px;
+  opacity: 0.7;
 }
 
+/* ── Playhead (bright red like CapCut) ── */
 .playhead {
   position: absolute;
   top: 0;
@@ -289,42 +373,57 @@
 .playhead-line {
   width: 2px;
   height: 100%;
-  background: var(--accent-cyan);
+  background: var(--danger);
   margin-left: -1px;
+  box-shadow: 0 0 6px rgba(255, 59, 92, 0.5);
 }
 .playhead-handle {
-  width: 12px;
-  height: 10px;
-  background: var(--accent-cyan);
-  margin-left: -6px;
+  width: 14px;
+  height: 12px;
+  background: var(--danger);
+  margin-left: -7px;
   clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
 }
 
+/* ── Context menu (glass effect) ── */
 .context-menu {
   position: fixed;
   z-index: 100;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  background: rgba(34, 34, 48, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
   padding: 4px;
   display: flex;
   flex-direction: column;
-  min-width: 160px;
+  min-width: 180px;
 }
 .context-menu button {
   background: transparent;
   border: none;
   color: var(--text-primary);
   text-align: left;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
+  transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .context-menu button:hover {
   background: var(--hover-bg);
 }
 .context-menu button.danger {
   color: var(--danger);
+}
+.context-menu button.danger:hover {
+  background: rgba(255, 59, 92, 0.1);
 }
