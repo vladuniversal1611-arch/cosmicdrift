@@ -73,7 +73,7 @@ function createSideObj(layerIdx,progress){
   return{
     layer:layerIdx,type,side,
     z:lerp(layer.minZ,layer.maxZ,progress), // normalized depth 0-1
-    xOff:rand(.52,.92), // distance from center (as fraction of half-width)
+    xOff:rand(.62,1.05), // pushed further out for wider road
     scale:rand(.7,1.3),
     phase:rand(0,Math.PI*2),
     active:true
@@ -87,7 +87,7 @@ function updSideObjects(dt){
       // recycle
       obj.z=layer.maxZ+rand(0,.1);
       obj.side=Math.random()<.5?-1:1;
-      obj.xOff=rand(.52,.92);
+      obj.xOff=rand(.62,1.05);
       obj.scale=rand(.7,1.3);
       obj.phase=rand(0,Math.PI*2);
       const types=layer.types;
@@ -99,7 +99,7 @@ function drawSideObj(obj){
   // Map obj.z (0-1) to screen position using perspective
   const screenZ=obj.z*VIEW_AHEAD;
   const p=FOCAL_LEN/(screenZ+FOCAL_LEN);
-  const vanY=H*.20,baseY=H*.88;
+  const vanY=H*.18,baseY=H*.93;
   const y=vanY+(baseY-vanY)*p;
   const halfW=W/2;
   const x=halfW+obj.side*halfW*obj.xOff*p*1.6;
@@ -426,9 +426,9 @@ function ensurePads(){
 function project(relZ,l){
   const depth=Math.max(relZ,0.01);
   const p=FOCAL_LEN/(depth+FOCAL_LEN);
-  const vanY=H*.20,baseY=H*.88;
+  const vanY=H*.18,baseY=H*.93;
   const y=vanY+(baseY-vanY)*p;
-  const lw=W*.32*p;
+  const lw=W*.48*p; // wide road like Tiles Hop
   const x=W/2+(l-1)*lw;
   return{x,y,s:Math.max(p,.02)};
 }
@@ -754,8 +754,8 @@ function drawWater(){
 
 function drawPad(x,y,s,type,dip,isCurrent){
   ctx.save();ctx.translate(x,y);
-  const pw=85*s,ph=42*s;
-  const boxH=18*s;
+  const pw=140*s,ph=58*s; // bigger pads like Tiles Hop
+  const boxH=22*s;
   const dO=dip*6*s;
   const rad=12*s;
 
@@ -916,22 +916,47 @@ function drawGame(){
     if(obj.layer<=1)drawSideObj(obj);
   }
 
+  // Road surface — filled lane area like Tiles Hop
+  ctx.beginPath();
+  const roadLeft=[],roadRight=[];
+  for(let z=VIEW_AHEAD;z>=0;z-=.2){
+    const pl=project(z,-.25);
+    roadLeft.push(pl);
+  }
+  for(let z=0;z<=VIEW_AHEAD;z+=.2){
+    const pr=project(z,2.25);
+    roadRight.push(pr);
+  }
+  ctx.moveTo(roadLeft[0].x,roadLeft[0].y);
+  for(const p of roadLeft)ctx.lineTo(p.x,p.y);
+  for(const p of roadRight)ctx.lineTo(p.x,p.y);
+  ctx.closePath();
+  const roadGrad=ctx.createLinearGradient(0,H*.18,0,H*.93);
+  roadGrad.addColorStop(0,'rgba(20,80,60,.15)');
+  roadGrad.addColorStop(.5,'rgba(25,90,65,.2)');
+  roadGrad.addColorStop(1,'rgba(30,100,70,.25)');
+  ctx.fillStyle=roadGrad;ctx.fill();
+  // Road edge glow
+  ctx.strokeStyle='rgba(100,255,180,.2)';ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let z=0;z<VIEW_AHEAD;z+=.2){
+    const p=project(z,-.25);
+    if(z===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  for(let z=0;z<VIEW_AHEAD;z+=.2){
+    const p=project(z,2.25);
+    if(z===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
+  }
+  ctx.stroke();
+
   // Center lane glow
   drawCenterGlow();
 
-  // Lane guide lines
-  for(let side=-1;side<=1;side+=2){
-    const edgeLane=side===-1?-.3:2.3;
-    ctx.strokeStyle='rgba(100,220,200,.12)';ctx.lineWidth=1.5;
-    ctx.beginPath();
-    for(let z=0;z<VIEW_AHEAD;z+=.3){
-      const p=project(z,edgeLane);
-      if(z===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
-    }
-    ctx.stroke();
-  }
+  // Lane dividers (subtle)
   for(let dl=.5;dl<=1.5;dl+=1){
-    ctx.strokeStyle='rgba(100,220,200,.04)';ctx.lineWidth=.8;
+    ctx.strokeStyle='rgba(100,220,200,.06)';ctx.lineWidth=.8;
     ctx.beginPath();
     for(let z=0;z<VIEW_AHEAD;z+=.5){
       const p=project(z,dl);
@@ -1011,7 +1036,7 @@ function drawGame(){
     const rot=airness*.12*clamp(ld,-1,1);
 
     const fp=project(VIEW_Z,visLane);
-    let fx=fp.x,fy=fp.y,fs=fp.s*1.3;
+    let fx=fp.x,fy=fp.y,fs=fp.s*1.7; // bigger frog for wider road
 
     if(falling){
       const ft=Math.min(fallT,1);
