@@ -24,19 +24,15 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx
 
 // ========== CONSTANTS ==========
 const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
-const START_SPD=2.0;
-const MAX_SPD=4.2;
-const RAMP_TIME=45;
+const GAME_SPD=3.2;    // constant comfortable speed — no ramp
 const FOCAL_LEN=3.5;
 const VIEW_Z=3.0;
 const VIEW_AHEAD=18;
-const PAD_SPACE_START=3.2; // big gaps — only 4-5 pads visible
-const PAD_SPACE_END=2.4;   // late-game: tighter but still roomy
+const PAD_SPACE=2.8;   // fixed pad spacing
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
-let seq=0,spd=START_SPD,lane=1,visLane=1,lastIdx=-1;
-let playTime=0;
+let seq=0,spd=GAME_SPD,lane=1,visLane=1,lastIdx=-1;
 let alive=true,falling=false,fallT=0;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
@@ -379,11 +375,7 @@ function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(
 function stopMus(){musOn=false;if(musIv){clearInterval(musIv);musIv=null}}
 
 // ========== PAD GENERATION (scattered, difficulty-based, wider spacing) ==========
-function getPadSpacing(){
-  // Difficulty ramp: start far apart (easy), get closer (harder) but still comfortable
-  const diff=clamp(playTime/RAMP_TIME,0,1);
-  return lerp(PAD_SPACE_START,PAD_SPACE_END,diff);
-}
+function getPadSpacing(){ return PAD_SPACE; }
 
 function nextPadLane(curLane,diff){
   const sameness=.85-diff*.7;
@@ -523,7 +515,7 @@ function updClouds(dt){for(const c of clouds){c.x+=c.sp*dt*22;if(c.x>W+c.sz+10)c
 
 // ========== SPEED LINES ==========
 function updSpdLines(dt){
-  const spdFactor=clamp((spd-START_SPD)/(MAX_SPD-START_SPD),0,1);
+  const spdFactor=clamp(spd/5,0,1);
   const spawnRate=.04+spdFactor*.18;
   if(Math.random()<spawnRate){
     const lineLen=rand(10,22)+spdFactor*15;
@@ -540,14 +532,14 @@ function updSpdLines(dt){
 // ========== GAME LOGIC ==========
 function startGame(){
   sfxClick();state=ST.PLAY;
-  seq=0;spd=START_SPD;lane=1;visLane=1;lastIdx=-1;playTime=0;
+  seq=0;spd=GAME_SPD;lane=1;visLane=1;lastIdx=-1;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;
   pads=[];padPositions=[];genLane=1;pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
   // Initial straight pads
   for(let i=0;i<10;i++){
-    padPositions.push(i*PAD_SPACE_START);
+    padPositions.push(i*PAD_SPACE);
     pads.push({lane:1,laneX:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
   }
   ensurePads();initClouds();initBflies();initSideObjects();initAtmo();startMus();
@@ -609,11 +601,8 @@ function onLand(idx){
 function updateGame(dt){
   if(!alive){fallT+=dt*1.8;updPts(dt);updRipples(dt);return}
   gt+=dt;
-  playTime+=dt;
-
-  const rampT=clamp(playTime/RAMP_TIME,0,1);
-  const rampedSpd=START_SPD+(MAX_SPD-START_SPD)*(1-Math.pow(1-rampT,2.5));
-  spd=boost?rampedSpd*1.3:rampedSpd;
+  // Constant speed — no ramp
+  spd=boost?GAME_SPD*1.3:GAME_SPD;
   if(boost){boostT-=dt;if(boostT<=0)boost=false}
   if(magnet){magnetT-=dt;if(magnetT<=0)magnet=false}
 
@@ -962,14 +951,16 @@ function drawGame(){
   }
 
   // Road surface — filled lane area like Tiles Hop
+  const ROAD_EDGE=-.65; // left edge lane position (wider than platforms)
+  const ROAD_EDGE_R=2.65; // right edge
   ctx.beginPath();
   const roadLeft=[],roadRight=[];
   for(let z=VIEW_AHEAD;z>=0;z-=.2){
-    const pl=project(z,-.25);
+    const pl=project(z,ROAD_EDGE);
     roadLeft.push(pl);
   }
   for(let z=0;z<=VIEW_AHEAD;z+=.2){
-    const pr=project(z,2.25);
+    const pr=project(z,ROAD_EDGE_R);
     roadRight.push(pr);
   }
   ctx.moveTo(roadLeft[0].x,roadLeft[0].y);
@@ -981,17 +972,17 @@ function drawGame(){
   roadGrad.addColorStop(.5,'rgba(25,90,65,.2)');
   roadGrad.addColorStop(1,'rgba(30,100,70,.25)');
   ctx.fillStyle=roadGrad;ctx.fill();
-  // Road edge glow
+  // Road edge glow lines
   ctx.strokeStyle='rgba(100,255,180,.2)';ctx.lineWidth=2;
   ctx.beginPath();
   for(let z=0;z<VIEW_AHEAD;z+=.2){
-    const p=project(z,-.25);
+    const p=project(z,ROAD_EDGE);
     if(z===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
   }
   ctx.stroke();
   ctx.beginPath();
   for(let z=0;z<VIEW_AHEAD;z+=.2){
-    const p=project(z,2.25);
+    const p=project(z,ROAD_EDGE_R);
     if(z===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
   }
   ctx.stroke();
