@@ -24,14 +24,18 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx
 
 // ========== CONSTANTS ==========
 const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
-const BASE_SPD=2.4;    // pads/sec — constant speed, no ramp
-const VIEW_Z=2.8;      // frog screen position — tiles hop style
+const START_SPD=2.0;   // pads/sec — comfortable learning speed
+const MAX_SPD=4.2;     // pads/sec — fast late game
+const RAMP_TIME=45;    // seconds to reach max speed (smooth curve)
+const FOCAL_LEN=3.5;   // perspective focal length (higher = flatter/telephoto)
+const VIEW_Z=3.3;      // frog screen position (~55% from top)
 const VIEW_AHEAD=14;   // how far ahead to render
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
 // game
-let seq=0,spd=BASE_SPD,lane=1,visLane=1,lastIdx=-1;
+let seq=0,spd=START_SPD,lane=1,visLane=1,lastIdx=-1;
+let playTime=0; // seconds of active play for speed ramp
 let alive=true,falling=false,fallT=0;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
@@ -118,17 +122,19 @@ function ensurePads(){
   }
 }
 
-// ========== PROJECTION (Tiles Hop style — huge close pads, strong vanishing) ==========
+// ========== PROJECTION (true 1/z perspective — smooth, realistic approach) ==========
+// Real camera perspective: scale = focalLength / (z + focalLength)
+// This gives EVEN rate of size change per pad — no sudden "rushing at camera"
+// Close pads are big, far pads are small, but transition is SMOOTH and gradual
 function project(relZ,l){
-  const t=clamp(relZ/VIEW_AHEAD,0,1);
-  // Aggressive perspective — close pads are massive, far ones tiny
-  const p=Math.pow(1-t*.92,2.2);
-  const vanY=H*.18,baseY=H*.92;
+  const depth=Math.max(relZ,0.01);
+  const p=FOCAL_LEN/(depth+FOCAL_LEN); // 1/z perspective
+  const vanY=H*.20,baseY=H*.88;
   const y=vanY+(baseY-vanY)*p;
-  // Wide lane spread — close pads fill the screen
-  const lw=W*.40*p;
+  // Lane width scales with perspective
+  const lw=W*.32*p;
   const x=W/2+(l-1)*lw;
-  return{x,y,s:Math.max(p,.015)};
+  return{x,y,s:Math.max(p,.02)};
 }
 
 // ========== INPUT (DRAG / HOLD — frog follows finger horizontally) ==========
@@ -218,10 +224,15 @@ function updBflies(dt){for(const b of bflies){b.x+=b.vx*dt*30;b.y+=b.vy*dt*30+Ma
 function initClouds(){clouds=[];for(let i=0;i<4;i++)clouds.push({x:rand(-50,W+50),y:rand(H*.04,H*.15),sz:rand(30,60),sp:rand(.1,.25),op:rand(.04,.08)})}
 function updClouds(dt){for(const c of clouds){c.x+=c.sp*dt*22;if(c.x>W+c.sz+10)c.x=-c.sz-10}}
 
-// ========== SPEED LINES (decorative) ==========
+// ========== SPEED LINES (scale with speed for forward motion feel) ==========
 function updSpdLines(dt){
-  if(Math.random()<.08){
-    spdLines.push({x:rand(0,W),y:rand(H*.35,H*.85),l:rand(8,20),a:rand(.04,.1),sp:rand(1.5,3)});
+  // More lines at higher speed — builds feeling of acceleration
+  const spdFactor=clamp((spd-START_SPD)/(MAX_SPD-START_SPD),0,1);
+  const spawnRate=.04+spdFactor*.18; // 4% at slow → 22% at max speed
+  if(Math.random()<spawnRate){
+    const lineLen=rand(10,22)+spdFactor*15; // longer at speed
+    const lineSpd=rand(1.5,3)+spdFactor*2; // faster at speed
+    spdLines.push({x:rand(0,W),y:rand(H*.3,H*.75),l:lineLen,a:rand(.04,.12)+spdFactor*.04,sp:lineSpd});
   }
   for(let i=spdLines.length-1;i>=0;i--){
     spdLines[i].y+=spdLines[i].sp*dt*60;
@@ -233,7 +244,7 @@ function updSpdLines(dt){
 // ========== GAME LOGIC ==========
 function startGame(){
   sfxClick();state=ST.PLAY;
-  seq=0;spd=BASE_SPD;lane=1;visLane=1;lastIdx=-1;
+  seq=0;spd=START_SPD;lane=1;visLane=1;lastIdx=-1;playTime=0;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;
@@ -288,9 +299,13 @@ function onLand(idx){
 function updateGame(dt){
   if(!alive){fallT+=dt*1.8;updPts(dt);return}
   gt+=dt;
+  playTime+=dt;
 
-  // Constant speed — no ramp
-  spd=boost?BASE_SPD*1.3:BASE_SPD;
+  // Smooth speed ramp: ease-in curve (slow start, accelerates later)
+  // Creates tension: comfortable → challenging → intense
+  const rampT=clamp(playTime/RAMP_TIME,0,1);
+  const rampedSpd=START_SPD+(MAX_SPD-START_SPD)*(1-Math.pow(1-rampT,2.5));
+  spd=boost?rampedSpd*1.3:rampedSpd;
   if(boost){boostT-=dt;if(boostT<=0)boost=false}
   if(magnet){magnetT-=dt;if(magnetT<=0)magnet=false}
 
@@ -397,9 +412,9 @@ function drawWater(){
   const wg=ctx.createLinearGradient(0,wt,0,H);
   wg.addColorStop(0,'#0a3535');wg.addColorStop(.3,'#063030');wg.addColorStop(.6,'#042525');wg.addColorStop(1,'#021a1a');
   ctx.fillStyle=wg;ctx.fillRect(0,wt,W,H-wt);
-  // Subtle wave ripples
+  // Wave ripples — move faster with speed for forward motion feel
   ctx.strokeStyle='rgba(100,220,200,.06)';ctx.lineWidth=1;
-  const woff=gt*spd*8;
+  const woff=gt*spd*10;
   for(let r=0;r<10;r++){
     const wy=wt+15+r*(H-wt)/10;
     ctx.beginPath();
@@ -667,9 +682,10 @@ function drawGame(){
     drawFrog(fx,fy,fs,rot,sqX,sqY,airness>.25,height*.55);
     ctx.globalAlpha=1;
 
-    // Trail at high speed
-    if(spd>3&&airness>.3&&Math.random()<.4){
-      addTrail(fx+rand(-4,4),fy+12,.4);
+    // Trail at higher speeds — intensity scales with speed
+    if(spd>2.8&&airness>.3){
+      const trailChance=clamp((spd-2.8)/1.5,0,.6);
+      if(Math.random()<trailChance)addTrail(fx+rand(-4,4),fy+12,.3+trailChance*.4);
     }
   }
 
