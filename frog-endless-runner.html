@@ -28,7 +28,8 @@ const GAME_SPD=3.9;    // constant comfortable speed — no ramp
 const FOCAL_LEN=3.5;
 const VIEW_Z=3.0;
 const VIEW_AHEAD=18;
-const PAD_SPACE=2.8;   // fixed pad spacing
+const PAD_SPACE_MIN=2.2;  // variable pad spacing range
+const PAD_SPACE_MAX=3.6;
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
@@ -375,16 +376,11 @@ function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(
 function stopMus(){musOn=false;if(musIv){clearInterval(musIv);musIv=null}}
 
 // ========== PAD GENERATION (scattered, difficulty-based, wider spacing) ==========
-function getPadSpacing(){ return PAD_SPACE; }
+function getPadSpacing(){ return rand(PAD_SPACE_MIN,PAD_SPACE_MAX); }
 
 function nextPadLane(curLane,diff){
-  const sameness=.85-diff*.7;
+  const sameness=.35-diff*.25; // much less repetition — more action
   if(Math.random()<sameness) return curLane;
-  if(diff<.4){
-    if(curLane===0)return 1;
-    if(curLane===2)return 1;
-    return Math.random()<.5?0:2;
-  }
   const options=[0,1,2].filter(l=>l!==curLane);
   return options[Math.floor(Math.random()*options.length)];
 }
@@ -393,7 +389,8 @@ function nextPadLane(curLane,diff){
 let padPositions=[]; // seq-position of each pad
 
 function ensurePads(){
-  const needed=Math.floor(seq/getPadSpacing())+Math.ceil(VIEW_AHEAD/getPadSpacing())+8;
+  const avgSpace=(PAD_SPACE_MIN+PAD_SPACE_MAX)/2;
+  const needed=Math.floor(seq/avgSpace)+Math.ceil(VIEW_AHEAD/avgSpace)+8;
   while(pads.length<needed){
     const diff=Math.min(dist/50,1);
     const l=nextPadLane(genLane,diff);
@@ -411,7 +408,7 @@ function ensurePads(){
     const type=Math.random()<.05?'flower':(Math.random()<.03&&dist>8?'gold':'normal');
 
     // Add slight X variation — pads aren't locked to rigid grid
-    const xVar=rand(-.15,.15); // small offset from lane center
+    const xVar=rand(-.3,.3); // wider X offset — platforms can be anywhere
     pads.push({lane:l,laneX:l+xVar,type,coin:hasCoin,pu,landed:false,dip:0,riskCoin:null});
   }
 }
@@ -433,7 +430,9 @@ let tSX=0,tSY=0,tST=0;
 
 function xToLane(sx){
   const margin=W*.06;
-  return clamp((sx-margin)/(W-margin*2),0,1)*2;
+  const raw=(sx-margin)/(W-margin*2); // 0..1
+  const centered=(raw-.5)*1.5+.5;     // 1:1.5 sensitivity
+  return clamp(centered,0,1)*2;
 }
 
 canvas.addEventListener('touchstart',e=>{
@@ -537,10 +536,14 @@ function startGame(){
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;
   pads=[];padPositions=[];genLane=1;pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
-  // Initial straight pads
-  for(let i=0;i<10;i++){
-    padPositions.push(i*PAD_SPACE);
-    pads.push({lane:1,laneX:1,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
+  // Initial pads — short straight then start mixing
+  let initLane=1;
+  for(let i=0;i<8;i++){
+    const sp=(PAD_SPACE_MIN+PAD_SPACE_MAX)/2;
+    padPositions.push(i*sp);
+    if(i>=3) initLane=nextPadLane(initLane,.3); // start mixing early
+    const xV=i<3?0:rand(-.2,.2);
+    pads.push({lane:initLane,laneX:initLane+xV,type:'normal',coin:i>3&&Math.random()<.3,pu:null,landed:false,dip:0,riskCoin:null});
   }
   ensurePads();initClouds();initBflies();initSideObjects();initAtmo();startMus();
 }
@@ -953,7 +956,7 @@ function drawGame(){
 
   // Draw pads far to near
   const si=Math.max(0,getCurrentPadIdx()-2);
-  const ei=Math.min(pads.length,getCurrentPadIdx()+Math.ceil(VIEW_AHEAD/getPadSpacing())+4);
+  const ei=Math.min(pads.length,getCurrentPadIdx()+Math.ceil(VIEW_AHEAD/((PAD_SPACE_MIN+PAD_SPACE_MAX)/2))+4);
   const order=[];
   for(let i=si;i<ei;i++){
     const rz=padPositions[i]-seq+VIEW_Z;
