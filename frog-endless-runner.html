@@ -47,6 +47,8 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// Burst/gap rhythm state — like Tiles Hop's dynamic spacing
+let burstRemaining=0, afterBurst=false;
 
 // ========== PARALLAX SIDE OBJECTS (object pooling, 4 layers) ==========
 const SIDE_LAYERS=[
@@ -400,12 +402,42 @@ function stopMus(){musOn=false;if(musIv){clearInterval(musIv);musIv=null}}
 
 function getDifficulty(){ return clamp(dist/200, 0, 1); }
 
-// Spacing between platforms (game Y units)
-// At GAME_SPD=3.9: spacing 4.5 → ~1.15s airtime, spacing 6.5 → ~1.67s
+// Spacing between platforms — dynamic burst/gap rhythm like Tiles Hop
+// Creates patterns: "ta-ta-ta-ta---ta---ta-ta-ta" instead of even spacing
 function getSpacing(diff){
-  const mn=lerp(4.2, 5.2, diff);
-  const mx=lerp(5.2, 6.8, diff);
-  return rand(mn, mx);
+  // In a burst: platforms very close together (staircase feel)
+  if(burstRemaining>0){
+    burstRemaining--;
+    if(burstRemaining===0) afterBurst=true;
+    // Burst platforms are close — quick hops
+    return rand(2.0, 3.2);
+  }
+
+  // After burst: big gap before next section
+  if(afterBurst){
+    afterBurst=false;
+    return rand(6.5, 8.5);
+  }
+
+  // Random chance to start a new burst (3-7 close platforms)
+  const burstChance=lerp(0.25, 0.40, diff); // more bursts at higher difficulty
+  if(Math.random()<burstChance){
+    burstRemaining=Math.floor(rand(3, 7));
+    return rand(2.0, 3.2); // first platform of burst is also close
+  }
+
+  // Normal spacing — still varied
+  const roll=Math.random();
+  if(roll<0.3){
+    // Short hop
+    return rand(3.0, 4.0);
+  } else if(roll<0.7){
+    // Medium
+    return rand(4.0, 5.5);
+  } else {
+    // Long gap
+    return rand(5.5, 7.5);
+  }
 }
 
 // Platform width multiplier (affects visuals AND hit radius)
@@ -456,6 +488,9 @@ function selectPattern(diff){
 function generateNextX(prevX, diff){
   let targetX;
 
+  // During burst: smaller X shifts (staircase-like, gentle zigzag)
+  const inBurst=burstRemaining>0;
+
   // Pattern or random?
   if(!currentPattern || patternIdx>=currentPattern.zones.length){
     if(Math.random()<0.72){ // 72% pattern, 28% random
@@ -467,16 +502,16 @@ function generateNextX(prevX, diff){
   }
 
   if(currentPattern && patternIdx<currentPattern.zones.length){
-    const maxShift=getMaxXShift(diff);
+    const maxShift=inBurst?getMaxXShift(diff)*.45:getMaxXShift(diff);
     const shift=currentPattern.zones[patternIdx]*maxShift;
     targetX=prevX+shift;
     patternIdx++;
   } else {
     // Random with reachability
-    const maxShift=getMaxXShift(diff);
+    const maxShift=inBurst?getMaxXShift(diff)*.45:getMaxXShift(diff);
     let shift=rand(-maxShift, maxShift);
-    // Avoid tiny movements — force real cross-road action
-    if(Math.abs(shift)<0.3) shift=(shift>=0?1:-1)*rand(0.35, maxShift*.7);
+    // Avoid tiny movements — force real cross-road action (but not in bursts)
+    if(!inBurst && Math.abs(shift)<0.3) shift=(shift>=0?1:-1)*rand(0.35, maxShift*.7);
     targetX=prevX+shift;
   }
 
@@ -497,8 +532,8 @@ function generateNextX(prevX, diff){
 }
 
 function ensurePads(){
-  const avgSpace=5.2;
-  const needed=Math.floor(seq/avgSpace)+Math.ceil(VIEW_AHEAD/avgSpace)+6;
+  const avgSpace=3.5; // lower avg due to burst sections
+  const needed=Math.floor(seq/avgSpace)+Math.ceil(VIEW_AHEAD/avgSpace)+8;
   while(pads.length<needed){
     const diff=getDifficulty();
     const prevX=pads.length>0?pads[pads.length-1].gameX:1.0;
@@ -535,16 +570,17 @@ function validatePads(n){
     const prev=pads[i-1],cur=pads[i];
     const xDist=Math.abs(cur.gameX-prev.gameX);
     const yDist=padPositions[i]-padPositions[i-1];
-    // Fix if unreachable
-    if(xDist>1.4){
-      cur.gameX=prev.gameX+(cur.gameX>prev.gameX?1.2:-1.2);
+    // Fix if unreachable — scale max X shift by Y distance
+    const maxX=yDist<3.5?0.6:1.4; // close platforms = smaller X shifts
+    if(xDist>maxX){
+      cur.gameX=prev.gameX+(cur.gameX>prev.gameX?maxX*.85:-maxX*.85);
       cur.gameX=clamp(cur.gameX,0.08,1.92);
       cur.laneX=cur.gameX;
       cur.lane=Math.round(cur.gameX);
     }
-    // Fix if too close (overlapping)
-    if(yDist<3.5){
-      padPositions[i]=padPositions[i-1]+4.0;
+    // Fix if too close (overlapping) — but allow burst spacing (min 1.8)
+    if(yDist<1.8){
+      padPositions[i]=padPositions[i-1]+2.0;
     }
   }
 }
@@ -671,7 +707,7 @@ function startGame(){
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
-  shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
+  shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;burstRemaining=0;afterBurst=false;
   pads=[];padPositions=[];currentPattern=null;patternIdx=0;
   pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
