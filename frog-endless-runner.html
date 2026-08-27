@@ -412,25 +412,27 @@ function getHitRadius(padWidth){
 
 // Pre-defined patterns (relative X shifts, scaled by maxShift)
 const PATTERNS=[
-  // EASY — gentle, predictable
-  {zones:[0, 0, -.4, 0], minDiff:0},
-  {zones:[0, .4, 0, -.4], minDiff:0},
-  {zones:[0, -.3, -.3, 0], minDiff:0},
-  {zones:[0, .3, .3, 0, 0], minDiff:0},
-  // MEDIUM — wider movements, still readable
-  {zones:[-.6, 0, .6, 0], minDiff:0.2},
-  {zones:[.5, -.5, .5, 0], minDiff:0.25},
-  {zones:[0, -.6, 0, .6, 0], minDiff:0.3},
-  {zones:[-.4, -.4, 0, .4, .4], minDiff:0.3},
-  // HARD — big zigzags, sweeps
-  {zones:[-.7, .7, -.7, 0], minDiff:0.5},
-  {zones:[.8, -.8, .4, -.4], minDiff:0.5},
-  {zones:[0, .7, 0, -.7, 0, .5], minDiff:0.55},
-  {zones:[-.6, .6, -.6, .6, 0], minDiff:0.6},
-  // EXPERT — rapid changes, full width
-  {zones:[.9, -.9, .9, -.5, 0], minDiff:0.75},
-  {zones:[-.8, 0, .8, 0, -.8, 0], minDiff:0.8},
-  {zones:[1, -.6, .6, -1, 0], minDiff:0.85},
+  // EASY — always some movement, never boring straight lines
+  {zones:[0, -.4, .4, 0], minDiff:0},
+  {zones:[.4, -.4, .4, -.4], minDiff:0},
+  {zones:[-.5, 0, .5, 0], minDiff:0},
+  {zones:[.3, .3, -.3, -.3, 0], minDiff:0},
+  // MEDIUM — cross-road jumps available early!
+  {zones:[-.7, .7, 0, -.5], minDiff:0.1},
+  {zones:[.6, -.6, .6, 0], minDiff:0.1},
+  {zones:[0, -.7, .7, 0], minDiff:0.15},
+  {zones:[-.5, .8, -.8, .5, 0], minDiff:0.2},
+  {zones:[.7, -.7, .7, -.7], minDiff:0.25},
+  // HARD — wide cross-road sweeps
+  {zones:[-.8, .8, -.8, 0], minDiff:0.35},
+  {zones:[.9, -.9, .5, -.5], minDiff:0.4},
+  {zones:[0, .8, 0, -.8, 0, .6], minDiff:0.45},
+  {zones:[-.7, .7, -.7, .7, 0], minDiff:0.5},
+  // EXPERT — extreme edge-to-edge
+  {zones:[1, -1, 1, -.6, 0], minDiff:0.6},
+  {zones:[-.9, 0, .9, 0, -.9, 0], minDiff:0.65},
+  {zones:[1, -.7, .7, -1, 0], minDiff:0.7},
+  {zones:[-1, 1, -1, 1, 0], minDiff:0.8},
 ];
 
 function selectPattern(diff){
@@ -443,7 +445,7 @@ function generateNextX(prevX, diff){
 
   // Pattern or random?
   if(!currentPattern || patternIdx>=currentPattern.zones.length){
-    if(Math.random()<0.6){ // 60% pattern, 40% random
+    if(Math.random()<0.72){ // 72% pattern, 28% random
       currentPattern=selectPattern(diff);
       patternIdx=0;
     } else {
@@ -460,8 +462,8 @@ function generateNextX(prevX, diff){
     // Random with reachability
     const maxShift=getMaxXShift(diff);
     let shift=rand(-maxShift, maxShift);
-    // Avoid tiny movements — make each jump feel intentional
-    if(Math.abs(shift)<0.18) shift=(shift>=0?1:-1)*rand(0.2, maxShift*.6);
+    // Avoid tiny movements — force real cross-road action
+    if(Math.abs(shift)<0.3) shift=(shift>=0?1:-1)*rand(0.35, maxShift*.7);
     targetX=prevX+shift;
   }
 
@@ -1169,13 +1171,8 @@ function drawGame(){
       sqX=1+.28*t;sqY=1-.22*t;
     }
 
-    // Frog X interpolation during jump
-    const curPad=pads[curIdx2];
-    const nextPad=pads[nextIdx];
-    const curPadX=curPad?curPad.gameX:1;
-    const nextPadX=nextPad?nextPad.gameX:curPadX;
-    // Blend between current pad position and where frog is heading
-    const jumpLaneX=lerp(curPadX,visLane,clamp(bounce*1.8,0,1));
+    // Frog X follows player input — no snapping to platform center
+    const jumpLaneX=visLane;
 
     const ld=visLane-jumpLaneX;
     const rot=airness*.1*clamp(ld,-1,1);
