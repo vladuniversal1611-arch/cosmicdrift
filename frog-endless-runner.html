@@ -580,6 +580,8 @@ function ensurePads(){
 
     // Spike pads never have coins/powerups — they're death traps
     if(type==='spike'){hasCoin=false;pu=null;}
+    // Spike/crumble traps also never move — must be readable
+    if(type==='spike'||type==='crumble') moving=null;
 
     pads.push({
       gameX,
@@ -590,11 +592,34 @@ function ensurePads(){
       landed:false, dip:0, riskCoin:null,
       moving,
       // Trap state
-      crumbleTimer:0, // countdown after landing for crumble pads
-      crumbled:false,  // fully broken
-      iceSlide:0,      // slide offset for ice pads
-      springBoost:false // spring activated
+      crumbleTimer:0, crumbled:false,
+      iceSlide:0, springBoost:false
     });
+
+    // === SAFE ALTERNATIVE for deadly traps ===
+    // Spike/crumble ALWAYS get a safe normal pad at the same Y position
+    // in a DIFFERENT zone so the player can dodge
+    if(type==='spike'||type==='crumble'){
+      let safeX;
+      // Place safe pad far from the trap — opposite side of road
+      if(gameX<0.7) safeX=rand(1.4, 1.85);       // trap left → safe right
+      else if(gameX>1.3) safeX=rand(0.15, 0.6);   // trap right → safe left
+      else safeX=Math.random()<0.5?rand(0.15,0.5):rand(1.5,1.85); // trap center → safe on either edge
+      const safeWidth=getPlatformWidth(diff);
+      // Same Y position — player chooses which to land on
+      padPositions.push(padPositions[padPositions.length-1]);
+      pads.push({
+        gameX:safeX,
+        laneX:safeX,
+        lane:Math.round(safeX),
+        width:safeWidth,
+        type:'normal', coin:Math.random()<.3, pu:null,
+        landed:false, dip:0, riskCoin:null,
+        moving:null,
+        crumbleTimer:0, crumbled:false,
+        iceSlide:0, springBoost:false
+      });
+    }
   }
 }
 
@@ -923,20 +948,43 @@ function updateGame(dt){
   }
 
   // Landing checks — continuous X matching
+  // Handles paired pads at same Y (trap + safe alternative)
   const curPadIdx=getCurrentPadIdx();
   while(lastIdx<curPadIdx){
     lastIdx++;
     if(lastIdx>=0&&lastIdx<pads.length){
-      const pad=pads[lastIdx];
+      // Collect all pads at this same Y position
+      const thisY=padPositions[lastIdx];
+      const group=[lastIdx];
+      while(lastIdx+1<pads.length && lastIdx+1<=curPadIdx &&
+            padPositions[lastIdx+1]===thisY){
+        lastIdx++;
+        group.push(lastIdx);
+      }
+
+      // Check if frog hits ANY pad in this group
       const frogX=visLane;
-      const hitR=getHitRadius(pad.width);
-      if(Math.abs(frogX-pad.gameX)<=hitR){
-        onLand(lastIdx);
-      } else {
-        // Near miss feedback
-        if(Math.abs(frogX-pad.gameX)<=hitR+0.15){
-          sfxNearMiss();
+      let landed=false;
+      for(const gi of group){
+        const pad=pads[gi];
+        if(pad.crumbled) continue; // skip broken pads
+        const hitR=getHitRadius(pad.width);
+        if(Math.abs(frogX-pad.gameX)<=hitR){
+          onLand(gi);
+          landed=true;
+          break;
         }
+      }
+      if(!landed){
+        // Near miss check on any pad in group
+        let nearMiss=false;
+        for(const gi of group){
+          const pad=pads[gi];
+          if(pad.crumbled) continue;
+          const hitR=getHitRadius(pad.width);
+          if(Math.abs(frogX-pad.gameX)<=hitR+0.15){nearMiss=true;break}
+        }
+        if(nearMiss) sfxNearMiss();
         die();break;
       }
     }
