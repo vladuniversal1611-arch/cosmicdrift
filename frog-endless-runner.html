@@ -391,6 +391,10 @@ function sfxDie(){tone(440,.2,'sine',.12);tone(330,.2,'sine',.1,.1);tone(220,.3,
 function sfxClick(){tone(900,.05,'square',.07)}
 function sfxJump(){tone(420,.06,'sine',.07);tone(630,.04,'sine',.04,.02);noise(.02,.03)}
 function sfxNearMiss(){tone(200,.12,'triangle',.06);tone(150,.08,'triangle',.04,.04)}
+function sfxSpike(){tone(120,.25,'sawtooth',.15);tone(90,.2,'square',.1,.05);noise(.15,.12)}
+function sfxCrumble(){noise(.2,.15);tone(100,.15,'triangle',.08);tone(70,.2,'triangle',.06,.08)}
+function sfxIce(){tone(1800,.08,'sine',.04);tone(2200,.06,'sine',.03,.03);tone(1400,.1,'sine',.03,.06)}
+function sfxSpring(){tone(300,.06,'sine',.1);tone(600,.08,'sine',.08,.04);tone(900,.1,'sine',.06,.08);tone(1200,.06,'sine',.04,.12)}
 const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
 function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(!ac||state!==ST.PLAY)return;const f=MEL[melI%MEL.length];if(f){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.03;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+.18)}melI++},160)}
@@ -545,7 +549,22 @@ function ensurePads(){
     let pu=null;
     if(Math.random()<.015&&dist>5)
       pu=['shield','magnet','boost','superjump'][Math.floor(Math.random()*4)];
-    const type=Math.random()<.05?'flower':(Math.random()<.03&&dist>8?'gold':'normal');
+    // Platform type — traps appear after some distance
+    let type='normal';
+    const trapRoll=Math.random();
+    if(dist>6 && trapRoll<lerp(0.06, 0.14, diff)){
+      type='spike'; // deadly — must skip over
+    } else if(dist>4 && trapRoll<lerp(0.10, 0.22, diff)){
+      type='crumble'; // breaks after landing — hurry!
+    } else if(dist>5 && trapRoll<lerp(0.14, 0.28, diff)){
+      type='ice'; // slippery — frog slides
+    } else if(dist>3 && trapRoll<lerp(0.18, 0.32, diff)){
+      type='spring'; // bouncy — higher jump
+    } else if(Math.random()<.05){
+      type='flower';
+    } else if(Math.random()<.03&&dist>8){
+      type='gold';
+    }
 
     // Moving platforms — some slide left-right for extra action
     let moving=null;
@@ -559,6 +578,9 @@ function ensurePads(){
       moving={amp, spd, phase, baseX:gameX};
     }
 
+    // Spike pads never have coins/powerups — they're death traps
+    if(type==='spike'){hasCoin=false;pu=null;}
+
     pads.push({
       gameX,
       laneX:gameX,
@@ -566,7 +588,12 @@ function ensurePads(){
       width,
       type, coin:hasCoin, pu,
       landed:false, dip:0, riskCoin:null,
-      moving
+      moving,
+      // Trap state
+      crumbleTimer:0, // countdown after landing for crumble pads
+      crumbled:false,  // fully broken
+      iceSlide:0,      // slide offset for ice pads
+      springBoost:false // spring activated
     });
   }
 }
@@ -770,7 +797,56 @@ function getCurrentPadIdx(){
 
 function onLand(idx){
   const pad=pads[idx];if(!pad)return;
+
+  const padZ=padPositions[idx]-seq+VIEW_Z;
+  const lp=project(padZ,pad.gameX);
+
+  // === SPIKE — instant death! ===
+  if(pad.type==='spike'){
+    sfxSpike();
+    perfectCombo=0;
+    perfectText='💀';perfectShow=1;
+    // Red explosion particles
+    for(let i=0;i<12;i++){
+      const a=rand(0,Math.PI*2);
+      addP(lp.x,lp.y,Math.cos(a)*.08,Math.sin(a)*.08-.02,'#FF1744',rand(2,4),.6,'s');
+    }
+    addFloat('☠️ ШИПИ!',lp.x,lp.y-40,'#FF1744',24);
+    shake=.7;
+    die();
+    return;
+  }
+
   pad.landed=true;pad.dip=.5;
+
+  // === CRUMBLE — starts breaking! ===
+  if(pad.type==='crumble' && !pad.crumbled){
+    pad.crumbleTimer=0.35; // 0.35s before it breaks
+    sfxCrumble();
+    addFloat('⚠️ ТРІЩИНИ!',lp.x,lp.y-40,'#FF9800',18);
+  }
+
+  // === ICE — frog slides sideways ===
+  if(pad.type==='ice'){
+    sfxIce();
+    const slideDir=visLane>pad.gameX?1:-1;
+    pad.iceSlide=slideDir*rand(0.15,0.3);
+    frogCont=clamp(frogCont+slideDir*rand(0.2,0.4), 0.1, 1.9);
+    addFloat('❄️ КОВЗКО!',lp.x,lp.y-40,'#81D4FA',18);
+  }
+
+  // === SPRING — bounce boost ===
+  if(pad.type==='spring'){
+    sfxSpring();
+    pad.springBoost=true;
+    pad.dip=.8; // deeper dip for spring effect
+    addFloat('🔺 ПРУЖИНА!',lp.x,lp.y-40,'#69F0AE',20);
+    // Green sparkles
+    for(let i=0;i<6;i++){
+      const a=rand(0,Math.PI*2);
+      addP(lp.x,lp.y,Math.cos(a)*.04,-.06+Math.sin(a)*.02,'#69F0AE',rand(2,3),.4,'s');
+    }
+  }
 
   // Landing precision for feedback quality
   const frogX=visLane;
@@ -778,16 +854,12 @@ function onLand(idx){
   const precision=1-Math.abs(frogX-pad.gameX)/hitR;
   const isPerfect=precision>0.75;
 
-  const padZ=padPositions[idx]-seq+VIEW_Z;
-  const lp=project(padZ,pad.laneX);
-
   if(isPerfect){
     perfectCombo++;
     sfxPerfect();score+=2;pfFlash=.35;
     perfectText='PERFECT';perfectShow=1;
     addPerfFX(lp.x,lp.y-10);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
-    // Extra sparkle particles
     for(let i=0;i<8;i++){
       const a=rand(0,Math.PI*2);
       addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.015,'#FFF',rand(1.5,3),.5,'s');
@@ -831,6 +903,22 @@ function updateGame(dt){
   for(const p of pads){
     if(p.moving){
       p.gameX=clamp(p.moving.baseX+Math.sin(gt*p.moving.spd+p.moving.phase)*p.moving.amp, 0.08, 1.92);
+    }
+    // Crumble countdown — platform breaks after timer expires
+    if(p.type==='crumble' && p.crumbleTimer>0 && !p.crumbled){
+      p.crumbleTimer-=dt;
+      // Shake the platform as it crumbles
+      p.dip=rand(-.15,.15);
+      if(p.crumbleTimer<=0){
+        p.crumbled=true;
+        p.dip=0;
+        // If frog is still on this platform, they fall
+        const ci=getCurrentPadIdx();
+        if(pads[ci]===p){
+          sfxCrumble();shake=.4;
+          die();
+        }
+      }
     }
   }
 
@@ -1024,7 +1112,11 @@ function drawPad(x,y,s,type,dip,isCurrent,width){
   const rad=16*s*Math.min(width,1);
 
   let c1,c2,c3,glow;
-  if(type==='gold'){c1='#FFF176';c2='#FFD54F';c3='#F9A825';glow='rgba(255,215,0,'}
+  if(type==='spike'){c1='#FF1744';c2='#D50000';c3='#7F0000';glow='rgba(255,23,68,'}
+  else if(type==='crumble'){c1='#A1887F';c2='#8D6E63';c3='#4E342E';glow='rgba(161,136,127,'}
+  else if(type==='ice'){c1='#B3E5FC';c2='#81D4FA';c3='#0288D1';glow='rgba(129,212,250,'}
+  else if(type==='spring'){c1='#69F0AE';c2='#00E676';c3='#00895A';glow='rgba(105,240,174,'}
+  else if(type==='gold'){c1='#FFF176';c2='#FFD54F';c3='#F9A825';glow='rgba(255,215,0,'}
   else if(type==='flower'){c1='#E040FB';c2='#CE93D8';c3='#7B1FA2';glow='rgba(224,64,251,'}
   else{c1='#4DD0E1';c2='#00ACC1';c3='#006064';glow='rgba(0,229,255,'}
 
@@ -1075,6 +1167,74 @@ function drawPad(x,y,s,type,dip,isCurrent,width){
   ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.5*s;
   ctx.strokeRect(-ds*.55,-ds*.55,ds*1.1,ds*1.1);
   ctx.restore();
+
+  // Trap-specific decorations
+  if(type==='spike'){
+    // Draw spike triangles on top
+    ctx.fillStyle='rgba(255,50,50,.9)';
+    const spikes=5;
+    for(let i=0;i<spikes;i++){
+      const sx=-hw*.7+hw*1.4*i/(spikes-1);
+      const sh=18*s*(1+.2*Math.sin(gt*3+i));
+      ctx.beginPath();
+      ctx.moveTo(sx-6*s,cy+hh*.3);
+      ctx.lineTo(sx,cy-sh);
+      ctx.lineTo(sx+6*s,cy+hh*.3);
+      ctx.fill();
+    }
+    // Warning X icon
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=3*s;
+    ctx.beginPath();ctx.moveTo(-8*s,cy-8*s);ctx.lineTo(8*s,cy+8*s);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(8*s,cy-8*s);ctx.lineTo(-8*s,cy+8*s);ctx.stroke();
+  }
+  if(type==='crumble'){
+    // Crack lines across surface
+    ctx.strokeStyle='rgba(80,40,20,.6)';ctx.lineWidth=2*s;
+    ctx.beginPath();
+    ctx.moveTo(-hw*.6,cy-hh*.3);ctx.lineTo(-hw*.1,cy+hh*.1);ctx.lineTo(hw*.3,cy-hh*.2);ctx.lineTo(hw*.7,cy+hh*.15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-hw*.3,cy+hh*.3);ctx.lineTo(hw*.1,cy-hh*.1);ctx.lineTo(hw*.5,cy+hh*.2);
+    ctx.stroke();
+    // Falling debris particles
+    ctx.fillStyle='rgba(120,80,50,.4)';
+    for(let i=0;i<3;i++){
+      const dx=rand(-hw*.5,hw*.5);
+      const dy=thick+dO+rand(2,8)*s;
+      ctx.fillRect(dx-2*s,dy,4*s,3*s);
+    }
+  }
+  if(type==='ice'){
+    // Sparkle crystals
+    ctx.fillStyle='rgba(255,255,255,.4)';
+    for(let i=0;i<4;i++){
+      const cx2=-hw*.5+hw*i*.35;
+      const cy2=cy+rand(-hh*.3,hh*.3);
+      const cr=4*s;
+      ctx.save();ctx.translate(cx2,cy2);ctx.rotate(Math.PI/4+gt*.5);
+      ctx.fillRect(-cr,-cr*.3,cr*2,cr*.6);
+      ctx.fillRect(-cr*.3,-cr,cr*.6,cr*2);
+      ctx.restore();
+    }
+    // Frost overlay
+    ctx.fillStyle='rgba(200,240,255,.12)';
+    rr(-hw,-hh*2+dO,hw*2,hh*2,rad);ctx.fill();
+  }
+  if(type==='spring'){
+    // Spring coil icon
+    ctx.strokeStyle='rgba(0,200,100,.7)';ctx.lineWidth=2.5*s;
+    ctx.beginPath();
+    for(let i=0;i<4;i++){
+      const y1=cy-hh*.3+hh*.15*i;
+      const y2=y1+hh*.08;
+      ctx.moveTo(-hw*.25,y1);ctx.quadraticCurveTo(hw*.25,y1-hh*.1,hw*.25,y2);
+      ctx.moveTo(hw*.25,y2);ctx.quadraticCurveTo(-hw*.25,y2+hh*.1,-hw*.25,y2+hh*.08);
+    }
+    ctx.stroke();
+    // Up arrow
+    ctx.fillStyle='rgba(105,240,174,.6)';
+    ctx.beginPath();ctx.moveTo(0,cy-hh*.6);ctx.lineTo(-10*s,cy-hh*.2);ctx.lineTo(10*s,cy-hh*.2);ctx.fill();
+  }
 
   // Gloss
   ctx.fillStyle='rgba(255,255,255,.1)';
@@ -1236,10 +1396,14 @@ function drawGame(){
   const curIdx=getCurrentPadIdx();
   for(const{i,rz}of order){
     const pad=pads[i];
+    // Don't draw crumbled platforms — they fell apart
+    if(pad.crumbled) continue;
     const p=project(rz,pad.gameX);
     // Depth-based alpha — farther = slightly darker
     const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
-    ctx.globalAlpha=depthAlpha;
+    // Crumbling platforms flicker
+    const crumbleFlicker=(pad.type==='crumble'&&pad.crumbleTimer>0)?(.5+.5*Math.sin(gt*30)):1;
+    ctx.globalAlpha=depthAlpha*crumbleFlicker;
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width);
     // Moving platform indicator — small arrows on sides
     if(pad.moving){
@@ -1281,7 +1445,9 @@ function drawGame(){
 
     // Jump curve with hang time at peak
     const rawAir=Math.sin(bounce*Math.PI);
-    const airness=Math.pow(rawAir,.65); // more hang time
+    // Spring platforms boost jump height 1.6x
+    const springMult=(curIdx2>=0&&curIdx2<pads.length&&pads[curIdx2].springBoost)?1.6:1;
+    const airness=Math.pow(rawAir,.65)*springMult;
 
     // Squash/stretch phases
     let sqX,sqY;
