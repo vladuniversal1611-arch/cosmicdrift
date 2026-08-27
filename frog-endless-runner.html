@@ -488,7 +488,7 @@ function selectPattern(diff){
 function generateNextX(prevX, diff){
   let targetX;
 
-  // During burst: smaller X shifts (staircase-like, gentle zigzag)
+  // Burst platforms now spread WIDE across the road — full action!
   const inBurst=burstRemaining>0;
 
   // Pattern or random?
@@ -502,16 +502,17 @@ function generateNextX(prevX, diff){
   }
 
   if(currentPattern && patternIdx<currentPattern.zones.length){
-    const maxShift=inBurst?getMaxXShift(diff)*.45:getMaxXShift(diff);
+    // Burst sections use FULL maxShift — wide cross-road spread
+    const maxShift=getMaxXShift(diff);
     const shift=currentPattern.zones[patternIdx]*maxShift;
     targetX=prevX+shift;
     patternIdx++;
   } else {
     // Random with reachability
-    const maxShift=inBurst?getMaxXShift(diff)*.45:getMaxXShift(diff);
+    const maxShift=getMaxXShift(diff);
     let shift=rand(-maxShift, maxShift);
-    // Avoid tiny movements — force real cross-road action (but not in bursts)
-    if(!inBurst && Math.abs(shift)<0.3) shift=(shift>=0?1:-1)*rand(0.35, maxShift*.7);
+    // Force real cross-road action — bigger minimum shift
+    if(Math.abs(shift)<0.3) shift=(shift>=0?1:-1)*rand(0.4, maxShift*.8);
     targetX=prevX+shift;
   }
 
@@ -552,13 +553,26 @@ function ensurePads(){
       pu=['shield','magnet','boost','superjump'][Math.floor(Math.random()*4)];
     const type=Math.random()<.05?'flower':(Math.random()<.03&&dist>8?'gold':'normal');
 
+    // Moving platforms — some slide left-right for extra action
+    let moving=null;
+    const movingChance=lerp(0.08, 0.25, diff); // more moving pads at higher difficulty
+    if(Math.random()<movingChance && dist>3){
+      // Clamp amplitude so platform stays on road
+      const maxAmp=Math.min(gameX-0.08, 1.92-gameX, 0.6);
+      const amp=rand(0.2, Math.max(0.2, maxAmp));
+      const spd=rand(0.8, 1.8);  // oscillation speed
+      const phase=Math.random()*Math.PI*2; // random start phase
+      moving={amp, spd, phase, baseX:gameX};
+    }
+
     pads.push({
       gameX,
       laneX:gameX,
       lane:Math.round(gameX),
       width,
       type, coin:hasCoin, pu,
-      landed:false, dip:0, riskCoin:null
+      landed:false, dip:0, riskCoin:null,
+      moving
     });
   }
 }
@@ -577,6 +591,7 @@ function validatePads(n){
       cur.gameX=clamp(cur.gameX,0.08,1.92);
       cur.laneX=cur.gameX;
       cur.lane=Math.round(cur.gameX);
+      if(cur.moving) cur.moving.baseX=cur.gameX; // sync moving base
     }
     // Fix if too close (overlapping) — but allow burst spacing (min 1.8)
     if(yDist<1.8){
@@ -817,6 +832,13 @@ function updateGame(dt){
 
   seq+=spd*dt;
   dist+=spd*dt*.5;
+
+  // Update moving platforms — horizontal oscillation
+  for(const p of pads){
+    if(p.moving){
+      p.gameX=clamp(p.moving.baseX+Math.sin(gt*p.moving.spd+p.moving.phase)*p.moving.amp, 0.08, 1.92);
+    }
+  }
 
   // Landing checks — continuous X matching
   const curPadIdx=getCurrentPadIdx();
@@ -1225,6 +1247,27 @@ function drawGame(){
     const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
     ctx.globalAlpha=depthAlpha;
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width);
+    // Moving platform indicator — small arrows on sides
+    if(pad.moving){
+      const arrowS=18*p.s;
+      const hw=120*p.s*(pad.width||1);
+      const cy=p.y-55*p.s*(pad.width||1);
+      const phase=Math.sin(gt*pad.moving.spd+pad.moving.phase);
+      ctx.save();
+      ctx.globalAlpha=depthAlpha*(.3+.2*Math.abs(phase));
+      ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2*p.s;
+      // Left arrow
+      ctx.beginPath();ctx.moveTo(p.x-hw-arrowS*.5,cy);ctx.lineTo(p.x-hw-arrowS*1.5,cy);
+      ctx.moveTo(p.x-hw-arrowS*1.5,cy);ctx.lineTo(p.x-hw-arrowS*1.1,cy-arrowS*.4);
+      ctx.moveTo(p.x-hw-arrowS*1.5,cy);ctx.lineTo(p.x-hw-arrowS*1.1,cy+arrowS*.4);
+      ctx.stroke();
+      // Right arrow
+      ctx.beginPath();ctx.moveTo(p.x+hw+arrowS*.5,cy);ctx.lineTo(p.x+hw+arrowS*1.5,cy);
+      ctx.moveTo(p.x+hw+arrowS*1.5,cy);ctx.lineTo(p.x+hw+arrowS*1.1,cy-arrowS*.4);
+      ctx.moveTo(p.x+hw+arrowS*1.5,cy);ctx.lineTo(p.x+hw+arrowS*1.1,cy+arrowS*.4);
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.globalAlpha=depthAlpha;
     if(pad.coin)drawCoin(p.x,p.y,p.s,i*1.7);
     if(pad.pu)drawPUIcon(p.x,p.y,p.s,pad.pu,i*2.3);
