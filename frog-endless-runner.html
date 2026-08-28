@@ -24,8 +24,8 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx
 
 // ========== CONSTANTS ==========
 const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
-const GAME_SPD=5.85;
-const GAME_SPD_MAX=8.2;      // max base speed (plateau)
+const GAME_SPD=6.3;
+const GAME_SPD_MAX=8.8;      // max base speed (plateau)
 const SPD_RAMP_START=30;      // score when speed starts increasing
 const SPD_RAMP_SCALE=200;     // how gradual the ramp is (higher = slower ramp)
 const FOCAL_LEN=3.5;
@@ -474,7 +474,7 @@ const PAD_TYPES={
   normal:    {dist:0,    color:['#4DD0E1','#00ACC1','#006064'], glow:'rgba(0,229,255,'},
   wide:      {dist:0,    color:['#80DEEA','#4DD0E1','#00838F'], glow:'rgba(0,229,255,'},
   small:     {dist:0,    color:['#FFB74D','#FF9800','#E65100'], glow:'rgba(255,152,0,'},
-  moving_h:  {dist:200,  color:['#CE93D8','#AB47BC','#6A1B9A'], glow:'rgba(171,71,188,'},
+  moving_h:  {dist:100,  color:['#CE93D8','#AB47BC','#6A1B9A'], glow:'rgba(171,71,188,'},
   bounce:    {dist:500,  color:['#69F0AE','#00E676','#00895A'], glow:'rgba(105,240,174,'},
   breakable: {dist:700,  color:['#A1887F','#8D6E63','#4E342E'], glow:'rgba(161,136,127,'},
   disappear: {dist:900,  color:['#B0BEC5','#78909C','#37474F'], glow:'rgba(176,190,197,'},
@@ -482,6 +482,8 @@ const PAD_TYPES={
   boost_pad: {dist:1400, color:['#FFF176','#FFEE58','#F9A825'], glow:'rgba(255,235,59,'},
   bonus:     {dist:300,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
   falling:   {dist:1800, color:['#EF9A9A','#EF5350','#B71C1C'], glow:'rgba(239,83,80,'},
+  trap_lane: {dist:600,  color:['#FF7043','#F4511E','#BF360C'], glow:'rgba(244,81,30,'},
+  ring_pad:  {dist:800,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
 };
 
 function getUnlockedTypes(d){
@@ -520,6 +522,16 @@ const PATTERNS=[
   // Risk/reward
   {id:18,seq:['CENTER','LEFT','CENTER'],          types:['normal','bonus','normal'], minDiff:0.2},
   {id:19,seq:['RIGHT','CENTER','LEFT'],           types:['small','bonus','normal'], minDiff:0.4},
+  // More moving
+  {id:20,seq:['LEFT','RIGHT','LEFT','RIGHT'],    types:['moving_h','normal','moving_h','normal'], minDiff:0.2},
+  {id:21,seq:['CENTER','LEFT','RIGHT','CENTER'],  types:['moving_h','moving_h','normal','wide'], minDiff:0.25},
+  {id:22,seq:['RIGHT','LEFT','CENTER'],           types:['moving_h','normal','moving_h'], minDiff:0.15},
+  // Trap lane
+  {id:23,seq:['CENTER','CENTER','CENTER'],        types:['normal','trap_lane','wide'], minDiff:0.35},
+  {id:24,seq:['LEFT','CENTER','RIGHT'],           types:['normal','trap_lane','normal'], minDiff:0.4},
+  // Ring
+  {id:25,seq:['CENTER','LEFT','CENTER'],          types:['ring_pad','normal','normal'], minDiff:0.45},
+  {id:26,seq:['RIGHT','CENTER','LEFT'],           types:['normal','ring_pad','normal'], minDiff:0.5},
 ];
 
 function selectPattern(diff){
@@ -595,7 +607,7 @@ function isReachable(prevX, prevY, nextX, nextY, hasBounce){
 
 // === MAIN GENERATOR ===
 function makePad(gameX, type, diff){
-  const width=getWidth(type, diff);
+  let width=getWidth(type, diff);
   let coin=Math.random()<(.15+diff*.08);
   let pu=null;
   if(Math.random()<.012&&dist>5)
@@ -610,6 +622,17 @@ function makePad(gameX, type, diff){
     moving={amp, spd:rand(0.7, 1.5), phase:rand(0,Math.PI*2), baseX:gameX};
   }
 
+  // Trap lane: full-width, 3 sections, 1 safe
+  let safeZone=0;
+  if(type==='trap_lane'){
+    width=2.2;
+    gameX=1.0;
+    coin=false;pu=null;
+    // Bias safe zone toward where player likely is
+    const px=arguments.length>3?gameX:1.0;
+    safeZone=Math.floor(Math.random()*3); // 0=left,1=center,2=right
+  }
+
   return{
     gameX, laneX:gameX, lane:Math.round(gameX),
     width, type, coin, pu,
@@ -621,6 +644,8 @@ function makePad(gameX, type, diff){
     fallSpeed:0, fallOffset:0,      // falling
     springBoost:false,              // bounce
     boostActive:false,              // boost_pad
+    safeZone,                       // trap_lane: which third is safe (0/1/2)
+    ringCollected:false,            // ring_pad: ring collected?
   };
 }
 
@@ -664,10 +689,18 @@ function ensurePads(){
       // Pick type based on difficulty and phase
       const unlocked=getUnlockedTypes(dist);
       if(phase==='recovery'||phase==='easy'){
-        targetType=Math.random()<0.15?'wide':'normal';
+        // Even in easy, allow moving_h sometimes
+        if(unlocked.includes('moving_h')&&Math.random()<0.18){
+          targetType='moving_h';
+        } else {
+          targetType=Math.random()<0.15?'wide':'normal';
+        }
       } else {
         const special=unlocked.filter(t=>t!=='normal'&&t!=='wide');
-        if(special.length>0&&Math.random()<lerp(0.15,0.35,effDiff)){
+        // Boosted chance for moving_h
+        if(unlocked.includes('moving_h')&&Math.random()<0.25&&!lastTypes.slice(-1).includes('moving_h')){
+          targetType='moving_h';
+        } else if(special.length>0&&Math.random()<lerp(0.18,0.4,effDiff)){
           // Don't repeat last 2 types
           const noRepeat=special.filter(t=>!lastTypes.slice(-2).includes(t));
           const pool=noRepeat.length>0?noRepeat:special;
@@ -679,9 +712,14 @@ function ensurePads(){
     }
 
     // Generate X position
-    let gameX=zoneToX(targetZone);
-    gameX+=rand(-0.04, 0.04); // jitter
-    gameX=clamp(gameX, 0.1, 1.9);
+    let gameX;
+    if(targetType==='trap_lane'){
+      gameX=1.0; // always centered, full width
+    } else {
+      gameX=zoneToX(targetZone);
+      gameX+=rand(-0.04, 0.04); // jitter
+      gameX=clamp(gameX, 0.1, 1.9);
+    }
 
     // Generate spacing
     const spacing=getSpacing(effDiff, phase);
@@ -705,8 +743,8 @@ function ensurePads(){
       }
     }
 
-    // After breakable/disappear/falling: ALWAYS follow with safe normal/wide
-    if(prevType==='breakable'||prevType==='disappear'||prevType==='falling'){
+    // After breakable/disappear/falling/trap_lane: ALWAYS follow with safe normal/wide
+    if(prevType==='breakable'||prevType==='disappear'||prevType==='falling'||prevType==='trap_lane'){
       if(targetType!=='normal'&&targetType!=='wide') targetType='wide';
     }
     // Max 1 special in a row (except moving_h which is fine)
@@ -928,6 +966,26 @@ function onLand(idx){
   if(pad.broken||pad.disappeared) return;
 
   pad.landed=true;pad.dip=.5;
+
+  // === TRAP LANE — 3 sections, 2 traps, 1 safe ===
+  if(pad.type==='trap_lane'){
+    const frogX=visLane;
+    let zone;
+    if(frogX<0.67) zone=0;       // left third
+    else if(frogX>1.33) zone=2;  // right third
+    else zone=1;                  // center third
+    if(zone!==pad.safeZone){
+      // Hit trap zone!
+      sfxBreak();shake=.5;
+      addFloat('💀 ПАСТКА!',lp.x,lp.y-40,'#F44336',20);
+      for(let i=0;i<8;i++){
+        const a=rand(0,Math.PI*2);
+        addP(lp.x,lp.y,Math.cos(a)*.06,Math.sin(a)*.04-.02,'#FF5252',rand(2,3),.5,'s');
+      }
+      die();return;
+    }
+    addFloat('✅ БЕЗПЕЧНО!',lp.x,lp.y-40,'#4CAF50',18);
+  }
 
   // === BREAKABLE — starts cracking, breaks after timer ===
   if(pad.type==='breakable' && !pad.broken){
@@ -1151,6 +1209,19 @@ function updateGame(dt){
       // Jump particles
       const fp=project(VIEW_Z,visLane);
       addJumpFX(fp.x,fp.y,fp.s*1.5);
+    }
+    // Ring collection — collect when near peak of arc
+    const curPadRing=pads[ci];
+    if(curPadRing&&curPadRing.type==='ring_pad'&&!curPadRing.ringCollected&&bounce>0.38&&bounce<0.62&&lastBouncePhase<=0.38){
+      curPadRing.ringCollected=true;
+      runCoins+=5;
+      sfxPerfect();score+=3;
+      const fp3=project(VIEW_Z,visLane);
+      addFloat('🔗 +5🪙',fp3.x,fp3.y-60,'#FFD700',22);
+      for(let i=0;i<10;i++){
+        const a=rand(0,Math.PI*2);
+        addP(fp3.x,fp3.y-40,Math.cos(a)*.06,Math.sin(a)*.04-.03,'#FFD700',rand(2,3),.5,'s');
+      }
     }
     lastBouncePhase=bounce;
   }
@@ -1457,6 +1528,27 @@ function drawPad(x,y,s,type,dip,isCurrent,width){
     ctx.beginPath();ctx.arc(-hw*.3,cy,2*s,0,Math.PI*2);ctx.fill();
     ctx.beginPath();ctx.arc(hw*.3,cy,2*s,0,Math.PI*2);ctx.fill();
   }
+  if(type==='trap_lane'){
+    // Draw 3 sections with divider lines
+    const sz=arguments.length>7?arguments[7]:0; // safeZone passed via extra
+    const secW=hw*2/3;
+    // Left divider
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2*s;
+    ctx.beginPath();ctx.moveTo(-hw+secW,-hh*2+dO+ins);ctx.lineTo(-hw+secW,dO-ins);ctx.stroke();
+    // Right divider
+    ctx.beginPath();ctx.moveTo(-hw+secW*2,-hh*2+dO+ins);ctx.lineTo(-hw+secW*2,dO-ins);ctx.stroke();
+  }
+  if(type==='ring_pad'){
+    // Golden star marker on platform
+    ctx.fillStyle='rgba(255,215,0,.5)';ctx.font=`${16*s}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🔗',0,cy);
+    // Sparkle dots
+    for(let i=0;i<3;i++){
+      const sx=Math.cos(gt*2+i*2.1)*hw*.4;
+      const sy=cy+Math.sin(gt*2.5+i*1.8)*hh*.25;
+      ctx.fillStyle='rgba(255,215,0,.4)';ctx.beginPath();ctx.arc(sx,sy,2.5*s,0,Math.PI*2);ctx.fill();
+    }
+  }
 
   // Gloss
   ctx.fillStyle='rgba(255,255,255,.1)';
@@ -1754,6 +1846,65 @@ function drawGame(){
       ctx.moveTo(p.x+hw+arrowS*1.5,cy);ctx.lineTo(p.x+hw+arrowS*1.1,cy-arrowS*.4);
       ctx.moveTo(p.x+hw+arrowS*1.5,cy);ctx.lineTo(p.x+hw+arrowS*1.1,cy+arrowS*.4);
       ctx.stroke();
+      ctx.restore();
+    }
+    // Trap lane — draw colored sections overlay
+    if(pad.type==='trap_lane'){
+      const tlHw=120*p.s*(pad.width||1);
+      const tlHh=55*p.s*(pad.width||1);
+      const tlCy=p.y-tlHh;
+      const secW=tlHw*2/3;
+      const rad2=16*p.s;
+      for(let sec=0;sec<3;sec++){
+        const sx=p.x-tlHw+sec*secW;
+        const isSafe=sec===pad.safeZone;
+        if(isSafe){
+          // Green safe section
+          ctx.fillStyle='rgba(76,175,80,.3)';
+          rr(sx+2,p.y-tlHh*2+pad.dip*8*p.s+4,secW-4,tlHh*2-8,sec===0?rad2:sec===2?rad2:4);ctx.fill();
+          // Checkmark
+          ctx.fillStyle='rgba(76,175,80,.7)';ctx.font=`bold ${14*p.s}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText('✓',sx+secW/2,tlCy+pad.dip*4*p.s);
+        } else {
+          // Red trap section with X
+          ctx.fillStyle='rgba(244,67,54,.3)';
+          rr(sx+2,p.y-tlHh*2+pad.dip*8*p.s+4,secW-4,tlHh*2-8,sec===0?rad2:sec===2?rad2:4);ctx.fill();
+          // Spike triangles
+          const spkCount=3;
+          ctx.fillStyle='rgba(244,67,54,.5)';
+          for(let si2=0;si2<spkCount;si2++){
+            const spX=sx+secW*(si2+0.5)/spkCount;
+            const spY=p.y-tlHh*2+pad.dip*8*p.s+8;
+            ctx.beginPath();ctx.moveTo(spX,spY);ctx.lineTo(spX-6*p.s,spY+14*p.s);ctx.lineTo(spX+6*p.s,spY+14*p.s);ctx.fill();
+          }
+          // X mark
+          ctx.strokeStyle='rgba(255,100,100,.6)';ctx.lineWidth=2.5*p.s;
+          const xc=sx+secW/2,yc=tlCy+pad.dip*4*p.s;
+          ctx.beginPath();ctx.moveTo(xc-8*p.s,yc-8*p.s);ctx.lineTo(xc+8*p.s,yc+8*p.s);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(xc+8*p.s,yc-8*p.s);ctx.lineTo(xc-8*p.s,yc+8*p.s);ctx.stroke();
+        }
+      }
+    }
+    // Ring pad — draw floating ring above platform
+    if(pad.type==='ring_pad'&&!pad.ringCollected){
+      const ringY=p.y-160*p.s;
+      const ringW=40*p.s;
+      const ringH=16*p.s;
+      const ringBob=Math.sin(gt*2+i)*5*p.s;
+      ctx.save();
+      ctx.globalAlpha=depthAlpha*.9;
+      // Outer ring
+      ctx.strokeStyle='#FFD700';ctx.lineWidth=5*p.s;
+      ctx.shadowColor='rgba(255,215,0,.7)';ctx.shadowBlur=15*p.s;
+      ctx.beginPath();ctx.ellipse(p.x,ringY+ringBob,ringW,ringH,0,0,Math.PI*2);ctx.stroke();
+      // Inner highlight
+      ctx.strokeStyle='rgba(255,255,200,.5)';ctx.lineWidth=2*p.s;
+      ctx.shadowBlur=0;
+      ctx.beginPath();ctx.ellipse(p.x,ringY+ringBob,ringW*.65,ringH*.65,0,0,Math.PI*2);ctx.stroke();
+      // Sparkle on ring
+      const spkA=gt*3;
+      ctx.fillStyle='#FFF';
+      ctx.beginPath();ctx.arc(p.x+Math.cos(spkA)*ringW,ringY+ringBob+Math.sin(spkA)*ringH,3*p.s,0,Math.PI*2);ctx.fill();
       ctx.restore();
     }
     ctx.globalAlpha=depthAlpha;
