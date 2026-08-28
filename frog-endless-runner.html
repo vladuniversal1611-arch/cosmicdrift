@@ -25,6 +25,9 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx
 // ========== CONSTANTS ==========
 const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
 const GAME_SPD=5.85;
+const GAME_SPD_MAX=8.2;      // max base speed (plateau)
+const SPD_RAMP_START=30;      // score when speed starts increasing
+const SPD_RAMP_SCALE=200;     // how gradual the ramp is (higher = slower ramp)
 const FOCAL_LEN=3.5;
 const VIEW_Z=3.0;
 const VIEW_AHEAD=22;
@@ -1022,7 +1025,10 @@ function onLand(idx){
 function updateGame(dt){
   if(!alive){fallT+=dt*1.8;updPts(dt);updRipples(dt);return}
   gt+=dt;
-  spd=boost?GAME_SPD*1.3:GAME_SPD;
+  // Gradual speed ramp: starts at GAME_SPD, plateaus at GAME_SPD_MAX
+  const rampProgress=score>SPD_RAMP_START?1-Math.exp(-(score-SPD_RAMP_START)/SPD_RAMP_SCALE):0;
+  const baseSpd=GAME_SPD+(GAME_SPD_MAX-GAME_SPD)*rampProgress;
+  spd=boost?baseSpd*1.3:baseSpd;
   if(boost){boostT-=dt;if(boostT<=0)boost=false}
   if(magnet){magnetT-=dt;if(magnetT<=0)magnet=false}
 
