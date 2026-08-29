@@ -65,6 +65,10 @@ const MILESTONES=[
 let msShow=0,msText='',msEmoji='',msColor='',msCoins=0,lastMilestone=0;
 // Close call
 let closeCallShow=0;
+// Revive
+let reviveUsed=false,reviveShow=0;
+// Lucky platform roulette
+let luckyActive=false,luckyT=0,luckyResult='',luckyShow=0;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
 let lastTypes=[], lastZones=[], lastPatternId=-1;
@@ -503,6 +507,7 @@ const PAD_TYPES={
   falling:   {dist:1800, color:['#EF9A9A','#EF5350','#B71C1C'], glow:'rgba(239,83,80,'},
   trap_lane: {dist:600,  color:['#FF7043','#F4511E','#BF360C'], glow:'rgba(244,81,30,'},
   ring_pad:  {dist:800,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
+  lucky:     {dist:400,  color:['#FFD54F','#FFC107','#FF6F00'], glow:'rgba(255,215,0,'},
 };
 
 function getUnlockedTypes(d){
@@ -707,7 +712,10 @@ function ensurePads(){
 
       // Pick type based on difficulty and phase
       const unlocked=getUnlockedTypes(dist);
-      if(phase==='recovery'||phase==='easy'){
+      // Lucky platform — rare random chance (~2.5%)
+      if(unlocked.includes('lucky')&&Math.random()<0.025&&!lastTypes.slice(-5).includes('lucky')){
+        targetType='lucky';
+      } else if(phase==='recovery'||phase==='easy'){
         // Even in easy, allow moving_h sometimes
         if(unlocked.includes('moving_h')&&Math.random()<0.18){
           targetType='moving_h';
@@ -929,7 +937,8 @@ function startGame(){
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
-  msShow=0;lastMilestone=0;closeCallShow=0;
+  msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
+  luckyActive=false;luckyT=0;luckyShow=0;
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
   pads=[];padPositions=[];currentPattern=null;patternIdx=0;
@@ -1074,6 +1083,39 @@ function onLand(idx){
     addFloat('⬇️ ПАДАЄ!',lp.x,lp.y-40,'#EF5350',18);
   }
 
+  // === LUCKY PLATFORM — random prize roulette ===
+  if(pad.type==='lucky'){
+    sfxPU();
+    const prizes=['coins','shield','magnet','jackpot'];
+    const weights=[40,25,20,15]; // percentage chances
+    let roll=Math.random()*100, pick=0;
+    for(let i=0;i<weights.length;i++){roll-=weights[i];if(roll<=0){pick=i;break}}
+    const prize=prizes[pick];
+    if(prize==='coins'){
+      const amt=10;runCoins+=amt;
+      addFloat('🎰 +'+amt+'🪙',lp.x,lp.y-50,'#FFD700',22);
+    } else if(prize==='shield'){
+      shield=true;
+      addFloat('🎰 🛡️ ЩИТ!',lp.x,lp.y-50,'#4FC3F7',22);
+    } else if(prize==='magnet'){
+      magnet=true;magnetT=8;
+      addFloat('🎰 🧲 МАГНІТ!',lp.x,lp.y-50,'#F44336',22);
+    } else {
+      const amt=20;runCoins+=amt;
+      addFloat('🎰 ДЖЕКПОТ! +'+amt+'🪙',lp.x,lp.y-50,'#FFD700',24);
+      for(let i=0;i<15;i++){
+        const a=rand(0,Math.PI*2);
+        addP(lp.x,lp.y,Math.cos(a)*.07,Math.sin(a)*.05-.02,'#FFD700',rand(2,4),.7,'s');
+      }
+    }
+    // Rainbow sparkle burst for all prizes
+    for(let i=0;i<10;i++){
+      const a=rand(0,Math.PI*2);
+      addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.04-.02,
+        ['#FF5252','#FFD700','#4FC3F7','#69F0AE','#E040FB'][i%5],rand(2,3),.5,'s');
+    }
+  }
+
   // === BONUS — extra coins ===
   if(pad.type==='bonus'){
     runCoins+=3;
@@ -1177,6 +1219,7 @@ function updateGame(dt){
   // Milestone check
   if(msShow>0) msShow-=dt*.4;
   if(closeCallShow>0) closeCallShow-=dt*2;
+  if(reviveShow>0) reviveShow-=dt*1.5;
   const fd=Math.floor(dist);
   for(const ms of MILESTONES){
     if(fd>=ms.dist&&lastMilestone<ms.dist){
@@ -1640,6 +1683,28 @@ function drawPad(x,y,s,type,dip,isCurrent,width){
       const sy=cy+Math.sin(gt*2.5+i*1.8)*hh*.25;
       ctx.fillStyle='rgba(255,215,0,.4)';ctx.beginPath();ctx.arc(sx,sy,2.5*s,0,Math.PI*2);ctx.fill();
     }
+  }
+  if(type==='lucky'){
+    // Golden shimmer overlay
+    const shimmer=.08+.04*Math.sin(gt*4);
+    ctx.fillStyle=`rgba(255,215,0,${shimmer})`;
+    rr(-hw,-hh*2+dO,hw*2,hh*2,rad);ctx.fill();
+    // Slot machine icon
+    ctx.fillStyle='rgba(255,215,0,.6)';ctx.font=`${18*s}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🎰',0,cy);
+    // Orbiting sparkles
+    for(let i=0;i<5;i++){
+      const a=gt*2.5+i*Math.PI*2/5;
+      const ox=Math.cos(a)*hw*.55;
+      const oy=cy+Math.sin(a)*hh*.35;
+      const sp=2+Math.sin(gt*3+i)*1;
+      ctx.fillStyle=`rgba(255,215,0,${.3+.2*Math.sin(gt*4+i)})`;
+      ctx.beginPath();ctx.arc(ox,oy,sp*s,0,Math.PI*2);ctx.fill();
+    }
+    // Rainbow border pulse
+    const hue=(gt*120)%360;
+    ctx.strokeStyle=`hsla(${hue},80%,60%,.3)`;ctx.lineWidth=2*s;
+    rr(-hw,-hh*2+dO,hw*2,hh*2,rad);ctx.stroke();
   }
 
   // Gloss
@@ -2113,6 +2178,10 @@ function drawGame(){
       addP(side?rand(0,15):rand(W-15,W),rand(0,H),side?.02:-.02,rand(-.02,.02),'#FFD700',rand(1.5,2.5),.4,'s');
     }
   }
+  // Revive flash
+  if(reviveShow>0){
+    ctx.fillStyle=`rgba(255,215,0,${reviveShow*.12})`;ctx.fillRect(0,0,W,H);
+  }
   // Fever activation flash
   if(feverFlash>0){
     ctx.fillStyle=`rgba(255,215,0,${feverFlash*.2})`;ctx.fillRect(0,0,W,H);
@@ -2265,10 +2334,13 @@ function menuTap(x,y){
 }
 
 // ========== GAME OVER ==========
+function canRevive(){return !reviveUsed&&coins>=50&&dist>20}
 function drawOver(){
   goT=Math.min(goT+.03,1);
+  if(reviveShow>0) reviveShow-=.016;
   ctx.fillStyle=`rgba(0,0,0,${.35*goT})`;ctx.fillRect(0,0,W,H);
-  const pw=Math.min(W*.82,310),ph=newRec?360:330,px=W/2-pw/2,py=H/2-ph/2;
+  const showRevive=canRevive();
+  const pw=Math.min(W*.82,310),ph=(newRec?360:330)+(showRevive?56:0),px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
@@ -2280,7 +2352,25 @@ function drawOver(){
   ctx.fillStyle='#333';ctx.font='bold 30px sans-serif';ctx.fillText(Math.floor(dist)+' м',cx,ty+24);ty+=40;
   ctx.fillStyle='rgba(100,120,120,.6)';ctx.font='13px sans-serif';
   ctx.fillText('Рекорд: '+hs+' м   Монети: +'+runCoins,cx,ty+5);ty+=25;
-  const rw=pw*.68,rh=44,rx=cx-rw/2,ry=ty+5;
+  const rw=pw*.68,rh=44,rx=cx-rw/2;
+  // Revive button (golden, pulsing)
+  if(showRevive){
+    const rvY=ty+5;
+    const rvPulse=.9+.1*Math.sin(gt*4);
+    ctx.save();ctx.scale(rvPulse,rvPulse);
+    const rvx2=cx/rvPulse,rvy2=rvY/rvPulse;
+    ctx.shadowColor='rgba(255,180,0,.5)';ctx.shadowBlur=15;
+    const rvg=ctx.createLinearGradient(rx/rvPulse,rvy2,(rx+rw)/rvPulse,rvy2);
+    rvg.addColorStop(0,'#FFB300');rvg.addColorStop(.5,'#FFD54F');rvg.addColorStop(1,'#FFB300');
+    ctx.fillStyle=rvg;rr(rx/rvPulse,rvy2,rw/rvPulse,rh/rvPulse,22);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#5D4037';ctx.font=`bold ${15/rvPulse}px sans-serif`;ctx.textAlign='center';
+    ctx.fillText('👼 ПРОДОВЖИТИ (50🪙)',rvx2,rvy2+rh/rvPulse/2+5);
+    ctx.restore();
+    ty+=rh+12;
+  }
+  // Retry button
+  const ry=ty+5;
   ctx.shadowColor='rgba(76,175,80,.4)';ctx.shadowBlur=12;
   const rg=ctx.createLinearGradient(rx,ry,rx,ry+rh);rg.addColorStop(0,'#66BB6A');rg.addColorStop(1,'#2E7D32');ctx.fillStyle=rg;rr(rx,ry,rw,rh,22);ctx.fill();
   ctx.shadowBlur=0;
@@ -2288,9 +2378,39 @@ function drawOver(){
   ty=ry+rh+12;ctx.fillStyle='rgba(0,0,0,.06)';rr(rx,ty,rw,36,18);ctx.fill();ctx.fillStyle='rgba(100,120,120,.6)';ctx.font='13px sans-serif';ctx.fillText('ГОЛОВНЕ МЕНЮ',cx,ty+22);
   ctx.globalAlpha=1;ctx.restore();
 }
+function doRevive(){
+  if(!canRevive()) return;
+  coins-=50;localStorage.setItem('fCoins',''+coins);
+  reviveUsed=true;reviveShow=1;
+  alive=true;falling=false;fallT=0;
+  shield=true; // gift shield on revive
+  // Place frog on next safe pad
+  const ci=getCurrentPadIdx();
+  const ni=Math.min(ci+1,pads.length-1);
+  const np=pads[ni];
+  if(np){frogCont=np.gameX;visLane=np.gameX}
+  lastIdx=ci;
+  state=ST.PLAY;
+  sfxPU();shake=.2;
+  addFloat('👼 ВОСКРЕСІННЯ!',W/2,H*.35,'#FFD54F',24);
+  for(let i=0;i<15;i++){
+    const a=rand(0,Math.PI*2);
+    addP(W/2,H*.4,Math.cos(a)*.06,Math.sin(a)*.05-.02,
+      ['#FFD700','#FFF','#FFE082'][i%3],rand(2,3),.6,'s');
+  }
+  startMus();
+}
 function overTap(x,y){
+  const showRevive=canRevive();
   const pw=Math.min(W*.82,310),cx=W/2,rw=pw*.68,rx=cx-rw/2;
-  let ty=(H/2-(newRec?360:330)/2)+25;if(newRec)ty+=30;ty+=40+45+3+35+25+5;
+  let ty=(H/2-((newRec?360:330)+(showRevive?56:0))/2)+25;
+  if(newRec)ty+=30;ty+=40+45+3+35+25+5;
+  // Revive button
+  if(showRevive){
+    if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+44){doRevive();return}
+    ty+=44+12;
+  }
+  // Retry
   if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+44){startGame();return}
   ty+=44+12;if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+36){sfxClick();state=ST.MENU}
 }
