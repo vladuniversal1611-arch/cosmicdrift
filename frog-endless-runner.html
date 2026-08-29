@@ -87,6 +87,17 @@ let challenge=null,challengeT=0,challengeProgress=0,challengeShow=0,lastChalleng
 // Dash (dodge/skip mechanic)
 let dashReady=true,dashCooldown=0,dashActive=false,dashT=0,dashShow=0;
 const DASH_COOLDOWN=5,DASH_DURATION=.3;
+// Biome progression
+const BIOMES=[
+  {name:'Ліс',skyTop:'#87CEEB',skyBot:'#B3E5FC',ground:['#4CAF50','#43A047','#388E3C','#2E7D32'],fog:'rgba(200,230,255,'},
+  {name:'Глибокий ліс',skyTop:'#5C9EAD',skyBot:'#80CBC4',ground:['#2E7D32','#1B5E20','#33691E','#1B5E20'],fog:'rgba(100,180,150,'},
+  {name:'Річка',skyTop:'#4FC3F7',skyBot:'#81D4FA',ground:['#26A69A','#00897B','#00796B','#00695C'],fog:'rgba(120,200,220,'},
+  {name:'Джунглі',skyTop:'#66BB6A',skyBot:'#A5D6A7',ground:['#558B2F','#33691E','#1B5E20','#004D40'],fog:'rgba(80,150,80,'},
+  {name:'Нічні джунглі',skyTop:'#1A237E',skyBot:'#283593',ground:['#1B5E20','#004D40','#263238','#1A237E'],fog:'rgba(30,30,80,'},
+];
+let curBiome=0,biomeT=0,biomeFade=0;
+// Tutorial
+let tutorialShown=!!localStorage.getItem('fTut'),tutorialAlpha=0;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
 let lastTypes=[], lastZones=[], lastPatternId=-1;
@@ -980,6 +991,8 @@ function startGame(){
   diamondPath=false;diamondT=0;diamondCount=0;diamondTotal=0;lastDiamondDist=0;
   challenge=null;challengeT=0;challengeProgress=0;challengeShow=0;lastChallengeDist=0;
   dashReady=true;dashCooldown=0;dashActive=false;dashT=0;dashShow=0;
+  curBiome=0;biomeT=0;biomeFade=0;
+  if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
   pads=[];padPositions=[];currentPattern=null;patternIdx=0;
@@ -1168,78 +1181,93 @@ function onLand(idx){
     }
   }
 
-  // Landing precision for feedback quality
+  // Landing precision — 3-tier system
   const frogX=visLane;
   const hitR=getHitRadius(pad.width);
   const precision=1-Math.abs(frogX-pad.gameX)/hitR;
+  // PERFECT >75%, GOOD 50-75%, NORMAL <50%
   const isPerfect=precision>0.75;
+  const isGood=!isPerfect&&precision>0.5;
 
   const coinMult=fever?2:1;
+  const feverMult=fever?2:1;
+
+  // Tutorial: dismiss after 2 successful landings
+  if(!tutorialShown&&score>=2){tutorialShown=true;localStorage.setItem('fTut','1')}
 
   if(isPerfect){
+    // PERFECT — combo grows
     perfectCombo++;
-    // === COMBO MULTIPLIER: consecutive perfects multiply score ===
-    const comboMult=Math.min(perfectCombo,5); // x1,x2,x3,x4,x5 cap
-    const feverMult=fever?2:1;
-    const totalPts=2*comboMult*feverMult;
+    const comboMult=Math.min(perfectCombo,10);
+    const totalPts=Math.floor(2*Math.min(comboMult,5)*feverMult);
     score+=totalPts;
-    sfxPerfect();pfFlash=.35;
-    // Show combo text with multiplier
-    if(perfectCombo>=3){
-      perfectText=fever?'🔥 COMBO x'+comboMult+' 🔥':'⚡ COMBO x'+comboMult;
-      // Escalating combo sound
-      for(let i=0;i<Math.min(comboMult,4);i++)tone(440+i*330,.08,'sine',.06,i*.03);
-    } else if(perfectCombo===2){
-      perfectText=fever?'🔥 PERFECT x2 🔥':'PERFECT x2';
+    // Sound: pitch escalates with combo
+    const basePitch=880+Math.min(perfectCombo-1,8)*110;
+    tone(basePitch,.08,'sine',.12);tone(basePitch*1.25,.07,'sine',.08,.04);
+    if(perfectCombo>=3)tone(basePitch*1.5,.06,'sine',.05,.07);
+    pfFlash=.2;
+    // Feedback text — small at low combo, big at high
+    if(perfectCombo>=5){
+      perfectText=fever?'🔥 x'+comboMult:'⚡ x'+comboMult;
+      perfectShow=1;
+    } else if(perfectCombo>=2){
+      perfectText='PERFECT ×'+comboMult;
+      perfectShow=.8;
     } else {
-      perfectText=fever?'🔥 PERFECT 🔥':'PERFECT';
+      perfectText='PERFECT';
+      perfectShow=.6;
     }
-    perfectShow=1;
-    addPerfFX(lp.x,lp.y-10);
+    // Ring effect on platform
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
-    // Show bonus points float for combo
-    if(comboMult>=2){
-      const bonusCol=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'][comboMult-1]||'#FFD700';
-      addFloat('+'+totalPts+'✨',lp.x+30,lp.y-30,bonusCol,14+comboMult*2);
-    }
+    addRipple(lp.x,lp.y+3*lp.s,lp.s*1.2); // double ring for PERFECT
+    // Particles — scale with combo
     const ptCol=fever?'#FFD700':'#FFF';
-    const ptCount=Math.min(8+comboMult*2,16);
-    for(let i=0;i<(fever?ptCount+4:ptCount);i++){
+    const ptCount=Math.min(4+comboMult*2,18);
+    for(let i=0;i<ptCount;i++){
       const a=rand(0,Math.PI*2);
-      addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.015,ptCol,rand(1.5,3),.5,'s');
+      addP(lp.x,lp.y,Math.cos(a)*.04,Math.sin(a)*.04-.015,ptCol,rand(1,2.5),.4,'s');
     }
-    // === FEVER ACTIVATION at 5 perfects ===
+    // Bonus float at high combo
+    if(comboMult>=3){
+      const bonusCol=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'][Math.min(comboMult-1,4)];
+      addFloat('+'+totalPts,lp.x+25,lp.y-25,bonusCol,12+Math.min(comboMult,6));
+    }
+    // Combo milestones
     if(perfectCombo===5&&!fever){
-      fever=true;feverT=0;feverFlash=1;
+      fever=true;feverT=0;feverFlash=.6;
       sfxFever();
-      addFloat('🔥 FEVER MODE! 🔥',lp.x,lp.y-70,'#FFD700',26);
-      // Explosion of gold particles
-      for(let i=0;i<20;i++){
+      addFloat('🔥 FEVER!',lp.x,lp.y-60,'#FFD700',22);
+      for(let i=0;i<14;i++){
         const a=rand(0,Math.PI*2);
-        addP(lp.x,lp.y-30,Math.cos(a)*.08,Math.sin(a)*.06-.02,'#FFD700',rand(2,4),.7,'s');
+        addP(lp.x,lp.y-20,Math.cos(a)*.07,Math.sin(a)*.05-.02,'#FFD700',rand(2,3.5),.6,'s');
       }
     }
-  } else if(precision>0.4){
-    // GREAT — breaks fever
-    if(fever){breakFever(lp.x,lp.y)}
-    perfectCombo=0;
-    sfxLand();score++;
-    perfectText='GREAT';perfectShow=.7;
-    addLandFX(lp.x,lp.y,1.5);
-    addRipple(lp.x,lp.y+5*lp.s,lp.s*1.3);
+    if(perfectCombo===10){
+      addFloat('🌟 НЕЙМОВІРНО!',lp.x,lp.y-60,'#E040FB',20);
+      shake=.15;
+    }
+  } else if(isGood){
+    // GOOD — combo stays (doesn't grow or drop)
+    sfxLand();
+    // Slightly higher pitch for GOOD vs NORMAL
+    tone(350,.06,'triangle',.1);tone(220,.04,'sine',.05,.02);
+    score+=1*feverMult;
+    perfectText='GOOD';perfectShow=.4;
+    addLandFX(lp.x,lp.y,1.3);
+    addRipple(lp.x,lp.y+5*lp.s,lp.s*1.2);
   } else {
-    // Normal — breaks fever
-    if(fever){breakFever(lp.x,lp.y)}
-    perfectCombo=0;
+    // NORMAL — combo drops by 1 (not full reset)
+    if(fever&&perfectCombo<=1){breakFever(lp.x,lp.y)}
+    perfectCombo=Math.max(0,perfectCombo-1);
     sfxLand();score++;
-    addLandFX(lp.x,lp.y,1.2);
+    addLandFX(lp.x,lp.y,1);
     addRipple(lp.x,lp.y+5*lp.s,lp.s);
-    // Close call — barely landed (edge of platform)
+    // Close call — barely landed
     if(precision<0.35&&precision>0.05){
       closeCallShow=1;
-      sfxCloseCall();shake=.15;
-      addFloat('😱 ФУХХ!',lp.x,lp.y-50,'#FF5252',22);
-      if(navigator.vibrate)navigator.vibrate(30);
+      sfxCloseCall();shake=.1;
+      addFloat('😱',lp.x,lp.y-40,'#FF5252',18);
+      if(navigator.vibrate)navigator.vibrate(20);
     }
   }
 
@@ -1308,6 +1336,14 @@ function updateGame(dt){
 
   seq+=spd*dt;
   dist+=spd*dt*.5;
+
+  // Biome progression — change every ~500 dist
+  const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
+  if(targetBiome!==curBiome){
+    curBiome=targetBiome;biomeFade=0;biomeT=1.2;
+  }
+  if(biomeFade<1)biomeFade=Math.min(1,biomeFade+dt*.5);
+  if(biomeT>0)biomeT-=dt;
 
   // Milestone check
   if(msShow>0) msShow-=dt*1.2; // fast fade (was .4)
@@ -1608,17 +1644,32 @@ function updateGame(dt){
 
 // ========== DRAWING ==========
 function drawBg(){
-  // Bright sky gradient — light blue to white near horizon
+  const bio=BIOMES[curBiome];
+  // Sky gradient — from biome colors
   const sg=ctx.createLinearGradient(0,0,0,H*.35);
-  sg.addColorStop(0,'#4FC3F7');sg.addColorStop(.4,'#81D4FA');sg.addColorStop(.7,'#B3E5FC');sg.addColorStop(1,'#E1F5FE');
+  sg.addColorStop(0,bio.skyTop);sg.addColorStop(.5,bio.skyBot);sg.addColorStop(1,'#E1F5FE');
   ctx.fillStyle=sg;ctx.fillRect(0,0,W,H*.35);
 
-  // Bright sun with soft glow
+  // Sun/moon based on biome
+  const isNight=curBiome>=4;
   const sunX=W*.75,sunY=H*.1,sunR=W*.12;
-  const sung=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*2);
-  sung.addColorStop(0,'rgba(255,255,220,.9)');sung.addColorStop(.2,'rgba(255,245,157,.6)');sung.addColorStop(.5,'rgba(255,235,59,.15)');sung.addColorStop(1,'rgba(255,235,59,0)');
-  ctx.fillStyle=sung;ctx.beginPath();ctx.arc(sunX,sunY,sunR*2,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(255,255,240,.95)';ctx.beginPath();ctx.arc(sunX,sunY,sunR*.6,0,Math.PI*2);ctx.fill();
+  if(isNight){
+    // Moon
+    ctx.fillStyle='rgba(220,220,255,.85)';ctx.beginPath();ctx.arc(sunX,sunY,sunR*.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(180,180,220,.3)';ctx.beginPath();ctx.arc(sunX,sunY,sunR*1.2,0,Math.PI*2);ctx.fill();
+    // Stars
+    for(let i=0;i<15;i++){
+      const sx=((i*97.3+gt*2)%W);
+      const sy=((i*53.7)%(H*.3));
+      const so=.3+Math.sin(gt*2+i*1.7)*.3;
+      ctx.fillStyle=`rgba(255,255,255,${so})`;ctx.beginPath();ctx.arc(sx,sy,1+Math.sin(i)*.5,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    const sung=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*2);
+    sung.addColorStop(0,'rgba(255,255,220,.9)');sung.addColorStop(.2,'rgba(255,245,157,.6)');sung.addColorStop(.5,'rgba(255,235,59,.15)');sung.addColorStop(1,'rgba(255,235,59,0)');
+    ctx.fillStyle=sung;ctx.beginPath();ctx.arc(sunX,sunY,sunR*2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,240,.95)';ctx.beginPath();ctx.arc(sunX,sunY,sunR*.6,0,Math.PI*2);ctx.fill();
+  }
 
   // Fluffy clouds
   for(const c of clouds){
@@ -1628,33 +1679,32 @@ function drawBg(){
     ctx.beginPath();ctx.ellipse(c.x+c.sz*.45,c.y+c.sz*.08,c.sz*.55,c.sz*.3,0,0,Math.PI*2);ctx.fill();
   }
 
-  // Rolling hills — green
+  // Rolling hills — biome-colored
   const mx=Math.sin(gt*.1)*3;
-  // Far hills (lighter green)
-  ctx.fillStyle='#81C784';ctx.beginPath();ctx.moveTo(0,H*.29);
+  // Far hills
+  ctx.fillStyle=isNight?'#1B3A2A':'#81C784';ctx.beginPath();ctx.moveTo(0,H*.29);
   ctx.quadraticCurveTo(W*.15+mx,H*.21,W*.3+mx*.5,H*.26);
   ctx.quadraticCurveTo(W*.45+mx,H*.18,W*.6+mx*.7,H*.24);
   ctx.quadraticCurveTo(W*.75+mx,H*.2,W*.9+mx*.5,H*.25);
   ctx.lineTo(W,H*.27);ctx.lineTo(W,H*.30);ctx.lineTo(0,H*.30);ctx.closePath();ctx.fill();
-  // Near hills (deeper green)
-  ctx.fillStyle='#66BB6A';ctx.beginPath();ctx.moveTo(0,H*.30);
+  // Near hills
+  ctx.fillStyle=isNight?'#0D2818':'#66BB6A';ctx.beginPath();ctx.moveTo(0,H*.30);
   ctx.quadraticCurveTo(W*.2,H*.26,W*.35,H*.28);
   ctx.quadraticCurveTo(W*.5,H*.25,W*.7,H*.28);
   ctx.quadraticCurveTo(W*.85,H*.26,W,H*.29);
   ctx.lineTo(W,H*.31);ctx.lineTo(0,H*.31);ctx.closePath();ctx.fill();
 
-  // Cute trees on hills
+  // Trees on hills — biome colored
   function drawTree(px,py,sc){
     ctx.save();ctx.translate(px,py);ctx.scale(sc,sc);
-    // Trunk
-    ctx.fillStyle='#8D6E63';
+    ctx.fillStyle=isNight?'#4E342E':'#8D6E63';
     ctx.fillRect(-3,-50,6,50);
-    // Round canopy
-    ctx.fillStyle='#4CAF50';
+    const tc=curBiome>=3?['#2E7D32','#1B5E20','#33691E']:curBiome>=2?['#26A69A','#00897B','#00796B']:['#4CAF50','#66BB6A','#81C784'];
+    ctx.fillStyle=isNight?'#0D3B1E':tc[0];
     ctx.beginPath();ctx.arc(0,-55,22,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#66BB6A';
+    ctx.fillStyle=isNight?'#1B5E20':tc[1];
     ctx.beginPath();ctx.arc(-6,-60,14,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#81C784';
+    ctx.fillStyle=isNight?'#2E7D32':tc[2];
     ctx.beginPath();ctx.arc(5,-50,12,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
@@ -1680,9 +1730,10 @@ function drawBg(){
 
 function drawWater(){
   const wt=H*.29;
-  // Green meadow ground
+  // Ground — biome colored
+  const bio=BIOMES[curBiome];
   const wg=ctx.createLinearGradient(0,wt,0,H);
-  wg.addColorStop(0,'#4CAF50');wg.addColorStop(.3,'#43A047');wg.addColorStop(.6,'#388E3C');wg.addColorStop(1,'#2E7D32');
+  wg.addColorStop(0,bio.ground[0]);wg.addColorStop(.3,bio.ground[1]);wg.addColorStop(.6,bio.ground[2]);wg.addColorStop(1,bio.ground[3]);
   ctx.fillStyle=wg;ctx.fillRect(0,wt,W,H-wt);
 
   // Subtle grass texture lines
@@ -1710,6 +1761,11 @@ function drawWater(){
     ctx.strokeStyle=`rgba(255,255,255,${sl.a*.3})`;ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(sl.x,sl.y);ctx.lineTo(sl.x,sl.y+sl.l);ctx.stroke();
   }
+  // Atmospheric fog at horizon — biome tinted
+  const fogStr=curBiome>=4?.25:curBiome>=3?.15:.08;
+  const fogG=ctx.createLinearGradient(0,wt,0,wt+H*.15);
+  fogG.addColorStop(0,bio.fog+fogStr+')');fogG.addColorStop(1,bio.fog+'0)');
+  ctx.fillStyle=fogG;ctx.fillRect(0,wt,W,H*.15);
 }
 
 function drawPad(x,y,s,type,dip,isCurrent,width){
@@ -2543,29 +2599,38 @@ function drawGame(){
     ctx.restore();
   }
 
-  // PERFECT / GREAT text — large and centered like Tiles Hop
+  // PERFECT / GOOD text — scaled by combo intensity
   if(perfectShow>0.02){
     ctx.save();
-    const pfa=Math.min(perfectShow*2,1);
-    const pfsc=1+(.3*(1-perfectShow));
+    const pfa=Math.min(perfectShow*2.5,1);
+    const pfsc=1+(.2*(1-perfectShow));
     const isFeverPerfect=fever&&perfectText.includes('PERFECT');
+    const isGoodText=perfectText==='GOOD';
     ctx.globalAlpha=pfa;
-    const fontSize=isFeverPerfect?56:48;
+    // Scale font: GOOD=24, single PERFECT=30, combo PERFECT=36-48, fever=48-56
+    let fontSize;
+    if(isGoodText){fontSize=24}
+    else if(isFeverPerfect){fontSize=Math.min(40+perfectCombo*2,56)}
+    else if(perfectCombo>=5){fontSize=44}
+    else if(perfectCombo>=2){fontSize=36}
+    else{fontSize=30}
     ctx.font=`bold ${fontSize*pfsc}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-    const pfCol=isFeverPerfect?'#FFD700':perfectText.includes('PERFECT')?'#E040FB':'#FFD54F';
+    const pfCol=isGoodText?'#FFD54F':isFeverPerfect?'#FFD700':perfectText.includes('⚡')?'#E040FB':'#E040FB';
     ctx.shadowColor=isFeverPerfect?'rgba(255,180,0,.8)':pfCol;
-    ctx.shadowBlur=isFeverPerfect?30:20;
+    ctx.shadowBlur=isGoodText?8:isFeverPerfect?30:16;
     ctx.fillStyle=pfCol;
-    ctx.fillText(perfectText,W/2,H*.22);
-    if(perfectCombo>1){
+    // Position: GOOD below center, PERFECT higher
+    const textY=isGoodText?H*.28:H*.22;
+    ctx.fillText(perfectText,W/2,textY);
+    if(!isGoodText&&perfectCombo>1){
       const cm=Math.min(perfectCombo,5);
-      const comboSize=isFeverPerfect?Math.min(36+cm*4,56):24+cm*4;
+      const comboSize=isFeverPerfect?Math.min(28+cm*3,44):20+cm*3;
       const comboCols=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'];
       const cc=isFeverPerfect?'#FFA000':comboCols[Math.min(cm-1,4)];
       ctx.font=`bold ${comboSize*pfsc}px sans-serif`;
-      ctx.shadowColor=cc;ctx.shadowBlur=cm*8;
+      ctx.shadowColor=cc;ctx.shadowBlur=cm*6;
       ctx.fillStyle=cc;
-      ctx.fillText('x'+cm+(cm>=4?' 🔥':''),W/2,H*.22+44*pfsc);
+      ctx.fillText('x'+cm+(cm>=4?' 🔥':''),W/2,textY+34*pfsc);
     }
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
@@ -2589,6 +2654,18 @@ function drawGame(){
     ctx.fillText(`+${msCoins}🪙`,W/2+90,mbY);
     ctx.globalAlpha=1;ctx.restore();
   }
+  // === BIOME NAME ===
+  if(biomeT>0.02&&curBiome>0){
+    ctx.save();
+    const ba=Math.min(biomeT*2,1);
+    ctx.globalAlpha=ba*.8;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='bold 18px sans-serif';
+    ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=10;
+    ctx.fillText('🌿 '+BIOMES[curBiome].name,W/2,H*.15);
+    ctx.shadowBlur=0;ctx.globalAlpha=1;
+    ctx.restore();
+  }
   // === CLOSE CALL FLASH ===
   if(closeCallShow>0.02){
     ctx.save();
@@ -2599,6 +2676,26 @@ function drawGame(){
     ctx.fillStyle=ccg;ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
+  // === TUTORIAL OVERLAY (first 2 jumps) ===
+  if(!tutorialShown&&tutorialAlpha>0.01){
+    ctx.save();
+    ctx.globalAlpha=tutorialAlpha*.7;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    // Pulsing finger icon
+    const pulse=.8+Math.sin(gt*4)*.2;
+    ctx.font=`${Math.floor(48*pulse)}px sans-serif`;
+    ctx.fillText('👆',W/2,H*.55);
+    ctx.font='bold 20px sans-serif';
+    ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=8;
+    ctx.fillText('Тримай та рухай → щоб цілитися',W/2,H*.63);
+    ctx.font='16px sans-serif';ctx.fillStyle='rgba(255,255,255,.8)';
+    ctx.fillText('Стрибай по платформах!',W/2,H*.68);
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+  if(tutorialShown&&tutorialAlpha>0)tutorialAlpha=Math.max(0,tutorialAlpha-dt*2);
+
   ctx.restore();
 
   drawHUD();
