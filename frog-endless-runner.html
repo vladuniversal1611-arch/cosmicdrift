@@ -1310,7 +1310,7 @@ function updateGame(dt){
   dist+=spd*dt*.5;
 
   // Milestone check
-  if(msShow>0) msShow-=dt*.4;
+  if(msShow>0) msShow-=dt*1.2; // fast fade (was .4)
   if(closeCallShow>0) closeCallShow-=dt*2;
   if(reviveShow>0) reviveShow-=dt*1.5;
   const fd=Math.floor(dist);
@@ -1318,15 +1318,14 @@ function updateGame(dt){
     if(fd>=ms.dist&&lastMilestone<ms.dist){
       lastMilestone=ms.dist;
       msText=ms.text;msEmoji=ms.emoji;msColor=ms.color;msCoins=ms.coins;msShow=1;
-      sfxMilestone();shake=.25;
+      sfxMilestone();shake=.15;
       runCoins+=ms.coins;
-      addFloat(`${ms.emoji} +${ms.coins}🪙`,W/2,H*.35,ms.color,20);
-      if(navigator.vibrate)navigator.vibrate([30,50,30]);
-      // Big particle burst
-      for(let i=0;i<25;i++){
+      if(navigator.vibrate)navigator.vibrate(30);
+      // Small particle burst (non-intrusive)
+      for(let i=0;i<10;i++){
         const a=rand(0,Math.PI*2);
-        addP(W/2,H*.28,Math.cos(a)*rand(.04,.09),Math.sin(a)*rand(.04,.08),
-          ['#FFD700','#FF5252','#4FC3F7','#66BB6A','#E040FB','#FF9800'][i%6],rand(2,4),rand(.6,1.2),'s');
+        addP(W/2,60,Math.cos(a)*rand(.02,.05),Math.sin(a)*rand(.02,.04),
+          ['#FFD700','#4FC3F7','#66BB6A'][i%3],rand(1.5,3),rand(.4,.8),'s');
       }
       break;
     }
@@ -2572,29 +2571,23 @@ function drawGame(){
     ctx.globalAlpha=1;
     ctx.restore();
   }
-  // === MILESTONE CELEBRATION ===
+  // === MILESTONE CELEBRATION (compact, top of screen) ===
   if(msShow>0.02){
     ctx.save();
-    const msa=Math.min(msShow*3,1);
-    const msc=1.2+(.4*(1-msShow));
+    const msa=Math.min(msShow*4,1);
     ctx.globalAlpha=msa;
-    // Big emoji
-    ctx.font=`${64*msc}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(msEmoji,W/2,H*.38-20*(1-msShow));
-    // Title text
-    ctx.font=`bold ${40*msc}px sans-serif`;
-    ctx.shadowColor=msColor;ctx.shadowBlur=25;
+    // Compact banner at top
+    const mbY=48+12*(1-msShow); // slides up as it fades
+    ctx.font='24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(msEmoji,W/2-80,mbY);
+    ctx.font='bold 22px sans-serif';
+    ctx.shadowColor=msColor;ctx.shadowBlur=12;
     ctx.fillStyle=msColor;
-    ctx.fillText(msText,W/2,H*.38+50*msc);
-    // Subtitle
+    ctx.fillText(msText,W/2+10,mbY);
     ctx.shadowBlur=0;
-    ctx.font=`bold ${18*msc}px sans-serif`;
-    ctx.fillStyle='rgba(255,255,255,.8)';
-    ctx.fillText(`${Math.floor(dist)} м пройдено!`,W/2,H*.38+85*msc);
+    ctx.font='14px sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
+    ctx.fillText(`+${msCoins}🪙`,W/2+90,mbY);
     ctx.globalAlpha=1;ctx.restore();
-    // Screen border flash in milestone color
-    ctx.save();ctx.strokeStyle=msColor;ctx.lineWidth=4;ctx.globalAlpha=msShow*.4;
-    rr(1,1,W-2,H-2,8);ctx.stroke();ctx.globalAlpha=1;ctx.restore();
   }
   // === CLOSE CALL FLASH ===
   if(closeCallShow>0.02){
