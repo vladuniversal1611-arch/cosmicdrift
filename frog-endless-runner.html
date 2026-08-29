@@ -1133,17 +1133,37 @@ function onLand(idx){
   const precision=1-Math.abs(frogX-pad.gameX)/hitR;
   const isPerfect=precision>0.75;
 
-  const scoreMult=fever?2:1;
   const coinMult=fever?2:1;
 
   if(isPerfect){
     perfectCombo++;
-    sfxPerfect();score+=2*scoreMult;pfFlash=.35;
-    perfectText=fever?'🔥 PERFECT 🔥':'PERFECT';perfectShow=1;
+    // === COMBO MULTIPLIER: consecutive perfects multiply score ===
+    const comboMult=Math.min(perfectCombo,5); // x1,x2,x3,x4,x5 cap
+    const feverMult=fever?2:1;
+    const totalPts=2*comboMult*feverMult;
+    score+=totalPts;
+    sfxPerfect();pfFlash=.35;
+    // Show combo text with multiplier
+    if(perfectCombo>=3){
+      perfectText=fever?'🔥 COMBO x'+comboMult+' 🔥':'⚡ COMBO x'+comboMult;
+      // Escalating combo sound
+      for(let i=0;i<Math.min(comboMult,4);i++)tone(440+i*330,.08,'sine',.06,i*.03);
+    } else if(perfectCombo===2){
+      perfectText=fever?'🔥 PERFECT x2 🔥':'PERFECT x2';
+    } else {
+      perfectText=fever?'🔥 PERFECT 🔥':'PERFECT';
+    }
+    perfectShow=1;
     addPerfFX(lp.x,lp.y-10);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
+    // Show bonus points float for combo
+    if(comboMult>=2){
+      const bonusCol=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'][comboMult-1]||'#FFD700';
+      addFloat('+'+totalPts+'✨',lp.x+30,lp.y-30,bonusCol,14+comboMult*2);
+    }
     const ptCol=fever?'#FFD700':'#FFF';
-    for(let i=0;i<(fever?12:8);i++){
+    const ptCount=Math.min(8+comboMult*2,16);
+    for(let i=0;i<(fever?ptCount+4:ptCount);i++){
       const a=rand(0,Math.PI*2);
       addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.015,ptCol,rand(1.5,3),.5,'s');
     }
@@ -2215,10 +2235,14 @@ function drawGame(){
     ctx.fillStyle=pfCol;
     ctx.fillText(perfectText,W/2,H*.22);
     if(perfectCombo>1){
-      const comboSize=isFeverPerfect?Math.min(36+perfectCombo*2,52):28;
+      const cm=Math.min(perfectCombo,5);
+      const comboSize=isFeverPerfect?Math.min(36+cm*4,56):24+cm*4;
+      const comboCols=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'];
+      const cc=isFeverPerfect?'#FFA000':comboCols[Math.min(cm-1,4)];
       ctx.font=`bold ${comboSize*pfsc}px sans-serif`;
-      ctx.fillStyle=isFeverPerfect?'#FFA000':pfCol;
-      ctx.fillText('x'+perfectCombo,W/2,H*.22+44*pfsc);
+      ctx.shadowColor=cc;ctx.shadowBlur=cm*8;
+      ctx.fillStyle=cc;
+      ctx.fillText('x'+cm+(cm>=4?' 🔥':''),W/2,H*.22+44*pfsc);
     }
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
