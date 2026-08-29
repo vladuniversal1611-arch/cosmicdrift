@@ -52,6 +52,19 @@ let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
 // Fever mode
 let fever=false,feverT=0,feverFlash=0,feverBreakT=0,feverPts=[];
+// Milestones
+const MILESTONES=[
+  {dist:50, text:'РОЗГІН!',emoji:'🚀',color:'#4FC3F7',coins:5},
+  {dist:100,text:'СОТНЯ!',emoji:'💯',color:'#66BB6A',coins:10},
+  {dist:250,text:'НЕЙМОВІРНО!',emoji:'⭐',color:'#FFD54F',coins:15},
+  {dist:500,text:'НАПІВТИСЯЧА!',emoji:'🔥',color:'#FF9800',coins:25},
+  {dist:1000,text:'ТИСЯЧА!',emoji:'🏆',color:'#FFD700',coins:50},
+  {dist:2000,text:'ЛЕГЕНДА!',emoji:'👑',color:'#E040FB',coins:100},
+  {dist:3000,text:'БОГ СТРИБКІВ!',emoji:'⚡',color:'#FF1744',coins:200},
+];
+let msShow=0,msText='',msEmoji='',msColor='',msCoins=0,lastMilestone=0;
+// Close call
+let closeCallShow=0;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
 let lastTypes=[], lastZones=[], lastPatternId=-1;
@@ -417,6 +430,8 @@ function sfxBoost(){tone(500,.08,'sawtooth',.08);tone(800,.1,'sawtooth',.06,.04)
 function sfxFalling(){tone(200,.2,'triangle',.1);tone(150,.25,'triangle',.08,.05);tone(100,.15,'triangle',.06,.12)}
 function sfxFever(){for(let i=0;i<6;i++)tone(440+i*220,.12,'sine',.09,i*.04);tone(1760,.15,'sine',.06,.28)}
 function sfxFeverBreak(){tone(600,.15,'triangle',.1);tone(400,.2,'triangle',.08,.06);tone(250,.25,'triangle',.06,.14);noise(.15,.1)}
+function sfxMilestone(){for(let i=0;i<8;i++)tone(330+i*165,.14,'sine',.1,i*.05);tone(1980,.2,'sine',.07,.42);noise(.06,.04,.42)}
+function sfxCloseCall(){tone(150,.1,'triangle',.08);tone(250,.06,'sine',.05,.04);noise(.04,.04)}
 const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
 function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(!ac||state!==ST.PLAY)return;const f=MEL[melI%MEL.length];if(f){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.03;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+.18)}melI++},160)}
@@ -914,6 +929,7 @@ function startGame(){
   newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
+  msShow=0;lastMilestone=0;closeCallShow=0;
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
   pads=[];padPositions=[];currentPattern=null;patternIdx=0;
@@ -1115,6 +1131,13 @@ function onLand(idx){
     sfxLand();score++;
     addLandFX(lp.x,lp.y,1.2);
     addRipple(lp.x,lp.y+5*lp.s,lp.s);
+    // Close call — barely landed (edge of platform)
+    if(precision<0.35&&precision>0.05){
+      closeCallShow=1;
+      sfxCloseCall();shake=.15;
+      addFloat('😱 ФУХХ!',lp.x,lp.y-50,'#FF5252',22);
+      if(navigator.vibrate)navigator.vibrate(30);
+    }
   }
 
   if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
@@ -1150,6 +1173,28 @@ function updateGame(dt){
 
   seq+=spd*dt;
   dist+=spd*dt*.5;
+
+  // Milestone check
+  if(msShow>0) msShow-=dt*.4;
+  if(closeCallShow>0) closeCallShow-=dt*2;
+  const fd=Math.floor(dist);
+  for(const ms of MILESTONES){
+    if(fd>=ms.dist&&lastMilestone<ms.dist){
+      lastMilestone=ms.dist;
+      msText=ms.text;msEmoji=ms.emoji;msColor=ms.color;msCoins=ms.coins;msShow=1;
+      sfxMilestone();shake=.25;
+      runCoins+=ms.coins;
+      addFloat(`${ms.emoji} +${ms.coins}🪙`,W/2,H*.35,ms.color,20);
+      if(navigator.vibrate)navigator.vibrate([30,50,30]);
+      // Big particle burst
+      for(let i=0;i<25;i++){
+        const a=rand(0,Math.PI*2);
+        addP(W/2,H*.28,Math.cos(a)*rand(.04,.09),Math.sin(a)*rand(.04,.08),
+          ['#FFD700','#FF5252','#4FC3F7','#66BB6A','#E040FB','#FF9800'][i%6],rand(2,4),rand(.6,1.2),'s');
+      }
+      break;
+    }
+  }
 
   // Update moving platforms — horizontal oscillation
   for(const p of pads){
@@ -2108,6 +2153,40 @@ function drawGame(){
     }
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
+    ctx.restore();
+  }
+  // === MILESTONE CELEBRATION ===
+  if(msShow>0.02){
+    ctx.save();
+    const msa=Math.min(msShow*3,1);
+    const msc=1.2+(.4*(1-msShow));
+    ctx.globalAlpha=msa;
+    // Big emoji
+    ctx.font=`${64*msc}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(msEmoji,W/2,H*.38-20*(1-msShow));
+    // Title text
+    ctx.font=`bold ${40*msc}px sans-serif`;
+    ctx.shadowColor=msColor;ctx.shadowBlur=25;
+    ctx.fillStyle=msColor;
+    ctx.fillText(msText,W/2,H*.38+50*msc);
+    // Subtitle
+    ctx.shadowBlur=0;
+    ctx.font=`bold ${18*msc}px sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,.8)';
+    ctx.fillText(`${Math.floor(dist)} м пройдено!`,W/2,H*.38+85*msc);
+    ctx.globalAlpha=1;ctx.restore();
+    // Screen border flash in milestone color
+    ctx.save();ctx.strokeStyle=msColor;ctx.lineWidth=4;ctx.globalAlpha=msShow*.4;
+    rr(1,1,W-2,H-2,8);ctx.stroke();ctx.globalAlpha=1;ctx.restore();
+  }
+  // === CLOSE CALL FLASH ===
+  if(closeCallShow>0.02){
+    ctx.save();
+    const cca=closeCallShow*.15;
+    // Red vignette flash
+    const ccg=ctx.createRadialGradient(W/2,H/2,W*.2,W/2,H/2,W*.7);
+    ccg.addColorStop(0,'rgba(255,0,0,0)');ccg.addColorStop(1,`rgba(255,50,50,${cca})`);
+    ctx.fillStyle=ccg;ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
   ctx.restore();
