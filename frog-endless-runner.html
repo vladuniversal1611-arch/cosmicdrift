@@ -79,6 +79,16 @@ const METEOR_DURATION=4,METEOR_INTERVAL=150;
 let chaserZ=0,chaserActive=false,chaserWarnShow=0;
 // Diamond path
 let diamondPath=false,diamondT=0,diamondCount=0,diamondTotal=0,lastDiamondDist=0;
+// Challenge platform
+const CHALLENGES=[
+  {id:'perfects',text:'3 PERFECT підряд!',emoji:'🎯',need:3,reward:15,rewardCoins:8},
+  {id:'noMoving',text:'Уникай рухомих!',emoji:'🚫',need:5,reward:12,rewardCoins:6},
+  {id:'speedLand',text:'5 стрибків за 6с!',emoji:'⏱️',need:5,reward:20,rewardCoins:10},
+];
+let challenge=null,challengeT=0,challengeProgress=0,challengeShow=0,lastChallengeDist=0;
+// Dash (dodge/skip mechanic)
+let dashReady=true,dashCooldown=0,dashActive=false,dashT=0,dashShow=0;
+const DASH_COOLDOWN=5,DASH_DURATION=.3;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
 let lastTypes=[], lastZones=[], lastPatternId=-1;
@@ -452,6 +462,9 @@ function sfxMeteorWarn(){tone(100,.2,'sawtooth',.08);tone(150,.15,'sawtooth',.06
 function sfxMeteorHit(){noise(.2,.12);tone(80,.25,'sawtooth',.1);tone(60,.3,'sawtooth',.08,.1)}
 function sfxChaserWarn(){tone(120,.3,'sawtooth',.09);tone(180,.2,'sawtooth',.07,.1);tone(90,.35,'triangle',.06,.2)}
 function sfxDiamond(){tone(880,.08,'sine',.07);tone(1100,.06,'sine',.05,.04);tone(1320,.05,'sine',.04,.07)}
+function sfxChallenge(){tone(660,.1,'sine',.08);tone(880,.08,'sine',.06,.05);tone(1100,.06,'sine',.05,.1);noise(.04,.03,.12)}
+function sfxChallengeWin(){for(let i=0;i<6;i++)tone(440+i*220,.12,'sine',.08,i*.04);tone(1760,.18,'sine',.06,.28);noise(.06,.04,.3)}
+function sfxDash(){tone(300,.06,'sawtooth',.08);tone(600,.04,'sine',.06,.02);noise(.03,.04)}
 const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
 function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(!ac||state!==ST.PLAY)return;const f=MEL[melI%MEL.length];if(f){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.03;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+.18)}melI++},160)}
@@ -851,10 +864,17 @@ function xToLane(sx){
   return clamp(centered,0,1)*2;
 }
 
+let lastTapTime=0;
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
-  if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(t.clientX)}
+  if(state===ST.PLAY&&alive){
+    touching=true;frogCont=xToLane(t.clientX);
+    // Double-tap for dash
+    const now=Date.now();
+    if(now-lastTapTime<300&&dashReady){doDash()}
+    lastTapTime=now;
+  }
 },{passive:false});
 
 canvas.addEventListener('touchmove',e=>{
@@ -876,6 +896,12 @@ canvas.addEventListener('touchend',e=>{
     if(state===ST.MENU)menuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
+    // Dash button tap (bottom-right corner)
+    else if(state===ST.PLAY&&alive&&dashReady){
+      const r=canvas.getBoundingClientRect();
+      const tx=(t.clientX-r.left)*(W/r.width), ty2=(t.clientY-r.top)*(H/r.height);
+      if(tx>W-65&&ty2>H-85) doDash();
+    }
   }
 },{passive:false});
 
@@ -902,7 +928,8 @@ document.addEventListener('keydown',e=>{
   if(state===ST.PLAY){
     if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-.5,0,2)}
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
-  }else if(state===ST.MENU&&(e.key==='Enter'||e.key===' '))startGame();
+    if(e.key===' '&&dashReady){e.preventDefault();doDash()}
+  }else if(state===ST.MENU&&(e.key==='Enter'))startGame();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
 });
@@ -959,6 +986,8 @@ function startGame(){
   meteorActive=false;meteorT=0;lastMeteorDist=0;meteors=[];
   chaserZ=0;chaserActive=false;chaserWarnShow=0;
   diamondPath=false;diamondT=0;diamondCount=0;diamondTotal=0;lastDiamondDist=0;
+  challenge=null;challengeT=0;challengeProgress=0;challengeShow=0;lastChallengeDist=0;
+  dashReady=true;dashCooldown=0;dashActive=false;dashT=0;dashShow=0;
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
   pads=[];padPositions=[];currentPattern=null;patternIdx=0;
@@ -1241,6 +1270,33 @@ function onLand(idx){
       addP(lp.x,lp.y-10,Math.cos(a)*.04,Math.sin(a)*.04-.02,'#00BCD4',rand(2,3.5),.5,'s');
     }
   }
+  // Challenge progress tracking
+  if(challenge){
+    if(challenge.id==='perfects'&&isPerfect) challengeProgress++;
+    if(challenge.id==='perfects'&&!isPerfect) challengeProgress=0; // must be consecutive
+    if(challenge.id==='noMoving'&&!pad.moving) challengeProgress++;
+    if(challenge.id==='noMoving'&&pad.moving){challengeProgress=0;addFloat('❌',lp.x,lp.y-50,'#F44336',16)}
+    if(challenge.id==='speedLand') challengeProgress++;
+  }
+}
+
+function doDash(){
+  if(!dashReady||!alive||state!==ST.PLAY) return;
+  dashReady=false;dashCooldown=DASH_COOLDOWN;dashActive=true;dashT=DASH_DURATION;dashShow=1;
+  sfxDash();shake=.1;
+  // Skip forward by 1 platform
+  const ci=getCurrentPadIdx();
+  if(ci>=0&&ci+1<pads.length){
+    const np=pads[ci+1];
+    lastIdx=ci;
+    frogCont=np.gameX;visLane=np.gameX;
+    seq=np.z;
+    addFloat('⚡ DASH!',W/2,H*.4,'#448AFF',20);
+    // Dash trail particles
+    for(let i=0;i<10;i++){
+      addP(W/2+rand(-30,30),H*.5+rand(-20,20),rand(-.04,.04),rand(.01,.03),'#448AFF',rand(1.5,3),.4,'s');
+    }
+  }
 }
 
 function updateGame(dt){
@@ -1413,6 +1469,49 @@ function updateGame(dt){
       }
     }
   }
+
+  // === CHALLENGE SYSTEM ===
+  if(challengeShow>0) challengeShow-=dt*.8;
+  if(!challenge&&dist>70&&dist-lastChallengeDist>180&&!turbo&&!meteorActive&&Math.random()<.004){
+    challenge=CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
+    challengeT=challenge.id==='speedLand'?6:0;
+    challengeProgress=0;lastChallengeDist=dist;challengeShow=1;
+    sfxChallenge();shake=.15;
+    addFloat(`${challenge.emoji} ЧЕЛЛЕНДЖ!`,W/2,H*.28,'#FF9800',26);
+    if(navigator.vibrate)navigator.vibrate([20,40,20]);
+  }
+  if(challenge){
+    if(challenge.id==='speedLand') challengeT-=dt;
+    // Timeout: 10s for perfects/noMoving, timer-based for speedLand
+    if(challenge.id!=='speedLand') challengeT+=dt;
+    if((challenge.id==='speedLand'&&challengeT<=0)||(challenge.id!=='speedLand'&&challengeT>10)){
+      // Failed
+      addFloat('❌ ПРОВАЛ!',W/2,H*.35,'#F44336',22);
+      challenge=null;
+    } else if(challengeProgress>=challenge.need){
+      // Won!
+      sfxChallengeWin();shake=.25;
+      score+=challenge.reward;runCoins+=challenge.rewardCoins;
+      addFloat(`🏆 +${challenge.reward}⭐ +${challenge.rewardCoins}🪙`,W/2,H*.35,'#FFD700',24);
+      if(navigator.vibrate)navigator.vibrate([30,50,30,50,30]);
+      for(let i=0;i<20;i++){
+        const a=rand(0,Math.PI*2);
+        addP(W/2,H*.3,Math.cos(a)*.07,Math.sin(a)*.06-.02,'#FFD700',rand(2,4),rand(.5,1),'s');
+      }
+      challenge=null;
+    }
+  }
+
+  // === DASH COOLDOWN ===
+  if(!dashReady){
+    dashCooldown-=dt;
+    if(dashCooldown<=0){dashReady=true;dashShow=.5}
+  }
+  if(dashActive){
+    dashT-=dt;
+    if(dashT<=0){dashActive=false}
+  }
+  if(dashShow>0) dashShow-=dt*1.5;
 
   // Update moving platforms — horizontal oscillation
   for(const p of pads){
@@ -2460,6 +2559,63 @@ function drawGame(){
     ctx.fillStyle='#00BCD4';ctx.shadowColor='rgba(0,188,212,.5)';ctx.shadowBlur=10;
     ctx.fillText(`💎 ${diamondCount}/${diamondTotal}`,W-20,80);
     ctx.shadowBlur=0;ctx.restore();
+  }
+
+  // === CHALLENGE HUD ===
+  if(challenge){
+    ctx.save();
+    const ca=challengeShow>0?Math.min(challengeShow*2,1):1;
+    ctx.globalAlpha=ca;
+    // Challenge box at top
+    const cbw=260,cbh=50,cbx=W/2-cbw/2,cby=65;
+    ctx.fillStyle='rgba(0,0,0,.35)';rr(cbx,cby,cbw,cbh,12);ctx.fill();
+    ctx.strokeStyle='rgba(255,152,0,.6)';ctx.lineWidth=2;rr(cbx,cby,cbw,cbh,12);ctx.stroke();
+    // Challenge text
+    ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#FF9800';ctx.fillText(`${challenge.emoji} ${challenge.text}`,W/2,cby+16);
+    // Progress bar
+    const prog=clamp(challengeProgress/challenge.need,0,1);
+    const pbw=cbw-30,pbh=8,pbx=cbx+15,pby=cby+32;
+    ctx.fillStyle='rgba(255,255,255,.15)';rr(pbx,pby,pbw,pbh,4);ctx.fill();
+    if(prog>0){
+      const hue=120*prog; // green when done
+      ctx.fillStyle=`hsl(${hue},80%,55%)`;rr(pbx,pby,pbw*prog,pbh,4);ctx.fill();
+    }
+    // Counter
+    ctx.font='bold 12px sans-serif';ctx.fillStyle='#fff';
+    ctx.fillText(`${challengeProgress}/${challenge.need}`,W/2+cbw/2-25,cby+36);
+    // Timer
+    if(challenge.id==='speedLand'){
+      ctx.fillStyle=challengeT<2?'#F44336':'#fff';
+      ctx.fillText(`${Math.ceil(challengeT)}с`,cbx+20,cby+36);
+    }
+    ctx.globalAlpha=1;ctx.restore();
+  }
+
+  // === DASH COOLDOWN INDICATOR ===
+  if(state===ST.PLAY&&alive){
+    ctx.save();
+    const dx=W-40,dy=H-60;
+    // Dash circle
+    ctx.beginPath();ctx.arc(dx,dy,22,0,Math.PI*2);
+    ctx.fillStyle=dashReady?'rgba(68,138,255,.3)':'rgba(100,100,100,.2)';ctx.fill();
+    ctx.strokeStyle=dashReady?'rgba(68,138,255,.7)':'rgba(100,100,100,.4)';ctx.lineWidth=2;ctx.stroke();
+    // Cooldown arc
+    if(!dashReady){
+      const cdProg=1-dashCooldown/DASH_COOLDOWN;
+      ctx.beginPath();ctx.moveTo(dx,dy);
+      ctx.arc(dx,dy,22,-Math.PI/2,-Math.PI/2+cdProg*Math.PI*2);ctx.closePath();
+      ctx.fillStyle='rgba(68,138,255,.25)';ctx.fill();
+    }
+    // Icon
+    ctx.font=`${dashReady?'18':'14'}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('⚡',dx,dy);
+    // Ready flash
+    if(dashShow>0){
+      ctx.strokeStyle=`rgba(68,138,255,${dashShow})`;ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(dx,dy,28,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // PERFECT / GREAT text — large and centered like Tiles Hop
