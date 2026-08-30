@@ -3166,19 +3166,281 @@ function drawMenuPlatforms(cx,baseY){
   }
 }
 
+// ========== MENU CHARACTER SHOWCASE ANIMATION ==========
+const MENU_ANIM={
+  // States: idle, prepare, jump, land, bounce
+  state:'idle',
+  t:0,           // time in current state
+  dur:2.0,       // duration of current state
+  // Position
+  x:0, y:0,      // current world position
+  startX:0, startY:0, // jump start
+  targetX:0, targetY:0, // jump target
+  // Platform indices
+  curPlat:0, targetPlat:0,
+  // Visual
+  rot:0, sqX:1, sqY:1,
+  jumpHeight:.3,  // arc height multiplier
+  jumpType:0,     // 0-4 animation variant
+  eyeLookX:0, eyeLookY:0,
+  blinkT:0, nextBlink:2,
+  antPhase:0,
+  // Trail
+  trail:[],
+  // Landing particles
+  landParts:[],
+  // Idle jelly phase
+  jellyPhase:0,
+  // Initialized
+  inited:false
+};
+
+function menuAnimGetPlatPos(idx,cx,baseY){
+  const path=[
+    {dx:0,   dy:0},
+    {dx:-45, dy:-28},
+    {dx:40,  dy:-54},
+    {dx:-30, dy:-76},
+    {dx:35,  dy:-96},
+  ];
+  const p=path[Math.min(idx,path.length-1)];
+  return {x:cx+p.dx, y:baseY+p.dy};
+}
+
+function menuAnimInit(cx,baseY){
+  const p=menuAnimGetPlatPos(0,cx,baseY);
+  MENU_ANIM.x=p.x; MENU_ANIM.y=p.y;
+  MENU_ANIM.curPlat=0; MENU_ANIM.state='idle';
+  MENU_ANIM.t=0; MENU_ANIM.dur=1.5+Math.random();
+  MENU_ANIM.sqX=1; MENU_ANIM.sqY=1; MENU_ANIM.rot=0;
+  MENU_ANIM.trail=[]; MENU_ANIM.landParts=[];
+  MENU_ANIM.inited=true;
+}
+
+function easeInOutCubic(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+
+function menuAnimUpdate(dt,cx,baseY){
+  if(!MENU_ANIM.inited) menuAnimInit(cx,baseY);
+  const A=MENU_ANIM;
+  A.t+=dt;
+  A.jellyPhase+=dt;
+  A.antPhase+=dt*4;
+
+  // Blink timer
+  A.blinkT+=dt;
+  if(A.blinkT>=A.nextBlink){A.blinkT=0;A.nextBlink=1.5+Math.random()*3;}
+
+  // Update trail
+  for(let i=A.trail.length-1;i>=0;i--){
+    A.trail[i].life-=dt*2.5;
+    if(A.trail[i].life<=0) A.trail.splice(i,1);
+  }
+  // Update landing particles
+  for(let i=A.landParts.length-1;i>=0;i--){
+    const lp=A.landParts[i];
+    lp.x+=lp.vx*dt; lp.y+=lp.vy*dt; lp.vy+=200*dt; lp.life-=dt*2;
+    if(lp.life<=0) A.landParts.splice(i,1);
+  }
+
+  const progress=Math.min(A.t/A.dur,1);
+
+  if(A.state==='idle'){
+    // Jelly breathing + squash/stretch
+    A.sqX=1+Math.sin(A.jellyPhase*2.8)*.04;
+    A.sqY=1-Math.sin(A.jellyPhase*2.8)*.04;
+    A.rot=Math.sin(A.jellyPhase*1.5)*.03;
+    // Eye look around slowly
+    A.eyeLookX=Math.sin(A.jellyPhase*.7)*3;
+    A.eyeLookY=Math.cos(A.jellyPhase*.5)*2;
+    // Update position to stay on current platform (it bobs)
+    const pp=menuAnimGetPlatPos(A.curPlat,cx,baseY);
+    A.x=pp.x; A.y=pp.y+Math.sin(gt*1.5+A.curPlat*.9)*2.5*.38;// match platform bob
+
+    if(progress>=1){
+      // Pick next animation
+      A.state='prepare';
+      A.t=0; A.dur=.25+Math.random()*.1;
+      // Choose target platform (not current)
+      const neighbors=[];
+      for(let i=0;i<5;i++) if(i!==A.curPlat) neighbors.push(i);
+      A.targetPlat=neighbors[Math.floor(Math.random()*neighbors.length)];
+      const tp=menuAnimGetPlatPos(A.targetPlat,cx,baseY);
+      A.startX=A.x; A.startY=A.y;
+      A.targetX=tp.x; A.targetY=tp.y;
+      // Pick jump type
+      A.jumpType=Math.floor(Math.random()*5);
+      // Jump height based on distance
+      const dist2=Math.sqrt((A.targetX-A.startX)**2+(A.targetY-A.startY)**2);
+      A.jumpHeight=.3+dist2/400+Math.random()*.15;
+    }
+  }
+  else if(A.state==='prepare'){
+    // Squash down — crouch before jump
+    const p=easeInOutCubic(progress);
+    A.sqX=1+p*.25;   // wider
+    A.sqY=1-p*.2;    // shorter (crouch)
+    A.rot=0;
+    // Eyes look at target
+    A.eyeLookX=(A.targetX-A.x)*.08;
+    A.eyeLookY=-2;
+
+    if(progress>=1){
+      A.state='jump';
+      A.t=0;
+      // Duration depends on distance and jump type
+      const dist2=Math.sqrt((A.targetX-A.startX)**2+(A.targetY-A.startY)**2);
+      A.dur=.4+dist2/350;
+      if(A.jumpType===1) A.dur*=1.2; // high jump slower
+      if(A.jumpType===2) A.dur*=.75; // speed jump faster
+    }
+  }
+  else if(A.state==='jump'){
+    const p=easeInOutCubic(progress);
+    // Position — parabolic arc
+    A.x=A.startX+(A.targetX-A.startX)*p;
+    const arcH=A.jumpHeight*120;
+    A.y=A.startY+(A.targetY-A.startY)*p - arcH*Math.sin(p*Math.PI);
+
+    // Rotation based on jump type
+    if(A.jumpType===0) A.rot=0; // simple jump
+    else if(A.jumpType===1) A.rot=p*Math.PI*2; // full rotation
+    else if(A.jumpType===2) A.rot=p*Math.PI; // half rotation + energy trail
+    else if(A.jumpType===3){
+      // Double bounce feel — wobble
+      A.rot=Math.sin(p*Math.PI*3)*.4;
+    }
+    else A.rot=p*Math.PI*1.5; // 270 deg
+
+    // Squash/stretch in air — stretch in direction of movement
+    const stretchAmt=.15+Math.abs(Math.cos(p*Math.PI))*.1;
+    A.sqX=1-stretchAmt*.5;
+    A.sqY=1+stretchAmt;
+
+    // Trail emission
+    const speed=Math.sqrt((A.targetX-A.startX)**2+(A.targetY-A.startY)**2)/A.dur;
+    if(speed>50&&Math.random()<.6){
+      A.trail.push({
+        x:A.x+Math.random()*6-3,
+        y:A.y+Math.random()*6-3,
+        sz:2+Math.random()*4,
+        life:1,
+        col:Math.random()>.5?'#FFD54F':'#FF8F00',
+        type:Math.random()>.7?'spark':'streak'
+      });
+    }
+
+    if(progress>=1){
+      A.state='land';
+      A.t=0; A.dur=.15;
+      A.curPlat=A.targetPlat;
+      // Snap to platform
+      const tp=menuAnimGetPlatPos(A.curPlat,cx,baseY);
+      A.x=tp.x; A.y=tp.y;
+      // Spawn landing particles
+      for(let i=0;i<8;i++){
+        A.landParts.push({
+          x:A.x+Math.random()*16-8,
+          y:A.y+Math.random()*4,
+          vx:(Math.random()-.5)*80,
+          vy:-Math.random()*120-30,
+          sz:1.5+Math.random()*2.5,
+          life:1,
+          col:['#FFD54F','#FFF176','#76FF03','#69F0AE','#fff'][Math.floor(Math.random()*5)]
+        });
+      }
+    }
+  }
+  else if(A.state==='land'){
+    // Impact squash
+    const p=progress;
+    A.sqX=1+.3*(1-p);  // wide on impact, settle
+    A.sqY=1-.25*(1-p); // flat on impact, settle
+    A.rot*=(1-p);      // rotation settles
+
+    const tp=menuAnimGetPlatPos(A.curPlat,cx,baseY);
+    A.x=tp.x; A.y=tp.y+Math.sin(gt*1.5+A.curPlat*.9)*2.5*.38;
+
+    if(progress>=1){
+      A.state='bounce';
+      A.t=0; A.dur=.3;
+    }
+  }
+  else if(A.state==='bounce'){
+    // Small bounce after landing
+    const p=progress;
+    const bounceY=-Math.sin(p*Math.PI)*8*(1-p);
+    const tp=menuAnimGetPlatPos(A.curPlat,cx,baseY);
+    A.x=tp.x; A.y=tp.y+Math.sin(gt*1.5+A.curPlat*.9)*2.5*.38+bounceY;
+    A.sqX=1+Math.sin(p*Math.PI*2)*.06;
+    A.sqY=1-Math.sin(p*Math.PI*2)*.06;
+    A.rot=0;
+
+    if(progress>=1){
+      A.state='idle';
+      A.t=0;
+      A.dur=1.5+Math.random()*1.5; // 1.5-3s idle
+      A.sqX=1; A.sqY=1; A.rot=0;
+    }
+  }
+}
+
 function drawMenuCharacter(cx,baseY){
-  menuBreathT+=.016;
-  menuBlinkT+=.016;
+  const dt=.016;
+  menuAnimUpdate(dt,cx,baseY);
+  const A=MENU_ANIM;
 
-  const breathScale=1+Math.sin(menuBreathT*2.5)*.03;
-  const bob=Math.sin(menuBreathT*1.8)*4;
+  // --- Draw trail ---
+  A.trail.forEach(tr=>{
+    ctx.globalAlpha=tr.life*.6;
+    if(tr.type==='spark'){
+      // Spark — small glowing dot
+      ctx.fillStyle=tr.col;
+      ctx.shadowColor=tr.col;ctx.shadowBlur=6;
+      ctx.beginPath();ctx.arc(tr.x,tr.y,tr.sz*tr.life,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+    } else {
+      // Streak — elongated
+      ctx.fillStyle=tr.col;
+      ctx.shadowColor=tr.col;ctx.shadowBlur=4;
+      ctx.beginPath();ctx.ellipse(tr.x,tr.y,tr.sz*1.5*tr.life,tr.sz*.5*tr.life,A.rot,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+    }
+    ctx.globalAlpha=1;
+  });
 
-  // Shadow under character
-  ctx.fillStyle='rgba(0,0,0,.12)';
-  ctx.beginPath();ctx.ellipse(cx,baseY+20,22,5,0,0,Math.PI*2);ctx.fill();
+  // --- Draw landing particles ---
+  A.landParts.forEach(lp=>{
+    ctx.globalAlpha=lp.life;
+    ctx.fillStyle=lp.col;
+    ctx.shadowColor=lp.col;ctx.shadowBlur=3;
+    ctx.beginPath();ctx.arc(lp.x,lp.y,lp.sz*lp.life,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+  });
 
-  // Character — moderately larger than in-game
-  drawFrog(cx,baseY+bob,1.05,0,1,breathScale,false,0);
+  // --- Landing impact glow ---
+  if(A.state==='land'){
+    const impactA=.25*(1-A.t/A.dur);
+    ctx.fillStyle=`rgba(255,213,79,${impactA})`;
+    ctx.beginPath();ctx.ellipse(A.x,A.y+5,30*(1+A.t/A.dur*.5),8,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // --- Shadow under character ---
+  const shadowScale=A.state==='jump'?.6:1;
+  const shadowAlpha=A.state==='jump'?.06:.12;
+  ctx.fillStyle=`rgba(0,0,0,${shadowAlpha})`;
+  // Shadow stays on the platform the character is heading to during jump
+  if(A.state==='jump'){
+    const tp=menuAnimGetPlatPos(A.targetPlat,cx,baseY);
+    ctx.beginPath();ctx.ellipse(tp.x,tp.y+5+Math.sin(gt*1.5+A.targetPlat*.9)*2.5*.38,18*shadowScale,4*shadowScale,0,0,Math.PI*2);ctx.fill();
+  } else {
+    ctx.beginPath();ctx.ellipse(A.x,A.y+18,18,4.5,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // --- Draw character ---
+  const isInAir=A.state==='jump';
+  const height=A.state==='jump'?0:0; // height handled by position
+  drawFrog(A.x,A.y,1.05,A.rot,A.sqX,A.sqY,isInAir,0);
 }
 
 function drawMenuPlayBtn(cx,by){
@@ -3415,9 +3677,8 @@ function drawMenu(){
   // 1. Platforms going into distance (behind character)
   drawMenuPlatforms(cx,H*.44);
 
-  // 2. Character on hero platform (central focus)
-  const heroY=H*.40;
-  drawMenuCharacter(cx,heroY);
+  // 2. Character showcase animation (jumps between platforms)
+  drawMenuCharacter(cx,H*.44);
 
   // 3. Logo at top
   drawMenuLogo(cx,H*.08);
