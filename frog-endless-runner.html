@@ -2752,35 +2752,278 @@ function drawHUD(){
 }
 
 // ========== MENU ==========
+// Menu idle animation state
+let menuIdleT=0,menuBlinkT=0,menuWaveT=0,menuBreathT=0;
+
+function drawMenuLogo(cx,ty){
+  ctx.save();ctx.translate(cx,ty);
+  const ts=.92+Math.sin(gt*1.2)*.015;ctx.scale(ts,ts);
+
+  // Fit to screen width
+  const logoSize=Math.min(38,W*.095);
+
+  // "BULBIK" — warm gradient with 3D depth
+  ctx.font=`bold ${logoSize}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+
+  // Dark shadow layers for 3D depth
+  ctx.fillStyle='rgba(120,50,0,.25)';
+  ctx.fillText('BULBIK',0,5);
+  ctx.fillStyle='rgba(180,80,0,.3)';
+  ctx.fillText('BULBIK',0,3);
+
+  // Main gradient fill
+  const hw=logoSize*2.5;
+  const lg=ctx.createLinearGradient(-hw,-12,hw,16);
+  lg.addColorStop(0,'#FF8F00');lg.addColorStop(.25,'#FFB300');lg.addColorStop(.45,'#FFE082');lg.addColorStop(.55,'#FFCA28');lg.addColorStop(.75,'#FFB300');lg.addColorStop(1,'#FF8F00');
+  ctx.fillStyle=lg;
+  ctx.shadowColor='rgba(255,160,0,.5)';ctx.shadowBlur=16;
+  ctx.fillText('BULBIK',0,0);
+  ctx.shadowBlur=0;
+
+  // Glossy top highlight
+  ctx.globalAlpha=.25;
+  ctx.fillStyle='#fff';
+  ctx.fillText('BULBIK',0,-1.5);
+  ctx.globalAlpha=1;
+
+  // Outline stroke for readability
+  ctx.strokeStyle='rgba(180,80,0,.4)';ctx.lineWidth=1;
+  ctx.strokeText('BULBIK',0,0);
+
+  // "RUN" — green, slightly smaller
+  const runSize=Math.min(30,W*.075);
+  ctx.font=`bold ${runSize}px sans-serif`;
+  ctx.fillStyle='rgba(27,94,32,.25)';
+  ctx.fillText('RUN',0,logoSize*.85+4);
+  const rg=ctx.createLinearGradient(-30,logoSize*.6,30,logoSize+8);
+  rg.addColorStop(0,'#43A047');rg.addColorStop(.5,'#81C784');rg.addColorStop(1,'#2E7D32');
+  ctx.fillStyle=rg;
+  ctx.shadowColor='rgba(76,175,80,.4)';ctx.shadowBlur=10;
+  ctx.fillText('RUN',0,logoSize*.85);
+  ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(27,94,32,.3)';ctx.lineWidth=.8;
+  ctx.strokeText('RUN',0,logoSize*.85);
+
+  ctx.restore();
+
+  // Subtitle ribbon
+  const ribW=W*.52,ribH=20,ribX=cx-ribW/2,ribY=ty+logoSize*1.2+16;
+  const ribG=ctx.createLinearGradient(ribX,ribY,ribX+ribW,ribY);
+  ribG.addColorStop(0,'rgba(106,27,154,0)');ribG.addColorStop(.15,'rgba(106,27,154,.65)');ribG.addColorStop(.5,'rgba(106,27,154,.8)');ribG.addColorStop(.85,'rgba(106,27,154,.65)');ribG.addColorStop(1,'rgba(106,27,154,0)');
+  ctx.fillStyle=ribG;ctx.fillRect(ribX,ribY,ribW,ribH);
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('НЕСКІНЧЕННА ПРИГОДА',cx,ribY+ribH/2);
+}
+
+function drawMenuPlatforms(cx,baseY){
+  // Perspective path going into the distance — zigzag pattern
+  const path=[
+    {dx:0,   dy:0,   sc:.42, type:'normal'},   // closest (behind hero)
+    {dx:-35, dy:-38, sc:.32, type:'normal'},
+    {dx:20,  dy:-72, sc:.24, type:'moving_h'},
+    {dx:-15, dy:-100,sc:.18, type:'normal'},
+    {dx:25,  dy:-124,sc:.14, type:'bonus'},
+    {dx:-10, dy:-144,sc:.11, type:'normal'},
+    {dx:15,  dy:-160,sc:.08, type:'normal'},
+  ];
+  // Draw back to front
+  for(let i=path.length-1;i>=0;i--){
+    const p=path[i];
+    const bob=Math.sin(gt*1.5+i*.9)*2*p.sc;
+    drawPad(cx+p.dx,baseY+p.dy+bob,p.sc,p.type,0,false,1);
+  }
+}
+
+function drawMenuCharacter(cx,baseY){
+  menuBreathT+=.016;
+
+  const breathScale=1+Math.sin(menuBreathT*2.5)*.025;
+  const bob=Math.sin(menuBreathT*1.8)*5;
+
+  // Character — 30% larger than in-game, prominent
+  drawFrog(cx,baseY+bob,1.25,0,1,breathScale,false,0);
+}
+
+function drawMenuPlayBtn(cx,by){
+  const bw=W*.62,bh=58,bx=cx-bw/2;
+
+  // Bottom shadow (3D depth)
+  ctx.fillStyle='rgba(27,94,32,.6)';
+  rr(bx+2,by+4,bw,bh,bh/2);ctx.fill();
+
+  // Main button gradient
+  const bg=ctx.createLinearGradient(bx,by,bx,by+bh);
+  bg.addColorStop(0,'#76FF03');bg.addColorStop(.15,'#69F0AE');bg.addColorStop(.5,'#4CAF50');bg.addColorStop(1,'#2E7D32');
+  ctx.fillStyle=bg;
+  ctx.shadowColor='rgba(76,255,3,.4)';ctx.shadowBlur=20;
+  rr(bx,by,bw,bh,bh/2);ctx.fill();
+  ctx.shadowBlur=0;
+
+  // Border
+  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=2;
+  rr(bx,by,bw,bh,bh/2);ctx.stroke();
+
+  // Glossy top highlight
+  ctx.fillStyle='rgba(255,255,255,.18)';
+  rr(bx+6,by+2,bw-12,bh*.4,bh/2);ctx.fill();
+
+  // Subtle inner glow pulse
+  const pulse=.08+Math.sin(gt*3)*.04;
+  ctx.fillStyle=`rgba(255,255,255,${pulse})`;
+  rr(bx,by,bw,bh,bh/2);ctx.fill();
+
+  // Text with shadow
+  ctx.fillStyle='rgba(0,80,0,.3)';ctx.font='bold 26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('▶  ГРАТИ',cx+1,by+bh/2+2);
+  ctx.fillStyle='#fff';
+  ctx.fillText('▶  ГРАТИ',cx,by+bh/2);
+}
+
+function drawMenuRecord(cx,ry){
+  if(bestScore<=0&&hs<=0)return;
+  const chipW=W*.72,chipH=36,chipX=cx-chipW/2;
+
+  // Semi-transparent dark chip
+  ctx.fillStyle='rgba(20,20,40,.35)';
+  rr(chipX,ry,chipW,chipH,chipH/2);ctx.fill();
+  ctx.strokeStyle='rgba(255,215,0,.2)';ctx.lineWidth=1;
+  rr(chipX,ry,chipW,chipH,chipH/2);ctx.stroke();
+
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const midY=ry+chipH/2;
+
+  if(bestScore>0&&hs>0){
+    // Two stats side by side
+    const leftX=chipX+chipW*.28,rightX=chipX+chipW*.72;
+    // Trophy + score
+    ctx.fillStyle='#FFD54F';ctx.font='bold 14px sans-serif';
+    ctx.fillText('🏆 '+bestScore,leftX,midY);
+    // Divider
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(cx-1,ry+8,2,chipH-16);
+    // Distance
+    ctx.fillStyle='rgba(200,230,255,.7)';ctx.font='bold 14px sans-serif';
+    ctx.fillText('🛣 '+hs+' м',rightX,midY);
+  } else if(bestScore>0){
+    ctx.fillStyle='#FFD54F';ctx.font='bold 14px sans-serif';
+    ctx.fillText('🏆 '+bestScore+' очків',cx,midY);
+  } else {
+    ctx.fillStyle='rgba(200,230,255,.7)';ctx.font='bold 14px sans-serif';
+    ctx.fillText('🛣 '+hs+' м',cx,midY);
+  }
+}
+
+function drawMenuCoins(cx){
+  // Premium coin chip — top right
+  const chipW=100,chipH=32,chipX=W-chipW-12,chipY=14;
+
+  // Dark glass background
+  ctx.fillStyle='rgba(20,20,40,.45)';
+  rr(chipX,chipY,chipW,chipH,chipH/2);ctx.fill();
+  ctx.strokeStyle='rgba(255,215,0,.25)';ctx.lineWidth=1;
+  rr(chipX,chipY,chipW,chipH,chipH/2);ctx.stroke();
+
+  // Coin icon
+  const coinX=chipX+18,coinY=chipY+chipH/2;
+  const cg=ctx.createRadialGradient(coinX-1,coinY-1,0,coinX,coinY,9);
+  cg.addColorStop(0,'#FFF176');cg.addColorStop(.5,'#FFD54F');cg.addColorStop(1,'#FFA000');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(coinX,coinY,9,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#E65100';ctx.lineWidth=1;ctx.beginPath();ctx.arc(coinX,coinY,5.5,0,Math.PI*2);ctx.stroke();
+  // Coin highlight
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.beginPath();ctx.arc(coinX-2,coinY-2,3,0,Math.PI*2);ctx.fill();
+
+  // Number
+  ctx.fillStyle='#fff';ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(coins,chipX+chipW/2+8,coinY);
+}
+
+function drawMenuNav(){
+  const navH=72,navY=H-navH;
+  const navW=W-24,navX=12;
+
+  // Dark glass dock
+  ctx.fillStyle='rgba(15,15,35,.55)';
+  rr(navX,navY,navW,navH-6,20);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+  rr(navX,navY,navW,navH-6,20);ctx.stroke();
+
+  const items=[
+    {icon:'👾',label:'СКІНИ',col:'#CE93D8',glowCol:'171,71,188'},
+    {icon:'🎯',label:'ЗАВДАННЯ',col:'#FF7043',glowCol:'255,112,67'},
+    {icon:'🛒',label:'МАГАЗИН',col:'#FFD54F',glowCol:'255,213,79'},
+  ];
+  const secW=navW/3;
+
+  items.forEach((item,i)=>{
+    const ix=navX+secW*i+secW/2;
+    const iy=navY+navH/2-6;
+
+    // Icon background circle with subtle glow
+    const iglow=Math.sin(gt*2+i*2.1)*.1+.15;
+    ctx.fillStyle=`rgba(${item.glowCol},${iglow})`;
+    ctx.beginPath();ctx.arc(ix,iy-6,20,0,Math.PI*2);ctx.fill();
+
+    // Icon
+    ctx.font='26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(item.icon,ix,iy-5);
+
+    // Label
+    ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='bold 10px sans-serif';
+    ctx.fillText(item.label,ix,iy+20);
+  });
+}
+
 function drawMenu(){
   gt+=.016;drawBg();drawWater();
-  for(let i=0;i<4;i++){const mx=W*.18+i*W*.22+Math.sin(gt+i)*8,my=H*.52+Math.sin(gt*.7+i*2)*5;drawPad(mx,my,.25+i*.02,i%2===0?'flower':'normal',0,false,1)}
-  const fx=W/2,fy=H*.40;
-  drawPad(fx,fy+18,.5,'flower',0,false,1);
-  drawFrog(fx,fy+Math.sin(gt*1.5)*4,.8,0,1,1,false,0);
-  ctx.save();ctx.translate(W/2,H*.12);const ts=.85+Math.sin(gt*1.5)*.02;ctx.scale(ts,ts);
-  ctx.shadowColor='rgba(255,152,0,.5)';ctx.shadowBlur=15;
-  const tg=ctx.createLinearGradient(-90,-15,90,15);tg.addColorStop(0,'#FF9800');tg.addColorStop(.5,'#F44336');tg.addColorStop(1,'#FF9800');
-  ctx.fillStyle=tg;ctx.font='bold 34px sans-serif';ctx.textAlign='center';ctx.fillText('👾 BULBIK RUN',0,0);
-  ctx.shadowBlur=0;ctx.restore();
-  ctx.fillStyle='rgba(120,120,120,.6)';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('Нескінченна Пригода',W/2,H*.12+28);
-  const bw=190,bh=52,bx=W/2-bw/2,by=H*.58;
-  ctx.shadowColor='rgba(76,175,80,.4)';ctx.shadowBlur=12;
-  const bg2=ctx.createLinearGradient(bx,by,bx,by+bh);bg2.addColorStop(0,'#66BB6A');bg2.addColorStop(1,'#2E7D32');ctx.fillStyle=bg2;rr(bx,by,bw,bh,26);ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.strokeStyle='rgba(76,175,80,.5)';ctx.lineWidth=2;rr(bx,by,bw,bh,26);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.12)';rr(bx+3,by+2,bw-6,bh/2,18);ctx.fill();
-  ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText('▶ ГРАТИ',W/2,by+bh/2+7);
-  if(bestScore>0||hs>0){ctx.fillStyle='rgba(150,230,200,.5)';ctx.font='13px sans-serif';ctx.fillText('🏆 '+(bestScore>0?bestScore+' очків':'')+(bestScore>0&&hs>0?' · ':'')+(hs>0?hs+' м':''),W/2,by+bh+25)}
-  const ny=H-55;
-  [{i:'👾',l:'СКІНИ',x:W*.2},{i:'🎯',l:'ЗАВДАННЯ',x:W*.5},{i:'🛒',l:'МАГАЗИН',x:W*.8}].forEach(b=>{
-    ctx.fillStyle='rgba(255,255,255,.55)';rr(b.x-35,ny-3,70,45,10);ctx.fill();ctx.fillStyle='rgba(80,80,80,.8)';ctx.font='20px sans-serif';ctx.textAlign='center';ctx.fillText(b.i,b.x,ny+15);ctx.font='9px sans-serif';ctx.fillText(b.l,b.x,ny+32)});
-  ctx.fillStyle='rgba(255,255,255,.5)';rr(W-100,12,90,26,8);ctx.fill();ctx.fillStyle='#E65100';ctx.font='bold 13px sans-serif';ctx.textAlign='right';ctx.fillText('🪙 '+coins,W-16,30);
+
+  // Floating ambient particles (fireflies)
+  for(let i=0;i<8;i++){
+    const px=((i*167.3+gt*8)%(W+40))-20;
+    const py=H*.08+((i*97.1+Math.sin(gt*.8+i)*20)%(H*.55));
+    const pa=.12+Math.sin(gt*2+i*1.3)*.1;
+    ctx.fillStyle=`rgba(255,255,200,${pa})`;
+    ctx.beginPath();ctx.arc(px,py,1.5+Math.sin(i)*.8,0,Math.PI*2);ctx.fill();
+  }
+
+  const cx=W/2;
+
+  // 1. Logo at top — above everything
+  drawMenuLogo(cx,H*.09);
+
+  // 2. Platform path going into distance (behind character)
+  drawMenuPlatforms(cx,H*.44);
+
+  // 3. Hero platform + character (central focus)
+  const heroY=H*.39;
+  drawPad(cx,heroY+22,.65,'flower',0,true,1.3);
+  drawMenuCharacter(cx,heroY);
+
+  // 4. PLAY button — biggest CTA
+  const playY=H*.60;
+  drawMenuPlayBtn(cx,playY);
+
+  // 5. Record chips below play button
+  drawMenuRecord(cx,playY+70);
+
+  // 6. Coin chip (top right)
+  drawMenuCoins(cx);
+
+  // 7. Bottom navigation dock
+  drawMenuNav();
 }
+
 function menuTap(x,y){
-  const bw=190,bh=52,bx=W/2-bw/2,by=H*.58;
+  // PLAY button
+  const bw=W*.62,bh=58,bx=W/2-bw/2,by=H*.60;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startGame();return}
-  if(y>H-70&&x<W*.35){sfxClick();state=ST.SKINS}
+  // Bottom nav — 3 equal sections
+  const navH=72,navY=H-navH;
+  if(y>=navY&&y<=H){
+    const secW=(W-24)/3;
+    const section=Math.floor((x-12)/secW);
+    if(section===0){sfxClick();state=ST.SKINS}
+    // section 1 = ЗАВДАННЯ (not implemented)
+    // section 2 = МАГАЗИН (not implemented)
+  }
 }
 
 // ========== GAME OVER ==========
