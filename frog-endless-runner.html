@@ -40,8 +40,9 @@ let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1;
 let alive=true,falling=false,fallT=0;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
+let bestScore=+localStorage.getItem('fBS')||0;
 let coins=+localStorage.getItem('fCoins')||0;
-let newRec=false;
+let newRec=false,newScoreRec=false;
 let shield=false,magnet=false,magnetT=0,boost=false,boostT=0;
 let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0;
 let pads=[],padPositions=[];
@@ -980,7 +981,7 @@ function startGame(){
   sfxClick();state=ST.PLAY;
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
-  newRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
   msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
@@ -1029,6 +1030,7 @@ function die(){
   if(navigator.vibrate)navigator.vibrate(100);
   const fd=Math.floor(dist);
   if(fd>hs){hs=fd;localStorage.setItem('fHS',''+hs);newRec=true}
+  if(score>bestScore){bestScore=score;localStorage.setItem('fBS',''+bestScore);newScoreRec=true}
   coins+=runCoins;localStorage.setItem('fCoins',''+coins);
   goT=0;setTimeout(()=>{state=ST.OVER},800);
 }
@@ -2702,12 +2704,17 @@ function drawGame(){
 }
 
 function drawHUD(){
+  // Main score
   ctx.fillStyle='#fff';ctx.font='bold 32px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=6;
-  ctx.fillText(score,W/2,32);
-  ctx.shadowBlur=0;ctx.textBaseline='alphabetic';
+  ctx.fillText(score,W/2,28);
+  ctx.shadowBlur=0;
+  // Distance below score
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='bold 13px sans-serif';
+  ctx.fillText(Math.floor(dist)+' м',W/2,48);
+  ctx.textBaseline='alphabetic';
 
-  const bw=W*.35,bh=4,bx=W/2-bw/2,by=52;
+  const bw=W*.35,bh=4,bx=W/2-bw/2,by=60;
   const prog=clamp(dist/100,0,1);
   ctx.fillStyle='rgba(255,255,255,.15)';rr(bx,by,bw,bh,2);ctx.fill();
   if(prog>0){
@@ -2759,7 +2766,7 @@ function drawMenu(){
   ctx.strokeStyle='rgba(76,175,80,.5)';ctx.lineWidth=2;rr(bx,by,bw,bh,26);ctx.stroke();
   ctx.fillStyle='rgba(255,255,255,.12)';rr(bx+3,by+2,bw-6,bh/2,18);ctx.fill();
   ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText('▶ ГРАТИ',W/2,by+bh/2+7);
-  if(hs>0){ctx.fillStyle='rgba(150,230,200,.5)';ctx.font='13px sans-serif';ctx.fillText('🏆 Рекорд: '+hs+' м',W/2,by+bh+25)}
+  if(bestScore>0||hs>0){ctx.fillStyle='rgba(150,230,200,.5)';ctx.font='13px sans-serif';ctx.fillText('🏆 '+(bestScore>0?bestScore+' очків':'')+(bestScore>0&&hs>0?' · ':'')+(hs>0?hs+' м':''),W/2,by+bh+25)}
   const ny=H-55;
   [{i:'👾',l:'СКІНИ',x:W*.2},{i:'🎯',l:'ЗАВДАННЯ',x:W*.5},{i:'🛒',l:'МАГАЗИН',x:W*.8}].forEach(b=>{
     ctx.fillStyle='rgba(255,255,255,.55)';rr(b.x-35,ny-3,70,45,10);ctx.fill();ctx.fillStyle='rgba(80,80,80,.8)';ctx.font='20px sans-serif';ctx.textAlign='center';ctx.fillText(b.i,b.x,ny+15);ctx.font='9px sans-serif';ctx.fillText(b.l,b.x,ny+32)});
@@ -2778,22 +2785,63 @@ function drawOver(){
   if(reviveShow>0) reviveShow-=.016;
   ctx.fillStyle=`rgba(0,0,0,${.35*goT})`;ctx.fillRect(0,0,W,H);
   const showRevive=canRevive();
-  const pw=Math.min(W*.82,310),ph=(newRec?360:330)+(showRevive?56:0),px=W/2-pw/2,py=H/2-ph/2;
+  const hasAnyRec=newScoreRec||newRec;
+  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0),px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
-  const cx=W/2;let ty=py+25;
-  if(newRec){ctx.fillStyle='#FFD700';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillText('🏆 НОВИЙ РЕКОРД! 🏆',cx,ty+8);ty+=30}
-  ctx.fillStyle='#F44336';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.fillText('ГРА ЗАКІНЧЕНА',cx,ty+10);ty+=45;
-  ctx.font='42px sans-serif';ctx.fillText('👾💫',cx,ty+8);ty+=50;
-  ctx.fillStyle='rgba(100,100,100,.7)';ctx.font='15px sans-serif';ctx.fillText('Дистанція',cx,ty);ty+=3;
-  ctx.fillStyle='#333';ctx.font='bold 30px sans-serif';ctx.fillText(Math.floor(dist)+' м',cx,ty+24);ty+=40;
-  ctx.fillStyle='rgba(100,120,120,.6)';ctx.font='13px sans-serif';
-  ctx.fillText('Рекорд: '+hs+' м   Монети: +'+runCoins,cx,ty+5);ty+=25;
+  const cx=W/2;let ty=py+22;
+
+  // Title
+  ctx.fillStyle='#F44336';ctx.font='bold 22px sans-serif';ctx.textAlign='center';
+  ctx.fillText('ГРА ЗАКІНЧЕНА',cx,ty+10);ty+=38;
+
+  // New record badge
+  if(newScoreRec){
+    ctx.fillStyle='#FFD700';ctx.font='bold 15px sans-serif';
+    ctx.fillText('🏆 НОВИЙ РЕКОРД ОЧКІВ! 🏆',cx,ty+6);ty+=24;
+  }
+
+  // Main score — big and prominent
+  ctx.fillStyle='#333';ctx.font='bold 48px sans-serif';
+  ctx.fillText(score,cx,ty+30);ty+=42;
+  ctx.fillStyle='rgba(100,100,100,.6)';ctx.font='bold 14px sans-serif';
+  ctx.fillText('ОЧКІВ',cx,ty+8);ty+=28;
+
+  // Stats row — distance, best score, coins
+  const statW=pw-36,statX=cx-statW/2;
+  ctx.fillStyle='rgba(0,0,0,.04)';rr(statX,ty,statW,90,14);ctx.fill();
+
+  const col3=statW/3;
+  // Distance
+  ctx.fillStyle='rgba(80,80,80,.5)';ctx.font='12px sans-serif';
+  ctx.fillText('🛣 ДИСТАНЦІЯ',statX+col3*.5,ty+18);
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';
+  ctx.fillText(Math.floor(dist)+' м',statX+col3*.5,ty+40);
+  if(newRec){ctx.fillStyle='#FF9800';ctx.font='bold 10px sans-serif';ctx.fillText('РЕКОРД!',statX+col3*.5,ty+56)}
+
+  // Best score
+  ctx.fillStyle='rgba(80,80,80,.5)';ctx.font='12px sans-serif';
+  ctx.fillText('🏆 РЕКОРД',statX+col3*1.5,ty+18);
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';
+  ctx.fillText(bestScore,statX+col3*1.5,ty+40);
+  ctx.fillStyle='rgba(120,120,120,.4)';ctx.font='11px sans-serif';
+  ctx.fillText(hs+' м',statX+col3*1.5,ty+56);
+
+  // Coins
+  ctx.fillStyle='rgba(80,80,80,.5)';ctx.font='12px sans-serif';
+  ctx.fillText('🪙 МОНЕТИ',statX+col3*2.5,ty+18);
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';
+  ctx.fillText('+'+runCoins,statX+col3*2.5,ty+40);
+  ctx.fillStyle='rgba(120,120,120,.4)';ctx.font='11px sans-serif';
+  ctx.fillText('всього: '+coins,statX+col3*2.5,ty+56);
+
+  ty+=100;
+
   const rw=pw*.68,rh=44,rx=cx-rw/2;
   // Revive button (golden, pulsing)
   if(showRevive){
-    const rvY=ty+5;
+    const rvY=ty+2;
     const rvPulse=.9+.1*Math.sin(gt*4);
     ctx.save();ctx.scale(rvPulse,rvPulse);
     const rvx2=cx/rvPulse,rvy2=rvY/rvPulse;
@@ -2805,15 +2853,15 @@ function drawOver(){
     ctx.fillStyle='#5D4037';ctx.font=`bold ${15/rvPulse}px sans-serif`;ctx.textAlign='center';
     ctx.fillText('👼 ПРОДОВЖИТИ (50🪙)',rvx2,rvy2+rh/rvPulse/2+5);
     ctx.restore();
-    ty+=rh+12;
+    ty+=rh+10;
   }
   // Retry button
-  const ry=ty+5;
+  const ry=ty+4;
   ctx.shadowColor='rgba(76,175,80,.4)';ctx.shadowBlur=12;
   const rg=ctx.createLinearGradient(rx,ry,rx,ry+rh);rg.addColorStop(0,'#66BB6A');rg.addColorStop(1,'#2E7D32');ctx.fillStyle=rg;rr(rx,ry,rw,rh,22);ctx.fill();
   ctx.shadowBlur=0;
   ctx.fillStyle='#fff';ctx.font='bold 16px sans-serif';ctx.fillText('▶ СПРОБУВАТИ ЗНОВУ',cx,ry+rh/2+5);
-  ty=ry+rh+12;ctx.fillStyle='rgba(0,0,0,.06)';rr(rx,ty,rw,36,18);ctx.fill();ctx.fillStyle='rgba(100,120,120,.6)';ctx.font='13px sans-serif';ctx.fillText('ГОЛОВНЕ МЕНЮ',cx,ty+22);
+  ty=ry+rh+10;ctx.fillStyle='rgba(0,0,0,.06)';rr(rx,ty,rw,36,18);ctx.fill();ctx.fillStyle='rgba(100,120,120,.6)';ctx.font='13px sans-serif';ctx.fillText('ГОЛОВНЕ МЕНЮ',cx,ty+22);
   ctx.globalAlpha=1;ctx.restore();
 }
 function doRevive(){
@@ -2840,17 +2888,25 @@ function doRevive(){
 }
 function overTap(x,y){
   const showRevive=canRevive();
-  const pw=Math.min(W*.82,310),cx=W/2,rw=pw*.68,rx=cx-rw/2;
-  let ty=(H/2-((newRec?360:330)+(showRevive?56:0))/2)+25;
-  if(newRec)ty+=30;ty+=40+45+3+35+25+5;
+  const hasAnyRec=newScoreRec||newRec;
+  const pw=Math.min(W*.82,320),cx=W/2,rw=pw*.68,rx=cx-rw/2;
+  const ph=(hasAnyRec?480:450)+(showRevive?56:0);
+  let ty=H/2-ph/2+22; // match drawOver layout
+  ty+=38; // title
+  if(newScoreRec)ty+=24;
+  ty+=42+28; // score + label
+  ty+=100; // stats box
   // Revive button
   if(showRevive){
-    if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+44){doRevive();return}
-    ty+=44+12;
+    const rvY=ty+2;
+    if(x>=rx&&x<=rx+rw&&y>=rvY&&y<=rvY+44){doRevive();return}
+    ty+=44+10;
   }
   // Retry
-  if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+44){startGame();return}
-  ty+=44+12;if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+36){sfxClick();state=ST.MENU}
+  const ry=ty+4;
+  if(x>=rx&&x<=rx+rw&&y>=ry&&y<=ry+44){startGame();return}
+  ty=ry+44+10;
+  if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+36){sfxClick();state=ST.MENU}
 }
 
 // ========== SKINS ==========
