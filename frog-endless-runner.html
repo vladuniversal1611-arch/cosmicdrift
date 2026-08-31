@@ -2350,6 +2350,12 @@ function drawBanks(edgeL,edgeR){
     return x-Math.floor(x);
   };
 
+  // Wave function (same as in water clipping) - banks follow waves
+  const waveAmp=(z)=>{
+    const norm=Math.min(z/VIEW_AHEAD,1);
+    return Math.sin((z*3-seq)*0.5)*0.12*norm*(1-norm*0.5);
+  };
+
   const vanY=H*.18,baseY=H*.93;
   const span=baseY-vanY;
 
@@ -2359,8 +2365,10 @@ function drawBanks(edgeL,edgeR){
     if(p<=1e-4)continue;
 
     const z=FOCAL_LEN*(1-p)/p;
-    const pL=project(z,edgeL);
-    const pR=project(z,edgeR);
+    // Apply wave to bank edges so rocks follow the wavy shore
+    const wave=waveAmp(z);
+    const pL=project(z,edgeL+wave);
+    const pR=project(z,edgeR-wave);
 
     // Bank width at this depth
     const bankW=Math.max(4,18*p);
