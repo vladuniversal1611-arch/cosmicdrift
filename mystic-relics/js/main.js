@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.showScreen('main');     // 9. Головне меню
   Game.startLoop();          // 10. Головний цикл (60 FPS)
   Ads.showBanner();          // 11. Місце під банер AdMob
+  Notify.init();             // 12. Локальні сповіщення (нагадування)
 
   // Ховаємо системну шторку (status bar) на нативній платформі
   try {
