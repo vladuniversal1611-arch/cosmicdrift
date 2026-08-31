@@ -3131,20 +3131,43 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     if (SFX[name]) SFX[name](arg);
   }
 
-  // ---- Background music: a looped audio track ------------------------------
-  // Inlined as a data URI in the single-file build (window.MUSIC_TRACK), else
-  // loaded from assets/audio/theme.mp3 in the packaged app.
+  // ---- Background music: gapless loop via Web Audio BufferSource -----------
+  // We decode the MP3 once into an AudioBuffer then play it through an
+  // AudioBufferSourceNode with loop=true.  This is sample-accurate — zero gap,
+  // no browser re-seek stutter that HTMLAudioElement.loop suffers from.
   const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.mp3';
-  let musicEl = null;
-  function ensureMusicEl() {
-    if (musicEl) return musicEl;
+  let musicBuffer = null;   // decoded AudioBuffer, filled once
+  let musicSrc   = null;    // current playing AudioBufferSourceNode
+  let musicLoading = false;
+
+  function loadMusicBuffer(cb) {
+    if (musicBuffer) { if (cb) cb(musicBuffer); return; }
+    if (musicLoading) return;
+    musicLoading = true;
     try {
-      musicEl = new Audio(MUSIC_URL);
-      musicEl.loop = true;
-      musicEl.preload = 'auto';
-      musicEl.volume = 0.5;
-    } catch (e) { musicEl = null; }
-    return musicEl;
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', MUSIC_URL, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        ctx.decodeAudioData(xhr.response, function (buf) {
+          musicBuffer = buf;
+          musicLoading = false;
+          if (cb) cb(buf);
+        }, function () { musicLoading = false; });
+      };
+      xhr.onerror = function () { musicLoading = false; };
+      xhr.send();
+    } catch (e) { musicLoading = false; }
+  }
+
+  function _playMusicBuffer() {
+    if (!ctx || !musicBuffer) return;
+    var src = ctx.createBufferSource();
+    src.buffer = musicBuffer;
+    src.loop = true;
+    src.connect(musicGain);
+    src.start(0);
+    musicSrc = src;
   }
 
   function setIsland() { /* single looped track — no per-island switch */ }
@@ -3152,16 +3175,20 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   function startMusic() {
     if (global.Save && global.Save.get().settings.music === false) return;
     if (musicOn) return;
-    const el = ensureMusicEl();
-    if (!el) return;
+    ensure();
+    if (!ctx) return;
+    resume();
     musicOn = true;
-    const pr = el.play();
-    if (pr && pr.catch) pr.catch(function () { /* autoplay blocked until a gesture */ });
+    if (musicBuffer) {
+      _playMusicBuffer();
+    } else {
+      loadMusicBuffer(function () { if (musicOn) _playMusicBuffer(); });
+    }
   }
 
   function stopMusic() {
     musicOn = false;
-    if (musicEl) { try { musicEl.pause(); } catch (e) {} }
+    if (musicSrc) { try { musicSrc.stop(); } catch (e) {} musicSrc = null; }
   }
 
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
