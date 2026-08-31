@@ -111,9 +111,15 @@
   // AudioBufferSourceNode with loop=true.  This is sample-accurate — zero gap,
   // no browser re-seek stutter that HTMLAudioElement.loop suffers from.
   const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.wav';
-  let musicBuffer = null;   // decoded AudioBuffer, filled once
-  let musicSrc   = null;    // current playing AudioBufferSourceNode
+  let musicBuffer  = null;  // decoded AudioBuffer, filled once
   let musicLoading = false;
+  let _loopSrcs    = [];    // active AudioBufferSourceNodes (2 at most during xfade)
+  let _loopTimer   = null;  // setTimeout handle for scheduling the next source
+  let _loopNext    = 0;     // AudioContext time when the next source should start
+
+  // How long (seconds) the two sources overlap while crossfading.
+  // 80 ms is long enough to be inaudible, short enough not to distort the beat.
+  var XFADE = 0.08;
 
   function loadMusicBuffer(cb) {
     if (musicBuffer) { if (cb) cb(musicBuffer); return; }
@@ -135,14 +141,56 @@
     } catch (e) { musicLoading = false; }
   }
 
-  function _playMusicBuffer() {
-    if (!ctx || !musicBuffer) return;
+  // Schedule one source node starting at `when`, overlapping the previous one
+  // by XFADE seconds (gain 0→1 at start, 1→0 at end).  A setTimeout fires
+  // ~150 ms before this source finishes to schedule the next iteration.
+  function _scheduleOne(when) {
+    if (!musicOn || !ctx || !musicBuffer) return;
+    var dur = musicBuffer.duration;
+    var xf  = Math.min(XFADE, dur * 0.05);
+
+    var g = ctx.createGain();
+    g.connect(musicGain);
+    // Fade in
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.linearRampToValueAtTime(1, when + xf);
+    // Fade out
+    g.gain.setValueAtTime(1, when + dur - xf);
+    g.gain.linearRampToValueAtTime(0.0001, when + dur);
+
     var src = ctx.createBufferSource();
     src.buffer = musicBuffer;
-    src.loop = true;
-    src.connect(musicGain);
-    src.start(0);
-    musicSrc = src;
+    src.connect(g);
+    src.start(when);
+    src.stop(when + dur + 0.02);
+    _loopSrcs.push(src);
+
+    // Update the "next start" — XFADE before this one ends
+    _loopNext = when + dur - xf;
+
+    // Schedule next source with ~150 ms lead time
+    var leadMs = (_loopNext - ctx.currentTime - 0.15) * 1000;
+    _loopTimer = setTimeout(function () {
+      // Drop references to any nodes that are fully done
+      _loopSrcs = _loopSrcs.filter(function (s) {
+        return ctx.currentTime < (s._stopAt || Infinity);
+      });
+      _scheduleOne(_loopNext);
+    }, Math.max(0, leadMs));
+
+    src._stopAt = when + dur + 0.02;
+  }
+
+  function _playMusicBuffer() {
+    if (!ctx || !musicBuffer) return;
+    _stopLoop();
+    _scheduleOne(ctx.currentTime);
+  }
+
+  function _stopLoop() {
+    if (_loopTimer) { clearTimeout(_loopTimer); _loopTimer = null; }
+    _loopSrcs.forEach(function (s) { try { s.stop(); } catch (e) {} });
+    _loopSrcs = [];
   }
 
   function setIsland() { /* single looped track — no per-island switch */ }
@@ -163,7 +211,7 @@
 
   function stopMusic() {
     musicOn = false;
-    if (musicSrc) { try { musicSrc.stop(); } catch (e) {} musicSrc = null; }
+    _stopLoop();
   }
 
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
