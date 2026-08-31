@@ -2349,10 +2349,25 @@ function drawRoadWater(edgeL,edgeR){
   const rowH=2;
 
   ctx.save();
-  // Clip to the road trapezoid so the water never spills onto the banks.
+  // Clip to the road trapezoid with wavy banks so the water never spills onto the banks.
+  // Wave function: varies with depth (z) and animates with seq to flow with water
+  const waveAmp=(z)=>{
+    // Wave amplitude increases slightly with depth, then decreases toward horizon
+    const norm=Math.min(z/VIEW_AHEAD,1);
+    return Math.sin((z*3-seq)*0.5)*0.12*norm*(1-norm*0.5);
+  };
+
   ctx.beginPath();
-  for(let z=VIEW_AHEAD;z>=0;z-=.4){const p=project(z,edgeL);z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)}
-  for(let z=0;z<=VIEW_AHEAD;z+=.4){const p=project(z,edgeR);ctx.lineTo(p.x,p.y)}
+  for(let z=VIEW_AHEAD;z>=0;z-=.4){
+    const wave=waveAmp(z);
+    const p=project(z,edgeL+wave);
+    z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
+  }
+  for(let z=0;z<=VIEW_AHEAD;z+=.4){
+    const wave=waveAmp(z);
+    const p=project(z,edgeR-wave);
+    ctx.lineTo(p.x,p.y);
+  }
   ctx.closePath();ctx.clip();
 
   // Walk screen rows and invert the projection per row. Stepping by depth
