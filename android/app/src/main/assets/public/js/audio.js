@@ -106,84 +106,37 @@
     if (SFX[name]) SFX[name](arg);
   }
 
-  // ---- Melodic background music -------------------------------------------
-  // A calm looping chord progression per island (soft bass + sustained pad +
-  // gentle arpeggio), routed through the music low-pass so it stays warm.
-  // Each chord is a triad [root, third, fifth] in a comfortable octave.
-  const THEMES = [
-    // 0 Dawn — C major, I–V–vi–IV, warm and gentle
-    { prog: [[261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [220.00, 261.63, 329.63], [174.61, 220.00, 261.63]],
-      beat: 500, wave: 'triangle', bass: 'sine', cutoff: 1500, lvl: 1.0 },
-    // 1 Ice — A minor, vi–IV–I–V, slow and glassy
-    { prog: [[220.00, 261.63, 329.63], [174.61, 220.00, 261.63], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66]],
-      beat: 600, wave: 'sine', bass: 'sine', cutoff: 1150, lvl: 0.95 },
-    // 2 Storm — E minor, i–VI–III–VII, a little faster and edgier
-    { prog: [[329.63, 392.00, 493.88], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [293.66, 369.99, 440.00]],
-      beat: 440, wave: 'triangle', bass: 'triangle', cutoff: 1750, lvl: 0.95 },
-    // 3 Forest — G major, I–V–vi–IV, bright and bouncy
-    { prog: [[196.00, 246.94, 293.66], [293.66, 369.99, 440.00], [329.63, 392.00, 493.88], [261.63, 329.63, 392.00]],
-      beat: 460, wave: 'triangle', bass: 'sine', cutoff: 1900, lvl: 1.0 },
-    // 4 Sky — C major, grand and airy with an octave-up melody
-    { prog: [[261.63, 329.63, 392.00], [196.00, 246.94, 293.66], [220.00, 261.63, 329.63], [174.61, 220.00, 261.63]],
-      beat: 520, wave: 'sine', bass: 'sine', cutoff: 2100, lvl: 1.0, hi: true }
-  ];
-  let theme = THEMES[0];
-  let bar = 0, beat = 0;
-
-  // Smooth music note: slow-ish attack, long release — never clicky.
-  function mtone(freq, dur, type, gain, attack) {
-    if (!ctx) return;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = type || 'sine'; o.frequency.value = freq;
-    const t = ctx.currentTime, a = attack != null ? attack : Math.min(0.08, dur * 0.25);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(gain, t + a);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(musicGain);
-    o.start(t); o.stop(t + dur + 0.05);
+  // ---- Background music: a looped audio track ------------------------------
+  // Inlined as a data URI in the single-file build (window.MUSIC_TRACK), else
+  // loaded from assets/audio/theme.mp3 in the packaged app.
+  const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.mp3';
+  let musicEl = null;
+  function ensureMusicEl() {
+    if (musicEl) return musicEl;
+    try {
+      musicEl = new Audio(MUSIC_URL);
+      musicEl.loop = true;
+      musicEl.preload = 'auto';
+      musicEl.volume = 0.5;
+    } catch (e) { musicEl = null; }
+    return musicEl;
   }
 
-  function setIsland(id) {
-    const t = THEMES[((id | 0) % THEMES.length + THEMES.length) % THEMES.length];
-    if (t === theme) return;
-    theme = t;
-    if (musicOn) { stopMusic(); startMusic(); } // restart loop at new tempo/key
-  }
-
-  function musicTick() {
-    if (!musicOn || !ctx) return;
-    const th = theme, chord = th.prog[bar % th.prog.length], bt = th.beat / 1000, L = th.lvl;
-    if (beat === 0) {
-      // Start of a bar: soft bass note + two sustained pad voices.
-      mtone(chord[0] / 2, bt * 3.7, th.bass, 0.15 * L);
-      mtone(chord[1], bt * 3.9, 'sine', 0.055 * L, bt * 0.9);
-      mtone(chord[2], bt * 3.9, 'sine', 0.05 * L, bt * 0.9);
-    }
-    // Gentle arpeggio melody across the bar (root, fifth, third, fifth+octave).
-    const seq = [chord[0], chord[2], chord[1], chord[2] * 2];
-    let n = seq[beat % seq.length];
-    if (th.hi) n *= 2; // Sky theme sings an octave higher
-    mtone(n, bt * 0.9, th.wave, 0.10 * L);
-    // A soft sparkle on the off-beat of every other bar.
-    if (beat === 2 && bar % 2 === 1) mtone(chord[1] * 2, bt * 0.8, 'sine', 0.045 * L, 0.02);
-    beat++;
-    if (beat >= 4) { beat = 0; bar++; }
-  }
+  function setIsland() { /* single looped track — no per-island switch */ }
 
   function startMusic() {
-    ensure();
-    if (!ctx) return;
     if (global.Save && global.Save.get().settings.music === false) return;
     if (musicOn) return;
-    if (musicLP) musicLP.frequency.value = theme.cutoff || 1500;
+    const el = ensureMusicEl();
+    if (!el) return;
     musicOn = true;
-    beat = 0;
-    musicTimer = setInterval(musicTick, theme.beat);
+    const pr = el.play();
+    if (pr && pr.catch) pr.catch(function () { /* autoplay blocked until a gesture */ });
   }
 
   function stopMusic() {
     musicOn = false;
-    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+    if (musicEl) { try { musicEl.pause(); } catch (e) {} }
   }
 
   function setMusicEnabled(on) { if (on) startMusic(); else stopMusic(); }
