@@ -970,6 +970,8 @@ function addCoinFX(x,y){for(let i=0;i<6;i++){const a=Math.PI*2*i/6;addP(x,y,Math
 function addLandFX(x,y,s){for(let i=0;i<10;i++){const a=Math.PI*2*i/10+rand(0,.4);addP(x,y,Math.cos(a)*.03*s,Math.sin(a)*.012*s,'rgba(100,200,255,.6)',2.8*s,.35)}}
 function addJumpFX(x,y,s){for(let i=0;i<6;i++){const a=Math.PI-.3+rand(0,.6);addP(x,y+5,Math.cos(a)*.02*s,Math.sin(a)*.035*s,'rgba(150,255,200,.4)',2*s,.25)}}
 function addTrail(x,y,s){addP(x+rand(-3,3),y+rand(-2,5),0,.015,'rgba(150,230,255,.25)',rand(1,2.5)*s,rand(.12,.2))}
+// Callout emoji that have painted art; anything not listed keeps its glyph.
+const FLOAT_ICON={'🔥':'flame','🪙':'coinA','⚡':'bolt','🌟':'spark','💎':'spark','⭐':'spark'};
 function addFloat(t,x,y,col='#FFD700',sz=20){floats.push({t,x,y,vy:-.04,a:1,l:.8,col,sz,sc:1.4})}
 function updPts(dt){
   for(let i=pts.length-1;i>=0;i--){const p=pts[i];p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;p.vy+=.002*dt*60;p.life-=dt;p.a=Math.pow(Math.max(0,p.life/p.ml),.6);if(p.life<=0)pts.splice(i,1)}
@@ -2284,8 +2286,40 @@ function drawPts(){
     if(p.tp==='s'){ctx.beginPath();for(let i=0;i<5;i++){const a=Math.PI*2*i/5-Math.PI/2,r=p.sz*p.a;ctx.lineTo(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r);const ia=a+Math.PI/5;ctx.lineTo(p.x+Math.cos(ia)*r*.4,p.y+Math.sin(ia)*r*.4)}ctx.closePath();ctx.fill()}
     else{ctx.beginPath();ctx.arc(p.x,p.y,p.sz*p.a,0,Math.PI*2);ctx.fill()}}
   ctx.globalAlpha=1;
-  for(const f of floats){ctx.globalAlpha=f.a;ctx.fillStyle=f.col;ctx.font=`bold ${f.sz*f.sc}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.shadowColor='rgba(0,0,0,.3)';ctx.shadowBlur=3;ctx.fillText(f.t,f.x,f.y);ctx.shadowBlur=0}
+  // Floating callouts sit on top of painted art now, so a soft shadow no longer
+  // separates them — they need a hard contour. Emoji we have art for are swapped
+  // for the painted icon; the rest keep the glyph.
+  for(const f of floats){
+    ctx.globalAlpha=f.a;
+    const size=f.sz*f.sc;
+    ctx.font=`900 ${size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+    ctx.textBaseline='middle';
+
+    let txt=f.t,iconKey=null;
+    for(const em in FLOAT_ICON){
+      if(txt.indexOf(em)<0)continue;
+      if(!iconKey&&_ok(FLOAT_ICON[em]))iconKey=FLOAT_ICON[em];
+      txt=txt.split(em).join('');
+    }
+    txt=txt.replace(/\s+/g,' ').trim();
+
+    const tw=txt?ctx.measureText(txt).width:0;
+    const ih=size*.95;
+    const iw=iconKey?ih*_A[iconKey].naturalWidth/_A[iconKey].naturalHeight:0;
+    const gap=(iconKey&&txt)?size*.16:0;
+    let x=f.x-(iw+gap+tw)/2;
+
+    if(iconKey){ctx.drawImage(_A[iconKey],x,f.y-ih/2,iw,ih);x+=iw+gap}
+    if(txt){
+      ctx.textAlign='left';
+      ctx.lineJoin='round';ctx.lineWidth=Math.max(3,size*.24);
+      ctx.strokeStyle='rgba(32,14,48,.92)';
+      ctx.strokeText(txt,x,f.y+1);
+      ctx.fillStyle=f.col;
+      ctx.fillText(txt,x,f.y+1);
+      ctx.textAlign='center';
+    }
+  }
   ctx.globalAlpha=1;
 }
 
@@ -2765,23 +2799,40 @@ function drawGame(){
     else if(perfectCombo>=5){fontSize=44}
     else if(perfectCombo>=2){fontSize=36}
     else{fontSize=30}
-    ctx.font=`bold ${fontSize*pfsc}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=`900 ${fontSize*pfsc}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     const pfCol=isGoodText?'#FFD54F':isFeverPerfect?'#FFD700':perfectText.includes('⚡')?'#E040FB':'#E040FB';
     ctx.shadowColor=isFeverPerfect?'rgba(255,180,0,.8)':pfCol;
     ctx.shadowBlur=isGoodText?8:isFeverPerfect?30:16;
-    ctx.fillStyle=pfCol;
     // Position: GOOD below center, PERFECT higher
     const textY=isGoodText?H*.28:H*.22;
+    // Painted sky underneath means a glow alone leaves the text washed out.
+    ctx.lineJoin='round';ctx.lineWidth=Math.max(4,fontSize*pfsc*.2);
+    ctx.strokeStyle='rgba(32,14,48,.9)';
+    ctx.strokeText(perfectText,W/2,textY);
+    ctx.fillStyle=pfCol;
     ctx.fillText(perfectText,W/2,textY);
     if(!isGoodText&&perfectCombo>1){
       const cm=Math.min(perfectCombo,5);
       const comboSize=isFeverPerfect?Math.min(28+cm*3,44):20+cm*3;
       const comboCols=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'];
       const cc=isFeverPerfect?'#FFA000':comboCols[Math.min(cm-1,4)];
-      ctx.font=`bold ${comboSize*pfsc}px sans-serif`;
+      const cSize=comboSize*pfsc, cy2=textY+34*pfsc;
+      ctx.font=`900 ${cSize}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
       ctx.shadowColor=cc;ctx.shadowBlur=cm*6;
+      const cTxt='x'+cm;
+      const hot=cm>=4, fh=cSize*.9;
+      const fw=(hot&&_ok('flame'))?fh*_A.flame.naturalWidth/_A.flame.naturalHeight:0;
+      const cTw=ctx.measureText(cTxt).width;
+      let cx2=W/2-(cTw+(fw?fw+cSize*.16:0))/2;
+      ctx.textAlign='left';
+      ctx.lineJoin='round';ctx.lineWidth=Math.max(3,cSize*.22);
+      ctx.strokeStyle='rgba(32,14,48,.9)';
+      ctx.strokeText(cTxt,cx2,cy2);
       ctx.fillStyle=cc;
-      ctx.fillText('x'+cm+(cm>=4?' 🔥':''),W/2,textY+34*pfsc);
+      ctx.fillText(cTxt,cx2,cy2);
+      if(fw){ctx.shadowBlur=0;ctx.drawImage(_A.flame,cx2+cTw+cSize*.16,cy2-fh/2,fw,fh)}
+      else if(hot){ctx.fillText(' 🔥',cx2+cTw,cy2)}
+      ctx.textAlign='center';
     }
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
