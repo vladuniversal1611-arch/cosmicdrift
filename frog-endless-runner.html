@@ -2350,101 +2350,126 @@ function drawBanks(edgeL,edgeR){
     return x-Math.floor(x);
   };
 
-  // Draw rocks and grass along the banks at different depths
-  for(let z=VIEW_AHEAD;z>=0;z-=0.5){
+  const vanY=H*.18,baseY=H*.93;
+  const span=baseY-vanY;
+
+  // Draw rocks and grass along the banks at screen row level
+  for(let y=vanY;y<baseY;y+=4){
+    const p=(y-vanY)/span;
+    if(p<=1e-4)continue;
+
+    const z=FOCAL_LEN*(1-p)/p;
     const pL=project(z,edgeL);
     const pR=project(z,edgeR);
 
-    // Bank width varies with depth (perspective)
-    const bankW=Math.max(2,8*(1-z/VIEW_AHEAD));
-    const rockCount=Math.ceil(bankW/3);
-    const zNorm=z/VIEW_AHEAD;
+    // Bank width at this depth
+    const bankW=Math.max(4,18*p);
+    const rockCount=Math.ceil(bankW/2.5);
+    const rockBaseSize=lerp(4,18,p);
 
-    // Left bank rocks
-    for(let i=0;i<rockCount;i++){
-      const seed=z*100+i*1.7;
+    // Left bank rocks - more prominent
+    for(let i=0;i<rockCount+1;i++){
+      const seed=Math.floor(y/4)*17+i*2.3;
       const rnd=seededRand(seed);
-      const rnd2=seededRand(seed+43);
+      const rnd2=seededRand(seed+17);
+      const rnd3=seededRand(seed+34);
 
-      // Rock size varies by depth
-      const rockSize=lerp(2,12,1-zNorm)*rnd;
-      if(rockSize<1)continue;
+      if(rnd<0.4)continue; // Sparse out some rocks
 
-      // X position along bank
-      const xOff=-bankW*rnd2;
+      // Larger rocks
+      const rockSize=rockBaseSize*lerp(0.7,1.4,rnd);
+      const xOff=-bankW*0.3-bankW*rnd2*0.7;
       const rockX=pL.x+xOff;
-      const rockY=pL.y+Math.sin(seed*0.3)*2;
+      const rockY=pL.y+lerp(-rockSize*0.3,rockSize*0.3,rnd3);
 
-      // Rock color: browns/grays with variation
-      const rockColors=['#8B6F47','#A0826D','#9B8B7E','#7A6B5D','#8B7355'];
+      // Rock color variety
+      const rockColors=['#8B6F47','#9B8B7E','#A0826D','#7A6B5D','#996633','#8B7355','#9B7B5A'];
       const col=rockColors[Math.floor(rnd*rockColors.length)];
 
-      // Draw rock with shadow
-      ctx.fillStyle='rgba(0,0,0,0.3)';
+      // Shadow under rock
+      ctx.fillStyle='rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.ellipse(rockX,rockY+rockSize*0.3,rockSize*0.6,rockSize*0.2,0.1,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY+rockSize*0.35,rockSize*0.7,rockSize*0.25,0.15,0,Math.PI*2);
       ctx.fill();
 
-      // Rock itself
+      // Main rock - larger ellipse
       ctx.fillStyle=col;
       ctx.beginPath();
-      ctx.ellipse(rockX,rockY,rockSize*0.5,rockSize*0.4,rnd*0.3,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
       ctx.fill();
 
-      // Rock highlight for depth
-      ctx.fillStyle='rgba(255,255,255,0.15)';
+      // Rock edge highlight
+      ctx.strokeStyle='rgba(255,255,255,0.25)';
+      ctx.lineWidth=1.5;
       ctx.beginPath();
-      ctx.ellipse(rockX-rockSize*0.15,rockY-rockSize*0.15,rockSize*0.2,rockSize*0.15,0,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
+      ctx.stroke();
+
+      // Light reflection
+      ctx.fillStyle='rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(rockX-rockSize*0.2,rockY-rockSize*0.2,rockSize*0.25,rockSize*0.2,0,0,Math.PI*2);
       ctx.fill();
     }
 
-    // Right bank rocks (mirror)
-    for(let i=0;i<rockCount;i++){
-      const seed=z*100+i*1.7+50;
+    // Right bank rocks - mirror
+    for(let i=0;i<rockCount+1;i++){
+      const seed=Math.floor(y/4)*17+i*2.3+100;
       const rnd=seededRand(seed);
-      const rnd2=seededRand(seed+43);
+      const rnd2=seededRand(seed+17);
+      const rnd3=seededRand(seed+34);
 
-      const rockSize=lerp(2,12,1-zNorm)*rnd;
-      if(rockSize<1)continue;
+      if(rnd<0.4)continue;
 
-      const xOff=bankW*rnd2;
+      const rockSize=rockBaseSize*lerp(0.7,1.4,rnd);
+      const xOff=bankW*0.3+bankW*rnd2*0.7;
       const rockX=pR.x+xOff;
-      const rockY=pR.y+Math.sin(seed*0.3)*2;
+      const rockY=pR.y+lerp(-rockSize*0.3,rockSize*0.3,rnd3);
 
-      const rockColors=['#8B6F47','#A0826D','#9B8B7E','#7A6B5D','#8B7355'];
+      const rockColors=['#8B6F47','#9B8B7E','#A0826D','#7A6B5D','#996633','#8B7355','#9B7B5A'];
       const col=rockColors[Math.floor(rnd*rockColors.length)];
 
-      ctx.fillStyle='rgba(0,0,0,0.3)';
+      ctx.fillStyle='rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.ellipse(rockX,rockY+rockSize*0.3,rockSize*0.6,rockSize*0.2,0.1,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY+rockSize*0.35,rockSize*0.7,rockSize*0.25,0.15,0,Math.PI*2);
       ctx.fill();
 
       ctx.fillStyle=col;
       ctx.beginPath();
-      ctx.ellipse(rockX,rockY,rockSize*0.5,rockSize*0.4,rnd*0.3,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
       ctx.fill();
 
-      ctx.fillStyle='rgba(255,255,255,0.15)';
+      ctx.strokeStyle='rgba(255,255,255,0.25)';
+      ctx.lineWidth=1.5;
       ctx.beginPath();
-      ctx.ellipse(rockX+rockSize*0.15,rockY-rockSize*0.15,rockSize*0.2,rockSize*0.15,0,0,Math.PI*2);
+      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
+      ctx.stroke();
+
+      ctx.fillStyle='rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(rockX+rockSize*0.2,rockY-rockSize*0.2,rockSize*0.25,rockSize*0.2,0,0,Math.PI*2);
       ctx.fill();
     }
 
-    // Grass patches between rocks
-    if(Math.random()+zNorm>0.7){
-      const grassX=pL.x-bankW*Math.random();
-      const grassY=pL.y+Math.sin(z*5)*1;
-      ctx.fillStyle='rgba(60,150,80,0.6)';
-      ctx.beginPath();
-      ctx.ellipse(grassX,grassY,bankW*0.4,3,Math.random()*0.3,0,Math.PI*2);
-      ctx.fill();
-
-      const grassX2=pR.x+bankW*Math.random();
-      const grassY2=pR.y+Math.sin(z*5)*1;
-      ctx.fillStyle='rgba(60,150,80,0.6)';
-      ctx.beginPath();
-      ctx.ellipse(grassX2,grassY2,bankW*0.4,3,Math.random()*0.3,0,Math.PI*2);
-      ctx.fill();
+    // Grass tufts between rocks
+    const grassSeed=Math.floor(y/4)*13;
+    for(let g=0;g<3;g++){
+      if(seededRand(grassSeed+g*5)>0.5){
+        const gx=pL.x-bankW*seededRand(grassSeed+g*5+7)*0.5;
+        const gy=pL.y+lerp(-3,3,seededRand(grassSeed+g*5+11));
+        ctx.fillStyle='rgba(80,170,100,0.7)';
+        ctx.beginPath();
+        ctx.ellipse(gx,gy,bankW*0.3,2,seededRand(grassSeed+g*5)*0.2,0,Math.PI*2);
+        ctx.fill();
+      }
+      if(seededRand(grassSeed+g*5+50)>0.5){
+        const gx=pR.x+bankW*seededRand(grassSeed+g*5+57)*0.5;
+        const gy=pR.y+lerp(-3,3,seededRand(grassSeed+g*5+61));
+        ctx.fillStyle='rgba(80,170,100,0.7)';
+        ctx.beginPath();
+        ctx.ellipse(gx,gy,bankW*0.3,2,seededRand(grassSeed+g*5+50)*0.2,0,Math.PI*2);
+        ctx.fill();
+      }
     }
   }
 }
