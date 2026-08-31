@@ -110,7 +110,7 @@
   // We decode the MP3 once into an AudioBuffer then play it through an
   // AudioBufferSourceNode with loop=true.  This is sample-accurate — zero gap,
   // no browser re-seek stutter that HTMLAudioElement.loop suffers from.
-  const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.mp3';
+  const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.wav';
   let musicBuffer = null;   // decoded AudioBuffer, filled once
   let musicSrc   = null;    // current playing AudioBufferSourceNode
   let musicLoading = false;

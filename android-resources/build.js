@@ -86,9 +86,13 @@ const bgP = path.join(ROOT, 'www/assets/ui2/game_bg.webp');
 if (fs.existsSync(bgP)) bgSprite = 'data:image/webp;base64,' + fs.readFileSync(bgP).toString('base64');
 
 // Background music track (looped) — inlined so the single-file build plays it.
+// WAV has zero encoder-delay so AudioBufferSourceNode.loop=true is truly gapless.
+// MP3 (LAME) adds ~576 silent samples at the start which create an audible pause on loop.
 let musicTrack = '';
-const musicP = path.join(ROOT, 'www/assets/audio/theme.mp3');
-if (fs.existsSync(musicP)) musicTrack = 'data:audio/mpeg;base64,' + fs.readFileSync(musicP).toString('base64');
+const musicWav = path.join(ROOT, 'www/assets/audio/theme.wav');
+const musicMp3 = path.join(ROOT, 'www/assets/audio/theme.mp3');
+if (fs.existsSync(musicWav)) musicTrack = 'data:audio/wav;base64,' + fs.readFileSync(musicWav).toString('base64');
+else if (fs.existsSync(musicMp3)) musicTrack = 'data:audio/mpeg;base64,' + fs.readFileSync(musicMp3).toString('base64');
 
 const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';window.BG_SPRITE=' + JSON.stringify(bgSprite) + ';window.MUSIC_TRACK=' + JSON.stringify(musicTrack) + ';</script>\n';
 
