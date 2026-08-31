@@ -2341,6 +2341,114 @@ function drawPts(){
 // is driven by `seq` (travelled track distance), so the current always matches
 // the speed the platforms approach at.
 const WATER_DEPTH=9;      // world units of depth covered by one texture pass
+
+// Draw river banks with rocks and grass for natural terrain appearance
+function drawBanks(edgeL,edgeR){
+  // Seeded random for consistent rock placement
+  const seededRand=(seed)=>{
+    const x=Math.sin(seed)*10000;
+    return x-Math.floor(x);
+  };
+
+  // Draw rocks and grass along the banks at different depths
+  for(let z=VIEW_AHEAD;z>=0;z-=0.5){
+    const pL=project(z,edgeL);
+    const pR=project(z,edgeR);
+
+    // Bank width varies with depth (perspective)
+    const bankW=Math.max(2,8*(1-z/VIEW_AHEAD));
+    const rockCount=Math.ceil(bankW/3);
+    const zNorm=z/VIEW_AHEAD;
+
+    // Left bank rocks
+    for(let i=0;i<rockCount;i++){
+      const seed=z*100+i*1.7;
+      const rnd=seededRand(seed);
+      const rnd2=seededRand(seed+43);
+
+      // Rock size varies by depth
+      const rockSize=lerp(2,12,1-zNorm)*rnd;
+      if(rockSize<1)continue;
+
+      // X position along bank
+      const xOff=-bankW*rnd2;
+      const rockX=pL.x+xOff;
+      const rockY=pL.y+Math.sin(seed*0.3)*2;
+
+      // Rock color: browns/grays with variation
+      const rockColors=['#8B6F47','#A0826D','#9B8B7E','#7A6B5D','#8B7355'];
+      const col=rockColors[Math.floor(rnd*rockColors.length)];
+
+      // Draw rock with shadow
+      ctx.fillStyle='rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(rockX,rockY+rockSize*0.3,rockSize*0.6,rockSize*0.2,0.1,0,Math.PI*2);
+      ctx.fill();
+
+      // Rock itself
+      ctx.fillStyle=col;
+      ctx.beginPath();
+      ctx.ellipse(rockX,rockY,rockSize*0.5,rockSize*0.4,rnd*0.3,0,Math.PI*2);
+      ctx.fill();
+
+      // Rock highlight for depth
+      ctx.fillStyle='rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(rockX-rockSize*0.15,rockY-rockSize*0.15,rockSize*0.2,rockSize*0.15,0,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // Right bank rocks (mirror)
+    for(let i=0;i<rockCount;i++){
+      const seed=z*100+i*1.7+50;
+      const rnd=seededRand(seed);
+      const rnd2=seededRand(seed+43);
+
+      const rockSize=lerp(2,12,1-zNorm)*rnd;
+      if(rockSize<1)continue;
+
+      const xOff=bankW*rnd2;
+      const rockX=pR.x+xOff;
+      const rockY=pR.y+Math.sin(seed*0.3)*2;
+
+      const rockColors=['#8B6F47','#A0826D','#9B8B7E','#7A6B5D','#8B7355'];
+      const col=rockColors[Math.floor(rnd*rockColors.length)];
+
+      ctx.fillStyle='rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(rockX,rockY+rockSize*0.3,rockSize*0.6,rockSize*0.2,0.1,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle=col;
+      ctx.beginPath();
+      ctx.ellipse(rockX,rockY,rockSize*0.5,rockSize*0.4,rnd*0.3,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle='rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(rockX+rockSize*0.15,rockY-rockSize*0.15,rockSize*0.2,rockSize*0.15,0,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // Grass patches between rocks
+    if(Math.random()+zNorm>0.7){
+      const grassX=pL.x-bankW*Math.random();
+      const grassY=pL.y+Math.sin(z*5)*1;
+      ctx.fillStyle='rgba(60,150,80,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(grassX,grassY,bankW*0.4,3,Math.random()*0.3,0,Math.PI*2);
+      ctx.fill();
+
+      const grassX2=pR.x+bankW*Math.random();
+      const grassY2=pR.y+Math.sin(z*5)*1;
+      ctx.fillStyle='rgba(60,150,80,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(grassX2,grassY2,bankW*0.4,3,Math.random()*0.3,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
 function drawRoadWater(edgeL,edgeR){
   if(!_ok('water'))return false;
   const im=_A.water,tw=im.naturalWidth,th=im.naturalHeight;
@@ -2434,6 +2542,9 @@ function drawGame(){
     roadGrad.addColorStop(1,'rgba(50,120,50,.18)');
     ctx.fillStyle=roadGrad;ctx.fill();
   }
+
+  // Draw river banks with rocks and grass
+  drawBanks(ROAD_EDGE,ROAD_EDGE_R);
 
   // Road edge — soft glow
   ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2.5;
