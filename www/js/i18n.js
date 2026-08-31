@@ -84,6 +84,11 @@
       // misc
       combo: 'КОМБО ×{n}!', quit_q: 'Вийти з рівня?', resume: 'Продовжити', quit: 'Вийти',
       pause: '⏸ Пауза', paused: 'Пауза', to_map: 'На карту', ad_waiting: 'Зачекайте...',
+      n_dragons_t: 'Дракони сумують! 🐉', n_dragons_b: 'Твої дракони чекають — заходь пограти!',
+      n_lives_t: 'Життя відновились ❤️', n_lives_b: 'Повні серця — час для нового рівня!',
+      n_daily_t: 'Щоденний подарунок 🎁', n_daily_b: 'Забери безкоштовну нагороду сьогодні!',
+      n_wheel_t: 'Колесо фортуни 🎡', n_wheel_b: 'Крути безкоштовно і вигравай кристали!',
+      n_hatch_t: 'Нове яйце 🥚', n_hatch_b: 'Збери кристали й вилупи нового дракона!',
       level_intro_goal: 'Ціль: {text}', sugar_bonus: 'БОНУС! +{n}'
     },
 
@@ -145,6 +150,11 @@
       start_adventure: 'Start the adventure!',
       combo: 'COMBO ×{n}!', quit_q: 'Quit the level?', resume: 'Resume', quit: 'Quit',
       pause: '⏸ Paused', paused: 'Paused', to_map: 'Exit to map', ad_waiting: 'Please wait...',
+      n_dragons_t: 'Your dragons miss you! 🐉', n_dragons_b: 'They are waiting — come back and play!',
+      n_lives_t: 'Lives refilled ❤️', n_lives_b: 'Your hearts are full — time for a match!',
+      n_daily_t: 'Daily gift 🎁', n_daily_b: 'Claim your free reward today!',
+      n_wheel_t: 'Prize wheel 🎡', n_wheel_b: 'Spin for free and win gems!',
+      n_hatch_t: 'A new egg 🥚', n_hatch_b: 'Match crystals and hatch a new dragon!',
       level_intro_goal: 'Goal: {text}', sugar_bonus: 'BONUS! +{n}'
     },
 

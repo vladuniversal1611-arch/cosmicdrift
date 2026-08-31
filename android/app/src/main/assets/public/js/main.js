@@ -53,10 +53,12 @@
       // loop is paused automatically by the browser for hidden tabs.)
       const self0 = this;
       document.addEventListener('visibilitychange', function () {
-        if (document.hidden) { global.Audio2.suspendAll(); }
-        else { global.Audio2.resumeAll(); self0.last = 0; if (!self0._rafOn) { self0._rafOn = true; requestAnimationFrame(self0._loop); } }
+        if (document.hidden) { global.Audio2.suspendAll(); if (global.Notify) global.Notify.schedule(); }
+        else { global.Audio2.resumeAll(); self0.last = 0; if (!self0._rafOn) { self0._rafOn = true; requestAnimationFrame(self0._loop); } if (global.Notify) global.Notify.schedule(); }
       });
-      global.addEventListener('pagehide', function () { global.Audio2.suspendAll(); });
+      global.addEventListener('pagehide', function () { global.Audio2.suspendAll(); if (global.Notify) global.Notify.schedule(); });
+      // Ask for notification permission and lay down "come back" reminders.
+      if (global.Notify) global.Notify.init();
 
       // Welcome
       const p = global.Save.get();
