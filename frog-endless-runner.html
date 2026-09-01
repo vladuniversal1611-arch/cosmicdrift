@@ -1882,52 +1882,6 @@ function drawBg(){
 
 }
 
-function drawWater(){
-  const wt=H*.29;
-  // Ground — biome colored
-  const bio=BIOMES[curBiome];
-  const wg=ctx.createLinearGradient(0,wt,0,H);
-  wg.addColorStop(0,bio.ground[0]);wg.addColorStop(.3,bio.ground[1]);wg.addColorStop(.6,bio.ground[2]);wg.addColorStop(1,bio.ground[3]);
-  ctx.fillStyle=wg;ctx.fillRect(0,wt,W,H-wt);
-
-  // Ground bands placed at even DEPTH steps and projected, so they bunch up
-  // toward the horizon. Evenly spaced screen rows read as a flat wall instead.
-  const woff=gt*spd*10;
-  const vanY=H*.18,gBaseY=H*.93;
-  const scroll=(gt*spd*.55)%2;
-  for(let r=0;r<26;r++){
-    const z=r*2+scroll;
-    const pz=FOCAL_LEN/(z+FOCAL_LEN);
-    const wy=vanY+(gBaseY-vanY)*pz;
-    if(wy<wt+4||wy>H)continue;
-    ctx.strokeStyle=`rgba(255,255,255,${(0.015+0.055*pz).toFixed(3)})`;
-    ctx.lineWidth=Math.max(1,2.2*pz);
-    ctx.beginPath();
-    for(let x=0;x<=W;x+=8){
-      const w=Math.sin(x*.02+woff+r*.7)*1.5*pz;
-      if(x===0)ctx.moveTo(x,wy+w);else ctx.lineTo(x,wy+w);
-    }
-    ctx.stroke();
-  }
-
-  // Dandelion puffs / light particles
-  for(let i=0;i<8;i++){
-    const sparkX=((i*137.5+gt*15+woff*.3)%(W+40))-20;
-    const sparkY=wt+40+((i*73.1+Math.sin(gt*1.2+i)*12)%(H-wt-40));
-    const ss=.8+Math.sin(gt*3+i*2.3)*.6;
-    if(ss>.9){ctx.fillStyle='rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(sparkX,sparkY,ss,0,Math.PI*2);ctx.fill()}
-  }
-  // Speed lines (light)
-  for(const sl of spdLines){
-    ctx.strokeStyle=`rgba(255,255,255,${sl.a*.3})`;ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(sl.x,sl.y);ctx.lineTo(sl.x,sl.y+sl.l);ctx.stroke();
-  }
-  // Atmospheric fog at horizon — biome tinted
-  const fogStr=curBiome>=4?.25:curBiome>=3?.15:.08;
-  const fogG=ctx.createLinearGradient(0,wt,0,wt+H*.15);
-  fogG.addColorStop(0,bio.fog+fogStr+')');fogG.addColorStop(1,bio.fog+'0)');
-  ctx.fillStyle=fogG;ctx.fillRect(0,wt,W,H*.15);
-}
 
 function drawPad(x,y,s,type,dip,isCurrent,width){
   width=width||1;
