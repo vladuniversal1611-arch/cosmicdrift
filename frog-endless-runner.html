@@ -464,6 +464,20 @@ let curSkin=0;
 try{const s=JSON.parse(localStorage.getItem('fSk')||'[]');s.forEach((v,i)=>{if(SKINS[i])SKINS[i].o=v});curSkin=+(localStorage.getItem('fCS')||0)}catch(e){}
 function saveSkins(){localStorage.setItem('fSk',JSON.stringify(SKINS.map(s=>s.o)));localStorage.setItem('fCS',''+curSkin)}
 
+// Sky skins - buyable backgrounds
+const SKY_SKINS=[
+  {n:'☀️ Сонячне',top:'#87CEEB',bot:'#E0F6FF',p:0,o:true},
+  {n:'☁️ Хмарне',top:'#A0A0A0',bot:'#D3D3D3',p:100,o:false},
+  {n:'🌙 Нічне',top:'#0a0e27',bot:'#2c3e50',p:150,o:false},
+  {n:'⭐ Космос',top:'#000814',bot:'#001d3d',p:200,o:false},
+  {n:'🌧️ Дощове',top:'#505050',bot:'#808080',p:180,o:false},
+  {n:'🌅 Захід',top:'#FF6B6B',bot:'#FFD93D',p:250,o:false},
+  {n:'🌌 Туманність',top:'#1a0033',bot:'#4d0066',p:300,o:false},
+];
+let curSky=0;
+try{const s=JSON.parse(localStorage.getItem('fSky')||'[]');s.forEach((v,i)=>{if(SKY_SKINS[i])SKY_SKINS[i].o=v});curSky=+(localStorage.getItem('fCskY')||0)}catch(e){}
+function saveSky(){localStorage.setItem('fSky',JSON.stringify(SKY_SKINS.map(s=>s.o)));localStorage.setItem('fCskY',''+curSky)}
+
 // ========== AUDIO ==========
 let ac=null,sfxG=null,musG=null,musOn=false,musIv=null;
 function initAudio(){if(ac)return;ac=new(AudioContext||webkitAudioContext)();sfxG=ac.createGain();sfxG.gain.value=0.25;sfxG.connect(ac.destination);musG=ac.createGain();musG.gain.value=0.08;musG.connect(ac.destination)}
@@ -1679,22 +1693,23 @@ function updateGame(dt){
 // ========== DRAWING ==========
 function drawBg(){
   const bio=BIOMES[curBiome];
-  // Sky gradient — from biome colors
-  const isNight=curBiome>=4;
+  const sky=SKY_SKINS[curSky];
+  // Sky gradient — from current sky skin colors
+  const isNight=sky.top.length<7||sky.top.charCodeAt(1)<100;  // Dark colors = night
   const skyH=H*.35;
   if(_ok('sky')){
     const im=_A.sky, dh=Math.max(skyH,W*im.naturalHeight/im.naturalWidth);
     ctx.save();ctx.beginPath();ctx.rect(0,0,W,skyH);ctx.clip();
     ctx.drawImage(im,0,0,W,dh);
-    // One painted sky serves every biome; each gets its own wash on top.
+    // Apply sky tint
     ctx.globalAlpha=isNight?.72:.30;
     const tint=ctx.createLinearGradient(0,0,0,skyH);
-    tint.addColorStop(0,bio.skyTop);tint.addColorStop(1,bio.skyBot);
+    tint.addColorStop(0,sky.top);tint.addColorStop(1,sky.bot);
     ctx.fillStyle=tint;ctx.fillRect(0,0,W,skyH);
     ctx.restore();
   } else {
     const sg=ctx.createLinearGradient(0,0,0,skyH);
-    sg.addColorStop(0,bio.skyTop);sg.addColorStop(.5,bio.skyBot);sg.addColorStop(1,'#E1F5FE');
+    sg.addColorStop(0,sky.top);sg.addColorStop(.5,sky.bot);sg.addColorStop(1,sky.bot);
     ctx.fillStyle=sg;ctx.fillRect(0,0,W,skyH);
   }
 
@@ -2342,159 +2357,6 @@ function drawPts(){
 // the speed the platforms approach at.
 const WATER_DEPTH=9;      // world units of depth covered by one texture pass
 
-// Draw river banks with rocks and grass for natural terrain appearance
-function drawBanks(edgeL,edgeR){
-  // Seeded random for consistent rock placement
-  const seededRand=(seed)=>{
-    const x=Math.sin(seed)*10000;
-    return x-Math.floor(x);
-  };
-
-  // Wave function (same as in water clipping) - banks follow waves
-  const waveAmp=(z)=>{
-    const norm=Math.min(z/VIEW_AHEAD,1);
-    return Math.sin((z*3-seq)*0.5)*0.12*norm*(1-norm*0.5);
-  };
-
-  const vanY=H*.18,baseY=H*.93;
-  const span=baseY-vanY;
-
-  // Draw rocks and grass along the banks - optimized for performance
-  for(let y=vanY;y<baseY;y+=4){
-    const p=(y-vanY)/span;
-    if(p<=1e-4)continue;
-
-    const z=FOCAL_LEN*(1-p)/p;
-    // Apply wave to bank edges so rocks follow the wavy shore
-    const wave=waveAmp(z);
-    const pL=project(z,edgeL+wave);
-    const pR=project(z,edgeR-wave);
-
-    // Bank width at this depth
-    const bankW=Math.max(6,20*p);
-    const rockCount=Math.ceil(bankW/2.2);  // Optimized rock count
-    const rockBaseSize=lerp(6,24,p);
-
-    // Left bank rocks - optimized rendering
-    for(let i=0;i<rockCount+1;i++){
-      const seed=Math.floor(y/4)*19+i*1.9;
-      const rnd=seededRand(seed);
-      const rnd2=seededRand(seed+17);
-      const rnd3=seededRand(seed+34);
-
-      if(rnd<0.35)continue; // More sparsity to reduce draw calls
-
-      // Larger, more visible rocks
-      const rockSize=rockBaseSize*lerp(0.8,1.5,rnd);
-      const xOff=-bankW*0.2-bankW*rnd2*0.8;
-      const rockX=pL.x+xOff;
-      const rockY=pL.y+lerp(-rockSize*0.4,rockSize*0.4,rnd3);
-
-      const rockColors=['#8B6F47','#A0826D','#704214','#5C4C1C','#8B7355','#9B6B2C','#6B5D47'];
-      const col=rockColors[Math.floor(rnd*rockColors.length)];
-
-      // Shadow only for closer rocks (performance)
-      if(p>0.3){
-        ctx.fillStyle='rgba(0,0,0,0.4)';
-        ctx.beginPath();
-        ctx.ellipse(rockX,rockY+rockSize*0.35,rockSize*0.7,rockSize*0.25,0.15,0,Math.PI*2);
-        ctx.fill();
-      }
-
-      // Main rock
-      ctx.fillStyle=col;
-      ctx.beginPath();
-      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
-      ctx.fill();
-
-      // Edge highlight only for closer rocks
-      if(p>0.4){
-        ctx.strokeStyle='rgba(255,255,255,0.3)';
-        ctx.lineWidth=1.5;
-        ctx.beginPath();
-        ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
-        ctx.stroke();
-      }
-
-      // Light reflection only for closer rocks
-      if(p>0.3){
-        ctx.fillStyle='rgba(255,255,255,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(rockX-rockSize*0.2,rockY-rockSize*0.2,rockSize*0.25,rockSize*0.2,0,0,Math.PI*2);
-        ctx.fill();
-      }
-    }
-
-    // Right bank rocks - mirror, optimized
-    for(let i=0;i<rockCount+1;i++){
-      const seed=Math.floor(y/4)*19+i*1.9+100;
-      const rnd=seededRand(seed);
-      const rnd2=seededRand(seed+17);
-      const rnd3=seededRand(seed+34);
-
-      if(rnd<0.35)continue;
-
-      const rockSize=rockBaseSize*lerp(0.8,1.4,rnd);
-      const xOff=bankW*0.2+bankW*rnd2*0.8;
-      const rockX=pR.x+xOff;
-      const rockY=pR.y+lerp(-rockSize*0.35,rockSize*0.35,rnd3);
-
-      const rockColors=['#8B6F47','#A0826D','#704214','#5C4C1C','#8B7355','#9B6B2C','#6B5D47'];
-      const col=rockColors[Math.floor(rnd*rockColors.length)];
-
-      if(p>0.3){
-        ctx.fillStyle='rgba(0,0,0,0.4)';
-        ctx.beginPath();
-        ctx.ellipse(rockX,rockY+rockSize*0.35,rockSize*0.7,rockSize*0.25,0.15,0,Math.PI*2);
-        ctx.fill();
-      }
-
-      ctx.fillStyle=col;
-      ctx.beginPath();
-      ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
-      ctx.fill();
-
-      if(p>0.4){
-        ctx.strokeStyle='rgba(255,255,255,0.3)';
-        ctx.lineWidth=1.5;
-        ctx.beginPath();
-        ctx.ellipse(rockX,rockY,rockSize*0.65,rockSize*0.5,rnd*0.25,0,Math.PI*2);
-        ctx.stroke();
-      }
-
-      if(p>0.3){
-        ctx.fillStyle='rgba(255,255,255,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(rockX+rockSize*0.2,rockY-rockSize*0.2,rockSize*0.25,rockSize*0.2,0,0,Math.PI*2);
-        ctx.fill();
-      }
-    }
-
-    // Grass tufts between rocks - optimized for closer banks only
-    if(p>0.25){
-      const grassSeed=Math.floor(y/4)*13;
-      for(let g=0;g<2;g++){
-        if(seededRand(grassSeed+g*5)>0.5){
-          const gx=pL.x-bankW*seededRand(grassSeed+g*5+7)*0.5;
-          const gy=pL.y+lerp(-2,2,seededRand(grassSeed+g*5+11));
-          ctx.fillStyle='rgba(100,180,90,0.6)';
-          ctx.beginPath();
-          ctx.ellipse(gx,gy,bankW*0.3,2,seededRand(grassSeed+g*5)*0.2,0,Math.PI*2);
-          ctx.fill();
-        }
-        if(seededRand(grassSeed+g*5+50)>0.5){
-          const gx=pR.x+bankW*seededRand(grassSeed+g*5+57)*0.5;
-          const gy=pR.y+lerp(-2,2,seededRand(grassSeed+g*5+61));
-          ctx.fillStyle='rgba(100,180,90,0.6)';
-          ctx.beginPath();
-          ctx.ellipse(gx,gy,bankW*0.3,2,seededRand(grassSeed+g*5+50)*0.2,0,Math.PI*2);
-          ctx.fill();
-        }
-      }
-    }
-  }
-}
-
 function drawRoadWater(edgeL,edgeR){
   if(!_ok('water'))return false;
   const im=_A.water,tw=im.naturalWidth,th=im.naturalHeight;
@@ -2589,8 +2451,6 @@ function drawGame(){
     ctx.fillStyle=roadGrad;ctx.fill();
   }
 
-  // Draw river banks with rocks and grass
-  drawBanks(ROAD_EDGE,ROAD_EDGE_R);
 
   // Road edge — soft glow
   ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2.5;
@@ -3986,6 +3846,7 @@ function overTap(x,y){
 }
 
 // ========== SKINS ==========
+let skinTab=0;  // 0=персонажі, 1=небо
 function drawSkins(){
   drawBg();drawWater();ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(255,255,255,.85)';rr(8,8,W-16,46,14);ctx.fill();
@@ -3993,27 +3854,73 @@ function drawSkins(){
   ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('👾 СКІНИ',W/2,38);
   ctx.fillStyle='rgba(76,175,80,.8)';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText('← Назад',22,38);
   ctx.fillStyle='#E65100';ctx.font='bold 12px sans-serif';ctx.textAlign='right';ctx.fillText('🪙 '+coins,W-20,38);
-  const cw=Math.min(W-30,280),ch=72,sy=70;
-  for(let i=0;i<SKINS.length;i++){
-    const s=SKINS[i],cx2=W/2-cw/2,cy=sy+i*(ch+8);
-    if(cy<-ch||cy>H)continue;
-    ctx.fillStyle=i===curSkin?'rgba(76,175,80,.15)':'rgba(255,255,255,.8)';rr(cx2,cy,cw,ch,14);ctx.fill();
-    if(i===curSkin){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
-    else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
-    ctx.save();const os=curSkin;curSkin=i;drawFrog(cx2+38,cy+ch/2,.6,0,1,1,false,0);curSkin=os;ctx.restore();
-    ctx.fillStyle='#333';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(s.n,cx2+70,cy+28);
-    if(s.o){ctx.fillStyle=i===curSkin?'#2E7D32':'rgba(120,120,120,.6)';ctx.font='12px sans-serif';ctx.fillText(i===curSkin?'✅ Обрано':'Натисніть',cx2+70,cy+48)}
-    else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+70,cy+48)}
+
+  // Tabs
+  const tb1=W/4-40,tb2=W/4+40,tby=65,tbw=80,tbh=22;
+  ctx.fillStyle=skinTab===0?'rgba(76,175,80,.3)':'rgba(255,255,255,.6)';rr(tb1-tbw/2,tby,tbw,tbh,8);ctx.fill();
+  ctx.fillStyle=skinTab===1?'rgba(76,175,80,.3)':'rgba(255,255,255,.6)';rr(tb2-tbw/2,tby,tbw,tbh,8);ctx.fill();
+  ctx.fillStyle='#333';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+  ctx.fillText('👾 Персонажі',tb1,tby+16);
+  ctx.fillText('🌤️ Небо',tb2,tby+16);
+
+  const cw=Math.min(W-30,280),ch=72,sy=100;
+  if(skinTab===0){
+    // Персонажі
+    for(let i=0;i<SKINS.length;i++){
+      const s=SKINS[i],cx2=W/2-cw/2,cy=sy+i*(ch+8);
+      if(cy<-ch||cy>H)continue;
+      ctx.fillStyle=i===curSkin?'rgba(76,175,80,.15)':'rgba(255,255,255,.8)';rr(cx2,cy,cw,ch,14);ctx.fill();
+      if(i===curSkin){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
+      else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
+      ctx.save();const os=curSkin;curSkin=i;drawFrog(cx2+38,cy+ch/2,.6,0,1,1,false,0);curSkin=os;ctx.restore();
+      ctx.fillStyle='#333';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(s.n,cx2+70,cy+28);
+      if(s.o){ctx.fillStyle=i===curSkin?'#2E7D32':'rgba(120,120,120,.6)';ctx.font='12px sans-serif';ctx.fillText(i===curSkin?'✅ Обрано':'Натисніть',cx2+70,cy+48)}
+      else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+70,cy+48)}
+    }
+  } else {
+    // Небо
+    for(let i=0;i<SKY_SKINS.length;i++){
+      const s=SKY_SKINS[i],cx2=W/2-cw/2,cy=sy+i*(ch+8);
+      if(cy<-ch||cy>H)continue;
+      ctx.fillStyle=i===curSky?'rgba(76,175,80,.15)':'rgba(255,255,255,.8)';rr(cx2,cy,cw,ch,14);ctx.fill();
+      if(i===curSky){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
+      else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
+      // Sky preview
+      const grad=ctx.createLinearGradient(cx2+10,cy,cx2+10,cy+ch);
+      grad.addColorStop(0,s.top);grad.addColorStop(1,s.bot);
+      ctx.fillStyle=grad;ctx.fillRect(cx2+10,cy+4,30,ch-8);
+      ctx.fillStyle='#333';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(s.n,cx2+50,cy+28);
+      if(s.o){ctx.fillStyle=i===curSky?'#2E7D32':'rgba(120,120,120,.6)';ctx.font='12px sans-serif';ctx.fillText(i===curSky?'✅ Обрано':'Натисніть',cx2+50,cy+48)}
+      else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+50,cy+48)}
+    }
   }
 }
 function skinsTap(x,y){
   if(y<55&&x<90){sfxClick();state=ST.MENU;return}
-  const cw=Math.min(W-30,280),ch=72,sy=70;
-  for(let i=0;i<SKINS.length;i++){const cx2=W/2-cw/2,cy=sy+i*(ch+8);
-    if(x>=cx2&&x<=cx2+cw&&y>=cy&&y<=cy+ch){const s=SKINS[i];
-      if(s.o){curSkin=i;sfxClick();saveSkins()}
-      else if(coins>=s.p){coins-=s.p;s.o=true;curSkin=i;localStorage.setItem('fCoins',''+coins);sfxPU();saveSkins()}
-      else sfxLand();return}}
+
+  // Tab clicks
+  const tb1=W/4-40,tb2=W/4+40,tby=65,tbw=80,tbh=22;
+  if(y>=tby&&y<=tby+tbh){
+    if(x>=tb1-tbw/2&&x<=tb1+tbw/2){skinTab=0;sfxClick();return}
+    if(x>=tb2-tbw/2&&x<=tb2+tbw/2){skinTab=1;sfxClick();return}
+  }
+
+  const cw=Math.min(W-30,280),ch=72,sy=100;
+  if(skinTab===0){
+    // Персонажі
+    for(let i=0;i<SKINS.length;i++){const cx2=W/2-cw/2,cy=sy+i*(ch+8);
+      if(x>=cx2&&x<=cx2+cw&&y>=cy&&y<=cy+ch){const s=SKINS[i];
+        if(s.o){curSkin=i;sfxClick();saveSkins()}
+        else if(coins>=s.p){coins-=s.p;s.o=true;curSkin=i;localStorage.setItem('fCoins',''+coins);sfxPU();saveSkins()}
+        else sfxLand();return}}
+  } else {
+    // Небо
+    for(let i=0;i<SKY_SKINS.length;i++){const cx2=W/2-cw/2,cy=sy+i*(ch+8);
+      if(x>=cx2&&x<=cx2+cw&&y>=cy&&y<=cy+ch){const s=SKY_SKINS[i];
+        if(s.o){curSky=i;sfxClick();saveSky()}
+        else if(coins>=s.p){coins-=s.p;s.o=true;curSky=i;localStorage.setItem('fCoins',''+coins);sfxPU();saveSky()}
+        else sfxLand();return}}
+  }
 }
 
 // ========== MAIN LOOP ==========
