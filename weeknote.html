@@ -391,6 +391,30 @@ body {
   gap: 1px;
 }
 
+.day-cell-tasks.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 4px;
+}
+
+.two-col-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+}
+
+.two-col-btn {
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  transition: background 0.12s, color 0.12s;
+  font-size: 11px;
+}
+
+.two-col-btn:hover, .two-col-btn.active { background: var(--accent-light); color: var(--accent); }
+
 .mini-task {
   display: flex;
   align-items: center;
@@ -979,6 +1003,90 @@ body {
 }
 
 /* ════════════════════════════════════════
+   QUICK MENU DRAWER
+   ════════════════════════════════════════ */
+.qmenu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  z-index: 60;
+  pointer-events: none;
+  transition: background 0.25s;
+}
+.qmenu-overlay.open { background: rgba(0,0,0,0.35); pointer-events: auto; }
+
+.qmenu {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 280px;
+  max-width: 75vw;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  z-index: 61;
+  overflow-y: auto;
+  padding: env(safe-area-inset-top, 12px) 0 0;
+}
+.qmenu-overlay.open .qmenu { transform: translateX(0); }
+
+.qmenu-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.qmenu-logo { font-size: 22px; font-weight: 900; color: var(--accent); }
+.qmenu-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+.qmenu-items { padding: 8px 0; }
+
+.qmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+.qmenu-item:active { background: var(--accent-light); }
+.qmenu-item-icon { font-size: 18px; width: 24px; text-align: center; }
+
+.qmenu-divider { height: 1px; background: var(--border); margin: 4px 20px; }
+
+/* ════════════════════════════════════════
+   MODE TOGGLE (Лайт / Про)
+   ════════════════════════════════════════ */
+.mode-toggle {
+  display: flex;
+  background: var(--bg-input);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.mode-toggle-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.mode-toggle-btn.active {
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.sheet-pro-fields { display: none; }
+.sheet-pro-fields.visible { display: block; }
+
+/* ════════════════════════════════════════
    ADD TASK BOTTOM SHEET
    ════════════════════════════════════════ */
 .sheet-overlay {
@@ -1327,6 +1435,26 @@ body {
   </nav>
 </div>
 
+<!-- Quick Menu Drawer -->
+<div class="qmenu-overlay" id="qmenuOverlay" onclick="closeMenu()">
+  <div class="qmenu" onclick="event.stopPropagation()">
+    <div class="qmenu-header">
+      <div class="qmenu-logo">📘 WeekNote</div>
+      <div class="qmenu-sub">Твій тижневий планер</div>
+    </div>
+    <div class="qmenu-items">
+      <div class="qmenu-item" onclick="goToday();closeMenu()"><span class="qmenu-item-icon">📅</span>Перейти до сьогодні</div>
+      <div class="qmenu-item" onclick="openAdd();closeMenu()"><span class="qmenu-item-icon">➕</span>Нова задача</div>
+      <div class="qmenu-item" onclick="closeMenu();showScreen('scrTasks')"><span class="qmenu-item-icon">✅</span>Усі задачі</div>
+      <div class="qmenu-item" onclick="closeMenu();showScreen('scrNotes')"><span class="qmenu-item-icon">📝</span>Нотатки</div>
+      <div class="qmenu-divider"></div>
+      <div class="qmenu-item" onclick="closeMenu();showStats()"><span class="qmenu-item-icon">📊</span>Статистика</div>
+      <div class="qmenu-item" onclick="closeMenu();showThemes()"><span class="qmenu-item-icon">🎨</span>Змінити тему</div>
+      <div class="qmenu-item" onclick="closeMenu();showScreen('scrSettings')"><span class="qmenu-item-icon">⚙️</span>Налаштування</div>
+    </div>
+  </div>
+</div>
+
 <!-- Add Task Sheet -->
 <div class="sheet-overlay" id="addSheet">
   <div class="sheet">
@@ -1337,8 +1465,13 @@ body {
       <button class="sheet-btn save" onclick="saveTask()">✓</button>
     </div>
     <div class="sheet-body">
+      <!-- Лайт / Про toggle -->
+      <div class="mode-toggle">
+        <button class="mode-toggle-btn active" data-mode="light" onclick="setAddMode('light')">☀️ Лайт</button>
+        <button class="mode-toggle-btn" data-mode="pro" onclick="setAddMode('pro')">⚡ Про</button>
+      </div>
       <input class="sheet-input" id="addTitle" type="text" placeholder="Що потрібно зробити?" autocomplete="off">
-      <div class="sheet-field" onclick="pickDay()">
+      <div class="sheet-field" id="addDayField" onclick="pickDay()">
         <span class="sheet-field-icon">📅</span>
         <span class="sheet-field-label">День</span>
         <span class="sheet-field-value" id="addDayVal">Сьогодні</span>
@@ -1349,38 +1482,41 @@ body {
         <span class="sheet-field-label">Час</span>
         <input type="time" id="addTime" style="border:none;background:none;text-align:right;font-size:14px;color:var(--text-secondary);font-family:var(--font);font-weight:500;width:80px" value="">
       </div>
-      <div class="sheet-field" id="addPriorityField">
-        <span class="sheet-field-icon">🔴</span>
-        <span class="sheet-field-label">Пріоритет</span>
-        <span class="sheet-field-value" id="addPriVal">Середній</span>
-        <span class="sheet-field-chevron">›</span>
-      </div>
-      <div class="sheet-field">
-        <span class="sheet-field-icon">🔔</span>
-        <span class="sheet-field-label">Нагадати</span>
-        <span class="sheet-field-value">За 15 хвилин</span>
-        <span class="sheet-field-chevron">›</span>
-      </div>
-      <div class="sheet-field">
-        <span class="sheet-field-icon">🔄</span>
-        <span class="sheet-field-label">Повторювати</span>
-        <span class="sheet-field-value">Не повторювати</span>
-        <span class="sheet-field-chevron">›</span>
-      </div>
-      <div class="sheet-field" style="border:none">
-        <span class="sheet-field-icon">📝</span>
-        <span class="sheet-field-label">Нотатка</span>
-        <span class="sheet-field-value" style="color:var(--text-tertiary)">Додати нотатку...</span>
-      </div>
-      <div class="sheet-colors">
-        <div class="sheet-color sel" data-clr="#E53935" style="background:#E53935;color:#E53935" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#FB8C00" style="background:#FB8C00;color:#FB8C00" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#FDD835" style="background:#FDD835;color:#FDD835" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#43A047" style="background:#43A047;color:#43A047" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#42A5F5" style="background:#42A5F5;color:#42A5F5" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#7C5CE0" style="background:#7C5CE0;color:#7C5CE0" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#9E9E9E" style="background:#9E9E9E;color:#9E9E9E" onclick="pickColor(this)"></div>
-        <div class="sheet-color" data-clr="#2D2B32" style="background:#2D2B32;color:#2D2B32" onclick="pickColor(this)"></div>
+      <!-- Pro-only fields -->
+      <div class="sheet-pro-fields" id="proFields">
+        <div class="sheet-field" id="addPriorityField">
+          <span class="sheet-field-icon">🔴</span>
+          <span class="sheet-field-label">Пріоритет</span>
+          <span class="sheet-field-value" id="addPriVal">Середній</span>
+          <span class="sheet-field-chevron">›</span>
+        </div>
+        <div class="sheet-field">
+          <span class="sheet-field-icon">🔔</span>
+          <span class="sheet-field-label">Нагадати</span>
+          <span class="sheet-field-value">За 15 хвилин</span>
+          <span class="sheet-field-chevron">›</span>
+        </div>
+        <div class="sheet-field">
+          <span class="sheet-field-icon">🔄</span>
+          <span class="sheet-field-label">Повторювати</span>
+          <span class="sheet-field-value">Не повторювати</span>
+          <span class="sheet-field-chevron">›</span>
+        </div>
+        <div class="sheet-field" style="border:none">
+          <span class="sheet-field-icon">📝</span>
+          <span class="sheet-field-label">Нотатка</span>
+          <span class="sheet-field-value" style="color:var(--text-tertiary)">Додати нотатку...</span>
+        </div>
+        <div class="sheet-colors">
+          <div class="sheet-color sel" data-clr="#E53935" style="background:#E53935;color:#E53935" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#FB8C00" style="background:#FB8C00;color:#FB8C00" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#FDD835" style="background:#FDD835;color:#FDD835" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#43A047" style="background:#43A047;color:#43A047" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#42A5F5" style="background:#42A5F5;color:#42A5F5" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#7C5CE0" style="background:#7C5CE0;color:#7C5CE0" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#9E9E9E" style="background:#9E9E9E;color:#9E9E9E" onclick="pickColor(this)"></div>
+          <div class="sheet-color" data-clr="#2D2B32" style="background:#2D2B32;color:#2D2B32" onclick="pickColor(this)"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1406,6 +1542,9 @@ let addPri = 'MEDIUM';
 let addClr = '#E53935';
 let taskFilter = 'all';
 let noteFilter = 'all';
+let twoColMode = ld('wn_twocol', false);
+let addFromDay = false; // true when opened via day cell's "+ додати"
+let addMode = 'light'; // 'light' or 'pro'
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
@@ -1485,13 +1624,19 @@ function renderWeek(){
   dd.forEach(d => {
     const key = dk(d);
     const t = isToday(d);
-    const dayTasks = tasks.filter(x=>x.date===key);
+    // Sort tasks by time (tasks with time first, sorted ascending; tasks without time after)
+    const dayTasks = tasks.filter(x=>x.date===key)
+      .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+    const showTwoCol = twoColMode && dayTasks.length > 3;
     html += `<div class="day-cell ${t?'is-today':''}">
       <div class="day-cell-header">
         <span class="day-cell-name">${DAYS_S[d.getDay()]}</span>
         <span class="day-cell-num">${d.getDate()}</span>
+        ${dayTasks.length > 3 ? `<button class="two-col-btn ${showTwoCol?'active':''}" onclick="toggleTwoCol()" title="2 стовпчики" style="margin-left:auto">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="5.5" height="12" rx="1"/><rect x="9.5" y="2" width="5.5" height="12" rx="1"/></svg>
+        </button>` : ''}
       </div>
-      <div class="day-cell-tasks">`;
+      <div class="day-cell-tasks ${showTwoCol?'two-col':''}">`;
     dayTasks.forEach(tk => {
       const priCls = tk.pri==='HIGH'?'pri-high':tk.pri==='MEDIUM'?'pri-med':'pri-low';
       html += `<div class="mini-task ${tk.done?'completed':''}">
@@ -1507,6 +1652,12 @@ function renderWeek(){
     html += `</div><button class="day-cell-add" onclick="openAddFor('${key}')">+ додати</button></div>`;
   });
   document.getElementById('weekGrid').innerHTML = html;
+}
+
+function toggleTwoCol(){
+  twoColMode = !twoColMode;
+  sv('wn_twocol', twoColMode);
+  renderWeek();
 }
 
 function prevWeek(){ws.setDate(ws.getDate()-7);renderWeek()}
@@ -1781,12 +1932,17 @@ function openAdd(){
   addDay = dk(new Date());
   addPri = 'MEDIUM';
   addClr = '#E53935';
+  addFromDay = false;
   document.getElementById('addTitle').value = '';
   document.getElementById('addTime').value = '';
   document.getElementById('addDayVal').textContent = 'Сьогодні';
   document.getElementById('addPriVal').textContent = 'Середній';
   document.querySelectorAll('.sheet-color').forEach(c=>c.classList.remove('sel'));
   document.querySelector('.sheet-color').classList.add('sel');
+  // Show day picker when opened generically
+  document.getElementById('addDayField').style.display = '';
+  // Reset mode to light
+  setAddMode('light');
   document.getElementById('addSheet').classList.add('open');
   setTimeout(()=>document.getElementById('addTitle').focus(), 200);
 }
@@ -1794,8 +1950,21 @@ function openAdd(){
 function openAddFor(key){
   openAdd();
   addDay = key;
+  addFromDay = true;
   const d = new Date(key+'T12:00:00');
   document.getElementById('addDayVal').textContent = `${DAYS_F[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}`;
+  // Hide day picker — the day is already chosen
+  document.getElementById('addDayField').style.display = 'none';
+}
+
+function setAddMode(mode){
+  addMode = mode;
+  document.querySelectorAll('.mode-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode===mode);
+  });
+  const pro = document.getElementById('proFields');
+  if(mode==='pro') pro.classList.add('visible');
+  else pro.classList.remove('visible');
 }
 
 function closeAdd(){
@@ -1860,7 +2029,12 @@ function delTask(id){
   renderTasks();
 }
 
-function toggleMenu(){}
+function toggleMenu(){
+  document.getElementById('qmenuOverlay').classList.add('open');
+}
+function closeMenu(){
+  document.getElementById('qmenuOverlay').classList.remove('open');
+}
 
 /* ════════════════════════════════════════
    INIT
