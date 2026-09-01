@@ -2402,56 +2402,6 @@ function drawPts(){
 // the speed the platforms approach at.
 const WATER_DEPTH=9;      // world units of depth covered by one texture pass
 
-function drawRoadWater(edgeL,edgeR){
-  if(!_ok('water'))return false;
-  const im=_A.water,tw=im.naturalWidth,th=im.naturalHeight;
-  const vanY=H*.18,baseY=H*.93;
-  const span=baseY-vanY;
-  const rowH=2;
-
-  ctx.save();
-  // Clip to the road trapezoid with wavy banks so the water never spills onto the banks.
-  // Wave function: varies with depth (z) and animates with seq to flow with water
-  const waveAmp=(z)=>{
-    // Wave amplitude increases slightly with depth, then decreases toward horizon
-    const norm=Math.min(z/VIEW_AHEAD,1);
-    return Math.sin((z*3-seq)*0.5)*0.12*norm*(1-norm*0.5);
-  };
-
-  ctx.beginPath();
-  for(let z=VIEW_AHEAD;z>=0;z-=.4){
-    const wave=waveAmp(z);
-    const p=project(z,edgeL+wave);
-    z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
-  }
-  for(let z=0;z<=VIEW_AHEAD;z+=.4){
-    const wave=waveAmp(z);
-    const p=project(z,edgeR-wave);
-    ctx.lineTo(p.x,p.y);
-  }
-  ctx.closePath();ctx.clip();
-
-  // Walk screen rows and invert the projection per row. Stepping by depth
-  // instead leaves visible seams near the camera, where one depth step spans
-  // tens of pixels. Per row, the texture stretches close up and compresses
-  // toward the horizon on its own — which is the correct perspective.
-  const zAt=y=>{const p=(y-vanY)/span; return p<=1e-4?1e9:FOCAL_LEN*(1-p)/p};
-  const yTop=Math.max(vanY+1,project(VIEW_AHEAD,edgeL).y);
-  for(let y=yTop;y<baseY;y+=rowH){
-    const p=(y-vanY)/span;
-    if(p<=1e-4)continue;
-    const zT=zAt(y), zB=zAt(Math.min(baseY,y+rowH));
-    const halfW=Math.abs(edgeL-1)*W*.6*p;
-    const xL=W/2-halfW, xR=W/2+halfW;
-    const vT=(((zT+seq)/WATER_DEPTH)%1+1)%1*th;
-    let sh=Math.max(1,((zT-zB)/WATER_DEPTH)*th);
-    if(vT+sh>th)sh=th-vT;
-    if(sh<=0.4)continue;
-    ctx.drawImage(im,0,vT,tw,sh, xL,y,xR-xL,rowH+1);
-  }
-  ctx.restore();
-  return true;
-}
 
 function drawGame(){
   ctx.save();ctx.translate(shX,shY);
@@ -2479,16 +2429,7 @@ function drawGame(){
   for(const p of roadLeft)ctx.lineTo(p.x,p.y);
   for(const p of roadRight)ctx.lineTo(p.x,p.y);
   ctx.closePath();
-  if(drawRoadWater(ROAD_EDGE,ROAD_EDGE_R)){
-    // Depth wash so the far water settles into the haze.
-    ctx.save();ctx.clip();
-    const wsh=ctx.createLinearGradient(0,H*.18,0,H*.93);
-    wsh.addColorStop(0,'rgba(190,224,240,.55)');
-    wsh.addColorStop(.35,'rgba(150,205,235,.12)');
-    wsh.addColorStop(1,'rgba(10,70,120,.16)');
-    ctx.fillStyle=wsh;ctx.fill();
-    ctx.restore();
-  } else {
+  {
     const roadGrad=ctx.createLinearGradient(0,H*.18,0,H*.93);
     roadGrad.addColorStop(0,'rgba(200,230,200,.15)');
     roadGrad.addColorStop(.5,'rgba(100,180,100,.12)');
