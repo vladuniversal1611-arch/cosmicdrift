@@ -1839,14 +1839,24 @@ function drawBg(){
   const isNight=sky.top.length<7||sky.top.charCodeAt(1)<100;  // Dark colors = night
   const skyH=H;
   if(sky.img&&_ok('skySunny')){
-    // Draw embedded cloud background image for sunny sky (cover-fit, centered)
+    // Animated cloud background — clouds drift downward toward player + subtle zoom pulse
     const im=_A.skySunny;
-    const scale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
+    // Subtle zoom pulse: ranges 1.00..1.08 over ~8s (adds sense of depth)
+    const zoom=1.04+0.04*Math.sin(gt*0.8);
+    const baseScale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
+    const scale=baseScale*zoom;
     const imgW=im.naturalWidth*scale;
     const imgH=im.naturalHeight*scale;
     const offX=(W-imgW)/2;
-    const offY=(H-imgH)/2;
-    ctx.drawImage(im,offX,offY,imgW,imgH);
+    // Scroll speed (px/s) — image tiles vertically for seamless loop
+    const scrollSpeed=H*0.08;
+    const shift=(gt*scrollSpeed)%imgH;
+    // Draw image twice, offset by imgH, so it loops as it scrolls down
+    const baseY=(H-imgH)/2+shift;
+    ctx.drawImage(im,offX,baseY,imgW,imgH);
+    ctx.drawImage(im,offX,baseY-imgH,imgW,imgH);
+    // Fill any gap below (in case both draws leave a gap after wrap)
+    if(baseY+imgH<H) ctx.drawImage(im,offX,baseY+imgH,imgW,imgH);
   } else {
     const sg=ctx.createLinearGradient(0,0,0,skyH);
     sg.addColorStop(0,sky.top);sg.addColorStop(.5,sky.bot);sg.addColorStop(1,sky.bot);
