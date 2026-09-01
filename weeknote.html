@@ -328,18 +328,26 @@ body {
   font-weight: 600;
 }
 
-/* Week view mode toggle */
-.week-mode-toggle {
+/* Global app mode toggle (Лайт / Про) */
+.app-mode-bar {
   display: flex;
+  align-items: center;
+  padding: 3px 16px 5px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.app-mode-toggle {
+  display: flex;
+  flex: 1;
   background: var(--bg-input);
   border-radius: var(--radius-full);
   padding: 2px;
-  margin: 4px 16px 4px;
 }
 
-.week-mode-btn {
+.app-mode-btn {
   flex: 1;
-  padding: 6px 0;
+  padding: 5px 0;
   border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 700;
@@ -348,7 +356,7 @@ body {
   transition: all 0.2s;
 }
 
-.week-mode-btn.active {
+.app-mode-btn.active {
   background: var(--bg-card);
   color: var(--accent);
   box-shadow: var(--shadow-sm);
@@ -1294,33 +1302,7 @@ body {
 
 .qmenu-divider { height: 1px; background: var(--border); margin: 4px 20px; }
 
-/* ════════════════════════════════════════
-   MODE TOGGLE (Лайт / Про)
-   ════════════════════════════════════════ */
-.mode-toggle {
-  display: flex;
-  background: var(--bg-input);
-  border-radius: var(--radius-full);
-  padding: 3px;
-  margin-bottom: 16px;
-}
-
-.mode-toggle-btn {
-  flex: 1;
-  padding: 8px 0;
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  color: var(--text-secondary);
-  transition: all 0.2s;
-}
-
-.mode-toggle-btn.active {
-  background: var(--bg-card);
-  color: var(--accent);
-  box-shadow: var(--shadow-sm);
-}
+/* (mode-toggle CSS removed — now handled by global .app-mode-toggle) */
 
 .sheet-pro-fields { display: none; }
 .sheet-pro-fields.visible { display: block; }
@@ -1551,6 +1533,14 @@ body {
     </div>
   </div>
 
+  <!-- Global App Mode Toggle -->
+  <div class="app-mode-bar" id="appModeBar">
+    <div class="app-mode-toggle">
+      <button class="app-mode-btn active" data-am="light" onclick="setAppMode('light')">☀️ Лайт</button>
+      <button class="app-mode-btn" data-am="pro" onclick="setAppMode('pro')">⚡ Про</button>
+    </div>
+  </div>
+
   <!-- Screen Area -->
   <div class="screen-area">
 
@@ -1573,10 +1563,6 @@ body {
         <button class="header-btn" onclick="goToday()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
         </button>
-      </div>
-      <div class="week-mode-toggle" id="weekModeToggle">
-        <button class="week-mode-btn active" data-wm="notebook" onclick="setWeekMode('notebook')">☀️ Зошит</button>
-        <button class="week-mode-btn" data-wm="grid" onclick="setWeekMode('grid')">⚡ Сітка</button>
       </div>
       <div id="weekContainer"></div>
       <button class="fab" onclick="openAdd()">
@@ -1708,11 +1694,6 @@ body {
       <button class="sheet-btn save" onclick="saveTask()">✓</button>
     </div>
     <div class="sheet-body">
-      <!-- Лайт / Про toggle -->
-      <div class="mode-toggle">
-        <button class="mode-toggle-btn active" data-mode="light" onclick="setAddMode('light')">☀️ Лайт</button>
-        <button class="mode-toggle-btn" data-mode="pro" onclick="setAddMode('pro')">⚡ Про</button>
-      </div>
       <input class="sheet-input" id="addTitle" type="text" placeholder="Що потрібно зробити?" autocomplete="off">
       <div class="sheet-field" id="addDayField" onclick="pickDay()">
         <span class="sheet-field-icon">📅</span>
@@ -1785,9 +1766,8 @@ let addPri = 'MEDIUM';
 let addClr = '#E53935';
 let taskFilter = 'all';
 let noteFilter = 'all';
-let weekMode = ld('wn_weekmode', 'notebook'); // 'notebook' or 'grid'
+let appMode = ld('wn_appmode', 'light'); // 'light' or 'pro' — global mode for entire app
 let addFromDay = false; // true when opened via day cell's "+ додати"
-let addMode = 'light'; // 'light' or 'pro'
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
@@ -1863,12 +1843,7 @@ function renderWeek(){
   document.getElementById('weekRange').textContent = range;
   document.getElementById('weekNum').textContent = `Тиждень ${getWeekNum(s)}`;
 
-  // Update toggle buttons
-  document.querySelectorAll('#weekModeToggle .week-mode-btn').forEach(b=>{
-    b.classList.toggle('active', b.dataset.wm===weekMode);
-  });
-
-  if(weekMode === 'notebook'){
+  if(appMode === 'light'){
     renderWeekNotebook(dd);
   } else {
     renderWeekGrid(dd);
@@ -1958,10 +1933,15 @@ function renderWeekGrid(dd){
   document.getElementById('weekContainer').innerHTML = html;
 }
 
-function setWeekMode(mode){
-  weekMode = mode;
-  sv('wn_weekmode', weekMode);
+function setAppMode(mode){
+  appMode = mode;
+  sv('wn_appmode', appMode);
+  // Update global toggle buttons
+  document.querySelectorAll('.app-mode-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.am===mode);
+  });
   renderWeek();
+  renderTasks();
 }
 
 /* Notebook line → input activation */
@@ -2424,8 +2404,8 @@ function openAdd(){
   document.querySelector('.sheet-color').classList.add('sel');
   // Show day picker when opened generically
   document.getElementById('addDayField').style.display = '';
-  // Reset mode to light
-  setAddMode('light');
+  // Show/hide pro fields based on global mode
+  syncSheetToAppMode();
   document.querySelector('.sheet-title').textContent = 'Додати задачу';
   document.getElementById('addSheet').classList.add('open');
   setTimeout(()=>document.getElementById('addTitle').focus(), 200);
@@ -2441,13 +2421,9 @@ function openAddFor(key){
   document.getElementById('addDayField').style.display = 'none';
 }
 
-function setAddMode(mode){
-  addMode = mode;
-  document.querySelectorAll('.mode-toggle-btn').forEach(b=>{
-    b.classList.toggle('active', b.dataset.mode===mode);
-  });
+function syncSheetToAppMode(){
   const pro = document.getElementById('proFields');
-  if(mode==='pro') pro.classList.add('visible');
+  if(appMode==='pro') pro.classList.add('visible');
   else pro.classList.remove('visible');
 }
 
@@ -2549,8 +2525,8 @@ function editTaskFull(id){
   document.querySelectorAll('.sheet-color').forEach(c=>{
     c.classList.toggle('sel', c.dataset.clr === addClr);
   });
-  // Show in Pro mode for full editing
-  setAddMode('pro');
+  // Always show pro fields when editing an existing task
+  document.getElementById('proFields').classList.add('visible');
   document.querySelector('.sheet-title').textContent = 'Редагувати задачу';
   document.getElementById('addSheet').classList.add('open');
   setTimeout(()=>document.getElementById('addTitle').focus(), 200);
@@ -2566,6 +2542,10 @@ function closeMenu(){
 /* ════════════════════════════════════════
    INIT
    ════════════════════════════════════════ */
+// Apply saved app mode on load
+document.querySelectorAll('.app-mode-btn').forEach(b=>{
+  b.classList.toggle('active', b.dataset.am===appMode);
+});
 renderWeek();
 renderTasks();
 renderNotes();
