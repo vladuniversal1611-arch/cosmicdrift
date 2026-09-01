@@ -487,17 +487,99 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  margin: 0 6px 6px;
+  padding: 3px;
+  margin: 0 6px 4px;
   border-radius: 6px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  gap: 4px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  gap: 3px;
   transition: background 0.12s, color 0.12s;
+  opacity: 0.7;
 }
 
-.day-cell-add:hover { background: var(--accent-light); color: var(--accent); }
+.day-cell-add:hover { background: var(--accent-light); opacity: 1; }
+
+/* Notebook lines (Light mode inline input) */
+.nb-line {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: text;
+  transition: border-color 0.12s;
+}
+
+.nb-line:last-child { border-bottom: none; }
+.nb-line:hover { border-bottom-color: var(--accent-mid); }
+
+.nb-line-placeholder {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
+.nb-input {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  padding: 3px 0;
+  outline: none;
+  font-family: var(--font);
+  line-height: 1.3;
+}
+
+.nb-input::placeholder { color: var(--text-tertiary); opacity: 0.5; }
+
+/* Task action buttons in day cell */
+.mini-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.12s;
+}
+
+.mini-task:hover .mini-task-actions,
+.mini-task:active .mini-task-actions { opacity: 1; }
+
+.mini-task-action {
+  width: 20px; height: 20px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  transition: color 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mini-task-action:hover { color: var(--danger); background: rgba(229,57,53,0.08); }
+
+.mini-task-action.edit-btn:hover { color: var(--accent); background: var(--accent-light); }
+
+/* Inline edit for task text */
+.mini-task-edit {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  padding: 2px 0;
+  outline: none;
+  font-family: var(--font);
+  line-height: 1.3;
+  min-width: 0;
+  border-bottom: 1.5px solid var(--accent);
+}
 
 /* FAB */
 .fab {
@@ -640,12 +722,24 @@ body {
   border-radius: var(--radius-full);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-tertiary);
-  opacity: 0;
+  opacity: 0.5;
   transition: opacity 0.12s, color 0.12s;
 }
 
 .task-row:hover .task-delete-btn { opacity: 1; }
-.task-delete-btn:hover { color: var(--danger); }
+.task-delete-btn:hover, .task-delete-btn:active { color: var(--danger); opacity: 1; }
+
+.task-edit-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  font-size: 14px;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.task-edit-btn:hover, .task-edit-btn:active { color: var(--accent); opacity: 1; }
 
 /* ════════════════════════════════════════
    NOTES SCREEN
@@ -1641,15 +1735,23 @@ function renderWeek(){
       const priCls = tk.pri==='HIGH'?'pri-high':tk.pri==='MEDIUM'?'pri-med':'pri-low';
       html += `<div class="mini-task ${tk.done?'completed':''}">
         <div class="mini-task-check ${tk.done?'done':''}" onclick="toggleT('${tk.id}')"></div>
-        <span class="mini-task-text">${esc(tk.title)}</span>
+        <span class="mini-task-text" onclick="editTaskInline('${tk.id}',this)">${esc(tk.title)}</span>
         ${tk.time?'<span class="mini-task-time">'+tk.time+'</span>':''}
         ${tk.pri==='HIGH'?'<span class="mini-task-priority '+priCls+'"></span>':''}
+        <div class="mini-task-actions">
+          <button class="mini-task-action edit-btn" onclick="editTaskInline('${tk.id}',this.parentElement.parentElement.querySelector('.mini-task-text'))" title="Редагувати">✎</button>
+          <button class="mini-task-action" onclick="delTask('${tk.id}')" title="Видалити">✕</button>
+        </div>
       </div>`;
     });
-    if(!dayTasks.length){
-      html += `<div style="display:flex;align-items:center;justify-content:center;flex:1;opacity:0.3;font-size:11px;color:var(--text-tertiary)">—</div>`;
+    // Notebook lines for quick inline entry (Light mode)
+    const emptyLines = Math.max(2, 4 - dayTasks.length);
+    for(let i=0; i<emptyLines; i++){
+      html += `<div class="nb-line" onclick="activateNbLine(this,'${key}')">
+        <span class="nb-line-placeholder">${i===0 && !dayTasks.length ? 'записати...' : ''}</span>
+      </div>`;
     }
-    html += `</div><button class="day-cell-add" onclick="openAddFor('${key}')">+ додати</button></div>`;
+    html += `</div><button class="day-cell-add" onclick="openAddFor('${key}')" title="Додати з деталями">⚡ про</button></div>`;
   });
   document.getElementById('weekGrid').innerHTML = html;
 }
@@ -1658,6 +1760,89 @@ function toggleTwoCol(){
   twoColMode = !twoColMode;
   sv('wn_twocol', twoColMode);
   renderWeek();
+}
+
+/* Notebook line → input activation */
+function activateNbLine(el, dateKey){
+  if(el.querySelector('.nb-input')) return; // already active
+  el.innerHTML = '';
+  const inp = document.createElement('input');
+  inp.className = 'nb-input';
+  inp.type = 'text';
+  inp.placeholder = 'записати...';
+  inp.autocomplete = 'off';
+  el.appendChild(inp);
+  inp.focus();
+
+  const save = () => {
+    const val = inp.value.trim();
+    if(val){
+      tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
+      sv('wn_tasks',tasks);
+    }
+    renderWeek();
+    renderTasks();
+  };
+
+  inp.addEventListener('keydown', e => {
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const val = inp.value.trim();
+      if(val){
+        tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
+        sv('wn_tasks',tasks);
+        renderWeek();
+        renderTasks();
+        // Focus next empty line in same day cell
+        setTimeout(()=>{
+          const cell = document.querySelector(`.day-cell .day-cell-add[onclick*="${dateKey}"]`);
+          if(cell){
+            const lines = cell.parentElement.querySelectorAll('.nb-line');
+            if(lines.length) activateNbLine(lines[0], dateKey);
+          }
+        },50);
+      }
+    }
+    if(e.key==='Escape'){ renderWeek(); renderTasks(); }
+  });
+
+  inp.addEventListener('blur', save);
+}
+
+/* Inline edit task text */
+function editTaskInline(id, textEl){
+  const task = tasks.find(x=>x.id===id);
+  if(!task) return;
+  const parent = textEl.closest('.mini-task');
+  if(parent.querySelector('.mini-task-edit')) return; // already editing
+
+  const inp = document.createElement('input');
+  inp.className = 'mini-task-edit';
+  inp.type = 'text';
+  inp.value = task.title;
+  inp.autocomplete = 'off';
+  textEl.replaceWith(inp);
+  inp.focus();
+  inp.select();
+
+  const finish = (save) => {
+    if(save){
+      const val = inp.value.trim();
+      if(val && val !== task.title){
+        task.title = val;
+        sv('wn_tasks',tasks);
+      }
+    }
+    renderWeek();
+    renderTasks();
+  };
+
+  inp.addEventListener('keydown', e => {
+    if(e.key==='Enter'){ e.preventDefault(); finish(true); }
+    if(e.key==='Escape'){ finish(false); }
+  });
+
+  inp.addEventListener('blur', () => finish(true));
 }
 
 function prevWeek(){ws.setDate(ws.getDate()-7);renderWeek()}
@@ -1700,6 +1885,7 @@ function renderTasks(){
             </div>
           </div>
           <div class="task-row-right">
+            <button class="task-edit-btn" onclick="editTaskFull('${t.id}')">✎</button>
             <button class="task-delete-btn" onclick="delTask('${t.id}')">✕</button>
           </div>
         </div>`;
@@ -1929,6 +2115,7 @@ function showStats(){
    ADD TASK
    ════════════════════════════════════════ */
 function openAdd(){
+  editingTaskId = null;
   addDay = dk(new Date());
   addPri = 'MEDIUM';
   addClr = '#E53935';
@@ -1943,6 +2130,7 @@ function openAdd(){
   document.getElementById('addDayField').style.display = '';
   // Reset mode to light
   setAddMode('light');
+  document.querySelector('.sheet-title').textContent = 'Додати задачу';
   document.getElementById('addSheet').classList.add('open');
   setTimeout(()=>document.getElementById('addTitle').focus(), 200);
 }
@@ -1975,7 +2163,21 @@ function saveTask(){
   const title = document.getElementById('addTitle').value.trim();
   if(!title) return;
   const time = document.getElementById('addTime').value;
-  tasks.push({id:uid(),title,date:addDay,time,done:false,pri:addPri,clr:addClr});
+  if(editingTaskId){
+    // Update existing task
+    const t = tasks.find(x=>x.id===editingTaskId);
+    if(t){
+      t.title = title;
+      t.date = addDay;
+      t.time = time;
+      t.pri = addPri;
+      t.clr = addClr;
+    }
+    editingTaskId = null;
+  } else {
+    // Create new task
+    tasks.push({id:uid(),title,date:addDay,time,done:false,pri:addPri,clr:addClr});
+  }
   sv('wn_tasks',tasks);
   closeAdd();
   renderWeek();
@@ -2027,6 +2229,35 @@ function delTask(id){
   sv('wn_tasks',tasks);
   renderWeek();
   renderTasks();
+}
+
+let editingTaskId = null; // set when editing an existing task
+
+function editTaskFull(id){
+  const t = tasks.find(x=>x.id===id);
+  if(!t) return;
+  editingTaskId = id;
+  addDay = t.date;
+  addPri = t.pri || 'MEDIUM';
+  addClr = t.clr || '#E53935';
+  addFromDay = false;
+  document.getElementById('addTitle').value = t.title;
+  document.getElementById('addTime').value = t.time || '';
+  const d = new Date(t.date+'T12:00:00');
+  document.getElementById('addDayVal').textContent = `${DAYS_F[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}`;
+  document.getElementById('addDayField').style.display = '';
+  const names = {LOW:'Низький',MEDIUM:'Середній',HIGH:'Високий'};
+  const icons = {LOW:'⚪',MEDIUM:'🟡',HIGH:'🔴'};
+  document.getElementById('addPriVal').textContent = names[addPri];
+  document.querySelector('#addPriorityField .sheet-field-icon').textContent = icons[addPri];
+  document.querySelectorAll('.sheet-color').forEach(c=>{
+    c.classList.toggle('sel', c.dataset.clr === addClr);
+  });
+  // Show in Pro mode for full editing
+  setAddMode('pro');
+  document.querySelector('.sheet-title').textContent = 'Редагувати задачу';
+  document.getElementById('addSheet').classList.add('open');
+  setTimeout(()=>document.getElementById('addTitle').focus(), 200);
 }
 
 function toggleMenu(){
