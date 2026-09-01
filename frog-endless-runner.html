@@ -461,7 +461,7 @@ function saveSkins(){localStorage.setItem('fSk',JSON.stringify(SKINS.map(s=>s.o)
 
 // Sky skins - buyable backgrounds
 const SKY_SKINS=[
-  {n:'☀️ Сонячне',top:'#87CEEB',bot:'#E0F6FF',p:0,o:true,t:'sky'},
+  {n:'☀️ Сонячне',top:'#87CEEB',bot:'#E0F6FF',p:0,o:true,t:'sky',img:true},
   {n:'☁️ Хмарне',top:'#A0A0A0',bot:'#D3D3D3',p:100,o:false,t:'sky'},
   {n:'🌙 Нічне',top:'#0a0e27',bot:'#2c3e50',p:150,o:false,t:'sky'},
   {n:'⭐ Космос',top:'#000814',bot:'#001d3d',p:200,o:false,t:'sky'},
@@ -1838,16 +1838,15 @@ function drawBg(){
   // Sky gradient — from current sky skin colors (full screen - unified cloud space)
   const isNight=sky.top.length<7||sky.top.charCodeAt(1)<100;  // Dark colors = night
   const skyH=H;
-  if(_ok('sky')){
-    const im=_A.sky, dh=Math.max(skyH,W*im.naturalHeight/im.naturalWidth);
-    ctx.save();ctx.beginPath();ctx.rect(0,0,W,skyH);ctx.clip();
-    ctx.drawImage(im,0,0,W,dh);
-    // Apply sky tint
-    ctx.globalAlpha=isNight?.72:.30;
-    const tint=ctx.createLinearGradient(0,0,0,skyH);
-    tint.addColorStop(0,sky.top);tint.addColorStop(1,sky.bot);
-    ctx.fillStyle=tint;ctx.fillRect(0,0,W,skyH);
-    ctx.restore();
+  if(sky.img&&_ok('sky')){
+    // Draw cloud background image for sunny sky
+    const im=_A.sky;
+    const scale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
+    const imgW=im.naturalWidth*scale;
+    const imgH=im.naturalHeight*scale;
+    const offX=(W-imgW)/2;
+    const offY=(H-imgH)/2;
+    ctx.drawImage(im,offX,offY,imgW,imgH);
   } else {
     const sg=ctx.createLinearGradient(0,0,0,skyH);
     sg.addColorStop(0,sky.top);sg.addColorStop(.5,sky.bot);sg.addColorStop(1,sky.bot);
@@ -2187,6 +2186,8 @@ const _G2={
 Object.assign(_AD,_G2);
 const _A={},_AL={};
 for(const [k,v] of Object.entries(_AD)){const i=new Image();i.onload=()=>{_AL[k]=true};i.src="data:image/webp;base64,"+v;_A[k]=i}
+// Load external sky background image
+const _skyImg=new Image();_skyImg.onload=()=>{_AL['sky']=true};_skyImg.src='sky-sunny.png';_A['sky']=_skyImg;
 const _ok=k=>_AL[k]&&_A[k].naturalWidth>0;
 // draw image centred at (x,y) scaled so its height is h
 function drawImgH(k,x,y,h,alpha){
