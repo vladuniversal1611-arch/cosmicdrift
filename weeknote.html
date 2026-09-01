@@ -1774,7 +1774,10 @@ function activateNbLine(el, dateKey){
   el.appendChild(inp);
   inp.focus();
 
-  const save = () => {
+  let saved = false;
+  const doSave = (andFocusNext) => {
+    if(saved) return;
+    saved = true;
     const val = inp.value.trim();
     if(val){
       tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
@@ -1782,31 +1785,23 @@ function activateNbLine(el, dateKey){
     }
     renderWeek();
     renderTasks();
+    if(andFocusNext && val){
+      setTimeout(()=>{
+        const cell = document.querySelector(`.day-cell .day-cell-add[onclick*="${dateKey}"]`);
+        if(cell){
+          const lines = cell.parentElement.querySelectorAll('.nb-line');
+          if(lines.length) activateNbLine(lines[0], dateKey);
+        }
+      },50);
+    }
   };
 
   inp.addEventListener('keydown', e => {
-    if(e.key==='Enter'){
-      e.preventDefault();
-      const val = inp.value.trim();
-      if(val){
-        tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
-        sv('wn_tasks',tasks);
-        renderWeek();
-        renderTasks();
-        // Focus next empty line in same day cell
-        setTimeout(()=>{
-          const cell = document.querySelector(`.day-cell .day-cell-add[onclick*="${dateKey}"]`);
-          if(cell){
-            const lines = cell.parentElement.querySelectorAll('.nb-line');
-            if(lines.length) activateNbLine(lines[0], dateKey);
-          }
-        },50);
-      }
-    }
-    if(e.key==='Escape'){ renderWeek(); renderTasks(); }
+    if(e.key==='Enter'){ e.preventDefault(); doSave(true); }
+    if(e.key==='Escape'){ saved = true; renderWeek(); renderTasks(); }
   });
 
-  inp.addEventListener('blur', save);
+  inp.addEventListener('blur', () => doSave(false));
 }
 
 /* Inline edit task text */
@@ -1825,7 +1820,10 @@ function editTaskInline(id, textEl){
   inp.focus();
   inp.select();
 
+  let finished = false;
   const finish = (save) => {
+    if(finished) return;
+    finished = true;
     if(save){
       const val = inp.value.trim();
       if(val && val !== task.title){
