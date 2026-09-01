@@ -1839,37 +1839,30 @@ function drawBg(){
   const isNight=sky.top.length<7||sky.top.charCodeAt(1)<100;  // Dark colors = night
   const skyH=H;
   if(sky.img&&_ok('skySunny')){
-    // Animated cloud background — mirror-tiled vertical scroll so top/bottom seams match
+    // Animated cloud background — two cross-faded copies that zoom in and drift down,
+    // simulating "flying forward through clouds". No tile seams because we never tile —
+    // each copy fades in small in the distance, grows, then fades out when close.
     const im=_A.skySunny;
-    // Subtle zoom pulse for sense of depth
-    const zoom=1.04+0.04*Math.sin(gt*0.8);
     const baseScale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
-    const scale=baseScale*zoom;
-    const imgW=im.naturalWidth*scale;
-    const imgH=im.naturalHeight*scale;
-    const offX=(W-imgW)/2;
-    const scrollSpeed=H*0.08;
-    // Mirror tiling: period is 2*imgH (normal + vertical flip). Every other tile is
-    // flipped so bottom-meets-bottom and top-meets-top at each seam — no visible cut.
-    const period=imgH*2;
-    const s=(gt*scrollSpeed)%period;
-    // Start from the topmost tile that could still touch the screen — with s up to
-    // 2*imgH the earlier k=-1 start could leave a black gap at the top of the screen.
-    const kStart=Math.floor(-s/imgH)-1;
-    for(let k=kStart;k*imgH+s<H;k++){
-      const y=k*imgH+s;
-      if(y+imgH<=0)continue;
-      const flipped=((k%2)+2)%2===1;
-      if(flipped){
-        ctx.save();
-        ctx.translate(offX,y);
-        ctx.scale(1,-1);
-        ctx.drawImage(im,0,-imgH,imgW,imgH);
-        ctx.restore();
-      } else {
-        ctx.drawImage(im,offX,y,imgW,imgH);
-      }
-    }
+    // Sky-color fallback under the images so any brief alpha dip never flashes black
+    const bg=ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#4FC3F7');bg.addColorStop(1,'#B3E5FC');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    // Two cross-faded copies, half a cycle apart, so one is always dominant
+    const cycleTime=14;
+    const pA=(gt/cycleTime)%1;
+    const pB=((gt/cycleTime)+0.5)%1;
+    const drawCloud=(p)=>{
+      const zoom=1+p*0.7;                       // 1.0 → 1.7 over the cycle
+      const scale=baseScale*zoom;
+      const iw=im.naturalWidth*scale, ih=im.naturalHeight*scale;
+      const driftY=p*H*0.12;                    // subtle downward drift
+      const ox=(W-iw)/2, oy=(H-ih)/2+driftY;
+      ctx.globalAlpha=Math.sin(p*Math.PI);      // 0 → 1 → 0, peaks mid-cycle
+      ctx.drawImage(im,ox,oy,iw,ih);
+    };
+    drawCloud(pA);drawCloud(pB);
+    ctx.globalAlpha=1;
   } else {
     const sg=ctx.createLinearGradient(0,0,0,skyH);
     sg.addColorStop(0,sky.top);sg.addColorStop(.5,sky.bot);sg.addColorStop(1,sky.bot);
