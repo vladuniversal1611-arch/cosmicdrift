@@ -1839,24 +1839,34 @@ function drawBg(){
   const isNight=sky.top.length<7||sky.top.charCodeAt(1)<100;  // Dark colors = night
   const skyH=H;
   if(sky.img&&_ok('skySunny')){
-    // Animated cloud background — clouds drift downward toward player + subtle zoom pulse
+    // Animated cloud background — mirror-tiled vertical scroll so top/bottom seams match
     const im=_A.skySunny;
-    // Subtle zoom pulse: ranges 1.00..1.08 over ~8s (adds sense of depth)
+    // Subtle zoom pulse for sense of depth
     const zoom=1.04+0.04*Math.sin(gt*0.8);
     const baseScale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
     const scale=baseScale*zoom;
     const imgW=im.naturalWidth*scale;
     const imgH=im.naturalHeight*scale;
     const offX=(W-imgW)/2;
-    // Scroll speed (px/s) — image tiles vertically for seamless loop
     const scrollSpeed=H*0.08;
-    const shift=(gt*scrollSpeed)%imgH;
-    // Draw image twice, offset by imgH, so it loops as it scrolls down
-    const baseY=(H-imgH)/2+shift;
-    ctx.drawImage(im,offX,baseY,imgW,imgH);
-    ctx.drawImage(im,offX,baseY-imgH,imgW,imgH);
-    // Fill any gap below (in case both draws leave a gap after wrap)
-    if(baseY+imgH<H) ctx.drawImage(im,offX,baseY+imgH,imgW,imgH);
+    // Mirror tiling: period is 2*imgH (normal + vertical flip). Every other tile is
+    // flipped so bottom-meets-bottom and top-meets-top at each seam — no visible cut.
+    const period=imgH*2;
+    const s=(gt*scrollSpeed)%period;
+    for(let k=-1;k*imgH+s<H;k++){
+      const y=k*imgH+s;
+      if(y+imgH<=0)continue;
+      const flipped=((k%2)+2)%2===1;
+      if(flipped){
+        ctx.save();
+        ctx.translate(offX,y);
+        ctx.scale(1,-1);
+        ctx.drawImage(im,0,-imgH,imgW,imgH);
+        ctx.restore();
+      } else {
+        ctx.drawImage(im,offX,y,imgW,imgH);
+      }
+    }
   } else {
     const sg=ctx.createLinearGradient(0,0,0,skyH);
     sg.addColorStop(0,sky.top);sg.addColorStop(.5,sky.bot);sg.addColorStop(1,sky.bot);
