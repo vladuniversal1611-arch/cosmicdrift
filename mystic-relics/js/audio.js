@@ -1,8 +1,8 @@
 /* ============================================================
  * Mystic Relics — audio.js
- * Усі звуки та музика генеруються процедурно через WebAudio API.
- * Жодних аудіофайлів. Названо Audio2, щоб не конфліктувати
- * з вбудованим window.Audio.
+ * Музика: аудіофайл (assets/audio/music.wav), зациклений.
+ * Звукові ефекти: процедурно через WebAudio API.
+ * Названо Audio2, щоб не конфліктувати з вбудованим window.Audio.
  * ============================================================ */
 'use strict';
 
@@ -10,8 +10,9 @@ const Audio2 = {
   ctx: null,
   master: null,
   musicGain: null,
-  _musicTimer: null,
-  _musicStep: 0,
+  _musicSrc: null,    // BufferSource для аудіофайлу
+  _musicBuf: null,    // декодований AudioBuffer
+  _musicLoaded: false,
 
   /** Ледача ініціалізація — контекст створюється після першого дотику. */
   init() {
@@ -23,12 +24,51 @@ const Audio2 = {
     this.master.gain.value = 0.5;
     this.master.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.16;
+    this.musicGain.gain.value = 0.25;
     this.musicGain.connect(this.master);
+    // Завантажити аудіофайл
+    this._loadMusicFile();
     if (Storage.data.settings.music) this.startMusic();
   },
 
   resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+
+  /* ---- Завантаження аудіофайлу ---- */
+  _loadMusicFile() {
+    // Вбудований base64 (однофайловий білд) або зовнішній файл
+    const emb = (typeof window !== 'undefined' && window.EMBEDDED_ASSETS &&
+                 window.EMBEDDED_ASSETS.audio && window.EMBEDDED_ASSETS.audio.music);
+    if (emb) {
+      // base64 → ArrayBuffer → decode
+      this._decodeBase64(emb);
+      return;
+    }
+    // Зовнішній файл
+    fetch('assets/audio/music.wav')
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(ab => this.ctx.decodeAudioData(ab))
+      .then(buf => { this._musicBuf = buf; this._musicLoaded = true; this._tryPlayFile(); })
+      .catch(() => { /* файл відсутній — буде тиша */ });
+  },
+
+  _decodeBase64(b64) {
+    try {
+      const bin = atob(b64.replace(/^data:[^;]+;base64,/, ''));
+      const ab = new ArrayBuffer(bin.length);
+      const view = new Uint8Array(ab);
+      for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+      this.ctx.decodeAudioData(ab)
+        .then(buf => { this._musicBuf = buf; this._musicLoaded = true; this._tryPlayFile(); })
+        .catch(() => {});
+    } catch (e) {}
+  },
+
+  /** Якщо музика вже грає і файл щойно завантажився — перезапустити з файлу. */
+  _tryPlayFile() {
+    if (Storage.data.settings.music && this._musicLoaded) {
+      this.startMusic();
+    }
+  },
 
   /** Простий тон з обвідною. */
   tone(freq, dur, type = 'sine', vol = 0.3, delay = 0, slide = 0) {
@@ -106,106 +146,29 @@ const Audio2 = {
   },
 
   /* ------------------------------------------------------------
-   * Процедурна фонова музика 2.0 — багатошаровий рушій:
-   *   • пад-акорди (3 голоси, повільна атака) за прогресією I–IV–V–I
-   *   • бас: тоніка та квінта у чвертях
-   *   • м'яка перкусія: кік (синус-тон вниз) + хет (шум)
-   *   • мелодія: «випадкова прогулянка» гамою теми зі структурою
-   *     A-A-B-A (у B-тактах мелодія активніша, з октавними стрибками)
-   * 16 кроків × 170 мс на такт; гама і тон — з активної теми.
+   * Фонова музика: відтворення аудіофайлу в циклі.
+   * Файл завантажується асинхронно; поки не завантажений — тиша.
    * ---------------------------------------------------------- */
   startMusic() {
     this.stopMusic();
     if (!this.ctx || !Storage.data.settings.music) return;
-    this._musicStep = 0;
-    this._mel = 4;
-    const PROG = [0, 3, 4, 0];                   // ступені акордів (I–IV–V–I)
-    const step = () => {
-      const theme = CFG.THEMES.find(t => t.id === Storage.data.theme) || CFG.THEMES[0];
-      const scale = theme.scale, base = theme.base;
-      const i = this._musicStep++;
-      const pos = i % 16, bar = Math.floor(i / 16);
-      const rootDeg = PROG[bar % 4];
-      const root = scale[rootDeg % scale.length];
-      const isB = bar % 4 === 2;                 // такт «B» — жвавіший
+    if (!this._musicLoaded || !this._musicBuf) return;  // ще не завантажено
 
-      // Пад-акорд: три голоси з м'якою атакою на початку такту
-      if (pos === 0) {
-        [0, 2, 4].forEach(k => {
-          const idx = rootDeg + k;
-          const dg = scale[idx % scale.length] + 12 * Math.floor(idx / scale.length);
-          this._mtone(base * Math.pow(2, dg / 12), 3.6, 'sine', 0.16, 0.7);
-        });
-      }
-      // Бас: тоніка (сильні долі) та квінта (слабкі)
-      if (pos === 0 || pos === 8) this._mtone(base / 2 * Math.pow(2, root / 12), 1.3, 'sine', 0.5);
-      if (pos === 4 || pos === 12) this._mtone(base / 2 * Math.pow(2, (root + 7) / 12), 1.0, 'sine', 0.38);
-      // Перкусія: кік на сильні долі, хет на «і»
-      if (pos % 8 === 0) this._kick();
-      if (pos % 4 === 2) this._hat();
-      // Мелодія: прогулянка гамою (2 октави), паузи роблять фразування
-      const busy = isB ? 0.8 : 0.55;
-      if (pos % 2 === 0 && Math.random() < busy) {
-        this._mel = Utils.clamp(this._mel + Math.floor(Math.random() * 5) - 2, 0, 9);
-        const dg = scale[this._mel % scale.length] + 12 * Math.floor(this._mel / scale.length);
-        this._mtone(base * Math.pow(2, dg / 12), isB ? 0.4 : 0.6, 'triangle', 0.3);
-        // Октавне «відлуння» у B-тактах
-        if (isB && Math.random() < 0.3) {
-          this._mtone(base * 2 * Math.pow(2, dg / 12), 0.3, 'sine', 0.12);
-        }
-      }
-      this._musicTimer = setTimeout(step, 170);
-    };
-    step();
-  },
-
-  _mtone(freq, dur, type, vol, attack = 0.05) {
-    if (!this.ctx) return;
-    const t0 = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(vol, t0 + attack);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    o.connect(g); g.connect(this.musicGain);
-    o.start(t0); o.stop(t0 + dur + 0.1);
-  },
-
-  /** М'який кік: короткий синус зі спадом висоти. */
-  _kick() {
-    if (!this.ctx) return;
-    const t0 = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(105, t0);
-    o.frequency.exponentialRampToValueAtTime(45, t0 + 0.12);
-    g.gain.setValueAtTime(0.5, t0);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
-    o.connect(g); g.connect(this.musicGain);
-    o.start(t0); o.stop(t0 + 0.16);
-  },
-
-  /** Тихий хет: короткий сплеск фільтрованого шуму. */
-  _hat() {
-    if (!this.ctx) return;
-    const t0 = this.ctx.currentTime;
-    const len = Math.floor(this.ctx.sampleRate * 0.04);
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
     const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    const f = this.ctx.createBiquadFilter();
-    f.type = 'highpass'; f.frequency.value = 6000;
-    const g = this.ctx.createGain();
-    g.gain.value = 0.12;
-    src.connect(f); f.connect(g); g.connect(this.musicGain);
-    src.start(t0);
+    src.buffer = this._musicBuf;
+    src.loop = true;
+    src.connect(this.musicGain);
+    src.start(0);
+    this._musicSrc = src;
   },
 
-  stopMusic() { clearTimeout(this._musicTimer); this._musicTimer = null; },
+  stopMusic() {
+    if (this._musicSrc) {
+      try { this._musicSrc.stop(); } catch (e) {}
+      try { this._musicSrc.disconnect(); } catch (e) {}
+      this._musicSrc = null;
+    }
+  },
 
   toggleMusic(on) { on ? this.startMusic() : this.stopMusic(); },
 
