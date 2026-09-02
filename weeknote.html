@@ -294,6 +294,20 @@ body {
 /* ════════════════════════════════════════
    WEEK SCREEN
    ════════════════════════════════════════ */
+#scrWeek {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#weekContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .week-header {
   display: flex;
   align-items: center;
@@ -363,12 +377,15 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Week grid (Pro / Сітка mode) */
+/* Week grid (both modes) */
 .week-grid {
-  padding: 8px 12px 100px;
+  padding: 4px 8px 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
+  grid-template-rows: 1fr 1fr 1fr 1fr;
+  overflow: hidden;
 }
 
 .day-cell {
@@ -377,10 +394,10 @@ body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  min-height: 110px;
   display: flex;
   flex-direction: column;
   transition: box-shadow 0.15s;
+  min-height: 0;
 }
 
 .day-cell:last-child:nth-child(odd) {
@@ -422,6 +439,8 @@ body {
   flex: 1;
   padding: 2px 6px 6px;
   display: flex;
+  overflow-y: auto;
+  min-height: 0;
   flex-direction: column;
   gap: 1px;
 }
@@ -1894,22 +1913,21 @@ function renderWeek(){
 }
 
 function renderWeekNotebook(dd){
-  let html = '<div class="nb-sheet">';
+  let html = '<div class="week-grid">';
   dd.forEach(d => {
     const key = dk(d);
     const t = isToday(d);
     const dayTasks = tasks.filter(x=>x.date===key)
       .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
 
-    html += `<div class="nb-day ${t?'is-today':''}">
-      <div class="nb-day-header">
-        <span class="nb-day-name">${DAYS_S[d.getDay()]}</span>
-        <span class="nb-day-date">${d.getDate()} ${MO[d.getMonth()]}</span>
-        ${dayTasks.length ? `<span class="nb-day-count">${dayTasks.length}</span>` : ''}
+    html += `<div class="day-cell ${t?'is-today':''}">
+      <div class="day-cell-header">
+        <span class="day-cell-name">${DAYS_S[d.getDay()]}</span>
+        <span class="day-cell-num">${d.getDate()}</span>
       </div>
-      <div class="nb-day-tasks">`;
+      <div class="day-cell-tasks">`;
 
-    // Show existing tasks as plain text lines (no buttons, no checkboxes)
+    // Existing tasks as plain text lines (no checkboxes)
     dayTasks.forEach(tk => {
       html += `<div class="nb-line-row" onclick="editTaskInlineNb('${tk.id}',this.querySelector('.nb-line-text'))">
         <span class="nb-line-text">${esc(tk.title)}</span>
@@ -1917,7 +1935,7 @@ function renderWeekNotebook(dd){
     });
 
     // Empty ruled lines for writing
-    const emptyLines = Math.max(3, 5 - dayTasks.length);
+    const emptyLines = Math.max(2, 4 - dayTasks.length);
     for(let i=0; i<emptyLines; i++){
       html += `<div class="nb-line-row nb-line-empty" onclick="activateNbLineSheet(this,'${key}')">
         <span class="nb-line-placeholder">${i===0 && !dayTasks.length ? 'записати...' : ''}</span>
