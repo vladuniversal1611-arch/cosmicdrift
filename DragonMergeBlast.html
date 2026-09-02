@@ -1906,6 +1906,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       n_daily_t: 'Щоденний подарунок 🎁', n_daily_b: 'Забери безкоштовну нагороду сьогодні!',
       n_wheel_t: 'Колесо фортуни 🎡', n_wheel_b: 'Крути безкоштовно і вигравай кристали!',
       n_hatch_t: 'Нове яйце 🥚', n_hatch_b: 'Збери кристали й вилупи нового дракона!',
+      n_event_t: 'Активна подія! ⚡', n_event_b: 'Подвійні нагороди — не пропусти!',
+      n_chest_t: 'Скриня чекає 📦', n_chest_b: 'Твоя нагорода готова — відкрий і забирай!',
+      n_streak_t: 'Не втрачай серію! 🔥', n_streak_b: 'Один рівень — і серія збережеться.',
       level_intro_goal: 'Ціль: {text}', sugar_bonus: 'БОНУС! +{n}'
     },
 
@@ -1972,6 +1975,9 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       n_daily_t: 'Daily gift 🎁', n_daily_b: 'Claim your free reward today!',
       n_wheel_t: 'Prize wheel 🎡', n_wheel_b: 'Spin for free and win gems!',
       n_hatch_t: 'A new egg 🥚', n_hatch_b: 'Match crystals and hatch a new dragon!',
+      n_event_t: 'Live event! ⚡', n_event_b: 'Double rewards inside — don\'t miss out!',
+      n_chest_t: 'Chest ready 📦', n_chest_b: 'Your reward is waiting — tap to open!',
+      n_streak_t: 'Keep the streak! 🔥', n_streak_b: 'One level — and your streak stays alive.',
       level_intro_goal: 'Goal: {text}', sugar_bonus: 'BONUS! +{n}'
     },
 
@@ -3646,18 +3652,39 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     return (global.Capacitor && global.Capacitor.Plugins && global.Capacitor.Plugins.LocalNotifications) || null;
   }
 
-  // Hours from "now" at which to remind. A few-hour cadence early, then
-  // escalating so we nudge without spamming. Re-anchored on every open/close.
-  const HOURS = [4, 9, 24, 29, 48, 72, 120, 168];
+  // Hours from "now" at which to remind. Multiple per day for the first
+  // three days, then daily, then spaced out to catch churned players.
+  // Re-anchored on every app open/close so ACTIVE players never see them.
+  //
+  //  Day 1: 3h, 7h, 11h, 22h              → 4 nudges (morning/noon/eve)
+  //  Day 2: 27h, 32h, 47h                 → 3 more
+  //  Day 3: 51h, 58h, 70h                 → 3 more
+  //  Day 4-7: once per day                → 4 more
+  //  Day 10, 14, 21: recovery nudges      → 3 more
+  //  Total: 17 pending reminders per re-schedule.
+  const HOURS = [3, 7, 11, 22, 27, 32, 47, 51, 58, 70, 94, 118, 142, 166, 238, 334, 502];
+
+  // Do not fire between 22:00 and 09:00 local time — sleep hours.
+  // If a slot would land there, push it forward to 09:00 the same/next day.
+  function respectQuietHours(d) {
+    var h = d.getHours();
+    if (h >= 22) { d.setDate(d.getDate() + 1); d.setHours(9, Math.floor(Math.random()*30), 0, 0); }
+    else if (h < 9) { d.setHours(9, Math.floor(Math.random()*30), 0, 0); }
+    return d;
+  }
 
   function messages() {
     const T = global.T;
+    // Rotate through several templates so each reminder feels fresh, not spammy.
     return [
       { t: T('n_dragons_t'), b: T('n_dragons_b') },
       { t: T('n_lives_t'),   b: T('n_lives_b') },
       { t: T('n_daily_t'),   b: T('n_daily_b') },
       { t: T('n_wheel_t'),   b: T('n_wheel_b') },
-      { t: T('n_hatch_t'),   b: T('n_hatch_b') }
+      { t: T('n_hatch_t'),   b: T('n_hatch_b') },
+      { t: T('n_event_t'),   b: T('n_event_b') },
+      { t: T('n_chest_t'),   b: T('n_chest_b') },
+      { t: T('n_streak_t'),  b: T('n_streak_b') }
     ];
   }
 
@@ -3674,13 +3701,17 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     }).then(function () {
       const m = messages();
       const now = Date.now();
+      // Shuffle message order per re-schedule so the SAME hour slot doesn't
+      // always show the SAME message → feels varied on repeat opens.
+      const order = m.slice(); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); const tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
       const notifications = HOURS.map(function (h, i) {
-        const msg = m[i % m.length];
+        const msg = order[i % order.length];
+        const when = respectQuietHours(new Date(now + h * 3600 * 1000));
         return {
           id: 4000 + i,
           title: msg.t,
           body: msg.b,
-          schedule: { at: new Date(now + h * 3600 * 1000), allowWhileIdle: true }
+          schedule: { at: when, allowWhileIdle: true }
         };
       });
       return ln.schedule({ notifications: notifications });

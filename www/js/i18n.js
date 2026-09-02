@@ -89,6 +89,9 @@
       n_daily_t: 'Щоденний подарунок 🎁', n_daily_b: 'Забери безкоштовну нагороду сьогодні!',
       n_wheel_t: 'Колесо фортуни 🎡', n_wheel_b: 'Крути безкоштовно і вигравай кристали!',
       n_hatch_t: 'Нове яйце 🥚', n_hatch_b: 'Збери кристали й вилупи нового дракона!',
+      n_event_t: 'Активна подія! ⚡', n_event_b: 'Подвійні нагороди — не пропусти!',
+      n_chest_t: 'Скриня чекає 📦', n_chest_b: 'Твоя нагорода готова — відкрий і забирай!',
+      n_streak_t: 'Не втрачай серію! 🔥', n_streak_b: 'Один рівень — і серія збережеться.',
       level_intro_goal: 'Ціль: {text}', sugar_bonus: 'БОНУС! +{n}'
     },
 
@@ -155,6 +158,9 @@
       n_daily_t: 'Daily gift 🎁', n_daily_b: 'Claim your free reward today!',
       n_wheel_t: 'Prize wheel 🎡', n_wheel_b: 'Spin for free and win gems!',
       n_hatch_t: 'A new egg 🥚', n_hatch_b: 'Match crystals and hatch a new dragon!',
+      n_event_t: 'Live event! ⚡', n_event_b: 'Double rewards inside — don\'t miss out!',
+      n_chest_t: 'Chest ready 📦', n_chest_b: 'Your reward is waiting — tap to open!',
+      n_streak_t: 'Keep the streak! 🔥', n_streak_b: 'One level — and your streak stays alive.',
       level_intro_goal: 'Goal: {text}', sugar_bonus: 'BONUS! +{n}'
     },
 
