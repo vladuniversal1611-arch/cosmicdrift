@@ -483,6 +483,63 @@ body {
   padding: 0 8px 4px;
 }
 
+/* Notebook ruled lines (Light mode — no checkboxes) */
+.nb-line-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  min-height: 34px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nb-line-row:last-child { border-bottom: none; }
+
+.nb-line-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: text;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-line-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.nb-line-row:hover .nb-line-actions,
+.nb-line-row:active .nb-line-actions { opacity: 1; }
+
+@media (pointer: coarse) {
+  .nb-line-actions { opacity: 0.5; }
+}
+
+.nb-line-empty {
+  cursor: text;
+}
+
+.nb-line-empty:hover {
+  border-bottom-color: var(--accent-mid);
+}
+
+.nb-line-placeholder {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  opacity: 0.4;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+  font-style: italic;
+}
+
 .nb-task {
   display: flex;
   align-items: center;
@@ -1863,28 +1920,26 @@ function renderWeekNotebook(dd){
       <div class="nb-day-header">
         <span class="nb-day-name">${DAYS_S[d.getDay()]}</span>
         <span class="nb-day-date">${d.getDate()} ${MO[d.getMonth()]}</span>
-        ${dayTasks.length ? `<span class="nb-day-count">${dayTasks.filter(x=>x.done).length}/${dayTasks.length}</span>` : ''}
+        ${dayTasks.length ? `<span class="nb-day-count">${dayTasks.length}</span>` : ''}
       </div>
       <div class="nb-day-tasks">`;
 
+    // Show existing tasks as plain text lines (no checkboxes in Light)
     dayTasks.forEach(tk => {
-      html += `<div class="nb-task ${tk.done?'completed':''}">
-        <div class="nb-task-check ${tk.done?'done':''}" onclick="toggleT('${tk.id}')"></div>
-        <span class="nb-task-text" onclick="editTaskInlineNb('${tk.id}',this)">${esc(tk.title)}</span>
-        ${tk.time?'<span class="nb-task-time">'+tk.time+'</span>':''}
-        <div class="nb-task-actions">
-          <button class="nb-task-act edt" onclick="editTaskInlineNb('${tk.id}',this.parentElement.parentElement.querySelector('.nb-task-text'))" title="Редагувати">✎</button>
+      html += `<div class="nb-line-row">
+        <span class="nb-line-text" onclick="editTaskInlineNb('${tk.id}',this)">${esc(tk.title)}</span>
+        <div class="nb-line-actions">
+          <button class="nb-task-act edt" onclick="editTaskInlineNb('${tk.id}',this.parentElement.parentElement.querySelector('.nb-line-text'))" title="Редагувати">✎</button>
           <button class="nb-task-act del" onclick="delTask('${tk.id}')" title="Видалити">✕</button>
         </div>
       </div>`;
     });
 
-    // Empty notebook lines for quick inline entry
-    const emptyLines = Math.max(2, 4 - dayTasks.length);
+    // Empty ruled lines for writing
+    const emptyLines = Math.max(3, 5 - dayTasks.length);
     for(let i=0; i<emptyLines; i++){
-      html += `<div class="nb-task" onclick="activateNbLineSheet(this,'${key}')" style="cursor:text">
-        <div class="nb-task-check" style="border-color:var(--border);opacity:0.4"></div>
-        <span class="nb-task-text" style="color:var(--text-tertiary);opacity:0.5;font-style:italic">${i===0 && !dayTasks.length ? 'записати...' : ''}</span>
+      html += `<div class="nb-line-row nb-line-empty" onclick="activateNbLineSheet(this,'${key}')">
+        <span class="nb-line-placeholder">${i===0 && !dayTasks.length ? 'записати...' : ''}</span>
       </div>`;
     }
 
@@ -1987,18 +2042,11 @@ function activateNbLine(el, dateKey){
   inp.addEventListener('blur', () => doSave(false));
 }
 
-/* Notebook sheet line → input activation */
+/* Notebook sheet empty line → input activation */
 function activateNbLineSheet(el, dateKey){
   if(el.querySelector('.nb-input')) return;
-  el.onclick = null; // prevent re-trigger
-  el.style.cursor = '';
-  const check = el.querySelector('.nb-task-check');
-  if(check){ check.style.borderColor = ''; check.style.opacity = ''; }
-  const placeholder = el.querySelector('.nb-task-text');
-  if(placeholder) placeholder.remove();
-  // Remove actions div if present
-  const acts = el.querySelector('.nb-task-actions');
-  if(acts) acts.remove();
+  el.onclick = null;
+  el.innerHTML = '';
 
   const inp = document.createElement('input');
   inp.className = 'nb-input';
@@ -2022,17 +2070,9 @@ function activateNbLineSheet(el, dateKey){
     renderTasks();
     if(andFocusNext && val){
       setTimeout(()=>{
-        // Find the next empty line in the same day
-        const days = document.querySelectorAll('.nb-day');
-        days.forEach(day=>{
-          const lines = day.querySelectorAll('.nb-task[onclick]');
-          if(lines.length){
-            const firstLine = lines[0];
-            if(firstLine.getAttribute('onclick') && firstLine.getAttribute('onclick').includes(dateKey)){
-              activateNbLineSheet(firstLine, dateKey);
-            }
-          }
-        });
+        // Find next empty line in same day section
+        const emptyLines = document.querySelectorAll(`.nb-line-empty[onclick*="${dateKey}"]`);
+        if(emptyLines.length) activateNbLineSheet(emptyLines[0], dateKey);
       },50);
     }
   };
@@ -2048,8 +2088,8 @@ function activateNbLineSheet(el, dateKey){
 function editTaskInlineNb(id, textEl){
   const task = tasks.find(x=>x.id===id);
   if(!task) return;
-  const parent = textEl.closest('.nb-task');
-  if(parent.querySelector('.nb-input')) return;
+  const parent = textEl.closest('.nb-line-row') || textEl.closest('.nb-task');
+  if(!parent || parent.querySelector('.nb-input')) return;
 
   const inp = document.createElement('input');
   inp.className = 'nb-input';
