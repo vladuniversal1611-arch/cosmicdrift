@@ -135,19 +135,27 @@
     } catch (e) { musicLoading = false; }
   }
 
-  // The WAV loop file is already cut on a sample-accurate boundary where the
-  // waveform value at end matches the value at start (jump ≈ 2/32768) AND the
-  // musical content at the tail sounds like the head.  So a single
-  // AudioBufferSourceNode with loop=true is sample-accurate gapless —
-  // no crossfade, no scheduler, no artifacts.
+  // The WAV loop file has a 150 ms equal-power crossfade baked into its last
+  // 150 ms: the tail smoothly morphs INTO what would be the head of the loop.
+  // Playback layout inside the buffer:
+  //   [0 .. 150 ms)         = original "head" (played once at the very start)
+  //   [150 ms .. duration)  = middle body + crossfaded tail
+  // Setting loopStart=150 ms makes AudioBufferSourceNode.loop=true skip the
+  // duplicate "head" on every iteration; the crossfaded tail lands EXACTLY on
+  // sample 150 ms of the source, so end→loopStart is continuous at sample
+  // level AND at musical content level.  No JS scheduler needed.
+  var LOOP_HEAD_S = 0.150;
+
   function _playMusicBuffer() {
     if (!ctx || !musicBuffer) return;
     _stopLoop();
     var src = ctx.createBufferSource();
     src.buffer = musicBuffer;
     src.loop = true;
+    src.loopStart = LOOP_HEAD_S;
+    src.loopEnd   = musicBuffer.duration;
     src.connect(musicGain);
-    src.start(0);
+    src.start(0);   // first pass plays the head; every loop after skips it
     musicSrc = src;
   }
 
