@@ -113,18 +113,7 @@
   const MUSIC_URL = global.MUSIC_TRACK || 'assets/audio/theme.wav';
   let musicBuffer  = null;   // decoded AudioBuffer, filled once
   let musicLoading = false;
-  let _loopItems   = [];     // {src, endAt} — active source nodes
-  let _loopInterval = null;  // setInterval handle for the look-ahead scheduler
-  let _loopNext    = 0;      // AudioContext timestamp when next source starts
-
-  // Crossfade duration (seconds). Two consecutive sources overlap this long —
-  // one fades out while the next fades in.  400 ms is enough to completely
-  // mask the tonal difference between the end and the start of the loop file.
-  var XFADE        = 0.40;
-  // How far ahead (seconds) the scheduler looks for work to do.
-  var SCHED_AHEAD  = 0.25;
-  // Polling interval (ms) — small enough that a late timer still catches up.
-  var SCHED_INTV   = 120;
+  let musicSrc     = null;   // current playing AudioBufferSourceNode
 
   function loadMusicBuffer(cb) {
     if (musicBuffer) { if (cb) cb(musicBuffer); return; }
@@ -146,57 +135,24 @@
     } catch (e) { musicLoading = false; }
   }
 
-  // Look-ahead scheduler tick — runs every SCHED_INTV ms.
-  // Pre-schedules any source nodes whose start time falls within the
-  // SCHED_AHEAD window, so the audio clock never runs dry even when
-  // the JS thread is busy (mobile WebView, background tab).
-  function _schedTick() {
-    if (!musicOn || !ctx || !musicBuffer) return;
-    var now = ctx.currentTime;
-    var dur = musicBuffer.duration;
-    var xf  = Math.min(XFADE, dur * 0.15);
-
-    // Discard fully-finished nodes to avoid memory leaks
-    _loopItems = _loopItems.filter(function (it) { return it.endAt > now; });
-
-    // Schedule as many iterations as needed to fill the look-ahead window
-    while (_loopNext < now + SCHED_AHEAD) {
-      var when = _loopNext;
-
-      var g = ctx.createGain();
-      g.connect(musicGain);
-      // Fade in over XF seconds
-      g.gain.setValueAtTime(0.0001, when);
-      g.gain.linearRampToValueAtTime(1, when + xf);
-      // Sustain, then fade out over XF seconds
-      g.gain.setValueAtTime(1, when + dur - xf);
-      g.gain.linearRampToValueAtTime(0.0001, when + dur);
-
-      var src = ctx.createBufferSource();
-      src.buffer = musicBuffer;
-      src.connect(g);
-      src.start(when);
-      src.stop(when + dur + 0.05);
-
-      _loopItems.push({ src: src, endAt: when + dur + 0.05 });
-
-      // Next iteration begins XFADE before this one finishes
-      _loopNext = when + dur - xf;
-    }
-  }
-
+  // The WAV loop file is already cut on a sample-accurate boundary where the
+  // waveform value at end matches the value at start (jump ≈ 2/32768) AND the
+  // musical content at the tail sounds like the head.  So a single
+  // AudioBufferSourceNode with loop=true is sample-accurate gapless —
+  // no crossfade, no scheduler, no artifacts.
   function _playMusicBuffer() {
     if (!ctx || !musicBuffer) return;
     _stopLoop();
-    _loopNext = ctx.currentTime;
-    _schedTick(); // prime the first source immediately
-    _loopInterval = setInterval(_schedTick, SCHED_INTV);
+    var src = ctx.createBufferSource();
+    src.buffer = musicBuffer;
+    src.loop = true;
+    src.connect(musicGain);
+    src.start(0);
+    musicSrc = src;
   }
 
   function _stopLoop() {
-    if (_loopInterval) { clearInterval(_loopInterval); _loopInterval = null; }
-    _loopItems.forEach(function (it) { try { it.src.stop(); } catch (e) {} });
-    _loopItems = [];
+    if (musicSrc) { try { musicSrc.stop(); } catch (e) {} musicSrc = null; }
   }
 
   function setIsland() { /* single looped track — no per-island switch */ }
