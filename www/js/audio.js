@@ -57,6 +57,55 @@
     n.start();
   }
 
+  // Premium chime: sine tone with slow attack, long release, and a soft
+  // lowpass filter — no harsh harmonics, warm & bell-like.
+  function chime(freq, opts) {
+    if (!ctx) return;
+    opts = opts || {};
+    const dur   = opts.dur   || 0.4;
+    const atk   = opts.atk   || 0.015;
+    const gain  = opts.gain  || 0.22;
+    const type  = opts.type  || 'sine';
+    const slide = opts.slideTo;
+    const lp    = opts.lp    || 4000;
+    const delay = opts.delay || 0;
+    const t0    = ctx.currentTime + delay;
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 0.5;
+    // Fast smooth attack, exponential natural decay
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + atk);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(f); f.connect(sfxGain);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+
+  // Soft filtered noise — for magical whoosh instead of harsh white noise.
+  function whoosh(dur, gain, lpFreq) {
+    if (!ctx) return;
+    const n = ctx.createBufferSource();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    n.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(gain || 0.15, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(lpFreq || 2000, ctx.currentTime);
+    f.frequency.exponentialRampToValueAtTime((lpFreq || 2000) * 0.4, ctx.currentTime + dur);
+    f.Q.value = 1.5;
+    n.connect(f); f.connect(g); g.connect(sfxGain);
+    n.start();
+  }
+
   // ---- Public SFX ----------------------------------------------------------
   const SFX = {
     swap:    function () { tone(420, 0.08, 'triangle', 0.25, null, 520); },
@@ -66,11 +115,31 @@
       tone(base * 1.5, 0.1, 'triangle', 0.15);
     },
     invalid: function () { tone(200, 0.12, 'sawtooth', 0.2, null, 120); },
-    special: function () { tone(660, 0.2, 'square', 0.25, null, 1320); noise(0.15, 0.15); },
+    // Magical spark — a bright rising chime with warm harmonics instead of
+    // the old harsh square+noise burst.
+    special: function () {
+      chime(880,  { dur: 0.28, gain: 0.22, type: 'sine',     slideTo: 1760, lp: 5000 });
+      chime(1320, { dur: 0.32, gain: 0.14, type: 'triangle', lp: 4000, delay: 0.02 });
+      chime(2640, { dur: 0.20, gain: 0.06, type: 'sine',     lp: 6000, delay: 0.05 });
+      whoosh(0.18, 0.06, 3500);
+    },
+    // Epic dragon roar — deep sub-bass sweep + magical bell chord + airy tail.
+    // No sawtooth/square anywhere; all sines/triangles through a lowpass so it
+    // feels rich and cinematic, not like a cheap 8-bit blaster.
     dragon:  function () {
-      tone(140, 0.5, 'sawtooth', 0.35, null, 70);
-      noise(0.4, 0.3);
-      tone(330, 0.4, 'triangle', 0.2, null, 660);
+      // Sub-bass thump: sine sweep 90→50 Hz
+      chime(90,  { dur: 0.55, gain: 0.35, type: 'sine',     slideTo: 50,  lp: 500  });
+      // Warm mid body — perfect-fifth interval (C3 + G3) for musical richness
+      chime(131, { dur: 0.45, gain: 0.18, type: 'triangle', lp: 1200, delay: 0.02 });
+      chime(196, { dur: 0.42, gain: 0.12, type: 'triangle', lp: 1400, delay: 0.02 });
+      // Magical bell chord that swells in on top — C major (C5-E5-G5)
+      chime(523, { dur: 0.50, gain: 0.12, type: 'sine', lp: 3500, atk: 0.05, delay: 0.08 });
+      chime(659, { dur: 0.48, gain: 0.09, type: 'sine', lp: 3500, atk: 0.05, delay: 0.08 });
+      chime(784, { dur: 0.52, gain: 0.09, type: 'sine', lp: 3500, atk: 0.05, delay: 0.08 });
+      // High sparkle tail
+      chime(1568, { dur: 0.30, gain: 0.05, type: 'sine', lp: 5000, delay: 0.22 });
+      // Soft filtered whoosh — cinematic body without white-noise harshness
+      whoosh(0.35, 0.08, 1500);
     },
     hatch:   function () { tone(523, 0.15, 'sine', 0.3, null, 784); setTimeout(function(){tone(784,0.25,'sine',0.3,null,1046);},120); },
     win:     function () { // triumphant arpeggio + sparkle
