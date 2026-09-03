@@ -1900,22 +1900,29 @@ function drawBg(){
     };
     drawCloud(pA);drawCloud(pB);
     ctx.globalAlpha=1;
-    // Floating castles at the lower horizon — anchor "city below" for cloud skies
+    // Distant flying castles — spawn tiny at the horizon, grow and drift down toward
+    // the player, then fade out and respawn. Sells the forward-motion feel.
     if(sky.castles&&_ok('castleBig')&&_ok('castleSmall')){
-      const cbig=_A.castleBig, csm=_A.castleSmall;
-      // Very slow horizontal drift so they gently pass by (parallax, not sudden)
-      const drift=Math.sin(gt*0.05)*W*0.02;
-      // Big castle — lower-left
-      const bigW=W*0.42;
-      const bigH=bigW*cbig.naturalHeight/cbig.naturalWidth;
-      const bigX=-W*0.06+drift, bigY=H*0.55;
-      ctx.globalAlpha=0.85;
-      ctx.drawImage(cbig,bigX,bigY,bigW,bigH);
-      // Small castle — lower-right
-      const smW=W*0.30;
-      const smH=smW*csm.naturalHeight/csm.naturalWidth;
-      const smX=W-smW+W*0.05-drift, smY=H*0.60;
-      ctx.drawImage(csm,smX,smY,smW,smH);
+      const period=26;                        // seconds for one castle to fly past
+      const flyers=[
+        {img:_A.castleBig,   ph:(gt/period)%1,           sx:0.20},
+        {img:_A.castleSmall, ph:((gt/period)+0.5)%1,     sx:0.80},
+      ];
+      for(const f of flyers){
+        const p=f.ph;
+        // y descends from horizon down and past the bottom
+        const y=H*0.38+p*H*0.55;
+        // Scale grows with proximity — stays small (atmospheric perspective)
+        const sc=0.08+p*0.22;                 // 8% → 30% of W
+        // Alpha peaks mid-pass, never full opacity so they read as distant
+        const a=Math.sin(p*Math.PI)*0.55;
+        const w=W*sc;
+        const h=w*f.img.naturalHeight/f.img.naturalWidth;
+        const sway=Math.sin(gt*0.2+f.sx*20)*W*0.015;
+        const x=W*f.sx-w/2+sway;
+        ctx.globalAlpha=a;
+        ctx.drawImage(f.img,x,y-h,w,h);
+      }
       ctx.globalAlpha=1;
     }
     // Falling rain overlay — only when this sky asks for it
