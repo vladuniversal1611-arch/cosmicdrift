@@ -897,13 +897,21 @@ function validatePads(n){
 }
 
 // ========== PROJECTION (true 1/z perspective) ==========
+// Winding-road curve amplitude in pixels — used both by project() (so the
+// road bends into the distance) and by the sky/castles (so the backdrop
+// leans the same way, selling the turn). Near points (p≈1) stay put so the
+// frog keeps sitting directly under the finger; only distant stuff sways.
+function roadCurveX(p){
+  const amt=Math.sin(gt*0.35);              // −1..1 slow oscillation
+  return amt*(1-p)*(1-p)*W*0.45;            // squared weight → only deep
+}
 function project(relZ,l){
   const depth=Math.max(relZ,0.01);
   const p=FOCAL_LEN/(depth+FOCAL_LEN);
   const vanY=H*.18,baseY=H*.93;
   const y=vanY+(baseY-vanY)*p;
   const lw=W*.6*p;
-  const x=W/2+(l-1)*lw;
+  const x=W/2+(l-1)*lw+roadCurveX(p);
   return{x,y,s:Math.max(p,.02)};
 }
 
@@ -1908,6 +1916,8 @@ function drawBg(){
         {img:_A.castleBig,   ph:(gt/period)%1,           sx:0.20},
         {img:_A.castleSmall, ph:((gt/period)+0.5)%1,     sx:0.80},
       ];
+      // Same horizon curve as the road — castles are 'far' so they follow the turn
+      const curveTurn=Math.sin(gt*0.35)*W*0.18;
       for(const f of flyers){
         const p=f.ph;
         // y descends from horizon down and past the bottom
@@ -1918,8 +1928,10 @@ function drawBg(){
         const a=Math.sin(p*Math.PI)*0.55;
         const w=W*sc;
         const h=w*f.img.naturalHeight/f.img.naturalWidth;
+        // Far castles bank harder with the curve; near ones bank less
+        const bank=curveTurn*(1-p);
         const sway=Math.sin(gt*0.2+f.sx*20)*W*0.015;
-        const x=W*f.sx-w/2+sway;
+        const x=W*f.sx-w/2+sway+bank;
         ctx.globalAlpha=a;
         ctx.drawImage(f.img,x,y-h,w,h);
       }
