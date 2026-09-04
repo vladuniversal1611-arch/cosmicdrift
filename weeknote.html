@@ -590,31 +590,28 @@ body {
 .day-section-tasks {
   flex: 1;
   padding: 0;
-  display: flex;
   min-height: 0;
-  flex-direction: column;
-  gap: 0;
-  position: relative;
-  z-index: 2;
+  overflow: hidden;
 }
 
 /* Notebook lines inside day sections — border-bottom = real rule under text */
 .day-section .nb-line-row,
 .day-section .nb-line {
+  display: block;
   border-bottom: 1px solid rgba(120,90,50,0.22);
   min-height: 22px;
-  padding: 2px 2px 3px;
-  display: flex;
-  align-items: flex-end;
+  padding: 3px 4px;
   font-size: 13px;
-  line-height: 1.15;
+  line-height: 1.35;
+  color: #3A2F1A;
 }
 .day-section .nb-line-row.nb-line-empty:hover,
 .day-section .nb-line:hover {
   background: rgba(120,90,50,0.05);
 }
-/* Text wraps instead of horizontal scroll; row grows to fit wrapped text */
+/* Text wraps to new lines instead of scrolling horizontally */
 .day-section .nb-line-text {
+  display: block;
   font-size: 13px;
   color: #3A2F1A;
   white-space: normal;
@@ -623,6 +620,24 @@ body {
   overflow-wrap: anywhere;
   word-break: break-word;
   width: 100%;
+  line-height: 1.35;
+}
+/* Textarea inside notebook line — auto-growing input */
+.day-section .nb-input {
+  display: block;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  width: 100%;
+  font-size: 13px;
+  color: #3A2F1A;
+  font-family: inherit;
+  line-height: 1.35;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  min-height: 18px;
 }
 .day-section .nb-input {
   background: transparent;
@@ -2171,17 +2186,25 @@ function setAppMode(mode){
   renderTasks();
 }
 
+/* Auto-grow a textarea to fit its content (called on input) */
+function autogrow(ta){
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
 /* Notebook line → input activation */
 function activateNbLine(el, dateKey){
   if(el.querySelector('.nb-input')) return; // already active
   el.innerHTML = '';
-  const inp = document.createElement('input');
+  const inp = document.createElement('textarea');
   inp.className = 'nb-input';
-  inp.type = 'text';
+  inp.rows = 1;
   inp.placeholder = 'записати...';
   inp.autocomplete = 'off';
   el.appendChild(inp);
   inp.focus();
+  autogrow(inp);
+  inp.addEventListener('input', ()=>autogrow(inp));
   setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch{}},300);
 
   let saved = false;
@@ -2222,14 +2245,15 @@ function activateNbLineSheet(el, dateKey){
   el.onclick = null;
   el.innerHTML = '';
 
-  const inp = document.createElement('input');
+  const inp = document.createElement('textarea');
   inp.className = 'nb-input';
-  inp.type = 'text';
+  inp.rows = 1;
   inp.placeholder = 'записати...';
   inp.autocomplete = 'off';
-  inp.style.flex = '1';
   el.appendChild(inp);
   inp.focus();
+  autogrow(inp);
+  inp.addEventListener('input', ()=>autogrow(inp));
   setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch{}},300);
 
   let saved = false;
@@ -2266,14 +2290,15 @@ function editTaskInlineNb(id, textEl){
   const parent = textEl.closest('.nb-line-row') || textEl.closest('.nb-task');
   if(!parent || parent.querySelector('.nb-input')) return;
 
-  const inp = document.createElement('input');
+  const inp = document.createElement('textarea');
   inp.className = 'nb-input';
-  inp.type = 'text';
+  inp.rows = 1;
   inp.value = task.title;
   inp.autocomplete = 'off';
-  inp.style.flex = '1';
   textEl.replaceWith(inp);
   inp.focus();
+  autogrow(inp);
+  inp.addEventListener('input', ()=>autogrow(inp));
   setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch{}},300);
   inp.setSelectionRange(inp.value.length, inp.value.length);
 
