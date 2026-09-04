@@ -1731,6 +1731,81 @@ body {
 .empty-btn:hover { opacity: 0.9; }
 
 /* ════════════════════════════════════════
+   ANIMATIONS — paper feel, respect reduced motion
+   ════════════════════════════════════════ */
+
+/* Ink-appears: new task text fades in with slight blur → sharp (drying ink) */
+@keyframes ink-in {
+  0%   { opacity: 0; filter: blur(2px); transform: translateY(1px); }
+  60%  { opacity: 1; filter: blur(0.5px); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+.day-section .nb-line-row .nb-line-text {
+  animation: ink-in 0.45s ease-out both;
+}
+
+/* Today golden bar — soft shimmer loop */
+@keyframes today-shimmer {
+  0%, 100% { box-shadow: 0 0 4px rgba(201,164,90,0.35); background: #C9A45A; }
+  50%      { box-shadow: 0 0 10px rgba(245,222,158,0.75); background: #E5C77A; }
+}
+.day-section.is-today::before {
+  animation: today-shimmer 3.2s ease-in-out infinite;
+}
+
+/* FAB — soft breathing halo */
+@keyframes fab-breath {
+  0%, 100% { box-shadow: 0 4px 16px rgba(184,149,106,0.4), 0 0 0 0 rgba(212,184,122,0.4); }
+  50%      { box-shadow: 0 4px 18px rgba(184,149,106,0.5), 0 0 0 10px rgba(212,184,122,0); }
+}
+.fab { animation: fab-breath 3s ease-in-out infinite; }
+
+/* Page-flip on week switch — notebook rotates around Y axis briefly */
+@keyframes page-flip-next {
+  0%   { transform: perspective(1200px) rotateY(0); opacity: 1; }
+  50%  { transform: perspective(1200px) rotateY(-14deg); opacity: 0.85; }
+  100% { transform: perspective(1200px) rotateY(0); opacity: 1; }
+}
+@keyframes page-flip-prev {
+  0%   { transform: perspective(1200px) rotateY(0); opacity: 1; }
+  50%  { transform: perspective(1200px) rotateY(14deg); opacity: 0.85; }
+  100% { transform: perspective(1200px) rotateY(0); opacity: 1; }
+}
+.notebook.flip-next { animation: page-flip-next 0.42s ease-in-out; transform-origin: center center; }
+.notebook.flip-prev { animation: page-flip-prev 0.42s ease-in-out; transform-origin: center center; }
+
+/* New empty ruled line "draws in" from left */
+@keyframes rule-draw {
+  from { border-bottom-color: transparent; }
+  to   { border-bottom-color: rgba(120,90,50,0.22); }
+}
+.day-section .nb-line-row.nb-line-empty,
+.day-section .nb-line {
+  animation: rule-draw 0.35s ease-out both;
+}
+
+/* Corner curl gently peeks on tap */
+.notebook-page.right-page::after {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.notebook-page.right-page:active::after {
+  transform: translate(-4px, -4px) rotate(-3deg);
+  opacity: 1;
+}
+
+/* Screen transitions — soft fade between screens */
+.screen { transition: opacity 0.22s ease; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ════════════════════════════════════════
    SCROLL + MISC
    ════════════════════════════════════════ */
 .screen::-webkit-scrollbar { width: 0; }
@@ -2368,8 +2443,20 @@ function editTaskInline(id, textEl){
   inp.addEventListener('blur', () => finish(true));
 }
 
-function prevWeek(){ws.setDate(ws.getDate()-7);renderWeek()}
-function nextWeek(){ws.setDate(ws.getDate()+7);renderWeek()}
+function _flipWeek(dir){
+  ws.setDate(ws.getDate() + (dir==='next'?7:-7));
+  renderWeek();
+  const nb = document.querySelector('#weekContainer .notebook');
+  if(nb){
+    nb.classList.remove('flip-next','flip-prev');
+    // force reflow so re-adding the class restarts the animation
+    void nb.offsetWidth;
+    nb.classList.add(dir==='next'?'flip-next':'flip-prev');
+    setTimeout(()=>nb.classList.remove('flip-next','flip-prev'), 450);
+  }
+}
+function prevWeek(){ _flipWeek('prev') }
+function nextWeek(){ _flipWeek('next') }
 function goToday(){ws=getMonday(new Date());renderWeek()}
 
 /* Swipe navigation on notebook */
