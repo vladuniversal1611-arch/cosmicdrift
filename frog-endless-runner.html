@@ -461,13 +461,13 @@ function saveSkins(){localStorage.setItem('fSk',JSON.stringify(SKINS.map(s=>s.o)
 
 // Sky skins - buyable backgrounds
 const SKY_SKINS=[
-  {n:'☀️ Сонячне',top:'#87CEEB',bot:'#E0F6FF',p:0,o:true,t:'sky',img:'skySunny',castles:true},
-  {n:'☁️ Хмарне',top:'#A0A0A0',bot:'#D3D3D3',p:100,o:false,t:'sky',img:'skyCloudy',castles:true},
+  {n:'☀️ Сонячне',top:'#87CEEB',bot:'#E0F6FF',p:0,o:true,t:'sky',img:'skySunny',castles:true,rainbow:true},
+  {n:'☁️ Хмарне',top:'#A0A0A0',bot:'#D3D3D3',p:100,o:false,t:'sky',img:'skyCloudy',castles:true,rainbow:true},
   {n:'🌙 Нічне',top:'#0a0e27',bot:'#2c3e50',p:150,o:false,t:'sky',img:'skyNight'},
   {n:'⭐ Космос',top:'#000814',bot:'#001d3d',p:200,o:false,t:'sky',img:'skySpace'},
   {n:'🌧️ Дощове',top:'#2A3A55',bot:'#1A2A40',p:180,o:false,t:'sky',img:'skyRain',rain:true},
-  {n:'🌅 Захід',top:'#FF6B6B',bot:'#FFD93D',p:250,o:false,t:'sky',img:'skySunset',castles:true},
-  {n:'🌫️ Туман',top:'#B8C4D0',bot:'#8B98A8',p:300,o:false,t:'sky',img:'skyFog',castles:true},
+  {n:'🌅 Захід',top:'#FF6B6B',bot:'#FFD93D',p:250,o:false,t:'sky',img:'skySunset',castles:true,rainbow:true},
+  {n:'🌫️ Туман',top:'#B8C4D0',bot:'#8B98A8',p:300,o:false,t:'sky',img:'skyFog',castles:true,rainbow:true},
   {n:'🔷 Геометрія',top:'#0B3D91',bot:'#0A2E6D',p:120,o:false,t:'sky',img:'skyGeo'},
   {n:'🌀 Спіраль',top:'#1E1A5E',bot:'#2A2470',p:140,o:false,t:'geo',style:'spiral'},
   {n:'🎨 Поп-Арт',top:'#FF6B6B',bot:'#FFE66D',p:160,o:false,t:'geo',style:'pop'},
@@ -2536,6 +2536,42 @@ function drawPts(){
 const WATER_DEPTH=9;      // world units of depth covered by one texture pass
 
 
+// Rainbow strip road under the platforms — 7 curved color bands that follow
+// the same project() perspective (so they bend with turns) and fade into the
+// sky near the horizon. Only shown on daytime skies flagged with `rainbow`.
+function drawRainbowRoad(){
+  const sky=SKY_SKINS[curSky];
+  if(!sky||!sky.rainbow)return;
+  const bands=['#FF3B30','#FF9500','#FFD60A','#34C759','#00C7BE','#5AC8FA','#AF52DE'];
+  const N=bands.length;
+  const EDGE_L=-.42, EDGE_R=2.42;
+  const step=(EDGE_R-EDGE_L)/N;
+  const vanY=H*.18, baseY=H*.93;
+  for(let i=0;i<N;i++){
+    const lL=EDGE_L+step*i, lR=EDGE_L+step*(i+1);
+    // Per-band vertical alpha gradient — invisible at the horizon so the
+    // rainbow melts into the sky, more solid near the player
+    const c=bands[i];
+    const g=ctx.createLinearGradient(0,vanY,0,baseY);
+    g.addColorStop(0,   c+'00');           // transparent at horizon
+    g.addColorStop(0.35,c+'22');           // faint mid-distance
+    g.addColorStop(1,   c+'99');           // strong near the player
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    // far → near down the left edge
+    for(let z=VIEW_AHEAD;z>=0;z-=.4){
+      const p=project(z,lL);
+      z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);
+    }
+    // near → far up the right edge
+    for(let z=0;z<=VIEW_AHEAD;z+=.4){
+      const p=project(z,lR);
+      ctx.lineTo(p.x,p.y);
+    }
+    ctx.closePath();ctx.fill();
+  }
+}
+
 function drawGame(){
   updateTurn();
   // Pre-fill the un-rotated viewport with the current sky's bottom colour —
@@ -2550,6 +2586,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09;              // ≈ ±5° max
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
+  drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
 
