@@ -1997,9 +1997,11 @@ function drawBg(){
 }
 
 
-function drawPad(x,y,s,type,dip,isCurrent,width){
+function drawPad(x,y,s,type,dip,isCurrent,width,tilt){
   width=width||1;
+  tilt=tilt||0;
   ctx.save();ctx.translate(x,y);
+  if(tilt)ctx.rotate(tilt);
   const hw=120*s*width;
   const hh=55*s*width;
   const thick=28*s*width;
@@ -2678,6 +2680,11 @@ function drawGame(){
     if(pad.fallOffset&&pad.fallOffset>8) continue; // fallen off screen
     const p=project(rz,pad.gameX);
     p.y+=extraY*p.s;
+    // Local road-tangent tilt so platforms lean into the curve instead of
+    // sitting square while the rainbow bends underneath them
+    const pA=project(Math.max(rz-0.4,0.01),pad.gameX);
+    const pB=project(rz+0.4,pad.gameX);
+    const tilt=clamp(Math.atan2(pA.x-pB.x, Math.max(pB.y-pA.y,1)),-0.4,0.4);
     // Depth-based alpha — farther = slightly darker
     const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
     // Breakable platforms flicker when cracking
@@ -2685,7 +2692,7 @@ function drawGame(){
     // Disappearing platforms fade
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
     ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
-    drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width);
+    drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt);
     // Diamond path overlay
     if(pad.diamond&&diamondPath){
       ctx.save();ctx.translate(p.x,p.y);
