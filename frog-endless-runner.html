@@ -897,13 +897,21 @@ function validatePads(n){
 }
 
 // ========== PROJECTION (true 1/z perspective) ==========
-// Winding-road curve amplitude in pixels — used both by project() (so the
-// road bends into the distance) and by the sky/castles (so the backdrop
-// leans the same way, selling the turn). Near points (p≈1) stay put so the
-// frog keeps sitting directly under the finger; only distant stuff sways.
+// World-turn state — organic (sum of sines at incommensurate rates so it
+// never repeats the same way twice), −1..1. Used by roadCurveX() for the
+// road bending into the distance AND by drawGame() for the camera roll,
+// so the tilt and the road-bend always match direction.
+let curTurn=0;
+function updateTurn(){
+  curTurn=Math.sin(gt*0.32)*0.55
+        +Math.sin(gt*0.17+1.7)*0.35
+        +Math.sin(gt*0.09+3.4)*0.20;
+  if(curTurn>1)curTurn=1;else if(curTurn<-1)curTurn=-1;
+}
+// Winding-road curve amplitude in pixels — near points (p≈1) stay put so
+// the frog keeps sitting directly under the finger; only distant stuff sways.
 function roadCurveX(p){
-  const amt=Math.sin(gt*0.35);              // −1..1 slow oscillation
-  return amt*(1-p)*(1-p)*W*0.45;            // squared weight → only deep
+  return curTurn*(1-p)*(1-p)*W*0.5;
 }
 function project(relZ,l){
   const depth=Math.max(relZ,0.01);
@@ -1917,7 +1925,7 @@ function drawBg(){
         {img:_A.castleSmall, ph:((gt/period)+0.5)%1,     sx:0.80},
       ];
       // Same horizon curve as the road — castles are 'far' so they follow the turn
-      const curveTurn=Math.sin(gt*0.35)*W*0.18;
+      const curveTurn=curTurn*W*0.22;
       for(const f of flyers){
         const p=f.ph;
         // y descends from horizon down and past the bottom
@@ -2529,7 +2537,18 @@ const WATER_DEPTH=9;      // world units of depth covered by one texture pass
 
 
 function drawGame(){
+  updateTurn();
+  // Pre-fill the un-rotated viewport with the current sky's bottom colour —
+  // when the world tilts below, the outer viewport corners fall outside
+  // drawBg's rect, and this base fill keeps them from ever flashing blank.
+  {const _s=SKY_SKINS[curSky];ctx.fillStyle=_s.bot||_s.top||'#000';ctx.fillRect(0,0,W,H);}
   ctx.save();ctx.translate(shX,shY);
+  // Camera roll — the world banks OPPOSITE to the road bend so the horizon
+  // tilts INTO the turn (classic driving-game feel). Pivot at the player so
+  // the frog stays centred while the sky rolls above it.
+  const pivotX=W/2, pivotY=H*0.93;
+  const tiltAng=-curTurn*0.09;              // ≈ ±5° max
+  ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
 
   // Far parallax layers (0,1) — disabled to remove trees
