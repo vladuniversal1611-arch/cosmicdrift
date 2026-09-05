@@ -15,7 +15,7 @@ import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { t } from '../../i18n/Localization.js';
 
-const COLS = 3;
+const COLS = 4;
 
 export class LevelSelectScreen extends PanelScreen {
   constructor(game) {

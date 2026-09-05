@@ -31,10 +31,11 @@ export class PanelScreen extends Screen {
     this._panelMaxH = this.panel.h;
     this._panelY0 = this.panel.y;
 
-    // Back button (top-left, above the panel).
-    this.add(new PremiumButton(18, 20, 58, 58, () => this.events.emit('ui:back'),
+    // Back button (top-left, above the panel) — big and chunky so it's an easy,
+    // obvious tap target on a phone rather than a tiny corner chevron.
+    this.add(new PremiumButton(24, 26, 84, 84, () => this.events.emit('ui:back'),
       { colors: UI.btn.red, round: true, icon: (r, cx, cy, s) => {
-        r.ctx.strokeStyle = '#fff'; r.ctx.lineWidth = s * 0.3; r.ctx.lineCap = 'round';
+        r.ctx.strokeStyle = '#fff'; r.ctx.lineWidth = s * 0.32; r.ctx.lineCap = 'round'; r.ctx.lineJoin = 'round';
         r.ctx.beginPath(); r.ctx.moveTo(cx + s * 0.3, cy - s * 0.5); r.ctx.lineTo(cx - s * 0.4, cy); r.ctx.lineTo(cx + s * 0.3, cy + s * 0.5); r.ctx.stroke();
       } }));
   }
@@ -61,10 +62,10 @@ export class PanelScreen extends Screen {
 
     const p = this.panel;
     UITheme.glassPanel(r, p.x, p.y, p.w, p.h, 26);
-    // Title header ribbon.
-    const rw = Math.min(p.w * 0.7, 320), rh = 46, rx = p.centerX - rw / 2, ry = p.y - rh * 0.5;
+    // Title header ribbon — larger and bolder for a premium header.
+    const rw = Math.min(p.w * 0.72, 400), rh = 60, rx = p.centerX - rw / 2, ry = p.y - rh * 0.5;
     UITheme.button(r, rx, ry, rw, rh, rh / 2, UI.btn.orange);
-    r.text(this.title, p.centerX, ry + rh / 2, { font: '900 22px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle' });
+    r.text(this.title, p.centerX, ry + rh / 2, { font: '900 30px system-ui, sans-serif', color: '#fff', align: 'center', baseline: 'middle', outline: 'rgba(150,80,10,0.5)', outlineWidth: 3 });
 
     this.drawContent(r, p);
     for (const child of this.children) child.render(r);

@@ -68,7 +68,7 @@ export class HudScreen extends Screen {
     this._goalCard = null;    // { objectives, t, dur } level-start goal intro
     // Clean top bar: just a compact pause button (left). World Map lives in the
     // Pause menu now, so mid-run the top stays uncluttered.
-    this._pauseBtn = new Rect(34, 60, 88, 88);
+    this._pauseBtn = new Rect(34, 58, 104, 104);
 
     // Booster row — round power-up buttons in the band JUST ABOVE the board, so
     // the very bottom of the screen stays free for a persistent ad banner and
