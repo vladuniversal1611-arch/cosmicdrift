@@ -2732,42 +2732,56 @@ function drawGame(){
       ctx.stroke();
       ctx.restore();
     }
-    // Trap lane — draw colored sections overlay
+    // Trap lane — repaint each section in local space with the platform tilt,
+    // so safe (teal ✓) and trap (dark-red ✗) sections stand out clearly and
+    // rotate together with the pad.
     if(pad.type==='trap_lane'){
       const tlHw=120*p.s*(pad.width||1);
       const tlHh=55*p.s*(pad.width||1);
-      const tlCy=p.y-tlHh;
       const secW=tlHw*2/3;
       const rad2=16*p.s;
+      const topY=-tlHh*2+pad.dip*8*p.s;
+      const boxH=tlHh*2;
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      if(tilt)ctx.rotate(tilt);
       for(let sec=0;sec<3;sec++){
-        const sx=p.x-tlHw+sec*secW;
+        const sxL=-tlHw+sec*secW+1;
         const isSafe=sec===pad.safeZone;
+        // Middle section uses smaller corner radius so it butts flush against
+        // its neighbours; end sections keep the pad's rounded corners
+        const secRad=sec===1?4:rad2;
         if(isSafe){
-          // Green safe section
-          ctx.fillStyle='rgba(76,175,80,.3)';
-          rr(sx+2,p.y-tlHh*2+pad.dip*8*p.s+4,secW-4,tlHh*2-8,sec===0?rad2:sec===2?rad2:4);ctx.fill();
-          // Checkmark
-          ctx.fillStyle='rgba(76,175,80,.7)';ctx.font=`bold ${14*p.s}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-          ctx.fillText('✓',sx+secW/2,tlCy+pad.dip*4*p.s);
+          // Solid green safe plate — clearly readable "step here"
+          ctx.fillStyle='#4CAF50';
+          rr(sxL,topY,secW-2,boxH,secRad);ctx.fill();
+          // Lighter top gloss
+          ctx.fillStyle='rgba(200,255,200,.35)';
+          ctx.fillRect(sxL+3,topY+3,secW-8,boxH*0.35);
+          // Big glowing check
+          ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=10*p.s;
+          ctx.fillStyle='#fff';ctx.font=`bold ${28*p.s}px sans-serif`;
+          ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText('✓',sxL+secW/2-1,topY+boxH*0.45);
+          ctx.shadowBlur=0;
         } else {
-          // Red trap section with X
-          ctx.fillStyle='rgba(244,67,54,.3)';
-          rr(sx+2,p.y-tlHh*2+pad.dip*8*p.s+4,secW-4,tlHh*2-8,sec===0?rad2:sec===2?rad2:4);ctx.fill();
-          // Spike triangles
-          const spkCount=3;
-          ctx.fillStyle='rgba(244,67,54,.5)';
-          for(let si2=0;si2<spkCount;si2++){
-            const spX=sx+secW*(si2+0.5)/spkCount;
-            const spY=p.y-tlHh*2+pad.dip*8*p.s+8;
-            ctx.beginPath();ctx.moveTo(spX,spY);ctx.lineTo(spX-6*p.s,spY+14*p.s);ctx.lineTo(spX+6*p.s,spY+14*p.s);ctx.fill();
-          }
-          // X mark
-          ctx.strokeStyle='rgba(255,100,100,.6)';ctx.lineWidth=2.5*p.s;
-          const xc=sx+secW/2,yc=tlCy+pad.dip*4*p.s;
-          ctx.beginPath();ctx.moveTo(xc-8*p.s,yc-8*p.s);ctx.lineTo(xc+8*p.s,yc+8*p.s);ctx.stroke();
-          ctx.beginPath();ctx.moveTo(xc+8*p.s,yc-8*p.s);ctx.lineTo(xc-8*p.s,yc+8*p.s);ctx.stroke();
+          // Solid dark-red trap plate
+          ctx.fillStyle='#B71C1C';
+          rr(sxL,topY,secW-2,boxH,secRad);ctx.fill();
+          // Menacing top edge shading
+          const rg=ctx.createLinearGradient(0,topY,0,topY+boxH*0.4);
+          rg.addColorStop(0,'rgba(0,0,0,.35)');rg.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.fillStyle=rg;ctx.fillRect(sxL+2,topY+2,secW-6,boxH*0.4);
+          // Big glowing X
+          ctx.shadowColor='rgba(255,80,80,.9)';ctx.shadowBlur=10*p.s;
+          ctx.strokeStyle='#fff';ctx.lineWidth=4*p.s;ctx.lineCap='round';
+          const xc=sxL+secW/2,yc=topY+boxH*0.45,r=10*p.s;
+          ctx.beginPath();ctx.moveTo(xc-r,yc-r);ctx.lineTo(xc+r,yc+r);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(xc+r,yc-r);ctx.lineTo(xc-r,yc+r);ctx.stroke();
+          ctx.shadowBlur=0;
         }
       }
+      ctx.restore();
     }
     // Ring pad — draw floating ring above platform
     if(pad.type==='ring_pad'&&!pad.ringCollected){
