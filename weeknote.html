@@ -3479,7 +3479,8 @@ document.getElementById('noteCatPicker').addEventListener('click', e => {
    SETTINGS
    ════════════════════════════════════════ */
 function renderSettings(){
-  const curTheme = ld('wn_theme','') || 'Lavender';
+  const themeIdToName = {'':'Lavender','classic':'Classic Paper','nature':'Nature','ocean':'Ocean','cute':'Cute','dark':'Dark'};
+  const curTheme = themeIdToName[currentThemeId] || 'Lavender';
   const notifOn = ld('wn_notif', false);
   const items = [
     {icon:'🎨',label:'Тема',val:curTheme,onclick:'showThemes()'},
@@ -3520,7 +3521,7 @@ function toggleNotif(){
 
 /* Export all data as JSON download */
 function exportData(){
-  const data = { tasks, notes, theme: ld('wn_theme',''), appMode, exportedAt: new Date().toISOString(), version: 1 };
+  const data = { tasks, notes, theme: currentThemeId, appMode, exportedAt: new Date().toISOString(), version: 1 };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3545,7 +3546,7 @@ function importData(){
         if(!confirm(`Імпортувати ${data.tasks?.length||0} задач і ${data.notes?.length||0} нотаток?\n\nПоточні дані будуть замінені.`)) return;
         if(Array.isArray(data.tasks)) { tasks = data.tasks; sv('wn_tasks', tasks); }
         if(Array.isArray(data.notes)) { notes = data.notes; sv('wn_notes', notes); }
-        if(data.theme !== undefined) { sv('wn_theme', data.theme); if(data.theme) document.documentElement.setAttribute('data-theme', data.theme); else document.documentElement.removeAttribute('data-theme'); }
+        if(data.theme !== undefined) { applyTheme(data.theme); }
         if(data.appMode) { appMode = data.appMode; sv('wn_appmode', appMode); }
         renderWeek(); renderNotes(); renderSettings();
         alert('Імпорт завершено ✅');
@@ -3602,18 +3603,21 @@ function showThemes(){
   markActiveTheme();
 }
 
+/* Live theme state — authoritative for UI; localStorage is best-effort */
+let currentThemeId = ld('wn_theme', '') || '';
+
 function markActiveTheme(){
-  const cur = ld('wn_theme','') || '';
   document.querySelectorAll('#themesGrid .theme-option').forEach(el => {
-    el.classList.toggle('active', (el.dataset.tid || '') === cur);
+    el.classList.toggle('active', (el.dataset.tid || '') === currentThemeId);
   });
 }
 
 function applyTheme(id){
-  if(id) document.documentElement.setAttribute('data-theme', id);
+  currentThemeId = id || '';
+  if(currentThemeId) document.documentElement.setAttribute('data-theme', currentThemeId);
   else document.documentElement.removeAttribute('data-theme');
-  sv('wn_theme', id);
-  markActiveTheme();   // just move the check — no full re-render race
+  sv('wn_theme', currentThemeId);        // best-effort persistence
+  markActiveTheme();                     // move the check based on in-memory state
   renderSettings();
 }
 
