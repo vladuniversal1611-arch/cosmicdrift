@@ -2119,6 +2119,14 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 12px;
   font-weight: 700;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.15s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.theme-option.active .theme-check {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* ════════════════════════════════════════
@@ -3188,6 +3196,8 @@ function goToday(){
   ws=getMonday(new Date());
   const s = document.getElementById('dayStack'); if(s) s.remove();
   renderWeek();
+  // Switch to Щоденник so the change is actually visible from other screens
+  showScreen('scrWeek');
 }
 
 /* Horizontal swipe on the notebook switches weeks */
@@ -3574,13 +3584,12 @@ const THEMES = [
 
 function showThemes(){
   showScreen('scrThemes');
-  const cur = ld('wn_theme','') || '';
   let html = '';
   THEMES.forEach(th=>{
-    const active = (th.id||'')===(cur||'');
-    html += `<div class="theme-option ${active?'active':''}" onclick="applyTheme('${th.id}')">
+    // Always render the check div — CSS hides it on non-active tiles
+    html += `<div class="theme-option" data-tid="${th.id}" onclick="applyTheme('${th.id}')">
       <div class="theme-preview" style="background:${th.bg}">
-        ${active?'<div class="theme-check">✓</div>':''}
+        <div class="theme-check">✓</div>
         <div class="theme-preview-bar" style="background:${th.bar}"></div>
         <div class="theme-preview-line" style="background:${th.line}"></div>
         <div class="theme-preview-line2" style="background:${th.line2}"></div>
@@ -3590,13 +3599,21 @@ function showThemes(){
     </div>`;
   });
   document.getElementById('themesGrid').innerHTML = html;
+  markActiveTheme();
+}
+
+function markActiveTheme(){
+  const cur = ld('wn_theme','') || '';
+  document.querySelectorAll('#themesGrid .theme-option').forEach(el => {
+    el.classList.toggle('active', (el.dataset.tid || '') === cur);
+  });
 }
 
 function applyTheme(id){
-  if(id) document.documentElement.setAttribute('data-theme',id);
+  if(id) document.documentElement.setAttribute('data-theme', id);
   else document.documentElement.removeAttribute('data-theme');
-  sv('wn_theme',id);
-  showThemes();
+  sv('wn_theme', id);
+  markActiveTheme();   // just move the check — no full re-render race
   renderSettings();
 }
 
