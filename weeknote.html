@@ -1475,6 +1475,115 @@ body {
 .fab svg { width: 26px; height: 26px; }
 
 /* ════════════════════════════════════════
+   CALENDAR SCREEN
+   ════════════════════════════════════════ */
+#scrTasks { overflow-y: auto; padding-bottom: 40px; }
+.cal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 10px;
+}
+.cal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.cal-nav {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--bg-input);
+}
+.cal-nav:active { background: var(--border); }
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 12px 4px;
+  gap: 2px;
+}
+.cal-weekdays span {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.cal-weekdays span.wknd { color: #E53935; opacity: 0.7; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 12px;
+  gap: 3px;
+}
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px 3px;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid transparent;
+  transition: transform 0.1s, background 0.15s;
+  position: relative;
+  min-height: 40px;
+}
+.cal-cell:active { transform: scale(0.94); }
+.cal-cell.other-month { opacity: 0.35; background: transparent; }
+.cal-cell.today {
+  background: var(--accent-light);
+  border-color: var(--accent-mid);
+}
+.cal-cell.selected {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-dark);
+}
+.cal-cell.selected .cal-cell-dots span { background: rgba(255,255,255,0.85); }
+.cal-cell-num {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.cal-cell.wknd:not(.selected):not(.today) .cal-cell-num { color: #E53935; }
+.cal-cell-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 3px;
+  min-height: 4px;
+}
+.cal-cell-dots span {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cal-day-heading {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  padding: 18px 20px 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cal-day-heading .count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+/* ════════════════════════════════════════
    TASKS SCREEN
    ════════════════════════════════════════ */
 .tabs-row {
@@ -1732,6 +1841,8 @@ body {
 }
 
 .settings-item:last-child { border-bottom: none; }
+.settings-item.danger .settings-label { color: #E53935; }
+.settings-item.danger .settings-icon { filter: hue-rotate(-30deg); }
 
 .settings-icon {
   width: 36px; height: 36px;
@@ -2354,16 +2465,15 @@ body {
 
     <!-- ═══ TASKS SCREEN ═══ -->
     <div class="screen" id="scrTasks">
-      <div class="header"><div class="header-title">Задачі</div></div>
-      <div class="tabs-row" id="taskTabs">
-        <button class="tab-pill active" data-f="all">Усі</button>
-        <button class="tab-pill" data-f="active">Активні</button>
-        <button class="tab-pill" data-f="done">Виконані</button>
+      <div class="cal-header">
+        <button class="cal-nav" onclick="calPrevMonth()">‹</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="cal-nav" onclick="calNextMonth()">›</button>
       </div>
+      <div class="cal-weekdays"><span>ПН</span><span>ВТ</span><span>СР</span><span>ЧТ</span><span>ПТ</span><span class="wknd">СБ</span><span class="wknd">НД</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-day-heading" id="calDayHeading"></div>
       <div id="tasksList"></div>
-      <button class="fab" onclick="openAdd()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
     </div>
 
     <!-- ═══ NOTES SCREEN ═══ -->
@@ -3023,60 +3133,112 @@ function navFabAdd(){
 /* ════════════════════════════════════════
    TASKS SCREEN
    ════════════════════════════════════════ */
-function renderTasks(){
-  const today = dk(new Date());
-  const tmrw = new Date(); tmrw.setDate(tmrw.getDate()+1); const tomorrow = dk(tmrw);
+/* ═══ Calendar (month view) — repurposes scrTasks screen ═══ */
+let calCursor = new Date();  // month currently shown
+let calSelected = dk(new Date());  // selected day key
 
-  let filtered = tasks;
-  if(taskFilter==='active') filtered = tasks.filter(t=>!t.done);
-  if(taskFilter==='done') filtered = tasks.filter(t=>t.done);
+function calPrevMonth(){ calCursor.setMonth(calCursor.getMonth()-1); renderCalendar(); }
+function calNextMonth(){ calCursor.setMonth(calCursor.getMonth()+1); renderCalendar(); }
 
-  const todayT = filtered.filter(t=>t.date===today).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
-  const tmrwT = filtered.filter(t=>t.date===tomorrow).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
-  const laterT = filtered.filter(t=>t.date!==today&&t.date!==tomorrow).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'99').localeCompare(b.time||'99'));
+function renderCalendar(){
+  const year = calCursor.getFullYear();
+  const month = calCursor.getMonth();
+  document.getElementById('calTitle').textContent = `${MO_F[month]} ${year}`;
+
+  // First day of month (Mon=0..Sun=6 layout)
+  const first = new Date(year, month, 1);
+  const startWeekday = (first.getDay() + 6) % 7; // convert to Mon=0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+
+  // Build 6×7 cell grid
+  const cells = [];
+  // Leading days from previous month
+  for(let i = startWeekday - 1; i >= 0; i--){
+    const d = new Date(year, month-1, prevMonthDays - i);
+    cells.push({d, otherMonth: true});
+  }
+  // Current month days
+  for(let i = 1; i <= daysInMonth; i++){
+    cells.push({d: new Date(year, month, i), otherMonth: false});
+  }
+  // Trailing days from next month to fill 6 rows
+  while(cells.length < 42){
+    const idx = cells.length - startWeekday - daysInMonth + 1;
+    cells.push({d: new Date(year, month+1, idx), otherMonth: true});
+  }
+
+  const todayKey = dk(new Date());
+  const gridHtml = cells.map(({d, otherMonth}, i) => {
+    const key = dk(d);
+    const wknd = d.getDay() === 0 || d.getDay() === 6;
+    const dayTasks = tasks.filter(t => t.date === key);
+    const dotCount = Math.min(dayTasks.length, 3);
+    const dots = Array(dotCount).fill('<span></span>').join('');
+    const classes = [
+      'cal-cell',
+      otherMonth ? 'other-month' : '',
+      wknd ? 'wknd' : '',
+      key === todayKey ? 'today' : '',
+      key === calSelected ? 'selected' : '',
+    ].filter(Boolean).join(' ');
+    return `<div class="${classes}" onclick="calSelectDay('${key}')">
+      <span class="cal-cell-num">${d.getDate()}</span>
+      <span class="cal-cell-dots">${dots}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('calGrid').innerHTML = gridHtml;
+  renderSelectedDayTasks();
+}
+
+function calSelectDay(key){
+  calSelected = key;
+  const d = new Date(key + 'T12:00:00');
+  // If clicked a day in another month, jump the calendar there
+  if(d.getMonth() !== calCursor.getMonth() || d.getFullYear() !== calCursor.getFullYear()){
+    calCursor = new Date(d);
+  }
+  renderCalendar();
+}
+
+function renderSelectedDayTasks(){
+  const d = new Date(calSelected + 'T12:00:00');
+  const dayTasks = tasks.filter(t => t.date === calSelected)
+    .sort((a,b) => (a.time||'99').localeCompare(b.time||'99'));
+
+  document.getElementById('calDayHeading').innerHTML =
+    `${DAYS_F[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}
+     <span class="count">${dayTasks.length ? dayTasks.length + ' задач' : 'вільний день'}</span>
+     <span style="margin-left:auto;"><button class="task-edit-btn" onclick="openAddFor('${calSelected}')" style="width:auto;padding:0 10px;height:26px;background:var(--accent-light);color:var(--accent);border-radius:8px;font-weight:700;">+ Додати</button></span>`;
 
   let html = '';
-  if(!filtered.length){
-    html = `<div class="empty-state"><div class="empty-emoji">✨</div><div class="empty-title">${taskFilter==='done'?'Ще нічого не виконано':'Немає задач'}</div><div class="empty-subtitle">${taskFilter==='done'?'Виконуйте задачі — вони з\'являться тут':'Додайте першу задачу'}</div>${taskFilter!=='done'?'<button class="empty-btn" onclick="openAdd()">+ Додати задачу</button>':''}</div>`;
+  if(!dayTasks.length){
+    html = `<div class="empty-state"><div class="empty-emoji">🌿</div><div class="empty-title">Нічого не заплановано</div><div class="empty-subtitle">Тапни "+ Додати" щоб запланувати</div></div>`;
   } else {
-    const renderGroup = (title, arr) => {
-      if(!arr.length) return '';
-      let g = `<div class="task-group-title">${title}</div>`;
-      arr.forEach(t => {
-        const dayD = new Date(t.date+'T12:00:00');
-        const priCls = t.pri==='HIGH'?'pri-high':t.pri==='MEDIUM'?'pri-med':'pri-low';
-        g += `<div class="task-row ${t.done?'completed':''}">
-          <div class="task-check ${t.done?'done':''}" onclick="toggleT('${t.id}')"></div>
-          <div class="task-row-body">
-            <div class="task-row-title">${esc(t.title)}</div>
-            <div class="task-row-meta">
-              <span>${DAYS_F[dayD.getDay()]}</span>
-              ${t.time?'<span>'+t.time+'</span>':''}
-              <span class="mini-task-priority ${priCls}"></span>
-            </div>
+    dayTasks.forEach(t => {
+      const priCls = t.pri==='HIGH'?'pri-high':t.pri==='MEDIUM'?'pri-med':'pri-low';
+      html += `<div class="task-row ${t.done?'completed':''}">
+        <div class="task-check ${t.done?'done':''}" onclick="toggleT('${t.id}')"></div>
+        <div class="task-row-body">
+          <div class="task-row-title">${esc(t.title)}</div>
+          <div class="task-row-meta">
+            ${t.time?'<span>'+t.time+'</span>':''}
+            <span class="mini-task-priority ${priCls}"></span>
           </div>
-          <div class="task-row-right">
-            <button class="task-edit-btn" onclick="editTaskFull('${t.id}')">✎</button>
-            <button class="task-delete-btn" onclick="delTask('${t.id}')">✕</button>
-          </div>
-        </div>`;
-      });
-      return g;
-    };
-    html = renderGroup('Сьогодні', todayT) + renderGroup('Завтра', tmrwT) + renderGroup('Пізніше', laterT);
+        </div>
+        <div class="task-row-right">
+          <button class="task-edit-btn" onclick="editTaskFull('${t.id}')">✎</button>
+          <button class="task-delete-btn" onclick="delTask('${t.id}')">✕</button>
+        </div>
+      </div>`;
+    });
   }
-  html += '<div style="height:80px"></div>';
   document.getElementById('tasksList').innerHTML = html;
 }
 
-document.getElementById('taskTabs').addEventListener('click', e=>{
-  const p = e.target.closest('.tab-pill');
-  if(!p) return;
-  document.querySelectorAll('#taskTabs .tab-pill').forEach(b=>b.classList.remove('active'));
-  p.classList.add('active');
-  taskFilter = p.dataset.f;
-  renderTasks();
-});
+// Backwards-compat: renderTasks() now renders the calendar view
+function renderTasks(){ renderCalendar(); }
 
 /* ════════════════════════════════════════
    NOTES SCREEN
@@ -3118,29 +3280,94 @@ function openNoteEditor(){ /* simplified - open add sheet concept */ openAdd(); 
    ════════════════════════════════════════ */
 function renderSettings(){
   const curTheme = ld('wn_theme','') || 'Lavender';
-  const themeNames = {'':'Lavender','dark':'Dark','nature':'Nature','ocean':'Ocean','cute':'Cute','classic':'Classic Paper'};
+  const notifOn = ld('wn_notif', false);
   const items = [
-    {icon:'🎨',label:'Теми',val:curTheme,action:()=>showThemes()},
-    {icon:'📊',label:'Статистика',val:'',action:()=>showStats()},
-    {icon:'🔔',label:'Нагадування',val:''},
-    {icon:'☁️',label:'Резервна копія',val:''},
-    {icon:'📄',label:'Експорт у PDF',val:''},
-    {icon:'📱',label:'Віджети',val:''},
-    {icon:'🔒',label:'Захист',val:'PIN-код'},
+    {icon:'🎨',label:'Тема',val:curTheme,onclick:'showThemes()'},
+    {icon:'📊',label:'Статистика',val:'',onclick:'showStats()'},
+    {icon:'🔔',label:'Нагадування',val: notifOn ? 'Увімкнено' : 'Вимкнено', onclick:'toggleNotif()'},
+    {icon:'💾',label:'Експорт даних',val:'JSON',onclick:'exportData()'},
+    {icon:'📥',label:'Імпорт даних',val:'',onclick:'importData()'},
+    {icon:'🗑️',label:'Очистити всі задачі',val:'',onclick:'clearAllTasks()', danger:true},
     {icon:'🌐',label:'Мова',val:'Українська'},
-    {icon:'ℹ️',label:'Про додаток',val:''},
-    {icon:'⭐',label:'Оцінити додаток',val:''},
+    {icon:'ℹ️',label:'Про додаток',val:'v1.0',onclick:'showAbout()'},
   ];
   let html = '';
   items.forEach(it=>{
-    html += `<div class="settings-item" ${it.action?'onclick="('+it.action+')()"':''}>
+    html += `<div class="settings-item ${it.danger?'danger':''}" ${it.onclick?`onclick="${it.onclick}"`:''}>
       <div class="settings-icon">${it.icon}</div>
       <div class="settings-label">${it.label}</div>
       <div class="settings-value">${it.val}</div>
-      <div class="settings-chevron">›</div>
+      ${it.onclick?'<div class="settings-chevron">›</div>':''}
     </div>`;
   });
   document.getElementById('settingsList').innerHTML = html;
+}
+
+/* Notifications toggle — asks browser permission on enable */
+function toggleNotif(){
+  const cur = ld('wn_notif', false);
+  if(!cur){
+    if(!('Notification' in window)){ alert('Браузер не підтримує сповіщення'); return; }
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){ sv('wn_notif', true); renderSettings(); new Notification('WeekNote', {body:'Сповіщення увімкнено ✅'}); }
+      else { alert('Дозвіл на сповіщення не наданий'); }
+    });
+  } else {
+    sv('wn_notif', false);
+    renderSettings();
+  }
+}
+
+/* Export all data as JSON download */
+function exportData(){
+  const data = { tasks, notes, theme: ld('wn_theme',''), appMode, exportedAt: new Date().toISOString(), version: 1 };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `weeknote-backup-${dk(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+}
+
+/* Import JSON — merge or replace */
+function importData(){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'application/json,.json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(r.result);
+        if(!confirm(`Імпортувати ${data.tasks?.length||0} задач і ${data.notes?.length||0} нотаток?\n\nПоточні дані будуть замінені.`)) return;
+        if(Array.isArray(data.tasks)) { tasks = data.tasks; sv('wn_tasks', tasks); }
+        if(Array.isArray(data.notes)) { notes = data.notes; sv('wn_notes', notes); }
+        if(data.theme !== undefined) { sv('wn_theme', data.theme); if(data.theme) document.documentElement.setAttribute('data-theme', data.theme); else document.documentElement.removeAttribute('data-theme'); }
+        if(data.appMode) { appMode = data.appMode; sv('wn_appmode', appMode); }
+        renderWeek(); renderNotes(); renderSettings();
+        alert('Імпорт завершено ✅');
+      } catch(e){ alert('Не вдалося прочитати файл: ' + e.message); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+/* Clear all tasks with confirm */
+function clearAllTasks(){
+  if(!confirm('Видалити ВСІ задачі назавжди? Цю дію не можна скасувати.')) return;
+  tasks = [];
+  sv('wn_tasks', tasks);
+  renderWeek(); renderTasks();
+  alert('Всі задачі видалено');
+}
+
+/* About modal — simple */
+function showAbout(){
+  alert(`WeekNote v1.0\n\nТвій тижневий планер у стилі паперового зошита.\n\n• Дані зберігаються локально у браузері\n• Легкий та Про режими\n• Тижнева навігація + місячний календар\n\nЗроблено з ❤️ для тих, хто планує тиждень.`);
 }
 
 /* ════════════════════════════════════════
