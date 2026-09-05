@@ -505,13 +505,15 @@ function drawRipples(){
 
 // ========== SKINS ==========
 const SKINS=[
-  {n:'Зелений',c:'#66BB6A',e:'#1B5E20',ch:'#A5D6A7',ant:'#69F0AE',p:0,o:true},
-  {n:'Блакитний',c:'#42A5F5',e:'#0D47A1',ch:'#90CAF9',ant:'#80D8FF',p:100,o:false},
-  {n:'Рожевий',c:'#F48FB1',e:'#880E4F',ch:'#FCE4EC',ant:'#FF80AB',p:150,o:false},
-  {n:'Фіолетовий',c:'#AB47BC',e:'#4A148C',ch:'#E1BEE7',ant:'#EA80FC',p:200,o:false},
-  {n:'Золотий',c:'#FFD54F',e:'#E65100',ch:'#FFF9C4',ant:'#FFD740',p:500,o:false},
-  {n:'Райдужний',c:'rainbow',e:'#333',ch:'#FFB3B3',ant:'#FFF',p:1000,o:false},
+  {n:'Зелений',    c:'#66BB6A',e:'#1B5E20',ch:'#A5D6A7',ant:'#69F0AE',p:0,   o:true,  perk:null,        perkDesc:'Класичний бульбік'},
+  {n:'Блакитний',  c:'#42A5F5',e:'#0D47A1',ch:'#90CAF9',ant:'#80D8FF',p:100, o:false, perk:'magnet',    perkDesc:'🧲 Магніт: монети летять до тебе'},
+  {n:'Рожевий',    c:'#F48FB1',e:'#880E4F',ch:'#FCE4EC',ant:'#FF80AB',p:150, o:false, perk:'extraLife', perkDesc:'💗 +1 життя раз за забіг'},
+  {n:'Фіолетовий', c:'#AB47BC',e:'#4A148C',ch:'#E1BEE7',ant:'#EA80FC',p:200, o:false, perk:'wideZone',  perkDesc:'🎯 Вікно PERFECT +30%'},
+  {n:'Золотий',    c:'#FFD54F',e:'#E65100',ch:'#FFF9C4',ant:'#FFD740',p:500, o:false, perk:'doubleGold',perkDesc:'💰 Монети x2'},
+  {n:'Райдужний',  c:'rainbow',e:'#333',   ch:'#FFB3B3',ant:'#FFF',   p:1000,o:false, perk:'comboSaver',perkDesc:'🌈 GOOD не збиває комбо'},
 ];
+function curPerk(){const s=SKINS[curSkin];return s?s.perk:null}
+let extraLifeUsed=false;   // consumed once per run for pink perk
 let curSkin=0;
 try{const s=JSON.parse(localStorage.getItem('fSk')||'[]');s.forEach((v,i)=>{if(SKINS[i])SKINS[i].o=v});curSkin=+(localStorage.getItem('fCS')||0)}catch(e){}
 function saveSkins(){localStorage.setItem('fSk',JSON.stringify(SKINS.map(s=>s.o)));localStorage.setItem('fCS',''+curSkin)}
@@ -1103,6 +1105,7 @@ function startGame(){
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
+  extraLifeUsed=false;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1138,6 +1141,15 @@ function die(){
   if(shield){
     shield=false;shFlash=.5;sfxPU();
     addFloat('🛡️',W/2,H*.4,'#4FC3F7',28);
+    const nextPadIdx=getCurrentPadIdx()+1;
+    const np=pads[nextPadIdx];
+    if(np) frogCont=np.gameX;
+    return;
+  }
+  // Pink extra-life perk — consumed once per run, behaves like a free shield
+  if(curPerk()==='extraLife'&&!extraLifeUsed){
+    extraLifeUsed=true;shFlash=.5;sfxPU();
+    addFloat('💗 ЖИТТЯ!',W/2,H*.4,'#F48FB1',26);
     const nextPadIdx=getCurrentPadIdx()+1;
     const np=pads[nextPadIdx];
     if(np) frogCont=np.gameX;
@@ -1321,10 +1333,13 @@ function onLand(idx){
   const hitR=getHitRadius(pad.width);
   const precision=1-Math.abs(frogX-pad.gameX)/hitR;
   // PERFECT >75%, GOOD 50-75%, NORMAL <50%
-  const isPerfect=precision>0.75;
+  // Purple perk widens the PERFECT window
+  const perfThresh=curPerk()==='wideZone'?0.65:0.75;
+  const isPerfect=precision>perfThresh;
   const isGood=!isPerfect&&precision>0.5;
 
-  const coinMult=fever?2:1;
+  // Gold perk doubles coin pickups (stacks with fever's ×2)
+  const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1);
   const feverMult=fever?2:1;
 
   // Tutorial: dismiss after 2 successful landings
@@ -1404,9 +1419,14 @@ function onLand(idx){
     addLandFX(lp.x,lp.y,1.3);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.2);
   } else {
-    // NORMAL — combo drops by 1 (not full reset)
-    if(fever&&perfectCombo<=1){breakFever(lp.x,lp.y)}
-    perfectCombo=Math.max(0,perfectCombo-1);
+    // NORMAL — combo drops by 1 (not full reset). Rainbow combo-saver
+    // perk keeps the combo intact on a NORMAL landing (only "perfect" or
+    // "good" required to keep it going otherwise).
+    const saveCombo=curPerk()==='comboSaver';
+    if(!saveCombo){
+      if(fever&&perfectCombo<=1){breakFever(lp.x,lp.y)}
+      perfectCombo=Math.max(0,perfectCombo-1);
+    }
     sfxLand();score++;
     addLandFX(lp.x,lp.y,1);
     addRipple(lp.x,lp.y+5*lp.s,lp.s);
@@ -1420,6 +1440,14 @@ function onLand(idx){
   }
 
   if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
+  // Blue magnet perk — sweep coins from the next 2 platforms too
+  if(curPerk()==='magnet'){
+    const ci=getCurrentPadIdx();
+    for(let k=1;k<=2;k++){
+      const mp=pads[ci+k];
+      if(mp&&mp.coin){mp.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-18-k*8);sfxCoin();}
+    }
+  }
 
   if(pad.pu){
     const t=pad.pu;pad.pu=null;sfxPU();
@@ -4174,7 +4202,7 @@ function drawSkins(){
   ctx.fillText('👾 Персонажі',tb1,tby+16);
   ctx.fillText('🌤️ Небо',tb2,tby+16);
 
-  const cw=Math.min(W-30,280),ch=72,sy=100;
+  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=100;
   if(skinTab===0){
     // Персонажі
     for(let i=0;i<SKINS.length;i++){
@@ -4184,9 +4212,14 @@ function drawSkins(){
       if(i===curSkin){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
       else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
       ctx.save();const os=curSkin;curSkin=i;drawFrog(cx2+38,cy+ch/2,.6,0,1,1,false,0);curSkin=os;ctx.restore();
-      ctx.fillStyle='#333';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(s.n,cx2+70,cy+28);
-      if(s.o){ctx.fillStyle=i===curSkin?'#2E7D32':'rgba(120,120,120,.6)';ctx.font='12px sans-serif';ctx.fillText(i===curSkin?'✅ Обрано':'Натисніть',cx2+70,cy+48)}
-      else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+70,cy+48)}
+      ctx.fillStyle='#333';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(s.n,cx2+70,cy+22);
+      // Perk description
+      if(s.perkDesc){
+        ctx.fillStyle='#555';ctx.font='11px sans-serif';
+        ctx.fillText(s.perkDesc,cx2+70,cy+42);
+      }
+      if(s.o){ctx.fillStyle=i===curSkin?'#2E7D32':'rgba(120,120,120,.6)';ctx.font='bold 12px sans-serif';ctx.fillText(i===curSkin?'✅ Обрано':'Натисніть',cx2+70,cy+68)}
+      else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+70,cy+68)}
     }
   } else {
     // Небо
@@ -4216,7 +4249,7 @@ function skinsTap(x,y){
     if(x>=tb2-tbw/2&&x<=tb2+tbw/2){skinTab=1;sfxClick();return}
   }
 
-  const cw=Math.min(W-30,280),ch=72,sy=100;
+  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=100;
   if(skinTab===0){
     // Персонажі
     for(let i=0;i<SKINS.length;i++){const cx2=W/2-cw/2,cy=sy+i*(ch+8);
