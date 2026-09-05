@@ -147,7 +147,9 @@ export class PieceSystem extends System {
     this.tray.forEach((piece, i) => {
       if (piece === this._drag?.piece) return; // don't reposition a held relic
       const maxDim = Math.max(piece.width, piece.height);
-      const target = Math.min(slotWidth * 0.62, trayHeight * 0.72);
+      // Keep the relic comfortably INSIDE its slot recess (slot is ~0.78·slotW /
+      // most of trayHeight) so characters don't spill over the platform edges.
+      const target = Math.min(slotWidth * 0.56, trayHeight * 0.66);
       piece.scale = target / (maxDim * cellSize);
       const pieceW = piece.width * cellSize * piece.scale;
       const pieceH = piece.height * cellSize * piece.scale;

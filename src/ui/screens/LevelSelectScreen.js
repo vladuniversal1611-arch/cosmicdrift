@@ -15,7 +15,7 @@ import { Rect } from '../../utils/Rect.js';
 import { UITheme, UI } from '../theme/UITheme.js';
 import { t } from '../../i18n/Localization.js';
 
-const COLS = 4;
+const COLS = 3;
 
 export class LevelSelectScreen extends PanelScreen {
   constructor(game) {
@@ -48,7 +48,11 @@ export class LevelSelectScreen extends PanelScreen {
     const availH = (p.y + p.h) - footer - top;
     const rows = Math.max(1, Math.floor(availH / cellH));
     this._perPage = COLS * rows;
-    const pages = Math.max(1, Math.ceil(this._total / this._perPage));
+    // Always fill at least one full page so a new player (frontier = 1) sees a
+    // rich level map rather than one lonely button on a big empty panel. Levels
+    // beyond the frontier are drawn LOCKED (dimmed + padlock) and aren't tappable.
+    const displayTotal = Math.max(this._total, this._perPage);
+    const pages = Math.max(1, Math.ceil(displayTotal / this._perPage));
     if (!this._pagedTo) { this._page = Math.min(pages - 1, Math.floor((this._frontier - 1) / this._perPage)); this._pagedTo = true; }
     this._page = Math.max(0, Math.min(pages - 1, this._page));
 
@@ -58,14 +62,15 @@ export class LevelSelectScreen extends PanelScreen {
 
     this._nodeRects = [];
     const first = this._page * this._perPage + 1;
-    const last = Math.min(this._total, first + this._perPage - 1);
+    const last = Math.min(displayTotal, first + this._perPage - 1);
     for (let lvl = first; lvl <= last; lvl++) {
       const idx = lvl - first;
       const cx = idx % COLS, cy = Math.floor(idx / COLS);
       const x = gridX + cx * (node + gap);
       const y = startY + cy * cellH;
-      this._drawNode(r, x, y, node, starH, lvl, level);
-      this._nodeRects.push({ rect: new Rect(x, y, node, node + starH), level: lvl });
+      const locked = lvl > this._frontier;
+      this._drawNode(r, x, y, node, starH, lvl, level, locked);
+      if (!locked) this._nodeRects.push({ rect: new Rect(x, y, node, node + starH), level: lvl });
     }
 
     // Page controls (only when there is more than one page).
@@ -81,7 +86,17 @@ export class LevelSelectScreen extends PanelScreen {
     }
   }
 
-  _drawNode(r, x, y, s, starH, lvl, level) {
+  _drawNode(r, x, y, s, starH, lvl, level, locked = false) {
+    // Locked preview: a muted tile with a padlock — shows the road ahead so the
+    // map feels full and inviting, but can't be played until unlocked.
+    if (locked) {
+      r.setAlpha(0.5);
+      UITheme.button(r, x, y, s, s, s * 0.24, UI.btn.blue, { shadow: false });
+      r.setAlpha(0.85);
+      this._lock(r, x + s / 2, y + s * 0.5, s * 0.3);
+      r.setAlpha(1);
+      return;
+    }
     const current = lvl === this._frontier;
     const stars = level?.starsFor?.(lvl) ?? 0;
     const colors = current ? UI.btn.play : UI.btn.blue;
@@ -109,6 +124,23 @@ export class LevelSelectScreen extends PanelScreen {
         this._star(r, sx, sy, sw * 0.5, i < stars ? '#ffd23d' : 'rgba(255,255,255,0.30)');
       }
     }
+  }
+
+  /** A simple padlock centred at (cx,cy) sized to `s` — body + shackle. */
+  _lock(r, cx, cy, s) {
+    const ctx = r.ctx;
+    const bw = s, bh = s * 0.8, bx = cx - bw / 2, by = cy - bh * 0.32;
+    // Shackle (open arc above the body).
+    ctx.beginPath();
+    ctx.lineWidth = s * 0.18;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineCap = 'round';
+    ctx.arc(cx, by, bw * 0.32, Math.PI, 0);
+    ctx.stroke();
+    // Body.
+    r.fillRoundRect(bx, by, bw, bh, s * 0.16, 'rgba(255,255,255,0.9)');
+    // Keyhole.
+    r.fillCircle(cx, by + bh * 0.42, s * 0.1, 'rgba(40,70,120,0.85)');
   }
 
   _star(r, x, y, rad, col) {
