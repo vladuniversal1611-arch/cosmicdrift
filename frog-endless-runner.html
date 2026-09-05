@@ -23,7 +23,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=30;      // score when speed starts increasing
@@ -85,6 +85,54 @@ const CHALLENGES=[
   {id:'speedLand',text:'5 стрибків за 6с!',emoji:'⏱️',need:5,reward:20,rewardCoins:10},
 ];
 let challenge=null,challengeT=0,challengeProgress=0,challengeShow=0,lastChallengeDist=0;
+
+// ========== DAILY MISSIONS (persistent, resets each calendar day) ==========
+const DAILY_POOL=[
+  {id:'score500',   text:'Набери 500 очок за забіг', emoji:'🎯', need:500, reward:60, kind:'score'},
+  {id:'dist200',    text:'Пробіжи 200м за забіг',    emoji:'🏃', need:200, reward:50, kind:'dist'},
+  {id:'perfects15', text:'15 PERFECT за забіг',      emoji:'✨', need:15,  reward:70, kind:'perfects'},
+  {id:'coins40',    text:'Збери 40 монет за забіг',  emoji:'💰', need:40,  reward:40, kind:'runCoins'},
+  {id:'combo10',    text:'Досягни комбо x10',        emoji:'🔥', need:10,  reward:80, kind:'maxCombo'},
+  {id:'diamonds4',  text:'Збери 4 діаманти за забіг',emoji:'💎', need:4,   reward:90, kind:'diamonds'},
+  {id:'plays3',     text:'Зіграй 3 рази сьогодні',   emoji:'🎮', need:3,   reward:30, kind:'dailyPlays'},
+  {id:'fever2',     text:'Активуй Fever 2 рази за забіг', emoji:'⚡', need:2, reward:60, kind:'feverCount'},
+];
+let dailyMissions=[], dailyDate='', dailyPlays=0;
+// Per-run counters that missions track
+let runPerfects=0, runMaxCombo=0, runDiamonds=0, runFever=0;
+function _todayStr(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function loadDaily(){
+  try{
+    const raw=localStorage.getItem('fDaily');
+    if(raw){const p=JSON.parse(raw);
+      if(p.date===_todayStr()){dailyMissions=p.missions||[];dailyDate=p.date;dailyPlays=p.plays||0;return}}
+  }catch(e){}
+  rollDaily();
+}
+function rollDaily(){
+  const pool=[...DAILY_POOL].sort(()=>Math.random()-0.5);
+  dailyMissions=pool.slice(0,3).map(m=>({id:m.id,prog:0,done:false}));
+  dailyDate=_todayStr();dailyPlays=0;
+  saveDaily();
+}
+function saveDaily(){localStorage.setItem('fDaily',JSON.stringify({date:dailyDate,missions:dailyMissions,plays:dailyPlays}))}
+function _missionSpec(m){return DAILY_POOL.find(x=>x.id===m.id)}
+function checkDaily(kind,value){
+  let anyDone=false;
+  for(const m of dailyMissions){
+    if(m.done)continue;
+    const s=_missionSpec(m);if(!s||s.kind!==kind)continue;
+    if(value>m.prog)m.prog=value;
+    if(m.prog>=s.need){
+      m.done=true;coins+=s.reward;localStorage.setItem('fCoins',''+coins);
+      if(typeof addFloat==='function')addFloat(`${s.emoji} МІСІЯ! +${s.reward}`,W/2,H*.28,'#4CAF50',22);
+      anyDone=true;
+    }
+  }
+  if(anyDone)saveDaily();
+}
+loadDaily();
+
 // Dash (dodge/skip mechanic)
 let dashReady=true,dashCooldown=0,dashActive=false,dashT=0,dashShow=0;
 const DASH_COOLDOWN=5,DASH_DURATION=.3;
@@ -959,6 +1007,7 @@ canvas.addEventListener('touchend',e=>{
     if(state===ST.MENU)menuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
+    else if(state===ST.MISSIONS)missionsTap(t.clientX,t.clientY);
     // Dash button tap (bottom-right corner)
     else if(state===ST.PLAY&&alive&&dashReady){
       const r=canvas.getBoundingClientRect();
@@ -984,6 +1033,7 @@ canvas.addEventListener('mouseup',e=>{
     if(state===ST.MENU)menuTap(e.clientX,e.clientY);
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
+    else if(state===ST.MISSIONS)missionsTap(e.clientX,e.clientY);
   }
 });
 document.addEventListener('keydown',e=>{
@@ -995,6 +1045,7 @@ document.addEventListener('keydown',e=>{
   }else if(state===ST.MENU&&(e.key==='Enter'))startGame();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
+  else if(state===ST.MISSIONS&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -1042,6 +1093,7 @@ function startGame(){
   sfxClick();state=ST.PLAY;
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
+  runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1093,6 +1145,17 @@ function die(){
   if(fd>hs){hs=fd;localStorage.setItem('fHS',''+hs);newRec=true}
   if(score>bestScore){bestScore=score;localStorage.setItem('fBS',''+bestScore);newScoreRec=true}
   coins+=runCoins;localStorage.setItem('fCoins',''+coins);
+  // Daily mission progress — check every metric at end of run
+  dailyPlays++;
+  checkDaily('score', score);
+  checkDaily('dist', Math.floor(dist));
+  checkDaily('runCoins', runCoins);
+  checkDaily('perfects', runPerfects);
+  checkDaily('maxCombo', runMaxCombo);
+  checkDaily('diamonds', runDiamonds);
+  checkDaily('feverCount', runFever);
+  checkDaily('dailyPlays', dailyPlays);
+  saveDaily();
   goT=0;setTimeout(()=>{state=ST.OVER},800);
 }
 
@@ -1280,6 +1343,8 @@ function onLand(idx){
       perfectText='PERFECT';
       perfectShow=.6;
     }
+    runPerfects++;
+    if(comboMult>runMaxCombo)runMaxCombo=comboMult;
     // Ring effect on platform
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
     addRipple(lp.x,lp.y+3*lp.s,lp.s*1.2); // double ring for PERFECT
@@ -1297,7 +1362,7 @@ function onLand(idx){
     }
     // Combo milestones
     if(perfectCombo===5&&!fever){
-      fever=true;feverT=0;feverFlash=.6;
+      fever=true;feverT=0;feverFlash=.6;runFever++;
       sfxFever();
       addFloat('🔥 FEVER!',lp.x,lp.y-60,'#FFD700',22);
       for(let i=0;i<14;i++){
@@ -1345,7 +1410,7 @@ function onLand(idx){
   }
   // Diamond path collection
   if(pad.diamond){
-    pad.diamond=false;diamondCount++;
+    pad.diamond=false;diamondCount++;runDiamonds++;
     sfxDiamond();runCoins+=3;
     addFloat(`💎 ${diamondCount}/${diamondTotal}`,lp.x,lp.y-50,'#00BCD4',18);
     for(let i=0;i<6;i++){
@@ -3843,7 +3908,7 @@ function menuTap(x,y){
     const secW=navW/3;
     const section=Math.floor((x-navX)/secW);
     if(section===0){sfxClick();state=ST.SKINS}
-    // section 1 = ЗАВДАННЯ (not implemented)
+    else if(section===1){sfxClick();state=ST.MISSIONS}
     // section 2 = МАГАЗИН (not implemented)
   }
 }
@@ -3981,6 +4046,76 @@ function overTap(x,y){
 
 // ========== SKINS ==========
 let skinTab=0;  // 0=персонажі, 1=небо
+// ========== DAILY MISSIONS SCREEN ==========
+function drawMissions(){
+  gt+=.016;
+  drawMenuBg();
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H);
+  const cx=W/2;
+  // Title
+  ctx.fillStyle='#fff';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=8;
+  ctx.fillText('📋 ЩОДЕННІ МІСІЇ',cx,H*.08);
+  ctx.font='14px sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
+  ctx.fillText('Оновлюються щодня. Виконуй — отримуй монети',cx,H*.08+30);
+  ctx.shadowBlur=0;
+  // Coin chip top right
+  const chipW=90,chipH=36,chipX=W-chipW-16,chipY=16;
+  ctx.fillStyle='rgba(0,0,0,.35)';rr(chipX,chipY,chipW,chipH,18);ctx.fill();
+  ctx.strokeStyle='rgba(255,215,0,.55)';ctx.lineWidth=1.5;rr(chipX,chipY,chipW,chipH,18);ctx.stroke();
+  ctx.fillStyle='#FFD54F';ctx.font='bold 20px sans-serif';
+  ctx.fillText('🪙 '+coins,chipX+chipW/2,chipY+chipH/2);
+  // Mission cards
+  const cardW=W*.86, cardH=110, gap=16;
+  const startY=H*.22;
+  ctx.textAlign='left';
+  for(let i=0;i<dailyMissions.length;i++){
+    const m=dailyMissions[i]; const spec=_missionSpec(m); if(!spec)continue;
+    const y=startY+i*(cardH+gap);
+    const x=W/2-cardW/2;
+    // Card background
+    ctx.fillStyle=m.done?'rgba(76,175,80,.85)':'rgba(255,255,255,.95)';
+    rr(x,y,cardW,cardH,18);ctx.fill();
+    ctx.strokeStyle=m.done?'rgba(129,199,132,.9)':'rgba(0,0,0,.1)';ctx.lineWidth=2;
+    rr(x,y,cardW,cardH,18);ctx.stroke();
+    // Emoji
+    ctx.font='bold 42px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=m.done?'#fff':'#333';
+    ctx.fillText(spec.emoji, x+38, y+cardH/2);
+    // Title text
+    ctx.textAlign='left';ctx.font='bold 16px sans-serif';
+    ctx.fillStyle=m.done?'#fff':'#222';
+    ctx.fillText(spec.text, x+78, y+30);
+    // Progress bar
+    const barX=x+78, barY=y+50, barW=cardW-100, barH=10;
+    ctx.fillStyle=m.done?'rgba(255,255,255,.35)':'rgba(0,0,0,.08)';
+    rr(barX,barY,barW,barH,5);ctx.fill();
+    const pct=Math.min(1,m.prog/spec.need);
+    if(pct>0){
+      ctx.fillStyle=m.done?'#fff':'#4CAF50';
+      rr(barX,barY,barW*pct,barH,5);ctx.fill();
+    }
+    // Progress text + reward
+    ctx.font='bold 14px sans-serif';ctx.textBaseline='middle';
+    ctx.fillStyle=m.done?'rgba(255,255,255,.9)':'#666';
+    ctx.fillText(`${m.prog}/${spec.need}`, x+78, y+80);
+    ctx.textAlign='right';
+    ctx.fillStyle=m.done?'#fff':'#FFA000';
+    ctx.fillText(m.done?'✓ ОТРИМАНО':`🪙 +${spec.reward}`, x+cardW-18, y+80);
+  }
+  // Back button
+  const bw=180,bh=52,bx=W/2-bw/2,by=H-90;
+  ctx.fillStyle='rgba(255,255,255,.95)';rr(bx,by,bw,bh,26);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=2;rr(bx,by,bw,bh,26);ctx.stroke();
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('← НАЗАД',W/2,by+bh/2);
+}
+function missionsTap(x,y){
+  const bw=180,bh=52,bx=W/2-bw/2,by=H-90;
+  if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){sfxClick();state=ST.MENU;return}
+  // Any tap outside cards goes back too? keep only the button for now
+}
+
 function drawSkins(){
   drawBg();ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(255,255,255,.85)';rr(8,8,W-16,46,14);ctx.fill();
@@ -4067,6 +4202,7 @@ function loop(ts){
     case ST.PLAY:updateGame(dt);drawGame();break;
     case ST.OVER:drawGame();drawOver();break;
     case ST.SKINS:drawSkins();break;
+    case ST.MISSIONS:drawMissions();break;
   }
   requestAnimationFrame(loop);
 }
