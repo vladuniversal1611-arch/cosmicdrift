@@ -1793,8 +1793,24 @@ body {
   box-shadow: var(--shadow-sm);
   margin: 0 16px 10px;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, transform 0.12s;
+  cursor: pointer;
+  position: relative;
 }
+.note-card:hover { box-shadow: var(--shadow-md); }
+.note-card:active { transform: scale(0.99); }
+.note-card-del {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  background: transparent;
+  font-size: 12px;
+  opacity: 0.5;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.note-card:hover .note-card-del { opacity: 1; }
+.note-card-del:hover { background: rgba(229,57,53,0.1); color: #E53935; }
 
 .note-card-header {
   display: flex;
@@ -2267,6 +2283,54 @@ body {
   margin-bottom: 16px;
   color: var(--text);
 }
+.sheet-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.sheet-textarea:focus { outline: 2px solid var(--accent-mid); }
+
+/* Note category picker */
+.note-cat-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.note-cat-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.15s;
+  border: 2px solid transparent;
+}
+.note-cat-btn span { font-size: 18px; }
+.note-cat-btn.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent-mid);
+}
+.note-editor-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 4px 4px;
+  font-style: italic;
+}
 
 .sheet-input:focus { outline: none; border-color: var(--accent); }
 .sheet-input::placeholder { color: var(--text-tertiary); }
@@ -2732,6 +2796,29 @@ body {
           <div class="sheet-color" data-clr="#2D2B32" style="background:#2D2B32;color:#2D2B32" onclick="pickColor(this)"></div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Note Editor Sheet -->
+<div class="sheet-overlay" id="noteSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <button class="sheet-btn" onclick="closeNote()">✕</button>
+      <div class="sheet-title" id="noteSheetTitle">Нова нотатка</div>
+      <button class="sheet-btn save" onclick="saveNote()">✓</button>
+    </div>
+    <div class="sheet-body">
+      <div class="note-cat-picker" id="noteCatPicker">
+        <button class="note-cat-btn" data-nc="ideas"     data-icon="💡"><span>💡</span>Ідеї</button>
+        <button class="note-cat-btn" data-nc="projects"  data-icon="🚀"><span>🚀</span>Проекти</button>
+        <button class="note-cat-btn" data-nc="shopping"  data-icon="🛒"><span>🛒</span>Покупки</button>
+        <button class="note-cat-btn" data-nc="important" data-icon="📌"><span>📌</span>Важливе</button>
+      </div>
+      <input class="sheet-input" id="noteTitle" type="text" placeholder="Заголовок нотатки" autocomplete="off">
+      <textarea class="sheet-textarea" id="noteBody" rows="8" placeholder="Пункти списку — один рядок = один пункт&#10;Приклад:&#10;Купити молоко&#10;Зателефонувати мамі"></textarea>
+      <div class="note-editor-hint">Порада: кожен новий рядок стане окремим пунктом списку</div>
     </div>
   </div>
 </div>
@@ -3332,11 +3419,12 @@ function renderNotes(){
     html = `<div class="empty-state"><div class="empty-emoji">📝</div><div class="empty-title">Поки що немає нотаток</div><div class="empty-subtitle">Створіть першу нотатку</div><button class="empty-btn" onclick="openNoteEditor()">+ Створити нотатку</button></div>`;
   }
   filtered.forEach(n=>{
-    html += `<div class="note-card">
+    html += `<div class="note-card" onclick="openNoteEditor('${n.id}')">
       <div class="note-card-header">
         <span class="note-card-icon">${n.icon}</span>
         <span class="note-card-title">${esc(n.title)}</span>
         <span class="note-card-date">${n.date}</span>
+        <button class="note-card-del" onclick="event.stopPropagation();deleteNote('${n.id}')" title="Видалити">✕</button>
       </div>
       <div class="note-card-body">
         ${n.items.map(it=>`<div class="note-line"><span class="note-bullet">•</span>${esc(it)}</div>`).join('')}
@@ -3355,7 +3443,99 @@ document.getElementById('notesCats').addEventListener('click', e=>{
   renderNotes();
 });
 
-function openNoteEditor(){ /* simplified - open add sheet concept */ openAdd(); }
+/* ═══ Note editor — real implementation ═══ */
+let editingNoteId = null;
+let noteCat = 'ideas';
+
+const NOTE_CAT_META = {
+  ideas:     { icon: '💡', title: 'Ідеї' },
+  projects:  { icon: '🚀', title: 'Проекти' },
+  shopping:  { icon: '🛒', title: 'Покупки' },
+  important: { icon: '📌', title: 'Важливе' },
+};
+
+function openNoteEditor(id){
+  editingNoteId = id || null;
+
+  // Pre-select category: existing note's cat, else current filter, else 'ideas'
+  if(id){
+    const n = notes.find(x=>x.id===id);
+    if(n) noteCat = n.cat;
+  } else {
+    noteCat = (noteFilter && noteFilter !== 'all') ? noteFilter : 'ideas';
+  }
+
+  document.getElementById('noteSheetTitle').textContent = id ? 'Редагувати нотатку' : 'Нова нотатка';
+
+  // Fill fields
+  const existing = id ? notes.find(x=>x.id===id) : null;
+  document.getElementById('noteTitle').value = existing ? existing.title : '';
+  document.getElementById('noteBody').value  = existing ? existing.items.join('\n') : '';
+
+  // Mark active category button
+  document.querySelectorAll('#noteCatPicker .note-cat-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.nc === noteCat);
+  });
+
+  document.getElementById('noteSheet').classList.add('open');
+  setTimeout(()=>document.getElementById('noteTitle').focus(), 200);
+}
+
+function closeNote(){
+  document.getElementById('noteSheet').classList.remove('open');
+  editingNoteId = null;
+}
+
+function saveNote(){
+  const title = document.getElementById('noteTitle').value.trim();
+  const body  = document.getElementById('noteBody').value.trim();
+  if(!title && !body){ closeNote(); return; }
+
+  const items = body ? body.split('\n').map(s=>s.trim()).filter(Boolean) : [];
+  const meta = NOTE_CAT_META[noteCat] || NOTE_CAT_META.ideas;
+  const today = new Date();
+  const dateStr = `${today.getDate()} ${MO[today.getMonth()]}`;
+
+  if(editingNoteId){
+    const n = notes.find(x=>x.id===editingNoteId);
+    if(n){
+      n.cat = noteCat;
+      n.icon = meta.icon;
+      n.title = title || meta.title;
+      n.items = items;
+      n.date = dateStr;
+    }
+  } else {
+    notes.push({
+      id: uid(),
+      cat: noteCat,
+      icon: meta.icon,
+      title: title || meta.title,
+      items,
+      date: dateStr,
+    });
+  }
+  sv('wn_notes', notes);
+  closeNote();
+  renderNotes();
+}
+
+function deleteNote(id){
+  if(!confirm('Видалити цю нотатку?')) return;
+  notes = notes.filter(n=>n.id!==id);
+  sv('wn_notes', notes);
+  renderNotes();
+}
+
+/* Wire category picker */
+document.getElementById('noteCatPicker').addEventListener('click', e => {
+  const btn = e.target.closest('.note-cat-btn');
+  if(!btn) return;
+  noteCat = btn.dataset.nc;
+  document.querySelectorAll('#noteCatPicker .note-cat-btn').forEach(b=>{
+    b.classList.toggle('active', b === btn);
+  });
+});
 
 /* ════════════════════════════════════════
    SETTINGS
