@@ -51,6 +51,15 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// Hype burst — triggered when perfectCombo hits a multiple of 10.
+// Slows the world down and paints a neon vignette for a beat.
+let hypeT=0;                // seconds remaining in the hype burst
+const HYPE_DUR=1.4;         // total burst length
+function hypeScale(){
+  if(hypeT<=0)return 1;
+  const t=hypeT/HYPE_DUR;                     // 1 at start → 0 at end
+  return t>0.5 ? 0.42 : (0.42 + (1-0.42)*(1-t*2));
+}
 // Fever mode
 let fever=false,feverT=0,feverFlash=0,feverBreakT=0,feverPts=[];
 // Milestones
@@ -1325,6 +1334,17 @@ function onLand(idx){
     // PERFECT — combo grows
     perfectCombo++;
     const comboMult=Math.min(perfectCombo,10);
+    // Every multiple of 10 → hype burst (slow-mo + neon vignette)
+    if(perfectCombo>0&&perfectCombo%10===0){
+      hypeT=HYPE_DUR;
+      addFloat('⚡ COMBO x'+perfectCombo+' ⚡',W/2,H*0.32,'#FF00FF',34);
+      if(navigator.vibrate)navigator.vibrate([30,50,30]);
+      // Confetti burst of magenta+cyan particles from centre
+      for(let i=0;i<28;i++){
+        const a=rand(0,Math.PI*2), sp=rand(.05,.12);
+        addP(W/2,H*0.4,Math.cos(a)*sp,Math.sin(a)*sp,i%2?'#FF00FF':'#00FFFF',rand(2,4),.7,'s');
+      }
+    }
     const totalPts=Math.floor(2*Math.min(comboMult,5)*feverMult);
     score+=totalPts;
     // Sound: pitch escalates with combo
@@ -3207,6 +3227,28 @@ function drawGame(){
   }
   ctx.restore();
 
+  // === HYPE BURST OVERLAY (combo ≥10) ===
+  if(hypeT>0){
+    const t=hypeT/HYPE_DUR;                              // 1..0
+    const pulse=0.5+0.5*Math.sin(gt*18);
+    // Magenta→cyan radial vignette
+    const vg=ctx.createRadialGradient(W/2,H/2,W*.15,W/2,H/2,Math.max(W,H)*.75);
+    vg.addColorStop(0,'rgba(255,0,255,0)');
+    vg.addColorStop(0.7,`rgba(255,0,255,${.15*t})`);
+    vg.addColorStop(1,`rgba(0,255,255,${.35*t})`);
+    ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+    // Neon border pulse
+    const brd=8+4*pulse;
+    ctx.save();
+    ctx.strokeStyle=`rgba(255,0,255,${0.7*t})`;ctx.lineWidth=brd;
+    ctx.shadowColor='rgba(255,0,255,.9)';ctx.shadowBlur=25;
+    rr(brd/2,brd/2,W-brd,H-brd,20);ctx.stroke();
+    ctx.strokeStyle=`rgba(0,255,255,${0.5*t})`;ctx.lineWidth=brd*0.5;
+    ctx.shadowColor='rgba(0,255,255,.9)';ctx.shadowBlur=18;
+    rr(brd,brd,W-brd*2,H-brd*2,16);ctx.stroke();
+    ctx.restore();
+  }
+
   drawHUD();
 }
 
@@ -4199,7 +4241,7 @@ function loop(ts){
   ctx.clearRect(0,0,W,H);
   switch(state){
     case ST.MENU:drawMenu();break;
-    case ST.PLAY:updateGame(dt);drawGame();break;
+    case ST.PLAY:{const ts=hypeScale();if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt*ts);drawGame();break}
     case ST.OVER:drawGame();drawOver();break;
     case ST.SKINS:drawSkins();break;
     case ST.MISSIONS:drawMissions();break;
