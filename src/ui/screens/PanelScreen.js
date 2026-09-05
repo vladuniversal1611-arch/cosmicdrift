@@ -33,7 +33,7 @@ export class PanelScreen extends Screen {
 
     // Back button (top-left, above the panel) — big and chunky so it's an easy,
     // obvious tap target on a phone rather than a tiny corner chevron.
-    this.add(new PremiumButton(24, 26, 84, 84, () => this.events.emit('ui:back'),
+    this.add(new PremiumButton(24, 64, 84, 84, () => this.events.emit('ui:back'),
       { colors: UI.btn.red, round: true, icon: (r, cx, cy, s) => {
         r.ctx.strokeStyle = '#fff'; r.ctx.lineWidth = s * 0.32; r.ctx.lineCap = 'round'; r.ctx.lineJoin = 'round';
         r.ctx.beginPath(); r.ctx.moveTo(cx + s * 0.3, cy - s * 0.5); r.ctx.lineTo(cx - s * 0.4, cy); r.ctx.lineTo(cx + s * 0.3, cy + s * 0.5); r.ctx.stroke();

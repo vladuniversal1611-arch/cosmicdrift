@@ -28,7 +28,9 @@ export class TopBar {
   }
 
   render(r, width) {
-    const y = 20;
+    // Dropped below the very top edge so the chip + avatar clear the status bar /
+    // camera notch and sit within comfortable thumb reach on tall phones.
+    const y = 60;
     const h = 40;
     // Both live on the RIGHT: avatar at the edge, coins chip just left of it.
     // (The top-LEFT corner belongs to the PanelScreen Back button, so the coins
