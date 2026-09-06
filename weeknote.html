@@ -2315,6 +2315,82 @@ body {
   font-style: italic;
 }
 
+/* ═══ Generic in-page modal (iframe-safe replacement for alert/confirm) ═══ */
+.wn-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(30,20,10,0.45);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.wn-modal-overlay.open { display: flex; animation: wn-fade 0.15s ease; }
+@keyframes wn-fade { from{opacity:0} to{opacity:1} }
+.wn-modal {
+  background: var(--bg-card);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  animation: wn-pop 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes wn-pop { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }
+.wn-modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.wn-modal-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+.wn-modal-textarea {
+  width: 100%;
+  min-height: 180px;
+  max-height: 300px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+.wn-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.wn-modal-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  transition: background 0.12s;
+}
+.wn-modal-btn:hover { background: var(--border); }
+.wn-modal-btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.wn-modal-btn.primary:hover { background: var(--accent-dark); }
+.wn-modal-btn.danger { background: #E53935; color: #fff; }
+.wn-modal-btn.danger:hover { background: #C62828; }
+
 .sheet-input:focus { outline: none; border-color: var(--accent); }
 .sheet-input::placeholder { color: var(--text-tertiary); }
 
@@ -2748,6 +2824,19 @@ body {
   </div>
 </div>
 
+<!-- Generic in-page modal (replaces alert/confirm — iframe-safe) -->
+<div class="wn-modal-overlay" id="wnModalOverlay">
+  <div class="wn-modal">
+    <div class="wn-modal-title" id="wnModalTitle"></div>
+    <div class="wn-modal-body" id="wnModalBody"></div>
+    <textarea class="wn-modal-textarea" id="wnModalTextarea" readonly hidden></textarea>
+    <div class="wn-modal-actions">
+      <button class="wn-modal-btn" id="wnModalCancel" onclick="wnModalClose(false)">Скасувати</button>
+      <button class="wn-modal-btn primary" id="wnModalOk" onclick="wnModalClose(true)">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- Note Editor Sheet -->
 <div class="sheet-overlay" id="noteSheet">
   <div class="sheet">
@@ -2794,6 +2883,7 @@ let noteFilter = 'all';
 let appMode = ld('wn_appmode', 'light'); // 'light' or 'pro' — global mode for entire app
 let addFromDay = false; // true when opened via day cell's "+ додати"
 let currentDayIdx = -1; // active day-page index in single-day view (-1 = auto pick today)
+let notifOn = ld('wn_notif', false);
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
@@ -3481,7 +3571,6 @@ document.getElementById('noteCatPicker').addEventListener('click', e => {
 function renderSettings(){
   const themeIdToName = {'':'Lavender','classic':'Classic Paper','nature':'Nature','ocean':'Ocean','cute':'Cute','dark':'Dark'};
   const curTheme = themeIdToName[currentThemeId] || 'Lavender';
-  const notifOn = ld('wn_notif', false);
   const items = [
     {icon:'🎨',label:'Тема',val:curTheme,onclick:'showThemes()'},
     {icon:'📊',label:'Статистика',val:'',onclick:'showStats()'},
@@ -3504,71 +3593,198 @@ function renderSettings(){
   document.getElementById('settingsList').innerHTML = html;
 }
 
-/* Notifications toggle — asks browser permission on enable */
+/* ═══ In-page modal system — iframe-safe replacement for alert/confirm/download ═══ */
+let _wnModalResolver = null;
+
+function wnModalClose(ok){
+  document.getElementById('wnModalOverlay').classList.remove('open');
+  if(_wnModalResolver){ _wnModalResolver(!!ok); _wnModalResolver = null; }
+}
+
+function wnAlert(title, body){
+  return new Promise(res => {
+    document.getElementById('wnModalTitle').textContent = title;
+    document.getElementById('wnModalBody').textContent = body || '';
+    document.getElementById('wnModalTextarea').hidden = true;
+    document.getElementById('wnModalCancel').style.display = 'none';
+    document.getElementById('wnModalOk').textContent = 'OK';
+    document.getElementById('wnModalOk').className = 'wn-modal-btn primary';
+    document.getElementById('wnModalOverlay').classList.add('open');
+    _wnModalResolver = res;
+  });
+}
+
+function wnConfirm(title, body, danger){
+  return new Promise(res => {
+    document.getElementById('wnModalTitle').textContent = title;
+    document.getElementById('wnModalBody').textContent = body || '';
+    document.getElementById('wnModalTextarea').hidden = true;
+    document.getElementById('wnModalCancel').style.display = '';
+    document.getElementById('wnModalCancel').textContent = 'Скасувати';
+    document.getElementById('wnModalOk').textContent = danger ? 'Видалити' : 'OK';
+    document.getElementById('wnModalOk').className = 'wn-modal-btn ' + (danger ? 'danger' : 'primary');
+    document.getElementById('wnModalOverlay').classList.add('open');
+    _wnModalResolver = res;
+  });
+}
+
+/* Show a big text block the user can copy — used for export */
+function wnTextModal(title, body, text){
+  return new Promise(res => {
+    document.getElementById('wnModalTitle').textContent = title;
+    document.getElementById('wnModalBody').textContent = body || '';
+    const ta = document.getElementById('wnModalTextarea');
+    ta.value = text;
+    ta.hidden = false;
+    document.getElementById('wnModalCancel').style.display = 'none';
+    document.getElementById('wnModalOk').textContent = 'Готово';
+    document.getElementById('wnModalOk').className = 'wn-modal-btn primary';
+    document.getElementById('wnModalOverlay').classList.add('open');
+    // Select all on open so a single Ctrl+A / long-press works
+    setTimeout(()=>{ try{ ta.focus(); ta.select(); }catch{} }, 100);
+    _wnModalResolver = res;
+  });
+}
+
+/* Notifications toggle — asks browser permission on enable; in-memory state */
 function toggleNotif(){
-  const cur = ld('wn_notif', false);
-  if(!cur){
-    if(!('Notification' in window)){ alert('Браузер не підтримує сповіщення'); return; }
-    Notification.requestPermission().then(p=>{
-      if(p==='granted'){ sv('wn_notif', true); renderSettings(); new Notification('WeekNote', {body:'Сповіщення увімкнено ✅'}); }
-      else { alert('Дозвіл на сповіщення не наданий'); }
-    });
+  if(!notifOn){
+    if(!('Notification' in window)){
+      wnAlert('Сповіщення недоступні', 'Цей браузер не підтримує повідомлення.');
+      return;
+    }
+    try {
+      Notification.requestPermission().then(p=>{
+        if(p==='granted'){
+          notifOn = true;
+          sv('wn_notif', true);
+          renderSettings();
+          try { new Notification('WeekNote', {body:'Сповіщення увімкнено ✅'}); } catch {}
+        } else {
+          wnAlert('Дозвіл не наданий', 'Щоб отримувати нагадування, дозволь сповіщення у налаштуваннях браузера.');
+        }
+      });
+    } catch(e){
+      wnAlert('Помилка', 'Не вдалося увімкнути сповіщення: ' + e.message);
+    }
   } else {
+    notifOn = false;
     sv('wn_notif', false);
     renderSettings();
   }
 }
 
-/* Export all data as JSON download */
-function exportData(){
+/* Export — try native download; if that fails (sandbox), show JSON to copy */
+async function exportData(){
   const data = { tasks, notes, theme: currentThemeId, appMode, exportedAt: new Date().toISOString(), version: 1 };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `weeknote-backup-${dk(new Date())}.json`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+  const json = JSON.stringify(data, null, 2);
+  // Native download attempt (works when file is opened directly, may be inert in sandbox)
+  let downloadTried = false;
+  try {
+    const blob = new Blob([json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `weeknote-backup-${dk(new Date())}.json`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    downloadTried = true;
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+  } catch(e) {}
+  // Also show the JSON so the user can copy if the download didn't reach them
+  await wnTextModal(
+    'Резервна копія',
+    downloadTried
+      ? `Файл weeknote-backup-${dk(new Date())}.json завантажено (якщо перегляд це дозволяє). Також JSON внизу — можеш скопіювати вручну:`
+      : 'Скопіюй JSON нижче й збережи як .json файл:',
+    json
+  );
 }
 
-/* Import JSON — merge or replace */
-function importData(){
+/* Import JSON — file picker; falls back to paste-JSON modal */
+async function importData(){
   const inp = document.createElement('input');
   inp.type = 'file';
   inp.accept = 'application/json,.json';
-  inp.onchange = () => {
+  let picked = false;
+  inp.onchange = async () => {
+    picked = true;
     const f = inp.files[0]; if(!f) return;
     const r = new FileReader();
-    r.onload = () => {
+    r.onload = async () => {
       try {
-        const data = JSON.parse(r.result);
-        if(!confirm(`Імпортувати ${data.tasks?.length||0} задач і ${data.notes?.length||0} нотаток?\n\nПоточні дані будуть замінені.`)) return;
-        if(Array.isArray(data.tasks)) { tasks = data.tasks; sv('wn_tasks', tasks); }
-        if(Array.isArray(data.notes)) { notes = data.notes; sv('wn_notes', notes); }
-        if(data.theme !== undefined) { applyTheme(data.theme); }
-        if(data.appMode) { appMode = data.appMode; sv('wn_appmode', appMode); }
-        renderWeek(); renderNotes(); renderSettings();
-        alert('Імпорт завершено ✅');
-      } catch(e){ alert('Не вдалося прочитати файл: ' + e.message); }
+        await applyImportedJSON(r.result);
+      } catch(e){ await wnAlert('Помилка', 'Не вдалося прочитати файл: ' + e.message); }
     };
     r.readAsText(f);
   };
-  inp.click();
+  try { inp.click(); } catch {}
+  // In some sandboxed viewers the file picker silently fails to open.
+  // Give the user a fallback: paste the JSON directly.
+  setTimeout(async ()=>{
+    if(picked) return;
+    // Show paste modal
+    const overlay = document.getElementById('wnModalOverlay');
+    if(overlay.classList.contains('open')) return; // don't clobber if user opened something else
+    // We build a paste form via wnTextModal but make it editable
+    document.getElementById('wnModalTitle').textContent = 'Імпорт з тексту';
+    document.getElementById('wnModalBody').textContent = 'Файловий вибір недоступний. Встав JSON з резервної копії у поле нижче й натисни «Імпортувати».';
+    const ta = document.getElementById('wnModalTextarea');
+    ta.value = '';
+    ta.removeAttribute('readonly');
+    ta.hidden = false;
+    document.getElementById('wnModalCancel').style.display = '';
+    document.getElementById('wnModalCancel').textContent = 'Скасувати';
+    document.getElementById('wnModalOk').textContent = 'Імпортувати';
+    document.getElementById('wnModalOk').className = 'wn-modal-btn primary';
+    overlay.classList.add('open');
+    _wnModalResolver = async (ok) => {
+      const val = ta.value;
+      ta.setAttribute('readonly','');
+      if(ok && val.trim()){
+        try { await applyImportedJSON(val); }
+        catch(e){ await wnAlert('Помилка', 'Не вдалося прочитати JSON: ' + e.message); }
+      }
+    };
+  }, 800);
+}
+
+async function applyImportedJSON(text){
+  const data = JSON.parse(text);
+  const ok = await wnConfirm(
+    'Замінити дані?',
+    `Імпортувати ${data.tasks?.length || 0} задач і ${data.notes?.length || 0} нотаток?\n\nПоточні дані будуть замінені без можливості повернення.`,
+  );
+  if(!ok) return;
+  if(Array.isArray(data.tasks)) { tasks = data.tasks; sv('wn_tasks', tasks); }
+  if(Array.isArray(data.notes)) { notes = data.notes; sv('wn_notes', notes); }
+  if(data.theme !== undefined)  { applyTheme(data.theme); }
+  if(data.appMode) { appMode = data.appMode; sv('wn_appmode', appMode); }
+  renderWeek(); renderNotes(); renderSettings();
+  await wnAlert('Готово', 'Імпорт завершено ✅');
 }
 
 /* Clear all tasks with confirm */
-function clearAllTasks(){
-  if(!confirm('Видалити ВСІ задачі назавжди? Цю дію не можна скасувати.')) return;
+async function clearAllTasks(){
+  const ok = await wnConfirm(
+    'Очистити всі задачі?',
+    'Це видалить УСІ задачі назавжди. Дію не можна скасувати.',
+    /*danger*/true
+  );
+  if(!ok) return;
   tasks = [];
   sv('wn_tasks', tasks);
   renderWeek(); renderTasks();
-  alert('Всі задачі видалено');
+  await wnAlert('Готово', 'Всі задачі видалено.');
 }
 
-/* About modal — simple */
+/* About modal */
 function showAbout(){
-  alert(`WeekNote v1.0\n\nТвій тижневий планер у стилі паперового зошита.\n\n• Дані зберігаються локально у браузері\n• Легкий та Про режими\n• Тижнева навігація + місячний календар\n\nЗроблено з ❤️ для тих, хто планує тиждень.`);
+  wnAlert(
+    'WeekNote v1.0',
+    'Твій тижневий планер у стилі паперового зошита.\n\n• Дані зберігаються локально у браузері\n• Легкий і Про режими\n• Тижнева навігація + місячний календар\n• Експорт/імпорт JSON\n\nЗроблено з ❤️ для тих, хто планує тиждень.'
+  );
 }
 
 /* ════════════════════════════════════════
