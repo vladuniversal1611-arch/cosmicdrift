@@ -244,6 +244,36 @@ body {
   background-image: var(--paper-texture);
 }
 
+/* ═══ AdMob banner reserved area ═══
+   When the .phone gets .with-ads (JS toggles it once AdMob is ready
+   inside the Capacitor shell), we reserve 60px at the bottom so the
+   native banner never overlaps content. The .ad-slot inside the phone
+   is a visible strip for a placeholder / house-ad in preview builds. */
+.phone.with-ads { padding-bottom: 60px; }
+.ad-slot {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 0;
+  height: 60px;
+  background: rgba(0,0,0,0.04);
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+  z-index: 40;
+  display: none;
+}
+.phone.with-ads .ad-slot { display: flex; }
+.ad-slot[hidden] { display: none !important; }
+/* The FAB (nav-fab / any fixed bottom button) needs to lift above the banner */
+.phone.with-ads .fab { bottom: calc(24px + 60px); }
+/* Bottom-nav also lifts when ads on (in case we bring it back some day) */
+.phone.with-ads .bottomnav { margin-bottom: 60px; }
+
 /* Status bar */
 .statusbar {
   display: flex;
@@ -2772,6 +2802,12 @@ body {
     </button>
   </nav>
 
+  <!-- ═══ AdMob banner slot ═══
+       Reserves 50px at the bottom so ads never overlap content.
+       In the web preview it's invisible; when wrapped in Capacitor,
+       the AdMob banner sits pinned to the bottom of the OS chrome and
+       the app content simply stops above this slot. -->
+  <div class="ad-slot" id="adSlot" hidden></div>
 </div>
 
 <!-- Quick Menu Drawer -->
@@ -3619,6 +3655,75 @@ let addFromDay = false; // true when opened via day cell's "+ додати"
 let currentDayIdx = -1; // active day-page index in single-day view (-1 = auto pick today)
 let notifOn = ld('wn_notif', false);
 
+/* ═══════════════════════════════════════════════════════════════════
+   ADMOB CONFIG — swap these to real IDs once your AdMob unit is created
+   ═══════════════════════════════════════════════════════════════════ */
+const ADMOB = {
+  /* Turn ads on/off globally (overridden to true by the Capacitor shell). */
+  enabled: false,
+
+  /* Real IDs — replace TEST IDs with yours before release.
+     Google's official test IDs are safe to keep during development. */
+  androidAppId:  'ca-app-pub-3940256099942544~3347511713',   // Test app ID
+  iosAppId:      'ca-app-pub-3940256099942544~1458002511',   // Test app ID
+
+  androidBanner:       'ca-app-pub-3940256099942544/6300978111',  // Test banner
+  iosBanner:           'ca-app-pub-3940256099942544/2934735716',  // Test banner
+  androidInterstitial: 'ca-app-pub-3940256099942544/1033173712',  // Test interstitial
+  iosInterstitial:     'ca-app-pub-3940256099942544/4411468910',  // Test interstitial
+  androidRewarded:     'ca-app-pub-3940256099942544/5224354917',  // Test rewarded
+  iosRewarded:         'ca-app-pub-3940256099942544/1712485313',  // Test rewarded
+
+  /* How often (in "week switches") to show an interstitial */
+  interstitialEveryNSwitches: 7,
+};
+
+/* Counters for interstitial throttling */
+let _weekSwitchCount = 0;
+
+/* Called by the Capacitor shell (or dev consumer) once AdMob is ready.
+   Adds the .with-ads class so the layout reserves banner space and
+   the interstitial trigger becomes active. */
+function enableAds(){
+  ADMOB.enabled = true;
+  document.querySelector('.phone').classList.add('with-ads');
+  const slot = document.getElementById('adSlot');
+  if(slot){
+    slot.removeAttribute('hidden');
+    slot.textContent = 'Ad'; // placeholder — real AdMob banner overlays this
+  }
+}
+
+/* Bridge to whatever ad SDK is loaded in the wrapper.
+   In Capacitor, hook these to @capacitor-community/admob calls. */
+function _adCall(kind){
+  try {
+    if(window.WNAds && typeof window.WNAds[kind] === 'function'){
+      window.WNAds[kind](ADMOB);
+    }
+  } catch(e){ /* never let ads break the app */ }
+}
+
+/* Public API for the app to call at natural break points */
+function trackWeekSwitchForAds(){
+  if(!ADMOB.enabled) return;
+  _weekSwitchCount++;
+  if(_weekSwitchCount >= ADMOB.interstitialEveryNSwitches){
+    _weekSwitchCount = 0;
+    _adCall('showInterstitial');
+  }
+}
+function showRewardedAd(onReward){
+  if(!ADMOB.enabled){ onReward && onReward(false); return; }
+  try {
+    if(window.WNAds && window.WNAds.showRewarded){
+      window.WNAds.showRewarded(ADMOB, onReward);
+      return;
+    }
+  } catch(e){}
+  onReward && onReward(false);
+}
+
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
 function dk(d){return d.toISOString().split('T')[0]}
@@ -4014,8 +4119,8 @@ function _flipWeek(dir){
     setTimeout(()=>nb.classList.remove('flip-next','flip-prev'), 450);
   }
 }
-function prevWeek(){ _flipWeek('prev') }
-function nextWeek(){ _flipWeek('next') }
+function prevWeek(){ _flipWeek('prev'); trackWeekSwitchForAds(); }
+function nextWeek(){ _flipWeek('next'); trackWeekSwitchForAds(); }
 function goToday(){
   ws=getMonday(new Date());
   const s = document.getElementById('dayStack'); if(s) s.remove();
