@@ -60,7 +60,7 @@ npx cap sync android
 
 ## 5. ID вже прописані в weeknote.html
 
-Твої реальні AdMob ID для Android **вже підставлені**:
+Твої AdMob ID для Android **вже підставлені**:
 
 | Тип | ID |
 |-----|-----|
@@ -69,10 +69,7 @@ npx cap sync android
 | Interstitial | `ca-app-pub-5816871059908402/1328346300` |
 | Rewarded | `ca-app-pub-5816871059908402/2188685188` |
 
-**Під час розробки** постав `useTestAds: true` в конфізі `ADMOB` — це змусить SDK показувати офіційні Google-тестові реклами (не банять акаунт).
-Перед release зміни на `useTestAds: false`.
-
-⚠️ **Approval status: "Requires review"** — це нормально для нових додатків. Google перевіряє автоматично коли додаток отримає першу справжню установку та трафік. Тестові реклами показуються одразу, реальні можуть мати fill rate 0% доки review не пройде (зазвичай 1-2 тижні після публікації).
+Тестових флагів у коді немає — твій пристрій зареєстрований як test device в AdMob-консолі й отримуватиме тестові рекламм без ризику.
 
 ## 6. Додати App ID в AndroidManifest.xml
 
@@ -96,16 +93,14 @@ npx cap sync android
   async function boot(){
     if(!window.Capacitor || !window.Capacitor.Plugins.AdMob) return;
     const { AdMob, BannerAdPosition, BannerAdSize } = window.Capacitor.Plugins;
-    const isAndroid = window.Capacitor.getPlatform() === 'android';
-    const adId = window._adId; // helper з weeknote.html — вертає банерний/interstitial ID для платформи
+    const cfg = window.ADMOB;
 
-    // Ініціалізація (запит на ATT-tracking для iOS)
     await AdMob.initialize({ requestTrackingAuthorization: true });
 
     window.WNAds = {
       async showBanner(){
         await AdMob.showBanner({
-          adId: adId('banner', isAndroid),
+          adId: cfg.banner,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
           position: BannerAdPosition.BOTTOM_CENTER,
           margin: 0,
@@ -113,24 +108,22 @@ npx cap sync android
       },
       async showInterstitial(){
         try {
-          await AdMob.prepareInterstitial({ adId: adId('interstitial', isAndroid) });
+          await AdMob.prepareInterstitial({ adId: cfg.interstitial });
           await AdMob.showInterstitial();
         } catch(e){}
       },
-      async showRewarded(cfg, onReward){
+      async showRewarded(_cfg, onReward){
         try {
-          await AdMob.prepareRewardVideoAd({ adId: adId('rewarded', isAndroid) });
+          await AdMob.prepareRewardVideoAd({ adId: cfg.rewarded });
           const res = await AdMob.showRewardVideoAd();
           onReward && onReward(true, res);
         } catch(e){ onReward && onReward(false); }
       },
     };
 
-    enableAds();          // показуємо ad-slot у HTML (резервує 60px)
+    enableAds();                // показуємо ad-slot у HTML (резервує 60px)
     window.WNAds.showBanner();
   }
-
-  // Capacitor v5+ використовує звичайний DOMContentLoaded замість deviceready
   if(document.readyState === 'complete') boot();
   else window.addEventListener('load', boot);
 })();
