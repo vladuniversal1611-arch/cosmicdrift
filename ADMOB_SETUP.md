@@ -58,24 +58,21 @@ npx cap sync android
    - **Interstitial** → скопіюй `ca-app-pub-XXXX/IIII` (опційно)
    - **Rewarded** → скопіюй `ca-app-pub-XXXX/RRRR` (опційно)
 
-## 5. Вставити ID в weeknote.html
+## 5. ID вже прописані в weeknote.html
 
-Знайди у файлі константу `ADMOB` і встав свої ID:
+Твої реальні AdMob ID для Android **вже підставлені**:
 
-```js
-const ADMOB = {
-  enabled: false,
-  androidAppId:  'ca-app-pub-XXXX~YYYY',       // ← свій
-  iosAppId:      'ca-app-pub-XXXX~ZZZZ',       // якщо буде iOS
-  androidBanner:       'ca-app-pub-XXXX/BBBB',
-  iosBanner:           'ca-app-pub-XXXX/BBBB2',
-  androidInterstitial: 'ca-app-pub-XXXX/IIII',
-  iosInterstitial:     'ca-app-pub-XXXX/IIII2',
-  androidRewarded:     'ca-app-pub-XXXX/RRRR',
-  iosRewarded:         'ca-app-pub-XXXX/RRRR2',
-  interstitialEveryNSwitches: 7,
-};
-```
+| Тип | ID |
+|-----|-----|
+| App ID | `ca-app-pub-5816871059908402~5417483753` |
+| Banner | `ca-app-pub-5816871059908402/4104402087` |
+| Interstitial | `ca-app-pub-5816871059908402/1328346300` |
+| Rewarded | `ca-app-pub-5816871059908402/2188685188` |
+
+**Під час розробки** постав `useTestAds: true` в конфізі `ADMOB` — це змусить SDK показувати офіційні Google-тестові реклами (не банять акаунт).
+Перед release зміни на `useTestAds: false`.
+
+⚠️ **Approval status: "Requires review"** — це нормально для нових додатків. Google перевіряє автоматично коли додаток отримає першу справжню установку та трафік. Тестові реклами показуються одразу, реальні можуть мати fill rate 0% доки review не пройде (зазвичай 1-2 тижні після публікації).
 
 ## 6. Додати App ID в AndroidManifest.xml
 
@@ -84,7 +81,7 @@ const ADMOB = {
 ```xml
 <meta-data
     android:name="com.google.android.gms.ads.APPLICATION_ID"
-    android:value="ca-app-pub-XXXX~YYYY"/>
+    android:value="ca-app-pub-5816871059908402~5417483753"/>
 ```
 
 **Без цього рядка додаток краштиметься при старті!**
@@ -96,49 +93,46 @@ const ADMOB = {
 ```js
 // Викликається один раз після старту, під'єднує AdMob до window.WNAds
 (function(){
-  document.addEventListener('deviceready', async () => {
+  async function boot(){
     if(!window.Capacitor || !window.Capacitor.Plugins.AdMob) return;
     const { AdMob, BannerAdPosition, BannerAdSize } = window.Capacitor.Plugins;
+    const isAndroid = window.Capacitor.getPlatform() === 'android';
+    const adId = window._adId; // helper з weeknote.html — вертає банерний/interstitial ID для платформи
 
-    // Ініціалізація
+    // Ініціалізація (запит на ATT-tracking для iOS)
     await AdMob.initialize({ requestTrackingAuthorization: true });
 
-    // Функції що викликає наш weeknote.html
     window.WNAds = {
-      async showBanner(cfg){
-        const isAndroid = window.Capacitor.getPlatform() === 'android';
+      async showBanner(){
         await AdMob.showBanner({
-          adId: isAndroid ? cfg.androidBanner : cfg.iosBanner,
+          adId: adId('banner', isAndroid),
           adSize: BannerAdSize.ADAPTIVE_BANNER,
           position: BannerAdPosition.BOTTOM_CENTER,
           margin: 0,
         });
       },
-      async showInterstitial(cfg){
-        const isAndroid = window.Capacitor.getPlatform() === 'android';
+      async showInterstitial(){
         try {
-          await AdMob.prepareInterstitial({
-            adId: isAndroid ? cfg.androidInterstitial : cfg.iosInterstitial,
-          });
+          await AdMob.prepareInterstitial({ adId: adId('interstitial', isAndroid) });
           await AdMob.showInterstitial();
         } catch(e){}
       },
       async showRewarded(cfg, onReward){
-        const isAndroid = window.Capacitor.getPlatform() === 'android';
         try {
-          await AdMob.prepareRewardVideoAd({
-            adId: isAndroid ? cfg.androidRewarded : cfg.iosRewarded,
-          });
+          await AdMob.prepareRewardVideoAd({ adId: adId('rewarded', isAndroid) });
           const res = await AdMob.showRewardVideoAd();
           onReward && onReward(true, res);
         } catch(e){ onReward && onReward(false); }
       },
     };
 
-    // Показати банер і активувати ads у нашому додатку
-    enableAds();
-    window.WNAds.showBanner(window.ADMOB);
-  }, false);
+    enableAds();          // показуємо ad-slot у HTML (резервує 60px)
+    window.WNAds.showBanner();
+  }
+
+  // Capacitor v5+ використовує звичайний DOMContentLoaded замість deviceready
+  if(document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
 })();
 ```
 
