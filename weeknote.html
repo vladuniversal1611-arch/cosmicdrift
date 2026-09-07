@@ -1199,7 +1199,7 @@ body {
 /* Notebook ruled lines (Light mode — no checkboxes) */
 .nb-line-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   min-height: 34px;
@@ -1215,9 +1215,10 @@ body {
   color: var(--text);
   cursor: text;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .nb-line-empty {
@@ -2533,17 +2534,6 @@ body {
    ANIMATIONS — paper feel, respect reduced motion
    ════════════════════════════════════════ */
 
-/* Ink-appears: new task text fades in with slight blur → sharp (drying ink) */
-@keyframes ink-in {
-  0%   { opacity: 0; filter: blur(2px); transform: translateY(1px); }
-  60%  { opacity: 1; filter: blur(0.5px); }
-  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
-}
-.day-section .nb-line-row .nb-line-text,
-.day-card .nb-line-row .nb-line-text {
-  animation: ink-in 0.45s ease-out both;
-}
-
 /* Today golden bar — soft shimmer loop */
 @keyframes today-shimmer {
   0%, 100% { box-shadow: 0 0 4px rgba(201,164,90,0.35); background: #C9A45A; }
@@ -2573,18 +2563,6 @@ body {
 }
 .notebook.flip-next { animation: page-flip-next 0.42s ease-in-out; transform-origin: center center; }
 .notebook.flip-prev { animation: page-flip-prev 0.42s ease-in-out; transform-origin: center center; }
-
-/* New empty ruled line "draws in" from left */
-@keyframes rule-draw {
-  from { border-bottom-color: transparent; }
-  to   { border-bottom-color: rgba(120,90,50,0.22); }
-}
-.day-section .nb-line-row.nb-line-empty,
-.day-section .nb-line,
-.day-card .nb-line-row.nb-line-empty,
-.day-card .nb-line {
-  animation: rule-draw 0.35s ease-out both;
-}
 
 /* Corner curl gently peeks on tap */
 .notebook-page.right-page::after {
@@ -3969,35 +3947,24 @@ function activateNbLine(el, dateKey){
   setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch{}},300);
 
   let saved = false;
-  const doSave = (andFocusNext) => {
+  const doSave = () => {
     if(saved) return;
     saved = true;
-    const val = inp.value.trim();
+    const val = inp.value.replace(/^\s+|\s+$/g,'');
     if(val){
       tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
       sv('wn_tasks',tasks);
     }
     renderWeek();
     renderTasks();
-    if(andFocusNext && val){
-      setTimeout(()=>{
-        const lines = document.querySelectorAll(`.day-section .nb-line`);
-        // Find the next empty line matching this dateKey
-        for(const l of lines){
-          if(l.getAttribute('onclick')&&l.getAttribute('onclick').includes(dateKey)){
-            activateNbLine(l, dateKey); break;
-          }
-        }
-      },50);
-    }
   };
 
+  // Enter inserts a newline (default textarea); save on blur.
   inp.addEventListener('keydown', e => {
-    if(e.key==='Enter'){ e.preventDefault(); doSave(true); }
     if(e.key==='Escape'){ saved = true; renderWeek(); renderTasks(); }
   });
 
-  inp.addEventListener('blur', () => doSave(false));
+  inp.addEventListener('blur', doSave);
 }
 
 /* Notebook sheet empty line → input activation
@@ -4020,10 +3987,12 @@ function activateNbLineSheet(el, dateKey, pos){
   setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch{}},300);
 
   let saved = false;
-  const doSave = (andFocusNext) => {
+  const doSave = () => {
     if(saved) return;
     saved = true;
-    const val = inp.value.trim();
+    // Trim only leading/trailing whitespace on each line; keep the user's
+    // internal line breaks intact so multi-paragraph tasks stay readable.
+    const val = inp.value.replace(/^\s+|\s+$/g,'');
     if(val){
       const newTask = {id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'};
       if(Number.isInteger(pos)) newTask.pos = pos;
@@ -4032,23 +4001,15 @@ function activateNbLineSheet(el, dateKey, pos){
     }
     renderWeek();
     renderTasks();
-    if(andFocusNext && val && Number.isInteger(pos)){
-      // Focus the NEXT slot directly below the one we just wrote to — respect
-      // the user's free-form positioning: no jumping to random empty slots.
-      setTimeout(()=>{
-        const nextSlot = document.querySelector(
-          `.nb-line-empty[data-date="${dateKey}"][data-slot="${pos+1}"]`
-        );
-        if(nextSlot) activateNbLineSheet(nextSlot, dateKey, pos+1);
-      },50);
-    }
   };
 
+  // Enter inserts a newline (default textarea behavior). Save happens only
+  // when the keyboard is dismissed / the input loses focus — the user asked
+  // for this so they can type multi-line notes without an accidental commit.
   inp.addEventListener('keydown', e => {
-    if(e.key==='Enter'){ e.preventDefault(); doSave(true); }
     if(e.key==='Escape'){ saved = true; renderWeek(); renderTasks(); }
   });
-  inp.addEventListener('blur', () => doSave(false));
+  inp.addEventListener('blur', doSave);
 }
 
 /* Inline edit task text (notebook sheet mode) */
@@ -4075,7 +4036,7 @@ function editTaskInlineNb(id, textEl){
     if(finished) return;
     finished = true;
     if(save){
-      const val = inp.value.trim();
+      const val = inp.value.replace(/^\s+|\s+$/g,'');
       if(val && val !== task.title){
         task.title = val;
         sv('wn_tasks',tasks);
@@ -4085,8 +4046,8 @@ function editTaskInlineNb(id, textEl){
     renderTasks();
   };
 
+  // Enter inserts a newline (default textarea); save on blur.
   inp.addEventListener('keydown', e => {
-    if(e.key==='Enter'){ e.preventDefault(); finish(true); }
     if(e.key==='Escape'){ finish(false); }
   });
   inp.addEventListener('blur', () => finish(true));
