@@ -87,6 +87,44 @@ function enterAct(i){
     addP(W/2,H*0.45,Math.cos(a)*sp,Math.sin(a)*sp,z.col,rand(2,4),.8,'s');
   }
 }
+// --- Act finale: the last stretch of every act escalates into a gauntlet ---
+const FINALE_LEN=45;          // metres of build-up before the next act
+let finaleOn=false, finaleT=0, finaleWarnT=0, finaleClearT=0;
+function finaleRange(){
+  const nxt=ACTS[curAct+1];
+  if(!nxt)return null;                       // last act runs forever
+  return [nxt.from-FINALE_LEN, nxt.from];
+}
+function updateFinale(dt){
+  const r=finaleRange();
+  const inside=!!r&&dist>=r[0]&&dist<r[1];
+  if(inside&&!finaleOn){
+    finaleOn=true;finaleWarnT=1.8;
+    shake=Math.max(shake,.2);
+    setEmo('\uD83D\uDE30',1.4);
+    addFloat('\u26A0 \u0424\u0406\u041D\u0410\u041B \u0410\u041A\u0422\u0423',W/2,H*0.36,'#FF5252',26);
+    if(navigator.vibrate)navigator.vibrate([20,40,20,40,20]);
+  }
+  if(!inside&&finaleOn){
+    // Survived the gauntlet — pay it off
+    finaleOn=false;finaleClearT=2.0;
+    const bonus=60+curAct*40;
+    runCoins+=bonus;styleScore+=120;score+=bonus;styleFlash=1;
+    addFloat('\u0412\u0418\u0421\u0422\u041E\u042F\u0412! +'+bonus,W/2,H*0.34,'#69F0AE',30);
+    setEmo('\uD83D\uDE0E',1.6);
+    addPunch(.7);actFlash=.8;
+    for(let k=0;k<30;k++){
+      const a=rand(0,Math.PI*2),sp=rand(.06,.14);
+      addP(W/2,H*0.45,Math.cos(a)*sp,Math.sin(a)*sp,'#69F0AE',rand(2,4),.9,'s');
+    }
+  }
+  finaleT=inside&&r?(dist-r[0])/FINALE_LEN:0;   // 0 to 1 across the gauntlet
+  if(finaleWarnT>0)finaleWarnT-=dt;
+  if(finaleClearT>0)finaleClearT-=dt;
+}
+// How hard the gauntlet is pushing right now, 0..1
+function finaleIntensity(){return finaleOn?Math.min(1,0.35+finaleT*0.65):0}
+
 // --- Zone rule state ---
 let windPhase=0, windForce=0;            // wind
 let boltT=0, boltIdx=-1, boltWarn=0, boltStrike=0;  // lightning
@@ -97,6 +135,7 @@ function actRule(){return ACTS[curAct].rule}
 function updateActs(dt){
   const want=actFor(dist);
   if(want!==curAct)enterAct(want);
+  updateFinale(dt);
   if(actCardT>0)actCardT-=dt;
   if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
 
@@ -106,7 +145,8 @@ function updateActs(dt){
   if(rule==='wind'){
     windPhase+=dt*0.55;
     windForce=Math.sin(windPhase)*0.85+Math.sin(windPhase*2.3+1.1)*0.35;
-    if(alive)frogCont=clamp(frogCont+windForce*dt*0.32,0,2);   // a drift you correct, not a shove
+    const gust=0.32+finaleIntensity()*0.75;   // the finale turns drift into a storm
+    if(alive)frogCont=clamp(frogCont+windForce*dt*gust,0,2);
   } else windForce=0;
 
   // --- LIGHTNING: telegraph a platform, then strike it ---
@@ -116,7 +156,7 @@ function updateActs(dt){
       const ci=getCurrentPadIdx();
       const cand=ci+2+Math.floor(Math.random()*3);
       if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0}
-      boltT=rand(2.0,3.2);
+      boltT=rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
     }
     if(boltIdx>=0){
       if(boltWarn>0){
@@ -1409,6 +1449,7 @@ function startGame(){
   punch=0;shocks=[];flyCoins=[];deathT=-1;
   curAct=0;actCardT=0;actFlash=0;actSpdCur=1;
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
+  finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
@@ -3900,6 +3941,47 @@ function drawActEffects(){
     }
     ctx.stroke();
     ctx.restore();
+  }
+
+  // FINALE — a red danger frame that tightens as the gauntlet peaks,
+  // plus a progress arc so you can see how much is left to survive.
+  if(finaleOn){
+    const k=finaleIntensity();
+    const pulse=0.55+0.45*Math.sin(gt*11);
+    ctx.save();
+    // Danger vignette
+    const vg=ctx.createRadialGradient(W/2,H/2,H*0.22,W/2,H/2,H*0.75);
+    vg.addColorStop(0,'rgba(255,0,0,0)');
+    vg.addColorStop(1,`rgba(190,0,20,${0.16+0.26*k*pulse})`);
+    ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+    // Frame
+    const bw=5+5*k*pulse;
+    ctx.strokeStyle=`rgba(255,45,45,${0.5+0.4*k*pulse})`;ctx.lineWidth=bw;
+    ctx.shadowColor='rgba(255,0,0,.9)';ctx.shadowBlur=22*k;
+    rr(bw/2,bw/2,W-bw,H-bw,16);ctx.stroke();
+    ctx.shadowBlur=0;
+    // Survival progress bar along the top
+    const pw2=W*0.62, px2=W/2-pw2/2, py2=H*0.11;
+    ctx.fillStyle='rgba(0,0,0,.45)';rr(px2,py2,pw2,7,3.5);ctx.fill();
+    ctx.fillStyle='#FF5252';rr(px2,py2,pw2*clamp(finaleT,0,1),7,3.5);ctx.fill();
+    ctx.restore();
+  }
+  // Big warning stinger at the moment the finale starts
+  if(finaleWarnT>0){
+    const a=Math.min(1,finaleWarnT/0.5);
+    ctx.save();ctx.globalAlpha=a;
+    ctx.fillStyle='#FF5252';
+    ctx.font='bold 26px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=12;
+    ctx.fillText('\u26A0  \u0424\u0406\u041D\u0410\u041B \u0410\u041A\u0422\u0423  \u26A0',W/2,H*0.20);
+    ctx.shadowBlur=0;ctx.restore();
+  }
+  // Green afterglow for clearing it
+  if(finaleClearT>0){
+    const a=Math.min(1,finaleClearT/2.0);
+    ctx.fillStyle=`rgba(105,240,174,${0.16*a})`;
+    ctx.fillRect(0,0,W,H);
   }
 
   // Act-entry / lightning flash
