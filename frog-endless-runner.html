@@ -37,7 +37,7 @@ const JUMP_UNIT=3.0;
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
-let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1;
+let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1,laneVel=0;
 let alive=true,falling=false,fallT=0;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
@@ -1658,7 +1658,7 @@ function updSpdLines(dt){
 // ========== GAME LOGIC ==========
 function startGame(){
   sfxClick();state=ST.PLAY;
-  seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;
+  seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
@@ -2448,7 +2448,11 @@ function updateGame(dt){
   }
 
   // Smooth frog horizontal movement
+  const _prevLane=visLane;
   visLane=sd(visLane,frogCont,18,dt);
+  // Lateral velocity, smoothed — drives a subtle camera lean into the cut
+  const rawVel=dt>0?(visLane-_prevLane)/dt:0;
+  laneVel=sd(laneVel,clamp(rawVel,-6,6),9,dt);
 
   // Jump sound trigger — detect start of new bounce
   const ci=getCurrentPadIdx();
@@ -3408,7 +3412,8 @@ function drawGame(){
   // tilts INTO the turn (classic driving-game feel). Pivot at the player so
   // the frog stays centred while the sky rolls above it.
   const pivotX=W/2, pivotY=H*0.93;
-  const tiltAng=-curTurn*0.09;              // ≈ ±5° max
+  // Road bank + a small lean into the player's own lateral cut
+  const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
   drawRainbowRoad();
@@ -3661,26 +3666,39 @@ function drawGame(){
     const gap=nextPos-curPos;
     const bounce=gap>0?clamp((seq-curPos)/gap,0,1):0;
 
-    // Jump curve with hang time at peak
-    const rawAir=Math.sin(bounce*Math.PI);
+    // Jump curve — asymmetric, like real gravity. A sine arc is symmetric and
+    // reads floaty; this launches hard, hangs at the apex, then accelerates
+    // down so the landing has weight and you can time it.
+    const APEX=0.44;
+    let rawAir;
+    if(bounce<APEX){
+      const t=bounce/APEX;
+      rawAir=1-Math.pow(1-t,1.7);        // snappy launch easing into the apex
+    } else {
+      const t=(bounce-APEX)/(1-APEX);
+      rawAir=1-Math.pow(t,1.85);         // hangs, then falls away faster
+    }
     // Spring platforms boost jump height 1.6x
     const springMult=(curIdx2>=0&&curIdx2<pads.length&&pads[curIdx2].springBoost)?1.6:1;
-    const airness=Math.pow(rawAir,.65)*springMult;
+    const airness=Math.max(0,rawAir)*springMult;
 
-    // Squash/stretch phases
+    // Squash / stretch — eased rather than piecewise-linear, and shaped to the
+    // new arc: compress on takeoff, stretch through the climb, settle at the
+    // apex, stretch again into the fall, then absorb hard on landing.
     let sqX,sqY;
-    if(bounce<.12){
-      const t=bounce/.12;
-      sqX=1+.25*(1-t);sqY=1-.2*(1-t);
-    } else if(bounce<.45){
-      const t=(bounce-.12)/.33;
-      sqX=1-.14*t;sqY=1+.18*t;
-    } else if(bounce<.88){
-      const t=(bounce-.45)/.43;
-      sqX=1-.14*(1-t);sqY=1+.18*(1-t);
-    } else {
-      const t=(bounce-.88)/.12;
-      sqX=1+.28*t;sqY=1-.22*t;
+    const ease=t=>t*t*(3-2*t);           // smoothstep
+    if(bounce<.10){                      // TAKEOFF — explode out of the compress
+      const t=ease(bounce/.10);
+      sqX=1+.30*(1-t);sqY=1-.24*(1-t);
+    } else if(bounce<APEX){              // CLIMB — stretch thins out toward apex
+      const t=ease((bounce-.10)/(APEX-.10));
+      sqX=1-.16*t;sqY=1+.21*t;
+    } else if(bounce<.86){               // FALL — re-stretch as speed builds
+      const t=ease((bounce-APEX)/(.86-APEX));
+      sqX=1-.16*(1-t)-.10*t;sqY=1+.21*(1-t)+.14*t;
+    } else {                             // LANDING — absorb the impact
+      const t=ease((bounce-.86)/.14);
+      sqX=1-.10+.42*t;sqY=1+.14-.40*t;
     }
 
     // Frog X follows player input — no snapping to platform center
