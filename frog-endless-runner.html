@@ -51,6 +51,56 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// ========== JUICE: CAMERA PUNCH + SHOCKWAVES ==========
+// A short zoom kick on impact reads as weight far better than shake alone.
+let punch=0;                 // 0..1, decays fast
+function addPunch(v){punch=Math.min(1,punch+v)}
+// Expanding screen-space rings for landings/slams
+let shocks=[];
+function addShock(x,y,maxR,col,life){shocks.push({x,y,r:0,maxR,col,life,ml:life})}
+function updShocks(dt){
+  for(let i=shocks.length-1;i>=0;i--){
+    const k=shocks[i];k.life-=dt;
+    if(k.life<=0){shocks.splice(i,1);continue}
+    const t=1-k.life/k.ml;
+    k.r=k.maxR*(1-Math.pow(1-t,3));       // ease-out expansion
+  }
+}
+function drawShocks(){
+  for(const k of shocks){
+    const t=1-k.life/k.ml;
+    ctx.save();
+    ctx.globalAlpha=(1-t)*0.8;
+    ctx.strokeStyle=k.col;ctx.lineWidth=Math.max(1,4*(1-t));
+    ctx.beginPath();ctx.ellipse(k.x,k.y,k.r,k.r*0.38,0,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
+}
+// Coins that fly to the HUD counter instead of just puffing away
+let flyCoins=[];
+function addFlyCoin(x,y){flyCoins.push({x,y,sx:x,sy:y,t:0,d:rand(.45,.65)})}
+function updFlyCoins(dt){
+  for(let i=flyCoins.length-1;i>=0;i--){
+    const c=flyCoins[i];c.t+=dt/c.d;
+    if(c.t>=1){flyCoins.splice(i,1);continue}
+  }
+}
+function drawFlyCoins(){
+  const tx=W-40, ty=26;                    // the run-coin chip
+  for(const c of flyCoins){
+    const e=c.t<0.5?2*c.t*c.t:1-Math.pow(-2*c.t+2,2)/2;   // easeInOutQuad
+    // Arc upward on the way there
+    const x=c.sx+(tx-c.sx)*e;
+    const y=c.sy+(ty-c.sy)*e-Math.sin(c.t*Math.PI)*46;
+    const sc=1-c.t*0.35;
+    ctx.save();ctx.globalAlpha=1-Math.pow(c.t,3);
+    if(!drawImgH('coinA',x,y,17*sc)){
+      ctx.fillStyle='#FFD54F';ctx.beginPath();ctx.arc(x,y,8*sc,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
 // ========== CHARACTER EMOTION ==========
 // The hero art is a fixed sprite, so emotion is expressed with a reaction
 // bubble above the head plus body language, rather than repainting the face.
@@ -1263,6 +1313,7 @@ function startGame(){
   scoreMultBonus=1;scoreMultT=0;
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
+  punch=0;shocks=[];flyCoins=[];
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
@@ -1550,6 +1601,8 @@ function onLand(idx){
     // Ring effect on platform
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
     addRipple(lp.x,lp.y+3*lp.s,lp.s*1.2); // double ring for PERFECT
+    addPunch(.32);
+    addShock(lp.x,lp.y+4*lp.s,120*lp.s,'rgba(255,255,255,.9)',.32);
     // Particles — scale with combo
     const ptCol=fever?'#FFD700':'#FFF';
     const ptCount=Math.min(4+comboMult*2,18);
@@ -1584,6 +1637,7 @@ function onLand(idx){
     tone(350,.06,'triangle',.1);tone(220,.04,'sine',.05,.02);
     score+=1*feverMult*scoreBonusMult;
     perfectText='GOOD';perfectShow=.4;
+    addPunch(.16);
     addLandFX(lp.x,lp.y,1.3);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.2);
   } else {
@@ -1596,6 +1650,7 @@ function onLand(idx){
       perfectCombo=Math.max(0,perfectCombo-1);
     }
     sfxLand();score++;
+    addPunch(.1);
     addLandFX(lp.x,lp.y,1);
     addRipple(lp.x,lp.y+5*lp.s,lp.s);
     // Close call — barely landed
@@ -1627,6 +1682,9 @@ function onLand(idx){
     // Slam impact — heavier feedback, and it smashes breakable platforms
     if(wasDive){
       shake=Math.max(shake,.3);
+      addPunch(.85);
+      addShock(lp.x,lp.y+4*lp.s,240*lp.s,'rgba(255,171,64,.95)',.45);
+      addShock(lp.x,lp.y+4*lp.s,150*lp.s,'rgba(255,255,255,.9)',.3);
       if(navigator.vibrate)navigator.vibrate(45);
       addRipple(lp.x,lp.y+5*lp.s,lp.s*3.2);
       for(let i=0;i<20;i++){
@@ -1641,13 +1699,13 @@ function onLand(idx){
   }
   diving=false;diveT=0;trickSpinVel=0;trickSpin=0;
 
-  if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
+  if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);addFlyCoin(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
   // Blue magnet perk — sweep coins from the next 2 platforms too
   if(curPerk()==='magnet'){
     const ci=getCurrentPadIdx();
     for(let k=1;k<=2;k++){
       const mp=pads[ci+k];
-      if(mp&&mp.coin){mp.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-18-k*8);sfxCoin();}
+      if(mp&&mp.coin){mp.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-18-k*8);addFlyCoin(lp.x,lp.y-18-k*8);sfxCoin();}
     }
   }
 
@@ -2045,6 +2103,8 @@ function updateGame(dt){
   if(tutorialShown&&tutorialAlpha>0)tutorialAlpha=Math.max(0,tutorialAlpha-dt*2);
   for(const p of pads)if(p.dip>0)p.dip=sd(p.dip,0,10,dt);
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
+  if(punch>0)punch=Math.max(0,punch-dt*4.5);
+  updShocks(dt);updFlyCoins(dt);
 
   // Magnet
   if(magnet){
@@ -2947,6 +3007,11 @@ function drawGame(){
   // drawBg's rect, and this base fill keeps them from ever flashing blank.
   {const _s=SKY_SKINS[curSky];ctx.fillStyle=_s.bot||_s.top||'#000';ctx.fillRect(0,0,W,H);}
   ctx.save();ctx.translate(shX,shY);
+  // Impact punch — a brief zoom kick about the player, reads as weight
+  if(punch>0.001){
+    const pz=1+punch*0.045;
+    ctx.translate(W/2,H*0.8);ctx.scale(pz,pz);ctx.translate(-W/2,-H*0.8);
+  }
   // Camera roll — the world banks OPPOSITE to the road bend so the horizon
   // tilts INTO the turn (classic driving-game feel). Pivot at the player so
   // the frog stays centred while the sky rolls above it.
@@ -3534,6 +3599,8 @@ function drawGame(){
   }
   ctx.restore();
 
+  drawShocks();
+
   // === MILESTONE OVERLAY (every 100m distance) ===
   if(msT>0){
     const t=msT/MS_DUR;                                  // 1..0
@@ -3579,6 +3646,7 @@ function drawGame(){
     ctx.restore();
   }
 
+  drawFlyCoins();
   drawHUD();
 }
 
