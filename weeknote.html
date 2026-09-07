@@ -3721,18 +3721,17 @@ function showRewardedAd(onReward){
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
-/* Extract sort-time from an explicit .time field or an "HH:MM …" prefix in the title.
-   Lets a user type "19:00 client" as a note and have it auto-sort before "20:00 client". */
-function _sortTime(task){
-  if(task.time) return task.time;
-  const m = (task.title||'').match(/^\s*(\d{1,2}):(\d{2})\b/);
-  if(m){
-    const hh = m[1].padStart(2,'0');
-    const mm = m[2];
-    // Only treat as time if the hours are valid (0..23), otherwise 99:99
-    return (+hh <= 23 && +mm <= 59) ? hh+':'+mm : '99:99';
-  }
-  return '99:99';
+/* Positional sort: honour the user's chosen slot (`.pos`) when present, otherwise
+   fall back to the order the task was added. We do NOT auto-sort by time — the
+   user explicitly wants to keep whatever line they tapped as-is. */
+function _posKey(task, fallbackIdx){
+  return Number.isInteger(task.pos) ? task.pos : (10000 + fallbackIdx);
+}
+function sortByPos(list){
+  return list
+    .map((t,i)=>({t, k:_posKey(t,i)}))
+    .sort((a,b)=>a.k-b.k)
+    .map(x=>x.t);
 }
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
 function dk(d){return d.toISOString().split('T')[0]}
@@ -3844,22 +3843,36 @@ function renderWeekNotebook(dd){
   let cardsHtml = '';
   dd.forEach(d => {
     const key = dk(d);
-    const dayTasks = tasks.filter(x=>x.date===key)
-      .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
+    const dayTasks = tasks.filter(x=>x.date===key);
+
+    // Build a fixed grid of "slots" — each slot is either a task, at a
+    // user-chosen position, or an empty line the user can tap to write.
+    // Backward-compat: tasks without .pos are appended sequentially.
+    const positioned = dayTasks.filter(t => Number.isInteger(t.pos));
+    const unpositioned = dayTasks.filter(t => !Number.isInteger(t.pos));
+    const maxPos = positioned.reduce((m,t) => Math.max(m, t.pos), -1);
+    const totalNeeded = Math.max(maxPos + 1 + unpositioned.length, 14);
+    const slots = new Array(totalNeeded).fill(null);
+    positioned.forEach(t => { if (t.pos < slots.length) slots[t.pos] = t; });
+    // Fill un-positioned tasks into the first free slots
+    unpositioned.forEach(t => {
+      const i = slots.indexOf(null);
+      if (i >= 0) slots[i] = t;
+    });
 
     let content = '';
-    dayTasks.forEach(tk => {
-      content += `<div class="nb-line-row" onclick="editTaskInlineNb('${tk.id}',this.querySelector('.nb-line-text'))">
-        <span class="nb-line-text">${esc(tk.title)}</span>
-      </div>`;
+    slots.forEach((tk, idx) => {
+      if (tk) {
+        content += `<div class="nb-line-row" data-date="${key}" data-slot="${idx}" onclick="editTaskInlineNb('${tk.id}',this.querySelector('.nb-line-text'))">
+          <span class="nb-line-text">${esc(tk.title)}</span>
+        </div>`;
+      } else {
+        const isFirstEmpty = !dayTasks.length && idx === 0;
+        content += `<div class="nb-line-row nb-line-empty" data-date="${key}" data-slot="${idx}" onclick="activateNbLineSheet(this,'${key}',${idx})">
+          <span class="nb-line-placeholder">${isFirstEmpty ? t('placeholder.write') : ''}</span>
+        </div>`;
+      }
     });
-    // Show plenty of empty ruled lines (excess ones get clipped by card overflow)
-    const emptyLines = Math.max(6, 14 - dayTasks.length);
-    for(let i=0; i<emptyLines; i++){
-      content += `<div class="nb-line-row nb-line-empty" onclick="activateNbLineSheet(this,'${key}')">
-        <span class="nb-line-placeholder">${i===0 && !dayTasks.length ? t('placeholder.write') : ''}</span>
-      </div>`;
-    }
     cardsHtml += buildDayCard(d, content);
   });
 
@@ -3912,8 +3925,7 @@ function renderWeekGrid(dd){
   let cardsHtml = '';
   dd.forEach(d => {
     const key = dk(d);
-    const dayTasks = tasks.filter(x=>x.date===key)
-      .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
+    const dayTasks = sortByPos(tasks.filter(x=>x.date===key));
     cardsHtml += buildProDayCard(d, dayTasks);
   });
 
@@ -3988,8 +4000,10 @@ function activateNbLine(el, dateKey){
   inp.addEventListener('blur', () => doSave(false));
 }
 
-/* Notebook sheet empty line → input activation */
-function activateNbLineSheet(el, dateKey){
+/* Notebook sheet empty line → input activation
+   pos = slot index tapped by user (0-based). Task is stored at exactly this
+   position; empty lines above/below stay empty. */
+function activateNbLineSheet(el, dateKey, pos){
   if(el.querySelector('.nb-input')) return;
   el.onclick = null;
   el.innerHTML = '';
@@ -4011,16 +4025,21 @@ function activateNbLineSheet(el, dateKey){
     saved = true;
     const val = inp.value.trim();
     if(val){
-      tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
+      const newTask = {id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'};
+      if(Number.isInteger(pos)) newTask.pos = pos;
+      tasks.push(newTask);
       sv('wn_tasks',tasks);
     }
     renderWeek();
     renderTasks();
-    if(andFocusNext && val){
+    if(andFocusNext && val && Number.isInteger(pos)){
+      // Focus the NEXT slot directly below the one we just wrote to — respect
+      // the user's free-form positioning: no jumping to random empty slots.
       setTimeout(()=>{
-        // Find next empty line in same day section
-        const emptyLines = document.querySelectorAll(`.nb-line-empty[onclick*="${dateKey}"]`);
-        if(emptyLines.length) activateNbLineSheet(emptyLines[0], dateKey);
+        const nextSlot = document.querySelector(
+          `.nb-line-empty[data-date="${dateKey}"][data-slot="${pos+1}"]`
+        );
+        if(nextSlot) activateNbLineSheet(nextSlot, dateKey, pos+1);
       },50);
     }
   };
@@ -4240,8 +4259,7 @@ function calSelectDay(key){
 
 function renderSelectedDayTasks(){
   const d = new Date(calSelected + 'T12:00:00');
-  const dayTasks = tasks.filter(t => t.date === calSelected)
-    .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
+  const dayTasks = sortByPos(tasks.filter(t => t.date === calSelected));
 
   document.getElementById('calDayHeading').innerHTML =
     `${DAYS_F[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}
