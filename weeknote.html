@@ -3721,6 +3721,19 @@ function showRewardedAd(onReward){
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+/* Extract sort-time from an explicit .time field or an "HH:MM …" prefix in the title.
+   Lets a user type "19:00 client" as a note and have it auto-sort before "20:00 client". */
+function _sortTime(task){
+  if(task.time) return task.time;
+  const m = (task.title||'').match(/^\s*(\d{1,2}):(\d{2})\b/);
+  if(m){
+    const hh = m[1].padStart(2,'0');
+    const mm = m[2];
+    // Only treat as time if the hours are valid (0..23), otherwise 99:99
+    return (+hh <= 23 && +mm <= 59) ? hh+':'+mm : '99:99';
+  }
+  return '99:99';
+}
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()-day+(day===0?-6:1));dt.setHours(0,0,0,0);return dt}
 function dk(d){return d.toISOString().split('T')[0]}
 function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear()}
@@ -3832,7 +3845,7 @@ function renderWeekNotebook(dd){
   dd.forEach(d => {
     const key = dk(d);
     const dayTasks = tasks.filter(x=>x.date===key)
-      .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+      .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
 
     let content = '';
     dayTasks.forEach(tk => {
@@ -3900,7 +3913,7 @@ function renderWeekGrid(dd){
   dd.forEach(d => {
     const key = dk(d);
     const dayTasks = tasks.filter(x=>x.date===key)
-      .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+      .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
     cardsHtml += buildProDayCard(d, dayTasks);
   });
 
@@ -4228,7 +4241,7 @@ function calSelectDay(key){
 function renderSelectedDayTasks(){
   const d = new Date(calSelected + 'T12:00:00');
   const dayTasks = tasks.filter(t => t.date === calSelected)
-    .sort((a,b) => (a.time||'99').localeCompare(b.time||'99'));
+    .sort((a,b) => _sortTime(a).localeCompare(_sortTime(b)));
 
   document.getElementById('calDayHeading').innerHTML =
     `${DAYS_F[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}
