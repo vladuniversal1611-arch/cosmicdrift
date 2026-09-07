@@ -51,6 +51,9 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// Score-multiplier state driven by mystery-box rewards (extra x on top of fever)
+let scoreMultBonus=1, scoreMultT=0;
+function scoreMultTotal(){return (fever?2:1)*scoreMultBonus}
 // Hype burst — triggered when perfectCombo hits a multiple of 10.
 // Slows the world down and paints a neon vignette for a beat.
 let hypeT=0;                // seconds remaining in the hype burst
@@ -824,6 +827,10 @@ function makePad(gameX, type, diff){
   if(Math.random()<.012&&dist>5)
     pu=['shield','magnet','boost','superjump'][Math.floor(Math.random()*4)];
   if(type==='bonus'){coin=true;if(Math.random()<.3)pu='magnet';}
+  // Mystery box — rare, drops on regular platforms after some warm-up. Rolls a
+  // random reward when the frog lands on it. Not compatible with pu / traps.
+  let mystery=false;
+  if(!pu && (type==='normal'||type==='wide') && dist>25 && Math.random()<.018) mystery=true;
 
   // Moving horizontal
   let moving=null;
@@ -846,7 +853,7 @@ function makePad(gameX, type, diff){
 
   return{
     gameX, laneX:gameX, lane:Math.round(gameX),
-    width, type, coin, pu,
+    width, type, coin, pu, mystery,
     landed:false, dip:0, riskCoin:null,
     moving,
     // State for special types
@@ -1155,6 +1162,7 @@ function startGame(){
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
   msT=0;msTier=0;msLast=0;
+  scoreMultBonus=1;scoreMultT=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1392,6 +1400,7 @@ function onLand(idx){
   // Gold perk doubles coin pickups (stacks with fever's ×2)
   const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1);
   const feverMult=fever?2:1;
+  const scoreBonusMult=scoreMultBonus;      // mystery-box x2/x3 bonus
 
   // Tutorial: dismiss after 2 successful landings
   if(!tutorialShown&&score>=2){tutorialShown=true;localStorage.setItem('fTut','1')}
@@ -1411,7 +1420,7 @@ function onLand(idx){
         addP(W/2,H*0.4,Math.cos(a)*sp,Math.sin(a)*sp,i%2?'#FF00FF':'#00FFFF',rand(2,4),.7,'s');
       }
     }
-    const totalPts=Math.floor(2*Math.min(comboMult,5)*feverMult);
+    const totalPts=Math.floor(2*Math.min(comboMult,5)*feverMult*scoreBonusMult);
     score+=totalPts;
     // Sound: pitch escalates with combo
     const basePitch=880+Math.min(perfectCombo-1,8)*110;
@@ -1465,7 +1474,7 @@ function onLand(idx){
     sfxLand();
     // Slightly higher pitch for GOOD vs NORMAL
     tone(350,.06,'triangle',.1);tone(220,.04,'sine',.05,.02);
-    score+=1*feverMult;
+    score+=1*feverMult*scoreBonusMult;
     perfectText='GOOD';perfectShow=.4;
     addLandFX(lp.x,lp.y,1.3);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.2);
@@ -1506,6 +1515,33 @@ function onLand(idx){
     else if(t==='magnet'){magnet=true;magnetT=6;addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
     else if(t==='boost'){boost=true;boostT=4;addFloat('⚡ БУСТ!',lp.x,lp.y-40,'#FFEB3B',22)}
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
+  }
+  // Mystery box — roll one of 5 rewards on land, apply immediately
+  if(pad.mystery){
+    pad.mystery=false;sfxPU();
+    const roll=Math.random();
+    if(roll<0.20){
+      // Coin rain — instant chunk of coins
+      const amt=25+Math.floor(Math.random()*20);
+      runCoins+=amt;
+      addFloat(`🪙 +${amt}!`,lp.x,lp.y-45,'#FFD700',26);
+      for(let i=0;i<14;i++){const a=rand(0,Math.PI*2);addP(lp.x,lp.y-10,Math.cos(a)*.06,Math.sin(a)*.06-.03,'#FFD700',rand(2,3.5),.6,'s');}
+    } else if(roll<0.40){
+      // 3× score for 8 s (stacks with fever if active)
+      scoreMultBonus=3;scoreMultT=8;
+      addFloat('✖3 ОЧКИ!',lp.x,lp.y-45,'#FF00FF',26);
+    } else if(roll<0.60){
+      // Full-strength shield
+      shield=true;addFloat('🛡️ ЩИТ!',lp.x,lp.y-45,'#4FC3F7',24);
+    } else if(roll<0.80){
+      // Magnet + boost combo for a beat
+      magnet=true;magnetT=8;boost=true;boostT=4;
+      addFloat('🧲⚡ КОМБО!',lp.x,lp.y-45,'#00E5FF',24);
+    } else {
+      // Instant XP splash — grants XP without waiting for run to end
+      const bonus=80;grantXP(bonus);
+      addFloat(`⭐ +${bonus} XP!`,lp.x,lp.y-45,'#FFD54F',26);
+    }
   }
   // Diamond path collection
   if(pad.diamond){
@@ -1569,6 +1605,7 @@ function updateGame(dt){
   const bucket=Math.floor(dist/100);
   if(bucket>prevBucket&&bucket>0)triggerMilestone(bucket*100);
   if(msT>0)msT=Math.max(0,msT-dt);
+  if(scoreMultT>0){scoreMultT-=dt;if(scoreMultT<=0){scoreMultBonus=1;scoreMultT=0}}
 
   // Biome progression — change every ~500 dist
   const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
@@ -2978,6 +3015,25 @@ function drawGame(){
     ctx.globalAlpha=depthAlpha;
     if(pad.coin)drawCoin(p.x,p.y,p.s,i*1.7);
     if(pad.pu)drawPUIcon(p.x,p.y,p.s,pad.pu,i*2.3);
+    // Mystery box — floating rainbow cube with a big '?' above the pad
+    if(pad.mystery){
+      const by=p.y-115*p.s + Math.sin(gt*3+i*.7)*6*p.s;
+      const bs=28*p.s;
+      ctx.save();
+      // Pulsing rainbow glow
+      const hue=(gt*180+i*40)%360;
+      ctx.shadowColor=`hsl(${hue},90%,60%)`;ctx.shadowBlur=22*p.s;
+      // Cube
+      ctx.fillStyle=`hsl(${hue},80%,55%)`;
+      rr(p.x-bs,by-bs,bs*2,bs*2,8*p.s);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2*p.s;rr(p.x-bs,by-bs,bs*2,bs*2,8*p.s);ctx.stroke();
+      // "?" glyph
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#fff';ctx.font=`bold ${36*p.s}px sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('?',p.x,by+2*p.s);
+      ctx.restore();
+    }
     ctx.globalAlpha=1;
   }
 
