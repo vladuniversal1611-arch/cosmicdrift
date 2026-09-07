@@ -661,20 +661,27 @@ body {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 8px 8px 10px 6px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: repeat(12, 1fr);
+  grid-auto-rows: min-content;
   gap: 8px;
+  align-content: start;
 }
-.day-stack .day-card:nth-child(1) { grid-column: 1; grid-row: 1 / span 4; }  /* ПН */
-.day-stack .day-card:nth-child(2) { grid-column: 1; grid-row: 5 / span 4; }  /* ВТ */
-.day-stack .day-card:nth-child(3) { grid-column: 1; grid-row: 9 / span 4; }  /* СР */
-.day-stack .day-card:nth-child(4) { grid-column: 2; grid-row: 1 / span 3; }  /* ЧТ */
-.day-stack .day-card:nth-child(5) { grid-column: 2; grid-row: 4 / span 3; }  /* ПТ */
-.day-stack .day-card:nth-child(6) { grid-column: 2; grid-row: 7 / span 3; }  /* СБ */
-.day-stack .day-card:nth-child(7) { grid-column: 2; grid-row: 10 / span 3; } /* НД */
+/* Two independent columns — left carries ПН, ВТ, СР;
+   right carries ЧТ, ПТ, СБ, НД. Cards size to their content
+   and the whole stack scrolls when it doesn't fit the viewport. */
+.day-stack .day-card:nth-child(1) { grid-column: 1; grid-row: 1; }  /* ПН */
+.day-stack .day-card:nth-child(2) { grid-column: 1; grid-row: 2; }  /* ВТ */
+.day-stack .day-card:nth-child(3) { grid-column: 1; grid-row: 3; }  /* СР */
+.day-stack .day-card:nth-child(4) { grid-column: 2; grid-row: 1; }  /* ЧТ */
+.day-stack .day-card:nth-child(5) { grid-column: 2; grid-row: 2; }  /* ПТ */
+.day-stack .day-card:nth-child(6) { grid-column: 2; grid-row: 3; }  /* СБ */
+.day-stack .day-card:nth-child(7) { grid-column: 2; grid-row: 4; }  /* НД */
 
 /* One day = one paper card floating on the leather */
 .day-card {
@@ -693,8 +700,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
+  /* Card grows with its own tasks; the outer .day-stack is what scrolls. */
 }
 
 /* Today card — subtle accent edge (uses theme accent) */
@@ -743,15 +749,11 @@ body {
 }
 .day-card.is-today .day-card-num { color: var(--accent); }
 
-/* Tasks area inside card — scrolls independently */
+/* Tasks area inside card — grows with content; the whole day-stack
+   is the scroll container, so cards no longer need to clip. */
 .day-card-tasks {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  display: block;
 }
-.day-card-tasks::-webkit-scrollbar { width: 0; height: 0; }
 
 /* Super-compact ruled lines to fit more per card */
 .day-card .nb-line-row,
@@ -3828,7 +3830,11 @@ function renderWeekNotebook(dd){
     const positioned = dayTasks.filter(t => Number.isInteger(t.pos));
     const unpositioned = dayTasks.filter(t => !Number.isInteger(t.pos));
     const maxPos = positioned.reduce((m,t) => Math.max(m, t.pos), -1);
-    const totalNeeded = Math.max(maxPos + 1 + unpositioned.length, 14);
+    // Minimum 6 lines per card so empty days still show tappable rows,
+    // grows automatically to fit whatever the user has entered plus
+    // 2 extra trailing empty lines below the last task.
+    const contentEnd = maxPos + 1 + unpositioned.length;
+    const totalNeeded = Math.max(contentEnd + 2, 6);
     const slots = new Array(totalNeeded).fill(null);
     positioned.forEach(t => { if (t.pos < slots.length) slots[t.pos] = t; });
     // Fill un-positioned tasks into the first free slots
@@ -3993,30 +3999,37 @@ function activateNbLineSheet(el, dateKey, pos){
   const doSave = () => {
     if(saved) return;
     saved = true;
-    // Enter is a paragraph break in the notebook: split the value into
-    // separate tasks, one per non-empty line. Each takes its own ruled
-    // line starting from the slot the user tapped, skipping any slots
-    // already occupied by existing tasks on this day.
-    const val = inp.value.replace(/^\s+|\s+$/g,'');
-    const lines = val.split(/\n+/).map(s => s.trim()).filter(Boolean);
-    if(lines.length){
-      const used = new Set(
-        tasks.filter(x => x.date === dateKey && Number.isInteger(x.pos))
-             .map(x => x.pos)
-      );
-      let cursor = Number.isInteger(pos) ? pos : 0;
-      lines.forEach(line => {
-        while(used.has(cursor)) cursor++;
+    // Enter is a paragraph break in the notebook: each line of the input
+    // takes its own ruled line, and EMPTY lines are respected — pressing
+    // Enter twice leaves a blank slot between two entries.
+    // Only leading/trailing blank lines are stripped so the user isn't
+    // forced to hit their start slot exactly.
+    const raw = inp.value.replace(/^\n+|\n+$/g,'');
+    if(raw.trim() === ''){
+      renderWeek(); renderTasks(); return;
+    }
+    const lines = raw.split('\n').map(s => s.trim());
+    const used = new Set(
+      tasks.filter(x => x.date === dateKey && Number.isInteger(x.pos))
+           .map(x => x.pos)
+    );
+    let cursor = Number.isInteger(pos) ? pos : 0;
+    lines.forEach(line => {
+      // Skip past any slot already taken by an existing task, whether
+      // the current line is empty or not — an empty line just advances
+      // the cursor (no task created), leaving that slot visually blank.
+      while(used.has(cursor)) cursor++;
+      if(line){
         used.add(cursor);
         tasks.push({
           id:uid(), title:line, date:dateKey,
           time:'', done:false, pri:'MEDIUM', clr:'#7C5CE0',
           pos: cursor
         });
-        cursor++;
-      });
-      sv('wn_tasks',tasks);
-    }
+      }
+      cursor++;
+    });
+    sv('wn_tasks',tasks);
     renderWeek();
     renderTasks();
   };
@@ -4052,38 +4065,49 @@ function editTaskInlineNb(id, textEl){
     if(finished) return;
     finished = true;
     if(save){
-      // If the user split the title across multiple lines (Enter), keep
-      // the first line as this task's title and spawn the remaining
-      // lines as new tasks on the following slots.
-      const val = inp.value.replace(/^\s+|\s+$/g,'');
-      const lines = val.split(/\n+/).map(s => s.trim()).filter(Boolean);
-      if(!lines.length){
+      const raw = inp.value.replace(/^\n+|\n+$/g,'');
+      if(raw.trim() === ''){
         // Emptied → delete this task
         const idx = tasks.findIndex(x=>x.id===task.id);
         if(idx >= 0) tasks.splice(idx, 1);
         sv('wn_tasks',tasks);
       } else {
-        const first = lines[0];
+        const lines = raw.split('\n').map(s => s.trim());
+        // Find the first non-empty line — that becomes this task's title.
+        let firstIdx = lines.findIndex(l => l !== '');
+        if(firstIdx < 0) firstIdx = 0;
+        const first = lines[firstIdx];
         if(first !== task.title){
           task.title = first;
         }
-        if(lines.length > 1){
-          const used = new Set(
-            tasks.filter(x => x.date === task.date && Number.isInteger(x.pos))
-                 .map(x => x.pos)
-          );
-          const basePos = Number.isInteger(task.pos) ? task.pos : 0;
-          let cursor = basePos + 1;
-          for(let i=1; i<lines.length; i++){
-            while(used.has(cursor)) cursor++;
+        // Any leading blank lines before the first non-empty line push
+        // this task DOWN by that many slots. Trailing lines (after the
+        // first) go into the following slots — empty lines advance the
+        // cursor without creating a task, so blank slots are preserved.
+        const basePos = Number.isInteger(task.pos) ? task.pos : 0;
+        const used = new Set(
+          tasks.filter(x => x.date === task.date && Number.isInteger(x.pos) && x.id !== task.id)
+               .map(x => x.pos)
+        );
+        // Shift this task by firstIdx slots (if there were leading blanks)
+        let selfCursor = basePos + firstIdx;
+        while(used.has(selfCursor)) selfCursor++;
+        used.add(selfCursor);
+        task.pos = selfCursor;
+        // Now place the rest starting after selfCursor
+        let cursor = selfCursor + 1;
+        for(let i=firstIdx+1; i<lines.length; i++){
+          while(used.has(cursor)) cursor++;
+          const ln = lines[i];
+          if(ln){
             used.add(cursor);
             tasks.push({
-              id:uid(), title:lines[i], date:task.date,
+              id:uid(), title:ln, date:task.date,
               time:'', done:false, pri:'MEDIUM', clr:'#7C5CE0',
               pos: cursor
             });
-            cursor++;
           }
+          cursor++;
         }
         sv('wn_tasks',tasks);
       }
