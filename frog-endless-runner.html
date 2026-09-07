@@ -54,6 +54,99 @@ let currentPattern=null,patternIdx=0;
 let prevBranchXs=[];
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// ========== LEAP — the player's own verb ==========
+// The run auto-advances, so the frog was always jumping on a schedule and the
+// player only aimed. LEAP gives them a decision with real stakes: tap to fly
+// OVER the next platform and land on the one after it. Longer hang time, more
+// air control needed, better payout — and a miss is fatal.
+let leapFrom=-1, leapTo=-1;      // pad indices the current leap spans
+let leapArm=0;                   // jump-buffer: a tap slightly too early still fires
+let leapCool=0;                  // brief lockout so a double-tap can't chain
+let leapFlash=0;                 // HUD/visual pulse on launch
+let leapLanded=false;            // set on the frame the leap's target is reached
+const LEAP_BUFFER=0.18, LEAP_COOL=0.12;
+
+function leapActive(){return leapTo>=0}
+// Pad indices are not 1:1 with depth — a fork puts two pads at the same Y. Any
+// leap has to reason in GROUPS, or "two pads ahead" lands on the sibling branch
+// of the very next step and the jump collapses to nothing.
+function groupEnd(i){
+  const y=padPositions[i];let j=i;
+  while(j+1<padPositions.length&&padPositions[j+1]===y)j++;
+  return j;
+}
+function nextGroup(i){return groupEnd(i)+1}
+// getCurrentPadIdx() reports the pad seq has passed — which mid-leap is the one
+// being flown OVER. Anything that kills "whoever is standing here" must ask
+// this instead, or a breakable/falling pad under a leap is an unfair death.
+function frogStandingOn(i){
+  if(leapActive()&&i>leapFrom&&i<leapTo)return false;   // airborne above it
+  return getCurrentPadIdx()===i;
+}
+// A leap is legal while grounded-ish on the launch pad — plus coyote time just
+// after leaving it, so a slightly late tap still reads as intent.
+function canLeap(){
+  if(state!==ST.PLAY||!alive||leapActive()||leapCool>0)return false;
+  const ci=getCurrentPadIdx();
+  // The landing bookkeeping (lastIdx) can trail seq by a frame. Leaping in that
+  // window meant launching before the game had credited the landing — and the
+  // pad you launched from was then scored as a miss and killed you.
+  if(lastIdx<ci)return false;
+  const g1=nextGroup(ci), g2=nextGroup(g1);        // fly over g1, land on g2
+  const cur=padPositions[ci];
+  if(padPositions[g1]===undefined||padPositions[g2]===undefined)return false;
+  const gap=padPositions[g1]-cur; if(gap<=0)return false;
+  const b=(seq-cur)/gap;
+  if(b>=0.34)return false;       // launch window + coyote tail
+  // Never offer a leap the frog physically cannot cross — better to refuse the
+  // input than to let the player commit to an impossible jump. Any branch of
+  // the landing group counts, so a fork target only needs one reachable side.
+  const dy=padPositions[g2]-cur;
+  const reach=Math.min(dy*0.42,1.5)*0.94;
+  const fromX=pads[ci]?pads[ci].gameX:visLane;
+  for(let k=g2;k<=groupEnd(g2);k++){
+    if(pads[k]&&Math.abs(pads[k].gameX-fromX)<=reach)return true;
+  }
+  return false;
+}
+function tryLeap(){
+  if(canLeap()){doLeap();return true}
+  leapArm=LEAP_BUFFER;           // buffer it — fires the moment it becomes legal
+  return false;
+}
+function doLeap(){
+  const ci=getCurrentPadIdx();
+  const target=nextGroup(nextGroup(ci));
+  if(padPositions[target]===undefined)return;
+  leapFrom=ci;leapTo=target;leapFlash=1;leapCool=LEAP_COOL;leapArm=0;
+  sfxWhoosh();addPunch(.28);
+  setEmo('\uD83D\uDE24',0.9);
+  addFloat('\u041F\u0415\u0420\u0415\u041B\u0406\u0422!',W/2,H*0.40,'#4FC3F7',22);
+  if(navigator.vibrate)navigator.vibrate(18);
+  // Launch dust
+  const lp=project(Math.max(padPositions[ci]-seq+VIEW_Z,.1),pads[ci]?pads[ci].gameX:1);
+  for(let i=0;i<12;i++){
+    const a=rand(Math.PI*0.15,Math.PI*0.85);
+    addP(lp.x,lp.y,Math.cos(a)*.05,-Math.abs(Math.sin(a))*.04,'#B3E5FC',rand(2,3.5),.45,'s');
+  }
+}
+function updateLeap(dt){
+  if(leapCool>0)leapCool=Math.max(0,leapCool-dt);
+  if(leapFlash>0)leapFlash=Math.max(0,leapFlash-dt*2.2);
+  // Buffered tap fires as soon as the window opens
+  if(leapArm>0){
+    leapArm-=dt;
+    if(canLeap()){doLeap()}
+  }
+  // NOTE: the leap is cleared by the landing check when it actually reaches the
+  // target — not here. Clearing on seq alone would retire the leap before the
+  // landing pass ran, and the platform we flew over would score as a miss.
+  // This is only a safety net for a target that vanished under us.
+  if(leapActive()&&(padPositions[leapTo]===undefined||seq>padPositions[leapTo]+6)){
+    leapFrom=-1;leapTo=-1;
+  }
+}
+
 // ========== FLOW STATE ==========
 // The world visibly responds to how well you are playing. Flow builds with
 // clean landings and bleeds away when you scrape by — so a hot streak looks
@@ -223,7 +316,7 @@ function updateActs(dt){
           shake=Math.max(shake,.45);addPunch(.7);actFlash=1;
           if(navigator.vibrate)navigator.vibrate(60);
           // Anyone standing on the struck pad is out
-          if(alive&&getCurrentPadIdx()===boltIdx)die();
+          if(alive&&frogStandingOn(boltIdx))die();
         }
       } else if(boltStrike>0){
         boltStrike-=dt;
@@ -1569,11 +1662,12 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
     else if(state===ST.MISSIONS)missionsTap(t.clientX,t.clientY);
-    // Dash button tap (bottom-right corner)
-    else if(state===ST.PLAY&&alive&&dashReady){
+    // In play a tap is the LEAP verb — except on the dash button
+    else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(t.clientX-r.left)*(W/r.width), ty2=(t.clientY-r.top)*(H/r.height);
-      if(tx>W-65&&ty2>H-85) doDash();
+      if(tx>W-65&&ty2>H-85){ if(dashReady)doDash() }
+      else tryLeap();
     }
   }
 },{passive:false});
@@ -1599,6 +1693,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
     else if(state===ST.MISSIONS)missionsTap(e.clientX,e.clientY);
+    else if(state===ST.PLAY&&alive)tryLeap();
   }
 });
 document.addEventListener('keydown',e=>{
@@ -1606,7 +1701,8 @@ document.addEventListener('keydown',e=>{
   if(state===ST.PLAY){
     if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-.5,0,2)}
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
-    if(e.key===' '&&dashReady){e.preventDefault();doDash()}
+    if(e.key==='Shift'){e.preventDefault();tryLeap()}
+    if(e.key===' '){e.preventDefault();tryLeap()}
     if(e.key==='ArrowUp'||e.key==='w'){e.preventDefault();doFlip()}
     if(e.key==='ArrowDown'||e.key==='s'){e.preventDefault();doDive()}
   }else if(state===ST.MENU&&(e.key==='Enter'))startGame();
@@ -1667,6 +1763,7 @@ function startGame(){
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
+  leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
   curAct=0;actCardT=0;actFlash=0;actSpdCur=1;
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
@@ -2060,6 +2157,18 @@ function onLand(idx){
   }
   diving=false;diveT=0;trickSpinVel=0;trickSpin=0;
 
+  // Leap paid off — you cleared a whole platform, that's worth something
+  if(leapLanded){
+    leapLanded=false;
+    const bonus=4*(fever?2:1);   // meaningful, without inflating the skin economy
+    runCoins+=bonus;score+=25;styleScore+=40;styleFlash=1;
+    addFlow(.10);
+    addFloat('\u041F\u0415\u0420\u0415\u041B\u0406\u0422! +'+bonus,lp.x,lp.y-78,'#4FC3F7',20);
+    addPunch(.45);addShock(lp.x,lp.y+4*lp.s,170*lp.s,'rgba(120,220,255,.9)',.36);
+    for(let i=0;i<12;i++){const a=rand(0,Math.PI*2);addP(lp.x,lp.y-6,Math.cos(a)*.06,Math.sin(a)*.05-.02,'#81D4FA',rand(2,4),.5,'s')}
+    for(let i=0;i<4;i++)addFlyCoin(lp.x+rand(-12,12),lp.y-14);
+  }
+
   // Risky branch taken — pay the premium that made it worth the detour
   if(pad.risky){
     pad.risky=false;
@@ -2205,6 +2314,7 @@ function updateGame(dt){
 
   updateActs(dt);
   updateFlow(dt);
+  updateLeap(dt);
 
   // Biome progression — change every ~500 dist
   const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
@@ -2372,7 +2482,7 @@ function updateGame(dt){
         p.broken=true;
         p.dip=0;
         const ci=getCurrentPadIdx();
-        if(pads[ci]===p){
+        if(pads[ci]===p&&frogStandingOn(ci)){
           sfxBreak();shake=.4;
           die();
         }
@@ -2386,7 +2496,7 @@ function updateGame(dt){
         p.disappeared=true;
         p.disappearAlpha=0;
         const ci=getCurrentPadIdx();
-        if(pads[ci]===p){
+        if(pads[ci]===p&&frogStandingOn(ci)){
           die();
         }
       }
@@ -2397,7 +2507,7 @@ function updateGame(dt){
       p.fallOffset+=p.fallSpeed*dt*60;
       if(p.fallOffset>5){ // fallen far enough = gone
         const ci=getCurrentPadIdx();
-        if(pads[ci]===p){
+        if(pads[ci]===p&&frogStandingOn(ci)){
           die();
         }
       }
@@ -2409,6 +2519,10 @@ function updateGame(dt){
   const curPadIdx=getCurrentPadIdx();
   while(lastIdx<curPadIdx){
     lastIdx++;
+    // Mid-leap: platforms between launch and target are flown over entirely —
+    // neither a landing nor a miss.
+    if(leapActive()&&lastIdx>leapFrom&&lastIdx<leapTo) continue;
+    if(leapActive()&&lastIdx===leapTo){leapLanded=true;leapFrom=-1;leapTo=-1}
     if(lastIdx>=0&&lastIdx<pads.length){
       // Collect all pads at this same Y position
       const thisY=padPositions[lastIdx];
@@ -2447,9 +2561,28 @@ function updateGame(dt){
     }
   }
 
-  // Smooth frog horizontal movement
+  // Smooth frog horizontal movement. Steering authority is full on the ground
+  // and decays through the arc — react early and you can still save the jump,
+  // react too late and you don't. That's what makes air control a skill.
   const _prevLane=visLane;
-  visLane=sd(visLane,frogCont,18,dt);
+  let steer=18;
+  {
+    // Measure progress across the CURRENT hop — which during a leap is the full
+    // two-platform span, not the gap we're flying over. Getting this wrong
+    // starved the leap of steering right when it needed it most.
+    const ci2=getCurrentPadIdx();
+    const lp=leapActive()&&seq<padPositions[leapTo];
+    const c0=padPositions[lp?leapFrom:ci2];
+    const c1=padPositions[lp?leapTo:ci2+1];
+    if(c0!==undefined&&c1!==undefined&&c1>c0){
+      const b=clamp((seq-c0)/(c1-c0),0,1);
+      // Full authority early, easing to ~40% once you're committed. A leap keeps
+      // a little more so a long flight stays steerable.
+      const floorAuth=lp?0.55:0.40;
+      steer=18*(1-(1-floorAuth)*clamp((b-0.25)/0.55,0,1));
+    }
+  }
+  visLane=sd(visLane,frogCont,steer,dt);
   // Lateral velocity, smoothed — drives a subtle camera lean into the cut
   const rawVel=dt>0?(visLane-_prevLane)/dt:0;
   laneVel=sd(laneVel,clamp(rawVel,-6,6),9,dt);
@@ -2513,6 +2646,13 @@ function updateGame(dt){
   if(minI>12){
     const rm=minI-6;
     pads.splice(0,rm);padPositions.splice(0,rm);lastIdx-=rm;
+    // Every stored pad INDEX has to shift with the array, or it silently starts
+    // pointing at a different platform. This is what made leaps kill the player
+    // after ~7 jumps, and it would have aimed lightning at the wrong pad too.
+    if(leapFrom>=0)leapFrom-=rm;
+    if(leapTo>=0)leapTo-=rm;
+    if(leapTo<0){leapFrom=-1;leapTo=-1}      // target fell off the front — drop it
+    if(boltIdx>=0){boltIdx-=rm; if(boltIdx<0){boltIdx=-1;boltWarn=0;boltStrike=0}}
   }
 
   updPts(dt);updClouds(dt);updBflies(dt);updSpdLines(dt);
@@ -3659,12 +3799,18 @@ function drawGame(){
 
   // Draw frog — anchored to actual pad positions with parabolic arc
   if(alive||fallT<1.2){
-    const curIdx2=getCurrentPadIdx();
-    const nextIdx=Math.min(curIdx2+1,padPositions.length-1);
+    const rawIdx=getCurrentPadIdx();
+    // During a leap the arc spans launch → target as ONE hop, otherwise the
+    // curve would restart the moment seq passes the platform we're flying over.
+    const inLeap=leapActive()&&seq<padPositions[leapTo];
+    const curIdx2=inLeap?leapFrom:rawIdx;
+    const nextIdx=inLeap?leapTo:Math.min(rawIdx+1,padPositions.length-1);
     const curPos=padPositions[curIdx2]||0;
     const nextPos=padPositions[nextIdx]||curPos+1;
     const gap=nextPos-curPos;
     const bounce=gap>0?clamp((seq-curPos)/gap,0,1):0;
+    // A leap covers two gaps, so give it a taller arc to match the distance
+    const leapLift=inLeap?1.45:1;
 
     // Jump curve — asymmetric, like real gravity. A sine arc is symmetric and
     // reads floaty; this launches hard, hangs at the apex, then accelerates
@@ -3680,7 +3826,7 @@ function drawGame(){
     }
     // Spring platforms boost jump height 1.6x
     const springMult=(curIdx2>=0&&curIdx2<pads.length&&pads[curIdx2].springBoost)?1.6:1;
-    const airness=Math.max(0,rawAir)*springMult;
+    const airness=Math.max(0,rawAir)*springMult*leapLift;
 
     // Squash / stretch — eased rather than piecewise-linear, and shaped to the
     // new arc: compress on takeoff, stretch through the climb, settle at the
