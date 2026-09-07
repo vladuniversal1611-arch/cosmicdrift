@@ -51,6 +51,17 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// ========== CINEMATIC DEATH ==========
+// Death gets a beat instead of a cut: a hard freeze, then a desaturating
+// slow push into the frog before the panel appears.
+let deathT=-1;                  // -1 = alive; otherwise seconds since death
+let lastFrogX=0,lastFrogY=0;    // captured each frame so the camera can push in
+const DEATH_FREEZE=0.26, DEATH_PUSH=1.05;
+function deathPhase(){
+  if(deathT<0)return 0;
+  return deathT<DEATH_FREEZE?1:2;
+}
+
 // ========== ACTS — the run's act structure ==========
 // Each zone doesn't just recolour the sky, it changes a RULE of play and
 // escalates the pace. Entering one is a cinematic beat.
@@ -1395,7 +1406,7 @@ function startGame(){
   scoreMultBonus=1;scoreMultT=0;
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
-  punch=0;shocks=[];flyCoins=[];
+  punch=0;shocks=[];flyCoins=[];deathT=-1;
   curAct=0;actCardT=0;actFlash=0;actSpdCur=1;
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
@@ -1450,7 +1461,8 @@ function die(){
     if(np) frogCont=np.gameX;
     return;
   }
-  alive=false;falling=true;fallT=0;sfxSplash();sfxDie();stopMus();
+  alive=false;falling=true;fallT=0;deathT=0;sfxSplash();sfxDie();stopMus();
+  shake=Math.max(shake,.55);addPunch(1);
   setEmo('😱',2.0);
   const ci=getCurrentPadIdx();
   const curP=padPositions[ci]||0;
@@ -1477,7 +1489,7 @@ function die(){
   checkDaily('feverCount', runFever);
   checkDaily('dailyPlays', dailyPlays);
   saveDaily();
-  goT=0;setTimeout(()=>{state=ST.OVER},800);
+  goT=0;setTimeout(()=>{state=ST.OVER},1250);
 }
 
 function getCurrentPadIdx(){
@@ -1862,7 +1874,14 @@ function doDash(){
 }
 
 function updateGame(dt){
-  if(!alive){fallT+=dt*1.8;updPts(dt);updRipples(dt);return}
+  if(!alive){
+    deathT+=dt;
+    // Freeze frame: the world stops dead for a beat before the fall reads
+    if(deathT>=DEATH_FREEZE)fallT+=dt*1.8;
+    updPts(dt);updRipples(dt);updShocks(dt);
+    if(punch>0)punch=Math.max(0,punch-dt*4.5);
+    return;
+  }
   gt+=dt;
   // Gradual speed ramp: starts at GAME_SPD, plateaus at GAME_SPD_MAX
   const rampProgress=score>SPD_RAMP_START?1-Math.exp(-(score-SPD_RAMP_START)/SPD_RAMP_SCALE):0;
@@ -3099,6 +3118,13 @@ function drawGame(){
     const pz=1+punch*0.045;
     ctx.translate(W/2,H*0.8);ctx.scale(pz,pz);ctx.translate(-W/2,-H*0.8);
   }
+  // Death push — a slow, weighty zoom into where the frog was
+  if(deathT>=0){
+    const u=clamp((deathT-DEATH_FREEZE)/DEATH_PUSH,0,1);
+    const ease=1-Math.pow(1-u,3);
+    const dz=1+ease*0.34;
+    ctx.translate(lastFrogX,lastFrogY);ctx.scale(dz,dz);ctx.translate(-lastFrogX,-lastFrogY);
+  }
   // Camera roll — the world banks OPPOSITE to the road bend so the horizon
   // tilts INTO the turn (classic driving-game feel). Pivot at the player so
   // the frog stays centred while the sky rolls above it.
@@ -3421,6 +3447,7 @@ function drawGame(){
 
     drawFrog(fx,fy,fs,rot,sqX,sqY,airEff>.2,airEff*.85);
     drawEmoBubble(fx,fy-airEff*.85*180*fs-100*fs,fs);
+    lastFrogX=fx;lastFrogY=fy-airEff*.85*180*fs;
     ctx.globalAlpha=1;
 
     // Trail
@@ -3797,9 +3824,33 @@ function drawGame(){
   }
 
   drawActEffects();
+  drawDeathGrade();
   drawFlyCoins();
   drawActCard();
   drawHUD();
+}
+
+function drawDeathGrade(){
+  if(deathT<0)return;
+  // Phase 1 — the hit: a hard white blink that snaps to black-ish
+  if(deathT<DEATH_FREEZE){
+    const u=deathT/DEATH_FREEZE;
+    ctx.fillStyle=`rgba(255,255,255,${0.55*(1-u)})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  const u=clamp((deathT-DEATH_FREEZE)/DEATH_PUSH,0,1);
+  // Phase 2 — bleed the colour out of the world
+  ctx.save();
+  ctx.globalCompositeOperation='saturation';
+  ctx.globalAlpha=u*0.85;
+  ctx.fillStyle='#808080';
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+  // …and close a vignette in around the frog
+  const g=ctx.createRadialGradient(lastFrogX,lastFrogY,H*0.04,lastFrogX,lastFrogY,H*(0.75-u*0.35));
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(1,`rgba(0,0,0,${0.30+u*0.55})`);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
 }
 
 function drawActEffects(){
