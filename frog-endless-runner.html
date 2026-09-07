@@ -51,6 +51,88 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// ========== ACTS — the run's act structure ==========
+// Each zone doesn't just recolour the sky, it changes a RULE of play and
+// escalates the pace. Entering one is a cinematic beat.
+const ACTS=[
+  {id:'garden',name:'ХМАРНИЙ САД',   sub:'Спокій перед бурею',       icon:'🌤️', from:0,    spdMul:1.00, rule:null,        col:'#4FC3F7'},
+  {id:'wind',  name:'ВІТРЯНИЙ ПЕРЕВАЛ',sub:'Вітер зносить з курсу',  icon:'🌬️', from:250,  spdMul:1.06, rule:'wind',      col:'#80DEEA'},
+  {id:'storm', name:'ГРОЗА',          sub:'Блискавка б\'є по платформах',icon:'⛈️', from:550,  spdMul:1.13, rule:'lightning', col:'#7C4DFF'},
+  {id:'night', name:'НІЧНЕ НЕБО',     sub:'Видно лише те, що поруч',  icon:'🌙', from:900,  spdMul:1.20, rule:'dark',      col:'#5C6BC0'},
+  {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Максимальна швидкість',    icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081'},
+];
+let curAct=0, actCardT=0, actFlash=0;
+function actFor(d){let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
+function enterAct(i){
+  curAct=i;actCardT=2.4;actFlash=1;
+  const z=ACTS[i];
+  shake=Math.max(shake,.25);addPunch(.6);
+  if(typeof setEmo==='function')setEmo(z.rule?'😳':'😊',1.4);
+  if(navigator.vibrate)navigator.vibrate([25,60,25]);
+  if(typeof sfxFever==='function')sfxFever();
+  // Burst of the zone's colour sweeping in
+  for(let k=0;k<26;k++){
+    const a=rand(0,Math.PI*2), sp=rand(.05,.13);
+    addP(W/2,H*0.45,Math.cos(a)*sp,Math.sin(a)*sp,z.col,rand(2,4),.8,'s');
+  }
+}
+// --- Zone rule state ---
+let windPhase=0, windForce=0;            // wind
+let boltT=0, boltIdx=-1, boltWarn=0, boltStrike=0;  // lightning
+const BOLT_WARN=1.1, BOLT_STRIKE=0.22;
+
+function actRule(){return ACTS[curAct].rule}
+
+function updateActs(dt){
+  const want=actFor(dist);
+  if(want!==curAct)enterAct(want);
+  if(actCardT>0)actCardT-=dt;
+  if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
+
+  const rule=actRule();
+
+  // --- WIND: a drifting lateral force the player must counter-steer ---
+  if(rule==='wind'){
+    windPhase+=dt*0.55;
+    windForce=Math.sin(windPhase)*0.85+Math.sin(windPhase*2.3+1.1)*0.35;
+    if(alive)frogCont=clamp(frogCont+windForce*dt*0.32,0,2);   // a drift you correct, not a shove
+  } else windForce=0;
+
+  // --- LIGHTNING: telegraph a platform, then strike it ---
+  if(rule==='lightning'){
+    boltT-=dt;
+    if(boltT<=0&&boltIdx<0){
+      const ci=getCurrentPadIdx();
+      const cand=ci+2+Math.floor(Math.random()*3);
+      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0}
+      boltT=rand(2.0,3.2);
+    }
+    if(boltIdx>=0){
+      if(boltWarn>0){
+        boltWarn-=dt;
+        if(boltWarn<=0){
+          boltStrike=BOLT_STRIKE;
+          shake=Math.max(shake,.45);addPunch(.7);actFlash=1;
+          if(navigator.vibrate)navigator.vibrate(60);
+          // Anyone standing on the struck pad is out
+          if(alive&&getCurrentPadIdx()===boltIdx)die();
+        }
+      } else if(boltStrike>0){
+        boltStrike-=dt;
+        if(boltStrike<=0)boltIdx=-1;
+      }
+    }
+  } else {boltIdx=-1;boltWarn=0;boltStrike=0}
+}
+
+// Zone-driven speed multiplier, eased so entering a zone isn't a jolt
+let actSpdCur=1;
+function actSpeedMul(dt){
+  const target=ACTS[curAct].spdMul;
+  actSpdCur+=(target-actSpdCur)*Math.min(1,dt*1.5);
+  return actSpdCur;
+}
+
 // ========== JUICE: CAMERA PUNCH + SHOCKWAVES ==========
 // A short zoom kick on impact reads as weight far better than shake alone.
 let punch=0;                 // 0..1, decays fast
@@ -1314,6 +1396,8 @@ function startGame(){
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];
+  curAct=0;actCardT=0;actFlash=0;actSpdCur=1;
+  windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
@@ -1784,6 +1868,7 @@ function updateGame(dt){
   const rampProgress=score>SPD_RAMP_START?1-Math.exp(-(score-SPD_RAMP_START)/SPD_RAMP_SCALE):0;
   const baseSpd=GAME_SPD+(GAME_SPD_MAX-GAME_SPD)*rampProgress;
   spd=boost?baseSpd*1.3:turbo?baseSpd*TURBO_SPEED_MULT:baseSpd;
+  spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
   if(boost){boostT-=dt;if(boostT<=0)boost=false}
   if(magnet){magnetT-=dt;if(magnetT<=0)magnet=false}
   // Fever
@@ -1820,6 +1905,8 @@ function updateGame(dt){
   if(diving&&diveT<1)diveT=Math.min(1,diveT+dt*7);
   if(styleFlash>0)styleFlash=Math.max(0,styleFlash-dt*1.6);
   if(emoT>0){emoT-=dt;if(emoT<=0){emoT=0;emo=''}}
+
+  updateActs(dt);
 
   // Biome progression — change every ~500 dist
   const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
@@ -3599,6 +3686,69 @@ function drawGame(){
   }
   ctx.restore();
 
+  // === ACT RULE VISUALS (world space) ===
+  // Lightning: a red warning ring on the doomed platform, then the strike
+  if(actRule()==='lightning'&&boltIdx>=0){
+    const bp=pads[boltIdx];
+    const ci=getCurrentPadIdx();
+    const rz=(padPositions[boltIdx]||0)-seq+VIEW_Z;
+    if(bp&&rz>0&&rz<VIEW_AHEAD){
+      const q=project(rz,bp.gameX);
+      const hw=120*q.s*(bp.width||1);
+      if(boltWarn>0){
+        // Telegraph — the doomed pad must be unmistakable, so flood it red,
+        // ring it, and hang a warning bolt above it. Blink accelerates.
+        const u=1-boltWarn/BOLT_WARN;
+        const blink=0.45+0.55*Math.abs(Math.sin(u*u*34));
+        ctx.save();
+        // Red wash over the pad top
+        ctx.fillStyle=`rgba(255,40,40,${0.30*blink})`;
+        ctx.beginPath();ctx.ellipse(q.x,q.y-16*q.s,hw*1.05,44*q.s,0,0,Math.PI*2);ctx.fill();
+        // Closing ring
+        ctx.strokeStyle=`rgba(255,70,70,${blink})`;ctx.lineWidth=6*q.s;
+        ctx.shadowColor='rgba(255,0,0,1)';ctx.shadowBlur=26*q.s;
+        ctx.beginPath();ctx.ellipse(q.x,q.y-18*q.s,hw*(1.45-u*0.4),52*q.s*(1.45-u*0.4),0,0,Math.PI*2);ctx.stroke();
+        // Descending guide line from the sky — shows where it will hit
+        ctx.strokeStyle=`rgba(255,90,90,${0.35*blink})`;ctx.lineWidth=3*q.s;
+        ctx.setLineDash([10*q.s,10*q.s]);
+        ctx.beginPath();ctx.moveTo(q.x,0);ctx.lineTo(q.x,q.y-40*q.s);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur=0;
+        ctx.fillStyle=`rgba(255,225,80,${blink})`;
+        ctx.font=`bold ${Math.max(26,44*q.s)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('\u26A1',q.x,q.y-100*q.s);
+        ctx.restore();
+      } else if(boltStrike>0){
+        // The strike itself — a wide glow pass under a hot white core
+        ctx.save();
+        const path=(lw,col,blur)=>{
+          ctx.strokeStyle=col;ctx.lineWidth=lw;
+          ctx.shadowColor='#B388FF';ctx.shadowBlur=blur;
+          ctx.beginPath();ctx.moveTo(q.x,0);
+          const steps=8;
+          for(let k=1;k<=steps;k++){
+            const by=q.y*k/steps;
+            const bx=q.x+Math.sin(k*2.7+boltIdx)*30*(1-k/steps);
+            ctx.lineTo(bx,by);
+          }
+          ctx.stroke();
+        };
+        path(22*q.s,'rgba(179,136,255,.45)',40);
+        path(11*q.s,'rgba(220,200,255,.85)',30);
+        path(4.5*q.s,'rgba(255,255,255,1)',18);
+        ctx.shadowBlur=0;
+        // Impact bloom on the pad
+        const bg2=ctx.createRadialGradient(q.x,q.y-16*q.s,0,q.x,q.y-16*q.s,hw*1.6);
+        bg2.addColorStop(0,'rgba(255,255,255,.9)');
+        bg2.addColorStop(.4,'rgba(200,170,255,.5)');
+        bg2.addColorStop(1,'rgba(160,120,255,0)');
+        ctx.fillStyle=bg2;
+        ctx.beginPath();ctx.ellipse(q.x,q.y-16*q.s,hw*1.6,64*q.s,0,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
   drawShocks();
 
   // === MILESTONE OVERLAY (every 100m distance) ===
@@ -3646,12 +3796,122 @@ function drawGame(){
     ctx.restore();
   }
 
+  drawActEffects();
   drawFlyCoins();
+  drawActCard();
   drawHUD();
+}
+
+function drawActEffects(){
+  const rule=actRule();
+
+  // NIGHT — a hard vignette so only what's near the frog reads clearly
+  if(rule==='dark'){
+    const lx=W/2, ly=H*0.72;
+    const g=ctx.createRadialGradient(lx,ly,H*0.06,lx,ly,H*0.62);
+    g.addColorStop(0,'rgba(4,6,26,0)');
+    g.addColorStop(0.55,'rgba(4,6,26,.55)');
+    g.addColorStop(1,'rgba(2,3,16,.93)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  }
+
+  // WIND — streaks blowing in the current gust direction
+  if(rule==='wind'){
+    const dir=windForce>=0?1:-1;
+    const mag=Math.min(1,Math.abs(windForce));
+    ctx.save();
+    ctx.strokeStyle=`rgba(255,255,255,${.10+.16*mag})`;
+    ctx.lineWidth=1.6;
+    ctx.beginPath();
+    for(let i=0;i<22;i++){
+      const seed=i*57.3;
+      const y=((seed*13.1)%1)*H;
+      const len=(50+((seed*7.7)%1)*90)*(0.4+mag);
+      const x=((gt*(240+((seed*3.3)%1)*180)*dir+seed*37)%(W+240))-120;
+      ctx.moveTo(x,y);ctx.lineTo(x+len*dir,y+4);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // RUSH — radial speed lines from the vanishing point
+  if(rule==='rush'){
+    const cxr=W/2, cyr=H*0.18;
+    ctx.save();
+    ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let i=0;i<26;i++){
+      const a=(i/26)*Math.PI*2+gt*0.35;
+      const r0=H*(0.30+((i*13.7)%10)/26);
+      const r1=r0+H*0.24;
+      ctx.moveTo(cxr+Math.cos(a)*r0,cyr+Math.sin(a)*r0);
+      ctx.lineTo(cxr+Math.cos(a)*r1,cyr+Math.sin(a)*r1);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Act-entry / lightning flash
+  if(actFlash>0){
+    ctx.fillStyle=`rgba(255,255,255,${0.28*actFlash*actFlash})`;
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+function drawActCard(){
+  if(actCardT<=0)return;
+  const z=ACTS[curAct];
+  const T=2.4, t=1-actCardT/T;                 // 0 → 1
+  // Slide in, hold, slide out
+  let a=1, off=0;
+  if(t<0.16){const u=t/0.16;a=u;off=(1-u)*70}
+  else if(t>0.78){const u=(t-0.78)/0.22;a=1-u;off=-u*50}
+  ctx.save();
+  ctx.globalAlpha=a;
+  const cy=H*0.30+off;
+  // Banner bars sweeping across
+  const bh=104;
+  const g=ctx.createLinearGradient(0,cy-bh/2,0,cy+bh/2);
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(0.5,'rgba(0,0,0,.62)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,cy-bh/2,W,bh);
+  // Accent rules in the act colour
+  ctx.strokeStyle=z.col;ctx.lineWidth=2.5;
+  ctx.shadowColor=z.col;ctx.shadowBlur=16;
+  ctx.beginPath();ctx.moveTo(W*0.08,cy-bh/2+8);ctx.lineTo(W*0.92,cy-bh/2+8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W*0.08,cy+bh/2-8);ctx.lineTo(W*0.92,cy+bh/2-8);ctx.stroke();
+  ctx.shadowBlur=0;
+  // Title
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';
+  ctx.font='bold 30px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=10;
+  ctx.fillText(`${z.icon}  ${z.name}`,W/2,cy-12);
+  ctx.font='600 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillStyle=z.col;
+  ctx.fillText(z.sub,W/2,cy+20);
+  ctx.shadowBlur=0;
+  ctx.restore();
 }
 
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
+
+  // Act badge — which act you're in, top-left
+  {
+    const z=ACTS[curAct];
+    const lbl=z.icon+' '+z.name;
+    ctx.font='800 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    const aw=ctx.measureText(lbl).width+20, ah=22, ax=10, ay=10;
+    ctx.save();
+    ctx.fillStyle='rgba(10,16,40,.62)';rr(ax,ay,aw,ah,11);ctx.fill();
+    ctx.strokeStyle=z.col;ctx.lineWidth=1.2;rr(ax,ay,aw,ah,11);ctx.stroke();
+    ctx.fillStyle=z.col;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(lbl,ax+aw/2,ay+ah/2+1);
+    ctx.restore();
+    ctx.textAlign='center';ctx.textBaseline='middle';
+  }
 
   // Style score chip — pulses when a trick just paid out
   if(styleScore>0){
