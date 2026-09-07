@@ -53,6 +53,22 @@ let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
 // Score-multiplier state driven by mystery-box rewards (extra x on top of fever)
 let scoreMultBonus=1, scoreMultT=0;
+// End-of-run treasure chest — tier + reward computed in die() and shown on
+// the game-over panel with a satisfying reveal.
+const CHEST_TIERS=[
+  {min:0,   emoji:'🎁', name:'Дерев\'яна',  min_c:10,  max_c:30,   col:'#8D6E63'},
+  {min:100, emoji:'📦', name:'Бронзова',    min_c:30,  max_c:70,   col:'#CD7F32'},
+  {min:300, emoji:'🎁✨',name:'Срібна',      min_c:70,  max_c:140,  col:'#B0BEC5'},
+  {min:700, emoji:'🏆', name:'Золота',      min_c:150, max_c:280,  col:'#FFD700'},
+  {min:1500,emoji:'💎', name:'Райдужна',    min_c:300, max_c:500,  col:'#E040FB'},
+];
+let chestTier=null, chestReward=0, chestShow=0, chestOpened=false, chestCounter=0;
+function grantChest(finalScore){
+  let t=CHEST_TIERS[0];
+  for(const c of CHEST_TIERS)if(finalScore>=c.min)t=c;
+  chestTier=t;chestReward=t.min_c+Math.floor(Math.random()*(t.max_c-t.min_c));
+  chestShow=1;chestOpened=false;chestCounter=0;
+}
 function scoreMultTotal(){return (fever?2:1)*scoreMultBonus}
 // Hype burst — triggered when perfectCombo hits a multiple of 10.
 // Slows the world down and paints a neon vignette for a beat.
@@ -1163,6 +1179,7 @@ function startGame(){
   extraLifeUsed=false;
   msT=0;msTier=0;msLast=0;
   scoreMultBonus=1;scoreMultT=0;
+  chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1225,6 +1242,8 @@ function die(){
   coins+=runCoins;localStorage.setItem('fCoins',''+coins);
   // XP = final score
   grantXP(score);
+  // Pick a treasure chest tier based on final score
+  grantChest(score);
   // Daily mission progress — check every metric at end of run
   dailyPlays++;
   checkDaily('score', score);
@@ -4185,7 +4204,7 @@ function drawOver(){
   }
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
-  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0),px=W/2-pw/2,py=H/2-ph/2;
+  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0),px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
@@ -4237,6 +4256,44 @@ function drawOver(){
 
   ty+=100;
 
+  // === TREASURE CHEST WIDGET ===
+  if(chestTier){
+    const cbw=pw-36, cbh=68, cbx=cx-cbw/2, cby=ty;
+    ctx.fillStyle=chestOpened?'rgba(76,175,80,.15)':'rgba(255,215,0,.14)';
+    rr(cbx,cby,cbw,cbh,16);ctx.fill();
+    const border=chestOpened?'rgba(76,175,80,.5)':chestTier.col;
+    ctx.strokeStyle=border;ctx.lineWidth=2;
+    if(!chestOpened){
+      const pulse=0.7+0.3*Math.sin(gt*4);
+      ctx.shadowColor=chestTier.col;ctx.shadowBlur=15*pulse;
+    }
+    rr(cbx,cby,cbw,cbh,16);ctx.stroke();
+    ctx.shadowBlur=0;
+    // Icon
+    ctx.fillStyle='#333';ctx.font='bold 36px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(chestTier.emoji, cbx+40, cby+cbh/2);
+    // Label
+    ctx.textAlign='left';ctx.font='bold 14px sans-serif';
+    ctx.fillStyle='#333';ctx.fillText(chestTier.name+' скринька',cbx+80,cby+22);
+    if(chestOpened){
+      // Coin count-up ticker
+      const target=chestReward;
+      chestCounter=Math.min(target, chestCounter + Math.max(1,Math.ceil(target/30)));
+      if(chestCounter>=target && !chestTier._claimed){
+        chestTier._claimed=true;
+        coins+=chestReward;localStorage.setItem('fCoins',''+coins);
+      }
+      ctx.fillStyle='#4CAF50';ctx.font='bold 22px sans-serif';
+      ctx.fillText(`+${chestCounter} 🪙`,cbx+80,cby+48);
+    } else {
+      ctx.fillStyle='#666';ctx.font='13px sans-serif';
+      ctx.fillText('Натисни щоб відкрити!',cbx+80,cby+46);
+    }
+    // stash bounds for tap check
+    chestTier._rect={x:cbx,y:cby,w:cbw,h:cbh};
+    ty+=cbh+12;
+  }
+
   const rw=pw*.68,rh=44,rx=cx-rw/2;
   // Revive button (golden, pulsing)
   if(showRevive){
@@ -4286,15 +4343,30 @@ function doRevive(){
   startMus();
 }
 function overTap(x,y){
+  // Chest tap — open the treasure chest (if it hasn't been opened yet)
+  if(chestTier&&chestTier._rect&&!chestOpened){
+    const r=chestTier._rect;
+    if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h){
+      chestOpened=true;sfxPU();
+      // Burst of coins from the chest position
+      for(let i=0;i<18;i++){
+        const a=rand(-Math.PI*0.8,-Math.PI*0.2);
+        const sp=rand(.05,.11);
+        addP(r.x+r.w/2,r.y+r.h/2,Math.cos(a)*sp,Math.sin(a)*sp,'#FFD700',rand(2,4),.9,'s');
+      }
+      return;
+    }
+  }
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
   const pw=Math.min(W*.82,320),cx=W/2,rw=pw*.68,rx=cx-rw/2;
-  const ph=(hasAnyRec?480:450)+(showRevive?56:0);
+  const ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0);
   let ty=H/2-ph/2+22; // match drawOver layout
   ty+=38; // title
   if(newScoreRec)ty+=24;
   ty+=42+28; // score + label
   ty+=100; // stats box
+  if(chestTier)ty+=68+12;  // chest widget
   // Revive button
   if(showRevive){
     const rvY=ty+2;
