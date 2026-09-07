@@ -623,6 +623,15 @@ let tutorialShown=!!localStorage.getItem('fTut'),tutorialAlpha=0;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
 let lastTypes=[], lastZones=[], lastPatternId=-1;
+// Rolling lane history, used to break up stretches with no left/right decision
+let laneHist=[];
+function laneBucket(x){return Math.round(x*2)}          // 0..4 across the road
+function pushLane(x){laneHist.push(laneBucket(x));if(laneHist.length>4)laneHist.shift()}
+function laneStale(x){
+  if(laneHist.length<2)return false;
+  const b=laneBucket(x);
+  return laneHist.slice(-2).every(v=>v===b);            // two in a row already
+}
 let breathPhase=0; // 0-1 breathing cycle
 
 // ========== PARALLAX SIDE OBJECTS (object pooling, 4 layers) ==========
@@ -1046,7 +1055,10 @@ function stopMus(){musOn=false;if(musIv){clearInterval(musIv);musIv=null}}
 // Smooth difficulty curve with plateau: 0→1, never infinite
 // ~0 at start, ~0.5 at dist=700, ~0.85 at dist=1500, ~0.95 at dist=3000
 function getDifficulty(){
-  return 1-Math.exp(-dist/1400);
+  // Calibrated for the runs people actually play. The old 1400 scale only hit
+  // 0.20 by 320m, so every pattern gated above minDiff 0.3 — which is most of
+  // the interesting ones — was unreachable in a normal session.
+  return 1-Math.exp(-dist/260);
 }
 
 // === 5 ZONES across the road ===
@@ -1095,17 +1107,17 @@ const PAD_TYPES={
   normal:    {dist:0,    color:['#4DD0E1','#00ACC1','#006064'], glow:'rgba(0,229,255,'},
   wide:      {dist:0,    color:['#80DEEA','#4DD0E1','#00838F'], glow:'rgba(0,229,255,'},
   small:     {dist:0,    color:['#FFB74D','#FF9800','#E65100'], glow:'rgba(255,152,0,'},
-  moving_h:  {dist:50,   color:['#CE93D8','#AB47BC','#6A1B9A'], glow:'rgba(171,71,188,'},
-  bounce:    {dist:500,  color:['#69F0AE','#00E676','#00895A'], glow:'rgba(105,240,174,'},
-  breakable: {dist:700,  color:['#A1887F','#8D6E63','#4E342E'], glow:'rgba(161,136,127,'},
-  disappear: {dist:900,  color:['#B0BEC5','#78909C','#37474F'], glow:'rgba(176,190,197,'},
-  slippery:  {dist:1100, color:['#B3E5FC','#81D4FA','#0288D1'], glow:'rgba(129,212,250,'},
-  boost_pad: {dist:1400, color:['#FFF176','#FFEE58','#F9A825'], glow:'rgba(255,235,59,'},
-  bonus:     {dist:300,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
-  falling:   {dist:1800, color:['#EF9A9A','#EF5350','#B71C1C'], glow:'rgba(239,83,80,'},
+  moving_h:  {dist:35,   color:['#CE93D8','#AB47BC','#6A1B9A'], glow:'rgba(171,71,188,'},
+  bounce:    {dist:105,  color:['#69F0AE','#00E676','#00895A'], glow:'rgba(105,240,174,'},
+  breakable: {dist:130,  color:['#A1887F','#8D6E63','#4E342E'], glow:'rgba(161,136,127,'},
+  disappear: {dist:205,  color:['#B0BEC5','#78909C','#37474F'], glow:'rgba(176,190,197,'},
+  slippery:  {dist:285, color:['#B3E5FC','#81D4FA','#0288D1'], glow:'rgba(129,212,250,'},
+  boost_pad: {dist:170, color:['#FFF176','#FFEE58','#F9A825'], glow:'rgba(255,235,59,'},
+  bonus:     {dist:90,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
+  falling:   {dist:245, color:['#EF9A9A','#EF5350','#B71C1C'], glow:'rgba(239,83,80,'},
   trap_lane: {dist:80,   color:['#FF7043','#F4511E','#BF360C'], glow:'rgba(244,81,30,'},
-  ring_pad:  {dist:800,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
-  lucky:     {dist:400,  color:['#FFD54F','#FFC107','#FF6F00'], glow:'rgba(255,215,0,'},
+  ring_pad:  {dist:150,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
+  lucky:     {dist:70,  color:['#FFD54F','#FFC107','#FF6F00'], glow:'rgba(255,215,0,'},
 };
 
 function getUnlockedTypes(d){
@@ -1393,7 +1405,7 @@ function ensurePads(){
       if(st.loot==='coin')op.coin=true;
       if(st.loot==='gem'){op.coin=true;op.diamond=true}
       pads.push(op);
-      prevBranchXs=[gx];
+      prevBranchXs=[gx];pushLane(gx);
       lastTypes.push(st.t);if(lastTypes.length>10)lastTypes.shift();
       continue;
     }
@@ -1441,12 +1453,19 @@ function ensurePads(){
           if(spec.loot)pd.risky=true;      // taking this line pays a premium
           return pd;
         };
+        // The safe branch hugs the previous position by design, which can park
+        // the player in one lane for a long stretch. Nudge it when that happens.
+        if(laneStale(safeX)){
+          const alt=clamp(safeX+(safeX<1?0.45:-0.45),0.12,1.88);
+          if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce)&&Math.abs(alt-riskX)>0.45)safeX=alt;
+        }
         const isSplit=Math.abs(safeX-riskX)>0.32
           && reachableFromAll(prevXs,prevY,safeX,nextY,prevHasBounce)
           && reachableFromAll(prevXs,prevY,riskX,nextY,prevHasBounce);
         padPositions.push(nextY);pads.push(mk(st.fork.safe,safeX));
         if(isSplit){padPositions.push(nextY);pads.push(mk(st.fork.risk,riskX))}
         prevBranchXs=isSplit?[safeX,riskX]:[safeX];
+        pushLane(safeX);
         lastTypes.push(st.fork.safe.t);if(lastTypes.length>10)lastTypes.shift();
         continue;
       }
@@ -1457,6 +1476,14 @@ function ensurePads(){
         gx=clamp(lerp(gx,midX,0.30+a*0.14),0.1,1.9);
       }
       if(!reachableFromAll(prevXs,prevY,gx,nextY,prevHasBounce)) gx=midX;
+      // Two groups already in this lane — push off it so the player keeps
+      // having a left/right decision instead of coasting straight ahead.
+      if(laneStale(gx)){
+        const push=gx<1?0.5:-0.5;
+        const alt=clamp(gx+push,0.12,1.88);
+        if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gx=alt;
+      }
+      pushLane(gx);
       let ty=st.t;
       if(!getUnlockedTypes(dist).includes(ty))ty='normal';
       padPositions.push(nextY);
@@ -1556,6 +1583,12 @@ function ensurePads(){
     const pad=makePad(gameX, targetType, diff);
     pads.push(pad);
 
+    if(laneStale(gameX)){
+      const push=gameX<1?0.5:-0.5;
+      const alt=clamp(gameX+push,0.12,1.88);
+      if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gameX=alt;
+    }
+    pushLane(gameX);
     prevBranchXs=[gameX];
 
     // Track history
@@ -1783,7 +1816,7 @@ function startGame(){
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
-  pads=[];padPositions=[];currentPattern=null;patternIdx=0;prevBranchXs=[];
+  pads=[];padPositions=[];currentPattern=null;patternIdx=0;prevBranchXs=[];laneHist=[];
   pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
   // Initial platforms — first 6 center/easy, generous spacing
