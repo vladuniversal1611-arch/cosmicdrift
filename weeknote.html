@@ -1199,7 +1199,7 @@ body {
 /* Notebook ruled lines (Light mode — no checkboxes) */
 .nb-line-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   min-height: 34px;
@@ -1215,10 +1215,9 @@ body {
   color: var(--text);
   cursor: text;
   min-width: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nb-line-empty {
@@ -3950,9 +3949,13 @@ function activateNbLine(el, dateKey){
   const doSave = () => {
     if(saved) return;
     saved = true;
+    // Each newline = one more task, in order.
     const val = inp.value.replace(/^\s+|\s+$/g,'');
-    if(val){
-      tasks.push({id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
+    const lines = val.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    if(lines.length){
+      lines.forEach(line => {
+        tasks.push({id:uid(),title:line,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'});
+      });
       sv('wn_tasks',tasks);
     }
     renderWeek();
@@ -3990,22 +3993,35 @@ function activateNbLineSheet(el, dateKey, pos){
   const doSave = () => {
     if(saved) return;
     saved = true;
-    // Trim only leading/trailing whitespace on each line; keep the user's
-    // internal line breaks intact so multi-paragraph tasks stay readable.
+    // Enter is a paragraph break in the notebook: split the value into
+    // separate tasks, one per non-empty line. Each takes its own ruled
+    // line starting from the slot the user tapped, skipping any slots
+    // already occupied by existing tasks on this day.
     const val = inp.value.replace(/^\s+|\s+$/g,'');
-    if(val){
-      const newTask = {id:uid(),title:val,date:dateKey,time:'',done:false,pri:'MEDIUM',clr:'#7C5CE0'};
-      if(Number.isInteger(pos)) newTask.pos = pos;
-      tasks.push(newTask);
+    const lines = val.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    if(lines.length){
+      const used = new Set(
+        tasks.filter(x => x.date === dateKey && Number.isInteger(x.pos))
+             .map(x => x.pos)
+      );
+      let cursor = Number.isInteger(pos) ? pos : 0;
+      lines.forEach(line => {
+        while(used.has(cursor)) cursor++;
+        used.add(cursor);
+        tasks.push({
+          id:uid(), title:line, date:dateKey,
+          time:'', done:false, pri:'MEDIUM', clr:'#7C5CE0',
+          pos: cursor
+        });
+        cursor++;
+      });
       sv('wn_tasks',tasks);
     }
     renderWeek();
     renderTasks();
   };
 
-  // Enter inserts a newline (default textarea behavior). Save happens only
-  // when the keyboard is dismissed / the input loses focus — the user asked
-  // for this so they can type multi-line notes without an accidental commit.
+  // Enter inserts a newline (default textarea behavior); save on blur.
   inp.addEventListener('keydown', e => {
     if(e.key==='Escape'){ saved = true; renderWeek(); renderTasks(); }
   });
@@ -4036,9 +4052,39 @@ function editTaskInlineNb(id, textEl){
     if(finished) return;
     finished = true;
     if(save){
+      // If the user split the title across multiple lines (Enter), keep
+      // the first line as this task's title and spawn the remaining
+      // lines as new tasks on the following slots.
       const val = inp.value.replace(/^\s+|\s+$/g,'');
-      if(val && val !== task.title){
-        task.title = val;
+      const lines = val.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      if(!lines.length){
+        // Emptied → delete this task
+        const idx = tasks.findIndex(x=>x.id===task.id);
+        if(idx >= 0) tasks.splice(idx, 1);
+        sv('wn_tasks',tasks);
+      } else {
+        const first = lines[0];
+        if(first !== task.title){
+          task.title = first;
+        }
+        if(lines.length > 1){
+          const used = new Set(
+            tasks.filter(x => x.date === task.date && Number.isInteger(x.pos))
+                 .map(x => x.pos)
+          );
+          const basePos = Number.isInteger(task.pos) ? task.pos : 0;
+          let cursor = basePos + 1;
+          for(let i=1; i<lines.length; i++){
+            while(used.has(cursor)) cursor++;
+            used.add(cursor);
+            tasks.push({
+              id:uid(), title:lines[i], date:task.date,
+              time:'', done:false, pri:'MEDIUM', clr:'#7C5CE0',
+              pos: cursor
+            });
+            cursor++;
+          }
+        }
         sv('wn_tasks',tasks);
       }
     }
