@@ -1496,6 +1496,11 @@ function onLand(idx){
       sfxCloseCall();shake=.1;
       addFloat('😱',lp.x,lp.y-40,'#FF5252',18);
       if(navigator.vibrate)navigator.vibrate(20);
+      // Extreme near-miss → cinematic slow-mo pulse for a beat
+      if(precision<0.15&&hypeT<=0){
+        hypeT=0.7;                          // shorter burst than combo hype
+        addFloat('NEAR MISS!',W/2,H*0.28,'#FF5252',24);
+      }
     }
   }
 
@@ -3418,6 +3423,24 @@ function drawGame(){
 
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
+
+  // Score-multiplier active chip (from mystery-box reward)
+  if(scoreMultT>0){
+    const t=Math.min(scoreMultT/8,1);
+    const label=`×${scoreMultBonus}  ${Math.ceil(scoreMultT)}s`;
+    ctx.font='900 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    const mw=ctx.measureText(label).width+24, mh=28, mx=W/2-mw/2, my=74;
+    const pulse=0.6+0.4*Math.sin(gt*8);
+    ctx.save();
+    ctx.shadowColor=`rgba(255,0,255,${0.6*pulse})`;ctx.shadowBlur=18;
+    ctx.fillStyle='#FF00FF';rr(mx,my,mw,mh,14);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.fillText(label,W/2,my+mh/2+1);
+    // Timer bar underneath
+    ctx.fillStyle='rgba(255,255,255,.35)';rr(mx+2,my+mh-3,mw-4,3,1.5);ctx.fill();
+    ctx.fillStyle='#fff';rr(mx+2,my+mh-3,(mw-4)*t,3,1.5);ctx.fill();
+    ctx.restore();
+  }
 
   // --- score pill ---
   const scoreTxt=String(score);
