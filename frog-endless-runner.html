@@ -51,6 +51,46 @@ let spdLines=[];
 let currentPattern=null,patternIdx=0;
 let lastBouncePhase=0; // for jump sound trigger
 let perfectCombo=0,perfectShow=0,perfectText='';
+// ========== AIR TRICK SYSTEM ==========
+// While airborne the player can swipe to perform tricks. Each trick in the
+// same jump chains for a bigger style payout, but locks horizontal aim for a
+// moment — so going for style is a real risk/reward decision.
+let trickSpin=0;        // accumulated visual rotation (radians)
+let trickSpinVel=0;     // current spin speed, decays over the arc
+let trickChain=0;       // tricks performed during the current jump
+let trickLockT=0;       // seconds the aim stays locked after a trick
+let trickLockedLane=0;  // lane the aim is pinned to while locked
+let diving=false;       // dive-slam engaged
+let diveT=0;            // 0..1 ramp of the dive
+let styleScore=0;       // style points accumulated this run
+let styleFlash=0;       // HUD pulse when style is awarded
+let lastJumpIdx=-1;     // pad index used to detect a new jump (resets the chain)
+let slamPending=false;  // dive landed → play the slam impact
+const TRICK_LOCK=0.22;
+
+function canTrick(){return state===ST.PLAY&&alive&&curAirness>0.25&&trickLockT<=0}
+let curAirness=0;       // updated each frame by the render block
+
+function doFlip(){
+  if(!canTrick()||diving)return;
+  trickChain++;
+  trickSpinVel=Math.max(trickSpinVel,13);
+  trickLockT=TRICK_LOCK;trickLockedLane=frogCont;
+  sfxWhoosh();
+  addFloat(trickChain>1?`САЛЬТО x${trickChain}`:'САЛЬТО',W/2,H*0.42,'#7C4DFF',20);
+}
+function doDive(){
+  if(!canTrick()||diving)return;
+  diving=true;diveT=0;trickChain++;
+  trickLockT=TRICK_LOCK;trickLockedLane=frogCont;
+  sfxWhoosh();
+  addFloat('ПІКЕ!',W/2,H*0.42,'#FF3D00',22);
+}
+// Short airy swoosh for tricks
+function sfxWhoosh(){
+  if(!ac)return;
+  for(let i=0;i<3;i++)tone(300+i*180,.09,'sine',.05,i*.02);
+}
 // Score-multiplier state driven by mystery-box rewards (extra x on top of fever)
 let scoreMultBonus=1, scoreMultT=0;
 // End-of-run treasure chest — tier + reward computed in die() and shown on
@@ -1053,6 +1093,14 @@ function project(relZ,l){
 let touching=false,frogCont=1;
 let tSX=0,tSY=0,tST=0;
 
+let swipeArmed=false;
+// Returns true when the gesture was consumed as a trick.
+function tryTrickSwipe(dy,dx){
+  if(Math.abs(dy)<42||Math.abs(dy)<Math.abs(dx)*1.1)return false;
+  swipeArmed=false;
+  if(dy<0)doFlip(); else doDive();
+  return true;
+}
 function xToLane(sx){
   const margin=W*.06;
   const raw=(sx-margin)/(W-margin*2);
@@ -1063,6 +1111,7 @@ function xToLane(sx){
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
+  swipeArmed=true;                       // a fresh gesture may become a trick
   if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(t.clientX)}
 },{passive:false});
 
@@ -1070,7 +1119,10 @@ canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
   if(state===ST.PLAY&&alive&&touching){
     const t=e.touches[0];
-    frogCont=xToLane(t.clientX);
+    // Vertical flick while airborne performs a trick and consumes the gesture,
+    // so a single swipe never both tricks and re-aims.
+    if(swipeArmed&&tryTrickSwipe(t.clientY-tSY,t.clientX-tSX))return;
+    if(trickLockT<=0)frogCont=xToLane(t.clientX);
   }
 },{passive:false});
 
@@ -1098,10 +1150,14 @@ canvas.addEventListener('touchend',e=>{
 let mouseDown=false;
 canvas.addEventListener('mousedown',e=>{
   initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
+  swipeArmed=true;
   if(state===ST.PLAY&&alive){touching=true;frogCont=xToLane(e.clientX)}
 });
 canvas.addEventListener('mousemove',e=>{
-  if(mouseDown&&state===ST.PLAY&&alive&&touching){frogCont=xToLane(e.clientX)}
+  if(mouseDown&&state===ST.PLAY&&alive&&touching){
+    if(swipeArmed&&tryTrickSwipe(e.clientY-tSY,e.clientX-tSX))return;
+    if(trickLockT<=0)frogCont=xToLane(e.clientX);
+  }
 });
 canvas.addEventListener('mouseup',e=>{
   mouseDown=false;
@@ -1120,6 +1176,8 @@ document.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-.5,0,2)}
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
     if(e.key===' '&&dashReady){e.preventDefault();doDash()}
+    if(e.key==='ArrowUp'||e.key==='w'){e.preventDefault();doFlip()}
+    if(e.key==='ArrowDown'||e.key==='s'){e.preventDefault();doDive()}
   }else if(state===ST.MENU&&(e.key==='Enter'))startGame();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
@@ -1176,6 +1234,8 @@ function startGame(){
   msT=0;msTier=0;msLast=0;
   scoreMultBonus=1;scoreMultT=0;
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
+  styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;
+  trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1519,6 +1579,33 @@ function onLand(idx){
     }
   }
 
+  // --- Trick payout on landing ---
+  if(trickChain>0){
+    const wasDive=diving;
+    // Style scales super-linearly with the chain so stringing tricks pays off
+    const gained=Math.floor(12*trickChain*trickChain*(wasDive?1.5:1));
+    styleScore+=gained;score+=Math.floor(gained/3);styleFlash=1;
+    const names=['','ЧИСТО!','ГАРНО!','КРАСА!','НЕЙМОВІРНО!','ЛЕГЕНДА!'];
+    const label=names[Math.min(trickChain,5)];
+    addFloat(`${label} +${gained}`,lp.x,lp.y-70,wasDive?'#FF3D00':'#7C4DFF',18+Math.min(trickChain,4)*3);
+    sfxPU();
+    // Slam impact — heavier feedback, and it smashes breakable platforms
+    if(wasDive){
+      shake=Math.max(shake,.3);
+      if(navigator.vibrate)navigator.vibrate(45);
+      addRipple(lp.x,lp.y+5*lp.s,lp.s*3.2);
+      for(let i=0;i<20;i++){
+        const a=rand(0,Math.PI*2);
+        addP(lp.x,lp.y,Math.cos(a)*.085,Math.sin(a)*.03-.01,'#FFAB40',rand(2,4.5),.5,'s');
+      }
+      if(pad.type==='breakable'){pad.breakTimer=Math.max(pad.breakTimer,.01)}
+    } else {
+      addRipple(lp.x,lp.y+5*lp.s,lp.s*2.2);
+    }
+    trickChain=0;
+  }
+  diving=false;diveT=0;trickSpinVel=0;trickSpin=0;
+
   if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
   // Blue magnet perk — sweep coins from the next 2 platforms too
   if(curPerk()==='magnet'){
@@ -1626,6 +1713,19 @@ function updateGame(dt){
   if(bucket>prevBucket&&bucket>0)triggerMilestone(bucket*100);
   if(msT>0)msT=Math.max(0,msT-dt);
   if(scoreMultT>0){scoreMultT-=dt;if(scoreMultT<=0){scoreMultBonus=1;scoreMultT=0}}
+
+  // --- Air trick timers ---
+  if(trickLockT>0){
+    trickLockT-=dt;
+    frogCont=trickLockedLane;          // aim is pinned mid-trick — the risk
+    if(trickLockT<0)trickLockT=0;
+  }
+  if(trickSpinVel>0){
+    trickSpin+=trickSpinVel*dt;
+    trickSpinVel=Math.max(0,trickSpinVel-14*dt);   // spins down over the arc
+  }
+  if(diving&&diveT<1)diveT=Math.min(1,diveT+dt*7);
+  if(styleFlash>0)styleFlash=Math.max(0,styleFlash-dt*1.6);
 
   // Biome progression — change every ~500 dist
   const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
@@ -3093,10 +3193,19 @@ function drawGame(){
     // Frog X follows player input — no snapping to platform center
     const jumpLaneX=visLane;
 
-    // Lean toward movement direction (no full spin — looks bad with sprite)
+    // Publish airness so the trick system knows whether we're airborne, and
+    // reset the trick chain the moment a new jump begins.
+    curAirness=airness;
+    if(curIdx2!==lastJumpIdx){lastJumpIdx=curIdx2;trickChain=0;trickSpin=0;trickSpinVel=0;diving=false;diveT=0;}
+
+    // Dive-slam pulls the frog down out of its arc
+    const diveDrop=diving?Math.min(diveT,1):0;
+    const airEff=airness*(1-diveDrop*0.92);
+
+    // Lean toward movement direction, plus any trick spin on top
     const moveDir=frogCont-visLane; // positive=right, negative=left
     const leanAmt=clamp(moveDir*1.2,-0.45,0.45); // max ~25° lean
-    const rot=leanAmt*airness;
+    const rot=leanAmt*airEff + trickSpin + (diving?diveDrop*0.9:0);
 
     const frogZ=lerp(curPos,nextPos,bounce)-seq+VIEW_Z;
     const fp=project(frogZ,jumpLaneX);
@@ -3109,7 +3218,7 @@ function drawGame(){
 
     // Frog glow — enhanced during fever
     ctx.save();
-    const fgy=fy-airness*140*fs*.55;
+    const fgy=fy-airEff*140*fs*.55;
     const glowR=fever?70*fs:50*fs;
     const glowA=fever?(.3+.1*Math.sin(feverT*6)):.18;
     const fgg=ctx.createRadialGradient(fx,fgy,0,fx,fgy,glowR);
@@ -3118,15 +3227,15 @@ function drawGame(){
     ctx.fillStyle=fgg;ctx.beginPath();ctx.arc(fx,fgy,glowR,0,Math.PI*2);ctx.fill();
     ctx.restore();
     // Fever trail sparkles
-    if(fever&&airness>.2&&Math.random()<.5){
+    if(fever&&airEff>.2&&Math.random()<.5){
       addP(fx+rand(-6,6),fy+8,rand(-.02,.02),rand(.01,.03),'#FFD700',rand(1.5,2.5),.3,'s');
     }
 
-    drawFrog(fx,fy,fs,rot,sqX,sqY,airness>.2,airness*.85);
+    drawFrog(fx,fy,fs,rot,sqX,sqY,airEff>.2,airEff*.85);
     ctx.globalAlpha=1;
 
     // Trail
-    if(spd>2.8&&airness>.3){
+    if(spd>2.8&&airEff>.3){
       const trailChance=clamp((spd-2.8)/1.5,0,.6);
       if(Math.random()<trailChance)addTrail(fx+rand(-4,4),fy+12,.3+trailChance*.4);
     }
@@ -3438,6 +3547,23 @@ function drawGame(){
 
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
+
+  // Style score chip — pulses when a trick just paid out
+  if(styleScore>0){
+    const stTxt='✦ '+styleScore;
+    ctx.font='900 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    const sw=ctx.measureText(stTxt).width+26, sh=26, sx=W-10-sw, sy=46;
+    const glow=styleFlash;
+    ctx.save();
+    if(glow>0){ctx.shadowColor='rgba(124,77,255,.9)';ctx.shadowBlur=18*glow}
+    ctx.fillStyle='rgba(60,30,140,.85)';rr(sx,sy,sw,sh,13);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(179,136,255,.8)';ctx.lineWidth=1.5;rr(sx,sy,sw,sh,13);ctx.stroke();
+    ctx.fillStyle='#D1B3FF';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(stTxt,sx+sw/2,sy+sh/2+1);
+    ctx.restore();
+    ctx.textAlign='center';ctx.textBaseline='middle';
+  }
 
   // Score-multiplier active chip (from mystery-box reward)
   if(scoreMultT>0){
@@ -4200,7 +4326,7 @@ function drawOver(){
   }
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
-  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0),px=W/2-pw/2,py=H/2-ph/2;
+  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0),px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
@@ -4250,7 +4376,15 @@ function drawOver(){
   ctx.fillStyle='rgba(120,120,120,.4)';ctx.font='11px sans-serif';
   ctx.fillText('всього: '+coins,statX+col3*2.5,ty+56);
 
-  ty+=100;
+  // Style row — the second scoring axis, sits right under the stat box
+  if(styleScore>0){
+    ctx.fillStyle='rgba(124,77,255,.10)';rr(statX,ty+96,statW,34,12);ctx.fill();
+    ctx.strokeStyle='rgba(124,77,255,.35)';ctx.lineWidth=1.5;rr(statX,ty+96,statW,34,12);ctx.stroke();
+    ctx.fillStyle='#7C4DFF';ctx.font='bold 15px sans-serif';ctx.textAlign='center';
+    ctx.fillText('✦ СТИЛЬ  '+styleScore,cx,ty+118);
+  }
+
+  ty+=100+(styleScore>0?40:0);
 
   // === TREASURE CHEST WIDGET ===
   if(chestTier){
@@ -4356,12 +4490,12 @@ function overTap(x,y){
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
   const pw=Math.min(W*.82,320),cx=W/2,rw=pw*.68,rx=cx-rw/2;
-  const ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0);
+  const ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0);
   let ty=H/2-ph/2+22; // match drawOver layout
   ty+=38; // title
   if(newScoreRec)ty+=24;
   ty+=42+28; // score + label
-  ty+=100; // stats box
+  ty+=100+(styleScore>0?40:0); // stats box (+ style row)
   if(chestTier)ty+=68+12;  // chest widget
   // Revive button
   if(showRevive){
