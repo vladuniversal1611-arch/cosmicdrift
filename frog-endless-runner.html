@@ -55,6 +55,31 @@ let perfectCombo=0,perfectShow=0,perfectText='';
 // Slows the world down and paints a neon vignette for a beat.
 let hypeT=0;                // seconds remaining in the hype burst
 const HYPE_DUR=1.4;         // total burst length
+// Milestone burst — every 100m (bigger every 500m, huge every 1000m).
+// Rainbow flash + text + bonus coins as a reward for pushing further.
+let msT=0;                  // seconds remaining
+let msTier=0;               // 1=small, 2=medium, 3=epic
+let msLast=0;               // last milestone crossed
+const MS_DUR=1.6;
+function triggerMilestone(m){
+  msLast=m;
+  msTier = (m%1000===0)?3 : (m%500===0)?2 : 1;
+  msT=MS_DUR;
+  const reward = msTier===3?100 : msTier===2?40 : 15;
+  runCoins+=reward;score+=reward;
+  const label = msTier===3?`🌟 ${m}M ЕПІЧНО! 🌟` : msTier===2?`⭐ ${m}M! ⭐` : `${m}M!`;
+  const color = msTier===3?'#FFD700' : msTier===2?'#FF6EC7' : '#00E5FF';
+  addFloat(label,W/2,H*.32,color,msTier===3?38:msTier===2?30:24);
+  if(typeof sfxPU==='function')sfxPU();
+  if(navigator.vibrate)navigator.vibrate(msTier*30);
+  // Confetti
+  const nP=8*msTier;
+  for(let i=0;i<nP;i++){
+    const a=rand(0,Math.PI*2), sp=rand(.05,.14);
+    const col=['#FF6EC7','#FFD700','#00E5FF','#69F0AE','#FF4081'][i%5];
+    addP(W/2,H*.4,Math.cos(a)*sp,Math.sin(a)*sp,col,rand(2,4),.8,'s');
+  }
+}
 function hypeScale(){
   if(hypeT<=0)return 1;
   const t=hypeT/HYPE_DUR;                     // 1 at start → 0 at end
@@ -1106,6 +1131,7 @@ function startGame(){
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
+  msT=0;msTier=0;msLast=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
@@ -1511,7 +1537,13 @@ function updateGame(dt){
   }
 
   seq+=spd*dt;
+  const prevDist=dist;
   dist+=spd*dt*.5;
+  // Milestone celebration on every 100m boundary crossed
+  const prevBucket=Math.floor(prevDist/100);
+  const bucket=Math.floor(dist/100);
+  if(bucket>prevBucket&&bucket>0)triggerMilestone(bucket*100);
+  if(msT>0)msT=Math.max(0,msT-dt);
 
   // Biome progression — change every ~500 dist
   const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
@@ -3254,6 +3286,29 @@ function drawGame(){
     ctx.restore();
   }
   ctx.restore();
+
+  // === MILESTONE OVERLAY (every 100m distance) ===
+  if(msT>0){
+    const t=msT/MS_DUR;                                  // 1..0
+    const alpha=Math.sin(t*Math.PI)*(0.35+0.15*msTier);  // eases in-out, stronger for bigger tiers
+    // Rainbow band across the whole screen
+    const rg=ctx.createLinearGradient(0,0,W,H);
+    const cols=msTier>=3
+      ? ['#FF3B30','#FF9500','#FFD60A','#34C759','#00C7BE','#5AC8FA','#AF52DE']
+      : msTier===2
+        ? ['#FF6EC7','#FFD700','#00E5FF']
+        : ['#00E5FF','#69F0AE'];
+    cols.forEach((c,i)=>rg.addColorStop(i/(cols.length-1),c));
+    ctx.save();
+    ctx.globalAlpha=alpha;ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+    ctx.restore();
+    // Pulsing white ring emanating from centre for epic tier
+    if(msTier>=2){
+      const ringR=Math.max(W,H)*(1-t);
+      ctx.strokeStyle=`rgba(255,255,255,${0.7*t})`;ctx.lineWidth=6;
+      ctx.beginPath();ctx.arc(W/2,H*0.4,ringR,0,Math.PI*2);ctx.stroke();
+    }
+  }
 
   // === HYPE BURST OVERLAY (combo ≥10) ===
   if(hypeT>0){
