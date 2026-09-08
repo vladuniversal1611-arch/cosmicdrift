@@ -28,7 +28,7 @@ const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=30;      // score when speed starts increasing
 const SPD_RAMP_SCALE=900;     // very gradual ramp — noticeable every ~200pts, plateau ~3000+
-const FOCAL_LEN=3.5;
+const FOCAL_LEN=4.3;
 const VIEW_Z=3.0;
 let VIEW_AHEAD=22;              // grows with speed so reaction time stays constant
 const VIEW_AHEAD_MIN=22, VIEW_AHEAD_MAX=34, PREVIEW_SECONDS=3.6;
@@ -1353,7 +1353,10 @@ const ACTION_PATTERNS=[
 // --- 9. AMPLITUDE BY DIFFICULTY ------------------------------------------
 // The shape never changes; the swing widens. Capped so a full -0.55..+0.55
 // flick (1.10 of offset) still fits the physical reach envelope of 1.32.
-function ampFor(diff){ return lerp(0.74,1.20,clamp(diff,0,1)); }
+function ampFor(diff){ return lerp(0.92,1.35,clamp(diff,0,1)); }
+// How far the shape reaches to each side at this amplitude — the route centre
+// has to stay inside the band by that much or the swing gets clipped flat.
+function centreBand(amp){ return 0.55*amp; }
 
 // The first point with a real sideways commitment tells us which way the
 // shape leads — used to make consecutive sections pull opposite ways.
@@ -1416,9 +1419,9 @@ function buildRouteSection(diff){
     let x=clamp(startX+pt.x*orient*amp+rand(-0.025,0.025),X_MIN,X_MAX);
     // §17 — no two platforms in a row may sit on top of each other laterally.
     // A step that would barely move gets pushed on in the direction of travel.
-    if(Math.abs(x-routeLane)<0.26){
+    if(Math.abs(x-routeLane)<0.36){
       const dir=(x-routeLane)!==0?Math.sign(x-routeLane):(routeLane<1.0?1:-1);
-      x=clamp(routeLane+dir*0.32,X_MIN,X_MAX);
+      x=clamp(routeLane+dir*0.44,X_MIN,X_MAX);
     }
     const elev=Math.min(2,pt.h||0);
     const swing=Math.abs(x-routeLane);
@@ -1459,13 +1462,14 @@ function buildRouteSection(diff){
       out.push(step(x,0,'PRECISION',{gap:0.9,loot:i===3?'gem':'coin'}));
       routeLane=x;
     }
-    out.push(step(clamp(routeLane+(routeLane<1.0?0.42:-0.42),X_MIN,X_MAX),0,'SAFE',{gap:1.12}));
+    out.push(step(clamp(routeLane+(routeLane<1.0?0.55:-0.55),X_MIN,X_MAX),0,'SAFE',{gap:1.12}));
     routeLane=out[out.length-1].lane;
   }
   routeElev=out.length?(out[out.length-1].fork?out[out.length-1].safe.elev:out[out.length-1].elev)||0:0;
   // §3 — the next section starts from here, eased toward the middle just enough
   // that the shape after it still has room to swing both ways.
-  routeCenter=clamp(lerp(routeLane,1.0,0.40),0.80,1.20);
+  const cb=centreBand(amp);
+  routeCenter=clamp(lerp(routeLane,1.0,0.40),X_MIN+cb,X_MAX-cb);
   routeLast=pat.name;
   return out;
 }
@@ -1478,7 +1482,7 @@ function validateSection(sec,fromLane,fromElev){
   for(const st of sec){
     const targets=st.fork?[st.safe,st.risk]:[st];
     for(const t of targets){
-      if(Math.abs(t.lane-pl)>1.62)return false;
+      if(Math.abs(t.lane-pl)>1.76)return false;
       if(Math.abs((t.elev||0)-pe)>2)return false;
     }
     const adv=st.fork?st.safe:st;
@@ -1595,14 +1599,14 @@ function reachableFromAll(prevXs, prevY, nextX, nextY, hasBounce){
 // instead of dropping the player into whatever the RNG felt like.
 const OPENING=[
   {x: 0.00,t:'wide',   gap:0  },                   // 1. land, get your bearings
-  {x:-0.30,t:'wide',   gap:4.0},                   // 2. first move is already sideways
-  {x: 0.34,t:'wide',   gap:4.0, loot:'coin'},      // 3. and back the other way, paid
-  {x:-0.38,t:'wide',   gap:4.0},                   // 4. left again — the zigzag IS the game
-  {x: 0.42,t:'normal', gap:3.9, loot:'coin'},
-  {x:-0.30,t:'normal', gap:3.9},
-  {x: 0.46,t:'normal', gap:4.0, loot:'gem'},       // 7. first gem, out on the edge
-  {x:-0.44,t:'normal', gap:4.0},
-  {x: 0.10,t:'wide',   gap:3.9},                   // 9. breathe, still off-centre
+  {x:-0.42,t:'wide',   gap:4.0},                   // 2. first move is already sideways
+  {x: 0.46,t:'wide',   gap:4.0, loot:'coin'},      // 3. and back the other way, paid
+  {x:-0.52,t:'wide',   gap:4.0},                   // 4. left again — the zigzag IS the game
+  {x: 0.56,t:'normal', gap:3.9, loot:'coin'},
+  {x:-0.54,t:'normal', gap:3.9},
+  {x: 0.58,t:'normal', gap:4.0, loot:'gem'},       // 7. first gem, out on the edge
+  {x:-0.56,t:'normal', gap:4.0},
+  {x: 0.34,t:'wide',   gap:3.9},                   // 9. breathe, still off-centre
 ];
 
 function isReachable(prevX, prevY, nextX, nextY, hasBounce){
@@ -1613,11 +1617,13 @@ function isReachable(prevX, prevY, nextX, nextY, hasBounce){
   // Max Y distance (jump range, bounce extends it)
   const maxY=hasBounce?9.0:7.0;
   if(yDist>maxY) return false;
-  // Max X distance scales with Y distance (more Y = more time to move X)
-  const maxX=Math.min(yDist*0.42, 1.5);
+  // Max X distance scales with Y distance (more Y = more time to move X).
+  // The steering rate is 18/s and a hop lasts well over a second, so the old
+  // 0.42/1.50 envelope was throttling the zigzag, not the physics.
+  const maxX=Math.min(yDist*0.50, 1.66);
   if(xDist>maxX) return false;
-  // Safety margin 12%
-  return xDist<=maxX*0.88;
+  // Safety margin 10%
+  return xDist<=maxX*0.90;
 }
 
 // === MAIN GENERATOR ===
@@ -1712,7 +1718,7 @@ function ensurePads(){
       // centre — which is exactly why the route kept flattening out.
       const wantLane=st.fork?st.safe.lane:st.lane;
       const anchorX=prevXs.reduce((x,y)=>x+y,0)/prevXs.length;
-      const need=Math.abs(wantLane-anchorX)/0.3696;      // invert the reach formula
+      const need=Math.abs(wantLane-anchorX)/0.45;        // invert the reach formula
       const nextY=prevY+Math.max(baseGap*(st.gap||1), need+0.25);
       const unlocked=getUnlockedTypes(dist);
       const mk=(spec,gx)=>{
@@ -1785,7 +1791,7 @@ function ensurePads(){
         // pulling both toward the previous pad used to collapse them into one.
         const dy=nextY-prevY;
         const anchorX=prevXs.reduce((a,b)=>a+b,0)/prevXs.length;
-        const reach=Math.min(dy*0.42,1.5)*0.86;      // 14% safety margin
+        const reach=Math.min(dy*0.50,1.66)*0.88;      // 14% safety margin
         const riskDir=zoneToX(st.fork.risk.z)<1.0?-1:1;
         let safeX=clamp(anchorX-riskDir*reach*0.24,0.12,1.88);
         let riskX=clamp(anchorX+riskDir*reach*0.90,0.12,1.88);
@@ -1969,7 +1975,7 @@ function validatePads(n){
     const prev=pads[i-1],cur=pads[i];
     const xDist=Math.abs(cur.gameX-prev.gameX);
     const yDist=padPositions[i]-padPositions[i-1];
-    const maxX=Math.min(yDist*0.42, 1.5)*0.88;
+    const maxX=Math.min(yDist*0.50, 1.66)*0.90;
     if(xDist>maxX){
       // Shrink the swing, keep the direction: LEFT->RIGHT must never be
       // rewritten into LEFT->CENTRE just because it was slightly too wide.
@@ -2009,7 +2015,7 @@ function project(relZ,l,elev){
   let y=vanY+(baseY-vanY)*p;
   if(elev)y-=elev*ELEV_UNIT*p;
   y+=camY*p;                       // camera eases toward the height you're at
-  const lw=W*.68*p;
+  const lw=W*.74*p;
   const x=W/2+(l-1)*lw+roadCurveX(p);
   return{x,y,s:Math.max(p,.02)};
 }
@@ -2203,7 +2209,7 @@ function startGame(){
   }
   prevBranchXs=[pads[pads.length-1].gameX];
   routeLane=pads[pads.length-1].gameX;
-  routeCenter=clamp(lerp(routeLane,1.0,0.40),0.80,1.20);
+  routeCenter=clamp(lerp(routeLane,1.0,0.40),0.42,1.58);
   ensurePads();
   validatePads(100);
   initClouds();initBflies();initSideObjects();initAtmo();startMus();
