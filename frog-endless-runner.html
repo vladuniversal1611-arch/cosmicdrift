@@ -38,6 +38,9 @@ const JUMP_UNIT=3.0;
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
 let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1,laneVel=0;
+// Vertical camera offset in screen px at p=1 — eases toward the frog's current
+// elevation so climbs and drops read as real height instead of teleporting.
+let camY=0, frogElev=0;
 let alive=true,falling=false,fallT=0;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
@@ -1071,9 +1074,26 @@ const ZONES={
 };
 const ZONE_NAMES=['FAR_LEFT','LEFT','CENTER','RIGHT','FAR_RIGHT'];
 
+// Three clean lanes are the backbone of the corridor. Snapping to them (rather
+// than sampling a range and jittering) is what makes the route readable — the
+// player can see at a glance which line each platform is on.
+const LANE_X={LEFT:0.30, CENTER:1.00, RIGHT:1.70};
+function laneToX(name){return LANE_X[name]!==undefined?LANE_X[name]:1.0}
+// Pull a corrected X back onto the nearest lane that is still reachable, so
+// reachability fixes and anti-stale nudges don't smear the three-lane corridor.
+function snapToLane(x,prevXs,prevY,nextY,hasBounce){
+  const lanes=[LANE_X.LEFT,LANE_X.CENTER,LANE_X.RIGHT]
+    .slice().sort((a,b)=>Math.abs(a-x)-Math.abs(b-x));
+  for(const L of lanes){
+    if(reachableFromAll(prevXs,prevY,L,nextY,hasBounce))return L;
+  }
+  return x;                       // no lane works — keep the safe position
+}
 function zoneToX(zoneName){
-  const z=ZONES[zoneName];
-  return rand(z.min, z.max);
+  // Legacy five-zone names fold onto the three lanes
+  if(zoneName==='FAR_LEFT'||zoneName==='LEFT')return LANE_X.LEFT;
+  if(zoneName==='FAR_RIGHT'||zoneName==='RIGHT')return LANE_X.RIGHT;
+  return LANE_X.CENTER;
 }
 
 // How far apart two zones are (0=same, 1=adjacent, 2=skip, etc)
@@ -1227,6 +1247,57 @@ const FORK_PATTERNS=[
     {z:'CENTER',t:'wide'},
   ]},
 ];
+// Elevation-driven patterns. `e` is height in ELEV_UNITs: 0 low, 1 mid, 2 high.
+const HEIGHT_PATTERNS=[
+  // VERTICAL — a climb, then a drop back down
+  {id:300,minDiff:0.10,steps:[
+    {z:'CENTER',t:'normal',e:0},
+    {z:'LEFT',  t:'normal',e:1},
+    {z:'CENTER',t:'normal',e:2,loot:'coin'},
+    {z:'RIGHT', t:'normal',e:1},
+    {z:'CENTER',t:'wide',  e:0},
+  ]},
+  {id:301,minDiff:0.10,steps:[
+    {z:'CENTER',t:'normal',e:0},
+    {z:'RIGHT', t:'normal',e:1},
+    {z:'CENTER',t:'normal',e:2,loot:'coin'},
+    {z:'LEFT',  t:'normal',e:1},
+    {z:'CENTER',t:'wide',  e:0},
+  ]},
+  // AIR CHAIN — a run held up high, paid in gems, dropping back at the end
+  {id:302,minDiff:0.30,steps:[
+    {z:'CENTER',t:'normal',e:0},
+    {z:'LEFT',  t:'small', e:2,loot:'coin'},
+    {z:'CENTER',t:'small', e:2,loot:'gem'},
+    {z:'RIGHT', t:'small', e:2,loot:'coin'},
+    {z:'CENTER',t:'wide',  e:0},
+  ]},
+  // WAVE — a rolling rise and fall you ride across the lanes
+  {id:303,minDiff:0.15,steps:[
+    {z:'LEFT',  t:'normal',e:0},
+    {z:'CENTER',t:'normal',e:1},
+    {z:'RIGHT', t:'normal',e:2,loot:'coin'},
+    {z:'CENTER',t:'normal',e:1},
+    {z:'LEFT',  t:'normal',e:0},
+  ]},
+  // HIGH RISK — the loot line runs above the safe one
+  {id:304,minDiff:0.35,steps:[
+    {z:'CENTER',t:'normal',e:0},
+    {fork:{safe:{z:'CENTER',t:'wide',e:0}, risk:{z:'RIGHT',t:'small',e:2,loot:'gem'}}},
+    {fork:{safe:{z:'CENTER',t:'normal',e:0}, risk:{z:'RIGHT',t:'small',e:2,loot:'gem'}}},
+    {z:'CENTER',t:'wide',e:0},
+  ]},
+  {id:305,minDiff:0.35,steps:[
+    {z:'CENTER',t:'normal',e:0},
+    {fork:{safe:{z:'CENTER',t:'wide',e:0}, risk:{z:'LEFT',t:'small',e:2,loot:'gem'}}},
+    {fork:{safe:{z:'CENTER',t:'normal',e:0}, risk:{z:'LEFT',t:'small',e:2,loot:'gem'}}},
+    {z:'CENTER',t:'wide',e:0},
+  ]},
+];
+function selectHeight(diff){
+  const a=HEIGHT_PATTERNS.filter(x=>x.minDiff<=diff+0.05);
+  return a.length?a[Math.floor(Math.random()*a.length)]:null;
+}
 function selectFork(diff){
   const avail=FORK_PATTERNS.filter(p=>p.minDiff<=diff+0.05);
   return avail.length?avail[Math.floor(Math.random()*avail.length)]:null;
@@ -1364,7 +1435,7 @@ function makePad(gameX, type, diff){
 
   return{
     gameX, laneX:gameX, lane:Math.round(gameX),
-    width, type, coin, pu, mystery, risky:false,
+    width, type, coin, pu, mystery, risky:false, elev:0,
     landed:false, dip:0, riskCoin:null,
     moving,
     // State for special types
@@ -1401,7 +1472,7 @@ function ensurePads(){
       const y=prevY+(pads.length===0?0:st.gap);
       const gx=clamp(zoneToX(st.z),0.1,1.9);
       padPositions.push(y);
-      const op=makePad(gx,st.t,0);
+      const op=makePad(gx,st.t,0);op.elev=0;
       if(st.loot==='coin')op.coin=true;
       if(st.loot==='gem'){op.coin=true;op.diamond=true}
       pads.push(op);
@@ -1417,9 +1488,16 @@ function ensurePads(){
     if(patDone){
       // Forks appear more often as the player gets deeper, and never during
       // the recovery beat so there is always a stretch to breathe on.
-      const forkChance=phase==='recovery'?0:lerp(0.45,0.75,effDiff);
-      const fk=Math.random()<forkChance?selectFork(effDiff):null;
-      currentPattern=fk||selectPattern(effDiff);
+      // Rotation: height-driven sections, forks, then the flat linear patterns.
+      // Recovery beats stay flat and fork-free so there is somewhere to breathe.
+      const flat=phase==='recovery';
+      const heightChance=flat?0:lerp(0.30,0.45,effDiff);
+      const forkChance =flat?0:lerp(0.35,0.55,effDiff);
+      let chosen=null;
+      const r=Math.random();
+      if(r<heightChance)chosen=selectHeight(effDiff);
+      else if(r<heightChance+forkChance)chosen=selectFork(effDiff);
+      currentPattern=chosen||selectPattern(effDiff);
       patternIdx=0;
     }
 
@@ -1451,6 +1529,7 @@ function ensurePads(){
           if(spec.loot==='coin')pd.coin=true;
           if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
           if(spec.loot)pd.risky=true;      // taking this line pays a premium
+          pd.elev=spec.e||0;
           return pd;
         };
         // The safe branch hugs the previous position by design, which can park
@@ -1458,6 +1537,11 @@ function ensurePads(){
         if(laneStale(safeX)){
           const alt=clamp(safeX+(safeX<1?0.45:-0.45),0.12,1.88);
           if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce)&&Math.abs(alt-riskX)>0.45)safeX=alt;
+        }
+        {
+          const sA=snapToLane(safeX,prevXs,prevY,nextY,prevHasBounce);
+          const sB=snapToLane(riskX,prevXs,prevY,nextY,prevHasBounce);
+          if(Math.abs(sA-sB)>0.45){safeX=sA;riskX=sB}
         }
         const isSplit=Math.abs(safeX-riskX)>0.32
           && reachableFromAll(prevXs,prevY,safeX,nextY,prevHasBounce)
@@ -1483,11 +1567,16 @@ function ensurePads(){
         const alt=clamp(gx+push,0.12,1.88);
         if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gx=alt;
       }
+      gx=snapToLane(gx,prevXs,prevY,nextY,prevHasBounce);
       pushLane(gx);
       let ty=st.t;
       if(!getUnlockedTypes(dist).includes(ty))ty='normal';
       padPositions.push(nextY);
-      pads.push(makePad(gx,ty,diff));
+      const np=makePad(gx,ty,diff);
+      np.elev=st.e||0;
+      if(st.loot==='coin')np.coin=true;
+      if(st.loot==='gem'){np.coin=true;np.diamond=true}
+      pads.push(np);
       prevBranchXs=[gx];
       lastTypes.push(ty);if(lastTypes.length>10)lastTypes.shift();
       continue;
@@ -1543,7 +1632,6 @@ function ensurePads(){
       gameX=1.0; // always centered, full width
     } else {
       gameX=zoneToX(targetZone);
-      gameX+=rand(-0.04, 0.04); // jitter
       gameX=clamp(gameX, 0.1, 1.9);
     }
 
@@ -1588,6 +1676,7 @@ function ensurePads(){
       const alt=clamp(gameX+push,0.12,1.88);
       if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gameX=alt;
     }
+    gameX=snapToLane(gameX,prevXs,prevY,nextY,prevHasBounce);
     pushLane(gameX);
     prevBranchXs=[gameX];
 
@@ -1636,11 +1725,16 @@ function updateTurn(){
 function roadCurveX(p){
   return curTurn*(1-p)*(1-p)*W*0.5;
 }
-function project(relZ,l){
+// Height above the road, in elevation units. Scaled by the perspective factor
+// so a raised platform far away lifts less than one right in front of you.
+const ELEV_UNIT=46;
+function project(relZ,l,elev){
   const depth=Math.max(relZ,0.01);
   const p=FOCAL_LEN/(depth+FOCAL_LEN);
   const vanY=H*.18,baseY=H*.93;
-  const y=vanY+(baseY-vanY)*p;
+  let y=vanY+(baseY-vanY)*p;
+  if(elev)y-=elev*ELEV_UNIT*p;
+  y+=camY*p;                       // camera eases toward the height you're at
   const lw=W*.6*p;
   const x=W/2+(l-1)*lw+roadCurveX(p);
   return{x,y,s:Math.max(p,.02)};
@@ -1787,7 +1881,7 @@ function updSpdLines(dt){
 // ========== GAME LOGIC ==========
 function startGame(){
   sfxClick();state=ST.PLAY;
-  seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;
+  seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;camY=0;frogElev=0;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
@@ -1907,7 +2001,7 @@ function onLand(idx){
   const pad=pads[idx];if(!pad)return;
 
   const padZ=padPositions[idx]-seq+VIEW_Z;
-  const lp=project(padZ,pad.gameX);
+  const lp=project(padZ,pad.gameX,pad.elev);
 
   // Skip broken/disappeared/fallen pads
   if(pad.broken||pad.disappeared) return;
@@ -2343,6 +2437,9 @@ function updateGame(dt){
   }
   if(diving&&diveT<1)diveT=Math.min(1,diveT+dt*7);
   if(styleFlash>0)styleFlash=Math.max(0,styleFlash-dt*1.6);
+  // Follow the player's height, but lag it so the world still feels like it
+  // rises and falls around them rather than staying pinned to the frog.
+  camY=sd(camY,frogElev*ELEV_UNIT*0.45,3.2,dt);
   if(emoT>0){emoT-=dt;if(emoT<=0){emoT=0;emo=''}}
 
   updateActs(dt);
@@ -3679,7 +3776,7 @@ function drawGame(){
     let extraY=0;
     if(pad.type==='falling'&&pad.fallOffset>0) extraY=pad.fallOffset*20;
     if(pad.fallOffset&&pad.fallOffset>8) continue; // fallen off screen
-    const p=project(rz,pad.gameX);
+    const p=project(rz,pad.gameX,pad.elev);
     p.y+=extraY*p.s;
     // Platform tilt — driven by the SAME curTurn used for road bend and camera
     // roll, scaled linearly by depth so every visible platform tilts in the
@@ -3898,7 +3995,14 @@ function drawGame(){
     const rot=leanAmt*airEff + trickSpin + (diving?diveDrop*0.9:0);
 
     const frogZ=lerp(curPos,nextPos,bounce)-seq+VIEW_Z;
-    const fp=project(frogZ,jumpLaneX);
+    // Blend elevation across the hop so climbs and drops are travelled, not snapped
+    {
+      const a=pads[curIdx2]?pads[curIdx2].elev||0:0;
+      const bEl=pads[nextIdx]?pads[nextIdx].elev||0:0;
+      const k=bounce*bounce*(3-2*bounce);          // smoothstep
+      frogElev=a+(bEl-a)*k;
+    }
+    const fp=project(frogZ,jumpLaneX,frogElev);
     let fx=fp.x,fy=fp.y,fs=fp.s*1.7;
 
     if(falling){
