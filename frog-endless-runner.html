@@ -1294,6 +1294,178 @@ const HEIGHT_PATTERNS=[
     {z:'CENTER',t:'wide',e:0},
   ]},
 ];
+// ==========================================================================
+// ROUTE GENERATOR — builds a continuous road, section by section.
+// Each section knows where it starts, where it ends, and which way it is
+// heading, and the next one begins exactly where the last one finished. That
+// continuity is the difference between "a road" and "scattered platforms".
+// Sections are parametric (length, direction, mirror), not fixed literals.
+// ==========================================================================
+const LANE_L=0.30, LANE_C=1.00, LANE_R=1.70;
+let routeQueue=[];          // pending steps for the current section
+let routeLane=LANE_C;       // lane the road is currently on
+let routeElev=0;            // height the road is currently at
+let routeLast='';           // previous section kind, for flow
+
+// One step = one platform (or a fork). Everything downstream reads these.
+function step(lane,elev,cls,opt){
+  return Object.assign({lane,elev,cls,type:'normal',loot:null,gap:1},opt||{});
+}
+// Smooth interpolation between two lanes, so curves sweep instead of snapping
+function laneLerp(a,b,t){const k=t*t*(3-2*t);return a+(b-a)*k}
+
+function buildSection(kind,diff,rng){
+  const out=[];
+  const mirror=Math.random()<0.5?1:-1;
+  const other=routeLane<=LANE_C?LANE_R:LANE_L;   // the lane we are NOT on
+  const n=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+
+  switch(kind){
+    case 'STRAIGHT':{
+      const len=n(3,5);
+      for(let i=0;i<len;i++) out.push(step(routeLane,routeElev,i===0?'SAFE':'NORMAL',
+        {loot:i>0&&i<len-1?'coin':null}));
+      break;
+    }
+    case 'ZIGZAG':{
+      const len=n(4,6);
+      let l=routeLane;
+      for(let i=0;i<len;i++){
+        l = (l===LANE_C) ? (mirror>0?LANE_L:LANE_R) : LANE_C;
+        out.push(step(l,routeElev,'NORMAL',{loot:i%2===0?'coin':null}));
+      }
+      routeLane=l;
+      break;
+    }
+    case 'CURVE':{
+      const len=n(4,6);
+      const from=routeLane, to=other;
+      for(let i=0;i<len;i++){
+        const t=(i+1)/len;
+        out.push(step(laneLerp(from,to,t),routeElev,'NORMAL',{loot:i>0?'coin':null}));
+      }
+      routeLane=to;
+      break;
+    }
+    case 'ASCEND':{
+      const len=n(3,4);
+      for(let i=0;i<len;i++){
+        const e=Math.min(2,routeElev+i+1);
+        out.push(step(i%2===0?routeLane:other,e,'NORMAL',{loot:i===len-1?'gem':'coin'}));
+      }
+      routeElev=Math.min(2,routeElev+len);
+      break;
+    }
+    case 'DESCEND':{
+      const len=n(3,4);
+      for(let i=0;i<len;i++){
+        const e=Math.max(0,routeElev-i-1);
+        out.push(step(i%2===0?other:routeLane,e,'NORMAL',{loot:'coin'}));
+      }
+      routeElev=0;
+      break;
+    }
+    case 'AIR_CHAIN':{
+      out.push(step(routeLane,1,'NORMAL'));
+      const len=n(3,4);
+      for(let i=0;i<len;i++){
+        const l=[LANE_L,LANE_C,LANE_R][(i+(mirror>0?0:2))%3];
+        out.push(step(l,2,'PRECISION',{loot:i===len-1?'gem':'coin'}));
+        routeLane=l;
+      }
+      out.push(step(routeLane,0,'SAFE'));
+      routeElev=0;
+      break;
+    }
+    case 'SPEED':{
+      const len=n(5,7);
+      for(let i=0;i<len;i++)
+        out.push(step(routeLane,routeElev,'NORMAL',{gap:0.72,loot:'coin'}));
+      break;
+    }
+    case 'RISK':{
+      out.push(step(routeLane,routeElev,'NORMAL'));
+      const rl=other;
+      const forks=n(2,3);
+      for(let i=0;i<forks;i++){
+        out.push({fork:true,
+          safe:step(routeLane,routeElev,'SAFE'),
+          risk:step(rl,routeElev+ (Math.random()<0.5?0:2),'RISK',{loot:i===forks-1?'gem':'coin'})});
+      }
+      out.push(step(routeLane,routeElev,'SAFE'));
+      break;
+    }
+    case 'SPLIT':{
+      out.push(step(routeLane,routeElev,'NORMAL'));
+      out.push({fork:true,
+        safe:step(routeLane,routeElev,'SAFE'),
+        risk:step(other,2,'RISK',{loot:'gem'})});
+      out.push(step(routeLane,routeElev,'NORMAL'));
+      break;
+    }
+    case 'PRECISION':{
+      const len=n(3,4);
+      for(let i=0;i<len;i++){
+        const l=i%2===0?routeLane:other;
+        out.push(step(l,routeElev,'PRECISION',{loot:'coin'}));
+        routeLane=l;
+      }
+      out.push(step(routeLane,routeElev,'SAFE'));
+      break;
+    }
+    default:{ // FLOW — a short breather that also re-centres the road
+      for(let i=0;i<3;i++) out.push(step(LANE_C,0,'SAFE',{loot:i===1?'coin':null}));
+      routeLane=LANE_C;routeElev=0;
+    }
+  }
+  return out;
+}
+
+// Which sections are legal right now — a difficulty curve made of CONTENT,
+// not of raw speed.
+function sectionMenu(d){
+  const m=['STRAIGHT','STRAIGHT','FLOW'];
+  if(d>0.08)m.push('ZIGZAG','CURVE');
+  if(d>0.18)m.push('SPLIT','CURVE','ZIGZAG');
+  if(d>0.30)m.push('RISK','ASCEND');
+  if(d>0.42)m.push('DESCEND','PRECISION','ASCEND');
+  if(d>0.55)m.push('AIR_CHAIN','SPEED','RISK');
+  if(d>0.68)m.push('SPEED','AIR_CHAIN','PRECISION');
+  return m;
+}
+
+// Validate a section before the player ever sees it. Anything unreachable,
+// overlapping, or too empty gets the section thrown away and rebuilt.
+function validateSection(sec,fromLane,fromElev){
+  if(!sec.length)return false;
+  let pl=fromLane, pe=fromElev;
+  for(const st of sec){
+    const targets=st.fork?[st.safe,st.risk]:[st];
+    for(const t of targets){
+      const dx=Math.abs(t.lane-pl);
+      if(dx>1.55)return false;                 // too wide a sidestep
+      if(Math.abs((t.elev||0)-pe)>2)return false;  // too big a climb in one hop
+    }
+    const adv=st.fork?st.safe:st;
+    pl=adv.lane; pe=adv.elev||0;
+  }
+  return true;
+}
+
+function nextSection(diff){
+  const menu=sectionMenu(diff);
+  for(let attempt=0;attempt<6;attempt++){
+    let kind=menu[Math.floor(Math.random()*menu.length)];
+    if(kind===routeLast&&attempt<3)continue;          // don't repeat back to back
+    const saveL=routeLane, saveE=routeElev;
+    const sec=buildSection(kind,diff);
+    if(validateSection(sec,saveL,saveE)){routeLast=kind;return sec}
+    routeLane=saveL;routeElev=saveE;                  // rebuild from the same spot
+  }
+  routeLane=LANE_C;routeElev=0;
+  return buildSection('FLOW',diff);                   // guaranteed-safe fallback
+}
+
 function selectHeight(diff){
   const a=HEIGHT_PATTERNS.filter(x=>x.minDiff<=diff+0.05);
   return a.length?a[Math.floor(Math.random()*a.length)]:null;
@@ -1350,10 +1522,20 @@ function getSpacing(diff, phase){
 }
 
 // === WIDTH ===
+// Size CLASSES, not random widths. The old range ran 0.55-1.30 - a 2.4x swing
+// between neighbours - which is exactly what made the route read as a pile of
+// unrelated rectangles. Most of the road is NORMAL, so it looks like one level.
+const SIZE_CLASS={SAFE:1.20, NORMAL:1.00, PRECISION:0.80, RISK:0.76, SPECIAL:1.02};
+function classWidth(cls,diff){
+  const base=SIZE_CLASS[cls]!==undefined?SIZE_CLASS[cls]:SIZE_CLASS.NORMAL;
+  // Difficulty shaves a little off everything, but never enough to break the
+  // visual consistency of the road.
+  return base*lerp(1.0,0.88,diff);
+}
 function getWidth(type, diff){
-  if(type==='wide') return lerp(1.3, 1.15, diff);
-  if(type==='small') return lerp(0.7, 0.55, diff);
-  return lerp(1.05, 0.78, diff*diff);
+  if(type==='wide')  return classWidth('SAFE',diff);
+  if(type==='small') return classWidth('PRECISION',diff);
+  return classWidth('NORMAL',diff);
 }
 
 // === HIT RADIUS ===
@@ -1478,6 +1660,57 @@ function ensurePads(){
       pads.push(op);
       prevBranchXs=[gx];pushLane(gx);
       lastTypes.push(st.t);if(lastTypes.length>10)lastTypes.shift();
+      continue;
+    }
+
+    // --- ROUTE: pull the next step from the current section, building a new
+    // section when the last one runs out. This replaces picking short unrelated
+    // patterns — the road now continues from wherever it left off. ---
+    if(!routeQueue.length) routeQueue=nextSection(effDiff);
+    {
+      const st=routeQueue.shift();
+      const baseGap=getSpacing(effDiff,phase);
+      const nextY=prevY+baseGap*(st.gap||(st.fork?1:1));
+      const unlocked=getUnlockedTypes(dist);
+      const mk=(spec,gx)=>{
+        let ty=spec.type||'normal';
+        if(!unlocked.includes(ty))ty='normal';
+        const pd=makePad(gx,ty,diff);
+        pd.width=classWidth(spec.cls||'NORMAL',diff);
+        pd.elev=spec.elev||0;
+        if(spec.loot==='coin')pd.coin=true;
+        if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
+        return pd;
+      };
+      if(st.fork){
+        let sx=clamp(st.safe.lane,0.12,1.88);
+        let rx=clamp(st.risk.lane,0.12,1.88);
+        sx=snapToLane(sx,prevXs,prevY,nextY,prevHasBounce);
+        rx=snapToLane(rx,prevXs,prevY,nextY,prevHasBounce);
+        const split=Math.abs(sx-rx)>0.45
+          && reachableFromAll(prevXs,prevY,sx,nextY,prevHasBounce)
+          && reachableFromAll(prevXs,prevY,rx,nextY,prevHasBounce);
+        padPositions.push(nextY);pads.push(mk(st.safe,sx));
+        if(split){
+          const rp=mk(st.risk,rx);rp.risky=true;
+          padPositions.push(nextY);pads.push(rp);
+        }
+        prevBranchXs=split?[sx,rx]:[sx];
+        pushLane(sx);
+        lastTypes.push(st.safe.type||'normal');if(lastTypes.length>10)lastTypes.shift();
+        continue;
+      }
+      let gx=clamp(st.lane,0.12,1.88);
+      // Keep the road legal: pull in until reachable, then settle back on a lane
+      for(let a=0;a<6&&!reachableFromAll(prevXs,prevY,gx,nextY,prevHasBounce);a++){
+        const mid=prevXs.reduce((x,y)=>x+y,0)/prevXs.length;
+        gx=clamp(lerp(gx,mid,0.30+a*0.14),0.12,1.88);
+      }
+      gx=snapToLane(gx,prevXs,prevY,nextY,prevHasBounce);
+      padPositions.push(nextY);
+      pads.push(mk(st,gx));
+      prevBranchXs=[gx];pushLane(gx);
+      lastTypes.push(st.type||'normal');if(lastTypes.length>10)lastTypes.shift();
       continue;
     }
 
@@ -1910,7 +2143,7 @@ function startGame(){
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
-  pads=[];padPositions=[];currentPattern=null;patternIdx=0;prevBranchXs=[];laneHist=[];
+  pads=[];padPositions=[];currentPattern=null;patternIdx=0;prevBranchXs=[];laneHist=[];routeQueue=[];routeLane=LANE_C;routeElev=0;routeLast='';
   pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
   // Initial platforms — first 6 center/easy, generous spacing
@@ -4189,46 +4422,23 @@ function drawGame(){
     ctx.globalAlpha=pfa;
     // Scale font: GOOD=24, single PERFECT=30, combo PERFECT=36-48, fever=48-56
     let fontSize;
-    if(isGoodText){fontSize=24}
-    else if(isFeverPerfect){fontSize=Math.min(40+perfectCombo*2,56)}
-    else if(perfectCombo>=5){fontSize=44}
-    else if(perfectCombo>=2){fontSize=36}
-    else{fontSize=30}
+    if(isGoodText){fontSize=20}
+    else if(isFeverPerfect){fontSize=Math.min(30+perfectCombo,38)}
+    else if(perfectCombo>=5){fontSize=32}
+    else if(perfectCombo>=2){fontSize=27}
+    else{fontSize=23}
     ctx.font=`900 ${fontSize*pfsc}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     const pfCol=isGoodText?'#FFD54F':isFeverPerfect?'#FFD700':perfectText.includes('⚡')?'#E040FB':'#E040FB';
     ctx.shadowColor=isFeverPerfect?'rgba(255,180,0,.8)':pfCol;
     ctx.shadowBlur=isGoodText?8:isFeverPerfect?30:16;
     // Position: GOOD below center, PERFECT higher
-    const textY=isGoodText?H*.28:H*.22;
+    const textY=isGoodText?H*.155:H*.135;   // above the route, below the HUD
     // Painted sky underneath means a glow alone leaves the text washed out.
     ctx.lineJoin='round';ctx.lineWidth=Math.max(4,fontSize*pfsc*.2);
     ctx.strokeStyle='rgba(32,14,48,.9)';
     ctx.strokeText(perfectText,W/2,textY);
     ctx.fillStyle=pfCol;
     ctx.fillText(perfectText,W/2,textY);
-    if(!isGoodText&&perfectCombo>1){
-      const cm=Math.min(perfectCombo,5);
-      const comboSize=isFeverPerfect?Math.min(28+cm*3,44):20+cm*3;
-      const comboCols=['#FFD54F','#FF9800','#FF5722','#E040FB','#FFD700'];
-      const cc=isFeverPerfect?'#FFA000':comboCols[Math.min(cm-1,4)];
-      const cSize=comboSize*pfsc, cy2=textY+34*pfsc;
-      ctx.font=`900 ${cSize}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
-      ctx.shadowColor=cc;ctx.shadowBlur=cm*6;
-      const cTxt='x'+cm;
-      const hot=cm>=4, fh=cSize*.9;
-      const fw=(hot&&_ok('flame'))?fh*_A.flame.naturalWidth/_A.flame.naturalHeight:0;
-      const cTw=ctx.measureText(cTxt).width;
-      let cx2=W/2-(cTw+(fw?fw+cSize*.16:0))/2;
-      ctx.textAlign='left';
-      ctx.lineJoin='round';ctx.lineWidth=Math.max(3,cSize*.22);
-      ctx.strokeStyle='rgba(32,14,48,.9)';
-      ctx.strokeText(cTxt,cx2,cy2);
-      ctx.fillStyle=cc;
-      ctx.fillText(cTxt,cx2,cy2);
-      if(fw){ctx.shadowBlur=0;ctx.drawImage(_A.flame,cx2+cTw+cSize*.16,cy2-fh/2,fw,fh)}
-      else if(hot){ctx.fillText(' 🔥',cx2+cTw,cy2)}
-      ctx.textAlign='center';
-    }
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
     ctx.restore();
