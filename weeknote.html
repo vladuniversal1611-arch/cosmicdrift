@@ -393,7 +393,10 @@ body {
   flex-direction: column;
   overflow: hidden;
   background-color: var(--bg);
-  position: relative;
+  /* position: absolute; inset: 0 — inherited from .screen; do NOT override
+     with position:relative here, that breaks the height chain:
+     #weekContainer flex:1 and the CSS grid get no definite height to share,
+     grid rows expand to content (14 × 14px = 196px per card) and overflow. */
 }
 /* Themed desk background sits below all content, hue-shifted per theme */
 #scrWeek::before {
@@ -3831,7 +3834,9 @@ function renderWeekNotebook(dd){
     const positioned = dayTasks.filter(t => Number.isInteger(t.pos));
     const unpositioned = dayTasks.filter(t => !Number.isInteger(t.pos));
     const maxPos = positioned.reduce((m,t) => Math.max(m, t.pos), -1);
-    const totalNeeded = Math.max(maxPos + 1 + unpositioned.length, 14);
+    // Keep slot count low (8 max) so cards don't grow beyond their grid row.
+    // 14 was too many: 14×14px=196px per card overflowed the grid constraints.
+    const totalNeeded = Math.max(maxPos + 1 + unpositioned.length, 8);
     const slots = new Array(totalNeeded).fill(null);
     positioned.forEach(t => { if (t.pos < slots.length) slots[t.pos] = t; });
     // Fill un-positioned tasks into the first free slots
