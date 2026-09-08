@@ -182,6 +182,11 @@ export class PieceSystem extends System {
     piece.dragging = true;
     piece.shake = 0;
     piece.tilt = 0;
+    // Snap the intro pop-in to finished. Otherwise grabbing a relic while its
+    // staggered appear tween (a back-ease overshoot) is still playing lets that
+    // overshoot fight the drag — the piece visibly twitches on the FIRST pickup
+    // right after entering a level, then behaves once the intro has elapsed.
+    piece._appear = 1;
     this._lastX = x;
     this._hoverKey = null;
     piece.storeHome();

@@ -12,7 +12,8 @@
  * -----------------------------------------------------------------------------
  */
 export const Shapes = Object.freeze({
-  single: { blocks: [[0, 0]], weight: 2 },
+  // NOTE: no 1×1 "single" piece — single blocks are trivial filler that add no
+  // interesting decisions, so the smallest relic is the 2-block bar.
 
   // Straight bars in BOTH orientations. The weights split each bar across
   // horizontal + vertical so overall bar frequency stays balanced but the tray
