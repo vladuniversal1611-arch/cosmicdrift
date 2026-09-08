@@ -525,7 +525,8 @@ let reviveUsed=false,reviveShow=0;
 let luckyActive=false,luckyT=0,luckyResult='',luckyShow=0;
 // Turbo zone
 let turbo=false,turboT=0,turboShow=0,lastTurboDist=0,turboLines=[];
-const TURBO_DURATION=3.5,TURBO_SPEED_MULT=1.45,TURBO_INTERVAL=120; // every ~120 dist units (~500m+)
+let spdMul=1;   // eased speed multiplier — turbo and boost ramp in, never snap
+const TURBO_DURATION=3.5,TURBO_SPEED_MULT=1.20,TURBO_INTERVAL=120; // every ~120 dist units (~500m+)
 // (meteor shower removed)
 // Chaser (shadow wall)
 let chaserZ=0,chaserActive=false,chaserWarnShow=0;
@@ -2180,7 +2181,7 @@ function startGame(){
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
   msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
   luckyActive=false;luckyT=0;luckyShow=0;
-  turbo=false;turboT=0;turboShow=0;lastTurboDist=0;turboLines=[];
+  turbo=false;turboT=0;turboShow=0;lastTurboDist=0;turboLines=[];spdMul=1;
   // (meteor removed)
   chaserZ=0;chaserActive=false;chaserWarnShow=0;
   diamondPath=false;diamondT=0;diamondCount=0;diamondTotal=0;lastDiamondDist=0;
@@ -2687,7 +2688,11 @@ function updateGame(dt){
   // Gradual speed ramp: starts at GAME_SPD, plateaus at GAME_SPD_MAX
   const rampProgress=score>SPD_RAMP_START?1-Math.exp(-(score-SPD_RAMP_START)/SPD_RAMP_SCALE):0;
   const baseSpd=GAME_SPD+(GAME_SPD_MAX-GAME_SPD)*rampProgress;
-  spd=boost?baseSpd*1.3:turbo?baseSpd*TURBO_SPEED_MULT:baseSpd;
+  // Ease the multiplier instead of stepping it: turbo used to snap the world
+  // to 1.45x in a single frame, which read as a lurch rather than as speed.
+  const tgtMul=boost?1.18:turbo?TURBO_SPEED_MULT:1;
+  spdMul=sd(spdMul,tgtMul,1.8,dt);
+  spd=baseSpd*spdMul;
   spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
   // Look further ahead the faster we go, so the player always gets roughly the
   // same number of seconds to read the next jumps.
@@ -3234,7 +3239,9 @@ function drawBg(){
 
   // Handle abstract geometric backgrounds
   if(sky.t==='geo'){
-    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    // Over-fill: the world is rotated by the camera roll, so a screen-sized
+    // rect leaves a straight stripe of bare canvas in the corners.
+    ctx.fillStyle='#000';ctx.fillRect(-W,-H,W*3,H*3);
     if(sky.style==='hexagons')drawAbstractHexagons(sky);
     else if(sky.style==='spiral')drawAbstractSpiral(sky);
     else if(sky.style==='pop')drawAbstractPop(sky);
@@ -3254,7 +3261,12 @@ function drawBg(){
     // simulating "flying forward through clouds". No tile seams because we never tile —
     // each copy fades in small in the distance, grows, then fades out when close.
     const im=_A[sky.img];
-    const baseScale=Math.max(W/im.naturalWidth, H/im.naturalHeight);
+    // The whole world is rotated by the camera roll before this draws, so the
+    // viewport corners swing outside a screen-sized rect and the edge of the
+    // photo shows up as a flat straight stripe. Cover a rect inflated by the
+    // worst-case corner travel plus the downward drift below.
+    const bgPad=Math.hypot(W/2,H*0.93)*0.155+H*0.07;
+    const baseScale=Math.max((W+bgPad*2)/im.naturalWidth, (H+bgPad*2)/im.naturalHeight);
     // Sky-color fallback under the images so any brief alpha dip never flashes black
     const bg=ctx.createLinearGradient(0,0,0,H);
     bg.addColorStop(0,sky.top);bg.addColorStop(1,sky.bot);
@@ -3267,7 +3279,7 @@ function drawBg(){
       const zoom=1+p*0.7;                       // 1.0 → 1.7 over the cycle
       const scale=baseScale*zoom;
       const iw=im.naturalWidth*scale, ih=im.naturalHeight*scale;
-      const driftY=p*H*0.12;                    // subtle downward drift
+      const driftY=(p-0.5)*H*0.12;              // subtle drift, centred so it never uncovers an edge
       const ox=(W-iw)/2, oy=(H-ih)/2+driftY;
       ctx.globalAlpha=Math.sin(p*Math.PI);      // 0 → 1 → 0, peaks mid-cycle
       if(sky.spin){
@@ -3275,7 +3287,7 @@ function drawBg(){
         // screen diagonal — guarantees full coverage at any rotation angle, no
         // edges ever peek in. Multiplied by the zoom pulse for the same in-and-out feel.
         const diag=Math.hypot(W,H);
-        const spinScale=(diag/Math.min(im.naturalWidth,im.naturalHeight))*1.06*zoom;
+        const spinScale=((diag+bgPad*2)/Math.min(im.naturalWidth,im.naturalHeight))*1.06*zoom;
         const siw=im.naturalWidth*spinScale, sih=im.naturalHeight*spinScale;
         ctx.save();
         ctx.translate(W/2,H/2);
