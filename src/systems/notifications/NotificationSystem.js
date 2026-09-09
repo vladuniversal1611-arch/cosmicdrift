@@ -30,6 +30,15 @@ const REMINDERS = [
   { id: 'levels', nid: 3, delayDays: 7, titleKey: 'notif.levels.title', bodyKey: 'notif.levels.body' },
 ];
 
+/**
+ * A DAILY habit reminder that repeats every day at a fixed local time (default
+ * 19:00). Scheduled when the app is backgrounded and cancelled when the player
+ * returns — so an active player is never pinged, but on any day they haven't
+ * opened the game by this time they get a nudge. This is the "every day"
+ * retention ping, separate from the lapsed-player ladder above.
+ */
+const DAILY = { nid: 4, hour: 19, minute: 0, titleKey: 'notif.daily.title', bodyKey: 'notif.daily.body' };
+
 export class NotificationSystem extends System {
   constructor(game) {
     super(game);
@@ -82,6 +91,13 @@ export class NotificationSystem extends System {
           body: t(r.bodyKey),
           schedule: { at: new Date(now + r.delayDays * 86400000) },
         }));
+        // Daily habit ping: repeats every day at DAILY.hour:DAILY.minute local.
+        notifications.push({
+          id: DAILY.nid,
+          title: t(DAILY.titleKey),
+          body: t(DAILY.bodyKey),
+          schedule: { on: { hour: DAILY.hour, minute: DAILY.minute }, repeats: true, allowWhileIdle: true },
+        });
         this._ln.cancel?.({ notifications: notifications.map((n) => ({ id: n.id })) });
         this._ln.schedule?.({ notifications });
       } else if (this._bridge) {
@@ -89,14 +105,26 @@ export class NotificationSystem extends System {
         for (const r of REMINDERS) {
           this._bridge.schedule(r.id, r.delayDays * 86400, t(r.titleKey), t(r.bodyKey));
         }
+        // Legacy bridge has no repeat primitive — schedule the next occurrence
+        // of the daily time as a one-off (best effort; Capacitor is the real path).
+        this._bridge.schedule(String(DAILY.nid), this._secondsUntilDaily(), t(DAILY.titleKey), t(DAILY.bodyKey));
       }
     } catch { /* bridge/plugin went away */ }
+  }
+
+  /** Seconds from now until the next DAILY.hour:DAILY.minute (legacy path). */
+  _secondsUntilDaily() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(DAILY.hour, DAILY.minute, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);   // already passed today → tomorrow
+    return Math.max(60, Math.round((next - now) / 1000));
   }
 
   /** Drop pending reminders (called when the player returns). */
   _clearReminders() {
     try {
-      if (this._ln) this._ln.cancel?.({ notifications: REMINDERS.map((r) => ({ id: r.nid })) });
+      if (this._ln) this._ln.cancel?.({ notifications: [...REMINDERS.map((r) => ({ id: r.nid })), { id: DAILY.nid }] });
       else this._bridge?.cancelAll?.();
     } catch { /* noop */ }
   }

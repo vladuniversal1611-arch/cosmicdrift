@@ -56,6 +56,7 @@ export default {
   },
   collection: { tabs: { dragons: 'DRAGONS', buildings: 'BUILDINGS', artifacts: 'ARTIFACTS', awards: 'AWARDS' } },
   notif: {
+    daily: { title: 'Time to play, Skydoku! 🧩', body: 'Your daily puzzle and gift are waiting — clear a few lines!' },
     gift: { title: 'Your daily gift is ready! 🎁', body: 'Pop back in and grab your free coins.' },
     miss: { title: 'Your friends miss you! 🐸', body: 'The board is waiting — come play a round.' },
     levels: { title: 'New levels are calling ✨', body: 'Fresh puzzles are ready for you in Skydoku.' },
