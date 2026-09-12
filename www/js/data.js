@@ -254,20 +254,91 @@
       '##....##',
       '########',
       '########'
+    ],
+    // Two rounded lobes at the top, tapering to a single-column point.
+    heart: [
+      '.##..##.',
+      '########',
+      '########',
+      '########',
+      '########',
+      '.######.',
+      '..####..',
+      '...##...'
+    ],
+    // Two pointy ears at the top, round head/body, chin at the bottom.
+    cat: [
+      '##....##',
+      '###..###',
+      '########',
+      '########',
+      '########',
+      '########',
+      '.######.',
+      '..####..'
+    ],
+    // Horizontal fish with a tail on the left.  Rows 0/7 are empty so the
+    // silhouette is centred vertically — gravity handles this correctly
+    // (the top-refill spawn loop skips over any all-wall row).
+    fish: [
+      '........',
+      '...####.',
+      '..######',
+      '########',
+      '########',
+      '..######',
+      '...####.',
+      '........'
+    ],
+    // Rocket pointing up with two flared fins at the base.
+    rocket: [
+      '...##...',
+      '..####..',
+      '..####..',
+      '.######.',
+      '.######.',
+      '########',
+      '########',
+      '.######.'
+    ],
+    // Castle silhouette: three-notch battlements on top, wide walls below,
+    // and a rectangular gate cut out at the very bottom.
+    castle: [
+      '##.##.##',
+      '##.##.##',
+      '########',
+      '########',
+      '########',
+      '########',
+      '##....##',
+      '##....##'
+    ],
+    // Hollow ring — the whole middle of the board is a large square hole,
+    // matches only happen along the perimeter.  Feels like puzzle-mode.
+    ring: [
+      '########',
+      '########',
+      '##....##',
+      '##....##',
+      '##....##',
+      '##....##',
+      '########',
+      '########'
     ]
   };
   // Slot-based shape rotation inside each island (25 slots).  The first 10
   // global levels always get `full` (tutorial); after that this table drives
-  // per-slot shape.  Boss slot (24) always overridden to `full`.
+  // per-slot shape.  Boss slot (24) always overridden to `full`.  Mix of
+  // familiar rectangles and playful silhouettes so no two neighbours repeat.
   const SHAPE_ORDER_BY_SLOT = [
     'full',      'full',      'full',       // 0-2  intro
-    'diamond',   'full',      'full',       // 3-5
+    'diamond',   'full',      'heart',      // 3-5
     'cross',     'full',      'hourglass',  // 6-8
-    'full',      'full',      'pyramid',    // 9-11
-    'full',      'butterfly', 'full',       // 12-14
-    'diamond',   'full',      'arrow',      // 15-17
-    'full',      'hourglass', 'full',       // 18-20
-    'frame',     'full',      'pyramid',    // 21-23 (pre-boss variety)
+    'cat',       'full',      'pyramid',    // 9-11
+    'fish',      'butterfly', 'full',       // 12-14 (14 = hard)
+    'diamond',   'rocket',    'arrow',      // 15-17
+    'castle',    'hourglass', 'ring',       // 18-20
+    'frame',     'pyramid',   'heart',      // 21-23 (pre-boss variety)
     'full'                                  // 24 (boss — always full)
   ];
 
