@@ -568,9 +568,17 @@
       t._remove = true;
     });
 
-    // scoring (fever triples the payout)
+    // Scoring — combo bonus is a SOFT-CAPPED curve, not linear.
+    // Old formula: `combo` multiplied score linearly with no ceiling, so one
+    // lucky 5-chain cascade during fever (3×) could dump 4-6k score in a
+    // single move and trivialise a level.  The ASMR still fires visually,
+    // but the score reward for cascades tops out around 3.5× via a mild
+    // power curve.  Skilled combo play still pays off; game-breaking
+    // autowin cascades don't.
+    const cm = Math.max(1, this.combo);
+    const comboBonus = Math.min(3.5, Math.pow(cm, 0.65));
     const feverMult = this.feverActive ? 3 : 1;
-    const gained = Math.round(cleared * 30 * Math.max(1, this.combo) * (this.scoreMult || 1) * feverMult);
+    const gained = Math.round(cleared * 30 * comboBonus * (this.scoreMult || 1) * feverMult);
     this.score += gained;
     if (gained > 0) {
       this.addFloater(this.viewport.x + this.viewport.size / 2,

@@ -224,11 +224,14 @@
         iceCount = Math.max(8, Math.round(moves * perMove));
         crates = i < 6 ? 0 : Math.min(14, 1 + Math.floor(d * 10) + (isHard ? 3 : 0));
         target = iceCount;
-      } else { // SCORE — the biggest jump.  Was ~2700 at lvl 1; now ~5400.
-        // Base 260 per move at lvl 1 → up to 720 per move by lvl 500.
-        // (Player averages ~150-300/move casually, 400-800 with a special,
-        // so the target is now genuinely earned rather than incidental.)
-        const perMove = 260 + Math.min(460, i * 1.1);
+      } else { // SCORE — combo bonus is soft-capped in the engine now (max
+        // ~3.5×) so single-cascade autowins can't happen.  With that cap in
+        // place we can push per-move base HIGHER, especially mid-game:
+        //   lvl 1   : 300/move  (was 260) → ~6k target — needs 2-3 good specials
+        //   lvl 50  : 380/move  (was 315)
+        //   lvl 100 : 460/move  (was 370) — genuine cascade planning required
+        //   lvl 500 : 850/move  (was 720)
+        const perMove = 300 + Math.min(550, i * 1.35);
         const feasibility = 0.95 + 0.35 * wave;                   // 0.95 → 1.30
         target = Math.round(moves * perMove * feasibility);
         if (isHard) target = Math.round(target * 1.10);           // hard slots tighter
