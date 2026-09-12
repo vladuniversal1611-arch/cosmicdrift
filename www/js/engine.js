@@ -1328,10 +1328,22 @@
     if (this.shake > 0) {
       g.translate((Math.random() - 0.5) * this.shake * 10, (Math.random() - 0.5) * this.shake * 10);
     }
-    // board backing
-    this.roundRect(g, v.x - 8, v.y - 8, v.size + 16, v.size + 16, 22);
-    g.fillStyle = 'rgba(8,6,30,0.55)'; g.fill();
-    // grid cells checker — SKIP board-shape holes so custom shapes look sculpted
+    // Board backing that follows the SHAPE, not a fixed rectangle.
+    // Two passes per playable cell:
+    //   1) An oversized dark rect (bleeds 6px on each side) — adjacent cells
+    //      overlap and merge into one solid backing, while unplayable holes
+    //      stay transparent so custom shapes read as sculpted, not "cut out
+    //      of a floating square".
+    //   2) The regular subtle checker on top for texture.
+    // The bleed also softly extends the backing 6px outside the outermost
+    // playable cells, replacing the old fixed roundRect padding.
+    g.fillStyle = 'rgba(8,6,30,0.55)';
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const cell = this.grid[r] && this.grid[r][c];
+      if (!cell || cell.wall) continue;
+      g.fillRect(this.cellX(c) - 6, this.cellY(r) - 6, tile + 12, tile + 12);
+    }
+    // Per-cell checker — still skip holes.
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       const cell = this.grid[r] && this.grid[r][c];
       if (cell && cell.wall) continue;
