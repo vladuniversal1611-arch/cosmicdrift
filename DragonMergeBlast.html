@@ -1546,17 +1546,30 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       const inIsland = i % LEVELS_PER_ISLAND;
       const biome = island % BASE_ISLANDS.length;
       const cols = 8, rows = 8;
-      // Difficulty tier ramps over the first ~500 levels, then holds; a gentle
-      // wave keeps consecutive levels from feeling identical. All targets are
-      // bounded to the moves budget so every level stays board-feasible.
-      const d = Math.min(1, i / 500);                       // 0 → 1 difficulty tier
-      const wave = 0.5 + 0.5 * Math.sin(i * 0.7);           // 0..1 per-level variation
-      const colors = Math.min(6, 4 + Math.floor(i / 25));   // 4 → 6 colours
-      const isBoss = inIsland === (LEVELS_PER_ISLAND - 1);
-      // Moves oscillate around a slowly tightening baseline (never frozen flat).
-      let moves = Math.max(16, Math.round(26 - d * 7 + wave * 2));
-      const hard = !isBoss && inIsland >= LEVELS_PER_ISLAND - 3; // tense run-up to the boss
-      if (hard) moves = Math.max(15, moves - 2);
+      // Difficulty ramps in over the first ~250 levels (faster than before) so
+      // players feel real pressure by level 20 rather than level 500.
+      const d = Math.min(1, i / 250);                             // 0 → 1
+      const wave = 0.5 + 0.5 * Math.sin(i * 0.7);                 // 0..1 per-level variation
+      // Only the first 3 levels are 4-colour tutorials; 5 colours from lvl 4;
+      // full 6-colour boards from lvl 15+.  More colours = fewer accidental
+      // 3-matches = tighter play required.
+      const colors = i < 3 ? 4 : (i < 15 ? 5 : 6);
+      const isBoss    = inIsland === (LEVELS_PER_ISLAND - 1);
+      // Sprinkled "hard" slots at 5th/10th/15th of each island so each island
+      // has a rhythm of easy → normal → hard rather than a flat difficulty.
+      const isHard    = !isBoss && (inIsland === 4 || inIsland === 9 || inIsland === 14);
+      // Last 3 non-boss slots are the tense run-up (like Candy Crush's ★ walls).
+      const isPreBoss = !isBoss && inIsland >= LEVELS_PER_ISLAND - 3;
+      // MOVES: much tighter than before.  Tutorial levels get some breathing
+      // room, then the budget contracts fast.  Baseline 14-18, with hard slots
+      // shaving another move or two off.
+      let moves;
+      if (i < 3)      moves = 20;                                 // levels 1-3: teach the mechanics
+      else if (i < 8) moves = 18;                                 // early wins should still feel earned
+      else            moves = Math.max(13, Math.round(18 - d * 4 + wave * 2));  // 13-19
+      if (isHard)    moves -= 2;
+      if (isPreBoss) moves -= 1;
+      moves = Math.max(11, moves);
 
       const pattern = OBJ_CYCLES[island % OBJ_CYCLES.length];
       let objective = pattern[inIsland % 5];
@@ -1564,36 +1577,60 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 
       if (objective === OBJ.COLLECT) {
         color = i % colors;
-        target = Math.round(18 + d * 92 + wave * 12);       // ~18 → ~122
-        chains = Math.min(8, Math.floor(d * 6) + (hard ? 2 : 0));
+        // 2.5-6 gems of one colour per move (was ~0.7-4.7 before).  Forces
+        // deliberate play toward the target colour instead of random matching.
+        const perMove = 2.5 + d * 3.5 + wave * 0.6;               // 2.5 → 6.6
+        target = Math.max(10, Math.round(moves * perMove * 0.85));
+        chains = i < 6 ? 0 : Math.min(12, 1 + Math.floor(d * 9) + (isHard ? 3 : 0));
       } else if (objective === OBJ.JELLY) {
-        jellyCount = Math.round(10 + d * 34 + wave * 4);     // ~10 → ~48
+        // ~0.8-2.4 jelly cells per move — most of the board is jelly at higher
+        // levels, so every move must count.
+        const perMove = 0.8 + d * 1.6 + wave * 0.25;              // 0.8 → 2.65
+        jellyCount = Math.max(10, Math.round(moves * perMove));
         target = jellyCount;
       } else if (objective === OBJ.ICE) {
-        iceCount = Math.round(8 + d * 34 + wave * 4);        // ~8 → ~46
-        crates = Math.min(10, 1 + Math.floor(d * 7) + (hard ? 1 : 0));
+        const perMove = 0.7 + d * 1.7 + wave * 0.25;              // 0.7 → 2.65
+        iceCount = Math.max(8, Math.round(moves * perMove));
+        crates = i < 6 ? 0 : Math.min(14, 1 + Math.floor(d * 10) + (isHard ? 3 : 0));
         target = iceCount;
-      } else { // SCORE — target tied to the moves budget so it is always reachable
-        const perMove = 100 + Math.min(320, island * 7);    // 100 → 420 per move
-        target = Math.round(moves * perMove * (0.85 + 0.3 * wave));
-        chains = (inIsland % 5 === 1) ? Math.min(8, 1 + Math.floor(d * 6)) : 0;
+      } else { // SCORE — the biggest jump.  Was ~2700 at lvl 1; now ~5400.
+        // Base 260 per move at lvl 1 → up to 720 per move by lvl 500.
+        // (Player averages ~150-300/move casually, 400-800 with a special,
+        // so the target is now genuinely earned rather than incidental.)
+        const perMove = 260 + Math.min(460, i * 1.1);
+        const feasibility = 0.95 + 0.35 * wave;                   // 0.95 → 1.30
+        target = Math.round(moves * perMove * feasibility);
+        if (isHard) target = Math.round(target * 1.10);           // hard slots tighter
+        chains = (inIsland % 5 === 1 && i >= 6) ? Math.min(10, 2 + Math.floor(d * 8)) : 0;
+      }
+
+      // Sprinkled crates on later non-ice, non-boss levels (deterministic
+      // sin() so the pattern is stable — no Math.random() in level generation).
+      if (i >= 20 && !isBoss && objective !== OBJ.ICE) {
+        const p = 0.5 + 0.5 * Math.sin(i * 0.31);
+        if (p > 0.72) crates = Math.min(6, 1 + Math.floor(d * 4));
       }
 
       if (isBoss) {
         objective = OBJ.BOSS;
-        moves += 8;
-        // Each boss is tougher than the last: HP ramps with the boss number
-        // (island index) plus the global difficulty tier.
-        target = Math.min(1600, Math.round(110 + island * 40 + d * 240)); // boss HP
+        moves += 5;                                               // was +8
+        // Boss HP ramps HARDER: island 0 boss ≈ 180, island 5 boss ≈ 460,
+        // island 20+ ≈ 900+.  Cap keeps late bosses reasonable.
+        target = Math.min(2000, Math.round(180 + island * 55 + d * 380));
         color = 0; iceCount = 0; jellyCount = 0;
-        chains = Math.min(3, biome); crates = Math.max(0, Math.min(3, biome - 1));
+        chains = Math.min(5, 1 + biome); crates = Math.max(0, Math.min(4, biome));
       }
+
+      // Tighter star thresholds — 3-star play now REQUIRES specials/combos,
+      // not just brute-force matching.  Was 1.4x / 1.9x.
+      const s2 = isBoss ? Math.round(target * 1.15) : Math.round(target * 1.30);
+      const s3 = isBoss ? Math.round(target * 1.30) : Math.round(target * 1.65);
 
       levels.push({
         n, island, cols, rows, colors, moves,
-        objective, target, color, iceCount, jellyCount, crates, chains, hard: hard,
-        star2: Math.round(target * 1.4),
-        star3: Math.round(target * 1.9),
+        objective, target, color, iceCount, jellyCount, crates, chains,
+        hard: isHard || isPreBoss,
+        star2: s2, star3: s3,
         reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.2), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
         bossDef: isBoss ? BOSSES[biome] : null,
