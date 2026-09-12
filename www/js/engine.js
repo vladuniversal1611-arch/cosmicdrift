@@ -110,6 +110,23 @@
       }
       this.grid.push(row);
     }
+    // Apply the board SHAPE mask: '.' cells become permanent holes (wall=true),
+    // '#' cells stay playable.  Walls have no colour/type and are skipped by
+    // matching, gravity refill, blocker placement, dragon abilities and render.
+    const lv = this.level;
+    const shape = lv.shape;
+    if (shape) {
+      for (let r = 0; r < this.rows; r++) {
+        const row = shape[r] || '';
+        for (let c = 0; c < this.cols; c++) {
+          if (row[c] === '.') {
+            this.grid[r][c].wall = true;
+            this.grid[r][c].type = -1;   // never matches a real crystal type
+            this.grid[r][c].scale = 1;
+          }
+        }
+      }
+    }
     // Remove any starting matches.
     let guard = 0;
     while (this.findMatches().length && guard++ < 60) {
@@ -117,28 +134,42 @@
       const cell = m[0];
       this.grid[cell.r][cell.c].type = (this.grid[cell.r][cell.c].type + 1) % this.colors;
     }
-    const lv = this.level;
+    // ---- Helper: safe random pick of a PLAYABLE cell (no wall) --------------
+    const self = this;
+    const pickPlayable = function () {
+      // With walls in place, blind rnd() would waste tries on holes; enumerate
+      // playable cells and pick from that list instead.
+      const list = [];
+      for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) {
+        if (self.grid[r][c] && !self.grid[r][c].wall) list.push({ r: r, c: c });
+      }
+      if (!list.length) return null;
+      return list[rnd(list.length)];
+    };
     // Ice blockers (ICE objective).
     this.iceLeft = 0;
     if (lv.objective === D.OBJ.ICE) {
       let placed = 0, guard2 = 0;
       while (placed < lv.iceCount && guard2++ < 400) {
-        const r = rnd(this.rows), c = rnd(this.cols);
-        if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].blockHp = 1; placed++; }
+        const p = pickPlayable(); if (!p) break;
+        const t = this.grid[p.r][p.c];
+        if (!t.ice && !t.wall) { t.ice = true; t.blockHp = 1; placed++; }
       }
       this.iceLeft = placed;
     }
     // Crates (2-hit blockers) — count toward the ice objective.
     let crates = lv.crates || 0, cg = 0;
     while (crates > 0 && cg++ < 400) {
-      const r = rnd(this.rows), c = rnd(this.cols);
-      if (!this.grid[r][c].ice) { this.grid[r][c].ice = true; this.grid[r][c].crate = true; this.grid[r][c].blockHp = 2; crates--; if (lv.objective === D.OBJ.ICE) this.iceLeft++; }
+      const p = pickPlayable(); if (!p) break;
+      const t = this.grid[p.r][p.c];
+      if (!t.ice && !t.wall) { t.ice = true; t.crate = true; t.blockHp = 2; crates--; if (lv.objective === D.OBJ.ICE) this.iceLeft++; }
     }
     // Chains (locked crystals).
     let chains = lv.chains || 0, hg = 0;
     while (chains > 0 && hg++ < 400) {
-      const r = rnd(this.rows), c = rnd(this.cols);
-      if (!this.grid[r][c].ice && !this.grid[r][c].chain) { this.grid[r][c].chain = true; chains--; }
+      const p = pickPlayable(); if (!p) break;
+      const t = this.grid[p.r][p.c];
+      if (!t.ice && !t.wall && !t.chain) { t.chain = true; chains--; }
     }
     // Jelly layers (JELLY objective) — tracked per cell, independent of crystals.
     this.jellyGrid = [];
@@ -147,11 +178,10 @@
     if (lv.objective === D.OBJ.JELLY) {
       let placed = 0, jg = 0;
       while (placed < lv.jellyCount && jg++ < 600) {
-        const r = rnd(this.rows), c = rnd(this.cols);
-        // Don't let a 2-layer cell overshoot the goal (kept the progress bar
-        // from starting negative and needing one extra layer cleared).
+        const p = pickPlayable(); if (!p) break;
+        const t = this.grid[p.r][p.c];
         const layers = (rnd(3) === 0 && placed + 2 <= lv.jellyCount) ? 2 : 1;
-        if (this.jellyGrid[r][c] === 0 && !this.grid[r][c].ice) { this.jellyGrid[r][c] = layers; placed += layers; }
+        if (this.jellyGrid[p.r][p.c] === 0 && !t.ice && !t.wall) { this.jellyGrid[p.r][p.c] = layers; placed += layers; }
       }
       this.jellyLeft = placed;
     }
@@ -165,6 +195,7 @@
       blockHp: 0,       // hits remaining for the blocker (1 = ice, 2 = crate)
       crate: false,     // render blocker as a wooden crate
       chain: false,     // crystal locked by a chain (can't be swapped)
+      wall: false,      // permanent board hole (non-playable cell — board shape)
       r: r, c: c,
       scale: instant ? 1 : 0,
       offY: 0,
@@ -184,6 +215,9 @@
     const c = Math.floor((px - this.viewport.x) / this.tile);
     const r = Math.floor((py - this.viewport.y) / this.tile);
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return null;
+    // Board-shape holes are non-interactive — you can't tap into empty space.
+    const t = this.grid[r] && this.grid[r][c];
+    if (t && t.wall) return null;
     return { r: r, c: c };
   };
 
@@ -224,7 +258,7 @@
     if (this.state !== 'idle' || this.finished) return;
     this.idleTime = 0; this.hint = null;
     const ta = this.grid[a.r][a.c], tb = this.grid[b.r][b.c];
-    if (ta.ice || tb.ice || ta.chain || tb.chain) { global.Audio2.play('invalid'); return; }
+    if (!ta || !tb || ta.wall || tb.wall || ta.ice || tb.ice || ta.chain || tb.chain) { global.Audio2.play('invalid'); return; }
     this.state = 'busy';
     global.Audio2.play('swap');
     const bothSpecial = ta.special !== SP.NONE && tb.special !== SP.NONE;
@@ -417,6 +451,7 @@
       let run = 1;
       for (let c = 1; c <= this.cols; c++) {
         const same = c < this.cols && g[r][c] && g[r][c - 1] &&
+          !g[r][c].wall && !g[r][c - 1].wall &&
           !g[r][c].ice && !g[r][c - 1].ice && !g[r][c].chain && !g[r][c - 1].chain &&
           g[r][c].type === g[r][c - 1].type;
         if (same) run++;
@@ -431,6 +466,7 @@
       let run = 1;
       for (let r = 1; r <= this.rows; r++) {
         const same = r < this.rows && g[r][c] && g[r - 1][c] &&
+          !g[r][c].wall && !g[r - 1][c].wall &&
           !g[r][c].ice && !g[r - 1][c].ice && !g[r][c].chain && !g[r - 1][c].chain &&
           g[r][c].type === g[r - 1][c].type;
         if (same) run++;
@@ -533,6 +569,10 @@
       const cell = set[k];
       const t = self.grid[cell.r][cell.c];
       if (!t) return;
+      // Board-shape walls are inert holes — any effect that dropped a wall
+      // cell into the set (line clear, bomb, rainbow, dragon ability) simply
+      // skips it: no clear, no score, no jelly credit, no ice damage.
+      if (t.wall) return;
       // Crystals next to ice crack the ice instead of clearing the gem.
       // (Direct: if tile itself is ice it cannot be in a match anyway.)
       if (makeSet[k]) {
@@ -656,20 +696,41 @@
     const self = this;
     for (let c = 0; c < this.cols; c++) {
       // Walk bottom-up. `write` is the next slot to fill within the current
-      // segment. Ice/crate blockers are ANCHORED walls: gems never fall past
-      // them, and the empty pocket sealed just under a wall is refilled in place.
+      // segment. Ice/crate blockers AND board-shape walls are ANCHORED —
+      // gems never fall past them; each anchor partitions the column into
+      // independent segments that refill separately.
       let write = this.rows - 1;
+      // If the bottom of the column is itself a wall, skip past it so `write`
+      // starts at the first playable cell above.
+      while (write >= 0 && this.grid[write][c] && this.grid[write][c].wall) write--;
       for (let r = this.rows - 1; r >= 0; r--) {
         const t = this.grid[r][c];
-        if (t && t.ice) {
-          // Fill the empty slots of the segment below this wall (from just under
-          // the wall down to the gems already packed) with fresh crystals.
+        // WALL anchor: fill the pocket between `write` and this wall with
+        // fresh in-place crystals (skipping any nested walls), then jump
+        // `write` above this wall AND above any adjacent stacked walls.
+        if (t && t.wall) {
           for (let k = write; k > r; k--) {
+            const cell = this.grid[k][c];
+            if (cell && (cell.wall || cell.ice)) continue;
             const nt = this.makeTile(k, c, false);
             nt.scale = 0.2; // pops in — cannot fall through the wall above
             this.grid[k][c] = nt;
           }
-          write = r - 1; // the wall stays put; next segment starts above it
+          write = r - 1;
+          while (write >= 0 && this.grid[write][c] && this.grid[write][c].wall) write--;
+          continue;
+        }
+        // ICE anchor (existing behaviour, kept identical).
+        if (t && t.ice) {
+          for (let k = write; k > r; k--) {
+            const cell = this.grid[k][c];
+            if (cell && cell.wall) continue;
+            const nt = this.makeTile(k, c, false);
+            nt.scale = 0.2;
+            this.grid[k][c] = nt;
+          }
+          write = r - 1;
+          while (write >= 0 && this.grid[write][c] && this.grid[write][c].wall) write--;
           continue;
         }
         if (t && !t._remove && !t.dying) {
@@ -680,10 +741,13 @@
             this.startAnim(t, 'fall', r, c, write, c, 0.22);
           }
           write--;
+          while (write >= 0 && this.grid[write][c] && this.grid[write][c].wall) write--;
         }
       }
-      // spawn new tiles to fill the topmost segment (above the highest wall) from the top
+      // Spawn new tiles from the top down to fill the topmost segment
+      // (above the highest anchor).  Skip any wall cells encountered.
       for (let r = write; r >= 0; r--) {
+        if (this.grid[r][c] && this.grid[r][c].wall) continue;
         const t = this.makeTile(r, c, false);
         t.scale = 1;
         this.grid[r][c] = t;
@@ -807,7 +871,7 @@
     const counts = {};
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       const t = this.grid[r][c];
-      if (t && !t.ice && t.special === SP.NONE) counts[t.type] = (counts[t.type] || 0) + 1;
+      if (t && !t.wall && !t.ice && t.special === SP.NONE) counts[t.type] = (counts[t.type] || 0) + 1;
     }
     let best = -1, bt = 0;
     for (const k in counts) if (counts[k] > best) { best = counts[k]; bt = +k; }
@@ -1092,7 +1156,7 @@
   };
 
   // ---- Helpers: possible moves / shuffle ----------------------------------
-  Engine.prototype.movable = function (r, c) { const t = this.grid[r][c]; return t && !t.ice && !t.chain; };
+  Engine.prototype.movable = function (r, c) { const t = this.grid[r][c]; return t && !t.wall && !t.ice && !t.chain; };
   Engine.prototype.hasPossibleMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       if (!this.movable(r, c)) continue;
@@ -1107,16 +1171,16 @@
   Engine.prototype.shuffleBoard = function (silent) {
     const types = [];
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
-      if (!this.grid[r][c].ice) types.push(this.grid[r][c].type);
+      if (!this.grid[r][c].wall && !this.grid[r][c].ice) types.push(this.grid[r][c].type);
     let guard = 0;
     do {
       for (let i = types.length - 1; i > 0; i--) { const j = rnd(i + 1); const t = types[i]; types[i] = types[j]; types[j] = t; }
       let idx = 0;
       for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++)
-        if (!this.grid[r][c].ice) { this.grid[r][c].type = types[idx++]; this.grid[r][c].special = SP.NONE; }
+        if (!this.grid[r][c].wall && !this.grid[r][c].ice) { this.grid[r][c].type = types[idx++]; this.grid[r][c].special = SP.NONE; }
     } while ((this.findMatches().length || !this.hasPossibleMove()) && guard++ < 40);
     if (!silent) this.cb.onShuffle && this.cb.onShuffle();
-    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) this.grid[r][c].scale = 0.4;
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) if (!this.grid[r][c].wall) this.grid[r][c].scale = 0.4;
     const self = this;
     if (silent) { this.afterAnims(function () { self.resolveStep(); }); }
   };
@@ -1267,8 +1331,10 @@
     // board backing
     this.roundRect(g, v.x - 8, v.y - 8, v.size + 16, v.size + 16, 22);
     g.fillStyle = 'rgba(8,6,30,0.55)'; g.fill();
-    // grid cells checker
+    // grid cells checker — SKIP board-shape holes so custom shapes look sculpted
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const cell = this.grid[r] && this.grid[r][c];
+      if (cell && cell.wall) continue;
       g.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.02)';
       g.fillRect(this.cellX(c), this.cellY(r), tile, tile);
     }
@@ -1276,6 +1342,8 @@
     if (this.jellyGrid) for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       const j = this.jellyGrid[r][c];
       if (!j) continue;
+      const jCell = this.grid[r] && this.grid[r][c];
+      if (jCell && jCell.wall) continue;
       const x = this.cellX(c), y = this.cellY(r);
       const jSprite = (global.JellySprites && global.JellySprites.ready(j)) ? global.JellySprites.img(j) : null;
       if (jSprite) {
@@ -1287,10 +1355,10 @@
         g.strokeStyle = 'rgba(255,150,220,0.5)'; g.lineWidth = 2; g.stroke();
       }
     }
-    // tiles
+    // tiles — walls are non-visual holes, don't draw them
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       const t = this.grid[r][c];
-      if (!t) continue;
+      if (!t || t.wall) continue;
       let x = this.cellX(c), y = this.cellY(r);
       if (t.anim) {
         const p = ease(Math.min(1, t.anim.t / t.anim.dur));

@@ -168,6 +168,109 @@
     [OBJ.COLLECT, OBJ.SCORE,   OBJ.JELLY,   OBJ.ICE,     OBJ.SCORE]
   ];
 
+  // ---- Board shapes --------------------------------------------------------
+  // 8×8 masks: '#' = playable cell, '.' = permanent hole (crystals cannot
+  // occupy it, gravity stops at it, matches never cross it).  Each shape is
+  // designed so the whole playable area stays connected and every row/column
+  // has at least 3 contiguous playable cells (so 3-matches remain possible
+  // everywhere).  Boss levels always use `full`.
+  const BOARD_SHAPES = {
+    full: [
+      '########',
+      '########',
+      '########',
+      '########',
+      '########',
+      '########',
+      '########',
+      '########'
+    ],
+    diamond: [
+      '..####..',
+      '.######.',
+      '########',
+      '########',
+      '########',
+      '########',
+      '.######.',
+      '..####..'
+    ],
+    cross: [
+      '..####..',
+      '..####..',
+      '########',
+      '########',
+      '########',
+      '########',
+      '..####..',
+      '..####..'
+    ],
+    hourglass: [
+      '########',
+      '.######.',
+      '.######.',
+      '..####..',
+      '..####..',
+      '.######.',
+      '.######.',
+      '########'
+    ],
+    pyramid: [
+      '...##...',
+      '..####..',
+      '.######.',
+      '########',
+      '########',
+      '########',
+      '########',
+      '########'
+    ],
+    butterfly: [
+      '###..###',
+      '########',
+      '########',
+      '.######.',
+      '.######.',
+      '########',
+      '########',
+      '###..###'
+    ],
+    arrow: [
+      '########',
+      '########',
+      '########',
+      '########',
+      '.######.',
+      '.######.',
+      '..####..',
+      '..####..'
+    ],
+    frame: [
+      '########',
+      '########',
+      '##....##',
+      '##....##',
+      '##....##',
+      '##....##',
+      '########',
+      '########'
+    ]
+  };
+  // Slot-based shape rotation inside each island (25 slots).  The first 10
+  // global levels always get `full` (tutorial); after that this table drives
+  // per-slot shape.  Boss slot (24) always overridden to `full`.
+  const SHAPE_ORDER_BY_SLOT = [
+    'full',      'full',      'full',       // 0-2  intro
+    'diamond',   'full',      'full',       // 3-5
+    'cross',     'full',      'hourglass',  // 6-8
+    'full',      'full',      'pyramid',    // 9-11
+    'full',      'butterfly', 'full',       // 12-14
+    'diamond',   'full',      'arrow',      // 15-17
+    'full',      'hourglass', 'full',       // 18-20
+    'frame',     'full',      'pyramid',    // 21-23 (pre-boss variety)
+    'full'                                  // 24 (boss — always full)
+  ];
+
   function buildLevels() {
     const levels = [];
     const total = TOTAL_LEVELS;
@@ -260,6 +363,14 @@
       const s2 = isBoss ? Math.round(target * 1.15) : Math.round(target * 1.30);
       const s3 = isBoss ? Math.round(target * 1.30) : Math.round(target * 1.65);
 
+      // Board shape: first 10 global levels always use `full` (learn the
+      // mechanics on a familiar rectangle), then the slot table rotates in
+      // hourglass/diamond/cross/etc so consecutive levels look distinct.
+      // Boss slots always full (fair fight).
+      let shapeName = 'full';
+      if (!isBoss && i >= 10) shapeName = SHAPE_ORDER_BY_SLOT[inIsland] || 'full';
+      const shape = BOARD_SHAPES[shapeName] || BOARD_SHAPES.full;
+
       levels.push({
         n, island, cols, rows, colors, moves,
         objective, target, color, iceCount, jellyCount, crates, chains,
@@ -268,6 +379,7 @@
         reward: { gold: isBoss ? 300 + i * 4 : 50 + Math.floor(i * 1.2), energy: isBoss ? 40 : 14 + Math.floor(i / 3) },
         boss: isBoss,
         bossDef: isBoss ? BOSSES[biome] : null,
+        shape: shape, shapeName: shapeName,
         name: isBoss ? (BOSSES[biome].name) : ('Рівень ' + n)
       });
     }
@@ -477,7 +589,7 @@
   }
 
   global.GameData = {
-    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
+    CRYSTALS, SPECIAL, DRAGONS, ISLANDS, LEVELS, OBJ, BOSSES, BOARD_SHAPES, LB_NAMES, EVENTS, activeEvent, RELICS, FARM, farmById,
     ACHIEVEMENTS, QUEST_POOL, BATTLE_PASS, SKINS, SKIN_COLORS,
     WHEEL, WHEEL_SPIN_COST, SUMMON_COST, SUMMON_POOL, SKILLS, skillById, skillMods, STORY_CHAPTERS,
     dragonTitle: dragonTitle, dragonDesc: dragonDesc, bossName: bossName, islandName: islandName,
