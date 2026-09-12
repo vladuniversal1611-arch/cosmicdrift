@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1A0A2E">
+<title>🐹 Hamster Kingdom</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+:root{
+  --bg:#1A0A2E;--bg2:#0D1B3E;--surface:#2A1A4E;--surface2:#3A2060;
+  --orange:#FF6B35;--gold:#FFD700;--green:#4CAF50;--red:#E53935;
+  --blue:#29B6F6;--purple:#7B1FA2;--cream:#F4C87E;--pink:#F9A8C9;
+  --cheese:#FFD700;--coin:#FFC107;--crystal:#29B6F6;
+}
+html,body{height:100%;background:var(--bg);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
+/* ── TOP BAR ── */
+#topbar{background:linear-gradient(135deg,#0D0520,#1A0A2E);padding:8px 12px 6px;flex-shrink:0}
+#resources{display:flex;justify-content:space-around;margin-bottom:6px}
+.res-chip{display:flex;flex-direction:column;align-items:center;gap:1px}
+.res-val{font-weight:700;font-size:13px}
+.res-rate{font-size:9px;opacity:.6}
+#xpbar-wrap{padding:0 4px}
+#xp-label{display:flex;justify-content:space-between;font-size:10px;opacity:.7;margin-bottom:2px}
+.progress-track{background:rgba(255,255,255,.1);border-radius:4px;height:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .5s}
+/* ── CONTENT ── */
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+/* ── SCREENS ── */
+.screen{display:none;padding:12px;padding-bottom:80px;min-height:100%}
+.screen.active{display:block}
+/* ── CARDS ── */
+.card{background:var(--surface);border-radius:18px;padding:16px;margin-bottom:12px}
+.card-title{color:var(--gold);font-weight:700;font-size:14px;margin-bottom:10px}
+/* ── HAMSTER CANVAS ── */
+#hamster-section{background:var(--surface);border-radius:22px;padding:16px;margin-bottom:12px;text-align:center;position:relative}
+#hamsterCanvas{display:block;margin:0 auto;cursor:pointer}
+#hamster-name{font-weight:700;font-size:16px;color:var(--cream);margin-bottom:4px}
+#happiness-label{font-size:13px;margin-bottom:4px}
+#tap-hint{font-size:11px;opacity:.45;margin-top:4px}
+/* ── STAT BARS ── */
+.stat-row{display:flex;align-items:center;margin-bottom:6px;gap:6px}
+.stat-emoji{width:20px;font-size:14px}
+.stat-name{font-size:10px;width:52px;opacity:.7}
+.stat-track{flex:1;background:rgba(255,255,255,.08);border-radius:4px;height:8px;overflow:hidden}
+.stat-fill{height:100%;border-radius:4px;transition:width .5s}
+.stat-val{font-size:10px;font-weight:700;width:24px;text-align:right}
+/* ── BUTTONS ── */
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.btn{border:none;border-radius:14px;padding:12px 8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;transition:transform .1s,opacity .1s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.93)}
+.btn-orange{background:var(--orange)}
+.btn-blue{background:#1565C0}
+.btn-green{background:var(--green)}
+.btn-purple{background:var(--purple)}
+/* ── TUNNEL ── */
+#tunnel-card .depth{display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px}
+#tunnel-card .speed-info{font-size:11px;opacity:.6;margin-top:4px}
+#tunnel-card .reward-hint{font-size:11px;color:var(--cream);margin-top:3px}
+/* ── ROOM LIST ── */
+.room-card{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;border:1px solid transparent;transition:border-color .3s}
+.room-card.built{border-color:rgba(76,175,80,.35)}
+.room-card.locked{opacity:.5}
+.room-icon{width:52px;height:52px;border-radius:14px;background:#1E1E3E;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.room-card.built .room-icon{background:#1E3A1E}
+.room-info{flex:1;min-width:0}
+.room-name{font-weight:700;font-size:14px;margin-bottom:2px}
+.room-desc{font-size:10px;opacity:.55}
+.room-bonus{font-size:10px;color:var(--green);margin-top:3px}
+.room-stars{display:flex;gap:2px;margin-top:4px;font-size:12px}
+.room-action{flex-shrink:0}
+.room-btn{border:none;border-radius:10px;padding:8px 12px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;text-align:center;transition:transform .1s}
+.room-btn:active{transform:scale(.92)}
+/* ── ACHIEVEMENT ── */
+.ach-card{background:var(--surface);border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:1px solid transparent}
+.ach-card.unlocked{border-color:rgba(255,215,0,.4);background:#1E3A1E}
+.ach-icon{width:46px;height:46px;border-radius:12px;background:#1E1E2E;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ach-card.unlocked .ach-icon{background:rgba(255,215,0,.15)}
+.ach-info{flex:1;min-width:0}
+.ach-title{font-weight:700;font-size:13px;margin-bottom:2px}
+.ach-card.unlocked .ach-title{color:var(--gold)}
+.ach-desc{font-size:10px;opacity:.5}
+.ach-prog-wrap{margin-top:5px}
+.ach-prog-text{font-size:10px;opacity:.4;margin-top:2px}
+.ach-reward{font-size:10px;text-align:right}
+/* ── COLLECTION ── */
+.coll-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.coll-item{border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer;border:1.5px solid transparent;transition:border-color .2s;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#111120;position:relative}
+.coll-item.owned{background:#1E2A3E}
+.coll-item.equipped{border-color:var(--gold)!important}
+.coll-item .item-emoji{font-size:28px;transition:filter .2s}
+.coll-item.locked .item-emoji{filter:grayscale(1) opacity(.4)}
+.coll-item .item-name{font-size:8px;font-weight:700;line-height:1.2}
+.coll-item .lock-overlay{position:absolute;inset:0;border-radius:13px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:18px}
+.cat-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6)}
+.cat-tab.active{background:var(--orange);color:#fff}
+/* ── TASK ── */
+.task-card{background:var(--surface);border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:1px solid transparent}
+.task-card.done{border-color:rgba(76,175,80,.4);background:#1A2E1A}
+.task-emoji{font-size:22px;width:30px;text-align:center;flex-shrink:0}
+.task-info{flex:1;min-width:0}
+.task-desc{font-size:12px;font-weight:500;margin-bottom:4px}
+.task-prog-text{font-size:10px;opacity:.4;margin-top:2px}
+.task-reward{font-size:10px;text-align:right;white-space:nowrap}
+.diff-badge{display:inline-block;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:700}
+/* ── MINIGAMES ── */
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini-card{border-radius:18px;padding:16px;text-align:center;cursor:pointer;border:1px solid transparent;transition:transform .1s;background:var(--surface)}
+.mini-card:active{transform:scale(.95)}
+.mini-icon{font-size:36px;margin-bottom:8px}
+.mini-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.mini-desc{font-size:10px;opacity:.55;margin-bottom:8px}
+.mini-reward{font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,.08)}
+/* ── GAME OVERLAY ── */
+#game-overlay{display:none;position:absolute;inset:0;z-index:100;flex-direction:column;background:var(--bg)}
+#game-overlay.active{display:flex}
+#game-canvas{display:block;flex:1;width:100%;cursor:pointer;touch-action:none}
+#game-hud{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(0,0,0,.3);flex-shrink:0}
+#game-info{display:flex;gap:16px;align-items:center}
+#game-title{font-weight:700;font-size:14px}
+#game-score-display{font-size:13px;color:var(--gold);font-weight:700}
+.game-back-btn{border:none;background:rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:6px 12px;font-size:13px;cursor:pointer}
+#game-message{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:10;gap:12px;padding:20px}
+#game-message.hidden{display:none}
+#game-msg-text{font-size:20px;font-weight:700;text-align:center}
+#game-msg-sub{font-size:13px;opacity:.7;text-align:center}
+.game-start-btn{border:none;background:var(--orange);color:#fff;border-radius:16px;padding:14px 32px;font-size:16px;font-weight:700;cursor:pointer}
+/* ── BOTTOM NAV ── */
+#nav{position:absolute;bottom:0;left:0;right:0;background:#0D0520;display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom));max-width:480px;margin:0 auto}
+.nav-btn{flex:1;border:none;background:none;color:rgba(255,255,255,.45);display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;cursor:pointer;transition:color .2s}
+.nav-btn.active{color:var(--orange)}
+.nav-icon{font-size:20px}
+.nav-label{font-size:9px;font-weight:600}
+/* ── NOTIFICATION ── */
+#notif{position:absolute;top:0;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--orange),#E55);border-radius:0 0 20px 20px;padding:8px 20px;font-size:13px;font-weight:700;z-index:200;transition:top .3s;top:-60px;white-space:nowrap;max-width:90%}
+#notif.show{top:0}
+/* ── MODAL ── */
+#modal-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-end}
+#modal-overlay.active{display:flex}
+#modal{background:var(--surface);border-radius:24px 24px 0 0;padding:20px;width:100%;max-height:70vh;overflow-y:auto;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#modal-title{font-size:18px;font-weight:700;margin-bottom:6px;color:var(--gold)}
+#modal-body{font-size:13px;opacity:.85;margin-bottom:16px;line-height:1.5}
+.modal-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.modal-btn{border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;flex:1}
+/* ── FILTER CHIPS ── */
+.filter-row{display:flex;gap:6px;margin-bottom:10px}
+.filter-chip{border:none;border-radius:16px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6)}
+.filter-chip.active{background:var(--orange);color:#fff}
+/* ── WHEEL ── */
+#wheel-wrap{text-align:center;padding:16px 0}
+#wheel-canvas{display:block;margin:0 auto;border-radius:50%;box-shadow:0 0 40px rgba(255,107,53,.4)}
+#spin-btn{border:none;background:var(--orange);color:#fff;border-radius:20px;padding:14px 40px;font-size:16px;font-weight:700;cursor:pointer;margin:16px auto;display:block;transition:opacity .2s}
+#spin-btn:disabled{opacity:.45;cursor:default}
+/* ── OFFLINE DIALOG ── */
+#offline-dialog{display:none;position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:400;align-items:center;justify-content:center;padding:24px}
+#offline-dialog.active{display:flex}
+#offline-box{background:var(--surface);border-radius:24px;padding:24px;width:100%;max-width:340px}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="resources">
+      <div class="res-chip"><span style="font-size:15px">🧀</span><span class="res-val" id="res-cheese">0</span><span class="res-rate" id="rate-cheese"></span></div>
+      <div class="res-chip"><span style="font-size:15px">💰</span><span class="res-val" id="res-coins">0</span><span class="res-rate" id="rate-coins"></span></div>
+      <div class="res-chip"><span style="font-size:15px">💎</span><span class="res-val" id="res-crystals">0</span></div>
+      <div class="res-chip"><span style="font-size:15px">🥕</span><span class="res-val" id="res-carrots">20</span></div>
+    </div>
+    <div id="xpbar-wrap">
+      <div id="xp-label"><span id="lv-text">⭐ Lv.1</span><span id="xp-text">0 / 100 XP</span></div>
+      <div class="progress-track"><div class="progress-fill" id="xp-fill" style="width:0%;background:linear-gradient(90deg,var(--gold),var(--orange))"></div></div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- HOME SCREEN -->
+    <div class="screen active" id="screen-home">
+      <div id="hamster-section">
+        <div id="hamster-name">Hammy</div>
+        <canvas id="hamsterCanvas" width="200" height="200"></canvas>
+        <div id="happiness-label"></div>
+        <div id="tap-hint">Тапни, щоб пограти! 🎮</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Параметри</div>
+        <div class="stat-row"><div class="stat-emoji">🍽️</div><div class="stat-name">Голод</div><div class="stat-track"><div class="stat-fill" id="stat-hunger" style="background:linear-gradient(90deg,#E53935,#FF5722)"></div></div><div class="stat-val" id="val-hunger"></div></div>
+        <div class="stat-row"><div class="stat-emoji">💧</div><div class="stat-name">Спрага</div><div class="stat-track"><div class="stat-fill" id="stat-thirst" style="background:linear-gradient(90deg,#0288D1,#29B6F6)"></div></div><div class="stat-val" id="val-thirst"></div></div>
+        <div class="stat-row"><div class="stat-emoji">😊</div><div class="stat-name">Настрій</div><div class="stat-track"><div class="stat-fill" id="stat-mood" style="background:linear-gradient(90deg,var(--purple),#CE93D8)"></div></div><div class="stat-val" id="val-mood"></div></div>
+        <div class="stat-row"><div class="stat-emoji">⚡</div><div class="stat-name">Енергія</div><div class="stat-track"><div class="stat-fill" id="stat-energy" style="background:linear-gradient(90deg,#F57F17,var(--gold))"></div></div><div class="stat-val" id="val-energy"></div></div>
+        <div class="stat-row"><div class="stat-emoji">🛁</div><div class="stat-name">Чистота</div><div class="stat-track"><div class="stat-fill" id="stat-clean" style="background:linear-gradient(90deg,#00838F,#26C6DA)"></div></div><div class="stat-val" id="val-clean"></div></div>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn btn-orange" onclick="G.feed()">🍽️ Годувати</button>
+        <button class="btn btn-blue" onclick="G.water()">💧 Вода</button>
+        <button class="btn btn-green" onclick="G.clean()">🛁 Помити</button>
+        <button class="btn btn-purple" onclick="G.play()">🎮 Гратись</button>
+      </div>
+
+      <div class="card" id="tunnel-card">
+        <div class="card-title">⛏️ Тунелі</div>
+        <div class="depth"><span>Глибина: <b id="tunnel-depth">0</b>м</span><span>⚡ <span id="dig-speed">1.0</span>x</span></div>
+        <div class="progress-track"><div class="progress-fill" id="tunnel-prog" style="background:linear-gradient(90deg,var(--orange),#FF8C42)"></div></div>
+        <div class="speed-info" id="tunnel-hint">🧀 Копаємо за сиром...</div>
+      </div>
+
+      <div class="card" id="tasks-preview">
+        <div class="card-title">📋 Щоденні завдання</div>
+        <div id="tasks-mini"></div>
+      </div>
+    </div>
+
+    <!-- KINGDOM -->
+    <div class="screen" id="screen-kingdom">
+      <div style="margin-bottom:12px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold)">🏰 Королівство</div>
+        <div style="font-size:12px;opacity:.55;margin-top:2px">Монети: <b id="coins-display" style="color:var(--gold)">0</b> • <span id="rooms-built">0</span>/10 кімнат</div>
+      </div>
+      <div id="rooms-list"></div>
+    </div>
+
+    <!-- GAMES -->
+    <div class="screen" id="screen-games">
+      <div style="margin-bottom:16px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold)">🎮 Міні-ігри</div>
+        <div style="font-size:12px;opacity:.55;margin-top:2px">Грай — заробляй ресурси!</div>
+      </div>
+      <div class="mini-grid">
+        <div class="mini-card" onclick="startGame('dash')" style="border-color:rgba(255,107,53,.4)">
+          <div class="mini-icon">🏃</div>
+          <div class="mini-title">Cheese Dash</div>
+          <div class="mini-desc">Біжи, збирай сир!</div>
+          <div class="mini-reward" style="color:var(--cheese)">🧀 Сир + 💰 Монети</div>
+        </div>
+        <div class="mini-card" onclick="startGame('jump')" style="border-color:rgba(123,31,162,.4)">
+          <div class="mini-icon">⬆️</div>
+          <div class="mini-title">Hamster Jump</div>
+          <div class="mini-desc">Стрибай по платформах!</div>
+          <div class="mini-reward" style="color:var(--crystal)">🧀 Сир + XP</div>
+        </div>
+        <div class="mini-card" onclick="startGame('escape')" style="border-color:rgba(93,58,26,.8)">
+          <div class="mini-icon">🕳️</div>
+          <div class="mini-title">Tunnel Escape</div>
+          <div class="mini-desc">Тікай від крота!</div>
+          <div class="mini-reward" style="color:var(--green)">🧀 Сир + 💎 Кристали</div>
+        </div>
+        <div class="mini-card" onclick="openWheel()" style="border-color:rgba(21,101,192,.4)">
+          <div class="mini-icon">🎡</div>
+          <div class="mini-title">Wheel of Fortune</div>
+          <div class="mini-desc">Крути колесо щодня!</div>
+          <div class="mini-reward" style="color:var(--gold)">💰💎🧀 Призи</div>
+        </div>
+      </div>
+      <!-- WHEEL -->
+      <div id="wheel-section" style="display:none">
+        <div class="card">
+          <div class="card-title">🎡 Колесо удачі</div>
+          <div id="wheel-spins-left" style="font-size:12px;opacity:.65;margin-bottom:8px"></div>
+          <div id="wheel-wrap"><canvas id="wheel-canvas" width="260" height="260"></canvas></div>
+          <button id="spin-btn" onclick="spinWheel()">КРУТИТИ! 🎡</button>
+          <div id="wheel-result" style="text-align:center;font-size:15px;font-weight:700;min-height:24px;color:var(--gold)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLLECTION -->
+    <div class="screen" id="screen-collection">
+      <div style="margin-bottom:12px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold)">🎒 Колекція</div>
+        <div style="font-size:12px;opacity:.55;margin-top:2px" id="coll-count">0 / 0 предметів</div>
+      </div>
+      <div class="cat-tabs" id="cat-tabs"></div>
+      <div class="coll-grid" id="coll-grid"></div>
+    </div>
+
+    <!-- ACHIEVEMENTS -->
+    <div class="screen" id="screen-achievements">
+      <div style="margin-bottom:12px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold)">🏆 Досягнення</div>
+        <div id="ach-count" style="font-size:12px;opacity:.55;margin-top:2px"></div>
+        <div class="progress-track" style="margin-top:6px;height:8px"><div class="progress-fill" id="ach-total-prog" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div></div>
+      </div>
+      <div class="filter-row">
+        <button class="filter-chip active" onclick="filterAch('all',this)">Всі</button>
+        <button class="filter-chip" onclick="filterAch('unlocked',this)">Виконані</button>
+        <button class="filter-chip" onclick="filterAch('locked',this)">В процесі</button>
+      </div>
+      <div id="ach-list"></div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="screen" id="screen-tasks">
+      <div style="margin-bottom:12px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold)">📋 Завдання</div>
+        <div id="streak-info" style="font-size:12px;margin-top:3px"></div>
+      </div>
+      <div id="tasks-list"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- BOTTOM NAV -->
+  <nav id="nav">
+    <button class="nav-btn active" onclick="switchTab('home',this)"><div class="nav-icon">🐹</div><div class="nav-label">Хом'як</div></button>
+    <button class="nav-btn" onclick="switchTab('kingdom',this)"><div class="nav-icon">🏰</div><div class="nav-label">Королівство</div></button>
+    <button class="nav-btn" onclick="switchTab('games',this)"><div class="nav-icon">🎮</div><div class="nav-label">Ігри</div></button>
+    <button class="nav-btn" onclick="switchTab('collection',this)"><div class="nav-icon">🎒</div><div class="nav-label">Предмети</div></button>
+    <button class="nav-btn" onclick="switchTab('achievements',this)"><div class="nav-icon">🏆</div><div class="nav-label">Трофеї</div></button>
+    <button class="nav-btn" onclick="switchTab('tasks',this)"><div class="nav-icon">📋</div><div class="nav-label">Завдання</div></button>
+  </nav>
+
+  <!-- NOTIFICATION -->
+  <div id="notif"></div>
+
+  <!-- GAME OVERLAY -->
+  <div id="game-overlay">
+    <div id="game-hud">
+      <button class="game-back-btn" onclick="closeGame()">← Назад</button>
+      <div id="game-info"><span id="game-title"></span><span id="game-score-display"></span></div>
+    </div>
+    <div style="position:relative;flex:1;display:flex;flex-direction:column">
+      <canvas id="game-canvas"></canvas>
+      <div id="game-message">
+        <div id="game-msg-text">Готовий?</div>
+        <div id="game-msg-sub"></div>
+        <button class="game-start-btn" onclick="gameAction()">Старт!</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;padding:12px;background:rgba(0,0,0,.3)">
+      <button class="btn btn-orange" style="flex:1" id="gleft-btn" onclick="gameLeft()">←</button>
+      <button class="btn btn-blue" style="flex:1" id="gjump-btn" onclick="gameJump()">↑ Стрибок</button>
+      <button class="btn btn-orange" style="flex:1" id="gright-btn" onclick="gameRight()">→</button>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal-overlay" onclick="closeModal(event)">
+    <div id="modal">
+      <div id="modal-title"></div>
+      <div id="modal-body"></div>
+      <div class="modal-buttons" id="modal-buttons"></div>
+    </div>
+  </div>
+
+  <!-- OFFLINE DIALOG -->
+  <div id="offline-dialog">
+    <div id="offline-box">
+      <div style="font-size:20px;font-weight:800;color:var(--gold);margin-bottom:8px">💤 З поверненням!</div>
+      <div id="offline-text" style="font-size:13px;line-height:1.7;margin-bottom:16px"></div>
+      <button class="btn btn-orange" style="width:100%;font-size:15px" onclick="collectOffline()">Зібрати! 🎉</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════════════
+const ROOMS=[
+  {id:'bedroom',name:'Спальня',emoji:'🛏️',desc:'Відновлює енергію швидше',cost:0,unlockLv:1,built:true,level:1},
+  {id:'vault',name:'Сирна комора',emoji:'🧀',desc:'Більше сиру та місця для зберігання',cost:100,unlockLv:2,built:false,level:0},
+  {id:'workshop',name:'Майстерня',emoji:'🔨',desc:'Крафтинг особливих предметів',cost:250,unlockLv:3,built:false,level:0},
+  {id:'farm',name:'Ферма моркви',emoji:'🥕',desc:'Автоматично виробляє їжу',cost:500,unlockLv:4,built:false,level:0},
+  {id:'lab',name:'Лабораторія',emoji:'🔬',desc:'Досліджуй нові технології',cost:1000,unlockLv:6,built:false,level:0},
+  {id:'treasury',name:'Скарбниця',emoji:'💰',desc:'Збільшує виробництво монет',cost:2000,unlockLv:8,built:false,level:0},
+  {id:'arena',name:'Арена',emoji:'⚔️',desc:'Битви за нагороди',cost:4000,unlockLv:10,built:false,level:0},
+  {id:'royal',name:'Королівський зал',emoji:'👑',desc:'Трон хомʼяка-короля',cost:8000,unlockLv:12,built:false,level:0},
+  {id:'park',name:'Підземний парк',emoji:'🌳',desc:'Підвищує настрій',cost:6000,unlockLv:11,built:false,level:0},
+  {id:'mine',name:'Золота шахта',emoji:'⛏️',desc:'Автоматичний видобуток монет',cost:3000,unlockLv:9,built:false,level:0},
+];
+const COLLECTION=[
+  {id:'hat_crown',name:'Корона',emoji:'👑',cat:'Капелюхи',rarity:'legendary',bonus:'+25% доходу',owned:false,equipped:false},
+  {id:'hat_tophat',name:'Циліндр',emoji:'🎩',cat:'Капелюхи',rarity:'rare',bonus:'+10% монет',owned:false,equipped:false},
+  {id:'hat_cap',name:'Кепка',emoji:'🧢',cat:'Капелюхи',rarity:'common',bonus:'+5% швидкість',owned:false,equipped:false},
+  {id:'hat_bow',name:'Бантик',emoji:'🎀',cat:'Капелюхи',rarity:'uncommon',bonus:'+8% настрій',owned:false,equipped:false},
+  {id:'hat_wizard',name:'Чарівний',emoji:'🧙',cat:'Капелюхи',rarity:'epic',bonus:'+20% кристали',owned:false,equipped:false},
+  {id:'glasses_sun',name:'Окуляри',emoji:'😎',cat:'Окуляри',rarity:'common',bonus:'+5% настрій',owned:false,equipped:false},
+  {id:'glasses_mono',name:'Монокль',emoji:'🧐',cat:'Окуляри',rarity:'rare',bonus:'+10% дослідж.',owned:false,equipped:false},
+  {id:'costume_knight',name:'Лицар',emoji:'⚔️',cat:'Костюми',rarity:'epic',bonus:'+20% арена',owned:false,equipped:false},
+  {id:'costume_astro',name:'Космонавт',emoji:'👨‍🚀',cat:'Костюми',rarity:'legendary',bonus:'+30% тунелі',owned:false,equipped:false},
+  {id:'costume_ninja',name:'Ніндзя',emoji:'🥷',cat:'Костюми',rarity:'rare',bonus:'+15% швидкість',owned:false,equipped:false},
+  {id:'costume_pirate',name:'Піrat',emoji:'🏴‍☠️',cat:'Костюми',rarity:'rare',bonus:'+20% скарби',owned:false,equipped:false},
+  {id:'costume_default',name:'Пухнастий',emoji:'🐹',cat:'Костюми',rarity:'common',bonus:'Базовий вигляд',owned:true,equipped:true},
+  {id:'art_wheel',name:'Стародавнє колесо',emoji:'⚙️',cat:'Артефакти',rarity:'legendary',bonus:'+50% енергія',owned:false,equipped:false},
+  {id:'art_gold',name:'Золотий сир',emoji:'🥇',cat:'Артефакти',rarity:'legendary',bonus:'+100% сир',owned:false,equipped:false},
+  {id:'art_crystal',name:'Кристальний росток',emoji:'🌱',cat:'Артефакти',rarity:'epic',bonus:'+30% кристали',owned:false,equipped:false},
+  {id:'art_map',name:'Стародавня карта',emoji:'🗺️',cat:'Артефакти',rarity:'epic',bonus:'+25% тунелі',owned:false,equipped:false},
+  {id:'deco_throne',name:'Трон',emoji:'🪑',cat:'Прикраси',rarity:'epic',bonus:'+15% всі',owned:false,equipped:false},
+  {id:'deco_flag',name:'Прапор',emoji:'🚩',cat:'Прикраси',rarity:'uncommon',bonus:'+10% монети',owned:false,equipped:false},
+  {id:'deco_lamp',name:'Ліхтар',emoji:'🪔',cat:'Прикраси',rarity:'common',bonus:'+5% настрій',owned:false,equipped:false},
+];
+const RARITY_COLOR={common:'#9E9E9E',uncommon:'#4CAF50',rare:'#2196F3',epic:'#9C27B0',legendary:'#FF9800'};
+const RARITY_COST={common:100,uncommon:300,rare:800,epic:2000,legendary:5000};
+const ACHIEVEMENTS=[
+  {id:'cheese100',title:'Любитель сиру',desc:'Зібрати 100 сиру',emoji:'🧀',target:100,key:'totalCheese',reward:{coins:50}},
+  {id:'cheese1k',title:'Колекціонер сиру',desc:'Зібрати 1,000 сиру',emoji:'🧀',target:1000,key:'totalCheese',reward:{coins:200}},
+  {id:'cheese10k',title:'Барон сиру',desc:'Зібрати 10,000 сиру',emoji:'🧀',target:10000,key:'totalCheese',reward:{coins:1000,crystals:2}},
+  {id:'cheese100k',title:'Король сиру',desc:'Зібрати 100,000 сиру',emoji:'👑',target:100000,key:'totalCheese',reward:{coins:5000,crystals:10}},
+  {id:'dig100',title:'Копач',desc:'Викопати 100м тунелів',emoji:'⛏️',target:100,key:'totalDepth',reward:{coins:100}},
+  {id:'dig500',title:'Тунельний майстер',desc:'Викопати 500м тунелів',emoji:'⛏️',target:500,key:'totalDepth',reward:{coins:500,crystals:2}},
+  {id:'dig1000',title:'Головний шахтар',desc:'Викопати 1,000м тунелів',emoji:'🕳️',target:1000,key:'totalDepth',reward:{coins:2000,crystals:5}},
+  {id:'rooms3',title:'Будівельник',desc:'Побудувати 3 кімнати',emoji:'🏠',target:3,key:'builtRooms',reward:{coins:150}},
+  {id:'rooms5',title:'Архітектор',desc:'Побудувати 5 кімнат',emoji:'🏗️',target:5,key:'builtRooms',reward:{coins:500,crystals:2}},
+  {id:'rooms10',title:'Будівник Королівства',desc:'Побудувати всі кімнати',emoji:'🏰',target:10,key:'builtRooms',reward:{coins:5000,crystals:20}},
+  {id:'lv5',title:'Учень',desc:'Досягти 5 рівня',emoji:'📈',target:5,key:'level',reward:{coins:200}},
+  {id:'lv10',title:'Підмайстер',desc:'Досягти 10 рівня',emoji:'📈',target:10,key:'level',reward:{coins:500}},
+  {id:'lv20',title:'Майстер',desc:'Досягти 20 рівня',emoji:'🏅',target:20,key:'level',reward:{coins:1500,crystals:5}},
+  {id:'lv50',title:'Гранд-майстер',desc:'Досягти 50 рівня',emoji:'🏆',target:50,key:'level',reward:{coins:5000,crystals:25}},
+  {id:'coll5',title:'Колекціонер',desc:'Мати 5 предметів',emoji:'🎒',target:5,key:'ownedItems',reward:{coins:100}},
+  {id:'coll10',title:'Ентузіаст',desc:'Мати 10 предметів',emoji:'🎒',target:10,key:'ownedItems',reward:{coins:500,crystals:3}},
+  {id:'feed50',title:'Турботливий господар',desc:'Погодувати 50 разів',emoji:'🍽️',target:50,key:'feedCount',reward:{coins:200}},
+  {id:'clean50',title:'Чисто!',desc:'Помити 50 разів',emoji:'🛁',target:50,key:'cleanCount',reward:{coins:150}},
+  {id:'coins1k',title:'Скарбник',desc:'Заробити 1,000 монет',emoji:'💰',target:1000,key:'totalCoins',reward:{crystals:3}},
+  {id:'coins10k',title:'Багатий хомʼяк',desc:'Заробити 10,000 монет',emoji:'💰',target:10000,key:'totalCoins',reward:{crystals:10}},
+  {id:'crystals10',title:'Знавець кристалів',desc:'Зібрати 10 кристалів',emoji:'💎',target:10,key:'totalCrystals',reward:{coins:500}},
+  {id:'spin5',title:'Щасливчик',desc:'Покрутити колесо 5 разів',emoji:'🎡',target:5,key:'spins',reward:{coins:200}},
+  {id:'login7',title:'Постійний гравець',desc:'7 днів поспіль',emoji:'📅',target:7,key:'streak',reward:{coins:500,crystals:3}},
+  {id:'minigame10',title:'Геймер',desc:'Зіграти 10 разів',emoji:'🎮',target:10,key:'minigamesPlayed',reward:{coins:300}},
+  {id:'tasks30',title:'Відданий',desc:'Виконати 30 завдань',emoji:'✅',target:30,key:'tasksCompleted',reward:{coins:1000,crystals:5}},
+];
+const WHEEL_PRIZES=[
+  {label:'50 Сиру',cheese:50,color:'#FFD700'},
+  {label:'30 Монет',coins:30,color:'#FF9800'},
+  {label:'200 Сиру',cheese:200,color:'#FFC107'},
+  {label:'2 Кристали',crystals:2,color:'#29B6F6'},
+  {label:'100 Монет',coins:100,color:'#FFA726'},
+  {label:'500 Сиру',cheese:500,color:'#FFEE58'},
+  {label:'300 Монет',coins:300,color:'#FFB300'},
+  {label:'5 Кристалів',crystals:5,color:'#0288D1'},
+  {label:'Сюрприз 🎁',cheese:100,coins:50,crystals:1,color:'#9C27B0'},
+  {label:'1000 Сиру',cheese:1000,color:'#FF6F00'},
+];
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const G={
+  // Resources
+  cheese:50,coins:0,crystals:0,carrots:20,
+  // Hamster
+  hunger:80,thirst:80,mood:80,energy:80,clean:80,level:1,xp:0,
+  // Tracking
+  totalCheese:50,totalCoins:0,totalCrystals:0,totalDepth:0,
+  feedCount:0,cleanCount:0,spins:0,minigamesPlayed:0,tasksCompleted:0,
+  // Misc
+  depth:0,lastSave:Date.now(),loginStreak:1,lastLogin:'',
+  rooms:[...ROOMS.map(r=>({...r}))],
+  collection:[...COLLECTION.map(c=>({...c}))],
+  achievements:ACHIEVEMENTS.map(a=>({...a,current:0,unlocked:false})),
+  tasks:[],lastTaskDate:'',
+  wheelSpinsToday:0,lastWheelDate:'',
+  tutorialDone:false,
+
+  // Actions
+  feed(){
+    if(this.carrots<1&&this.cheese<5){notify('Немає їжі! 😢');return}
+    if(this.carrots>=1)this.carrots--;else this.cheese-=5;
+    this.hunger=Math.min(100,this.hunger+25);
+    this.mood=Math.min(100,this.mood+5);
+    this.xp+=5;this.feedCount++;
+    notify('Смачно! Хомку задоволений 😋');spawnParticles('🧀',hamsterCanvas);
+    this.updateTask('feed',1);this.checkAchs();
+  },
+  water(){
+    this.thirst=Math.min(100,this.thirst+30);
+    this.mood=Math.min(100,this.mood+3);
+    notify('Освіжаючи! 💧');spawnParticles('💧',hamsterCanvas);
+    this.updateTask('water',1);
+  },
+  clean(){
+    this.clean=Math.min(100,this.clean+40);
+    this.mood=Math.min(100,this.mood+8);
+    this.cleanCount++;
+    notify('Чистенький! ✨');spawnParticles('✨',hamsterCanvas);
+    this.updateTask('clean',1);this.checkAchs();
+  },
+  play(){
+    if(this.energy<10){notify('Хомка втомився 😴');return}
+    this.mood=Math.min(100,this.mood+20);
+    this.energy=Math.max(0,this.energy-10);
+    this.xp+=10;
+    notify('Весело! 🎉');spawnParticles('🎉',hamsterCanvas);
+  },
+  buildRoom(id){
+    const r=this.rooms.find(r=>r.id===id);if(!r)return;
+    if(r.built){notify('Вже побудована!');return}
+    if(this.level<r.unlockLv){notify(`Потрібен рівень ${r.unlockLv}!`);return}
+    if(this.coins<r.cost){notify(`Потрібно ${r.cost} монет!`);return}
+    this.coins-=r.cost;r.built=true;r.level=1;
+    notify(`${r.emoji} ${r.name} побудована!`);
+    this.checkAchs();renderRooms();this.save();
+  },
+  upgradeRoom(id){
+    const r=this.rooms.find(r=>r.id===id);if(!r||!r.built)return;
+    if(r.level>=5){notify('Максимальний рівень!');return}
+    const cost=Math.floor(r.cost*(r.level+1)*1.5)||Math.floor((r.level+1)*150);
+    if(this.coins<cost){notify(`Потрібно ${cost} монет!`);return}
+    this.coins-=cost;r.level++;
+    notify(`⬆️ ${r.name} — рівень ${r.level}!`);renderRooms();this.save();
+  },
+  updateTask(type,val){
+    this.tasks.forEach(t=>{
+      if(t.type===type&&!t.done){
+        t.progress=Math.min(t.target,t.progress+val);
+        if(t.progress>=t.target&&!t.done){
+          t.done=true;this.tasksCompleted++;
+          this.cheese+=t.reward.cheese||0;
+          this.coins+=t.reward.coins||0;
+          this.crystals+=t.reward.crystals||0;
+          notify(`✅ Завдання: ${t.desc}! +${t.reward.coins||0}💰`);
+          this.checkAchs();
+        }
+      }
+    });
+    renderTasks();
+  },
+  checkAchs(){
+    const vals={
+      totalCheese:this.totalCheese,totalDepth:Math.floor(this.totalDepth),
+      builtRooms:this.rooms.filter(r=>r.built).length,level:this.level,
+      ownedItems:this.collection.filter(c=>c.owned).length,
+      feedCount:this.feedCount,cleanCount:this.cleanCount,
+      totalCoins:this.totalCoins,totalCrystals:this.totalCrystals,
+      spins:this.spins,streak:this.loginStreak,
+      minigamesPlayed:this.minigamesPlayed,tasksCompleted:this.tasksCompleted
+    };
+    this.achievements.forEach(a=>{
+      if(a.unlocked)return;
+      a.current=vals[a.key]||0;
+      if(a.current>=a.target){
+        a.unlocked=true;
+        this.coins+=a.reward.coins||0;
+        this.crystals+=a.reward.crystals||0;
+        setTimeout(()=>notify(`🏆 Досягнення: ${a.title}! +${a.reward.coins||0}💰`),500);
+      }
+    });
+  },
+  levelUp(){
+    const needed=Math.floor(100*Math.pow(this.level,1.5));
+    if(this.xp>=needed){this.xp-=needed;this.level++;notify(`🎉 Рівень ${this.level}!`);this.checkAchs();}
+  },
+  save(){
+    try{localStorage.setItem('hk_save',JSON.stringify({
+      cheese:this.cheese,coins:this.coins,crystals:this.crystals,carrots:this.carrots,
+      hunger:this.hunger,thirst:this.thirst,mood:this.mood,energy:this.energy,clean:this.clean,
+      level:this.level,xp:this.xp,totalCheese:this.totalCheese,totalCoins:this.totalCoins,
+      totalCrystals:this.totalCrystals,totalDepth:this.totalDepth,feedCount:this.feedCount,
+      cleanCount:this.cleanCount,spins:this.spins,minigamesPlayed:this.minigamesPlayed,
+      tasksCompleted:this.tasksCompleted,depth:this.depth,lastSave:Date.now(),
+      loginStreak:this.loginStreak,lastLogin:this.lastLogin,
+      rooms:this.rooms.map(r=>({id:r.id,built:r.built,level:r.level})),
+      collection:this.collection.map(c=>({id:c.id,owned:c.owned,equipped:c.equipped})),
+      achievements:this.achievements.map(a=>({id:a.id,current:a.current,unlocked:a.unlocked})),
+      tasks:this.tasks,lastTaskDate:this.lastTaskDate,
+      wheelSpinsToday:this.wheelSpinsToday,lastWheelDate:this.lastWheelDate
+    }));}catch(e){}
+  },
+  load(){
+    try{
+      const s=JSON.parse(localStorage.getItem('hk_save'));if(!s)return false;
+      Object.assign(this,s);
+      this.rooms=ROOMS.map(r=>{const sv=s.rooms?.find(x=>x.id===r.id);return sv?{...r,built:sv.built,level:sv.level}:{...r}});
+      this.collection=COLLECTION.map(c=>{const sv=s.collection?.find(x=>x.id===c.id);return sv?{...c,owned:sv.owned,equipped:sv.equipped}:{...c}});
+      this.achievements=ACHIEVEMENTS.map(a=>{const sv=s.achievements?.find(x=>x.id===a.id);return sv?{...a,current:sv.current,unlocked:sv.unlocked}:{...a,current:0,unlocked:false}});
+      return true;
+    }catch(e){return false;}
+  }
+};
+// ═══════════════════════════════════════════════════════════════════════════
+// HAMSTER DRAWING
+// ═══════════════════════════════════════════════════════════════════════════
+const hamsterCanvas=document.getElementById('hamsterCanvas');
+const ctx=hamsterCanvas.getContext('2d');
+let bounceT=0,blinkT=0,particlesArr=[];
+function drawHamster(){
+  const c=ctx,w=200,h=200,cx=w/2,bounce=Math.sin(bounceT)*6;
+  const happy=G.mood>70,sad=G.mood<35;
+  c.clearRect(0,0,w,h);
+  const cy=h/2+bounce;
+  const bodyColor=sad?'#AAAAAA':'#F4C87E';
+  // Shadow
+  c.fillStyle='rgba(0,0,0,0.15)';c.beginPath();c.ellipse(cx,cy+52,52,16,0,0,Math.PI*2);c.fill();
+  // Ears
+  drawEar(c,cx-34,cy-46,22,bodyColor,'#F9A8C9');
+  drawEar(c,cx+34,cy-46,22,bodyColor,'#F9A8C9');
+  // Body
+  c.fillStyle=bodyColor;c.beginPath();c.ellipse(cx,cy+5,58,54,0,0,Math.PI*2);c.fill();
+  // Cheek pouches
+  const pAlpha=0.3+G.hunger/100*0.5;
+  c.fillStyle=`rgba(249,199,158,${pAlpha})`;
+  c.beginPath();c.ellipse(cx-64,cy+8,22,18,0,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(cx+64,cy+8,22,18,0,0,Math.PI*2);c.fill();
+  // Eyes
+  const eyeY=cy-8,blink=blinkT<0.05;
+  drawEye(c,cx-24,eyeY,blink,sad);
+  drawEye(c,cx+24,eyeY,blink,sad);
+  // Nose
+  c.fillStyle=sad?'#C87878':'#E87B9A';
+  c.beginPath();c.moveTo(cx,cy+14);c.lineTo(cx-8,cy+20);c.lineTo(cx+8,cy+20);c.fill();
+  // Mouth
+  c.strokeStyle='#8B6914';c.lineWidth=2.5;c.beginPath();
+  if(sad){c.arc(cx,cy+28,12,-0.3,-Math.PI+0.3,true);}
+  else{c.arc(cx,cy+22,10,0.2,Math.PI-0.2);}
+  c.stroke();
+  // Crown if level>=5
+  if(G.level>=5)drawCrown(c,cx,cy-62,36,G.level);
+  // Hat
+  const hat=G.collection.find(x=>x.cat==='Капелюхи'&&x.equipped);
+  if(hat){c.font='28px serif';c.textAlign='center';c.fillText(hat.emoji,cx,cy-70);}
+  // Particles
+  particlesArr=particlesArr.filter(p=>{
+    p.life-=0.04;p.y+=p.vy;p.x+=p.vx;
+    if(p.life>0){c.globalAlpha=p.life;c.font=`${p.size}px serif`;c.fillText(p.emoji,p.x,p.y);c.globalAlpha=1;}
+    return p.life>0;
+  });
+  // Mood indicator
+  if(happy){c.font='18px serif';c.fillText('😊',cx+66,cy-50);}
+  if(sad){c.font='18px serif';c.fillText('😢',cx+66,cy-50);}
+  c.textAlign='left';
+}
+function drawEar(c,x,y,r,outer,inner){
+  c.fillStyle=outer;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();
+  c.fillStyle=inner;c.beginPath();c.arc(x,y,r*0.6,0,Math.PI*2);c.fill();
+}
+function drawEye(c,x,y,blink,sad){
+  const ey=sad?y+4:y,ey2=blink?0.5:1;
+  c.fillStyle='#3D2B1F';c.beginPath();c.ellipse(x,ey,7,7*ey2,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#fff';c.beginPath();c.ellipse(x+2,ey-2,3,3*ey2,0,0,Math.PI*2);c.fill();
+}
+function drawCrown(c,cx,cy,w,lv){
+  const col=lv>=50?'#E5C100':lv>=20?'#FFD700':'#FFC107';
+  c.fillStyle=col;
+  c.beginPath();c.moveTo(cx-w,cy+w*0.4);c.lineTo(cx-w,cy-w*0.2);c.lineTo(cx-w*0.4,cy-w*0.65);c.lineTo(cx,cy-w*0.15);c.lineTo(cx+w*0.4,cy-w*0.65);c.lineTo(cx+w,cy-w*0.2);c.lineTo(cx+w,cy+w*0.4);c.closePath();c.fill();
+  c.fillStyle='#FF6B35';c.beginPath();c.arc(cx,cy-w*0.18,4,0,Math.PI*2);c.fill();
+  c.fillStyle='#2196F3';c.beginPath();c.arc(cx-w*0.38,cy-w*0.62,3,0,Math.PI*2);c.fill();
+  c.fillStyle='#4CAF50';c.beginPath();c.arc(cx+w*0.38,cy-w*0.62,3,0,Math.PI*2);c.fill();
+}
+function spawnParticles(emoji,canvas){
+  for(let i=0;i<5;i++){
+    particlesArr.push({emoji,x:80+Math.random()*80,y:130,vx:(Math.random()-.5)*3,vy:-Math.random()*4-2,life:1,size:18+Math.random()*10});
+  }
+}
+hamsterCanvas.onclick=()=>G.play();
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════════════════════════════════
+function tick(){
+  bounceT+=0.06;blinkT=(blinkT+0.015)%1;
+  const dt=1/60;
+  const bedroomLv=G.rooms.find(r=>r.id==='bedroom')?.level||0;
+  const royalLv=G.rooms.find(r=>r.id==='royal')?.level||0;
+  const parkLv=G.rooms.find(r=>r.id==='park')?.level||0;
+  const royalBonus=1+royalLv*0.1;
+  // Stat decay
+  G.hunger=Math.max(0,G.hunger-8/3600);
+  G.thirst=Math.max(0,G.thirst-10/3600);
+  G.energy=Math.max(0,Math.min(100,G.energy-5/3600+bedroomLv*2/3600));
+  G.clean=Math.max(0,G.clean-6/3600);
+  G.mood=Math.max(0,Math.min(100,G.mood-4/3600+parkLv*1.5/3600));
+  // Cheese production
+  const vaultLv=G.rooms.find(r=>r.id==='vault')?.level||0;
+  const digSpeed=Math.max(0.1,(G.mood+G.energy)/200);
+  const cheesePS=(60+vaultLv*50)*digSpeed*royalBonus/3600;
+  G.cheese+=cheesePS;G.totalCheese+=cheesePS;
+  // Coins
+  const treasuryLv=G.rooms.find(r=>r.id==='treasury')?.level||0;
+  const mineLv=G.rooms.find(r=>r.id==='mine')?.level||0;
+  const coinsPS=(treasuryLv*20+mineLv*50)/3600;
+  if(coinsPS>0){G.coins+=coinsPS;G.totalCoins+=coinsPS;}
+  // Carrots
+  const farmLv=G.rooms.find(r=>r.id==='farm')?.level||0;
+  G.carrots+=farmLv*5/3600;
+  // Tunnel
+  if(G.energy>10){
+    const gain=digSpeed*10/3600;G.depth+=gain;G.totalDepth+=gain;
+    // Random drop
+    if(Math.random()<0.005){
+      const roll=Math.random();const deep=Math.min(1,G.depth/1000);
+      if(roll<0.02+deep*0.05){const c=Math.floor(Math.random()*3)+1;G.crystals+=c;G.totalCrystals+=c;notify(`✨ Знайдено ${c} кристали!`);}
+      else if(roll<0.06){const co=Math.floor(Math.random()*40)+10;G.coins+=co;G.totalCoins+=co;notify(`💰 +${co} монет!`);}
+      else{const ch=Math.floor(Math.random()*20)+5;G.cheese+=ch;notify(`🧀 +${ch} сиру!`);}
+    }
+  }
+  // XP
+  G.xp+=digSpeed*2/60;G.levelUp();
+  G.checkAchs();
+  updateUI();
+  drawHamster();
+  if(activeGame)tickGame();
+  // Auto-save every 30s
+  if(Date.now()-G.lastSave>30000){G.save();G.lastSave=Date.now();}
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════════════════════════════════
+function fmt(n){n=Math.floor(n);return n>=1e9?`${(n/1e9).toFixed(1)}B`:n>=1e6?`${(n/1e6).toFixed(1)}M`:n>=1000?`${(n/1000).toFixed(1)}K`:String(n);}
+function statColor(v){return v>60?'#4CAF50':v>30?'#FF9800':'#E53935';}
+function updateUI(){
+  // Resources
+  document.getElementById('res-cheese').textContent=fmt(G.cheese);
+  document.getElementById('res-coins').textContent=fmt(G.coins);
+  document.getElementById('res-crystals').textContent=fmt(G.crystals);
+  document.getElementById('res-carrots').textContent=fmt(G.carrots);
+  const vaultLv=G.rooms.find(r=>r.id==='vault')?.level||0;
+  const digSpeed=Math.max(0.1,(G.mood+G.energy)/200);
+  const royalLv=G.rooms.find(r=>r.id==='royal')?.level||0;
+  const cps=Math.floor((60+vaultLv*50)*digSpeed*(1+royalLv*0.1)/3600*10)/10;
+  document.getElementById('rate-cheese').textContent=`+${cps}/s`;
+  const treasuryLv=G.rooms.find(r=>r.id==='treasury')?.level||0;
+  const mineLv=G.rooms.find(r=>r.id==='mine')?.level||0;
+  const coinsPS=(treasuryLv*20+mineLv*50)/3600;
+  document.getElementById('rate-coins').textContent=coinsPS>0?`+${coinsPS.toFixed(2)}/s`:'';
+  // XP
+  const needed=Math.floor(100*Math.pow(G.level,1.5));
+  document.getElementById('lv-text').textContent=`⭐ Lv.${G.level}`;
+  document.getElementById('xp-text').textContent=`${fmt(G.xp)} / ${fmt(needed)} XP`;
+  document.getElementById('xp-fill').style.width=`${Math.min(100,G.xp/needed*100)}%`;
+  // Stats
+  function setStat(id,v){document.getElementById(`stat-${id}`).style.width=`${v}%`;document.getElementById(`val-${id}`).textContent=Math.floor(v);document.getElementById(`val-${id}`).style.color=statColor(v);}
+  setStat('hunger',G.hunger);setStat('thirst',G.thirst);setStat('mood',G.mood);setStat('energy',G.energy);setStat('clean',G.clean);
+  // Happiness
+  const hp=(G.hunger+G.thirst+G.mood+G.energy+G.clean)/5;
+  const hl=document.getElementById('happiness-label');
+  if(hp>70)hl.style.color='#4CAF50';else if(hp>40)hl.style.color='#FF9800';else hl.style.color='#E53935';
+  hl.textContent=hp>70?'😊 Щасливий':hp>40?'😐 Нормально':'😢 Сумний';
+  // Tunnel
+  document.getElementById('tunnel-depth').textContent=Math.floor(G.depth);
+  document.getElementById('dig-speed').textContent=digSpeed.toFixed(1);
+  document.getElementById('tunnel-prog').style.width=`${(G.depth%100)}%`;
+  document.getElementById('tunnel-hint').textContent=G.depth>500?'💎 Знаходимо кристали!':G.depth>200?'✨ Попереду рідкісні скарби!':G.depth>100?'💰 Більше монет!':'🧀 Копаємо за сиром...';
+  // Kingdom
+  document.getElementById('coins-display').textContent=fmt(G.coins);
+  document.getElementById('rooms-built').textContent=G.rooms.filter(r=>r.built).length;
+  // Tasks mini
+  const inc=G.tasks.filter(t=>!t.done).slice(0,2);
+  document.getElementById('tasks-mini').innerHTML=inc.map(t=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>${t.emoji}</span><div style="flex:1"><div style="font-size:11px">${t.desc}</div><div class="progress-track" style="height:4px;margin-top:3px"><div class="progress-fill" style="width:${t.progress/t.target*100}%;background:var(--green)"></div></div></div><span style="font-size:10px;opacity:.5">${t.progress}/${t.target}</span></div>`).join('')||'<div style="font-size:12px;opacity:.5;text-align:center">Всі завдання виконані! 🎉</div>';
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════
+let currentTab='home';
+function switchTab(name,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  currentTab=name;
+  if(name==='kingdom')renderRooms();
+  if(name==='collection')renderCollection();
+  if(name==='achievements')renderAchievements();
+  if(name==='tasks')renderTasks();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// ROOMS
+// ═══════════════════════════════════════════════════════════════════════════
+function roomUpgradeCost(r){return r.cost>0?Math.floor(r.cost*(r.level+1)*1.5):Math.floor((r.level+1)*150);}
+function renderRooms(){
+  const el=document.getElementById('rooms-list');
+  el.innerHTML=G.rooms.map(r=>{
+    const locked=G.level<r.unlockLv,upgCost=roomUpgradeCost(r);
+    let btn='';
+    if(locked)btn=`<div class="room-btn" style="background:#333;font-size:10px">🔒 Lv.${r.unlockLv}</div>`;
+    else if(!r.built)btn=`<button class="room-btn" style="background:${G.coins>=r.cost?'var(--orange)':'#444'}" onclick="G.buildRoom('${r.id}')">Будувати<br><small>💰${r.cost}</small></button>`;
+    else if(r.level>=5)btn=`<div class="room-btn" style="background:rgba(255,215,0,.2);color:var(--gold)">✨ МАКС</div>`;
+    else btn=`<button class="room-btn" style="background:${G.coins>=upgCost?'#1565C0':'#333'}" onclick="G.upgradeRoom('${r.id}')">Апгрейд<br><small>💰${upgCost}</small></button>`;
+    const stars=r.built?'★'.repeat(r.level)+'☆'.repeat(5-r.level):'';
+    const bonus=r.built?`<div class="room-bonus">${roomBonus(r)}</div>`:'';
+    return`<div class="room-card ${r.built?'built':''} ${locked?'locked':''}">
+      <div class="room-icon">${r.emoji}</div>
+      <div class="room-info">
+        <div class="room-name">${r.name}${r.built?` <span style="font-size:10px;color:var(--green)">Lv.${r.level}</span>`:''}</div>
+        <div class="room-desc">${r.desc}</div>${bonus}
+        ${r.built?`<div class="room-stars" style="color:var(--gold);font-size:11px">${stars}</div>`:''}
+        ${locked?`<div style="font-size:10px;opacity:.5;margin-top:3px">🔒 Потрібен рівень ${r.unlockLv}</div>`:''}
+      </div>
+      <div class="room-action">${btn}</div>
+    </div>`;
+  }).join('');
+}
+function roomBonus(r){
+  const lvl=r.level;
+  switch(r.id){case'bedroom':return`⚡ Енергія +${lvl*20}%`;case'vault':return`🧀 +${lvl*50}/год`;case'workshop':return`🔨 Крафт +${lvl*25}%`;case'farm':return`🥕 +${lvl*5}/год`;case'lab':return`🔬 Дослідж. +${lvl*30}%`;case'treasury':return`💰 +${lvl*20}/год`;case'arena':return`⚔️ Нагороди +${lvl*15}%`;case'royal':return`👑 Все +${lvl*10}%`;case'park':return`🌳 Настрій +${lvl*10}/год`;case'mine':return`⛏️ +${lvl*50}/год`;}return'';}
+// ═══════════════════════════════════════════════════════════════════════════
+// COLLECTION
+// ═══════════════════════════════════════════════════════════════════════════
+let activeCat='Всі';
+function renderCollection(){
+  const cats=['Всі',...new Set(COLLECTION.map(c=>c.cat))];
+  document.getElementById('cat-tabs').innerHTML=cats.map(c=>`<button class="cat-tab ${c===activeCat?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+  const items=activeCat==='Всі'?G.collection:G.collection.filter(c=>c.cat===activeCat);
+  const owned=G.collection.filter(c=>c.owned).length;
+  document.getElementById('coll-count').textContent=`${owned} / ${G.collection.length} предметів`;
+  document.getElementById('coll-grid').innerHTML=items.map(item=>{
+    const rc=RARITY_COLOR[item.rarity];
+    return`<div class="coll-item ${item.owned?'owned':'locked'} ${item.equipped?'equipped':''}" style="border-color:${item.owned?rc+'88':'transparent'}" onclick="openItemModal('${item.id}')">
+      <div class="item-emoji">${item.emoji}</div>
+      <div class="item-name" style="color:${item.owned?rc:'#555'}">${item.name}</div>
+      ${item.equipped?`<div style="font-size:10px;color:var(--gold)">✓ Одягнений</div>`:''}
+      ${!item.owned?`<div class="lock-overlay">🔒</div>`:''}
+    </div>`;
+  }).join('');
+}
+function setCat(c){activeCat=c;renderCollection();}
+function openItemModal(id){
+  const item=G.collection.find(x=>x.id===id);if(!item)return;
+  const rc=RARITY_COLOR[item.rarity];
+  const cost=RARITY_COST[item.rarity];
+  document.getElementById('modal-title').textContent=`${item.emoji} ${item.name}`;
+  document.getElementById('modal-title').style.color=rc;
+  document.getElementById('modal-body').innerHTML=`<div style="margin-bottom:6px;color:#aaa;font-size:12px">${item.rarity.toUpperCase()} • ${item.cat}</div><div style="margin-bottom:8px">${item.bonus}</div>${!item.owned?`<div>Ціна: 💰${cost}<br>Ваші монети: 💰${fmt(G.coins)}</div>`:''}`;
+  const btns=document.getElementById('modal-buttons');
+  if(!item.owned){
+    btns.innerHTML=`<button class="modal-btn" style="background:${G.coins>=cost?'var(--orange)':'#444'}" onclick="${G.coins>=cost?`buyItem('${id}')`:''};closeModal()">Купити 💰${cost}</button><button class="modal-btn" style="background:#333" onclick="closeModal()">Закрити</button>`;
+  }else{
+    btns.innerHTML=`<button class="modal-btn" style="background:${item.equipped?'#555':'var(--green)'}" onclick="equipItem('${id}');closeModal()">${item.equipped?'Зняти':'Одягнути ✓'}</button><button class="modal-btn" style="background:#333" onclick="closeModal()">Закрити</button>`;
+  }
+  document.getElementById('modal-overlay').classList.add('active');
+}
+function buyItem(id){
+  const item=G.collection.find(x=>x.id===id);if(!item)return;
+  const cost=RARITY_COST[item.rarity];
+  if(G.coins<cost){notify('Недостатньо монет!');return;}
+  G.coins-=cost;item.owned=true;notify(`Отримано ${item.emoji} ${item.name}!`);
+  G.checkAchs();renderCollection();G.save();
+}
+function equipItem(id){
+  const item=G.collection.find(x=>x.id===id);if(!item||!item.owned)return;
+  G.collection.forEach(c=>{if(c.cat===item.cat)c.equipped=false;});
+  item.equipped=!item.equipped;
+  notify(item.equipped?`Одягнено ${item.emoji}!`:'Знято!');renderCollection();G.save();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// ACHIEVEMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+let achFilter='all';
+function filterAch(f,btn){
+  achFilter=f;document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderAchievements();
+}
+function renderAchievements(){
+  const total=G.achievements.length,unlocked=G.achievements.filter(a=>a.unlocked).length;
+  document.getElementById('ach-count').textContent=`${unlocked} / ${total} розблоковано`;
+  document.getElementById('ach-total-prog').style.width=`${unlocked/total*100}%`;
+  let list=G.achievements;
+  if(achFilter==='unlocked')list=list.filter(a=>a.unlocked);
+  if(achFilter==='locked')list=list.filter(a=>!a.unlocked);
+  document.getElementById('ach-list').innerHTML=list.map(a=>`
+    <div class="ach-card ${a.unlocked?'unlocked':''}">
+      <div class="ach-icon" style="${a.unlocked?'filter:none':'filter:grayscale(0.7)'}">${a.emoji}</div>
+      <div class="ach-info">
+        <div class="ach-title">${a.title}</div>
+        <div class="ach-desc">${a.desc}</div>
+        <div class="ach-prog-wrap">
+          <div class="progress-track" style="height:5px"><div class="progress-fill" style="width:${Math.min(100,a.current/a.target*100)}%;background:${a.unlocked?'var(--gold)':'var(--orange)'}"></div></div>
+          <div class="ach-prog-text">${fmt(a.current)} / ${fmt(a.target)}</div>
+        </div>
+      </div>
+      <div class="ach-reward">${a.reward.coins?`💰${a.reward.coins}<br>`:''} ${a.reward.crystals?`💎${a.reward.crystals}`:''}${a.unlocked?'<br>✅':''}</div>
+    </div>`).join('');
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// DAILY TASKS
+// ═══════════════════════════════════════════════════════════════════════════
+const TASK_POOLS={
+  easy:[
+    {type:'feed',desc:'Погодуй хомʼяка 3 рази',emoji:'🍽️',target:3,reward:{coins:50,cheese:30}},
+    {type:'water',desc:'Дай воду 2 рази',emoji:'💧',target:2,reward:{coins:40}},
+    {type:'clean',desc:'Помий хомʼяка',emoji:'🛁',target:1,reward:{coins:35}},
+    {type:'cheese',desc:'Зібрати 50 сиру',emoji:'🧀',target:50,reward:{coins:45}},
+  ],
+  medium:[
+    {type:'cheese',desc:'Зібрати 200 сиру',emoji:'🧀',target:200,reward:{coins:150}},
+    {type:'depth',desc:'Викопати 100м',emoji:'⛏️',target:100,reward:{coins:180}},
+    {type:'play',desc:'Зіграти у міні-гру',emoji:'🎮',target:1,reward:{coins:200,crystals:1}},
+  ],
+  hard:[
+    {type:'cheese',desc:'Зібрати 1000 сиру',emoji:'🧀',target:1000,reward:{coins:500,crystals:2}},
+    {type:'depth',desc:'Викопати 500м',emoji:'⛏️',target:500,reward:{coins:600,crystals:2}},
+  ]
+};
+function generateTasks(){
+  const today=new Date().toDateString();
+  if(G.lastTaskDate===today)return;
+  const rng=(arr)=>arr[Math.floor(Math.random()*arr.length)];
+  G.tasks=[
+    {...rng(TASK_POOLS.easy),id:'t1',progress:0,done:false},
+    {...rng(TASK_POOLS.easy),id:'t2',progress:0,done:false},
+    {...rng(TASK_POOLS.easy),id:'t3',progress:0,done:false},
+    {...rng(TASK_POOLS.medium),id:'t4',progress:0,done:false},
+    {...rng(TASK_POOLS.medium),id:'t5',progress:0,done:false},
+    {...rng(TASK_POOLS.hard),id:'t6',progress:0,done:false},
+  ];
+  G.lastTaskDate=today;G.save();
+}
+function renderTasks(){
+  const done=G.tasks.filter(t=>t.done).length;
+  document.getElementById('streak-info').innerHTML=`🔥 <b style="color:var(--orange)">${G.loginStreak} днів</b> поспіль • ${done}/${G.tasks.length} виконано`;
+  const diff={easy:'Легке',medium:'Середнє',hard:'Важке'};
+  const diffColor={easy:'#4CAF50',medium:'#FF9800',hard:'#E53935'};
+  const categorized=[
+    {label:'Легкі',tasks:G.tasks.filter((t,i)=>i<3)},
+    {label:'Середні',tasks:G.tasks.filter((t,i)=>i>=3&&i<5)},
+    {label:'Важке',tasks:G.tasks.filter((t,i)=>i>=5)}
+  ];
+  document.getElementById('tasks-list').innerHTML=categorized.map(cat=>`
+    <div style="font-size:12px;font-weight:700;color:var(--green);margin:6px 0 4px">${cat.label}</div>
+    ${cat.tasks.map(t=>`
+    <div class="task-card ${t.done?'done':''}">
+      <div class="task-emoji">${t.done?'✅':t.emoji}</div>
+      <div class="task-info">
+        <div class="task-desc">${t.desc}</div>
+        <div class="progress-track" style="height:5px;margin-top:4px"><div class="progress-fill" style="width:${Math.min(100,t.progress/t.target*100)}%;background:var(--green)"></div></div>
+        <div class="task-prog-text">${t.progress} / ${t.target}</div>
+      </div>
+      <div class="task-reward">${t.reward.coins?`💰${t.reward.coins}`:''}${t.reward.crystals?`<br>💎${t.reward.crystals}`:''}${t.reward.cheese?`<br>🧀${t.reward.cheese}`:''}</div>
+    </div>`).join('')}`).join('');
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// WHEEL OF FORTUNE
+// ═══════════════════════════════════════════════════════════════════════════
+let wheelAngle=0,wheelSpinning=false,wheelRAF=null;
+const wheelCanvas=document.getElementById('wheel-canvas');
+const wCtx=wheelCanvas.getContext('2d');
+function drawWheel(angle){
+  const c=wCtx,w=260,cx=130,cy=130,r=120;
+  c.clearRect(0,0,w,w);
+  const slice=Math.PI*2/WHEEL_PRIZES.length;
+  WHEEL_PRIZES.forEach((p,i)=>{
+    const start=i*slice+angle,end=start+slice-0.02;
+    c.fillStyle=p.color;c.beginPath();c.moveTo(cx,cy);c.arc(cx,cy,r,start,end);c.closePath();c.fill();
+    c.save();c.translate(cx,cy);c.rotate(i*slice+slice/2+angle);
+    c.textAlign='right';c.fillStyle='#fff';c.font='bold 11px sans-serif';
+    c.shadowColor='rgba(0,0,0,.5)';c.shadowBlur=3;
+    c.fillText(p.label,r-8,4);c.restore();
+  });
+  // Center
+  c.fillStyle='#1A0A2E';c.beginPath();c.arc(cx,cy,22,0,Math.PI*2);c.fill();
+  c.fillStyle='var(--gold)';c.beginPath();c.arc(cx,cy,14,0,Math.PI*2);c.fill();
+  c.fillStyle='var(--orange)';c.beginPath();c.arc(cx,cy,7,0,Math.PI*2);c.fill();
+  // Dots
+  for(let i=0;i<WHEEL_PRIZES.length;i++){const a=i*slice+angle;c.fillStyle='rgba(255,255,255,.8)';c.beginPath();c.arc(cx+Math.cos(a)*r*0.92,cy+Math.sin(a)*r*0.92,3,0,Math.PI*2);c.fill();}
+  // Pointer
+  c.fillStyle='#E53935';c.beginPath();c.moveTo(cx-10,5);c.lineTo(cx+10,5);c.lineTo(cx,30);c.closePath();c.fill();
+  c.strokeStyle='#fff';c.lineWidth=1.5;c.stroke();
+}
+function openWheel(){
+  document.getElementById('wheel-section').style.display='block';
+  const today=new Date().toDateString();
+  if(G.lastWheelDate!==today){G.wheelSpinsToday=0;G.lastWheelDate=today;G.save();}
+  document.getElementById('wheel-spins-left').textContent=`Прокрутки сьогодні: ${G.wheelSpinsToday} / 3`;
+  document.getElementById('spin-btn').disabled=G.wheelSpinsToday>=3;
+  drawWheel(wheelAngle);
+}
+function spinWheel(){
+  const today=new Date().toDateString();
+  if(G.lastWheelDate!==today){G.wheelSpinsToday=0;G.lastWheelDate=today;}
+  if(G.wheelSpinsToday>=3||wheelSpinning)return;
+  wheelSpinning=true;document.getElementById('spin-btn').disabled=true;
+  document.getElementById('wheel-result').textContent='';
+  const totalSpin=Math.PI*2*(6+Math.random()*4)+Math.random()*Math.PI*2;
+  const start=performance.now(),dur=3000,startAngle=wheelAngle;
+  function animate(now){
+    const t=Math.min(1,(now-start)/dur);
+    const ease=1-Math.pow(1-t,3);
+    wheelAngle=startAngle+totalSpin*ease;
+    drawWheel(wheelAngle);
+    if(t<1){requestAnimationFrame(animate);}
+    else{
+      wheelSpinning=false;
+      G.wheelSpinsToday++;G.spins++;
+      const slice=Math.PI*2/WHEEL_PRIZES.length;
+      const norm=((Math.PI*1.5)-wheelAngle%( Math.PI*2)+Math.PI*2)%(Math.PI*2);
+      const idx=Math.floor(norm/slice)%WHEEL_PRIZES.length;
+      const prize=WHEEL_PRIZES[idx];
+      if(prize.cheese){G.cheese+=prize.cheese;G.totalCheese+=prize.cheese;}
+      if(prize.coins){G.coins+=prize.coins;G.totalCoins+=prize.coins;}
+      if(prize.crystals){G.crystals+=prize.crystals;G.totalCrystals+=prize.crystals;}
+      document.getElementById('wheel-result').textContent=`🎉 ${prize.label}!`;
+      document.getElementById('wheel-spins-left').textContent=`Прокрутки сьогодні: ${G.wheelSpinsToday} / 3`;
+      document.getElementById('spin-btn').disabled=G.wheelSpinsToday>=3;
+      notify(`🎡 Виграно: ${prize.label}!`);
+      G.checkAchs();G.save();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// MINI GAMES
+// ═══════════════════════════════════════════════════════════════════════════
+const gameOverlay=document.getElementById('game-overlay');
+const gameCanvas=document.getElementById('game-canvas');
+const gCtx=gameCanvas.getContext('2d');
+let activeGame=null,gameState={};
+const GW=()=>gameCanvas.width,GH=()=>gameCanvas.height;
+function resizeGameCanvas(){
+  const rect=gameCanvas.getBoundingClientRect();
+  gameCanvas.width=rect.width||window.innerWidth;
+  gameCanvas.height=Math.max(300,window.innerHeight-200);
+}
+function startGame(type){
+  resizeGameCanvas();
+  gameOverlay.classList.add('active');
+  document.getElementById('game-title').textContent=type==='dash'?'🏃 Cheese Dash':type==='jump'?'⬆️ Hamster Jump':'🕳️ Tunnel Escape';
+  document.getElementById('gjump-btn').textContent=type==='dash'?'↑ Стрибок':type==='jump'?'↑ Стрибок':'↑';
+  document.getElementById('gleft-btn').style.display=type==='dash'?'none':'flex';
+  document.getElementById('gright-btn').style.display=type==='dash'?'none':'flex';
+  activeGame=type;
+  if(type==='dash')initDash();
+  else if(type==='jump')initJump();
+  else if(type==='escape')initEscape();
+  showGameMessage('Готовий?','Натисни Старт!','Старт!');
+}
+function closeGame(){gameOverlay.classList.remove('active');activeGame=null;gCtx.clearRect(0,0,GW(),GH());}
+function gameAction(){
+  if(!gameState.running&&!gameState.over){gameState.running=true;document.getElementById('game-message').classList.add('hidden');}
+  else if(gameState.over){
+    if(activeGame==='dash')initDash();
+    else if(activeGame==='jump')initJump();
+    else initEscape();
+    gameState.running=true;document.getElementById('game-message').classList.add('hidden');
+  }
+  else gameJump();
+}
+function showGameMessage(title,sub,btn){
+  document.getElementById('game-message').classList.remove('hidden');
+  document.getElementById('game-msg-text').textContent=title;
+  document.getElementById('game-msg-sub').textContent=sub;
+  document.querySelector('.game-start-btn').textContent=btn;
+}
+function gameLeft(){if(!gameState.running)return;if(activeGame==='jump')gameState.vx=-0.018;else if(activeGame==='escape')gameState.lane=Math.max(0,gameState.lane-1);}
+function gameRight(){if(!gameState.running)return;if(activeGame==='jump')gameState.vx=0.018;else if(activeGame==='escape')gameState.lane=Math.min(2,gameState.lane+1);}
+function gameJump(){
+  if(!gameState.running)return;
+  if(activeGame==='dash'){if(gameState.onGround){gameState.vy=-0.24;gameState.onGround=false;}else if(!gameState.doubleJump){gameState.vy=-0.20;gameState.doubleJump=true;}}
+  else if(activeGame==='jump'){gameState.vy=-0.024;}
+}
+gameCanvas.addEventListener('click',e=>{if(activeGame==='dash')gameJump();else if(activeGame==='jump'){const r=gameCanvas.getBoundingClientRect();gameState.vx=e.clientX-r.left<GW()/2?-0.018:0.018;}else if(activeGame==='escape'){const r=gameCanvas.getBoundingClientRect();gameState.lane=e.clientX-r.left<GW()/2?Math.max(0,gameState.lane-1):Math.min(2,gameState.lane+1);}});
+// CHEESE DASH
+function initDash(){gameState={type:'dash',running:false,over:false,hamY:0.82,vy:0,onGround:true,doubleJump:false,obs:[],cheeses:[],score:0,dist:0,speed:0.007,lives:3};}
+function tickGame(){
+  if(!gameState.running||gameState.over)return;
+  const s=gameState;
+  if(s.type==='dash')tickDash(s);
+  else if(s.type==='jump')tickJump(s);
+  else if(s.type==='escape')tickEscape(s);
+  drawGame(s);
+  document.getElementById('game-score-display').textContent=s.type==='dash'?`🧀${s.score} | 🏃${s.dist}m`:s.type==='jump'?`⬆️Floor ${s.floor} 🧀${s.score}`:`🏃${s.dist}m 🧀${s.score}`;
+}
+function tickDash(s){
+  s.vy+=0.016;s.hamY+=s.vy/60;s.doubleJump=s.hamY<0.82?s.doubleJump:false;
+  if(s.hamY>=0.82){s.hamY=0.82;s.vy=0;s.onGround=true;s.doubleJump=false;}
+  s.speed=Math.min(0.02,s.speed+0.000006);
+  s.obs=s.obs.map(o=>({...o,x:o.x-s.speed})).filter(o=>o.x>-0.08);
+  if(!s.obs.length||s.obs[s.obs.length-1].x<0.65)if(Math.random()<0.55)s.obs.push({x:1.05,h:0.08+Math.random()*0.1});
+  s.cheeses=s.cheeses.map(c=>({...c,x:c.x-s.speed})).filter(c=>c.x>-0.05&&!c.got);
+  if(Math.random()<0.018)s.cheeses.push({x:1.05,y:0.82-0.05-Math.random()*0.3,got:false});
+  const hx=0.15,hr=0.04;
+  s.cheeses.forEach(c=>{if(!c.got&&Math.abs(c.x-hx)<hr+0.03&&Math.abs(c.y-s.hamY)<hr+0.03){c.got=true;s.score++;}});
+  s.cheeses=s.cheeses.filter(c=>!c.got);
+  for(const o of s.obs){if(Math.abs(o.x-hx)<hr+0.025&&s.hamY>0.82-o.h-0.02){s.lives--;s.obs=s.obs.filter(x=>x!==o);if(s.lives<=0){endGame(s);return;}break;}}
+  s.dist=Math.floor(s.dist)+1;if(s.dist%6===0)s.dist=Math.floor(s.dist/6);else s.dist=Math.floor(s.dist/6);
+  s.dist++;
+}
+function drawGame(s){
+  const w=GW(),h=GH(),c=gCtx;c.clearRect(0,0,w,h);
+  if(s.type==='dash'){
+    c.fillStyle='#87CEEB';c.fillRect(0,0,w,h*0.82);
+    c.fillStyle='#4CAF50';c.fillRect(0,h*0.82-4,w,6);
+    c.fillStyle='#8B6914';c.fillRect(0,h*0.82+2,w,h);
+    // Clouds
+    [[0.15,0.12],[0.55,0.08],[0.85,0.15]].forEach(([x,y])=>{c.fillStyle='rgba(255,255,255,.8)';c.beginPath();c.arc(x*w,y*h,w*0.06,0,Math.PI*2);c.arc(x*w-w*0.04,y*h+h*0.02,w*0.04,0,Math.PI*2);c.arc(x*w+w*0.04,y*h+h*0.02,w*0.04,0,Math.PI*2);c.fill();});
+    // Hamster
+    const hx=0.15*w,hy=s.hamY*h,r=w*0.04;
+    c.fillStyle='#F4C87E';c.beginPath();c.arc(hx,hy,r,0,Math.PI*2);c.fill();
+    c.fillStyle='#3D2B1F';c.beginPath();c.arc(hx+r*0.4,hy-r*0.15,r*0.18,0,Math.PI*2);c.fill();
+    // Obstacles
+    s.obs.forEach(o=>{c.fillStyle='#795548';c.fillRect(o.x*w-w*0.025,h*(0.82-o.h),w*0.05,h*o.h);});
+    // Cheeses
+    s.cheeses.forEach(ch=>{c.fillStyle='#FFD700';c.beginPath();c.arc(ch.x*w,ch.y*h,w*0.022,0,Math.PI*2);c.fill();});
+    // Lives
+    for(let i=0;i<s.lives;i++){c.font='16px serif';c.fillText('❤️',8+i*22,20);}
+    c.font='bold 14px sans-serif';c.fillStyle='#333';c.fillText(`🧀${s.score}`,w/2-20,20);
+  }else if(s.type==='jump'){
+    c.fillStyle='#1A0A2E';c.fillRect(0,0,w,h);
+    // Stars
+    [[0.1,0.1],[0.3,0.3],[0.7,0.15],[0.9,0.4],[0.5,0.05]].forEach(([x,y])=>{c.fillStyle='rgba(255,255,255,.4)';c.beginPath();c.arc(x*w,((y-s.camY)%1+1)%1*h,2,0,Math.PI*2);c.fill();});
+    // Platforms
+    s.plats.forEach(p=>{
+      const sy=p.y-s.camY;if(sy<-0.05||sy>1.1)return;
+      c.fillStyle='#7B1FA2';c.fillRect((p.x-p.w/2)*w,sy*h,p.w*w,h*0.02);
+      if(p.cheese){c.font='14px serif';c.fillText('🧀',(p.x-0.02)*w,sy*h-8);}
+    });
+    // Hamster
+    const hx=s.hx*w,hy=(s.hy-s.camY)*h,r=w*0.038;
+    c.fillStyle='#F4C87E';c.beginPath();c.arc(hx,hy,r,0,Math.PI*2);c.fill();
+    c.fillStyle='#3D2B1F';c.beginPath();c.arc(hx+r*0.35,hy-r*0.2,r*0.18,0,Math.PI*2);c.fill();
+  }else if(s.type==='escape'){
+    c.fillStyle='#2E1500';c.fillRect(0,0,w,h);
+    const lh=h/3;
+    for(let i=0;i<3;i++){c.fillStyle=i%2?'#3E2000':'#2E1500';c.fillRect(0,i*lh,w,lh);c.fillStyle='rgba(93,58,26,.4)';c.fillRect(0,(i+1)*lh-2,w,2);}
+    // Obstacles
+    s.obs.forEach(o=>{c.fillStyle='#795548';c.beginPath();c.arc(o.x*w,(o.lane+0.5)*lh,lh*0.25,0,Math.PI*2);c.fill();});
+    // Cheeses
+    s.cheeses.forEach(ch=>{if(Math.random()<0.33){c.fillStyle='#FFD700';c.beginPath();c.arc(ch.x*w,ch.lane*lh+lh*0.5,lh*0.15,0,Math.PI*2);c.fill();}});
+    // Hamster
+    const hx=w*0.2,hy=(s.lane+0.5)*lh,r=lh*0.28;
+    c.fillStyle='#F4C87E';c.beginPath();c.arc(hx,hy,r,0,Math.PI*2);c.fill();
+    c.fillStyle='#3D2B1F';c.beginPath();c.arc(hx+r*0.4,hy-r*0.1,r*0.2,0,Math.PI*2);c.fill();
+    // Mole
+    const mx=s.moleX*w,my=(s.lane+0.5)*lh;
+    c.fillStyle='#4A4A4A';c.beginPath();c.arc(mx,my,r*1.1,0,Math.PI*2);c.fill();
+    c.fillStyle='#FF1744';c.beginPath();c.arc(mx+r*0.3,my-r*0.15,r*0.22,0,Math.PI*2);c.fill();
+    c.beginPath();c.arc(mx-r*0.3,my-r*0.15,r*0.22,0,Math.PI*2);c.fill();
+    // Progress bar
+    c.fillStyle='rgba(0,0,0,.4)';c.fillRect(10,h-14,w-20,8);
+    c.fillStyle='#4CAF50';c.fillRect(10,h-14,Math.min(w-20,(w-20)*s.dist/1000),8);
+  }
+}
+function endGame(s){
+  s.over=true;s.running=false;
+  const ch=s.score*2,co=Math.floor(s.score/5);
+  G.cheese+=ch;G.totalCheese+=ch;G.coins+=co;G.totalCoins+=co;G.minigamesPlayed++;
+  G.checkAchs();G.save();
+  showGameMessage(`Гру закінчено! 🧀${s.score}`,`+${ch} сиру, +${co} монет`,'Ще раз!');
+  document.getElementById('game-message').classList.remove('hidden');
+}
+// JUMP
+function initJump(){
+  const plats=[];plats.push({x:0.5,y:0.85,w:0.4,cheese:false});
+  let y=0.7;while(y>-8){plats.push({x:0.1+Math.random()*0.8,y,w:0.15+Math.random()*0.2,cheese:Math.random()<0.3});y-=0.08+Math.random()*0.12;}
+  gameState={type:'jump',running:false,over:false,hx:0.5,hy:0.85,vx:0,vy:-0.02,camY:0,floor:0,score:0,plats};
+}
+function tickJump(s){
+  s.vy+=0.0012;s.vx*=0.9;s.hx=(s.hx+s.vx+1)%1;s.hy+=s.vy;
+  if(s.vy>0){
+    for(const p of s.plats){const sy=p.y-s.camY;if(Math.abs(s.hx-p.x)<p.w/2+0.04&&s.hy>=p.y-0.01&&s.hy<=p.y+0.05){s.vy=-0.024;s.hy=p.y;if(p.cheese){s.score++;p.cheese=false;}s.floor=Math.max(s.floor,Math.floor(s.camY*10));break;}}
+  }
+  if(s.hy-s.camY<0.4)s.camY=s.hy-0.4;
+  if(s.hy-s.camY>1.1)endGame(s);
+}
+// ESCAPE
+function initEscape(){gameState={type:'escape',running:false,over:false,lane:1,moleX:-0.2,obs:[],cheeses:[],score:0,dist:0,speed:0.006};}
+function tickEscape(s){
+  s.speed=Math.min(0.018,s.speed+0.000004);s.moleX+=s.speed*0.75;
+  s.obs=s.obs.map(o=>({...o,x:o.x-s.speed})).filter(o=>o.x>-0.08);
+  if(!s.obs.length||s.obs[s.obs.length-1].x<0.5)if(Math.random()<0.35)s.obs.push({lane:Math.floor(Math.random()*3),x:1.1});
+  s.cheeses=s.cheeses.map(c=>({...c,x:c.x-s.speed})).filter(c=>c.x>-0.05);
+  if(Math.random()<0.012)s.cheeses.push({lane:Math.floor(Math.random()*3),x:1.1});
+  const hx=0.2;
+  s.cheeses=s.cheeses.filter(c=>{if(c.lane===s.lane&&Math.abs(c.x-hx)<0.07){s.score++;return false;}return true;});
+  for(const o of s.obs){if(o.lane===s.lane&&Math.abs(o.x-hx)<0.07){endGame(s);return;}}
+  if(s.moleX>=hx-0.1){endGame(s);return;}
+  s.dist++;
+  if(s.dist>=6000){s.running=false;s.over=true;const ch=s.score*5+200,co=100,cr=2;G.cheese+=ch;G.totalCheese+=ch;G.coins+=co;G.totalCoins+=co;G.crystals+=cr;G.totalCrystals+=cr;notify('🎉 Ти втік від крота! +💎2');G.checkAchs();G.save();showGameMessage('Втікач! 🎉','Ти успішно втік від крота!','Ще раз!');document.getElementById('game-message').classList.remove('hidden');}
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICATION
+// ═══════════════════════════════════════════════════════════════════════════
+let notifTimer=null;
+function notify(msg){
+  const el=document.getElementById('notif');el.textContent=msg;el.classList.add('show');
+  clearTimeout(notifTimer);notifTimer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function closeModal(e){if(!e||e.target===document.getElementById('modal-overlay'))document.getElementById('modal-overlay').classList.remove('active');}
+// ═══════════════════════════════════════════════════════════════════════════
+// OFFLINE PROGRESS
+// ═══════════════════════════════════════════════════════════════════════════
+function checkOffline(){
+  if(!G.lastSave)return;
+  const elapsed=Date.now()-G.lastSave;
+  if(elapsed<60000)return;
+  const hours=Math.min(12,elapsed/3600000);
+  const vaultLv=G.rooms.find(r=>r.id==='vault')?.level||0;
+  const royalLv=G.rooms.find(r=>r.id==='royal')?.level||0;
+  const speed=Math.max(0.1,(G.mood+G.energy)/200);
+  const cheesePS=(60+vaultLv*50)*speed*(1+royalLv*0.1)/3600;
+  const offlineCheese=Math.floor(cheesePS*hours*3600);
+  const treasuryLv=G.rooms.find(r=>r.id==='treasury')?.level||0;
+  const mineLv=G.rooms.find(r=>r.id==='mine')?.level||0;
+  const coinsPS=(treasuryLv*20+mineLv*50)/3600;
+  const offlineCoins=Math.floor(coinsPS*hours*3600);
+  const offlineDepth=Math.floor(speed*10*hours*3600/3600);
+  const hungerLoss=Math.floor(8*hours);const thirstLoss=Math.floor(10*hours);
+  const el=document.getElementById('offline-text');
+  el.innerHTML=`Хомка працював <b>${hours.toFixed(1)} год</b>!<br><br>`;
+  if(offlineCheese>0)el.innerHTML+=`🧀 +${offlineCheese} сиру<br>`;
+  if(offlineCoins>0)el.innerHTML+=`💰 +${offlineCoins} монет<br>`;
+  if(offlineDepth>0)el.innerHTML+=`⛏️ +${offlineDepth}м тунелів<br>`;
+  el.innerHTML+=`<br>Параметри:<br>🍽️ Голод -${Math.min(Math.floor(G.hunger),hungerLoss)}<br>💧 Спрага -${Math.min(Math.floor(G.thirst),thirstLoss)}`;
+  window._offlineRewards={cheese:offlineCheese,coins:offlineCoins,depth:offlineDepth,hungerLoss,thirstLoss};
+  document.getElementById('offline-dialog').classList.add('active');
+}
+function collectOffline(){
+  const r=window._offlineRewards;if(!r)return;
+  G.cheese+=r.cheese;G.totalCheese+=r.cheese;
+  G.coins+=r.coins;G.totalCoins+=r.coins;
+  G.depth+=r.depth;G.totalDepth+=r.depth;
+  G.hunger=Math.max(0,G.hunger-r.hungerLoss);
+  G.thirst=Math.max(0,G.thirst-r.thirstLoss);
+  document.getElementById('offline-dialog').classList.remove('active');
+  G.save();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGIN STREAK
+// ═══════════════════════════════════════════════════════════════════════════
+function checkStreak(){
+  const today=new Date().toDateString();
+  const yesterday=new Date(Date.now()-86400000).toDateString();
+  if(G.lastLogin===today)return;
+  if(G.lastLogin===yesterday)G.loginStreak++;
+  else if(G.lastLogin!=='')G.loginStreak=1;
+  G.lastLogin=today;G.save();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+G.load();
+checkStreak();
+generateTasks();
+checkOffline();
+renderRooms();renderTasks();
+setInterval(tick,1000/60);
+setInterval(()=>G.save(),30000);
+// Handle resize
+window.addEventListener('resize',resizeGameCanvas);
+// Prevent scroll bounce
+document.body.addEventListener('touchmove',e=>{if(e.target===gameCanvas||e.target===document.body)e.preventDefault();},{passive:false});
+</script>
+</body>
+</html>
