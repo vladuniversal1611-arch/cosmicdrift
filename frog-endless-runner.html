@@ -803,14 +803,8 @@ function grantXP(amount){
 let dashReady=true,dashCooldown=0,dashActive=false,dashT=0,dashShow=0;
 const DASH_COOLDOWN=5,DASH_DURATION=.3;
 // Biome progression
-const BIOMES=[
-  {name:'Ліс',skyTop:'#87CEEB',skyBot:'#B3E5FC',ground:['#4CAF50','#43A047','#388E3C','#2E7D32'],fog:'rgba(200,230,255,'},
-  {name:'Глибокий ліс',skyTop:'#5C9EAD',skyBot:'#80CBC4',ground:['#2E7D32','#1B5E20','#33691E','#1B5E20'],fog:'rgba(100,180,150,'},
-  {name:'Річка',skyTop:'#4FC3F7',skyBot:'#81D4FA',ground:['#26A69A','#00897B','#00796B','#00695C'],fog:'rgba(120,200,220,'},
-  {name:'Джунглі',skyTop:'#66BB6A',skyBot:'#A5D6A7',ground:['#558B2F','#33691E','#1B5E20','#004D40'],fog:'rgba(80,150,80,'},
-  {name:'Нічні джунглі',skyTop:'#1A237E',skyBot:'#283593',ground:['#1B5E20','#004D40','#263238','#1A237E'],fog:'rgba(30,30,80,'},
-];
-let curBiome=0,biomeT=0,biomeFade=0;
+// (biomes removed — a second progression that only duplicated the acts; its
+// colours were never actually applied, so this was mostly dead weight.)
 // Tutorial
 let tutorialShown=!!localStorage.getItem('fTut'),tutorialAlpha=0;
 // Platform generation state
@@ -2577,7 +2571,6 @@ function startGame(){
   diamondPath=false;diamondT=0;diamondCount=0;diamondTotal=0;lastDiamondDist=0;
   challenge=null;challengeT=0;challengeProgress=0;challengeShow=0;lastChallengeDist=0;
   dashReady=true;dashCooldown=0;dashActive=false;dashT=0;dashShow=0;
-  curBiome=0;biomeT=0;biomeFade=0;
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
@@ -3182,13 +3175,6 @@ function updateGame(dt){
   updateFlow(dt);
   updateLeap(dt);
 
-  // Biome progression — change every ~500 dist
-  const targetBiome=Math.min(Math.floor(dist/500),BIOMES.length-1);
-  if(targetBiome!==curBiome){
-    curBiome=targetBiome;biomeFade=0;biomeT=1.2;
-  }
-  if(biomeFade<1)biomeFade=Math.min(1,biomeFade+dt*.5);
-  if(biomeT>0)biomeT-=dt;
 
   // Milestone check
   if(msShow>0) msShow-=dt*1.2; // fast fade (was .4)
@@ -3695,7 +3681,6 @@ function drawAbstractMinimal(sky){
 }
 
 function drawBg(){
-  const bio=BIOMES[curBiome];
   const sky=SKY_SKINS[curSky];
 
   // Handle abstract geometric backgrounds
@@ -4522,7 +4507,7 @@ function drawGame(){
   // Drawn before the platforms so gameplay elements stay crisp.
   {
     const hzTop=H*.255, hzBot=H*.50;
-    const night=curBiome>=4;
+    const night=actRule()==='dark';
     const hz=ctx.createLinearGradient(0,hzTop,0,hzBot);
     hz.addColorStop(0,night?'rgba(30,44,80,0)':'rgba(198,228,242,0)');
     hz.addColorStop(.16,night?'rgba(30,44,80,.26)':'rgba(198,228,242,.30)');
@@ -5003,18 +4988,6 @@ function drawGame(){
     ctx.font='14px sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
     ctx.fillText(`+${msCoins}🪙`,W/2+90,mbY);
     ctx.globalAlpha=1;ctx.restore();
-  }
-  // === BIOME NAME ===
-  if(biomeT>0.02&&curBiome>0){
-    ctx.save();
-    const ba=Math.min(biomeT*2,1);
-    ctx.globalAlpha=ba*.8;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.font='bold 18px sans-serif';
-    ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=10;
-    ctx.fillText('🌿 '+BIOMES[curBiome].name,W/2,H*.15);
-    ctx.shadowBlur=0;ctx.globalAlpha=1;
-    ctx.restore();
   }
   // === CLOSE CALL FLASH ===
   if(closeCallShow>0.02){
