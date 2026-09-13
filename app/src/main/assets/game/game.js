@@ -516,6 +516,17 @@ class StarField{
 // ──────────────────────────────────────────────────────
 // WORLD OBJECT
 // ──────────────────────────────────────────────────────
+// Bright token colors per tier so objects are ALWAYS visible,
+// even on devices where the WebView renders emoji as faint glyphs.
+const TIER_COLORS=[
+  null,
+  {fill:'#f1c40f',ring:'#fff6cc'}, // t1 gold
+  {fill:'#2ecc71',ring:'#c8ffe0'}, // t2 green
+  {fill:'#3498db',ring:'#cce6ff'}, // t3 blue
+  {fill:'#9b59b6',ring:'#e8ccff'}, // t4 purple
+  {fill:'#e67e22',ring:'#ffe0c0'}, // t5 orange
+  {fill:'#e74c3c',ring:'#ffcccc'}, // t6 red
+];
 class WorldObject{
   constructor(cfg,x,y,scaleMult=1,isGolden=false){
     this.cfg=cfg;
@@ -530,6 +541,7 @@ class WorldObject{
     this.alive=true;
     this.vx=rnd(-15,15);
     this.vy=rnd(-15,15);
+    this.tc=TIER_COLORS[cfg.t]||TIER_COLORS[1];
   }
   update(dt){
     this.wobble+=this.wobbleSpeed*dt;
@@ -544,22 +556,40 @@ class WorldObject{
     ctx.save();
     const wobbleY=Math.sin(this.wobble)*2;
     ctx.translate(this.x,this.y+wobbleY);
+    let alpha=1,scale=1;
+    if(this.absorbing){ alpha=1-this.absorbProgress*0.5; scale=1-this.absorbProgress*0.3; ctx.scale(scale,scale); }
+    ctx.globalAlpha=alpha;
+
+    const R=Math.max(9,this.size*0.55);
+    const fill=this.isGolden?'#f1c40f':this.tc.fill;
+    const ring=this.isGolden?'#fffbe0':this.tc.ring;
+
+    // Soft glow so the token pops from the dark background
+    ctx.shadowColor=fill;ctx.shadowBlur=this.isGolden?20:12;
+    // Filled token circle with radial shading
+    const g=ctx.createRadialGradient(-R*0.3,-R*0.3,0,0,0,R);
+    g.addColorStop(0,ring);
+    g.addColorStop(0.35,fill);
+    g.addColorStop(1,fill);
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    // Bright outline ring
+    ctx.lineWidth=Math.max(2,R*0.09);
+    ctx.strokeStyle=this.isGolden?'#fff':'#ffffffcc';
+    ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.stroke();
     if(this.isGolden){
-      ctx.shadowColor='#f1c40f';ctx.shadowBlur=16;
-      // Gold outline
-      ctx.globalAlpha=0.4+0.2*Math.sin(this.wobble*2);
-      ctx.fillStyle='#f1c40f';
-      ctx.beginPath();ctx.arc(0,0,this.size/1.6,0,Math.PI*2);ctx.fill();
-      ctx.globalAlpha=1;
+      // sparkle pulse for golden objects
+      ctx.globalAlpha=alpha*(0.5+0.5*Math.sin(this.wobble*3));
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(0,0,R*1.25,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=alpha;
     }
-    if(this.absorbing){
-      ctx.globalAlpha=1-this.absorbProgress*0.5;
-      const scale=1-this.absorbProgress*0.3;
-      ctx.scale(scale,scale);
-    }
-    ctx.font=`${Math.max(8,this.size)}px "Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif`;
+    // Emoji on top (dark shadow gives contrast even if it renders as glyph)
+    ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=3;
+    ctx.font=`${Math.max(11,R*1.25)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(this.cfg.e,0,0);
+    ctx.fillText(this.cfg.e,0,1);
     ctx.restore();
   }
 }
@@ -602,10 +632,19 @@ class Boss{
     ctx.fillRect(-bw/2,this.size+4,bw,8);
     ctx.fillStyle='#e74c3c';
     ctx.fillRect(-bw/2,this.size+4,bw*(this.hp/this.maxHp),8);
+    // Boss token backdrop so it reads on any device
+    const bg=ctx.createRadialGradient(-this.size*0.3,-this.size*0.3,0,0,0,this.size);
+    bg.addColorStop(0,'#ff8a80');bg.addColorStop(0.5,'#e74c3c');bg.addColorStop(1,'#8e2419');
+    ctx.fillStyle=bg;
+    ctx.beginPath();ctx.arc(0,0,this.size,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.lineWidth=4;ctx.strokeStyle='#fff';
+    ctx.beginPath();ctx.arc(0,0,this.size,0,Math.PI*2);ctx.stroke();
     // Boss emoji
-    ctx.font=`${this.size*1.4}px "Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif`;
+    ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=4;
+    ctx.font=`${this.size*1.2}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(this.cfg.e,0,0);
+    ctx.fillText(this.cfg.e,0,1);
     // Boss name
     ctx.shadowBlur=0;ctx.fillStyle='#fff';
     ctx.font=`bold 14px Arial`;
