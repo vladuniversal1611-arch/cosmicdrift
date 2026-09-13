@@ -12,7 +12,11 @@
 'use strict';
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 let W,H,DPR;
-function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0)}
+// Cache paint objects that only depend on W/H (and a colour), so we stop
+// rebuilding a dozen gradients every single frame — pure GC-pressure win.
+const _gcache=new Map();
+function cachedGrad(key,build){let g=_gcache.get(key);if(!g){g=build();_gcache.set(key,g)}return g}
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);if(typeof _gcache!=='undefined')_gcache.clear()}
 addEventListener('resize',resize);resize();
 
 // ========== UTILS ==========
@@ -1183,7 +1187,7 @@ function saveSky(){localStorage.setItem('fSky',JSON.stringify(SKY_SKINS.map(s=>s
 
 // ========== AUDIO ==========
 let ac=null,sfxG=null,musG=null,musOn=false,musIv=null;
-function initAudio(){if(ac)return;ac=new(AudioContext||webkitAudioContext)();sfxG=ac.createGain();sfxG.gain.value=0.25;sfxG.connect(ac.destination);musG=ac.createGain();musG.gain.value=0.08;musG.connect(ac.destination)}
+function initAudio(){if(ac){if(ac.state==='suspended')ac.resume();return}ac=new(AudioContext||webkitAudioContext)();if(ac.state==='suspended')ac.resume();sfxG=ac.createGain();sfxG.gain.value=0.25;sfxG.connect(ac.destination);musG=ac.createGain();musG.gain.value=0.08;musG.connect(ac.destination)}
 function tone(f,d,tp='sine',v=0.2,dl=0){if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.type=tp;o.frequency.value=f;g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dl+d);o.connect(g);g.connect(sfxG);o.start(ac.currentTime+dl);o.stop(ac.currentTime+dl+d)}
 function noise(d,v=.15){if(!ac)return;const n=ac.sampleRate*d,b=ac.createBuffer(1,n,ac.sampleRate),dd=b.getChannelData(0);for(let i=0;i<n;i++)dd[i]=(Math.random()*2-1)*v;const s=ac.createBufferSource();s.buffer=b;const g=ac.createGain();g.gain.value=1;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);s.connect(g);g.connect(sfxG);s.start()}
 function sfxLand(){tone(280,.08,'triangle',.12);tone(180,.05,'sine',.06,.02);noise(.03,.05)}
@@ -2442,7 +2446,13 @@ document.addEventListener('keydown',e=>{
 });
 
 // ========== PARTICLES ==========
-function addP(x,y,vx,vy,col,sz,life,tp='c'){pts.push({x,y,vx,vy,col,sz,life,ml:life,tp,a:1})}
+const MAX_PTS=260;
+function addP(x,y,vx,vy,col,sz,life,tp='c'){
+  pts.push({x,y,vx,vy,col,sz,life,ml:life,tp,a:1});
+  // Hard cap — a slow frame during a burst could otherwise pile these up and
+  // spiral. Drop the oldest, which are already fading out.
+  if(pts.length>MAX_PTS)pts.splice(0,pts.length-MAX_PTS);
+}
 function addSplash(x,y,sc){for(let i=0;i<10;i++){const a=Math.PI*2*i/10+rand(-.2,.2);const s=rand(1.5,3)*sc;addP(x,y,Math.cos(a)*s*.07,Math.sin(a)*s*.07-.05,'rgba(140,215,255,.7)',rand(1.5,3.5),rand(.25,.45))}}
 function addPerfFX(x,y){for(let i=0;i<18;i++){const a=Math.PI*2*i/18;const s=rand(.04,.09);const cols=['#FFD700','#FFF176','#FFEB3B','#FF9800','#FFF','#4FC3F7'];addP(x,y,Math.cos(a)*s,Math.sin(a)*s-.02,cols[i%6],rand(2,5),rand(.35,.6),'s')}}
 function addCoinFX(x,y){for(let i=0;i<6;i++){const a=Math.PI*2*i/6;addP(x,y,Math.cos(a)*.035,Math.sin(a)*.035-.015,'#FFD700',rand(1.5,3),rand(.25,.4))}}
@@ -3641,8 +3651,7 @@ function drawBg(){
     const bgPad=Math.hypot(W/2,H*0.93)*0.155+H*0.07;
     const baseScale=Math.max((W+bgPad*2)/im.naturalWidth, (H+bgPad*2)/im.naturalHeight);
     // Sky-color fallback under the images so any brief alpha dip never flashes black
-    const bg=ctx.createLinearGradient(0,0,0,H);
-    bg.addColorStop(0,sky.top);bg.addColorStop(1,sky.bot);
+    const bg=cachedGrad('sky'+sky.top+sky.bot+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,sky.top);g.addColorStop(1,sky.bot);return g});
     ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
     // Two cross-faded copies, half a cycle apart, so one is always dominant
     const cycleTime=14;
@@ -4330,11 +4339,8 @@ function drawRainbowRoad(){
     // Per-band vertical alpha gradient — invisible at the horizon so the
     // rainbow melts into the sky, more solid near the player
     const c=bands[i];
-    const g=ctx.createLinearGradient(0,vanY,0,baseY);
-    g.addColorStop(0,   c+'00');           // transparent at horizon
-    g.addColorStop(0.35,c+'22');           // faint mid-distance
-    g.addColorStop(1,   c+'99');           // strong near the player
-    ctx.fillStyle=g;
+    ctx.fillStyle=cachedGrad('road'+c+H,()=>{const g=ctx.createLinearGradient(0,vanY,0,baseY);
+      g.addColorStop(0,c+'00');g.addColorStop(0.35,c+'22');g.addColorStop(1,c+'99');return g});
     ctx.beginPath();
     // far → near down the left edge
     for(let z=VIEW_AHEAD;z>=0;z-=.4){
@@ -5151,11 +5157,8 @@ function drawActEffects(){
   }
   // NIGHT — a hard vignette so only what's near the frog reads clearly
   if(rule==='dark'){
-    const lx=W/2, ly=H*0.72;
-    const g=ctx.createRadialGradient(lx,ly,H*0.06,lx,ly,H*0.62);
-    g.addColorStop(0,'rgba(4,6,26,0)');
-    g.addColorStop(0.55,'rgba(4,6,26,.55)');
-    g.addColorStop(1,'rgba(2,3,16,.93)');
+    const g=cachedGrad('night'+W+H,()=>{const lx=W/2,ly=H*0.72,gg=ctx.createRadialGradient(lx,ly,H*0.06,lx,ly,H*0.62);
+      gg.addColorStop(0,'rgba(4,6,26,0)');gg.addColorStop(0.55,'rgba(4,6,26,.55)');gg.addColorStop(1,'rgba(2,3,16,.93)');return gg});
     ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
 
@@ -6449,17 +6452,29 @@ function skinsTap(x,y){
 let lastT=0;
 function loop(ts){
   const dt=Math.min((ts-lastT)/1000,.035);lastT=ts;
-  ctx.clearRect(0,0,W,H);
-  switch(state){
-    case ST.MENU:drawMenu();break;
-    case ST.PLAY:{if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt);drawGame();break}
-    case ST.OVER:drawGame();drawOver();break;
-    case ST.SKINS:drawSkins();break;
-    case ST.MISSIONS:drawMissions();break;
+  try{
+    ctx.clearRect(0,0,W,H);
+    switch(state){
+      case ST.MENU:drawMenu();break;
+      case ST.PLAY:{if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt);drawGame();break}
+      case ST.OVER:drawGame();drawOver();break;
+      case ST.SKINS:drawSkins();break;
+      case ST.MISSIONS:drawMissions();break;
+    }
+  }catch(err){
+    // A single bad frame must never kill the whole rAF chain (permanent black
+    // screen). Log once and keep the loop alive.
+    if(!window.__loopErr){window.__loopErr=1;console.error('frame error:',err)}
   }
   requestAnimationFrame(loop);
 }
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+// Background tab: silence audio and reset the frame clock so returning never
+// dumps a huge dt into the first frame.
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ if(ac&&ac.state==='running')ac.suspend&&ac.suspend(); }
+  else { lastT=0; if(ac&&ac.state==='suspended')ac.resume&&ac.resume(); }
+});
 initClouds();initBflies();initSideObjects();initAtmo();requestAnimationFrame(loop);
 </script>
 </body>
