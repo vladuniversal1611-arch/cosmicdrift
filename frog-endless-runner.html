@@ -2369,6 +2369,7 @@ canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
   swHist.length=0;swSample(t.clientX,t.clientY);
+  if(state===ST.SKINS)scrollStartV=skinScroll;
   if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
@@ -2380,6 +2381,7 @@ canvas.addEventListener('touchstart',e=>{
 
 canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
+  if(state===ST.SKINS){const t=e.touches[0];skinScroll=clamp(scrollStartV-(t.clientY-tSY),0,maxSkinScroll());return}
   if(state===ST.PLAY&&alive&&touching){
     const t=e.touches[0];
     if(btnTouch)return;
@@ -2416,6 +2418,7 @@ let mouseDown=false;
 canvas.addEventListener('mousedown',e=>{
   initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
   swHist.length=0;swSample(e.clientX,e.clientY);
+  if(state===ST.SKINS)scrollStartV=skinScroll;
   if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
@@ -2425,6 +2428,7 @@ canvas.addEventListener('mousedown',e=>{
   }
 });
 canvas.addEventListener('mousemove',e=>{
+  if(mouseDown&&state===ST.SKINS){skinScroll=clamp(scrollStartV-(e.clientY-tSY),0,maxSkinScroll());return}
   if(mouseDown&&state===ST.PLAY&&alive&&touching){
     if(btnTouch)return;
     if(handleFlick(e.clientX,e.clientY))return;
@@ -6135,7 +6139,7 @@ function menuTap(x,y){
     const navW=W-20,navX=10;
     const secW=navW/3;
     const section=Math.floor((x-navX)/secW);
-    if(section===0){sfxClick();state=ST.SKINS}
+    if(section===0){sfxClick();state=ST.SKINS;skinScroll=0}
     else if(section===1){sfxClick();state=ST.MISSIONS}
     // section 2 = МАГАЗИН (not implemented)
   }
@@ -6458,28 +6462,36 @@ function missionsTap(x,y){
   // Any tap outside cards goes back too? keep only the button for now
 }
 
+let skinScroll=0, scrollStartV=0;
+function skinListSy(){return 100+SAFE.t}
+function skinRowH(){return skinTab===0?100:80}     // card height + gap
+function skinCount(){return skinTab===0?SKINS.length:SKY_SKINS.length}
+function maxSkinScroll(){return Math.max(0, skinListSy()+skinCount()*skinRowH()+16 - (H-SAFE.b))}
 function drawSkins(){
   drawBg();ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(255,255,255,.85)';rr(8,8,W-16,46,14);ctx.fill();
-  ctx.strokeStyle='rgba(76,175,80,.3)';ctx.lineWidth=1;rr(8,8,W-16,46,14);ctx.stroke();
-  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('👾 СКІНИ',W/2,38);
-  ctx.fillStyle='rgba(76,175,80,.8)';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText('← Назад',22,38);
-  ctx.fillStyle='#E65100';ctx.font='bold 12px sans-serif';ctx.textAlign='right';ctx.fillText('🪙 '+coins,W-20,38);
+  const HT=SAFE.t;
+  ctx.fillStyle='rgba(255,255,255,.85)';rr(8,8+HT,W-16,46,14);ctx.fill();
+  ctx.strokeStyle='rgba(76,175,80,.3)';ctx.lineWidth=1;rr(8,8+HT,W-16,46,14);ctx.stroke();
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('👾 СКІНИ',W/2,38+HT);
+  ctx.fillStyle='rgba(76,175,80,.8)';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText('← Назад',22,38+HT);
+  ctx.fillStyle='#E65100';ctx.font='bold 12px sans-serif';ctx.textAlign='right';ctx.fillText('🪙 '+coins,W-20,38+HT);
 
   // Tabs
-  const tb1=W/4-40,tb2=W/4+40,tby=65,tbw=80,tbh=22;
+  const tb1=W/4-40,tb2=W/4+40,tby=65+HT,tbw=80,tbh=22;
   ctx.fillStyle=skinTab===0?'rgba(76,175,80,.3)':'rgba(255,255,255,.6)';rr(tb1-tbw/2,tby,tbw,tbh,8);ctx.fill();
   ctx.fillStyle=skinTab===1?'rgba(76,175,80,.3)':'rgba(255,255,255,.6)';rr(tb2-tbw/2,tby,tbw,tbh,8);ctx.fill();
   ctx.fillStyle='#333';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
   ctx.fillText('👾 Персонажі',tb1,tby+16);
   ctx.fillText('🌤️ Небо',tb2,tby+16);
 
-  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=100;
+  skinScroll=clamp(skinScroll,0,maxSkinScroll());
+  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=skinListSy()-skinScroll;
+  ctx.save();ctx.beginPath();ctx.rect(0,skinListSy()-4,W,H);ctx.clip();
   if(skinTab===0){
     // Персонажі
     for(let i=0;i<SKINS.length;i++){
       const s=SKINS[i],cx2=W/2-cw/2,cy=sy+i*(ch+8);
-      if(cy<-ch||cy>H)continue;
+      if(cy<skinListSy()-ch-4||cy>H)continue;
       ctx.fillStyle=i===curSkin?'rgba(76,175,80,.15)':'rgba(255,255,255,.8)';rr(cx2,cy,cw,ch,14);ctx.fill();
       if(i===curSkin){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
       else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
@@ -6497,7 +6509,7 @@ function drawSkins(){
     // Небо
     for(let i=0;i<SKY_SKINS.length;i++){
       const s=SKY_SKINS[i],cx2=W/2-cw/2,cy=sy+i*(ch+8);
-      if(cy<-ch||cy>H)continue;
+      if(cy<skinListSy()-ch-4||cy>H)continue;
       ctx.fillStyle=i===curSky?'rgba(76,175,80,.15)':'rgba(255,255,255,.8)';rr(cx2,cy,cw,ch,14);ctx.fill();
       if(i===curSky){ctx.strokeStyle='rgba(76,175,80,.6)';ctx.lineWidth=2;rr(cx2,cy,cw,ch,14);ctx.stroke()}
       else{ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=1;rr(cx2,cy,cw,ch,14);ctx.stroke()}
@@ -6510,18 +6522,28 @@ function drawSkins(){
       else{ctx.fillStyle='#FF9800';ctx.font='bold 12px sans-serif';ctx.fillText('🪙 '+s.p,cx2+50,cy+48)}
     }
   }
+  ctx.restore();
+  // Scrollbar — only when the list overflows
+  const maxS=maxSkinScroll();
+  if(maxS>0){
+    const trackY=skinListSy(), trackH=H-SAFE.b-trackY-8;
+    const thumbH=Math.max(30,trackH*trackH/(trackH+maxS));
+    const thumbY=trackY+(trackH-thumbH)*(skinScroll/maxS);
+    ctx.fillStyle='rgba(0,0,0,.10)';rr(W-7,trackY,4,trackH,2);ctx.fill();
+    ctx.fillStyle='rgba(76,175,80,.6)';rr(W-7,thumbY,4,thumbH,2);ctx.fill();
+  }
 }
 function skinsTap(x,y){
-  if(y<55&&x<90){sfxClick();state=ST.MENU;return}
+  if(y<55+SAFE.t&&x<90){sfxClick();state=ST.MENU;return}
 
   // Tab clicks
-  const tb1=W/4-40,tb2=W/4+40,tby=65,tbw=80,tbh=22;
+  const tb1=W/4-40,tb2=W/4+40,tby=65+SAFE.t,tbw=80,tbh=22;
   if(y>=tby&&y<=tby+tbh){
-    if(x>=tb1-tbw/2&&x<=tb1+tbw/2){skinTab=0;sfxClick();return}
-    if(x>=tb2-tbw/2&&x<=tb2+tbw/2){skinTab=1;sfxClick();return}
+    if(x>=tb1-tbw/2&&x<=tb1+tbw/2){skinTab=0;skinScroll=0;sfxClick();return}
+    if(x>=tb2-tbw/2&&x<=tb2+tbw/2){skinTab=1;skinScroll=0;sfxClick();return}
   }
 
-  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=100;
+  const cw=Math.min(W-30,280),ch=skinTab===0?92:72,sy=skinListSy()-skinScroll;
   if(skinTab===0){
     // Персонажі
     for(let i=0;i<SKINS.length;i++){const cx2=W/2-cw/2,cy=sy+i*(ch+8);
