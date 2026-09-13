@@ -714,6 +714,7 @@ let luckyActive=false,luckyT=0,luckyResult='',luckyShow=0;
 let turbo=false,turboT=0,turboShow=0,lastTurboDist=0,turboLines=[];
 let spdMul=1;   // eased speed multiplier — turbo and boost ramp in, never snap
 let startEaseT=0;   // brief launch ramp so a run accelerates in, never jerks
+let comboPop=0;     // scale-pop on the HUD combo chip each time it grows
 const TURBO_DURATION=3.5,TURBO_SPEED_MULT=1.20,TURBO_INTERVAL=120; // every ~120 dist units (~500m+)
 // (meteor shower removed)
 // Chaser (shadow wall)
@@ -2830,7 +2831,7 @@ function onLand(idx){
     if(navigator.vibrate)navigator.vibrate(18);
   } else if(isPerfect){
     // PERFECT — combo grows
-    perfectCombo++;
+    perfectCombo++;comboPop=1;
     const comboMult=Math.min(perfectCombo,10);
     // Every multiple of 10 → hype burst (slow-mo + neon vignette)
     if(perfectCombo>0&&perfectCombo%10===0){
@@ -3105,6 +3106,7 @@ function updateGame(dt){
   // Fever
   if(fever) feverT+=dt;
   if(feverFlash>0) feverFlash-=dt*2;
+  if(comboPop>0)comboPop=Math.max(0,comboPop-dt*3.5);
   if(feverBreakT>0) feverBreakT-=dt*1.5;
   // Fever shatter particles
   for(let i=feverPts.length-1;i>=0;i--){
@@ -5370,6 +5372,22 @@ function drawHUD(){
     ctx.fillText(lbl,ax+aw/2,ay+ah/2+1);
     ctx.restore();
     ctx.textAlign='center';ctx.textBaseline='middle';
+    // Live combo chip — persistent awareness of the flow, right below the act
+    // badge, popping on each perfect and running warm in fever.
+    if(perfectCombo>=2){
+      const cl='🔥 x'+perfectCombo, pop=1+comboPop*0.22;
+      ctx.font='900 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+      const cw=ctx.measureText(cl).width+20, chh=22, cxA=10+SAFE.l, cyA=ay+ah+8;
+      ctx.save();
+      ctx.translate(cxA+cw/2,cyA+chh/2);ctx.scale(pop,pop);ctx.translate(-(cxA+cw/2),-(cyA+chh/2));
+      const warm=fever;
+      ctx.fillStyle=warm?'rgba(70,30,10,.78)':'rgba(10,16,40,.62)';rr(cxA,cyA,cw,chh,11);ctx.fill();
+      ctx.strokeStyle=warm?'rgba(255,170,60,.95)':'rgba(255,213,79,.85)';ctx.lineWidth=1.4;rr(cxA,cyA,cw,chh,11);ctx.stroke();
+      ctx.fillStyle=warm?'#FFE0B2':'#FFD54F';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(cl,cxA+cw/2,cyA+chh/2+1);
+      ctx.restore();
+      ctx.textAlign='center';ctx.textBaseline='middle';
+    }
   }
 
   // Style score chip — pulses when a trick just paid out
