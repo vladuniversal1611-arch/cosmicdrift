@@ -6642,8 +6642,14 @@ function skinsTap(x,y){
 
 // ========== MAIN LOOP ==========
 let lastT=0;
+let transT=0, prevDrawState=-1;
+const TRANS_DUR=0.24;
 function loop(ts){
   const dt=Math.min((ts-lastT)/1000,.035);lastT=ts;
+  // Any change of screen fades the new one in from a soft veil, so the app never
+  // hard-cuts between menu / play / skins / shop. Detected here, so no state
+  // assignment anywhere else has to know about it.
+  if(state!==prevDrawState){transT=TRANS_DUR;prevDrawState=state;}
   try{
     ctx.clearRect(0,0,W,H);
     switch(state){
@@ -6653,6 +6659,15 @@ function loop(ts){
       case ST.SKINS:drawSkins();break;
       case ST.MISSIONS:drawMissions();break;
       case ST.SHOP:drawShop();break;
+    }
+    if(transT>0){
+      transT=Math.max(0,transT-dt);
+      const u=transT/TRANS_DUR;               // 1 at switch -> 0
+      ctx.save();
+      ctx.globalAlpha=u*u*0.85;               // ease-out, opaque-ish at the cut
+      ctx.fillStyle='#0b1226';
+      ctx.fillRect(-2,-2,W+4,H+4);
+      ctx.restore();
     }
   }catch(err){
     // A single bad frame must never kill the whole rAF chain (permanent black
