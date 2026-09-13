@@ -130,6 +130,29 @@ const WORLDS=[
 {name:'The Nexus',color:'#fbbf24',bg1:'#0a0a0a',bg2:'#141414',accent:'#fbbf24',unlockAt:70}
 ];
 
+// ── STORY: the reason to keep weaving light ──
+const STORY={
+prologue:[
+{t:'The Heartlight',b:'At the center of the world burned the Heartlight — a living star whose glow gave breath to every realm.'},
+{t:'The Shattering',b:'One night, it broke. Darkness swept the eight realms. The guardians fell into a stone sleep, and the light scattered into countless lost Echoes.'},
+{t:'The Last Lightweaver',b:'You alone can still bend light with a touch. Weave each lost Echo home, rekindle the realms — and forge the Heartlight anew.'}
+],
+chapters:[
+'Where the first Echoes still flicker in the grass. Weave them home, and watch life return to the meadow.',
+'Deep below, light splinters and bends through the crystals. Learn the paths it takes when it breaks.',
+'The dark grows hungry here. Break through what blocks you — and never let the void swallow your light.',
+'Old machines of light still hum in the ruins. Wake their gates and portals, forgotten for an age.',
+'Here the sky itself bends the Echoes — time slows, winds pull. Master the heights.',
+'The deepest wound of the Shattering. Lasers of raw light guard the color of flame. Match it, or be unmade.',
+'Reality frays. The Echoes will not hold still, and the winds never rest. Chase them through the shifting void.',
+'Where every path converges. The Heartlight waits to be reforged. Everything you have learned has led you here.'
+],
+ending:[
+{t:'The Heartlight Reforged',b:'The final Echo settles home. Light erupts from the Nexus and races across all eight realms at once.'},
+{t:'The Living World',b:'Rivers glow. Guardians wake. The whole world breathes again — because you wove it back to life. Thank you, Lightweaver.'}
+]
+};
+
 const CREATURES=[
 {name:'Forest Sprite',icon:'🧚',desc:'A tiny guardian of new growth',world:0},
 {name:'Crystal Fox',icon:'🦊',desc:'Its fur shimmers with gemlight',world:0},
@@ -350,8 +373,9 @@ lv.hint={x1:mx-px,y1:my-py,x2:mx+px,y2:my+py};
 /*═══════════════════════════════════════════════════
   SAVE
 ═══════════════════════════════════════════════════*/
-let save={lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},settings:{sfx:true,music:true}};
-function loadSave(){try{const s=localStorage.getItem('ef_save3');if(s){save=JSON.parse(s);sfxOn=save.settings?.sfx!==false;musicOn=save.settings?.music!==false}}catch(e){}}
+function freshSave(){return{lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},chapters:{},seenIntro:0,settings:{sfx:true,music:true}}}
+let save=freshSave();
+function loadSave(){try{const s=localStorage.getItem('ef_save3');if(s){save=Object.assign(freshSave(),JSON.parse(s));save.chapters=save.chapters||{};sfxOn=save.settings?.sfx!==false;musicOn=save.settings?.music!==false}}catch(e){}}
 function doSave(){save.settings={sfx:sfxOn,music:musicOn};save.totalStars=Object.values(save.stars).reduce((a,b)=>a+b,0);try{localStorage.setItem('ef_save3',JSON.stringify(save))}catch(e){}}
 loadSave();
 
@@ -374,6 +398,8 @@ let screenFade=0,screenFadeDir=0,screenFadeCb=null;
 let bonusLines=0;
 let hintUsed=false,hintAnim=0,showHint=false;
 let undoStack=[];
+let lvUsedAd=false;
+let storyCards=[],storyIdx=0,storyThen=null,storyTimer=0,storyKind='';
 
 /*═══════════════════════════════════════════════════
   COORDINATE HELPERS
@@ -384,6 +410,12 @@ function gy(n){return(H-FH)/2+60+n*(FH-120)}
 /*═══════════════════════════════════════════════════
   NEXT GOAL SYSTEM
 ═══════════════════════════════════════════════════*/
+// Perfect Weave: the minimum lines that earns 3 stars. Derived from each level's max.
+function perfectLines(ld){return ld.pf??Math.max(1,Math.round((ld.ml||3)*.5))}
+function perfectCount(){let n=0;for(const k in save.stars)if(save.stars[k]>=3)n++;return n}
+function wrapText(txt,maxW){const words=txt.split(' ');const lines=[];let cur='';
+for(const w of words){const test=cur?cur+' '+w:w;if(X.measureText(test).width>maxW&&cur){lines.push(cur);cur=w}else cur=test}
+if(cur)lines.push(cur);return lines}
 function getNextGoal(afterLevel){
 const next=MILESTONES.find(m=>m.at>afterLevel);
 if(!next)return null;
@@ -410,7 +442,7 @@ curLv=idx;orbs=[];lines=[];lvObjs=[];targets=[];
 linesUsed=0;collected=0;lvWon=false;lvLost=false;lvTime=0;winTimer=0;
 tipA=ld.tip?2.5:0;lvTip=ld.tip||'';
 hintUsed=false;hintAnim=0;showHint=false;undoStack=[];
-maxLines=(ld.ml||3)+bonusLines;bonusLines=0;
+lvUsedAd=bonusLines>0;maxLines=(ld.ml||3)+bonusLines;bonusLines=0;
 totalTgts=ld.targets.length;
 for(const o of ld.orbs)orbs.push({x:gx(o.x),y:gy(o.y),dx:o.dx*SC*60,dy:o.dy*SC*60,r:8*SC,active:true,trail:[],absorbed:false,spawned:false,sd:.5});
 for(const t of ld.targets)targets.push({x:gx(t.x),y:gy(t.y),r:t.r*FW,collected:false,pulse:0});
@@ -562,10 +594,15 @@ tg.collected=true;collected++;orb.active=false;sfx.collect();burst(tg.x,tg.y,COL
 const allC=targets.every(t=>t.collected),anyA=orbs.some(o=>o.active),anyP=orbs.some(o=>o.sd>0);
 if(allC&&!lvWon){
 lvWon=true;winTimer=0;sfx.win();megaConfetti();
-const stars=lvTime<8?3:lvTime<18?2:1;
+// ── Perfect Weave: stars reward the FEWEST lines, not speed ──
+const pf=perfectLines(LEVELS[curLv]);
+let stars=linesUsed<=pf?3:linesUsed<=pf+1?2:1;
+if(hintUsed)stars=Math.min(stars,2);// a hint caps you at 2
+if(lvUsedAd)stars=1;// borrowed lines can't be perfect
+if(stars>=3)setTimeout(()=>sfx.discover(),300);
 save.stars[curLv]=Math.max(save.stars[curLv]||0,stars);
 save.lv=Math.max(save.lv,curLv+1);
-const wI=LEVELS[curLv].w;save.worldLife[wI]=Math.min(1,(save.worldLife[wI]||0)+.1);
+const wI=LEVELS[curLv].w;save.worldLife[wI]=Math.min(1,(save.worldLife[wI]||0)+.04+stars*.02);
 // Check milestones
 const justReached=curLv+1;
 for(const m of MILESTONES){
@@ -691,11 +728,16 @@ winTimer+=dt;const t=winTimer,stars=save.stars[curLv]||1;
 X.fillStyle=`rgba(0,0,0,${clamp(t*2,0,.6)})`;X.fillRect(0,0,W,H);
 if(t<.3)return;
 const s=ease.elastic(clamp((t-.3)*2,0,1));
+const perfect=stars>=3;
 X.save();X.translate(W/2,H*.22);X.scale(s,s);
-X.shadowColor='#fbbf24';X.shadowBlur=25;X.fillStyle='#fff';X.font=`bold ${28*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';
-X.fillText('Level Complete!',0,0);X.shadowBlur=0;
+X.shadowColor=perfect?'#fbbf24':'#8b5cf6';X.shadowBlur=25;X.fillStyle=perfect?'#fbbf24':'#fff';X.font=`bold ${(perfect?30:26)*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';
+X.fillText(perfect?'PERFECT WEAVE!':'Echo Restored!',0,0);X.shadowBlur=0;
 for(let i=0;i<3;i++){const sd=ease.bounce(clamp((t-.6-i*.2)*3,0,1));X.globalAlpha=i<stars?1:.2;X.font=`${34*SC*sd}px sans-serif`;X.fillText('★',(i-1)*44*SC,40*SC)}
 X.globalAlpha=1;X.restore();
+// Lines report — teaches the Perfect Weave goal
+if(t>.9){const pf=perfectLines(LEVELS[curLv]);const la=clamp((t-.9)*3,0,1);X.globalAlpha=la;
+X.fillStyle=perfect?'#fbbf24':'rgba(255,255,255,.55)';X.font=`${11*SC}px sans-serif`;X.textAlign='center';
+X.fillText(perfect?`Woven in ${linesUsed} line${linesUsed===1?'':'s'} — flawless!`:`${linesUsed} lines used · weave in ${pf} for ★★★`,W/2,H*.335);X.globalAlpha=1}
 
 // NEXT GOAL HOOK
 const goal=getNextGoal(curLv+1);
@@ -929,9 +971,12 @@ for(let i=0;i<6;i++){const ox=W*.15+i*W*.14+Math.sin(t+i*1.3)*18,oy=H*.36+Math.c
 X.save();X.translate(W/2,H*.18);const sc=1+.015*Math.sin(t*1.2);X.scale(sc,sc);
 X.shadowColor='#8b5cf6';X.shadowBlur=25;X.fillStyle='#fff';X.font=`bold ${28*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';X.fillText('Echo Forge',0,-14);X.shadowBlur=0;
 X.fillStyle='rgba(255,255,255,.4)';X.font=`${13*SC}px sans-serif`;X.fillText('The Living World',0,14);X.restore();
+// Tagline — the pitch
+X.fillStyle='rgba(167,139,250,.65)';X.font=`italic ${12*SC}px sans-serif`;X.textAlign='center';
+X.fillText('Weave lost light home. Bring a dead world back to life.',W/2,H*.30);
 // Stats
-const prog=save.lv,tot=LEVELS.length;
-X.fillStyle='rgba(255,255,255,.3)';X.font=`${11*SC}px sans-serif`;X.textAlign='center';X.fillText(`${prog}/${tot} levels  |  ★ ${save.totalStars||0}`,W/2,H*.42);
+const prog=save.lv,tot=LEVELS.length,pw=perfectCount();
+X.fillStyle='rgba(255,255,255,.3)';X.font=`${11*SC}px sans-serif`;X.textAlign='center';X.fillText(`${prog}/${tot} levels   ★ ${save.totalStars||0}   ✦ ${pw} Perfect`,W/2,H*.42);
 const bw=160*SC;X.fillStyle='rgba(255,255,255,.07)';rr(W/2-bw/2,H*.44,bw,5,2.5);X.fill();
 X.fillStyle='#8b5cf6';rr(W/2-bw/2,H*.44,bw*(prog/tot),5,2.5);X.fill();
 // Collection preview
@@ -941,6 +986,41 @@ X.fillText(`Collection ${cp.pct}%`,W/2,H*.48);
 }
 
 function drawSettings(){drawBG('#0a0a18','#0f0f28');X.fillStyle='#fff';X.font=`bold ${22*SC}px sans-serif`;X.textAlign='center';X.fillText('Settings',W/2,48)}
+
+/*═══════════════════════════════════════════════════
+  STORY — prologue, chapter beats & finale
+═══════════════════════════════════════════════════*/
+function showStory(cards,kind,then){storyCards=cards;storyIdx=0;storyKind=kind;storyThen=then;storyTimer=0;state='story';setupStory();sfx.discover()}
+function drawStory(dt){
+storyTimer+=dt;const t=storyTimer;
+drawBG('#08061a','#0d0a24');
+// drifting Echoes
+for(let i=0;i<10;i++){const ox=W*.5+Math.cos(gameTime*.4+i*1.9)*W*.42,oy=H*.5+Math.sin(gameTime*.33+i*2.3)*H*.4;const fl=.4+.4*Math.sin(gameTime*2+i);glow(ox,oy,26*SC,'rgba(251,191,36,.10)',fl);X.fillStyle='#fbbf24';X.globalAlpha=fl*.7;X.beginPath();X.arc(ox,oy,2.2*SC,0,TAU);X.fill();X.globalAlpha=1}
+const c=storyCards[storyIdx];if(!c)return;
+const a=clamp(t*1.6,0,1);X.globalAlpha=a;
+const cy=H*.30;
+// big glowing Echo motif
+const pr=(28+4*Math.sin(gameTime*2.4))*SC;
+glow(W/2,cy,pr*2.6,'rgba(139,92,246,.28)');glow(W/2,cy,pr*1.5,'rgba(251,191,36,.35)');
+X.fillStyle='#fff';X.shadowColor='#fbbf24';X.shadowBlur=30;X.beginPath();X.arc(W/2,cy,pr*.5,0,TAU);X.fill();X.shadowBlur=0;
+// eyebrow / kind
+const eyebrow=c.eyebrow||(storyKind==='prologue'?'PROLOGUE':storyKind==='ending'?'FINALE':'CHAPTER');
+X.fillStyle='rgba(167,139,250,.8)';X.font=`bold ${10*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';
+X.fillText(eyebrow.toUpperCase().split('').join(' '),W/2,H*.46);
+// title
+X.fillStyle='#fff';X.shadowColor='#8b5cf6';X.shadowBlur=18;X.font=`bold ${23*SC}px sans-serif`;X.fillText(c.t||'',W/2,H*.51);X.shadowBlur=0;
+// body (wrapped)
+X.font=`${13.5*SC}px sans-serif`;const maxW=Math.min(FW,W)*.82;const lines=wrapText(c.b,maxW);
+X.fillStyle='rgba(255,255,255,.72)';let ly=H*.57;
+for(const ln of lines){X.fillText(ln,W/2,ly);ly+=20*SC}
+// dots
+if(storyCards.length>1){const n=storyCards.length,dw=14*SC,tot=n*dw,sx=W/2-tot/2+dw/2;for(let i=0;i<n;i++){X.fillStyle=i===storyIdx?'#fbbf24':'rgba(255,255,255,.22)';X.beginPath();X.arc(sx+i*dw,H*.70,3*SC,0,TAU);X.fill()}}
+X.globalAlpha=1;
+}
+function setupStory(){clearUI();const last=storyIdx>=storyCards.length-1;const bw=180*SC,bh=46*SC;
+let lbl=storyKind==='prologue'?(last?'Begin Weaving':'Next'):storyKind==='ending'?(last?'Return Home':'Next'):(last?'Enter the Realm':'Next');
+addB(W/2-bw/2,H*.78,bw,bh,lbl,'story_next','primary');
+if(storyKind!=='ending')addB(W/2-bw/2,H*.78+bh+8,bw,bh*.62,'Skip','story_skip','small');}
 
 /*═══════════════════════════════════════════════════
   UI BUTTON SYSTEM
@@ -988,9 +1068,20 @@ addB(W/2-bw/2,cy+bh+12,bw,bh,musicOn?'Music: ON':'Music: OFF','toggle_music','pr
 addB(W/2-bw/2,cy+(bh+12)*2,bw,bh,'Reset Progress','reset','danger')}
 
 let prevState='menu';
+function doInitLevel(idx){resize();initLevel(idx);state='level';setupLevel();startMusic(LEVELS[idx]?.w)}
+// Enter a level; first visit to a world shows its story chapter first
+function enterLevel(idx,withEvent){
+const w=LEVELS[idx].w;
+if(!save.chapters[w]){save.chapters[w]=1;doSave();
+showStory([{eyebrow:'Chapter '+(w+1),t:WORLDS[w].name,b:STORY.chapters[w]}],'chapter',()=>doInitLevel(idx));
+return}
+doInitLevel(idx);if(withEvent)maybeRandomEvent(idx)}
+function advanceFromWin(){
+if(curLv+1<LEVELS.length)enterLevel(curLv+1,true);
+else showStory(STORY.ending,'ending',()=>{state='map';setupMap();megaConfetti(60)})}
 function act(a){
 sfx.click();
-if(a==='play'){state='map';setupMap();scrollToCurrentLevel()}
+if(a==='play'){if(!save.seenIntro){showStory(STORY.prologue,'prologue',()=>{save.seenIntro=1;doSave();state='map';setupMap();scrollToCurrentLevel()})}else{state='map';setupMap();scrollToCurrentLevel()}}
 else if(a==='back_menu'){state='menu';setupMenu();stopMusic()}
 else if(a==='back_map'){state='map';setupMap()}
 else if(a==='back_prev'){state=prevState;if(state==='menu')setupMenu();else if(state==='map')setupMap()}
@@ -999,22 +1090,22 @@ else if(a==='collection'){prevState=state;state='collection';setupCollection()}
 else if(a==='restart'||a==='retry'||a==='replay'){resize();initLevel(curLv);state='level';setupLevel()}
 else if(a==='next'){
 if(milestoneQueue.length>0){curMilestone=milestoneQueue.shift();milestoneTimer=0;state='milestone';setupMilestone();sfx.milestone();megaConfetti(40);return}
-if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();startMusic(LEVELS[curLv]?.w);maybeRandomEvent(curLv)}
-else{state='map';setupMap()}}
+advanceFromWin()}
 else if(a==='to_map'){state='map';setupMap()}
 else if(a==='toggle_sfx'){sfxOn=!sfxOn;doSave();setupSettings()}
 else if(a==='toggle_music'){musicOn=!musicOn;if(!musicOn)stopMusic();doSave();setupSettings()}
-else if(a==='reset'){save={lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},settings:{sfx:true,music:true}};doSave();sfxOn=true;musicOn=true;state='menu';setupMenu()}
+else if(a==='reset'){save=freshSave();doSave();sfxOn=true;musicOn=true;state='menu';setupMenu()}
 else if(a==='milestone_done'){
 if(milestoneQueue.length>0){curMilestone=milestoneQueue.shift();milestoneTimer=0;sfx.milestone();megaConfetti(40)}
-else if(curLv+1<LEVELS.length){resize();initLevel(curLv+1);state='level';setupLevel();startMusic(LEVELS[curLv]?.w);maybeRandomEvent(curLv)}
-else{state='map';setupMap()}}
+else advanceFromWin()}
 else if(a==='event_accept'){applyEventReward();state='level';setupLevel()}
 else if(a==='event_skip'){curEvent=null;state='level';setupLevel()}
 else if(a==='undo'){undoLine()}
 else if(a==='hint'){if(!hintUsed){hintUsed=true;showHint=true;hintAnim=0;sfx.chest()}}
 else if(a==='ad_lines'){bonusLines=2;resize();initLevel(curLv);state='level';setupLevel()}
-else if(a.startsWith('node_')){const idx=+a.slice(5);resize();initLevel(idx);state='level';setupLevel();startMusic(LEVELS[idx]?.w)}
+else if(a==='story_next'){if(storyIdx<storyCards.length-1){storyIdx++;storyTimer=0;setupStory();sfx.click()}else{const then=storyThen;storyThen=null;storyCards=[];if(then)then()}}
+else if(a==='story_skip'){const then=storyThen;storyThen=null;storyCards=[];if(then)then()}
+else if(a.startsWith('node_')){const idx=+a.slice(5);enterLevel(idx,false)}
 }
 
 function scrollToCurrentLevel(){
@@ -1115,6 +1206,7 @@ if(lvLost){drawLose();setupLose();drawUI()}
 }
 else if(state==='milestone'){drawBG('#0a0a1a','#0f0a2e');drawMilestone(dt);setupMilestone();drawUI();drawP()}
 else if(state==='event'){const wd=WORLDS[LEVELS[curLv]?.w||0];drawBG(wd.bg1,wd.bg2);drawEvent(dt);setupEvent();drawUI()}
+else if(state==='story'){drawStory(dt);setupStory();drawUI();drawP()}
 else if(state==='settings'){drawSettings();setupSettings();drawUI()}
 
 if(screenFade>0){X.fillStyle=`rgba(0,0,0,${screenFade})`;X.fillRect(-10,-10,W+20,H+20)}
