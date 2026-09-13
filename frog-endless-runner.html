@@ -1388,6 +1388,81 @@ function fitAmplitude(prevXs,prevY,x,nextY,hasBounce){
   return anchor;
 }
 
+// --- NO PLATFORM MAY SIT ON TOP OF ANOTHER -------------------------------
+// drawPad lays a slab out as 120*s*width wide and about 138*s*width tall, while
+// one lane unit is only W*0.74*s wide. Perspective therefore guarantees that
+// two consecutive platforms overlap VERTICALLY on screen past roughly twelve
+// units of depth — the ratio of the gap to the slab height does not change with
+// distance. The only thing left that keeps them apart is sideways distance, so
+// every step has to clear the sum of the two half-widths plus a visible gap.
+function padHalfX(w){ return 120*w/((W||420)*0.74); }
+function minSepX(w1,w2){ return padHalfX(w1)+padHalfX(w2)+0.12; }
+// Do two slabs overlap VERTICALLY on screen? Perspective makes the answer
+// scale-invariant (both the depth gap and the slab height shrink with p^1..2 in
+// the same ratio), so probing one representative distance is enough. Elevation
+// is what makes a platform two steps back climb into the next one's row.
+function slabsOverlapY(dz,eNear,eFar,wNear,wFar){
+  const F=FOCAL_LEN, vanY=H*0.18, baseY=H*0.93, zc=15;   // probe the far end of the view, where slabs compress most
+  const pn=F/(zc+F), pf=F/(zc+dz+F);
+  const yn=vanY+(baseY-vanY)*pn-(eNear||0)*ELEV_UNIT*pn;
+  const yf=vanY+(baseY-vanY)*pf-(eFar||0)*ELEV_UNIT*pf;
+  return Math.min(yn+28*pn*wNear, yf+28*pf*wFar) >
+         Math.max(yn-110*pn*wNear, yf-110*pf*wFar);
+}
+// Find the closest X to the one the shape asked for that clears every slab it
+// would be drawn against, preferring the side the route was already heading.
+// When elevation stacks three rows into the same band there may be no fully
+// clear spot, so fall back to the position with the most breathing room rather
+// than giving up and letting the slabs land on each other.
+function separateX(x,prevXs,obstacles,myW,prevY,nextY,hasBounce){
+  const anchor=prevXs.reduce((a,b)=>a+b,0)/prevXs.length;
+  const clearance=(c)=>{
+    let m=9;
+    for(const ob of obstacles)m=Math.min(m,Math.abs(c-ob.x)-minSepX(ob.w,myW));
+    return m;
+  };
+  void 0;
+  const legal=(c)=>c>=X_MIN&&c<=X_MAX&&reachableFromAll(prevXs,prevY,c,nextY,hasBounce);
+  if(clearance(x)>=0&&legal(x))return x;
+  const penalty=(c)=>{
+    let s=0;
+    for(const ob of obstacles){
+      const gap=Math.abs(c-ob.x)-minSepX(ob.w,myW);
+      if(gap<0)s+=gap*(ob.wgt===undefined?1:ob.wgt);
+    }
+    return s;
+  };
+  const dir=(x-anchor)!==0?Math.sign(x-anchor):(anchor<1.0?1:-1);
+  let best=x,bestScore=-Infinity;
+  for(let d=0;d<=1.8;d+=0.04){
+    for(const sgn of [dir,-dir]){
+      const c=x+sgn*d;
+      if(!legal(c))continue;
+      const score=penalty(c)*14-d;        // clear the slabs first, then stay near the shape
+      if(score>bestScore){bestScore=score;best=c}
+    }
+  }
+  return best;
+}
+// Every already-placed slab the new one at (nextY, elev, width) could collide with.
+function slabObstacles(nextY,elev,myW){
+  const out=[];
+  const lastY=padPositions.length?padPositions[padPositions.length-1]:nextY;
+  for(let i=pads.length-1;i>=0;i--){
+    const dz=nextY-padPositions[i];
+    if(dz>10)break;
+    if(slabsOverlapY(dz,pads[i].elev||0,elev,pads[i].width,myW))
+      // The row right behind must be cleared at any cost; older rows only creep
+      // into view when elevation lifts them, so they weigh less when the band
+      // is too narrow to satisfy everything.
+      // A risk branch is a side dish sitting two units up; when the band is too
+      // narrow for everything, clear the main line first.
+      out.push({x:pads[i].gameX,w:pads[i].width,
+                wgt:padPositions[i]===lastY?(pads[i].risky?0.6:1):0.35});
+  }
+  return out;
+}
+
 // --- 3. SECTION BUILD -----------------------------------------------------
 // Builds one shape's worth of steps, starting from routeCenter, decorated with
 // rewards, risk forks (§11) or a boost sequence (§12).
@@ -1406,7 +1481,7 @@ function buildRouteSection(diff){
   // Where does this shape swing furthest? That's where the gem goes.
   let far=0;for(let i=1;i<pts.length;i++)if(Math.abs(pts[i].x)>Math.abs(pts[far].x))far=i;
 
-  const riskChance=lerp(0.10,0.42,diff);
+  const riskChance=lerp(0.06,0.20,diff);   // a fork parks two slabs in one row, so keep it rare
   const wantRisk=Math.random()<riskChance&&pts.length>=5;
   const wantBoost=getUnlockedTypes(dist).includes('boost_pad')&&Math.random()<0.16;
 
@@ -1438,9 +1513,9 @@ function buildRouteSection(diff){
 
     // §11 — a risk line hung off the shape: same depth, further out, pays more
     if(wantRisk&&(i===2||i===pts.length-3)&&elev<2){
-      const dir=x<1.0?-1:1;
-      const rx=clamp(x+dir*0.52*amp+0.14*dir,X_MIN,X_MAX);
-      if(Math.abs(rx-x)>0.30){
+      const dir=x<1.0?1:-1;                      // toward the open side of the band
+      const rx=clamp(x+dir*(0.62*amp+0.32),X_MIN,X_MAX);
+      if(Math.abs(rx-x)>=minSepX(1.20,0.76)){
         out.push({fork:true,gap,
           safe:step(x,elev,'SAFE',{gap}),
           risk:step(rx,elev+2,'RISK',{loot:'gem',gap})});
@@ -1599,15 +1674,15 @@ function reachableFromAll(prevXs, prevY, nextX, nextY, hasBounce){
 // Hand-authored so the opening always teaches, then rewards, then hooks —
 // instead of dropping the player into whatever the RNG felt like.
 const OPENING=[
-  {x: 0.00,t:'wide',   gap:0  },                   // 1. land, get your bearings
-  {x:-0.42,t:'wide',   gap:4.0},                   // 2. first move is already sideways
-  {x: 0.46,t:'wide',   gap:4.0, loot:'coin'},      // 3. and back the other way, paid
-  {x:-0.52,t:'wide',   gap:4.0},                   // 4. left again — the zigzag IS the game
-  {x: 0.56,t:'normal', gap:3.9, loot:'coin'},
-  {x:-0.54,t:'normal', gap:3.9},
-  {x: 0.58,t:'normal', gap:4.0, loot:'gem'},       // 7. first gem, out on the edge
-  {x:-0.56,t:'normal', gap:4.0},
-  {x: 0.34,t:'wide',   gap:3.9},                   // 9. breathe, still off-centre
+  {x: 0.46,t:'normal', gap:0  },                   // 1. you start off-centre, already committed
+  {x:-0.48,t:'normal', gap:4.0},                   // 2. first move crosses the whole road
+  {x: 0.50,t:'normal', gap:4.0, loot:'coin'},      // 3. and straight back, paid
+  {x:-0.50,t:'normal', gap:4.0},                   // 4. the zigzag IS the game
+  {x: 0.52,t:'normal', gap:3.9, loot:'coin'},
+  {x:-0.52,t:'normal', gap:3.9},
+  {x: 0.54,t:'normal', gap:4.0, loot:'gem'},       // 7. first gem, out on the edge
+  {x:-0.54,t:'normal', gap:4.0},
+  {x: 0.50,t:'normal', gap:3.9},
 ];
 
 function isReachable(prevX, prevY, nextX, nextY, hasBounce){
@@ -1720,7 +1795,12 @@ function ensurePads(){
       const wantLane=st.fork?st.safe.lane:st.lane;
       const anchorX=prevXs.reduce((x,y)=>x+y,0)/prevXs.length;
       const need=Math.abs(wantLane-anchorX)/0.45;        // invert the reach formula
-      const nextY=prevY+Math.max(baseGap*(st.gap||1), need+0.25);
+      // A two-unit drop lifts the slab behind almost into this one's row, so
+      // give it more depth to fall through.
+      const myElev=(st.fork?st.safe.elev:st.elev)||0;
+      const lastElev=pads.length?(pads[pads.length-1].elev||0):0;
+      const elevDrop=Math.abs(myElev-lastElev);
+      const nextY=prevY+Math.max(baseGap*(st.gap||1), need+0.25)+(elevDrop>=2?0.8:0);
       const unlocked=getUnlockedTypes(dist);
       const mk=(spec,gx)=>{
         let ty=spec.type||'normal';
@@ -1735,9 +1815,12 @@ function ensurePads(){
       if(st.fork){
         let sx=clamp(st.safe.lane,0.12,1.88);
         let rx=clamp(st.risk.lane,0.12,1.88);
-        sx=fitAmplitude(prevXs,prevY,sx,nextY,prevHasBounce);
-        rx=fitAmplitude(prevXs,prevY,rx,nextY,prevHasBounce);
-        const split=Math.abs(sx-rx)>0.45
+        const swS=classWidth(st.safe.cls||'SAFE',diff), swR=classWidth(st.risk.cls||'RISK',diff);
+        sx=separateX(fitAmplitude(prevXs,prevY,sx,nextY,prevHasBounce),prevXs,
+                     slabObstacles(nextY,st.safe.elev||0,swS),swS,prevY,nextY,prevHasBounce);
+        rx=separateX(fitAmplitude(prevXs,prevY,rx,nextY,prevHasBounce),prevXs,
+                     slabObstacles(nextY,st.risk.elev||0,swR).concat([{x:sx,w:swS}]),swR,prevY,nextY,prevHasBounce);
+        const split=Math.abs(sx-rx)>=minSepX(swS,swR)
           && reachableFromAll(prevXs,prevY,sx,nextY,prevHasBounce)
           && reachableFromAll(prevXs,prevY,rx,nextY,prevHasBounce);
         padPositions.push(nextY);pads.push(mk(st.safe,sx));
@@ -1751,8 +1834,11 @@ function ensurePads(){
         continue;
       }
       // Keep the road legal by SHRINKING the swing, never by cancelling it —
-      // a step that says "go right" still goes right, just not as far.
-      const gx=fitAmplitude(prevXs,prevY,clamp(st.lane,0.12,1.88),nextY,prevHasBounce);
+      // a step that says "go right" still goes right, just not as far. Then push
+      // it far enough sideways that its slab cannot land on the previous one.
+      const myW=classWidth(st.cls||'NORMAL',diff);
+      const gx=separateX(fitAmplitude(prevXs,prevY,clamp(st.lane,0.12,1.88),nextY,prevHasBounce),
+                         prevXs,slabObstacles(nextY,st.elev||0,myW),myW,prevY,nextY,prevHasBounce);
       padPositions.push(nextY);
       pads.push(mk(st,gx));
       prevBranchXs=[gx];pushLane(gx);
@@ -1982,6 +2068,14 @@ function validatePads(n){
       // rewritten into LEFT->CENTRE just because it was slightly too wide.
       const t=Math.max(0.35,(maxX/xDist)*0.98);
       cur.gameX=clamp(prev.gameX+(cur.gameX-prev.gameX)*t,0.1,1.9);
+      // ...but never so far that the slab lands on its neighbour's row
+      const need=minSepX(prev.width,cur.width);
+      if(Math.abs(cur.gameX-prev.gameX)<need){
+        const dir=cur.gameX>=prev.gameX?1:-1;
+        let c=prev.gameX+dir*need;
+        if(c<0.1||c>1.9)c=prev.gameX-dir*need;
+        cur.gameX=clamp(c,0.1,1.9);
+      }
       cur.laneX=cur.gameX;
       if(cur.moving) cur.moving.baseX=cur.gameX;
     }
@@ -2209,6 +2303,7 @@ function startGame(){
     pads.push(op);
   }
   prevBranchXs=[pads[pads.length-1].gameX];
+  frogCont=pads[0].gameX;visLane=pads[0].gameX;   // the opening no longer starts dead centre
   routeLane=pads[pads.length-1].gameX;
   routeCenter=clamp(lerp(routeLane,1.0,0.40),0.42,1.58);
   ensurePads();
