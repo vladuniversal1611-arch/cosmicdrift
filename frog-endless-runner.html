@@ -378,7 +378,7 @@ function ensureSibling(k){
   if(!reachableFromAll(prevXs,padPositions[k-1],x2,y,false))return;
   if(!isReachable(x2,y,pads[k+1].gameX,padPositions[k+1],false))return;
   const sib=makePad(x2,'normal',getDifficulty());
-  sib.width=classWidth('SAFE',getDifficulty());sib.elev=src.elev||0;sib.coin=false;sib.pu=null;sib.mystery=false;
+  sib.width=classWidth('SAFE',getDifficulty());sib.elev=src.elev||0;sib.coin=false;sib.pu=null;
   pads.splice(k+1,0,sib);padPositions.splice(k+1,0,y);
   if(leapTo>k)leapTo++; if(leapFrom>k)leapFrom++;
 }
@@ -595,8 +595,6 @@ function sfxWhoosh(){
   if(!ac)return;
   for(let i=0;i<3;i++)tone(300+i*180,.09,'sine',.05,i*.02);
 }
-// Score-multiplier state driven by mystery-box rewards (extra x on top of fever)
-let scoreMultBonus=1, scoreMultT=0;
 // End-of-run treasure chest — tier + reward computed in die() and shown on
 // the game-over panel with a satisfying reveal.
 const CHEST_TIERS=[
@@ -613,7 +611,6 @@ function grantChest(finalScore){
   chestTier=t;chestReward=t.min_c+Math.floor(Math.random()*(t.max_c-t.min_c));
   chestShow=1;chestOpened=false;chestCounter=0;
 }
-function scoreMultTotal(){return (fever?2:1)*scoreMultBonus}
 // Hype burst — triggered when perfectCombo hits a multiple of 10.
 // Slows the world down and paints a neon vignette for a beat.
 let hypeT=0;                // seconds remaining in the hype burst
@@ -1824,8 +1821,6 @@ function makePad(gameX, type, diff){
   if(type==='bonus'){coin=true;if(Math.random()<.3)pu='magnet';}
   // Mystery box — rare, drops on regular platforms after some warm-up. Rolls a
   // random reward when the frog lands on it. Not compatible with pu / traps.
-  let mystery=false;
-  if(!pu && (type==='normal'||type==='wide') && dist>25 && Math.random()<.018) mystery=true;
 
   // Moving horizontal
   let moving=null;
@@ -1848,7 +1843,7 @@ function makePad(gameX, type, diff){
 
   return{
     gameX, laneX:gameX, lane:Math.round(gameX),
-    width, type, coin, pu, mystery, risky:false, elev:0,
+    width, type, coin, pu, risky:false, elev:0,
     landed:false, dip:0, riskCoin:null,
     moving,
     // State for special types
@@ -2446,7 +2441,6 @@ function startGame(){
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
   msT=0;msTier=0;msLast=0;
-  scoreMultBonus=1;scoreMultT=0;
   chestTier=null;chestReward=0;chestOpened=false;chestCounter=0;chestShow=0;
   emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
@@ -2715,7 +2709,7 @@ function onLand(idx){
   // Gold perk doubles coin pickups (stacks with fever's ×2)
   const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1)*(runX2Coins?2:1);
   const feverMult=fever?2:1;
-  const scoreBonusMult=scoreMultBonus;      // mystery-box x2/x3 bonus
+  const scoreBonusMult=1;
 
   // Tutorial: dismiss after 2 successful landings
   if(!tutorialShown&&score>=2){tutorialShown=true;localStorage.setItem('fTut','1')}
@@ -2891,32 +2885,6 @@ function onLand(idx){
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
   }
   // Mystery box — roll one of 5 rewards on land, apply immediately
-  if(pad.mystery){
-    pad.mystery=false;sfxPU();setEmo('🤑',1.2);
-    const roll=Math.random();
-    if(roll<0.20){
-      // Coin rain — instant chunk of coins
-      const amt=25+Math.floor(Math.random()*20);
-      runCoins+=amt;
-      addFloat(`🪙 +${amt}!`,lp.x,lp.y-45,'#FFD700',26);
-      for(let i=0;i<14;i++){const a=rand(0,Math.PI*2);addP(lp.x,lp.y-10,Math.cos(a)*.06,Math.sin(a)*.06-.03,'#FFD700',rand(2,3.5),.6,'s');}
-    } else if(roll<0.40){
-      // 3× score for 8 s (stacks with fever if active)
-      scoreMultBonus=3;scoreMultT=8;
-      addFloat('✖3 ОЧКИ!',lp.x,lp.y-45,'#FF00FF',26);
-    } else if(roll<0.60){
-      // Full-strength shield
-      shield=true;addFloat('🛡️ ЩИТ!',lp.x,lp.y-45,'#4FC3F7',24);
-    } else if(roll<0.80){
-      // Magnet + boost combo for a beat
-      magnet=true;magnetT=10;
-      addFloat('🧲 СУПЕР-МАГНІТ!',lp.x,lp.y-45,'#00E5FF',24);
-    } else {
-      // Instant coin splash
-      const amt=15+Math.floor(Math.random()*12);runCoins+=amt;
-      addFloat(`🪙 +${amt}!`,lp.x,lp.y-45,'#FFD700',26);
-    }
-  }
   // Gem collection — a diamond pickup pays coins
   if(pad.diamond){
     pad.diamond=false;runDiamonds++;
@@ -3006,7 +2974,6 @@ function updateGame(dt){
   const bucket=Math.floor(dist/100);
   if(bucket>prevBucket&&bucket>0)triggerMilestone(bucket*100);
   if(msT>0)msT=Math.max(0,msT-dt);
-  if(scoreMultT>0){scoreMultT-=dt;if(scoreMultT<=0){scoreMultBonus=1;scoreMultT=0}}
 
   // Follow the player's height, but lag it so the world still feels like it
   // rises and falls around them rather than staying pinned to the frog.
@@ -4404,25 +4371,6 @@ function drawGame(){
     ctx.globalAlpha=depthAlpha;
     if(pad.coin)drawCoin(p.x,p.y,p.s,i*1.7);
     if(pad.pu)drawPUIcon(p.x,p.y,p.s,pad.pu,i*2.3);
-    // Mystery box — floating rainbow cube with a big '?' above the pad
-    if(pad.mystery){
-      const by=p.y-115*p.s + Math.sin(gt*3+i*.7)*6*p.s;
-      const bs=28*p.s;
-      ctx.save();
-      // Pulsing rainbow glow
-      const hue=(gt*180+i*40)%360;
-      ctx.shadowColor=`hsl(${hue},90%,60%)`;ctx.shadowBlur=22*p.s;
-      // Cube
-      ctx.fillStyle=`hsl(${hue},80%,55%)`;
-      rr(p.x-bs,by-bs,bs*2,bs*2,8*p.s);ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2*p.s;rr(p.x-bs,by-bs,bs*2,bs*2,8*p.s);ctx.stroke();
-      // "?" glyph
-      ctx.shadowBlur=0;
-      ctx.fillStyle='#fff';ctx.font=`bold ${36*p.s}px sans-serif`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('?',p.x,by+2*p.s);
-      ctx.restore();
-    }
     ctx.globalAlpha=1;
   }
 
@@ -5058,24 +5006,6 @@ function drawHUD(){
     }
   }
 
-
-  // Score-multiplier active chip (from mystery-box reward)
-  if(scoreMultT>0){
-    const t=Math.min(scoreMultT/8,1);
-    const label=`×${scoreMultBonus}  ${Math.ceil(scoreMultT)}s`;
-    ctx.font='900 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-    const mw=ctx.measureText(label).width+24, mh=28, mx=W/2-mw/2, my=74;
-    const pulse=0.6+0.4*Math.sin(gt*8);
-    ctx.save();
-    ctx.shadowColor=`rgba(255,0,255,${0.6*pulse})`;ctx.shadowBlur=18;
-    ctx.fillStyle='#FF00FF';rr(mx,my,mw,mh,14);ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.fillStyle='#fff';ctx.fillText(label,W/2,my+mh/2+1);
-    // Timer bar underneath
-    ctx.fillStyle='rgba(255,255,255,.35)';rr(mx+2,my+mh-3,mw-4,3,1.5);ctx.fill();
-    ctx.fillStyle='#fff';rr(mx+2,my+mh-3,(mw-4)*t,3,1.5);ctx.fill();
-    ctx.restore();
-  }
 
   // --- score pill ---
   const scoreTxt=String(score);
