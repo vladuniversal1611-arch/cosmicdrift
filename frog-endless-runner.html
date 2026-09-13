@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1,viewport-fit=cover">
 <title>Bulbik Runner 👾</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block;width:100%;height:100%}</style>
 </head>
@@ -17,7 +17,23 @@ let W,H,DPR;
 const _gcache=new Map();
 function cachedGrad(key,build){let g=_gcache.get(key);if(!g){g=build();_gcache.set(key,g)}return g}
 function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);if(typeof _gcache!=='undefined')_gcache.clear()}
-addEventListener('resize',resize);resize();
+const SAFE={t:0,r:0,b:0,l:0};
+let _safeProbe=null;
+function readSafe(){
+  try{
+    if(!_safeProbe){
+      _safeProbe=document.createElement('div');
+      _safeProbe.style.cssText='position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+        +'padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);'
+        +'padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left)';
+      (document.body||document.documentElement).appendChild(_safeProbe);
+    }
+    const cs=getComputedStyle(_safeProbe);
+    SAFE.t=parseFloat(cs.paddingTop)||0; SAFE.r=parseFloat(cs.paddingRight)||0;
+    SAFE.b=parseFloat(cs.paddingBottom)||0; SAFE.l=parseFloat(cs.paddingLeft)||0;
+  }catch(e){}
+}
+addEventListener('resize',()=>{resize();readSafe()});resize();readSafe();
 
 // ========== UTILS ==========
 function lerp(a,b,t){return a+(b-a)*t}
@@ -82,7 +98,7 @@ function leapActive(){return leapTo>=0}
 // the input section). Tapping anywhere used to fire the leap, but steering IS
 // a short tap — finger down, small correction, up — so play kept launching it.
 const BTN_R=30, BTN_HIT=44;
-function dashBtnC(){return{x:W-44,y:H-64}}
+function dashBtnC(){return{x:W-44-SAFE.r,y:H-64-SAFE.b}}
 function hitBtn(c,x,y){const dx=x-c.x,dy=y-c.y;return dx*dx+dy*dy<=BTN_HIT*BTN_HIT}
 // Pad indices are not 1:1 with depth — a fork puts two pads at the same Y. Any
 // leap has to reason in GROUPS, or "two pads ahead" lands on the sibling branch
@@ -5322,7 +5338,7 @@ function drawHUD(){
     const z=ACTS[curAct];
     const lbl=z.icon+' '+z.name;
     ctx.font='800 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-    const aw=ctx.measureText(lbl).width+20, ah=22, ax=10, ay=10;
+    const aw=ctx.measureText(lbl).width+20, ah=22, ax=10+SAFE.l, ay=10+SAFE.t;
     ctx.save();
     ctx.fillStyle='rgba(10,16,40,.62)';rr(ax,ay,aw,ah,11);ctx.fill();
     ctx.strokeStyle=z.col;ctx.lineWidth=1.2;rr(ax,ay,aw,ah,11);ctx.stroke();
@@ -5336,7 +5352,7 @@ function drawHUD(){
   if(styleScore>0){
     const stTxt='✦ '+styleScore;
     ctx.font='900 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-    const sw=ctx.measureText(stTxt).width+26, sh=26, sx=W-10-sw, sy=46;
+    const sw=ctx.measureText(stTxt).width+26, sh=26, sx=W-10-SAFE.r-sw, sy=46+SAFE.t;
     const glow=styleFlash;
     ctx.save();
     if(glow>0){ctx.shadowColor='rgba(124,77,255,.9)';ctx.shadowBlur=18*glow}
@@ -5374,19 +5390,19 @@ function drawHUD(){
   if(draw3H('pill',W/2-pw/2,6,pw,ph)){
     /* sliced */
   } else {
-    ctx.fillStyle='rgba(16,28,64,.8)';rr(W/2-pw/2,6,pw,ph,ph/2);ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=3;rr(W/2-pw/2,6,pw,ph,ph/2);ctx.stroke();
+    ctx.fillStyle='rgba(16,28,64,.8)';rr(W/2-pw/2,6+SAFE.t,pw,ph,ph/2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=3;rr(W/2-pw/2,6+SAFE.t,pw,ph,ph/2);ctx.stroke();
   }
   ctx.fillStyle='#fff';
-  ctx.fillText(scoreTxt,W/2,28);
+  ctx.fillText(scoreTxt,W/2,28+SAFE.t);
   ctx.fillStyle='rgba(200,222,255,.8)';
   ctx.font='800 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-  ctx.fillText(Math.floor(dist)+' \u043c',W/2,49);
+  ctx.fillText(Math.floor(dist)+' \u043c',W/2,49+SAFE.t);
 
   // --- run coin chip ---
   const coinTxt=String(runCoins);
   ctx.font='900 15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-  const cw=Math.max(58,ctx.measureText(coinTxt).width+46), ch=32, cx0=W-10-cw, cy0=10;
+  const cw=Math.max(58,ctx.measureText(coinTxt).width+46), ch=32, cx0=W-10-SAFE.r-cw, cy0=10+SAFE.t;
   if(draw3H('pill',cx0,cy0,cw,ch)){
     /* sliced */
   } else {
@@ -5401,7 +5417,7 @@ function drawHUD(){
   ctx.textAlign='center';
 
   // --- checkpoint progress bar ---
-  const bw=W*.42,bh=9,bx=W/2-bw/2,by=62;
+  const bw=W*.42,bh=9,bx=W/2-bw/2,by=62+SAFE.t;
   const prog=clamp(dist/100,0,1);
   if(!draw3H('barTk',bx,by,bw,bh,.2))
     {ctx.fillStyle='rgba(10,22,52,.75)';rr(bx,by,bw,bh,bh/2);ctx.fill()}
@@ -5427,7 +5443,7 @@ function drawHUD(){
   }
   ctx.textBaseline='alphabetic';
 
-  let py=H-60;
+  let py=H-60-SAFE.b;
   if(shield){ctx.fillStyle='rgba(255,193,7,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('🛡️ Щит',16,py+15);py-=24}
   if(magnet){ctx.fillStyle='rgba(244,67,54,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('🧲 '+Math.ceil(magnetT)+'с',16,py+15);py-=24}
   if(boost){ctx.fillStyle='rgba(255,235,59,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('⚡ '+Math.ceil(boostT)+'с',16,py+15);py-=24}
@@ -5961,7 +5977,7 @@ function drawMenuLevel(){
   const lvlLabel='Lv '+plvl;
   ctx.font='900 15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   const tw=ctx.measureText(lvlLabel).width;
-  const ch=36, chipW=32+tw+22, cxr=12, cy=12;
+  const ch=36, chipW=32+tw+22, cxr=12+SAFE.l, cy=12+SAFE.t;
   glassPanel(cxr,cy,chipW,ch,ch/2);
   ctx.textAlign='left';ctx.textBaseline='middle';
   // Star icon
@@ -5981,7 +5997,7 @@ function drawMenuCoins(cx){
   const label=String(coins);
   ctx.font='900 17px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   const tw=ctx.measureText(label).width;
-  const ch=36, cw=28+tw+22, cxr=W-12-cw, cy=12;
+  const ch=36, cw=28+tw+22, cxr=W-12-SAFE.r-cw, cy=12+SAFE.t;
 
   glassPanel(cxr,cy,cw,ch,ch/2);
 
@@ -5995,7 +6011,7 @@ function drawMenuCoins(cx){
 }
 
 function drawMenuNav(){
-  const navH=80,navY=H-navH-6,navX=10,navW=W-20;
+  const navH=80,navY=H-navH-6-SAFE.b,navX=10+SAFE.l,navW=W-20-SAFE.l-SAFE.r;
   glassPanel(navX,navY,navW,navH,20);
 
   const items=[
