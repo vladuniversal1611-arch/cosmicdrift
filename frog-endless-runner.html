@@ -5946,6 +5946,36 @@ function drawMenuPlayBtn(cx,by){
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 
+// Persistent journey — how far through the five acts you have ever pushed, and
+// how many castles you have re-lit across all runs. Turns the menu into a place
+// that remembers your progress instead of a static title screen.
+function drawMenuJourney(cx,sy){
+  const pw=W*.78,ph=46,px=cx-pw/2;
+  glassPanel(px,sy,pw,ph,14);
+  // caption (left)
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(200,222,255,.72)';
+  ctx.font='700 10px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText('ПОДОРОЖ',px+16,sy+15);
+  const actName=ACTS[storyP.bestAct]?ACTS[storyP.bestAct].name:ACTS[0].name;
+  ctx.fillStyle='#fff';ctx.font='900 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText(`${ACTS[storyP.bestAct]?ACTS[storyP.bestAct].icon:''} ${actName}`,px+16,sy+31);
+  // 5 act pips (right), lit up to the furthest act ever reached
+  const n=ACTS.length, pipR=5, gap=15, tot=(n-1)*gap;
+  const startX=px+pw-16-tot;
+  for(let i=0;i<n;i++){
+    const x=startX+i*gap, y=sy+15, lit=i<=storyP.bestAct;
+    ctx.beginPath();ctx.arc(x,y,pipR,0,Math.PI*2);
+    ctx.fillStyle=lit?ACTS[i].col:'rgba(255,255,255,.14)';ctx.fill();
+    if(lit){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1;ctx.stroke();}
+  }
+  // castles re-lit chip (bottom-right of the strip)
+  ctx.textAlign='right';ctx.fillStyle='#FFD54F';
+  ctx.font='900 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText('🏰 '+(storyP.castles||0),px+pw-16,sy+33);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+
 function drawMenuStats(cx,sy){
   const pw=W*.78,ph=62,px=cx-pw/2;
   glassPanel(px,sy,pw,ph,16);
@@ -6078,6 +6108,9 @@ function drawMenu(){
 
   // 6. Stats panel below play button
   drawMenuStats(cx,playY+78);
+
+  // 6b. Persistent journey strip
+  drawMenuJourney(cx,playY+78+62+12);
 
   // 7. Bottom navigation dock
   drawMenuNav();
