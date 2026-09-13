@@ -713,6 +713,7 @@ let luckyActive=false,luckyT=0,luckyResult='',luckyShow=0;
 // Turbo zone
 let turbo=false,turboT=0,turboShow=0,lastTurboDist=0,turboLines=[];
 let spdMul=1;   // eased speed multiplier — turbo and boost ramp in, never snap
+let startEaseT=0;   // brief launch ramp so a run accelerates in, never jerks
 const TURBO_DURATION=3.5,TURBO_SPEED_MULT=1.20,TURBO_INTERVAL=120; // every ~120 dist units (~500m+)
 // (meteor shower removed)
 // Chaser (shadow wall)
@@ -2577,6 +2578,8 @@ function startGame(){
   if(shopBoost.shield)shield=true;
   if(shopBoost.magnet){magnet=true;magnetT=12;}
   shopBoost={shield:false,magnet:false,x2:false};
+  startEaseT=0.7;
+  if(introSeen)addFloat('БІЖИ!',W/2,H*0.42,'#FFFFFF',30);   // first run gets its own cue from the intro
   routeLane=pads[pads.length-1].gameX;
   routeCenter=clamp(lerp(routeLane,1.0,0.40),0.42,1.58);
   ensurePads();
@@ -3087,6 +3090,13 @@ function updateGame(dt){
   spdMul=sd(spdMul,tgtMul,1.8,dt);
   spd=baseSpd*spdMul;
   spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
+  // Launch ramp: the first ~0.7 s of a run eases the world up from ~45% to full
+  // speed, so the start reads as accelerating away instead of a hard jerk.
+  if(startEaseT>0){
+    startEaseT=Math.max(0,startEaseT-dt);
+    const e=1-startEaseT/0.7;          // 0 -> 1
+    spd*=lerp(0.45,1,e*(2-e));         // ease-out
+  }
   // Look further ahead the faster we go, so the player always gets roughly the
   // same number of seconds to read the next jumps.
   VIEW_AHEAD=sd(VIEW_AHEAD,clamp(spd*PREVIEW_SECONDS,VIEW_AHEAD_MIN,VIEW_AHEAD_MAX),3,dt);
