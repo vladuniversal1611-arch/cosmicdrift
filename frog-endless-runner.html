@@ -71,7 +71,7 @@ let leapLanded=false;            // set on the frame the leap's target is reache
 // nobody asked for. Now that the leap is a deliberate button press, a press
 // made mid-hop should be honoured at the next launch window instead of being
 // swallowed — that is what makes the button feel responsive.
-const LEAP_BUFFER=0.45, LEAP_COOL=0.12;
+const LEAP_BUFFER=0.55, LEAP_COOL=0.12;
 
 function leapActive(){return leapTo>=0}
 // Both action verbs live on their own buttons in the bottom corners. Tapping
@@ -133,6 +133,9 @@ function doLeap(){
   const target=nextGroup(nextGroup(ci));
   if(padPositions[target]===undefined)return;
   leapFrom=ci;leapTo=target;leapFlash=1;leapCool=LEAP_COOL;leapArm=0;
+  // The leap is the game's big move, so it carries the style chain itself —
+  // the flick that asked for a jump is never spent on a trick instead.
+  trickChain++;trickSpinVel=Math.max(trickSpinVel,10);
   sfxWhoosh();addPunch(.28);
   setEmo('\uD83D\uDE24',0.9);
   addFloat('\u041F\u0415\u0420\u0415\u041B\u0406\u0422!',W/2,H*0.40,'#4FC3F7',22);
@@ -145,6 +148,7 @@ function doLeap(){
   }
 }
 function updateLeap(dt){
+  if(swipeCool>0)swipeCool=Math.max(0,swipeCool-dt);
   if(leapCool>0)leapCool=Math.max(0,leapCool-dt);
   if(leapFlash>0)leapFlash=Math.max(0,leapFlash-dt*2.2);
   // Buffered tap fires as soon as the window opens
@@ -445,6 +449,14 @@ const TRICK_LOCK=0.22;
 function canTrick(){return state===ST.PLAY&&alive&&curAirness>0.25&&trickLockT<=0}
 let curAirness=0;       // updated each frame by the render block
 
+// A spin that does NOT lock the aim — used by the leap, where air control is
+// the whole point and pinning the lane would be a death sentence.
+function leapSpin(){
+  trickChain++;
+  trickSpinVel=Math.max(trickSpinVel,12);
+  sfxWhoosh();
+  addFloat(trickChain>1?`СТИЛЬ x${trickChain}`:'СТИЛЬ',W/2,H*0.42,'#4FC3F7',20);
+}
 function doFlip(){
   if(!canTrick()||diving)return;
   trickChain++;
@@ -2131,12 +2143,56 @@ let touching=false,frogCont=1;
 let btnTouch=false;   // this gesture started on a button — don't steer with it
 let tSX=0,tSY=0,tST=0;
 
-let swipeArmed=false;
-// Returns true when the gesture was consumed as a trick.
-function tryTrickSwipe(dy,dx){
-  if(Math.abs(dy)<42||Math.abs(dy)<Math.abs(dx)*1.1)return false;
-  swipeArmed=false;
-  if(dy<0)doFlip(); else doDive();
+// --- VERTICAL FLICK: the leap you can reach with the thumb you already steer with
+// A corner button is the wrong home for a verb you use every few seconds while
+// your thumb is busy dragging. A flick works from wherever the thumb already is,
+// needs no aiming, and — measured against the LAST 120 ms rather than against
+// the point where the finger first landed — repeats without ever lifting off.
+let swHist=[];          // recent pointer samples, for flick detection
+let swipeCool=0;        // brief lockout so one flick cannot fire twice
+const FLICK_DY=34;      // minimum vertical travel, px
+const FLICK_SPD=250;    // ...covered fast enough to be a flick, not a slow drag
+function swSample(x,y){
+  const now=(typeof performance!=='undefined'?performance.now():Date.now());
+  swHist.push({x,y,t:now});
+  while(swHist.length&&now-swHist[0].t>120)swHist.shift();
+}
+function detectFlick(){
+  if(swHist.length<2)return 0;
+  const a=swHist[0], b=swHist[swHist.length-1];
+  const dy=b.y-a.y, dx=b.x-a.x, dt=(b.t-a.t)/1000;
+  if(dt<=0)return 0;
+  if(Math.abs(dy)<FLICK_DY||Math.abs(dy)<Math.abs(dx)*1.1)return 0;
+  if(Math.abs(dy)/dt<FLICK_SPD)return 0;
+  return dy<0?-1:1;
+}
+// Is a leap blocked only by the launch window, rather than being impossible?
+// If so the flick is intent, not a mistake, and should wait for the window.
+function leapPossibleSoon(){
+  if(state!==ST.PLAY||!alive||leapActive()||leapCool>0)return false;
+  const ci=getCurrentPadIdx();
+  const g2=nextGroup(nextGroup(ci));
+  return padPositions[g2]!==undefined;
+}
+// Flick up means LEAP. Always. If the launch window has already passed it is
+// held and fires at the next one, instead of silently turning into a flip —
+// getting a trick when you asked for a jump is exactly what made this annoying.
+// A flick up while ALREADY mid-leap is the one case that means style: there is
+// no leap to ask for, so it spins.
+function flickUp(){
+  if(canLeap()){doLeap();return}
+  if(leapPossibleSoon()){leapArm=LEAP_BUFFER;sfxWhoosh();return}
+  if(leapActive()){leapSpin();return}          // already flying — spin for style
+  if(canTrick()&&!diving)doFlip();
+}
+// Called from both pointer paths: returns true when the gesture was consumed.
+function handleFlick(x,y){
+  swSample(x,y);
+  if(swipeCool>0)return false;
+  const f=detectFlick();
+  if(!f)return false;
+  swipeCool=0.26;swHist.length=0;
+  if(f<0)flickUp(); else doDive();
   return true;
 }
 function xToLane(sx){
@@ -2149,7 +2205,7 @@ function xToLane(sx){
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
-  swipeArmed=true;                       // a fresh gesture may become a trick
+  swHist.length=0;swSample(t.clientX,t.clientY);
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
@@ -2162,10 +2218,10 @@ canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
   if(state===ST.PLAY&&alive&&touching){
     const t=e.touches[0];
-    // Vertical flick while airborne performs a trick and consumes the gesture,
-    // so a single swipe never both tricks and re-aims.
     if(btnTouch)return;
-    if(swipeArmed&&tryTrickSwipe(t.clientY-tSY,t.clientX-tSX))return;
+    // A vertical flick is the leap (or, mid-arc, a trick) and consumes the
+    // gesture; steering carries on normally the moment it is over.
+    if(handleFlick(t.clientX,t.clientY))return;
     if(trickLockT<=0)frogCont=xToLane(t.clientX);
   }
 },{passive:false});
@@ -2196,7 +2252,7 @@ canvas.addEventListener('touchend',e=>{
 let mouseDown=false;
 canvas.addEventListener('mousedown',e=>{
   initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
-  swipeArmed=true;
+  swHist.length=0;swSample(e.clientX,e.clientY);
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
@@ -2207,7 +2263,7 @@ canvas.addEventListener('mousedown',e=>{
 canvas.addEventListener('mousemove',e=>{
   if(mouseDown&&state===ST.PLAY&&alive&&touching){
     if(btnTouch)return;
-    if(swipeArmed&&tryTrickSwipe(e.clientY-tSY,e.clientX-tSX))return;
+    if(handleFlick(e.clientX,e.clientY))return;
     if(trickLockT<=0)frogCont=xToLane(e.clientX);
   }
 });
@@ -5136,7 +5192,7 @@ function drawHUD(){
     else ctx.fillText('🔥 FEVER x2',16,py+16);
     py-=26;
   }
-  if(dist<3&&alive){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='15px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.855);ctx.fillText('кнопка зліва — ПЕРЕЛІТ',W/2,H*.895);ctx.globalAlpha=1}
+  if(dist<3&&alive){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='15px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.855);ctx.fillText('↑ свайп вгору — ПЕРЕЛІТ',W/2,H*.895);ctx.globalAlpha=1}
 }
 
 // ========== MENU ==========
