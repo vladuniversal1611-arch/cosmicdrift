@@ -226,8 +226,46 @@ const CFG = {
       A('a103','Фінансовий геній','Накопичити 10 000 000 монет','🏦',{stars:100,gems:20}),
       A('a104','Зоряний бос',     'Зібрати 5 000 зірок','⭐',{coins:100000,gems:25}),
       A('a105','Діамантовий бос', 'Зібрати 500 самоцвітів','💎',{coins:500000,stars:500}),
+      A('a106','Перша Наднова',   'Спалахнути вперше','💥',{gems:10}),
+      A('a107','Фенікс',          'Пережити 5 Наднових','🔥',{gems:50}),
+      A('a108','Творець Всесвітів','Досягти 10-ї Епохи','🌠',{gems:200}),
+      A('a109','Хранитель Пам\'яті','Відкрити всі світи в Галереї','📖',{gems:30}),
+      A('a110','Зоряний Пил',     'Накопичити 1000 Зоряного Пилу','✨',{gems:100}),
     ];
   })(),
+
+  // ── STORY: "Остання Зірка" ──
+  storyIntro:[
+    'Колись ти була найяскравішою зіркою Всесвіту...',
+    'Мільярди істот жили у твоєму світлі.',
+    'Але час не щадить нікого. Ти згасла.',
+    'Проте не зникла — ти стала Порожнечею.',
+    'Голодною. Але з пам\'яттю про те, ким була.',
+    'Всесвіт вмирає у темряві. Світи гаснуть один за одним.',
+    'Є лише один шлях повернути світло:',
+    'Поглинай. Рости. Накопич достатньо маси...',
+    '...щоб знову спалахнути НАДНОВОЮ і переродити реальність.',
+    'Твоя подорож починається тут. У світі, де все почалося.',
+  ],
+  // Per-world memory fragments (shown when world first entered / in codex)
+  worldStory:{
+    0:{title:'Місто — Дім',        text:'Тут ти народилась. Мільйони вогнів, мільйони життів. Тепер лише руїни й тиша. Поглинаючи це місто, ти зберігаєш його у своїй пам\'яті назавжди.'},
+    1:{title:'Пляж — Спокій',      text:'Останнє місце, де хтось був щасливим. Хвилі досі шепочуть імена тих, кого вже немає. Візьми ці спогади із собою.'},
+    2:{title:'Ферма — Життя',      text:'Тут росло життя. Зерно, тварини, надія на завтра. Завтра не настало. Але ти пам\'ятаєш смак цієї надії.'},
+    3:{title:'Космос — Межа',      text:'Далі люди не наважувались. Порожнеча між зірками — твій справжній дім тепер. Ти більша за будь-який корабель.'},
+    4:{title:'Вулкан — Народження',text:'Тут народжувалися й вмирали зорі. Полум\'я творіння ще жевріє. Ти вбираєш його жар — паливо для твого переродження.'},
+    5:{title:'Майбутнє — Мрія',    text:'Те, що могло б бути, якби Всесвіт вижив. Місто зі скла й світла. Поглинувши мрію, ти отримуєш силу зробити її реальною.'},
+  },
+  supernovaStory:'НАДНОВА! Твоє світло розриває темряву. Старий Всесвіт згорає — але з попелу народжується новий. Ти сильніша. Ти пам\'ятаєш усе. І цикл починається знову — Епоха {epoch}.',
+
+  // ── PRESTIGE: Stardust upgrades ──
+  SUPERNOVA_MIN_SIZE:600,       // hole must reach this in a run to enable Supernova
+  stardustUpgrades:[
+    {id:'massMemory',   name:'Пам\'ять Маси',    icon:'🧠',desc:'+25% монет назавжди за рівень',      max:20,base:1, mult:1.6,eff:0.25},
+    {id:'ancientGravity',name:'Древня Гравітація',icon:'🌀',desc:'+20% початковий розмір назавжди',   max:15,base:2, mult:1.7,eff:0.20},
+    {id:'starlight',    name:'Зоряне Світло',    icon:'✨',desc:'+15% швидкість руху назавжди',       max:15,base:2, mult:1.7,eff:0.15},
+    {id:'voidEcho',     name:'Відлуння Порожнечі',icon:'🔮',desc:'+1 Зоряний Пил за Наднову',          max:25,base:3, mult:1.8,eff:1},
+  ],
 };
 
 // ──────────────────────────────────────────────────────
@@ -302,6 +340,16 @@ function defaultState(){
     sessionStart:Date.now(),
     battlePassActive:false,
     battlePassProgress:0,
+    // ── Story & Prestige (Supernova rebirth) ──
+    stardust:0,                 // permanent prestige currency
+    epoch:1,                    // rebirth count / current epoch
+    totalStardustEarned:0,
+    stardustUpgrades:{massMemory:0,ancientGravity:0,starlight:0,voidEcho:0},
+    seenIntro:false,            // has the intro story been shown
+    storyProgress:0,            // how many story fragments unlocked
+    codexWorlds:{},             // {worldId:true} discovered world memories
+    supernovaReady:false,
+    maxSizeEverGlobal:0,
   };
 }
 function saveGame(state){
@@ -868,6 +916,12 @@ class GameScreen{
     const growAmt=(obj.size/60)*0.5*(1+this.game.getUpgradeValue('absorption')*0.5);
     this.hole.grow(growAmt);
     if(this.hole.radius>this.game.state.stats.maxSize)this.game.state.stats.maxSize=this.hole.radius;
+    if(this.hole.radius>(this.game.state.maxSizeEverGlobal||0))this.game.state.maxSizeEverGlobal=this.hole.radius;
+    // Supernova becomes available once big enough
+    if(this.hole.radius>=CFG.SUPERNOVA_MIN_SIZE&&!this.game.state.supernovaReady){
+      this.game.state.supernovaReady=true;
+      this.particles.emitText(this.hole.x,this.hole.y-this.hole.radius-20,'💥 НАДНОВА ГОТОВА!','#f39c12');
+    }
 
     // Combo
     this.combo++;this.comboTimer=2.5;
@@ -1164,6 +1218,12 @@ class AchievementSystem{
       return cfg&&cfg.t===6&&v>=1;
     });
     if(tier6.length>0)unlock('a95');
+    // Prestige / Supernova achievements
+    if(st.epoch>=2)unlock('a106');
+    if(st.epoch>=6)unlock('a107');
+    if(st.epoch>=10)unlock('a108');
+    if(Object.keys(st.codexWorlds||{}).length>=6)unlock('a109');
+    if((st.totalStardustEarned||0)>=1000)unlock('a110');
   }
   _showNext(game){
     if(this._showing)return;
@@ -1290,8 +1350,43 @@ class Game{
     // Achievement: a41 always
     this.state.achievements['a41']=true;
 
-    this.showBase();
     this.audio.startMusic();
+    // First launch → show story intro
+    if(!this.state.seenIntro){ this.showIntro(); }
+    else { this.showBase(); }
+  }
+
+  // ── STORY INTRO ──
+  showIntro(){
+    this._introIdx=0;
+    this.showScreen('screen-intro');
+    this._renderIntroLine();
+  }
+  _renderIntroLine(){
+    const lines=CFG.storyIntro;
+    const el=document.getElementById('intro-text');
+    const line=lines[this._introIdx];
+    el.style.opacity=0;
+    setTimeout(()=>{ el.textContent=line; el.style.opacity=1; },150);
+    document.getElementById('intro-progress').textContent=`${this._introIdx+1} / ${lines.length}`;
+    document.getElementById('intro-next').textContent=this._introIdx>=lines.length-1?'ПОЧАТИ ПОДОРОЖ ›':'Далі ›';
+  }
+  introNext(){
+    this.audio.click();
+    this._introIdx++;
+    if(this._introIdx>=CFG.storyIntro.length){
+      this.state.seenIntro=true;
+      this.saveState();
+      this.showBase();
+      return;
+    }
+    this._renderIntroLine();
+  }
+  introSkip(){
+    this.audio.click();
+    this.state.seenIntro=true;
+    this.saveState();
+    this.showBase();
   }
 
   _checkStreak(){
@@ -1424,6 +1519,10 @@ class Game{
     document.getElementById('evo-bonus').textContent=evo.desc;
     this._updateResBar();
     this._updatePlayBtn();
+    // Epoch badge + supernova banner
+    document.getElementById('epoch-badge').textContent=`🌌 Епоха ${this.state.epoch}`;
+    const snBanner=document.getElementById('supernova-banner');
+    snBanner.style.display=this.state.supernovaReady?'flex':'none';
     this.showScreen('screen-base');
     this.achSys.check(this.state,this);
   }
@@ -1465,8 +1564,8 @@ class Game{
     this.achSys.check(this.state,this);
     this.baseCanvas.stop();
     this._buildAchievements();
-    const done=Object.keys(this.state.achievements).filter(k=>!k.includes('_visited')).length;
-    document.getElementById('ach-progress-text').textContent=`${done}/105`;
+    const done=CFG.achievements.filter(a=>this.state.achievements[a.id]).length;
+    document.getElementById('ach-progress-text').textContent=`${done}/${CFG.achievements.length}`;
     document.getElementById('ach-badge').style.display='none';
     this.showScreen('screen-achievements');
   }
@@ -1479,6 +1578,139 @@ class Game{
     this._setToggle('toggle-music',s.music);
     this._setToggle('toggle-vibro',s.vibro);
     this.showScreen('screen-settings');
+  }
+
+  // ── MEMORY CODEX (Галерея Спогадів) ──
+  showCodex(){
+    this.audio.click();
+    this.baseCanvas.stop();
+    this._buildCodex();
+    this.showScreen('screen-codex');
+  }
+  _buildCodex(){
+    const el=document.getElementById('codexList');
+    el.innerHTML='';
+    CFG.worlds.forEach(w=>{
+      const discovered=this.state.codexWorlds[w.id];
+      const story=CFG.worldStory[w.id];
+      const div=document.createElement('div');
+      div.className='codex-item'+(discovered?' discovered':'');
+      div.innerHTML=discovered?`
+        <div class="codex-icon">${w.icon}</div>
+        <div class="codex-body">
+          <div class="codex-title">${story.title}</div>
+          <div class="codex-text">${story.text}</div>
+        </div>`:`
+        <div class="codex-icon">❔</div>
+        <div class="codex-body">
+          <div class="codex-title">???</div>
+          <div class="codex-text">Поглинь цей світ, щоб відкрити спогад.</div>
+        </div>`;
+      el.appendChild(div);
+    });
+  }
+
+  // ── SUPERNOVA (Prestige) ──
+  showSupernova(){
+    this.audio.click();
+    this.baseCanvas.stop();
+    const maxSize=this.state.maxSizeEverGlobal||0;
+    const reward=this.calcSupernovaReward(maxSize);
+    const ready=maxSize>=CFG.SUPERNOVA_MIN_SIZE;
+    document.getElementById('sn-epoch').textContent=`Епоха ${this.state.epoch}`;
+    document.getElementById('sn-stardust').textContent=fmt(this.state.stardust);
+    document.getElementById('sn-maxsize').textContent=Math.round(maxSize);
+    document.getElementById('sn-reward').textContent=ready?`+${fmt(reward)} ✨`:'—';
+    const btn=document.getElementById('sn-btn');
+    if(ready){
+      btn.disabled=false;
+      btn.classList.remove('disabled');
+      btn.textContent=`💥 СПАЛАХНУТИ (+${fmt(reward)} ✨)`;
+    }else{
+      btn.disabled=true;
+      btn.classList.add('disabled');
+      btn.textContent=`🔒 Потрібен розмір ${CFG.SUPERNOVA_MIN_SIZE}`;
+    }
+    document.getElementById('sn-hint').textContent=ready
+      ? 'Спалах скине світи, покращення, монети та еволюції — але Зоряний Пил, Епоха, досягнення та Галерея залишаться назавжди.'
+      : `Досягни розміру ${CFG.SUPERNOVA_MIN_SIZE} у будь-якому забігу, щоб розблокувати Наднову. Твій рекорд: ${Math.round(maxSize)}.`;
+    this._buildStardustUpgrades();
+    this.showScreen('screen-supernova');
+  }
+
+  _buildStardustUpgrades(){
+    const el=document.getElementById('stardustList');
+    el.innerHTML='';
+    CFG.stardustUpgrades.forEach(u=>{
+      const lv=this.state.stardustUpgrades[u.id]||0;
+      const maxed=lv>=u.max;
+      const cost=maxed?0:Math.ceil(u.base*Math.pow(u.mult,lv));
+      const div=document.createElement('div');div.className='upg-item';
+      div.innerHTML=`
+        <div class="upg-icon">${u.icon}</div>
+        <div class="upg-info">
+          <div class="upg-name">${u.name}</div>
+          <div class="upg-desc">${u.desc}</div>
+          <div class="upg-level" style="color:#f39c12">Рівень ${lv}/${u.max}</div>
+        </div>
+        <button class="upg-btn${maxed?' maxed':''}" style="${maxed?'':'background:linear-gradient(135deg,#f39c12,#d68910)'}" ${maxed?'disabled':''}>
+          ${maxed?'МАКС':`✨${fmt(cost)}`}
+        </button>`;
+      div.querySelector('button').onclick=()=>{
+        if(maxed)return;
+        if(this.state.stardust>=cost){
+          this.state.stardust-=cost;
+          this.state.stardustUpgrades[u.id]=(this.state.stardustUpgrades[u.id]||0)+1;
+          this.audio.unlock();
+          this.saveState();
+          document.getElementById('sn-stardust').textContent=fmt(this.state.stardust);
+          this._buildStardustUpgrades();
+        }else{this.toast('Недостатньо Зоряного Пилу!');}
+      };
+      el.appendChild(div);
+    });
+  }
+
+  doSupernova(){
+    const maxSize=this.state.maxSizeEverGlobal||0;
+    const reward=this.calcSupernovaReward(maxSize);
+    if(reward<=0){this.toast('Ще недостатньо маси!');return;}
+    this.audio.bossKill();
+    // Award stardust
+    this.state.stardust+=reward;
+    this.state.totalStardustEarned+=reward;
+    this.state.epoch++;
+    // Reset run progress (keep prestige, codex, achievements, settings)
+    const keep={
+      stardust:this.state.stardust,
+      epoch:this.state.epoch,
+      totalStardustEarned:this.state.totalStardustEarned,
+      stardustUpgrades:this.state.stardustUpgrades,
+      seenIntro:true,
+      storyProgress:this.state.storyProgress,
+      codexWorlds:this.state.codexWorlds,
+      achievements:this.state.achievements,
+      settings:this.state.settings,
+      stats:this.state.stats,
+      streakDays:this.state.streakDays,
+      lastStreakDate:this.state.lastStreakDate,
+      firstPlay:this.state.firstPlay,
+      gems:this.state.gems, // gems are premium, keep them
+    };
+    const fresh=defaultState();
+    this.state=Object.assign(fresh,keep);
+    this.state.lastOnline=Date.now();
+    // Achievements for rebirth
+    this.achSys.check(this.state,this);
+    this.saveState();
+    // Show cinematic story
+    document.getElementById('sn-story-text').textContent=CFG.supernovaStory.replace('{epoch}',this.state.epoch);
+    document.getElementById('sn-story-reward').innerHTML=`+${fmt(reward)} ✨ Зоряного Пилу`;
+    this.showScreen('screen-supernova-cinematic');
+  }
+  closeSupernovaCinematic(){
+    this.audio.click();
+    this.showBase();
   }
 
   pauseGame(){this.gameScreen.paused=true;this.showScreen('screen-pause');}
@@ -1511,6 +1743,33 @@ class Game{
     const level=st.worldLevels[worldId]||1;
     const isBoss=level%CFG.BOSS_EVERY_N_LEVELS===0;
 
+    // First time in this world → discover memory + show story card
+    if(!st.codexWorlds[worldId]){
+      st.codexWorlds[worldId]=true;
+      st.storyProgress=Object.keys(st.codexWorlds).length;
+      this.achSys.check(st,this);
+      this._pendingLevelStart={worldId,level,isBoss};
+      this._showWorldStory(worldId);
+      return;
+    }
+    this._doStartLevel(worldId,level,isBoss);
+  }
+
+  _showWorldStory(worldId){
+    const story=CFG.worldStory[worldId];
+    const w=CFG.worlds[worldId];
+    document.getElementById('ws-icon').textContent=w.icon;
+    document.getElementById('ws-title').textContent=story.title;
+    document.getElementById('ws-text').textContent=story.text;
+    this.showScreen('screen-worldstory');
+  }
+  continueFromStory(){
+    this.audio.click();
+    const p=this._pendingLevelStart;
+    if(p)this._doStartLevel(p.worldId,p.level,p.isBoss);
+  }
+
+  _doStartLevel(worldId,level,isBoss){
     document.getElementById('hud-world-name').textContent=CFG.worlds[worldId].name;
     document.getElementById('hud-level').textContent=`Рівень ${level}`;
     document.getElementById('timerArc').setAttribute('stroke','#f1c40f');
@@ -1774,7 +2033,29 @@ class Game{
     const u=CFG.upgrades.find(x=>x.id===id);
     if(!u)return 0;
     const lv=this.state.upgrades[id]||0;
-    return lv*u.eff;
+    let val=lv*u.eff;
+    // Fold in permanent Stardust (prestige) bonuses
+    const sd=this.state.stardustUpgrades||{};
+    if(id==='speed')     val+=(sd.starlight||0)*0.15;
+    if(id==='startSize') val+=(sd.ancientGravity||0)*0.20;
+    if(id==='coinBonus') val+=(sd.massMemory||0)*0.25;
+    return val;
+  }
+
+  getStardustUpgValue(id){
+    const u=CFG.stardustUpgrades.find(x=>x.id===id);
+    if(!u)return 0;
+    return (this.state.stardustUpgrades[id]||0)*u.eff;
+  }
+
+  // Stardust gained if player triggers Supernova now, based on hole size reached
+  calcSupernovaReward(maxSizeThisRun){
+    if(maxSizeThisRun<CFG.SUPERNOVA_MIN_SIZE)return 0;
+    // sqrt curve: bigger runs give more, with diminishing returns
+    let sd=Math.floor(Math.sqrt(maxSizeThisRun-CFG.SUPERNOVA_MIN_SIZE+100)/2);
+    sd+=this.getStardustUpgValue('voidEcho'); // +1 per voidEcho level
+    sd=Math.floor(sd*(1+(this.state.epoch-1)*0.1)); // epoch scaling
+    return Math.max(1,sd);
   }
 
   getEvoBonus(){
@@ -1797,6 +2078,8 @@ class Game{
     document.getElementById('hud-coins').textContent=fmt(this.state.coins);
     document.getElementById('hud-stars').textContent=fmt(this.state.stars);
     document.getElementById('hud-gems').textContent=fmt(this.state.gems);
+    const sd=document.getElementById('hud-stardust');
+    if(sd)sd.textContent=fmt(this.state.stardust||0);
   }
 
   _updatePlayBtn(){
