@@ -2478,11 +2478,11 @@ function updClouds(dt){for(const c of clouds){c.x+=c.sp*dt*22;if(c.x>W+c.sz+10)c
 // ========== SPEED LINES ==========
 function updSpdLines(dt){
   const spdFactor=clamp(spd/5,0,1);
-  const spawnRate=.04+spdFactor*.18;
+  const spawnRate=fever?(.10+spdFactor*.18):0;   // speed streaks are a fever-only cue
   if(Math.random()<spawnRate){
-    const lineLen=rand(10,22)+spdFactor*15;
-    const lineSpd=rand(1.5,3)+spdFactor*2;
-    spdLines.push({x:rand(0,W),y:rand(H*.3,H*.75),l:lineLen,a:rand(.04,.12)+spdFactor*.04,sp:lineSpd});
+    const lineLen=rand(10,22)+spdFactor*15+(fever?10:0);
+    const lineSpd=rand(1.5,3)+spdFactor*2+(fever?1.5:0);
+    spdLines.push({x:rand(0,W),y:rand(H*.3,H*.75),l:lineLen,a:(rand(.04,.12)+spdFactor*.04)*(fever?1.5:1),sp:lineSpd,warm:fever});
   }
   for(let i=spdLines.length-1;i>=0;i--){
     spdLines[i].y+=spdLines[i].sp*dt*60;
@@ -3043,7 +3043,9 @@ function updateGame(dt){
   const baseSpd=GAME_SPD+(GAME_SPD_MAX-GAME_SPD)*rampProgress;
   // Ease the multiplier instead of stepping it: turbo used to snap the world
   // to 1.45x in a single frame, which read as a lurch rather than as speed.
-  const tgtMul=boost?1.18:turbo?TURBO_SPEED_MULT:1;
+  // Fever is a state you chase: it lifts the pace ~10%. Safe because VIEW_AHEAD
+  // below scales with speed, so the extra energy never costs reaction time.
+  const tgtMul=boost?1.18:turbo?TURBO_SPEED_MULT:fever?1.10:1;
   spdMul=sd(spdMul,tgtMul,1.8,dt);
   spd=baseSpd*spdMul;
   spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
@@ -5141,6 +5143,22 @@ function drawDeathGrade(){
 
 function drawActEffects(){
   const rule=actRule();
+
+  // FEVER — warm heat around the edges that builds as you settle into the state,
+  // so entering fever reads as heating up, not just a badge switching on.
+  if(fever){
+    const ramp=clamp(feverT/1.2,0,1);
+    const pulse=0.72+0.28*Math.sin(gt*7);
+    const a=0.21*ramp*pulse;
+    const g=cachedGrad('fever'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*0.60,H*0.30,W/2,H*0.60,H*0.92);
+      gg.addColorStop(0,'rgba(255,140,0,0)');gg.addColorStop(0.6,'rgba(255,110,0,0.5)');gg.addColorStop(1,'rgba(255,80,0,1)');return gg});
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
+    // Warm downward streaks — the rush of the state, not just a colour
+    ctx.save();ctx.strokeStyle='rgba(255,190,90,1)';ctx.lineWidth=2;
+    for(const sl of spdLines){ctx.globalAlpha=Math.min(1,sl.a*ramp);
+      ctx.beginPath();ctx.moveTo(sl.x,sl.y);ctx.lineTo(sl.x,sl.y+sl.l);ctx.stroke();}
+    ctx.restore();
+  }
 
   // ATTACK — the sky closes in around you while he strikes
   if(atkPhase===1||atkPhase===2){
