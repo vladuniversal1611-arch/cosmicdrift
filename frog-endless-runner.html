@@ -234,11 +234,15 @@ function deathPhase(){
 // Each zone doesn't just recolour the sky, it changes a RULE of play and
 // escalates the pace. Entering one is a cinematic beat.
 const ACTS=[
-  {id:'garden',name:'ХМАРНИЙ САД',   sub:'Спокій перед бурею',       icon:'🌤️', from:0,    spdMul:1.00, rule:null,        col:'#4FC3F7'},
-  {id:'wind',  name:'ВІТРЯНИЙ ПЕРЕВАЛ',sub:'Вітер зносить з курсу',  icon:'🌬️', from:250,  spdMul:1.06, rule:'wind',      col:'#80DEEA'},
-  {id:'storm', name:'ГРОЗА',          sub:'Блискавка б\'є по платформах',icon:'⛈️', from:550,  spdMul:1.13, rule:'lightning', col:'#7C4DFF'},
-  {id:'night', name:'НІЧНЕ НЕБО',     sub:'Видно лише те, що поруч',  icon:'🌙', from:900,  spdMul:1.20, rule:'dark',      col:'#5C6BC0'},
-  {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Максимальна швидкість',    icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081'},
+  // STORY — "Бульбік і вкрадене небо". Хмарожер, a living storm cloud, swallowed
+  // the light of the sky castles and dragged it past the horizon; the rainbow
+  // road is the trail he leaves and it melts behind you. Each act is one beat of
+  // the chase, and the sub line is what the frog knows at that moment.
+  {id:'garden',name:'ХМАРНИЙ САД',   sub:'Веселка згасла. Хмарожер потягнув світло за обрій.', icon:'🌤️', from:0,    spdMul:1.00, rule:null,        col:'#4FC3F7', emo:'😮'},
+  {id:'wind',  name:'ВІТРЯНИЙ ПЕРЕВАЛ',sub:'Цей вітер — його подих. Ти на сліді.',            icon:'🌬️', from:250,  spdMul:1.06, rule:'wind',      col:'#80DEEA', emo:'😤'},
+  {id:'storm', name:'ГРОЗА',          sub:'Ти наздогнав його. Він відбивається.',              icon:'⛈️', from:550,  spdMul:1.13, rule:'lightning', col:'#7C4DFF', emo:'😨'},
+  {id:'night', name:'НІЧНЕ НЕБО',     sub:'Він зжер майже все світло. Тримайся ближче.',        icon:'🌙', from:900,  spdMul:1.20, rule:'dark',      col:'#5C6BC0', emo:'😰'},
+  {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Ти всередині нього. Ось вони — вкрадені зорі.',   icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081', emo:'🤩'},
 ];
 let curAct=0, actCardT=0, actFlash=0;
 function actFor(d){let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
@@ -246,7 +250,7 @@ function enterAct(i){
   curAct=i;actCardT=2.4;actFlash=1;
   const z=ACTS[i];
   shake=Math.max(shake,.25);addPunch(.6);
-  if(typeof setEmo==='function')setEmo(z.rule?'😳':'😊',1.4);
+  if(typeof setEmo==='function')setEmo(z.emo||(z.rule?'😳':'😊'),1.6);
   if(navigator.vibrate)navigator.vibrate([25,60,25]);
   if(typeof sfxFever==='function')sfxFever();
   // Burst of the zone's colour sweeping in
@@ -255,6 +259,62 @@ function enterAct(i){
     addP(W/2,H*0.45,Math.cos(a)*sp,Math.sin(a)*sp,z.col,rand(2,4),.8,'s');
   }
 }
+// --- ХМАРОЖЕР: the thing you are chasing. He sits at the end of the road and
+// grows act by act — a smudge with eyes in the garden, the whole sky by the
+// star stream. He flinches when you light a castle and gloats when you fall.
+let eaterAngry=0, eaterGloat=0, castlesSaved=0;
+const castleLitCycle=[-1,-1];   // which fly-by of each castle has already been lit
+function eaterScale(){
+  const base=0.70+curAct*0.24;
+  return base*(finaleOn?1.18:1)*(1+eaterGloat*0.35);
+}
+function drawCloudEater(){
+  if(state!==ST.PLAY&&state!==ST.OVER)return;
+  const far=project(VIEW_AHEAD*0.98,1,0);
+  const sc=eaterScale();
+  const r=W*0.13*sc;
+  const breathe=1+Math.sin(gt*1.3)*0.04;
+  const x=far.x, y=far.y-r*0.55;
+  const z=ACTS[curAct];
+  ctx.save();
+  ctx.translate(x,y);ctx.scale(breathe,breathe);
+  // Body — a heap of dark lobes; alpha rises as he gets closer/bigger
+  const bodyA=Math.min(0.85,0.52+curAct*0.08+eaterGloat*0.2);
+  ctx.globalAlpha=bodyA;
+  const lobes=[[0,0,1],[-0.75,0.15,0.72],[0.78,0.12,0.7],[-0.35,-0.45,0.62],[0.4,-0.5,0.58],[0,0.35,0.85]];
+  const g=ctx.createRadialGradient(0,-r*0.2,r*0.2,0,0,r*1.6);
+  g.addColorStop(0,'#4A4C68');g.addColorStop(0.6,'#22243A');g.addColorStop(1,'#0E1020');
+  ctx.fillStyle=g;
+  for(const [lx,ly,lr] of lobes){ctx.beginPath();ctx.arc(lx*r,ly*r,lr*r,0,Math.PI*2);ctx.fill()}
+  // Storm act: lightning flickers inside him
+  if(z.rule==='lightning'&&Math.random()<0.06){
+    ctx.globalAlpha=0.5;ctx.fillStyle='#E1BEE7';
+    ctx.beginPath();ctx.arc(rand(-0.6,0.6)*r,rand(-0.3,0.3)*r,r*0.5,0,Math.PI*2);ctx.fill();
+  }
+  // Eyes — the one thing that reads at any size. Yellow, red when provoked.
+  ctx.globalAlpha=Math.min(1,bodyA+0.35);
+  const ex=r*0.34, ey=-r*0.05, er=Math.max(3.2,r*0.13)*(1+eaterAngry*0.3);
+  const eyeCol=eaterAngry>0.05?`rgba(255,${Math.round(210-eaterAngry*150)},60,1)`:'#FFD54F';
+  ctx.shadowColor=eyeCol;ctx.shadowBlur=r*0.35;
+  ctx.fillStyle=eyeCol;
+  for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex,ey,er,er*0.75,0,0,Math.PI*2);ctx.fill()}
+  ctx.shadowBlur=0;
+  // Slit pupils that track the frog's lane
+  ctx.fillStyle='#1A1330';
+  const look=clamp((visLane-1)*0.5,-0.5,0.5);
+  for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex+look*er*0.8,ey,er*0.28,er*0.62,0,0,Math.PI*2);ctx.fill()}
+  // Gloat: a grin when the frog falls
+  if(eaterGloat>0.05){
+    ctx.strokeStyle='#FFD54F';ctx.lineWidth=Math.max(1.5,r*0.05);ctx.globalAlpha=eaterGloat;
+    ctx.beginPath();ctx.arc(0,r*0.15,r*0.45,Math.PI*0.15,Math.PI*0.85);ctx.stroke();
+  }
+  ctx.restore();
+}
+function updateCloudEater(dt){
+  if(eaterAngry>0)eaterAngry=Math.max(0,eaterAngry-dt*1.6);
+  if(eaterGloat>0)eaterGloat=Math.max(0,eaterGloat-dt*0.5);
+}
+
 // --- Act finale: the last stretch of every act escalates into a gauntlet ---
 const FINALE_LEN=45;          // metres of build-up before the next act
 let finaleOn=false, finaleT=0, finaleWarnT=0, finaleClearT=0;
@@ -270,7 +330,7 @@ function updateFinale(dt){
     finaleOn=true;finaleWarnT=1.8;
     shake=Math.max(shake,.2);
     setEmo('\uD83D\uDE30',1.4);
-    addFloat('\u26A0 \u0424\u0406\u041D\u0410\u041B \u0410\u041A\u0422\u0423',W/2,H*0.36,'#FF5252',26);
+    addFloat('⚠ ХМАРОЖЕР ПОРУЧ',W/2,H*0.36,'#FF5252',26);
     if(navigator.vibrate)navigator.vibrate([20,40,20,40,20]);
   }
   if(!inside&&finaleOn){
@@ -305,6 +365,7 @@ function updateActs(dt){
   if(want!==curAct)enterAct(want);
   updateFinale(dt);
   if(actCardT>0)actCardT-=dt;
+  updateCloudEater(dt);
   if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
 
   const rule=actRule();
@@ -531,13 +592,13 @@ function triggerMilestone(m){
 let fever=false,feverT=0,feverFlash=0,feverBreakT=0,feverPts=[];
 // Milestones
 const MILESTONES=[
-  {dist:50, text:'РОЗГІН!',emoji:'🚀',color:'#4FC3F7',coins:5},
-  {dist:100,text:'СОТНЯ!',emoji:'💯',color:'#66BB6A',coins:10},
-  {dist:250,text:'НЕЙМОВІРНО!',emoji:'⭐',color:'#FFD54F',coins:15},
-  {dist:500,text:'НАПІВТИСЯЧА!',emoji:'🔥',color:'#FF9800',coins:25},
-  {dist:1000,text:'ТИСЯЧА!',emoji:'🏆',color:'#FFD700',coins:50},
-  {dist:2000,text:'ЛЕГЕНДА!',emoji:'👑',color:'#E040FB',coins:100},
-  {dist:3000,text:'БОГ СТРИБКІВ!',emoji:'⚡',color:'#FF1744',coins:200},
+  {dist:50, text:'ПЕРШИЙ СЛІД!',emoji:'🚀',color:'#4FC3F7',coins:5},
+  {dist:100,text:'100 М НЕБА ПОВЕРНУТО!',emoji:'💯',color:'#66BB6A',coins:10},
+  {dist:250,text:'ЗАМКИ БАЧАТЬ ТЕБЕ!',emoji:'⭐',color:'#FFD54F',coins:15},
+  {dist:500,text:'ПІВНЕБА ПОВЕРНУТО!',emoji:'🔥',color:'#FF9800',coins:25},
+  {dist:1000,text:'ТИСЯЧА МЕТРІВ НЕБА!',emoji:'🏆',color:'#FFD700',coins:50},
+  {dist:2000,text:'ЛЕГЕНДА САДУ!',emoji:'👑',color:'#E040FB',coins:100},
+  {dist:3000,text:'ХМАРОЖЕР ТРЕМТИТЬ!',emoji:'⚡',color:'#FF1744',coins:200},
 ];
 let msShow=0,msText='',msEmoji='',msColor='',msCoins=0,lastMilestone=0;
 // Close call
@@ -2352,7 +2413,7 @@ function startGame(){
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
-  curAct=0;actCardT=0;actFlash=0;actSpdCur=1;
+  curAct=0;actCardT=2.2;actFlash=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
@@ -2446,7 +2507,7 @@ function die(){
   checkDaily('feverCount', runFever);
   checkDaily('dailyPlays', dailyPlays);
   saveDaily();
-  goT=0;setTimeout(()=>{state=ST.OVER},1250);
+  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},1250);
 }
 
 function getCurrentPadIdx(){
@@ -3486,8 +3547,8 @@ function drawBg(){
     if(sky.castles&&_ok('castleBig')&&_ok('castleSmall')){
       const period=26;                        // seconds for one castle to fly past
       const flyers=[
-        {img:_A.castleBig,   ph:(gt/period)%1,           sx:0.20},
-        {img:_A.castleSmall, ph:((gt/period)+0.5)%1,     sx:0.80},
+        {img:_A.castleBig,   ph:(gt/period)%1,           sx:0.20, k:0, cyc:Math.floor(gt/period)},
+        {img:_A.castleSmall, ph:((gt/period)+0.5)%1,     sx:0.80, k:1, cyc:Math.floor(gt/period+0.5)},
       ];
       // Same horizon curve as the road — castles are 'far' so they follow the turn
       const curveTurn=curTurn*W*0.22;
@@ -3505,8 +3566,24 @@ function drawBg(){
         const bank=curveTurn*(1-p);
         const sway=Math.sin(gt*0.2+f.sx*20)*W*0.015;
         const x=W*f.sx-w/2+sway+bank;
-        ctx.globalAlpha=a;
-        ctx.drawImage(f.img,x,y-h,w,h);
+        // Passing a castle re-lights it — the story beat of every fly-by. Once
+        // per pass, only while actually running.
+        const lit=castleLitCycle[f.k]===f.cyc;
+        if(!lit&&p>0.70&&state===ST.PLAY&&alive){
+          castleLitCycle[f.k]=f.cyc;castlesSaved++;score+=15;eaterAngry=1;
+          addFloat('🏰 ЗАМОК ЗАПАЛЕНО +15',W*f.sx,y-h-10,'#FFD54F',17);
+          sfxPU();
+          for(let i=0;i<8;i++){const an=rand(0,Math.PI*2);addP(W*f.sx,y-h*0.5,Math.cos(an)*.04,Math.sin(an)*.04,'#FFE082',rand(1.5,3),.7,'s')}
+        }
+        if(lit){
+          ctx.save();ctx.globalAlpha=a*0.9;ctx.shadowColor='#FFD54F';ctx.shadowBlur=22*(0.7+0.3*Math.sin(gt*6));
+          ctx.drawImage(f.img,x,y-h,w,h);ctx.restore();
+          ctx.globalAlpha=a*0.5;ctx.fillStyle='rgba(255,220,120,.5)';
+          ctx.beginPath();ctx.ellipse(x+w/2,y-h*0.5,w*0.6,h*0.6,0,0,Math.PI*2);ctx.fill();
+        } else {
+          ctx.globalAlpha=a;
+          ctx.drawImage(f.img,x,y-h,w,h);
+        }
       }
       ctx.globalAlpha=1;
     }
@@ -4169,6 +4246,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
+  drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
@@ -5010,7 +5088,7 @@ function drawActEffects(){
     ctx.font='bold 26px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=12;
-    ctx.fillText('\u26A0  \u0424\u0406\u041D\u0410\u041B \u0410\u041A\u0422\u0423  \u26A0',W/2,H*0.20);
+    ctx.fillText('⚠  ХМАРОЖЕР ПОРУЧ  ⚠',W/2,H*0.20);
     ctx.shadowBlur=0;ctx.restore();
   }
   // Green afterglow for clearing it
@@ -5028,7 +5106,7 @@ function drawActEffects(){
 }
 
 function drawActCard(){
-  if(actCardT<=0)return;
+  if(actCardT<=0||state!==ST.PLAY||!alive)return;
   const z=ACTS[curAct];
   const T=2.4, t=1-actCardT/T;                 // 0 → 1
   // Slide in, hold, slide out
@@ -5037,7 +5115,7 @@ function drawActCard(){
   else if(t>0.78){const u=(t-0.78)/0.22;a=1-u;off=-u*50}
   ctx.save();
   ctx.globalAlpha=a;
-  const cy=H*0.30+off;
+  const cy=H*0.36+off;
   // Banner bars sweeping across
   const bh=104;
   const g=ctx.createLinearGradient(0,cy-bh/2,0,cy+bh/2);
@@ -5057,8 +5135,11 @@ function drawActCard(){
   ctx.font='bold 30px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=10;
   ctx.fillText(`${z.icon}  ${z.name}`,W/2,cy-12);
-  ctx.font='600 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   ctx.fillStyle=z.col;
+  // Story lines are longer than the old subtitles — fit them to the width
+  let fs=14;
+  do{ctx.font=`600 ${fs}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;fs-=0.5}
+  while(ctx.measureText(z.sub).width>W*0.9&&fs>9);
   ctx.fillText(z.sub,W/2,cy+20);
   ctx.shadowBlur=0;
   ctx.restore();
@@ -5326,9 +5407,9 @@ function drawMenuLogo(cx,ty){
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.font='800 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   ctx.lineJoin='round';ctx.lineWidth=3.5;ctx.strokeStyle='rgba(52,12,84,.9)';
-  ctx.strokeText('НЕСКІНЧЕННА ПРИГОДА',cx,ribY-1);
+  ctx.strokeText('НАЗДОЖЕНИ ХМАРОЖЕРА',cx,ribY-1);
   ctx.fillStyle='#FFE9A8';
-  ctx.fillText('НЕСКІНЧЕННА ПРИГОДА',cx,ribY-1);
+  ctx.fillText('НАЗДОЖЕНИ ХМАРОЖЕРА',cx,ribY-1);
   ctx.textBaseline='alphabetic';
 }
 
@@ -5801,7 +5882,7 @@ function drawMenu(){
   // 2. Character showcase animation (jumps between platforms)
   drawMenuCharacter(cx,H*.44);
 
-  // 3. Logo at top
+  // 3. Logo at top (its ribbon carries the story tagline)
   drawMenuLogo(cx,H*.08);
 
   // 4. Coin chip (top right)
@@ -5862,7 +5943,7 @@ function drawOver(){
   }
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
-  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0),px=W/2-pw/2,py=H/2-ph/2;
+  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0)+30,px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
@@ -5870,7 +5951,12 @@ function drawOver(){
 
   // Title
   ctx.fillStyle='#F44336';ctx.font='bold 22px sans-serif';ctx.textAlign='center';
-  ctx.fillText('ГРА ЗАКІНЧЕНА',cx,ty+10);ty+=38;
+  ctx.fillText('ГРА ЗАКІНЧЕНА',cx,ty+10);ty+=32;
+  // Story lines — the run in the words of the chase
+  ctx.fillStyle='#5C6BC0';ctx.font='italic 600 12.5px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText(`Ти повернув ${Math.floor(dist)} м неба${castlesSaved?` і запалив ${castlesSaved} ${castlesSaved===1?'замок':castlesSaved<5?'замки':'замків'}`:''}.`,cx,ty+4);
+  ctx.fillStyle='rgba(92,107,192,.75)';ctx.font='italic 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText('Хмарожер втік далі. Наступного разу — ближче.',cx,ty+21);ty+=36;
 
   // New record badge
   if(newScoreRec){
