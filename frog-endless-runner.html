@@ -338,6 +338,11 @@ function introU(){return introT>0?1-introT/INTRO_LEN:1}
 let atkPhase=0, atkT=0, atkBolts=0, atkNextDist=55, attacksRepelled=0;
 let eaterAttack=0, eaterFlinch=0;    // eased visual state of the antagonist
 let closeCallDone=false;             // "never been this close" fires once per run
+// Ledge-grab: a landing that just barely misses is caught, not killed — the
+// frog grabs the edge and scrambles on. Turns "that was unfair" into "phew".
+// A short cooldown (in landings) stops it from becoming ride-the-edge immunity.
+let grabCool=0, grabSave=false;
+const GRAB_BAND=0.22;   // world units beyond the hit radius that still get caught
 function lightningActive(){return actRule()==='lightning'||atkPhase===2}
 // A struck platform has to be DODGEABLE, not just survivable by luck: the run
 // auto-advances and the route puts one platform per row, so the only real
@@ -370,7 +375,7 @@ function updateAttack(dt){
     if(dist>=atkNextDist&&!finaleOn&&actRule()!=='lightning'&&actCardT<=0){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
-      addFloat('⛈ ХМАРОЖЕР АТАКУЄ!',W/2,H*0.30,'#FF5252',24);
+      addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ! БІЖИ!',W/2,H*0.30,'#B388FF',22);
       setEmo('😨',1.2);
       if(navigator.vibrate)navigator.vibrate([40,50,40]);
     }
@@ -383,7 +388,7 @@ function updateAttack(dt){
       addFloat('✨ ВІДБИВ АТАКУ! +40',W/2,H*0.30,'#69F0AE',24);
       setEmo('😤',1.3);sfxMilestone();addFlow(.25);
       for(let k=0;k<18;k++){const a=rand(0,Math.PI*2),sp=rand(.05,.12);addP(W/2,H*0.30,Math.cos(a)*sp,Math.sin(a)*sp,'#69F0AE',rand(2,4),.7,'s')}
-      atkNextDist=dist+rand(70,110);
+      atkNextDist=dist+rand(90,140);
     }
   } else {atkT-=dt;if(atkT<=0)atkPhase=0}
 }
@@ -458,7 +463,10 @@ function updateActs(dt){
     if(boltT<=0&&boltIdx<0){
       const ci=getCurrentPadIdx();
       const cand=ci+2+Math.floor(Math.random()*3);
-      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;if(atkPhase===2)atkBolts++;ensureSibling(cand)}
+      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;
+        if(atkPhase===2)atkBolts++;              // an attack strike is pure threat
+        else ensureSibling(cand);               // only the storm act makes it a real choice
+      }
       boltT=atkPhase===2?1.0:rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
     }
     if(boltIdx>=0){
@@ -469,7 +477,7 @@ function updateActs(dt){
           shake=Math.max(shake,.45);addPunch(.7);actFlash=1;
           if(navigator.vibrate)navigator.vibrate(60);
           // Anyone standing on the struck pad is out
-          if(alive&&frogStandingOn(boltIdx))die();
+          if(alive&&actRule()==='lightning'&&frogStandingOn(boltIdx))die();   // attack bolts don't kill
         }
       } else if(boltStrike>0){
         boltStrike-=dt;
@@ -2488,7 +2496,8 @@ function startGame(){
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
   curAct=0;actFlash=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
   introT=introSeen?0:INTRO_LEN;actCardT=introSeen?2.2:0;
-  atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(50,70);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
+  atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
+  grabCool=0;grabSave=false;
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
@@ -2584,7 +2593,7 @@ function die(){
   checkDaily('feverCount', runFever);
   checkDaily('dailyPlays', dailyPlays);
   saveDaily();
-  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},1250);
+  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},900);
 }
 
 function getCurrentPadIdx(){
@@ -2753,7 +2762,22 @@ function onLand(idx){
   // Tutorial: dismiss after 2 successful landings
   if(!tutorialShown&&score>=2){tutorialShown=true;localStorage.setItem('fTut','1')}
 
-  if(isPerfect){
+  if(grabSave){
+    // Caught the edge — you live, but the run's flow stumbles: combo resets,
+    // fever cools, no points. The relief IS the reward.
+    if(fever){breakFever(lp.x,lp.y)}
+    perfectCombo=0;
+    sfxNearMiss();
+    perfectText='';perfectShow=0;
+    addFlow(-.22);
+    addPunch(.2);shake=Math.max(shake,.12);
+    setEmo('😅',1.0);
+    addFloat('ВХОПИВСЯ!',lp.x,lp.y-46,'#81D4FA',18);
+    addLandFX(lp.x,lp.y,1.1);
+    addRipple(lp.x,lp.y+5*lp.s,lp.s*1.3);
+    for(let i=0;i<8;i++){const a=rand(-Math.PI,0);addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.02,'#B3E5FC',rand(1.5,3),.4,'s')}
+    if(navigator.vibrate)navigator.vibrate(18);
+  } else if(isPerfect){
     // PERFECT — combo grows
     perfectCombo++;
     const comboMult=Math.min(perfectCombo,10);
@@ -3297,10 +3321,30 @@ function updateGame(dt){
         if(Math.abs(frogX-pad.gameX)<=hitR){
           onLand(gi);
           landed=true;
+          if(grabCool>0)grabCool--;      // clean landings recover the grab
           break;
         }
       }
       if(!landed){
+        // LEDGE-GRAB — the closest still-standing pad within the forgiveness
+        // band is caught instead of missed, unless we just grabbed one.
+        let grabIdx=-1, grabDist=1e9;
+        if(grabCool<=0){
+          for(const gi of group){
+            const pad=pads[gi];
+            if(pad.broken||pad.disappeared||(pad.fallOffset&&pad.fallOffset>3)) continue;
+            const d=Math.abs(frogX-pad.gameX), hitR=getHitRadius(pad.width);
+            if(d<=hitR+GRAB_BAND && d<grabDist){grabDist=d;grabIdx=gi}
+          }
+        }
+        if(grabIdx>=0){
+          frogCont=pads[grabIdx].gameX;visLane=pads[grabIdx].gameX;
+          grabSave=true;grabCool=3;      // no grab-save for the next 3 landings
+          onLand(grabIdx);grabSave=false;
+          landed=true;
+          break;
+        }
+        if(grabCool>0)grabCool--;
         // Near miss check on any pad in group
         let nearMiss=false;
         for(const gi of group){
@@ -5095,9 +5139,9 @@ function drawActEffects(){
   // ATTACK — the sky closes in around you while he strikes
   if(atkPhase===1||atkPhase===2){
     const pulse=0.6+0.4*Math.sin(gt*9);
-    const a=(atkPhase===1?0.30:0.22)*pulse;
-    const g=ctx.createRadialGradient(W/2,H*0.62,H*0.22,W/2,H*0.62,H*0.80);
-    g.addColorStop(0,'rgba(90,0,30,0)');g.addColorStop(1,`rgba(70,0,25,${a+0.25})`);
+    const a=(atkPhase===1?0.20:0.14)*pulse;
+    const g=ctx.createRadialGradient(W/2,H*0.62,H*0.30,W/2,H*0.62,H*0.85);
+    g.addColorStop(0,'rgba(60,20,80,0)');g.addColorStop(1,`rgba(50,10,70,${a+0.14})`);
     ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
   // REPELLED — a clean flash of returned light
@@ -6235,11 +6279,17 @@ function overTap(x,y){
     if(x>=rx&&x<=rx+rw&&y>=rvY&&y<=rvY+44){doRevive();return}
     ty+=44+10;
   }
-  // Retry
+  // Retry — its own button…
   const ry=ty+4;
   if(x>=rx&&x<=rx+rw&&y>=ry&&y<=ry+44){startGame();return}
   ty=ry+44+10;
-  if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+36){sfxClick();state=ST.MENU}
+  // …the Menu button
+  if(x>=rx&&x<=rx+rw&&y>=ty&&y<=ty+36){sfxClick();state=ST.MENU;return}
+  // …and everything else on the screen is also "play again". A dead player's
+  // thumb is already moving toward the next run — meet it wherever it lands
+  // instead of making it hunt for the button. Only after the panel has settled,
+  // so the death beat still reads.
+  if(goT>0.6)startGame();
 }
 
 // ========== SKINS ==========
