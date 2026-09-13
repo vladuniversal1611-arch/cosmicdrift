@@ -74,11 +74,10 @@ let leapLanded=false;            // set on the frame the leap's target is reache
 const LEAP_BUFFER=0.55, LEAP_COOL=0.12;
 
 function leapActive(){return leapTo>=0}
-// Both action verbs live on their own buttons in the bottom corners. Tapping
-// anywhere used to fire the leap, but steering IS a short tap — finger down,
-// small correction, up inside 300 ms — so ordinary play kept launching leaps.
+// The dash lives on a button; the leap is a flick of the steering thumb (see
+// the input section). Tapping anywhere used to fire the leap, but steering IS
+// a short tap — finger down, small correction, up — so play kept launching it.
 const BTN_R=30, BTN_HIT=44;
-function leapBtnC(){return{x:52,y:H-64}}
 function dashBtnC(){return{x:W-44,y:H-64}}
 function hitBtn(c,x,y){const dx=x-c.x,dy=y-c.y;return dx*dx+dy*dy<=BTN_HIT*BTN_HIT}
 // Pad indices are not 1:1 with depth — a fork puts two pads at the same Y. Any
@@ -2205,8 +2204,7 @@ let btnTouch=false;   // this gesture started on a button — don't steer with i
 let tSX=0,tSY=0,tST=0;
 
 // --- VERTICAL FLICK: the leap you can reach with the thumb you already steer with
-// A corner button is the wrong home for a verb you use every few seconds while
-// your thumb is busy dragging. A flick works from wherever the thumb already is,
+// A flick works from wherever the thumb already is,
 // needs no aiming, and — measured against the LAST 120 ms rather than against
 // the point where the finger first landed — repeats without ever lifting off.
 let swHist=[];          // recent pointer samples, for flick detection
@@ -2270,7 +2268,7 @@ canvas.addEventListener('touchstart',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
-    btnTouch=hitBtn(leapBtnC(),bx,by)||hitBtn(dashBtnC(),bx,by);
+    btnTouch=hitBtn(dashBtnC(),bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(t.clientX)}
   }
 },{passive:false});
@@ -2305,7 +2303,6 @@ canvas.addEventListener('touchend',e=>{
       const r=canvas.getBoundingClientRect();
       const tx=(t.clientX-r.left)*(W/r.width), ty2=(t.clientY-r.top)*(H/r.height);
       if(hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
-      else if(hitBtn(leapBtnC(),tx,ty2)) tryLeap();
     }
   }
 },{passive:false});
@@ -2317,7 +2314,7 @@ canvas.addEventListener('mousedown',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
-    btnTouch=hitBtn(leapBtnC(),bx,by)||hitBtn(dashBtnC(),bx,by);
+    btnTouch=hitBtn(dashBtnC(),bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(e.clientX)}
   }
 });
@@ -2341,7 +2338,6 @@ canvas.addEventListener('mouseup',e=>{
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
       if(hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
-      else if(hitBtn(leapBtnC(),tx,ty2)) tryLeap();
     }
   }
 });
@@ -4697,42 +4693,6 @@ function drawGame(){
     ctx.globalAlpha=1;ctx.restore();
   }
 
-  // === LEAP BUTTON ===
-  // The leap has its own button now. It brightens during the launch window, so
-  // the button doubles as the timing cue for when a leap is actually possible.
-  if(state===ST.PLAY&&alive){
-    const c=leapBtnC(), open=canLeap();
-    ctx.save();
-    // A dark disc underneath so the button reads over sky, cloud or platform
-    ctx.beginPath();ctx.arc(c.x,c.y,BTN_R,0,Math.PI*2);
-    ctx.fillStyle='rgba(12,28,44,.46)';ctx.fill();
-    ctx.globalAlpha=open?1:0.72;
-    ctx.beginPath();ctx.arc(c.x,c.y,BTN_R,0,Math.PI*2);
-    ctx.fillStyle=open?'rgba(79,195,247,.40)':'rgba(120,145,165,.20)';ctx.fill();
-    if(open){ctx.shadowColor='rgba(79,195,247,.9)';ctx.shadowBlur=14}
-    ctx.strokeStyle=open?'rgba(140,225,255,1)':'rgba(185,205,220,.75)';
-    ctx.lineWidth=open?3:2.4;ctx.stroke();
-    ctx.shadowBlur=0;
-    // Glyph: a hop arc clearing a platform and landing on the next one
-    ctx.strokeStyle=open?'#FFFFFF':'#E3EAEF';ctx.lineWidth=2.6;ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(c.x-15,c.y+8);
-    ctx.quadraticCurveTo(c.x,c.y-19,c.x+15,c.y+8);ctx.stroke();
-    ctx.fillStyle=open?'#FFFFFF':'#E3EAEF';
-    ctx.beginPath();ctx.moveTo(c.x+15,c.y+11);ctx.lineTo(c.x+9,c.y+4);ctx.lineTo(c.x+19,c.y+4);
-    ctx.closePath();ctx.fill();
-    // the platform being flown over
-    ctx.globalAlpha*=0.75;
-    ctx.fillRect(c.x-4,c.y+10,9,3);
-    ctx.restore();
-    // Launch pulse
-    if(leapFlash>0){
-      ctx.save();
-      ctx.strokeStyle=`rgba(79,195,247,${leapFlash})`;ctx.lineWidth=3;
-      ctx.beginPath();ctx.arc(c.x,c.y,BTN_R+4+(1-leapFlash)*10,0,Math.PI*2);ctx.stroke();
-      ctx.restore();
-    }
-  }
-
   // === DASH COOLDOWN INDICATOR ===
   if(state===ST.PLAY&&alive){
     ctx.save();
@@ -5260,7 +5220,7 @@ function drawHUD(){
   }
   ctx.textBaseline='alphabetic';
 
-  let py=H-124;    // clear of the leap button in the bottom-left corner
+  let py=H-60;
   if(shield){ctx.fillStyle='rgba(255,193,7,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('🛡️ Щит',16,py+15);py-=24}
   if(magnet){ctx.fillStyle='rgba(244,67,54,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('🧲 '+Math.ceil(magnetT)+'с',16,py+15);py-=24}
   if(boost){ctx.fillStyle='rgba(255,235,59,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('⚡ '+Math.ceil(boostT)+'с',16,py+15);py-=24}
