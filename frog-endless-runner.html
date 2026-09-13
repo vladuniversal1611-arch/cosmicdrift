@@ -717,14 +717,7 @@ let comboPop=0;     // scale-pop on the HUD combo chip each time it grows
 // Chaser (shadow wall)
 let chaserZ=0,chaserActive=false,chaserWarnShow=0;
 // Diamond path
-let diamondPath=false,diamondT=0,diamondCount=0,diamondTotal=0,lastDiamondDist=0;
 // Challenge platform
-const CHALLENGES=[
-  {id:'perfects',text:'3 PERFECT підряд!',emoji:'🎯',need:3,reward:15,rewardCoins:8},
-  {id:'noMoving',text:'Уникай рухомих!',emoji:'🚫',need:5,reward:12,rewardCoins:6},
-  {id:'speedLand',text:'5 стрибків за 6с!',emoji:'⏱️',need:5,reward:20,rewardCoins:10},
-];
-let challenge=null,challengeT=0,challengeProgress=0,challengeShow=0,lastChallengeDist=0;
 
 // ========== DAILY MISSIONS (persistent, resets each calendar day) ==========
 const DAILY_POOL=[
@@ -1222,8 +1215,6 @@ function sfxMilestone(){for(let i=0;i<8;i++)tone(330+i*165,.14,'sine',.1,i*.05);
 function sfxCloseCall(){tone(150,.1,'triangle',.08);tone(250,.06,'sine',.05,.04);noise(.04,.04)}
 function sfxChaserWarn(){tone(120,.3,'sawtooth',.09);tone(180,.2,'sawtooth',.07,.1);tone(90,.35,'triangle',.06,.2)}
 function sfxDiamond(){tone(880,.08,'sine',.07);tone(1100,.06,'sine',.05,.04);tone(1320,.05,'sine',.04,.07)}
-function sfxChallenge(){tone(660,.1,'sine',.08);tone(880,.08,'sine',.06,.05);tone(1100,.06,'sine',.05,.1);noise(.04,.03,.12)}
-function sfxChallengeWin(){for(let i=0;i<6;i++)tone(440+i*220,.12,'sine',.08,i*.04);tone(1760,.18,'sine',.06,.28);noise(.06,.04,.3)}
 function sfxDash(){tone(300,.06,'sawtooth',.08);tone(600,.04,'sine',.06,.02);noise(.03,.04)}
 const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
@@ -2563,8 +2554,6 @@ function startGame(){
   spdMul=1;
   // (meteor removed)
   chaserZ=0;chaserActive=false;chaserWarnShow=0;
-  diamondPath=false;diamondT=0;diamondCount=0;diamondTotal=0;lastDiamondDist=0;
-  challenge=null;challengeT=0;challengeProgress=0;challengeShow=0;lastChallengeDist=0;
   dashReady=true;dashCooldown=0;dashActive=false;dashT=0;dashShow=0;
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
@@ -3050,23 +3039,15 @@ function onLand(idx){
       addFloat(`⭐ +${bonus} XP!`,lp.x,lp.y-45,'#FFD54F',26);
     }
   }
-  // Diamond path collection
+  // Gem collection — a diamond pickup pays coins
   if(pad.diamond){
-    pad.diamond=false;diamondCount++;runDiamonds++;
+    pad.diamond=false;runDiamonds++;
     sfxDiamond();runCoins+=3;
-    addFloat(`💎 ${diamondCount}/${diamondTotal}`,lp.x,lp.y-50,'#00BCD4',18);
+    addFloat('💎 +3',lp.x,lp.y-50,'#00BCD4',18);
     for(let i=0;i<6;i++){
       const a=rand(0,Math.PI*2);
       addP(lp.x,lp.y-10,Math.cos(a)*.04,Math.sin(a)*.04-.02,'#00BCD4',rand(2,3.5),.5,'s');
     }
-  }
-  // Challenge progress tracking
-  if(challenge){
-    if(challenge.id==='perfects'&&isPerfect) challengeProgress++;
-    if(challenge.id==='perfects'&&!isPerfect) challengeProgress=0; // must be consecutive
-    if(challenge.id==='noMoving'&&!pad.moving) challengeProgress++;
-    if(challenge.id==='noMoving'&&pad.moving){challengeProgress=0;addFloat('❌',lp.x,lp.y-50,'#F44336',16)}
-    if(challenge.id==='speedLand') challengeProgress++;
   }
 }
 
@@ -3217,61 +3198,6 @@ function updateGame(dt){
     }
   }
 
-  // === DIAMOND PATH ===
-  if(!diamondPath&&dist>60&&dist-lastDiamondDist>200&&Math.random()<.003){
-    diamondPath=true;diamondT=0;diamondCount=0;diamondTotal=6;lastDiamondDist=dist;
-    sfxDiamond();
-    addFloat('💎 АЛМАЗНИЙ ШЛЯХ!',W/2,H*.3,'#00BCD4',26);
-    // Mark next N platforms as diamond
-    let marked=0;
-    for(let i=Math.max(0,getCurrentPadIdx()+1);i<pads.length&&marked<diamondTotal;i++){
-      if(!pads[i].broken){pads[i].diamond=true;marked++}
-    }
-  }
-  if(diamondPath){
-    diamondT+=dt;
-    if(diamondT>12||diamondCount>=diamondTotal){
-      diamondPath=false;
-      if(diamondCount>=diamondTotal){
-        const dBonus=diamondCount*5;
-        score+=dBonus;runCoins+=diamondCount*3;
-        addFloat(`💎 ВСІ ЗІБРАНІ! +${dBonus}⭐ +${diamondCount*3}🪙`,W/2,H*.35,'#00BCD4',22);
-        sfxMilestone();shake=.2;
-      }
-    }
-  }
-
-  // === CHALLENGE SYSTEM ===
-  if(challengeShow>0) challengeShow-=dt*.8;
-  if(!challenge&&dist>70&&dist-lastChallengeDist>180&&Math.random()<.004){
-    challenge=CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
-    challengeT=challenge.id==='speedLand'?6:0;
-    challengeProgress=0;lastChallengeDist=dist;challengeShow=1;
-    sfxChallenge();shake=.15;
-    addFloat(`${challenge.emoji} ЧЕЛЛЕНДЖ!`,W/2,H*.28,'#FF9800',26);
-    if(navigator.vibrate)navigator.vibrate([20,40,20]);
-  }
-  if(challenge){
-    if(challenge.id==='speedLand') challengeT-=dt;
-    // Timeout: 10s for perfects/noMoving, timer-based for speedLand
-    if(challenge.id!=='speedLand') challengeT+=dt;
-    if((challenge.id==='speedLand'&&challengeT<=0)||(challenge.id!=='speedLand'&&challengeT>10)){
-      // Failed
-      addFloat('❌ ПРОВАЛ!',W/2,H*.35,'#F44336',22);
-      challenge=null;
-    } else if(challengeProgress>=challenge.need){
-      // Won!
-      sfxChallengeWin();shake=.25;
-      score+=challenge.reward;runCoins+=challenge.rewardCoins;
-      addFloat(`🏆 +${challenge.reward}⭐ +${challenge.rewardCoins}🪙`,W/2,H*.35,'#FFD700',24);
-      if(navigator.vibrate)navigator.vibrate([30,50,30,50,30]);
-      for(let i=0;i<20;i++){
-        const a=rand(0,Math.PI*2);
-        addP(W/2,H*.3,Math.cos(a)*.07,Math.sin(a)*.06-.02,'#FFD700',rand(2,4),rand(.5,1),'s');
-      }
-      challenge=null;
-    }
-  }
 
   // === DASH COOLDOWN ===
   if(!dashReady){
@@ -4515,21 +4441,6 @@ function drawGame(){
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
     ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt);
-    // Diamond path overlay
-    if(pad.diamond&&diamondPath){
-      ctx.save();ctx.translate(p.x,p.y);
-      const dhw=120*p.s*(pad.width||1);
-      const dcy=p.y-55*p.s*(pad.width||1);
-      // Cyan glow border
-      ctx.strokeStyle=`rgba(0,188,212,${.5+.2*Math.sin(gt*5)})`;ctx.lineWidth=3*p.s;
-      ctx.shadowColor='rgba(0,188,212,.6)';ctx.shadowBlur=15*p.s;
-      rr(-dhw,-55*p.s*(pad.width||1)*2,dhw*2,55*p.s*(pad.width||1)*2,12*p.s);ctx.stroke();
-      ctx.shadowBlur=0;
-      // Diamond icon floating above
-      ctx.font=`${20*p.s}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('💎',0,-55*p.s*(pad.width||1)*2-15*p.s+Math.sin(gt*3)*5*p.s);
-      ctx.restore();
-    }
     // Moving platform indicator — small arrows on sides
     if(pad.moving){
       const arrowS=18*p.s;
@@ -4794,45 +4705,7 @@ function drawGame(){
     }
   }
 
-  // === DIAMOND PATH INDICATOR ===
-  if(diamondPath&&diamondCount<diamondTotal){
-    ctx.save();
-    ctx.font='bold 22px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
-    ctx.fillStyle='#00BCD4';ctx.shadowColor='rgba(0,188,212,.5)';ctx.shadowBlur=10;
-    ctx.fillText(`💎 ${diamondCount}/${diamondTotal}`,W-20,80);
-    ctx.shadowBlur=0;ctx.restore();
-  }
 
-  // === CHALLENGE HUD ===
-  if(challenge){
-    ctx.save();
-    const ca=challengeShow>0?Math.min(challengeShow*2,1):1;
-    ctx.globalAlpha=ca;
-    // Challenge box at top
-    const cbw=260,cbh=50,cbx=W/2-cbw/2,cby=65;
-    ctx.fillStyle='rgba(0,0,0,.35)';rr(cbx,cby,cbw,cbh,12);ctx.fill();
-    ctx.strokeStyle='rgba(255,152,0,.6)';ctx.lineWidth=2;rr(cbx,cby,cbw,cbh,12);ctx.stroke();
-    // Challenge text
-    ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle='#FF9800';ctx.fillText(`${challenge.emoji} ${challenge.text}`,W/2,cby+16);
-    // Progress bar
-    const prog=clamp(challengeProgress/challenge.need,0,1);
-    const pbw=cbw-30,pbh=8,pbx=cbx+15,pby=cby+32;
-    ctx.fillStyle='rgba(255,255,255,.15)';rr(pbx,pby,pbw,pbh,4);ctx.fill();
-    if(prog>0){
-      const hue=120*prog; // green when done
-      ctx.fillStyle=`hsl(${hue},80%,55%)`;rr(pbx,pby,pbw*prog,pbh,4);ctx.fill();
-    }
-    // Counter
-    ctx.font='bold 12px sans-serif';ctx.fillStyle='#fff';
-    ctx.fillText(`${challengeProgress}/${challenge.need}`,W/2+cbw/2-25,cby+36);
-    // Timer
-    if(challenge.id==='speedLand'){
-      ctx.fillStyle=challengeT<2?'#F44336':'#fff';
-      ctx.fillText(`${Math.ceil(challengeT)}с`,cbx+20,cby+36);
-    }
-    ctx.globalAlpha=1;ctx.restore();
-  }
 
   // === DASH COOLDOWN INDICATOR ===
   if(state===ST.PLAY&&alive){
