@@ -85,13 +85,6 @@ let bgSprite = '';
 const bgP = path.join(ROOT, 'www/assets/ui2/game_bg.webp');
 if (fs.existsSync(bgP)) bgSprite = 'data:image/webp;base64,' + fs.readFileSync(bgP).toString('base64');
 
-// Ornate neon frames per island (one per biome + a default `neon` pink/blue).
-const levelFrames = {};
-['dawn', 'frost', 'storm', 'emerald', 'sky', 'neon'].forEach(function (nm) {
-  const p = path.join(ROOT, 'www/assets/ui2/frame_' + nm + '.webp');
-  if (fs.existsSync(p)) levelFrames[nm] = 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64');
-});
-
 // Background music track (looped) — inlined so the single-file build plays it.
 // WAV has zero encoder-delay so AudioBufferSourceNode.loop=true is truly gapless.
 // MP3 (LAME) adds ~576 silent samples at the start which create an audible pause on loop.
@@ -101,7 +94,7 @@ const musicMp3 = path.join(ROOT, 'www/assets/audio/theme.mp3');
 if (fs.existsSync(musicWav)) musicTrack = 'data:audio/wav;base64,' + fs.readFileSync(musicWav).toString('base64');
 else if (fs.existsSync(musicMp3)) musicTrack = 'data:audio/mpeg;base64,' + fs.readFileSync(musicMp3).toString('base64');
 
-const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';window.BG_SPRITE=' + JSON.stringify(bgSprite) + ';window.LEVEL_FRAMES=' + JSON.stringify(levelFrames) + ';window.MUSIC_TRACK=' + JSON.stringify(musicTrack) + ';</script>\n';
+const spriteScript = '<script>window.DRAGON_SPRITES=' + JSON.stringify(sprites) + ';window.GEM_SPRITES=' + JSON.stringify(gems) + ';window.SPECIAL_SPRITES=' + JSON.stringify(specials) + ';window.BLOCKER_SPRITES=' + JSON.stringify(blockers) + ';window.JELLY_SPRITES=' + JSON.stringify(jelly) + ';window.UI_ICONS=' + JSON.stringify(uiIcons) + ';window.MAP_SPRITES=' + JSON.stringify(mapSprites) + ';window.BG_SPRITE=' + JSON.stringify(bgSprite) + ';window.MUSIC_TRACK=' + JSON.stringify(musicTrack) + ';</script>\n';
 
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, '<style>\n' + css + '\n</style>');
 html = html.replace(/<link rel="manifest"[^>]*>\n?/, '');
