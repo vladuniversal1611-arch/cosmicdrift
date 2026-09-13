@@ -676,6 +676,7 @@ function triggerMilestone(m){
 // (time-scaling removed — the hype burst is now purely visual, no slowdown)
 // Fever mode
 let fever=false,feverT=0,feverFlash=0,feverBreakT=0,feverPts=[];
+let feverShield=false;   // absorbs ONE slip per fever, so one wobble never nukes the whole state
 // Milestones
 const MILESTONES=[
   {dist:50, text:'ПЕРШИЙ СЛІД!',emoji:'🚀',color:'#4FC3F7',coins:5},
@@ -2514,7 +2515,7 @@ function startGame(){
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
-  fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];
+  fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
   luckyActive=false;luckyT=0;luckyShow=0;
   turbo=false;turboT=0;turboShow=0;lastTurboDist=0;turboLines=[];spdMul=1;
@@ -2773,16 +2774,23 @@ function onLand(idx){
   if(!tutorialShown&&score>=2){tutorialShown=true;localStorage.setItem('fTut','1')}
 
   if(grabSave){
-    // Caught the edge — you live, but the run's flow stumbles: combo resets,
-    // fever cools, no points. The relief IS the reward.
-    if(fever){breakFever(lp.x,lp.y)}
-    perfectCombo=0;
+    // Caught the edge — you live. One slip per fever is absorbed by the shield,
+    // so the whole state doesn't collapse from a single wobble; only the second
+    // slip actually breaks it. The relief IS the reward either way.
+    let saved=false;
+    if(fever&&feverShield){
+      feverShield=false;saved=true;
+      perfectCombo=Math.max(3,perfectCombo-2);   // keep the state, just a dip
+    } else {
+      if(fever){breakFever(lp.x,lp.y)}
+      perfectCombo=0;
+    }
     sfxNearMiss();
     perfectText='';perfectShow=0;
-    addFlow(-.22);
+    addFlow(saved?-.10:-.22);
     addPunch(.2);shake=Math.max(shake,.12);
-    setEmo('😅',1.0);
-    addFloat('ВХОПИВСЯ!',lp.x,lp.y-46,'#81D4FA',18);
+    setEmo(saved?'😤':'😅',1.0);
+    addFloat(saved?'🛡 УТРИМАВ FEVER!':'ВХОПИВСЯ!',lp.x,lp.y-46,saved?'#FFD54F':'#81D4FA',18);
     addLandFX(lp.x,lp.y,1.1);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.3);
     for(let i=0;i<8;i++){const a=rand(-Math.PI,0);addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.02,'#B3E5FC',rand(1.5,3),.4,'s')}
@@ -2843,7 +2851,7 @@ function onLand(idx){
     }
     // Combo milestones
     if(perfectCombo===5&&!fever){
-      fever=true;feverT=0;feverFlash=.6;runFever++;
+      fever=true;feverT=0;feverFlash=.6;runFever++;feverShield=true;
       setEmo('😤',1.3);
       sfxFever();
       addFloat('🔥 FEVER!',lp.x,lp.y-60,'#FFD700',22);
