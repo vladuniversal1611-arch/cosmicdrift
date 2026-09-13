@@ -247,6 +247,7 @@ let curAct=0, actCardT=0, actFlash=0;
 function actFor(d){let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
 function enterAct(i){
   curAct=i;actCardT=2.4;actFlash=1;
+  if(i>storyP.bestAct){storyP.bestAct=i;chapterNew=i;saveStory()}
   const z=ACTS[i];
   shake=Math.max(shake,.25);addPunch(.6);
   if(typeof setEmo==='function')setEmo(z.emo||(z.rule?'😳':'😊'),1.6);
@@ -265,7 +266,8 @@ let eaterAngry=0, eaterGloat=0, castlesSaved=0;
 const castleLitCycle=[-1,-1];   // which fly-by of each castle has already been lit
 function eaterScale(){
   const base=0.70+curAct*0.24;
-  return base*(finaleOn?1.18:1)*(1+eaterGloat*0.35);
+  const intro=introT>0?1+(1-introU())*2.4:1;     // fills the sky, then flees to the horizon
+  return base*(finaleOn?1.18:1)*(1+eaterGloat*0.35)*(1+eaterAttack*0.5)*(1-eaterFlinch*0.28)*intro;
 }
 function drawCloudEater(){
   if(state!==ST.PLAY&&state!==ST.OVER)return;
@@ -273,7 +275,7 @@ function drawCloudEater(){
   const sc=eaterScale();
   const r=W*0.13*sc;
   const breathe=1+Math.sin(gt*1.3)*0.04;
-  const x=far.x, y=far.y-r*0.55;
+  const x=far.x, y=far.y-r*0.55+eaterAttack*H*0.05;   // he comes DOWN at you
   const z=ACTS[curAct];
   ctx.save();
   ctx.translate(x,y);ctx.scale(breathe,breathe);
@@ -312,6 +314,57 @@ function drawCloudEater(){
 function updateCloudEater(dt){
   if(eaterAngry>0)eaterAngry=Math.max(0,eaterAngry-dt*1.6);
   if(eaterGloat>0)eaterGloat=Math.max(0,eaterGloat-dt*0.5);
+}
+
+// ---- STORY PROGRESS — remembered across runs, so a run is a chapter, not a retry ----
+let storyP={castles:0,attacks:0,bestAct:0,runs:0};
+try{Object.assign(storyP,JSON.parse(localStorage.getItem('fStory')||'{}'))}catch(e){}
+function saveStory(){try{localStorage.setItem('fStory',JSON.stringify(storyP))}catch(e){}}
+let chapterNew=0;            // act first reached this run — its chapter card shows on the panel
+const CHAPTERS=[null,
+  {x:'Йди додому, жабо. Небо тепер моє.',        b:'Тоді я заберу його назад.'},
+  {x:'Ти не витримаєш грози.',                    b:'Я витримав твій Сад без світла.'},
+  {x:'Бачиш? Нічого. Нема за що триматись.',      b:'Є. Слід.'},
+  {x:'…як ти сюди потрапив?',                     b:'Бігом.'},
+];
+
+// ---- INTRO — the first run ever opens on the morning the rainbow did not light ----
+let introT=0; const INTRO_LEN=5.6;
+let introSeen=!!localStorage.getItem('fIntro');
+function introU(){return introT>0?1-introT/INTRO_LEN:1}
+
+// ---- ATTACKS — Хмарожер does not just watch. Every so often he turns on you:
+// a roar, the sky closes in, three bolts in a row. Survive them and he flinches.
+let atkPhase=0, atkT=0, atkBolts=0, atkNextDist=55, attacksRepelled=0;
+let eaterAttack=0, eaterFlinch=0;    // eased visual state of the antagonist
+let closeCallDone=false;             // "never been this close" fires once per run
+function lightningActive(){return actRule()==='lightning'||atkPhase===2}
+function sfxRoar(){if(!ac)return;for(let i=0;i<4;i++)tone(95-i*14,.38,'sawtooth',.05,i*.05);noise(.28,.05,0)}
+function updateAttack(dt){
+  if(eaterFlinch>0)eaterFlinch=Math.max(0,eaterFlinch-dt*0.6);
+  eaterAttack=sd(eaterAttack,(atkPhase===1||atkPhase===2)?1:0,3.5,dt);
+  if(introT>0||!alive)return;
+  if(atkPhase===0){
+    // Not in the storm act (the whole act IS his attack), not over an act card
+    if(dist>=atkNextDist&&!finaleOn&&actRule()!=='lightning'&&actCardT<=0){
+      atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
+      shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
+      addFloat('⛈ ХМАРОЖЕР АТАКУЄ!',W/2,H*0.30,'#FF5252',24);
+      setEmo('😨',1.2);
+      if(navigator.vibrate)navigator.vibrate([40,50,40]);
+    }
+  } else if(atkPhase===1){
+    atkT-=dt;if(atkT<=0){atkPhase=2;boltT=0.15}
+  } else if(atkPhase===2){
+    if(atkBolts>=3&&boltIdx<0){
+      atkPhase=3;atkT=1.6;attacksRepelled++;eaterFlinch=1;
+      score+=40;runCoins+=5;
+      addFloat('✨ ВІДБИВ АТАКУ! +40',W/2,H*0.30,'#69F0AE',24);
+      setEmo('😤',1.3);sfxMilestone();addFlow(.25);
+      for(let k=0;k<18;k++){const a=rand(0,Math.PI*2),sp=rand(.05,.12);addP(W/2,H*0.30,Math.cos(a)*sp,Math.sin(a)*sp,'#69F0AE',rand(2,4),.7,'s')}
+      atkNextDist=dist+rand(70,110);
+    }
+  } else {atkT-=dt;if(atkT<=0)atkPhase=0}
 }
 
 // --- Act finale: the last stretch of every act escalates into a gauntlet ---
@@ -365,6 +418,7 @@ function updateActs(dt){
   updateFinale(dt);
   if(actCardT>0)actCardT-=dt;
   updateCloudEater(dt);
+  updateAttack(dt);
   if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
 
   const rule=actRule();
@@ -378,13 +432,13 @@ function updateActs(dt){
   } else windForce=0;
 
   // --- LIGHTNING: telegraph a platform, then strike it ---
-  if(rule==='lightning'){
+  if(lightningActive()){
     boltT-=dt;
     if(boltT<=0&&boltIdx<0){
       const ci=getCurrentPadIdx();
       const cand=ci+2+Math.floor(Math.random()*3);
-      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0}
-      boltT=rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
+      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;if(atkPhase===2)atkBolts++}
+      boltT=atkPhase===2?1.0:rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
     }
     if(boltIdx>=0){
       if(boltWarn>0){
@@ -2265,6 +2319,7 @@ canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
   swHist.length=0;swSample(t.clientX,t.clientY);
+  if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
@@ -2311,6 +2366,7 @@ let mouseDown=false;
 canvas.addEventListener('mousedown',e=>{
   initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
   swHist.length=0;swSample(e.clientX,e.clientY);
+  if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
@@ -2409,7 +2465,10 @@ function startGame(){
   styleScore=0;styleFlash=0;trickChain=0;trickSpin=0;trickSpinVel=0;emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
-  curAct=0;actCardT=2.2;actFlash=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
+  curAct=0;actFlash=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
+  introT=introSeen?0:INTRO_LEN;actCardT=introSeen?2.2:0;
+  atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(50,70);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
+  storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
   trickLockT=0;diving=false;diveT=0;lastJumpIdx=-1;curAirness=0;
@@ -2486,6 +2545,7 @@ function die(){
   if(navigator.vibrate)navigator.vibrate(100);
   const fd=Math.floor(dist);
   if(fd>hs){hs=fd;localStorage.setItem('fHS',''+hs);newRec=true}
+  storyP.castles+=castlesSaved;storyP.attacks+=attacksRepelled;saveStory();
   if(score>bestScore){bestScore=score;localStorage.setItem('fBS',''+bestScore);newScoreRec=true}
   coins+=runCoins;localStorage.setItem('fCoins',''+coins);
   // XP = final score
@@ -2948,9 +3008,19 @@ function updateGame(dt){
     if(fp.life<=0) feverPts.splice(i,1);
   }
 
+  // Intro: the world holds still while the opening plays; a tap skips it
+  if(introT>0){
+    introT-=dt;
+    if(introT<=0){introT=0;introSeen=true;try{localStorage.setItem('fIntro','1')}catch(e){}
+      addFloat('БІЖИ!',W/2,H*0.42,'#FFFFFF',36);addPunch(.5);sfxMilestone()}
+    return;
+  }
   seq+=spd*dt;
   const prevDist=dist;
   dist+=spd*dt*.5;
+  // The story's promise, kept: the moment a run passes the old record
+  if(!closeCallDone&&hs>=40&&dist>hs){closeCallDone=true;setEmo('🤩',1.3);
+    addFloat('Ти ще ніколи не був так близько!',W/2,H*0.36,'#FFD54F',20)}
   // Milestone celebration on every 100m boundary crossed
   const prevBucket=Math.floor(prevDist/100);
   const bucket=Math.floor(dist/100);
@@ -4808,7 +4878,7 @@ function drawGame(){
     ctx.restore();
   }
   // === TUTORIAL OVERLAY (first 2 jumps) ===
-  if(!tutorialShown&&tutorialAlpha>0.01){
+  if(!tutorialShown&&tutorialAlpha>0.01&&introT<=0){
     ctx.save();
     ctx.globalAlpha=tutorialAlpha*.7;
     ctx.textAlign='center';ctx.textBaseline='middle';
@@ -4829,7 +4899,7 @@ function drawGame(){
 
   // === ACT RULE VISUALS (world space) ===
   // Lightning: a red warning ring on the doomed platform, then the strike
-  if(actRule()==='lightning'&&boltIdx>=0){
+  if(lightningActive()&&boltIdx>=0){
     const bp=pads[boltIdx];
     const ci=getCurrentPadIdx();
     const rz=(padPositions[boltIdx]||0)-seq+VIEW_Z;
@@ -4942,7 +5012,37 @@ function drawGame(){
   drawDeathGrade();
   drawFlyCoins();
   drawActCard();
+  drawIntro();
   drawHUD();
+}
+
+// The opening, first run only: the sky is grey, he is enormous, he flees, the
+// trail lights — and only then does the game hand you the frog.
+function drawIntro(){
+  if(introT<=0)return;
+  const u=introU();
+  ctx.save();
+  // grey morning that clears as he leaves
+  ctx.fillStyle=`rgba(40,48,70,${0.55*(1-u)})`;ctx.fillRect(0,0,W,H);
+  const lines=[
+    [0.02,0.30,'Сьогодні веселка не запалилась.'],
+    [0.30,0.58,'Хмарожер виїв світло із замків…'],
+    [0.58,0.84,'…і потягнув його за обрій. Слід ще жевріє.'],
+  ];
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=12;
+  for(const [a,b,txt] of lines){
+    if(u<a||u>b)continue;
+    const k=(u-a)/(b-a);
+    const al=k<0.15?k/0.15:k>0.85?(1-k)/0.15:1;
+    ctx.globalAlpha=al;
+    ctx.fillStyle='#FFFFFF';
+    let fs=20;do{ctx.font=`600 ${fs}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;fs-=0.5}while(ctx.measureText(txt).width>W*0.9&&fs>12);
+    ctx.fillText(txt,W/2,H*0.50);
+  }
+  ctx.globalAlpha=0.7;ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.fillText('тап — пропустити',W/2,H*0.80);
+  ctx.restore();
 }
 
 function drawDeathGrade(){
@@ -4971,6 +5071,19 @@ function drawDeathGrade(){
 function drawActEffects(){
   const rule=actRule();
 
+  // ATTACK — the sky closes in around you while he strikes
+  if(atkPhase===1||atkPhase===2){
+    const pulse=0.6+0.4*Math.sin(gt*9);
+    const a=(atkPhase===1?0.30:0.22)*pulse;
+    const g=ctx.createRadialGradient(W/2,H*0.62,H*0.22,W/2,H*0.62,H*0.80);
+    g.addColorStop(0,'rgba(90,0,30,0)');g.addColorStop(1,`rgba(70,0,25,${a+0.25})`);
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  }
+  // REPELLED — a clean flash of returned light
+  if(atkPhase===3){
+    const a=Math.min(1,atkT/1.6)*0.18;
+    ctx.fillStyle=`rgba(180,255,220,${a})`;ctx.fillRect(0,0,W,H);
+  }
   // NIGHT — a hard vignette so only what's near the frog reads clearly
   if(rule==='dark'){
     const lx=W/2, ly=H*0.72;
@@ -5233,7 +5346,7 @@ function drawHUD(){
     else ctx.fillText('🔥 FEVER x2',16,py+16);
     py-=26;
   }
-  if(dist<3&&alive){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='15px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.855);ctx.fillText('↑ свайп вгору — ПЕРЕЛІТ',W/2,H*.895);ctx.globalAlpha=1}
+  if(dist<3&&alive&&introT<=0){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='15px sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.855);ctx.fillText('↑ свайп вгору — ПЕРЕЛІТ',W/2,H*.895);ctx.globalAlpha=1}
 }
 
 // ========== MENU ==========
@@ -5903,7 +6016,7 @@ function drawOver(){
   }
   const showRevive=canRevive();
   const hasAnyRec=newScoreRec||newRec;
-  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0)+30,px=W/2-pw/2,py=H/2-ph/2;
+  const pw=Math.min(W*.82,320),ph=(hasAnyRec?480:450)+(showRevive?56:0)+(chestTier?80:0)+(styleScore>0?40:0)+30+(chapterNew?78:0),px=W/2-pw/2,py=H/2-ph/2;
   ctx.save();ctx.translate(W/2,H/2);const as=.5+goT*.5;ctx.scale(as,as);ctx.translate(-W/2,-H/2);ctx.globalAlpha=goT;
   ctx.fillStyle='rgba(255,255,255,.94)';rr(px,py,pw,ph,22);ctx.fill();
   ctx.strokeStyle='rgba(76,175,80,.35)';ctx.lineWidth=1.5;rr(px,py,pw,ph,22);ctx.stroke();
@@ -5916,7 +6029,23 @@ function drawOver(){
   ctx.fillStyle='#5C6BC0';ctx.font='italic 600 12.5px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   ctx.fillText(`Ти повернув ${Math.floor(dist)} м неба${castlesSaved?` і запалив ${castlesSaved} ${castlesSaved===1?'замок':castlesSaved<5?'замки':'замків'}`:''}.`,cx,ty+4);
   ctx.fillStyle='rgba(92,107,192,.75)';ctx.font='italic 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-  ctx.fillText('Хмарожер втік далі. Наступного разу — ближче.',cx,ty+21);ty+=36;
+  const tail=attacksRepelled?`Відбив ${attacksRepelled} ${attacksRepelled===1?'атаку':attacksRepelled<5?'атаки':'атак'}. `:'';
+  const l2=tail+'Хмарожер втік далі. Наступного разу — ближче.';
+  {let fs=12;do{ctx.font=`italic ${fs}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;fs-=0.5}while(ctx.measureText(l2).width>pw-24&&fs>8)}
+  ctx.fillText(l2,cx,ty+21);ty+=36;
+  // A new chapter: the exchange the two of them had when you first got there
+  if(chapterNew&&CHAPTERS[chapterNew]){
+    const ch=CHAPTERS[chapterNew], z=ACTS[chapterNew];
+    const cw=pw-36, chh=70, cbx=cx-cw/2, cby=ty;
+    ctx.fillStyle='rgba(92,107,192,.10)';rr(cbx,cby,cw,chh,14);ctx.fill();
+    ctx.strokeStyle=z.col;ctx.lineWidth=1.5;rr(cbx,cby,cw,chh,14);ctx.stroke();
+    ctx.fillStyle=z.col;ctx.font='bold 12px sans-serif';
+    ctx.fillText(`РОЗДІЛ ${chapterNew+1} ВІДКРИТО · ${z.icon} ${z.name}`,cx,cby+15);
+    ctx.font='italic 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    ctx.fillStyle='#37345A';ctx.fillText('Хмарожер: «'+ch.x+'»',cx,cby+36);
+    ctx.fillStyle='#2E7D32';ctx.fillText('Бульбік: «'+ch.b+'»',cx,cby+55);
+    ty+=78;
+  }
 
   // New record badge
   if(newScoreRec){
