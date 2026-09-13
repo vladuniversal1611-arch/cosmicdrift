@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=30;      // score when speed starts increasing
@@ -2405,6 +2405,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
     else if(state===ST.MISSIONS)missionsTap(t.clientX,t.clientY);
+    else if(state===ST.SHOP)shopTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -2444,6 +2445,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
     else if(state===ST.MISSIONS)missionsTap(e.clientX,e.clientY);
+    else if(state===ST.SHOP)shopTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -2464,6 +2466,7 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.MISSIONS&&e.key==='Escape')state=ST.MENU;
+  else if(state===ST.SHOP&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -2567,6 +2570,11 @@ function startGame(){
   }
   prevBranchXs=[pads[pads.length-1].gameX];
   frogCont=pads[0].gameX;visLane=pads[0].gameX;   // the opening no longer starts dead centre
+  // Apply any boosters bought in the shop, then clear them (one run only)
+  runX2Coins=!!shopBoost.x2;
+  if(shopBoost.shield)shield=true;
+  if(shopBoost.magnet){magnet=true;magnetT=12;}
+  shopBoost={shield:false,magnet:false,x2:false};
   routeLane=pads[pads.length-1].gameX;
   routeCenter=clamp(lerp(routeLane,1.0,0.40),0.42,1.58);
   ensurePads();
@@ -2786,7 +2794,7 @@ function onLand(idx){
   const isGood=!isPerfect&&precision>0.5;
 
   // Gold perk doubles coin pickups (stacks with fever's ×2)
-  const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1);
+  const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1)*(runX2Coins?2:1);
   const feverMult=fever?2:1;
   const scoreBonusMult=scoreMultBonus;      // mystery-box x2/x3 bonus
 
@@ -6141,7 +6149,7 @@ function menuTap(x,y){
     const section=Math.floor((x-navX)/secW);
     if(section===0){sfxClick();state=ST.SKINS;skinScroll=0}
     else if(section===1){sfxClick();state=ST.MISSIONS}
-    // section 2 = МАГАЗИН (not implemented)
+    else if(section===2){sfxClick();state=ST.SHOP}
   }
 }
 
@@ -6392,6 +6400,17 @@ function overTap(x,y){
 
 // ========== SKINS ==========
 let skinTab=0;  // 0=персонажі, 1=небо
+// ========== SHOP — run boosters, a purpose for coins beyond skins ==========
+// Each booster arms the NEXT run only. Bought in memory (a purchase you spend
+// right before playing), applied and cleared in startGame.
+const BOOSTERS=[
+  {id:'shield', emoji:'🛡', name:'Стартовий щит',   desc:'Починаєш забіг зі щитом',      price:40},
+  {id:'magnet', emoji:'🧲', name:'Магніт на старт', desc:'Притягує монети 12 секунд',    price:40},
+  {id:'x2',     emoji:'✨', name:'Подвійні монети',  desc:'×2 монети весь наступний забіг',price:60},
+];
+let shopBoost={shield:false,magnet:false,x2:false};
+let runX2Coins=false;
+
 // ========== DAILY MISSIONS SCREEN ==========
 function drawMissions(){
   gt+=.016;
@@ -6455,6 +6474,66 @@ function drawMissions(){
   ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=2;rr(bx,by,bw,bh,26);ctx.stroke();
   ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText('← НАЗАД',W/2,by+bh/2);
+}
+function drawShop(){
+  gt+=.016;
+  drawMenuBg();
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H);
+  const cx=W/2;
+  ctx.fillStyle='#fff';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=8;
+  ctx.fillText('🛒 МАГАЗИН',cx,H*.08+SAFE.t);
+  ctx.font='14px sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
+  ctx.fillText('Бустери на наступний забіг',cx,H*.08+30+SAFE.t);
+  ctx.shadowBlur=0;
+  // coin chip
+  const chipW=90,chipH=36,chipX=W-chipW-16-SAFE.r,chipY=16+SAFE.t;
+  ctx.fillStyle='rgba(0,0,0,.35)';rr(chipX,chipY,chipW,chipH,18);ctx.fill();
+  ctx.strokeStyle='rgba(255,215,0,.55)';ctx.lineWidth=1.5;rr(chipX,chipY,chipW,chipH,18);ctx.stroke();
+  ctx.fillStyle='#FFD54F';ctx.font='bold 20px sans-serif';ctx.fillText('🪙 '+coins,chipX+chipW/2,chipY+chipH/2);
+  // booster cards
+  const cardW=W*.86, cardH=104, gap=16, startY=H*.22+SAFE.t;
+  ctx.textAlign='left';
+  for(let i=0;i<BOOSTERS.length;i++){
+    const bst=BOOSTERS[i], armed=shopBoost[bst.id], y=startY+i*(cardH+gap), x=W/2-cardW/2;
+    const afford=coins>=bst.price;
+    ctx.fillStyle=armed?'rgba(76,175,80,.9)':'rgba(255,255,255,.95)';rr(x,y,cardW,cardH,18);ctx.fill();
+    ctx.strokeStyle=armed?'rgba(129,199,132,.9)':'rgba(0,0,0,.1)';ctx.lineWidth=2;rr(x,y,cardW,cardH,18);ctx.stroke();
+    ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=armed?'#fff':'#333';ctx.fillText(bst.emoji,x+40,y+cardH/2);
+    ctx.textAlign='left';ctx.font='bold 16px sans-serif';ctx.fillStyle=armed?'#fff':'#222';
+    ctx.fillText(bst.name,x+80,y+30);
+    ctx.font='12px sans-serif';ctx.fillStyle=armed?'rgba(255,255,255,.9)':'#666';
+    ctx.fillText(bst.desc,x+80,y+52);
+    // buy pill / armed label
+    ctx.textAlign='right';ctx.font='bold 15px sans-serif';
+    if(armed){ctx.fillStyle='#fff';ctx.fillText('✓ У НАСТУПНОМУ',x+cardW-18,y+cardH-24);}
+    else{
+      const pill=`🪙 ${bst.price}`;
+      ctx.fillStyle=afford?'#FFA000':'rgba(150,150,150,.8)';
+      ctx.fillText(afford?'КУПИТИ  '+pill:pill,x+cardW-18,y+cardH-24);
+    }
+  }
+  // back button
+  const bw=180,bh=52,bx=W/2-bw/2,by=H-90-SAFE.b;
+  ctx.fillStyle='rgba(255,255,255,.95)';rr(bx,by,bw,bh,26);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=2;rr(bx,by,bw,bh,26);ctx.stroke();
+  ctx.fillStyle='#333';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('← НАЗАД',W/2,by+bh/2);
+}
+function shopTap(x,y){
+  const bw=180,bh=52,bx=W/2-bw/2,by=H-90-SAFE.b;
+  if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){sfxClick();state=ST.MENU;return}
+  const cardW=W*.86, cardH=104, gap=16, startY=H*.22+SAFE.t;
+  for(let i=0;i<BOOSTERS.length;i++){
+    const bst=BOOSTERS[i], yy=startY+i*(cardH+gap), xx=W/2-cardW/2;
+    if(x>=xx&&x<=xx+cardW&&y>=yy&&y<=yy+cardH){
+      if(shopBoost[bst.id]){sfxClick();return}          // already armed
+      if(coins>=bst.price){coins-=bst.price;localStorage.setItem('fCoins',''+coins);shopBoost[bst.id]=true;sfxPU();}
+      else sfxLand();
+      return;
+    }
+  }
 }
 function missionsTap(x,y){
   const bw=180,bh=52,bx=W/2-bw/2,by=H-90-SAFE.b;
@@ -6573,6 +6652,7 @@ function loop(ts){
       case ST.OVER:drawGame();drawOver();break;
       case ST.SKINS:drawSkins();break;
       case ST.MISSIONS:drawMissions();break;
+      case ST.SHOP:drawShop();break;
     }
   }catch(err){
     // A single bad frame must never kill the whole rAF chain (permanent black
