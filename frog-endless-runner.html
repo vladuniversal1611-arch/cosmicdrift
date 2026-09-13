@@ -1238,7 +1238,33 @@ function sfxChallengeWin(){for(let i=0;i<6;i++)tone(440+i*220,.12,'sine',.08,i*.
 function sfxDash(){tone(300,.06,'sawtooth',.08);tone(600,.04,'sine',.06,.02);noise(.03,.04)}
 const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
-function startMus(){if(musOn)return;musOn=true;melI=0;musIv=setInterval(()=>{if(!ac||state!==ST.PLAY)return;const f=MEL[melI%MEL.length];if(f){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.03;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+.18)}melI++},160)}
+// Each act transposes the theme so the mood shifts as the chase deepens.
+const ACT_PITCH=[1.00, 1.06, 0.94, 0.84, 1.12];   // garden, wind, storm, night, rush
+function musNote(f,dur,vol,type){
+  if(!ac)return;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type||'sine';o.frequency.value=f;g.gain.value=vol;
+  g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
+  o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+dur);
+}
+function startMus(){
+  if(musOn)return;musOn=true;melI=0;
+  musIv=setInterval(()=>{
+    if(!ac||state!==ST.PLAY)return;
+    const pitch=ACT_PITCH[curAct]||1;
+    // Night runs sparse — every other beat rests, matching "only what's near".
+    const rest=(actRule()==='dark')&&(melI%2===1);
+    if(!rest){
+      const f=MEL[melI%MEL.length]*pitch;
+      musNote(f,.18,fever?.045:.03);
+      if(fever){musNote(f*2,.13,.022);                         // shimmer octave
+        setTimeout(()=>{if(ac&&state===ST.PLAY&&fever)musNote(f*1.5,.10,.02)},80);}  // offbeat tick
+    }
+    // Fever bass pulse on the beat drives the pace up on the ear.
+    if(fever&&melI%2===0)musNote(MEL[0]*pitch/2,.20,.03,'triangle');
+    melI++;
+  },160);
+}
 function stopMus(){musOn=false;if(musIv){clearInterval(musIv);musIv=null}}
 
 // =====================================================================
