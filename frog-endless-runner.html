@@ -1316,8 +1316,6 @@ const PATTERNS=[
   {id:11,seq:['CENTER','RIGHT','CENTER','LEFT'], types:['disappear','normal','normal','normal'], minDiff:0.5},
   // With slippery
   {id:12,seq:['LEFT','CENTER','RIGHT','CENTER'], types:['slippery','normal','normal','normal'], minDiff:0.55},
-  // With boost
-  {id:13,seq:['CENTER','LEFT','FAR_LEFT','CENTER'], types:['normal','boost_pad','normal','normal'], minDiff:0.6},
   // With falling
   {id:14,seq:['CENTER','RIGHT','CENTER','LEFT'], types:['falling','normal','normal','wide'], minDiff:0.65},
   // Complex combos
@@ -1633,7 +1631,6 @@ function buildRouteSection(diff){
 
   const riskChance=lerp(0.06,0.20,diff);   // a fork parks two slabs in one row, so keep it rare
   const wantRisk=Math.random()<riskChance&&pts.length>=5;
-  const wantBoost=getUnlockedTypes(dist).includes('boost_pad')&&Math.random()<0.16;
 
   const out=[];
   const startX=routeCenter;
@@ -1677,20 +1674,6 @@ function buildRouteSection(diff){
     routeLane=x;routeElev=elev;
   }
 
-  // §12 — BOOST is an action sequence, not a pad dropped on a normal pattern:
-  // boost -> rapid zigzag -> reward -> safe landing.
-  if(wantBoost){
-    const b=out[out.length-1];b.type='boost_pad';b.cls='SPECIAL';b.loot=null;
-    const rz=ACTION_PATTERNS.find(p=>p.name==='RAPID_ZIGZAG');
-    const c=routeLane;
-    for(let i=1;i<5;i++){
-      const x=clamp(c+rz.points[i].x*orient*amp,X_MIN,X_MAX);
-      out.push(step(x,0,'PRECISION',{gap:0.9,loot:i===3?'gem':'coin'}));
-      routeLane=x;
-    }
-    out.push(step(clamp(routeLane+(routeLane<1.0?0.55:-0.55),X_MIN,X_MAX),0,'SAFE',{gap:1.12}));
-    routeLane=out[out.length-1].lane;
-  }
   routeElev=out.length?(out[out.length-1].fork?out[out.length-1].safe.elev:out[out.length-1].elev)||0:0;
   // §3 — the next section starts from here, eased toward the middle just enough
   // that the shape after it still has room to swing both ways.
@@ -1858,7 +1841,7 @@ function makePad(gameX, type, diff){
   let coin=Math.random()<(.15+diff*.08);
   let pu=null;
   if(Math.random()<.012&&dist>5)
-    pu=['shield','magnet','boost','superjump'][Math.floor(Math.random()*4)];
+    pu=['shield','magnet','superjump'][Math.floor(Math.random()*3)];
   if(type==='bonus'){coin=true;if(Math.random()<.3)pu='magnet';}
   // Mystery box — rare, drops on regular platforms after some warm-up. Rolls a
   // random reward when the frog lands on it. Not compatible with pu / traps.
@@ -2679,8 +2662,8 @@ function onLand(idx){
     }
   }
 
-  // === BOOST PAD — temporary speed boost ===
-  if(pad.type==='boost_pad'){
+  // (legacy) boost pad — no longer generated
+  if(false&&pad.type==='boost_pad'){
     sfxBoost();
     boost=true;boostT=3;
     pad.boostActive=true;
@@ -2928,7 +2911,6 @@ function onLand(idx){
     const t=pad.pu;pad.pu=null;sfxPU();
     if(t==='shield'){shield=true;addFloat('🛡️ ЩИТ!',lp.x,lp.y-40,'#4FC3F7',22)}
     else if(t==='magnet'){magnet=true;magnetT=6;addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
-    else if(t==='boost'){boost=true;boostT=4;addFloat('⚡ БУСТ!',lp.x,lp.y-40,'#FFEB3B',22)}
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
   }
   // Mystery box — roll one of 5 rewards on land, apply immediately
@@ -2950,8 +2932,8 @@ function onLand(idx){
       shield=true;addFloat('🛡️ ЩИТ!',lp.x,lp.y-45,'#4FC3F7',24);
     } else if(roll<0.80){
       // Magnet + boost combo for a beat
-      magnet=true;magnetT=8;boost=true;boostT=4;
-      addFloat('🧲⚡ КОМБО!',lp.x,lp.y-45,'#00E5FF',24);
+      magnet=true;magnetT=10;
+      addFloat('🧲 СУПЕР-МАГНІТ!',lp.x,lp.y-45,'#00E5FF',24);
     } else {
       // Instant XP splash — grants XP without waiting for run to end
       const bonus=80;grantXP(bonus);
