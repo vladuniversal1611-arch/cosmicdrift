@@ -2401,6 +2401,7 @@ canvas.addEventListener('touchend',e=>{
   const dt=Date.now()-tST;
   if(state===ST.PLAY&&alive){touching=false}
   if(d<30&&dt<300){
+    if(state!==ST.PLAY)addTapRipple(t.clientX,t.clientY);
     if(state===ST.MENU)menuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
@@ -2441,6 +2442,7 @@ canvas.addEventListener('mouseup',e=>{
   if(state===ST.PLAY&&alive){touching=false}
   const d=Math.sqrt((e.clientX-tSX)**2+(e.clientY-tSY)**2);
   if(d<30&&Date.now()-tST<300){
+    if(state!==ST.PLAY)addTapRipple(e.clientX,e.clientY);
     if(state===ST.MENU)menuTap(e.clientX,e.clientY);
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
@@ -6644,6 +6646,27 @@ function skinsTap(x,y){
 let lastT=0;
 let transT=0, prevDrawState=-1;
 const TRANS_DUR=0.24;
+// Tap feedback for every UI screen — one expanding ring at the touch point, so
+// buttons feel pressed without wiring per-button state.
+let uiRipples=[];
+function addTapRipple(x,y){uiRipples.push({x,y,t:0});if(uiRipples.length>6)uiRipples.shift();}
+function drawUiRipples(dt){
+  for(let i=uiRipples.length-1;i>=0;i--){
+    const r=uiRipples[i];r.t+=dt;
+    const u=r.t/0.42; if(u>=1){uiRipples.splice(i,1);continue}
+    ctx.save();
+    // soft filled flash that fades fast
+    const fu=Math.min(1,u/0.4);
+    ctx.globalAlpha=(1-fu)*0.28;
+    ctx.fillStyle='rgba(255,255,255,1)';
+    ctx.beginPath();ctx.arc(r.x,r.y,10+fu*22,0,Math.PI*2);ctx.fill();
+    // expanding ring
+    ctx.globalAlpha=(1-u)*0.6;
+    ctx.strokeStyle='rgba(255,255,255,0.95)';ctx.lineWidth=3*(1-u)+0.5;
+    ctx.beginPath();ctx.arc(r.x,r.y,8+u*38,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
+}
 function loop(ts){
   const dt=Math.min((ts-lastT)/1000,.035);lastT=ts;
   // Any change of screen fades the new one in from a soft veil, so the app never
@@ -6660,6 +6683,7 @@ function loop(ts){
       case ST.MISSIONS:drawMissions();break;
       case ST.SHOP:drawShop();break;
     }
+    if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     if(transT>0){
       transT=Math.max(0,transT-dt);
       const u=transT/TRANS_DUR;               // 1 at switch -> 0
