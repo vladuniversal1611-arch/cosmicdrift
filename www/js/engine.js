@@ -1447,7 +1447,42 @@
       g.fillText(f.text, f.x, f.y);
     }
     g.globalAlpha = 1;
-    // fever frenzy: pulsing ember border around the board
+    // Ornate neon frame for FULL-shape levels (rectangular boards).
+    // On non-full shapes the frame doesn't fit the silhouette, so we skip it
+    // and leave the shape's own dark-backing outline to speak for itself.
+    // Frame variant cycles with the island biome so each island has its own
+    // signature colour; fallback to the pink/blue `neon` if a variant is
+    // missing. Subtle breathing pulse keeps it feeling alive without
+    // distracting from gameplay.
+    const shapeName = (this.level && this.level.shapeName) || 'full';
+    if (shapeName === 'full' && global.FrameSprites) {
+      const BIOMES = ['dawn', 'frost', 'storm', 'emerald', 'sky'];
+      const biome  = ((this.level && this.level.island) || 0) % BIOMES.length;
+      const frameId = BIOMES[biome];
+      const frImg  = global.FrameSprites.img(frameId);
+      if (frImg && frImg.complete && frImg.naturalWidth) {
+        // Sprite's inner opening is ~78% of its full size, so scaling the
+        // sprite to (board + 26% extension) makes the frame's inner border
+        // land right at the outer edge of the board tiles.
+        const pad = v.size * 0.13;
+        const t   = this.elapsed || 0;
+        const pulse = 0.86 + 0.14 * Math.sin(t * 2.4); // 2.6 s period, gentle
+        g.save();
+        g.globalAlpha = pulse;
+        // Soft outer glow — same sprite drawn slightly larger with low alpha
+        // gives a hue-independent bloom without needing canvas filters.
+        g.globalAlpha = pulse * 0.35;
+        g.drawImage(frImg, v.x - pad - 6, v.y - pad - 6,
+                            v.size + pad * 2 + 12, v.size + pad * 2 + 12);
+        // Main frame layer
+        g.globalAlpha = pulse;
+        g.drawImage(frImg, v.x - pad, v.y - pad,
+                            v.size + pad * 2, v.size + pad * 2);
+        g.restore();
+      }
+    }
+    // fever frenzy: pulsing ember border around the board (drawn on top of
+    // the ornate frame so the fever state remains visually dominant)
     if (this.feverActive) {
       const pulse = 0.5 + 0.5 * Math.sin((this.elapsed || 0) * 12);
       g.save();

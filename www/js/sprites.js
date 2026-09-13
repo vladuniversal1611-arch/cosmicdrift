@@ -134,4 +134,20 @@
     img: function () { return bgImg; },
     ready: function () { return !!(bgImg && bgImg.complete && bgImg.naturalWidth); }
   };
+
+  // ---- Ornate neon frames per island (drawn around a full-shape board) ------
+  // Six variants — one per biome plus a `neon` pink/blue default fallback.
+  const FR_IDS = ['dawn', 'frost', 'storm', 'emerald', 'sky', 'neon'];
+  const frInline = global.LEVEL_FRAMES || null;
+  const frUrls = {}, frImgs = {};
+  FR_IDS.forEach(function (id) {
+    frUrls[id] = (frInline && frInline[id]) ? frInline[id] : ('assets/ui2/frame_' + id + '.webp');
+    if (typeof global.Image === 'function') {
+      try { const im = new global.Image(); im.src = frUrls[id]; frImgs[id] = im; } catch (e) {}
+    }
+  });
+  global.FrameSprites = {
+    img: function (id) { return frImgs[id] || frImgs.neon || null; },
+    ready: function (id) { const im = frImgs[id] || frImgs.neon; return !!(im && im.complete && im.naturalWidth); }
+  };
 })(window);
