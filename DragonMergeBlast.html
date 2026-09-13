@@ -5123,7 +5123,6 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
   // each edge's end-point to the next edge's start-point.  Multiple loops
   // fall out naturally for holed shapes (e.g. `ring` yields outer + inner).
   Engine.prototype.buildOutlineLoops = function (tile) {
-    const BLEED = 6;
     const rows = this.rows, cols = this.cols;
     const grid = this.grid;
     const solid = function (r, c) {
@@ -5133,11 +5132,15 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     };
     // Walk edges of each solid cell CLOCKWISE so all loops wind the same way.
     // top: L→R  right: T→B  bottom: R→L  left: B→T
+    // Edge endpoints snap EXACTLY to tile corners (no BLEED here) so
+    // neighbouring cells' edges share endpoints and the perimeter walker
+    // can stitch them into closed loops.  Visual "bleed" past the tile
+    // corners is added later via stroke lineWidth + lineJoin='round'.
     const edges = [];
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
       if (!solid(r, c)) continue;
       const x = this.cellX(c), y = this.cellY(r);
-      const L = x - BLEED, T = y - BLEED, R = x + tile + BLEED, B = y + tile + BLEED;
+      const L = x, T = y, R = x + tile, B = y + tile;
       if (!solid(r - 1, c)) edges.push([L, T, R, T]);
       if (!solid(r, c + 1)) edges.push([R, T, R, B]);
       if (!solid(r + 1, c)) edges.push([R, B, L, B]);
@@ -5484,12 +5487,16 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
     g.save();
     g.lineCap = 'round'; g.lineJoin = 'round';
     // Base static outline: soft warm-gold glow + sharp inner line.
+    // Outline sits ON the tile edge (endpoints snap to tile corners so the
+    // perimeter walker can stitch loops), so lineWidth is half-outside/half-
+    // inside the tile.  Wider strokes here make the outer half visible past
+    // the tile art.
     loops.forEach(function (loop) {
       g.beginPath();
       g.moveTo(loop[0][0], loop[0][1]);
       for (let i = 1; i < loop.length; i++) g.lineTo(loop[i][0], loop[i][1]);
-      g.strokeStyle = 'rgba(255,210,120,0.28)'; g.lineWidth = 4; g.stroke();
-      g.strokeStyle = 'rgba(255,225,160,0.80)'; g.lineWidth = 1.5; g.stroke();
+      g.strokeStyle = 'rgba(255,210,120,0.35)'; g.lineWidth = 8; g.stroke();
+      g.strokeStyle = 'rgba(255,230,170,0.90)'; g.lineWidth = 2.5; g.stroke();
     });
     // Running spark(s): a bright head + a fading trail of dots, one per loop.
     const tNow = this.elapsed || 0;
@@ -5524,16 +5531,17 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
         const y = loop[seg][1] + (loop[seg + 1][1] - loop[seg][1]) * u;
         const decay = 1 - k / (TRAIL + 1);
         // Head is a bright white core with a coloured halo; trail dots fade
-        // toward the biome glow colour.
+        // toward the biome glow colour.  Sizes bumped up so the spark is
+        // clearly visible on a phone screen.
         if (k === 0) {
-          g.shadowColor = biome.glow; g.shadowBlur = 22;
+          g.shadowColor = biome.glow; g.shadowBlur = 28;
           g.fillStyle = biome.core;
-          g.beginPath(); g.arc(x, y, 3.2, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
         } else {
-          g.shadowBlur = 10 * decay;
+          g.shadowBlur = 14 * decay;
           g.shadowColor = biome.glow;
-          g.fillStyle = 'rgba(255,225,160,' + (0.6 * decay).toFixed(3) + ')';
-          g.beginPath(); g.arc(x, y, 2.4 * decay + 0.3, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,230,180,' + (0.7 * decay).toFixed(3) + ')';
+          g.beginPath(); g.arc(x, y, 3.5 * decay + 0.4, 0, Math.PI * 2); g.fill();
         }
       }
       g.shadowBlur = 0;
