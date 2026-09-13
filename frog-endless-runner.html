@@ -339,6 +339,27 @@ let atkPhase=0, atkT=0, atkBolts=0, atkNextDist=55, attacksRepelled=0;
 let eaterAttack=0, eaterFlinch=0;    // eased visual state of the antagonist
 let closeCallDone=false;             // "never been this close" fires once per run
 function lightningActive(){return actRule()==='lightning'||atkPhase===2}
+// A struck platform has to be DODGEABLE, not just survivable by luck: the run
+// auto-advances and the route puts one platform per row, so the only real
+// evasion is a second platform in that row. Give the doomed row a sibling on
+// the other side, so the bolt becomes a lane choice you see 1.1 s ahead.
+function ensureSibling(k){
+  if(k<=0||k>=pads.length-1)return;
+  const y=padPositions[k];
+  if(padPositions[k-1]===y||padPositions[k+1]===y)return;   // already a fork
+  const src=pads[k], x=src.gameX;
+  let x2=x<1.0?x+0.98:x-0.98;
+  if(x2<X_MIN||x2>X_MAX)x2=x<1.0?X_MAX:X_MIN;
+  // reachable from every branch of the row before, and leads on to the row after
+  const prevXs=[];for(let i=k-1;i>=0&&padPositions[i]===padPositions[k-1];i--)prevXs.push(pads[i].gameX);
+  const dyIn=y-padPositions[k-1], dyOut=padPositions[k+1]-y;
+  if(!reachableFromAll(prevXs,padPositions[k-1],x2,y,false))return;
+  if(!isReachable(x2,y,pads[k+1].gameX,padPositions[k+1],false))return;
+  const sib=makePad(x2,'normal',getDifficulty());
+  sib.width=classWidth('SAFE',getDifficulty());sib.elev=src.elev||0;sib.coin=false;sib.pu=null;sib.mystery=false;
+  pads.splice(k+1,0,sib);padPositions.splice(k+1,0,y);
+  if(leapTo>k)leapTo++; if(leapFrom>k)leapFrom++;
+}
 function sfxRoar(){if(!ac)return;for(let i=0;i<4;i++)tone(95-i*14,.38,'sawtooth',.05,i*.05);noise(.28,.05,0)}
 function updateAttack(dt){
   if(eaterFlinch>0)eaterFlinch=Math.max(0,eaterFlinch-dt*0.6);
@@ -437,7 +458,7 @@ function updateActs(dt){
     if(boltT<=0&&boltIdx<0){
       const ci=getCurrentPadIdx();
       const cand=ci+2+Math.floor(Math.random()*3);
-      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;if(atkPhase===2)atkBolts++}
+      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;if(atkPhase===2)atkBolts++;ensureSibling(cand)}
       boltT=atkPhase===2?1.0:rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
     }
     if(boltIdx>=0){
