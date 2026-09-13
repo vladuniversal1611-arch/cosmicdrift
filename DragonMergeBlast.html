@@ -5115,6 +5115,70 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
 
   // ---- Helpers: possible moves / shuffle ----------------------------------
   Engine.prototype.movable = function (r, c) { const t = this.grid[r][c]; return t && !t.wall && !t.ice && !t.chain; };
+
+  // Build closed-loop polylines that trace the outer edges of the current
+  // board shape, so the spark can chase along the perimeter smoothly.
+  // Every solid cell contributes a directed unit-edge on any side where the
+  // neighbour is a wall or off-board; edges are then stitched by matching
+  // each edge's end-point to the next edge's start-point.  Multiple loops
+  // fall out naturally for holed shapes (e.g. `ring` yields outer + inner).
+  Engine.prototype.buildOutlineLoops = function (tile) {
+    const BLEED = 6;
+    const rows = this.rows, cols = this.cols;
+    const grid = this.grid;
+    const solid = function (r, c) {
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+      const n = grid[r] && grid[r][c];
+      return n && !n.wall;
+    };
+    // Walk edges of each solid cell CLOCKWISE so all loops wind the same way.
+    // top: L→R  right: T→B  bottom: R→L  left: B→T
+    const edges = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (!solid(r, c)) continue;
+      const x = this.cellX(c), y = this.cellY(r);
+      const L = x - BLEED, T = y - BLEED, R = x + tile + BLEED, B = y + tile + BLEED;
+      if (!solid(r - 1, c)) edges.push([L, T, R, T]);
+      if (!solid(r, c + 1)) edges.push([R, T, R, B]);
+      if (!solid(r + 1, c)) edges.push([R, B, L, B]);
+      if (!solid(r, c - 1)) edges.push([L, B, L, T]);
+    }
+    const key = function (x, y) { return Math.round(x) + ',' + Math.round(y); };
+    const startAt = {};
+    edges.forEach(function (e, i) {
+      const k = key(e[0], e[1]);
+      (startAt[k] || (startAt[k] = [])).push(i);
+    });
+    const visited = new Array(edges.length).fill(false);
+    const loops = [];
+    for (let i = 0; i < edges.length; i++) {
+      if (visited[i]) continue;
+      const loop = [];
+      let cur = i, safety = 0;
+      while (cur !== -1 && !visited[cur] && safety++ < 10000) {
+        visited[cur] = true;
+        loop.push([edges[cur][0], edges[cur][1]]);
+        const cands = startAt[key(edges[cur][2], edges[cur][3])] || [];
+        cur = -1;
+        for (let j = 0; j < cands.length; j++) if (!visited[cands[j]]) { cur = cands[j]; break; }
+      }
+      if (loop.length >= 3) {
+        loop.push([loop[0][0], loop[0][1]]);  // close the loop
+        // Precompute cumulative arc-length for fast spark-position lookup.
+        loop.cumLen = [0];
+        let total = 0;
+        for (let m = 1; m < loop.length; m++) {
+          const dx = loop[m][0] - loop[m - 1][0], dy = loop[m][1] - loop[m - 1][1];
+          total += Math.sqrt(dx * dx + dy * dy);
+          loop.cumLen.push(total);
+        }
+        loop.total = total;
+        loops.push(loop);
+      }
+    }
+    return loops;
+  };
+
   Engine.prototype.hasPossibleMove = function () {
     for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
       if (!this.movable(r, c)) continue;
@@ -5405,41 +5469,75 @@ img.uicon.relic-ic-img { width: 38px; height: 38px; filter: drop-shadow(0 1px 3p
       g.fillText(f.text, f.x, f.y);
     }
     g.globalAlpha = 1;
-    // Thin code-drawn outline hugging the dark backing (which already follows
-    // the current board shape).  Per-cell edge detection: for each playable
-    // cell, if its neighbour is a wall / off-board, draw an edge segment on
-    // that side.  Assembles into a clean outline for ANY shape — full 8x8,
-    // heart, cat, pyramid, ring, etc.  Two passes: soft warm-gold glow, then
-    // a sharp inner line.  BLEED matches the dark-backing 6 px overshoot so
-    // the outline sits right on that boundary.
-    const BLEED = 6;
-    const self = this;
-    const isSolid = function (r, c) {
-      if (r < 0 || r >= self.rows || c < 0 || c >= self.cols) return false;
-      const n = self.grid[r] && self.grid[r][c];
-      return n && !n.wall;
-    };
-    const outlinePath = function () {
-      g.beginPath();
-      for (let r = 0; r < self.rows; r++) for (let c = 0; c < self.cols; c++) {
-        const cell = self.grid[r] && self.grid[r][c];
-        if (!cell || cell.wall) continue;
-        const x = self.cellX(c), y = self.cellY(r);
-        // Only paint an edge where there's no solid neighbour on that side.
-        if (!isSolid(r - 1, c)) { g.moveTo(x - BLEED,       y - BLEED); g.lineTo(x + tile + BLEED, y - BLEED); }
-        if (!isSolid(r + 1, c)) { g.moveTo(x - BLEED,       y + tile + BLEED); g.lineTo(x + tile + BLEED, y + tile + BLEED); }
-        if (!isSolid(r, c - 1)) { g.moveTo(x - BLEED,       y - BLEED); g.lineTo(x - BLEED,        y + tile + BLEED); }
-        if (!isSolid(r, c + 1)) { g.moveTo(x + tile + BLEED, y - BLEED); g.lineTo(x + tile + BLEED, y + tile + BLEED); }
-      }
-    };
+    // Board outline traced into ordered closed loops, then animated with a
+    // running electric spark chasing along each loop.  Perimeter is stitched
+    // from directed unit-edges (each solid cell contributes an edge on any
+    // side whose neighbour is a wall or off-board), then next-endpoint
+    // matching walks each loop; shapes with holes (like `ring`) naturally
+    // yield two loops (outer + inner) and get two independent sparks.
+    // Cache is invalidated when the shape or tile size changes.
+    const cacheKey = ((this.level && this.level.shapeName) || 'full') + '|' + Math.round(tile);
+    if (!this._outlineCache || this._outlineCache.key !== cacheKey) {
+      this._outlineCache = { key: cacheKey, loops: this.buildOutlineLoops(tile) };
+    }
+    const loops = this._outlineCache.loops;
     g.save();
     g.lineCap = 'round'; g.lineJoin = 'round';
-    // Soft warm glow (blurred pass)
-    g.strokeStyle = 'rgba(255,210,120,0.30)'; g.lineWidth = 4;
-    outlinePath(); g.stroke();
-    // Sharp inner line
-    g.strokeStyle = 'rgba(255,225,160,0.85)'; g.lineWidth = 1.5;
-    outlinePath(); g.stroke();
+    // Base static outline: soft warm-gold glow + sharp inner line.
+    loops.forEach(function (loop) {
+      g.beginPath();
+      g.moveTo(loop[0][0], loop[0][1]);
+      for (let i = 1; i < loop.length; i++) g.lineTo(loop[i][0], loop[i][1]);
+      g.strokeStyle = 'rgba(255,210,120,0.28)'; g.lineWidth = 4; g.stroke();
+      g.strokeStyle = 'rgba(255,225,160,0.80)'; g.lineWidth = 1.5; g.stroke();
+    });
+    // Running spark(s): a bright head + a fading trail of dots, one per loop.
+    const tNow = this.elapsed || 0;
+    const SPEED = 260;                // px/sec, feels lively but not busy
+    const TRAIL = 12;                 // trail dots behind the head
+    const TRAIL_GAP = 7;              // px between trail dots
+    // Pick a spark palette that matches the island biome — computed once
+    // per draw, not once per loop.
+    const BIOMES = [
+      { core: '#ffe9a0', glow: '#ffb750' }, // dawn: warm gold
+      { core: '#e6f7ff', glow: '#5fd0ff' }, // frost: icy cyan
+      { core: '#f4e0ff', glow: '#b48bff' }, // storm: violet
+      { core: '#e0ffd6', glow: '#5fe39a' }, // emerald: jade
+      { core: '#fff4c2', glow: '#ffd24d' }  // sky: gold
+    ];
+    const biomeIdx = ((this.level && this.level.island) || 0) % BIOMES.length;
+    const biome = BIOMES[biomeIdx];
+    loops.forEach(function (loop, li) {
+      const total = loop.total;
+      if (!total) return;
+      // Stagger loops by a fixed offset so multiple sparks don't line up.
+      const head = ((tNow * SPEED) + li * total * 0.37) % total;
+      for (let k = 0; k <= TRAIL; k++) {
+        const dist = head - k * TRAIL_GAP;
+        const pos  = ((dist % total) + total) % total;
+        // Walk cumLen to find the segment containing `pos`
+        let seg = 0;
+        while (seg < loop.cumLen.length - 1 && loop.cumLen[seg + 1] <= pos) seg++;
+        const s0 = loop.cumLen[seg], s1 = loop.cumLen[seg + 1] || (s0 + 1);
+        const u = (pos - s0) / (s1 - s0 || 1);
+        const x = loop[seg][0] + (loop[seg + 1][0] - loop[seg][0]) * u;
+        const y = loop[seg][1] + (loop[seg + 1][1] - loop[seg][1]) * u;
+        const decay = 1 - k / (TRAIL + 1);
+        // Head is a bright white core with a coloured halo; trail dots fade
+        // toward the biome glow colour.
+        if (k === 0) {
+          g.shadowColor = biome.glow; g.shadowBlur = 22;
+          g.fillStyle = biome.core;
+          g.beginPath(); g.arc(x, y, 3.2, 0, Math.PI * 2); g.fill();
+        } else {
+          g.shadowBlur = 10 * decay;
+          g.shadowColor = biome.glow;
+          g.fillStyle = 'rgba(255,225,160,' + (0.6 * decay).toFixed(3) + ')';
+          g.beginPath(); g.arc(x, y, 2.4 * decay + 0.3, 0, Math.PI * 2); g.fill();
+        }
+      }
+      g.shadowBlur = 0;
+    });
     g.restore();
     // fever frenzy: pulsing ember border around the board (drawn on top of
     // the ornate frame so the fever state remains visually dominant)
