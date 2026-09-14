@@ -3852,27 +3852,33 @@ function drawGame(){
     ctx.fillStyle=hz;ctx.fillRect(0,hzTop,W,hzBot-hzTop);
   }
 
-  // === Personal-best gate ===
-  // The ghost of your last run, made concrete: a translucent gold line laid
-  // across the road exactly where your best run ended. You see it slide in on
-  // the final approach, run through it, and leave it behind. dist = seq/2, so
-  // the record sits at world-seq 2*hs; its depth is 2*(hs-dist)+VIEW_Z.
-  if(hs>=40 && dist<hs && alive && introT<=0){
-    const rz=2*(hs-dist)+VIEW_Z;
+  // === Goal gate ===
+  // Something to aim at, always on the road ahead. While your personal best is
+  // still unbeaten it's the record itself (gold, tagged 🏆 РЕКОРД); once you
+  // pass it, the gate jumps to the next 100 m target (cyan, tagged with the
+  // meters) so the chase never runs out of a finish line. It's the ghost of
+  // last time made concrete: it slides in from the horizon and you run through
+  // it. dist = seq/2, so a goal at distance D sits at world-seq 2*D, depth
+  // 2*(D-dist)+VIEW_Z. Purely an overlay — it changes nothing about the run.
+  if(alive && introT<=0){
+    const isRec = hs>=40 && dist<hs;
+    const goalD = isRec ? hs : (Math.floor(dist/100)+1)*100;
+    const rz=2*(goalD-dist)+VIEW_Z;
     if(rz>0.2 && rz<VIEW_AHEAD){
       const gl=project(rz,0.28,0), gr=project(rz,1.72,0), gm=project(rz,1.0,0);
       const near=1-clamp((rz-VIEW_Z)/Math.max(VIEW_AHEAD-VIEW_Z,1),0,1); // 0 far → 1 at frog
       const a=0.26+0.5*near, puls=0.85+0.15*Math.sin(gt*5);
+      const R=isRec?255:90, G=isRec?205:200, B=isRec?70:255;   // gold vs cyan
       ctx.save();
       // soft glow band standing up from the line
       const bandH=Math.max(6,26*gm.s);
       const bg=ctx.createLinearGradient(0,gm.y-bandH,0,gm.y);
-      bg.addColorStop(0,'rgba(255,205,70,0)');
-      bg.addColorStop(1,`rgba(255,205,70,${a*0.32*puls})`);
+      bg.addColorStop(0,`rgba(${R},${G},${B},0)`);
+      bg.addColorStop(1,`rgba(${R},${G},${B},${a*0.32*puls})`);
       ctx.fillStyle=bg;
       ctx.beginPath();ctx.moveTo(gl.x,gl.y);ctx.lineTo(gr.x,gr.y);ctx.lineTo(gr.x,gr.y-bandH);ctx.lineTo(gl.x,gl.y-bandH);ctx.closePath();ctx.fill();
       // the dashed gate line
-      ctx.strokeStyle=`rgba(255,210,80,${a*puls})`;
+      ctx.strokeStyle=`rgba(${R},${Math.min(255,G+5)},${Math.min(255,B+10)},${a*puls})`;
       ctx.lineWidth=Math.max(2,6*gm.s);
       ctx.setLineDash([14*gm.s,9*gm.s]);
       ctx.beginPath();ctx.moveTo(gl.x,gl.y);ctx.lineTo(gr.x,gr.y);ctx.stroke();
@@ -3882,9 +3888,9 @@ function drawGame(){
         const ts=clamp(11*gm.s+4,10,15);
         ctx.font=`900 ${ts}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
         ctx.textAlign='center';ctx.textBaseline='alphabetic';
-        ctx.shadowColor='rgba(110,70,0,.6)';ctx.shadowBlur=4;
-        ctx.fillStyle=`rgba(255,228,140,${clamp(a+0.2,0,1)})`;
-        ctx.fillText('🏆 РЕКОРД',gm.x,gm.y-bandH-3*gm.s);
+        ctx.shadowColor='rgba(20,30,40,.55)';ctx.shadowBlur=4;
+        ctx.fillStyle=`rgba(${R},${Math.min(255,G+23)},${Math.min(255,B+70)},${clamp(a+0.2,0,1)})`;
+        ctx.fillText(isRec?'🏆 РЕКОРД':('🎯 '+goalD+' м'),gm.x,gm.y-bandH-3*gm.s);
         ctx.shadowBlur=0;
       }
       ctx.restore();
