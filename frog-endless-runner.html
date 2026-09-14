@@ -3910,6 +3910,19 @@ function drawGame(){
   order.sort((a,b)=>b.rz-a.rz);
 
   const curIdx=getCurrentPadIdx();
+  // Which pad we're currently lined up to land on: the nearest lane in the very
+  // next row. A ring under it removes the #1 frustration of a forked hopper —
+  // not knowing which platform your steering has actually chosen yet.
+  let aimIdx=-1;
+  if(alive && introT<=0 && curIdx+1<pads.length){
+    const ny=padPositions[curIdx+1]; let bd=1e9;
+    for(let i=curIdx+1;i<pads.length&&padPositions[i]===ny;i++){
+      const pd=pads[i];
+      if(pd.broken||pd.disappeared) continue;
+      const d=Math.abs(visLane-pd.gameX);
+      if(d<bd){bd=d;aimIdx=i}
+    }
+  }
   for(const{i,rz}of order){
     const pad=pads[i];
     // Don't draw broken/disappeared platforms
@@ -3934,6 +3947,26 @@ function drawGame(){
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
     ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt);
+    // Landing-target lock-on ring — a soft cyan ellipse on the pad your current
+    // lane will land on, so a fork is never a blind guess. Pulses gently and
+    // brightens the closer you already are to its centre (a clean PERFECT line).
+    if(i===aimIdx){
+      const w=(pad.width||1);
+      const rx=92*p.s*w, ryr=rx*0.34, ry=p.y-26*p.s*w;
+      const centred=1-clamp(Math.abs(visLane-pad.gameX)/getHitRadius(w),0,1);
+      const pulse=0.6+0.18*Math.sin(gt*6)+0.22*centred;
+      ctx.save();
+      ctx.globalAlpha=depthAlpha*clamp(pulse,0,1);
+      ctx.shadowColor='rgba(60,180,230,.7)';ctx.shadowBlur=6*p.s;
+      ctx.strokeStyle='rgba(150,238,255,.98)';
+      ctx.lineWidth=Math.max(2,3.4*p.s);
+      ctx.beginPath();ctx.ellipse(p.x,ry,rx,ryr,0,0,Math.PI*2);ctx.stroke();
+      // a little chevron above, pointing down at it, for instant readability
+      const chy=ry-ryr-10*p.s, chs=7*p.s;
+      ctx.beginPath();ctx.moveTo(p.x-chs,chy);ctx.lineTo(p.x,chy+chs);ctx.lineTo(p.x+chs,chy);ctx.stroke();
+      ctx.shadowBlur=0;
+      ctx.restore();
+    }
     // Moving platform indicator — small arrows on sides
     if(pad.moving){
       const arrowS=18*p.s;
