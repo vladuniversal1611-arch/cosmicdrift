@@ -1610,7 +1610,8 @@ function buildRouteSection(diff){
 
   const out=[];
   const startX=routeCenter;
-  let py=pts[0].y;
+  const canMove=getUnlockedTypes(dist).includes('moving_h');
+  let py=pts[0].y, movedLast=false;
   for(let i=0;i<pts.length;i++){
     const pt=pts[i];
     const gapMul=i===0?1:Math.max(1,pt.y-py);py=pt.y;
@@ -1646,7 +1647,16 @@ function buildRouteSection(diff){
         continue;
       }
     }
-    out.push(step(x,elev,cls,{loot,gap}));
+    // A moving platform: the one special pad that still matters in an
+    // auto-runner, because its landing spot slides and you must track it. Only
+    // on a middle, ground-level step, never two in a row, never on a precision
+    // beat, and rarer at low difficulty.
+    let stepType='normal';
+    if(canMove && i>0 && i<pts.length-1 && elev===0 && cls==='NORMAL'
+       && !movedLast && Math.random()<lerp(0.05,0.17,diff)){
+      stepType='moving_h'; movedLast=true;
+    } else movedLast=false;
+    out.push(step(x,elev,cls,{loot,gap,type:stepType}));
     routeLane=x;routeElev=elev;
   }
 
@@ -1915,6 +1925,7 @@ function ensurePads(){
         const pd=makePad(gx,ty,diff);
         pd.width=classWidth(spec.cls||'NORMAL',diff);
         pd.elev=spec.elev||0;
+        if(pd.moving){pd.moving.amp=Math.min(pd.moving.amp,0.24);pd.moving.spd=Math.min(pd.moving.spd,1.7);}
         if(spec.loot==='coin')pd.coin=true;
         if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
         return pd;
