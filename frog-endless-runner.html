@@ -72,7 +72,6 @@ let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0;
 let pads=[],padPositions=[];
 let pts=[],floats=[],clouds=[],bflies=[];
 let spdLines=[];
-let currentPattern=null,patternIdx=0;
 // X positions of every branch of the previous step (a fork leaves two)
 let prevBranchXs=[];
 let lastBouncePhase=0; // for jump sound trigger
@@ -730,7 +729,7 @@ const DASH_COOLDOWN=5,DASH_DURATION=.3;
 let tutorialShown=!!localStorage.getItem('fTut'),tutorialAlpha=0;
 // Platform generation state
 let sectionType='easy', sectionLen=0, sectionPos=0;
-let lastTypes=[], lastZones=[], lastPatternId=-1;
+let lastTypes=[];
 // Rolling lane history, used to break up stretches with no left/right decision
 let laneHist=[];
 function laneBucket(x){return Math.round(x*2)}          // 0..4 across the road
@@ -1191,15 +1190,6 @@ function getDifficulty(){
   return 1-Math.exp(-dist/260);
 }
 
-// === 5 ZONES across the road ===
-const ZONES={
-  FAR_LEFT: {min:0.08, max:0.35},
-  LEFT:     {min:0.30, max:0.65},
-  CENTER:   {min:0.70, max:1.30},
-  RIGHT:    {min:1.35, max:1.70},
-  FAR_RIGHT:{min:1.65, max:1.92}
-};
-const ZONE_NAMES=['FAR_LEFT','LEFT','CENTER','RIGHT','FAR_RIGHT'];
 
 // Three clean lanes are the backbone of the corridor. Snapping to them (rather
 // than sampling a range and jittering) is what makes the route readable — the
@@ -1223,30 +1213,7 @@ function zoneToX(zoneName){
   return LANE_X.CENTER;
 }
 
-// How far apart two zones are (0=same, 1=adjacent, 2=skip, etc)
-function zoneDist(a,b){
-  return Math.abs(ZONE_NAMES.indexOf(a)-ZONE_NAMES.indexOf(b));
-}
 
-// Pick next zone based on difficulty — harder = wider jumps allowed
-function pickNextZone(prevZone, diff){
-  const prevIdx=ZONE_NAMES.indexOf(prevZone);
-  // Max zone jump depends on difficulty
-  const maxJump=diff<0.3?2:diff<0.6?3:4;
-
-  // Build candidates — never same zone, respect max jump
-  let candidates=ZONE_NAMES.filter(z=>{
-    if(z===prevZone) return false;
-    const d=zoneDist(z,prevZone);
-    return d>=1 && d<=maxJump;
-  });
-
-  // Anti-repetition: avoid last 3 zones
-  const filtered=candidates.filter(z=>!lastZones.slice(-3).includes(z));
-  if(filtered.length>=2) candidates=filtered;
-
-  return candidates[Math.floor(Math.random()*candidates.length)]||'CENTER';
-}
 
 // === PLATFORM TYPES ===
 // Unlocked progressively based on distance
@@ -1271,154 +1238,10 @@ function getUnlockedTypes(d){
   return Object.keys(PAD_TYPES).filter(t=>d>=PAD_TYPES[t].dist);
 }
 
-// === PATTERNS — procedural sequences ===
-const PATTERNS=[
-  // id, zones (relative: C=center, L=left, R=right, FL=far_left, FR=far_right), types, minDiff
-  {id:0, seq:['CENTER','LEFT','CENTER','RIGHT'], types:['normal','normal','normal','normal'], minDiff:0},
-  {id:1, seq:['CENTER','RIGHT','CENTER','LEFT'], types:['normal','normal','normal','normal'], minDiff:0},
-  {id:2, seq:['LEFT','CENTER','RIGHT','CENTER'], types:['normal','normal','normal','normal'], minDiff:0},
-  {id:3, seq:['CENTER','LEFT','LEFT','CENTER'],  types:['normal','normal','small','normal'], minDiff:0},
-  {id:4, seq:['CENTER','RIGHT','RIGHT','CENTER'], types:['normal','normal','normal','wide'], minDiff:0},
-  // With moving
-  {id:5, seq:['CENTER','LEFT','CENTER','RIGHT'], types:['normal','moving_h','normal','normal'], minDiff:0.15},
-  {id:6, seq:['LEFT','CENTER','RIGHT'],          types:['moving_h','normal','moving_h'], minDiff:0.2},
-  // With bounce
-  {id:7, seq:['CENTER','RIGHT','FAR_RIGHT','CENTER'], types:['normal','bounce','normal','wide'], minDiff:0.3},
-  {id:8, seq:['LEFT','CENTER','RIGHT','LEFT'],   types:['bounce','normal','normal','normal'], minDiff:0.35},
-  // With breakable
-  {id:9, seq:['CENTER','LEFT','CENTER','RIGHT'], types:['breakable','normal','normal','normal'], minDiff:0.4},
-  {id:10,seq:['RIGHT','CENTER','LEFT','CENTER'], types:['normal','breakable','normal','wide'], minDiff:0.45},
-  // With disappear
-  {id:11,seq:['CENTER','RIGHT','CENTER','LEFT'], types:['disappear','normal','normal','normal'], minDiff:0.5},
-  // With slippery
-  {id:12,seq:['LEFT','CENTER','RIGHT','CENTER'], types:['slippery','normal','normal','normal'], minDiff:0.55},
-  // With falling
-  {id:14,seq:['CENTER','RIGHT','CENTER','LEFT'], types:['falling','normal','normal','wide'], minDiff:0.65},
-  // Complex combos
-  {id:15,seq:['LEFT','RIGHT','LEFT','CENTER'],   types:['moving_h','normal','small','wide'], minDiff:0.5},
-  {id:16,seq:['RIGHT','CENTER','LEFT','RIGHT','CENTER'], types:['normal','bounce','normal','normal','wide'], minDiff:0.55},
-  {id:17,seq:['CENTER','FAR_RIGHT','CENTER','FAR_LEFT','CENTER'], types:['normal','small','normal','small','wide'], minDiff:0.7},
-  // Risk/reward
-  {id:18,seq:['CENTER','LEFT','CENTER'],          types:['normal','bonus','normal'], minDiff:0.2},
-  {id:19,seq:['RIGHT','CENTER','LEFT'],           types:['small','bonus','normal'], minDiff:0.4},
-  // More moving
-  {id:20,seq:['LEFT','RIGHT','LEFT','RIGHT'],    types:['moving_h','normal','moving_h','normal'], minDiff:0.2},
-  {id:21,seq:['CENTER','LEFT','RIGHT','CENTER'],  types:['moving_h','moving_h','normal','wide'], minDiff:0.25},
-  {id:22,seq:['RIGHT','LEFT','CENTER'],           types:['moving_h','normal','moving_h'], minDiff:0.15},
-  // Trap lane — more patterns
-  {id:23,seq:['CENTER','CENTER','CENTER'],        types:['normal','trap_lane','wide'], minDiff:0.3},
-  {id:24,seq:['LEFT','CENTER','RIGHT'],           types:['normal','trap_lane','normal'], minDiff:0.35},
-  {id:27,seq:['CENTER','CENTER','LEFT','RIGHT'],  types:['moving_h','trap_lane','normal','normal'], minDiff:0.35},
-  {id:28,seq:['RIGHT','CENTER','CENTER'],         types:['normal','trap_lane','wide'], minDiff:0.25},
-  // More moving combos
-  {id:29,seq:['LEFT','RIGHT','CENTER','LEFT'],    types:['moving_h','moving_h','normal','moving_h'], minDiff:0.3},
-  {id:30,seq:['CENTER','LEFT','RIGHT'],           types:['moving_h','moving_h','moving_h'], minDiff:0.35},
-  // Ring
-  {id:25,seq:['CENTER','LEFT','CENTER'],          types:['ring_pad','normal','normal'], minDiff:0.45},
-  {id:26,seq:['RIGHT','CENTER','LEFT'],           types:['normal','ring_pad','normal'], minDiff:0.5},
-];
 
-// === FORK PATTERNS — the decision layer ===
-// The landing check already resolves groups of pads sharing a Y, so a fork is
-// simply two pads pushed at the same depth. One branch is always the safe,
-// wide, guaranteed-reachable line; the other is tighter but carries the loot.
-// This is what turns "wait for the next platform" into "which way do I go?".
-const FORK_PATTERNS=[
-  // easy: gentle split, small detour for a coin
-  {id:200,minDiff:0.00,steps:[
-    {z:'CENTER',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'LEFT',t:'normal',loot:'coin'}}},
-    {z:'CENTER',t:'normal'},
-  ]},
-  {id:201,minDiff:0.00,steps:[
-    {z:'CENTER',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'RIGHT',t:'normal',loot:'coin'}}},
-    {z:'CENTER',t:'normal'},
-  ]},
-  // medium: the risky side is a small pad, pays a gem
-  {id:202,minDiff:0.20,steps:[
-    {z:'LEFT',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'RIGHT',t:'small',loot:'gem'}}},
-    {z:'CENTER',t:'normal'},
-  ]},
-  {id:203,minDiff:0.20,steps:[
-    {z:'RIGHT',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'LEFT',t:'small',loot:'gem'}}},
-    {z:'CENTER',t:'normal'},
-  ]},
-  // a two-step risky lane: commit once, get paid twice
-  {id:204,minDiff:0.35,steps:[
-    {z:'CENTER',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'FAR_LEFT',t:'small',loot:'coin'}}},
-    {fork:{safe:{z:'CENTER',t:'normal'}, risk:{z:'FAR_LEFT',t:'small',loot:'gem'}}},
-    {z:'CENTER',t:'wide'},
-  ]},
-  {id:205,minDiff:0.35,steps:[
-    {z:'CENTER',t:'normal'},
-    {fork:{safe:{z:'CENTER',t:'wide'}, risk:{z:'FAR_RIGHT',t:'small',loot:'coin'}}},
-    {fork:{safe:{z:'CENTER',t:'normal'}, risk:{z:'FAR_RIGHT',t:'small',loot:'gem'}}},
-    {z:'CENTER',t:'wide'},
-  ]},
-  // hard: the risky line is a moving pad
-  {id:206,minDiff:0.50,steps:[
-    {z:'CENTER',t:'normal'},
-    {fork:{safe:{z:'LEFT',t:'wide'}, risk:{z:'RIGHT',t:'moving_h',loot:'gem'}}},
-    {z:'CENTER',t:'normal'},
-  ]},
-  // hard: safe is the long way round, risk is a breakable shortcut
-  {id:207,minDiff:0.60,steps:[
-    {z:'LEFT',t:'normal'},
-    {fork:{safe:{z:'LEFT',t:'wide'}, risk:{z:'RIGHT',t:'breakable',loot:'gem'}}},
-    {z:'CENTER',t:'wide'},
-  ]},
-];
-// Elevation-driven patterns. `e` is height in ELEV_UNITs: 0 low, 1 mid, 2 high.
-const HEIGHT_PATTERNS=[
-  // VERTICAL — a climb, then a drop back down
-  {id:300,minDiff:0.10,steps:[
-    {z:'CENTER',t:'normal',e:0},
-    {z:'LEFT',  t:'normal',e:1},
-    {z:'CENTER',t:'normal',e:2,loot:'coin'},
-    {z:'RIGHT', t:'normal',e:1},
-    {z:'CENTER',t:'wide',  e:0},
-  ]},
-  {id:301,minDiff:0.10,steps:[
-    {z:'CENTER',t:'normal',e:0},
-    {z:'RIGHT', t:'normal',e:1},
-    {z:'CENTER',t:'normal',e:2,loot:'coin'},
-    {z:'LEFT',  t:'normal',e:1},
-    {z:'CENTER',t:'wide',  e:0},
-  ]},
-  // AIR CHAIN — a run held up high, paid in gems, dropping back at the end
-  {id:302,minDiff:0.30,steps:[
-    {z:'CENTER',t:'normal',e:0},
-    {z:'LEFT',  t:'small', e:2,loot:'coin'},
-    {z:'CENTER',t:'small', e:2,loot:'gem'},
-    {z:'RIGHT', t:'small', e:2,loot:'coin'},
-    {z:'CENTER',t:'wide',  e:0},
-  ]},
-  // WAVE — a rolling rise and fall you ride across the lanes
-  {id:303,minDiff:0.15,steps:[
-    {z:'LEFT',  t:'normal',e:0},
-    {z:'CENTER',t:'normal',e:1},
-    {z:'RIGHT', t:'normal',e:2,loot:'coin'},
-    {z:'CENTER',t:'normal',e:1},
-    {z:'LEFT',  t:'normal',e:0},
-  ]},
-  // HIGH RISK — the loot line runs above the safe one
-  {id:304,minDiff:0.35,steps:[
-    {z:'CENTER',t:'normal',e:0},
-    {fork:{safe:{z:'CENTER',t:'wide',e:0}, risk:{z:'RIGHT',t:'small',e:2,loot:'gem'}}},
-    {fork:{safe:{z:'CENTER',t:'normal',e:0}, risk:{z:'RIGHT',t:'small',e:2,loot:'gem'}}},
-    {z:'CENTER',t:'wide',e:0},
-  ]},
-  {id:305,minDiff:0.35,steps:[
-    {z:'CENTER',t:'normal',e:0},
-    {fork:{safe:{z:'CENTER',t:'wide',e:0}, risk:{z:'LEFT',t:'small',e:2,loot:'gem'}}},
-    {fork:{safe:{z:'CENTER',t:'normal',e:0}, risk:{z:'LEFT',t:'small',e:2,loot:'gem'}}},
-    {z:'CENTER',t:'wide',e:0},
-  ]},
-];
+
+
+
 // ==========================================================================
 // ROUTE GENERATOR — a ROUTE generator, not a random platform spawner.
 // The order of decisions is fixed, every section:
@@ -1705,29 +1528,7 @@ function nextSection(diff){
   routeLane=away;routeElev=0;routeLast='';
   return [step(saveL,0,'SAFE',{loot:'coin'}),step(1.0,0,'SAFE'),step(away,0,'SAFE',{loot:'coin'})];
 }
-function selectHeight(diff){
-  const a=HEIGHT_PATTERNS.filter(x=>x.minDiff<=diff+0.05);
-  return a.length?a[Math.floor(Math.random()*a.length)]:null;
-}
-function selectFork(diff){
-  const avail=FORK_PATTERNS.filter(p=>p.minDiff<=diff+0.05);
-  return avail.length?avail[Math.floor(Math.random()*avail.length)]:null;
-}
 
-function selectPattern(diff){
-  let available=PATTERNS.filter(p=>p.minDiff<=diff+0.1);
-  // Check type availability
-  available=available.filter(p=>{
-    const unlocked=getUnlockedTypes(dist);
-    return p.types.every(t=>unlocked.includes(t));
-  });
-  // Anti-repetition
-  const noRepeat=available.filter(p=>p.id!==lastPatternId);
-  if(noRepeat.length>=2) available=noRepeat;
-  const chosen=available[Math.floor(Math.random()*available.length)]||PATTERNS[0];
-  lastPatternId=chosen.id;
-  return chosen;
-}
 
 // === BREATHING SYSTEM ===
 // Cycles: easy → medium → hard → recovery
@@ -1964,210 +1765,6 @@ function ensurePads(){
       continue;
     }
 
-    // --- Pattern selection: always authored, never pure random ---
-    const patDone=!currentPattern
-      || (currentPattern.steps ? patternIdx>=currentPattern.steps.length
-                               : patternIdx>=currentPattern.seq.length);
-    if(patDone){
-      // Forks appear more often as the player gets deeper, and never during
-      // the recovery beat so there is always a stretch to breathe on.
-      // Rotation: height-driven sections, forks, then the flat linear patterns.
-      // Recovery beats stay flat and fork-free so there is somewhere to breathe.
-      const flat=phase==='recovery';
-      const heightChance=flat?0:lerp(0.30,0.45,effDiff);
-      const forkChance =flat?0:lerp(0.35,0.55,effDiff);
-      let chosen=null;
-      const r=Math.random();
-      if(r<heightChance)chosen=selectHeight(effDiff);
-      else if(r<heightChance+forkChance)chosen=selectFork(effDiff);
-      currentPattern=chosen||selectPattern(effDiff);
-      patternIdx=0;
-    }
-
-    // --- Fork step: two pads at the same depth, safe line + loot line ---
-    if(currentPattern.steps){
-      const st=currentPattern.steps[patternIdx];patternIdx++;
-      const spacing=getSpacing(effDiff,phase);
-      const nextY=prevY+spacing;
-      if(st.fork){
-        // Place the two branches on OPPOSITE sides of where the player is, both
-        // inside the reachable envelope. Deriving them from the envelope (rather
-        // than from a zone, then clamping) is what keeps a fork actually split —
-        // pulling both toward the previous pad used to collapse them into one.
-        const dy=nextY-prevY;
-        const anchorX=prevXs.reduce((a,b)=>a+b,0)/prevXs.length;
-        const reach=Math.min(dy*0.50,1.66)*0.88;      // 14% safety margin
-        const riskDir=zoneToX(st.fork.risk.z)<1.0?-1:1;
-        let safeX=clamp(anchorX-riskDir*reach*0.24,0.12,1.88);
-        let riskX=clamp(anchorX+riskDir*reach*0.90,0.12,1.88);
-        // If a clamp squashed them together, mirror the risk branch instead
-        if(Math.abs(safeX-riskX)<0.45){
-          riskX=clamp(anchorX-riskDir*reach*0.90,0.12,1.88);
-          safeX=clamp(anchorX+riskDir*reach*0.20,0.12,1.88);
-        }
-        const mk=(spec,gx)=>{
-          let ty=spec.t;
-          if(!getUnlockedTypes(dist).includes(ty))ty='normal';
-          const pd=makePad(gx,ty,diff);
-          if(spec.loot==='coin')pd.coin=true;
-          if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
-          if(spec.loot)pd.risky=true;      // taking this line pays a premium
-          pd.elev=spec.e||0;
-          return pd;
-        };
-        // The safe branch hugs the previous position by design, which can park
-        // the player in one lane for a long stretch. Nudge it when that happens.
-        if(laneStale(safeX)){
-          const alt=clamp(safeX+(safeX<1?0.45:-0.45),0.12,1.88);
-          if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce)&&Math.abs(alt-riskX)>0.45)safeX=alt;
-        }
-        {
-          const sA=snapToLane(safeX,prevXs,prevY,nextY,prevHasBounce);
-          const sB=snapToLane(riskX,prevXs,prevY,nextY,prevHasBounce);
-          if(Math.abs(sA-sB)>0.45){safeX=sA;riskX=sB}
-        }
-        const isSplit=Math.abs(safeX-riskX)>0.32
-          && reachableFromAll(prevXs,prevY,safeX,nextY,prevHasBounce)
-          && reachableFromAll(prevXs,prevY,riskX,nextY,prevHasBounce);
-        padPositions.push(nextY);pads.push(mk(st.fork.safe,safeX));
-        if(isSplit){padPositions.push(nextY);pads.push(mk(st.fork.risk,riskX))}
-        prevBranchXs=isSplit?[safeX,riskX]:[safeX];
-        pushLane(safeX);
-        lastTypes.push(st.fork.safe.t);if(lastTypes.length>10)lastTypes.shift();
-        continue;
-      }
-      // Plain step inside a fork pattern
-      const midX=prevXs.reduce((a,b)=>a+b,0)/prevXs.length;
-      let gx=clamp(zoneToX(st.z),0.1,1.9);
-      for(let a=0;a<6&&!reachableFromAll(prevXs,prevY,gx,nextY,prevHasBounce);a++){
-        gx=clamp(lerp(gx,midX,0.30+a*0.14),0.1,1.9);
-      }
-      if(!reachableFromAll(prevXs,prevY,gx,nextY,prevHasBounce)) gx=midX;
-      // Two groups already in this lane — push off it so the player keeps
-      // having a left/right decision instead of coasting straight ahead.
-      if(laneStale(gx)){
-        const push=gx<1?0.5:-0.5;
-        const alt=clamp(gx+push,0.12,1.88);
-        if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gx=alt;
-      }
-      gx=snapToLane(gx,prevXs,prevY,nextY,prevHasBounce);
-      pushLane(gx);
-      let ty=st.t;
-      if(!getUnlockedTypes(dist).includes(ty))ty='normal';
-      padPositions.push(nextY);
-      const np=makePad(gx,ty,diff);
-      np.elev=st.e||0;
-      if(st.loot==='coin')np.coin=true;
-      if(st.loot==='gem'){np.coin=true;np.diamond=true}
-      pads.push(np);
-      prevBranchXs=[gx];
-      lastTypes.push(ty);if(lastTypes.length>10)lastTypes.shift();
-      continue;
-    }
-
-    let targetZone, targetType;
-
-    if(currentPattern&&patternIdx<currentPattern.seq.length){
-      targetZone=currentPattern.seq[patternIdx];
-      targetType=currentPattern.types[patternIdx];
-      // Check if type is unlocked, fallback to normal
-      if(!getUnlockedTypes(dist).includes(targetType)) targetType='normal';
-      patternIdx++;
-    } else {
-      // Random generation
-      const prevZone=lastZones.length>0?lastZones[lastZones.length-1]:'CENTER';
-      targetZone=pickNextZone(prevZone, effDiff);
-
-      // Pick type based on difficulty and phase
-      const unlocked=getUnlockedTypes(dist);
-      // Lucky platform — rare random chance (~2.5%)
-      if(unlocked.includes('lucky')&&Math.random()<0.025&&!lastTypes.slice(-5).includes('lucky')){
-        targetType='lucky';
-      } else if(phase==='recovery'||phase==='easy'){
-        // Even in easy, moving_h adds variety
-        if(unlocked.includes('moving_h')&&Math.random()<0.28){
-          targetType='moving_h';
-        } else {
-          targetType=Math.random()<0.15?'wide':'normal';
-        }
-      } else {
-        const special=unlocked.filter(t=>t!=='normal'&&t!=='wide');
-        // Boosted chance for moving_h — frequent, fun mechanic
-        if(unlocked.includes('moving_h')&&Math.random()<0.38&&!lastTypes.slice(-1).includes('moving_h')){
-          targetType='moving_h';
-        // Boosted chance for trap_lane — exciting danger
-        } else if(unlocked.includes('trap_lane')&&Math.random()<0.16&&!lastTypes.slice(-3).includes('trap_lane')){
-          targetType='trap_lane';
-        } else if(special.length>0&&Math.random()<lerp(0.18,0.4,effDiff)){
-          // Don't repeat last 2 types
-          const noRepeat=special.filter(t=>!lastTypes.slice(-2).includes(t));
-          const pool=noRepeat.length>0?noRepeat:special;
-          targetType=pool[Math.floor(Math.random()*pool.length)];
-        } else {
-          targetType=Math.random()<0.08?'wide':'normal';
-        }
-      }
-    }
-
-    // Generate X position
-    let gameX;
-    if(targetType==='trap_lane'){
-      gameX=1.0; // always centered, full width
-    } else {
-      gameX=zoneToX(targetZone);
-      gameX=clamp(gameX, 0.1, 1.9);
-    }
-
-    // Generate spacing
-    const spacing=getSpacing(effDiff, phase);
-    const nextY=prevY+spacing;
-
-    // === REACHABILITY CHECK ===
-    // Try up to 5 candidates if not reachable
-    let reachable=reachableFromAll(prevXs, prevY, gameX, nextY, prevHasBounce);
-    if(!reachable){
-      for(let attempt=0;attempt<5;attempt++){
-        // Pull closer to prev position
-        gameX=lerp(gameX, prevXs.reduce((a,b)=>a+b,0)/prevXs.length, 0.3+attempt*0.12);
-        gameX=clamp(gameX, 0.1, 1.9);
-        reachable=reachableFromAll(prevXs, prevY, gameX, nextY, prevHasBounce);
-        if(reachable) break;
-      }
-      // Final fallback: close to previous
-      if(!reachable){
-        gameX=clamp(prevXs.reduce((a,b)=>a+b,0)/prevXs.length,0.1,1.9);
-      }
-    }
-
-    // After breakable/disappear/falling/trap_lane: ALWAYS follow with safe normal/wide
-    if(prevType==='breakable'||prevType==='disappear'||prevType==='falling'||prevType==='trap_lane'){
-      if(targetType!=='normal'&&targetType!=='wide') targetType='wide';
-    }
-    // Max 1 special in a row (except moving_h which is fine)
-    const isSpecial=t=>!['normal','wide','small','bonus','moving_h'].includes(t);
-    if(isSpecial(prevType)&&isSpecial(targetType)){
-      targetType='normal';
-    }
-
-    // Create the pad
-    padPositions.push(nextY);
-    const pad=makePad(gameX, targetType, diff);
-    pads.push(pad);
-
-    if(laneStale(gameX)){
-      const push=gameX<1?0.5:-0.5;
-      const alt=clamp(gameX+push,0.12,1.88);
-      if(reachableFromAll(prevXs,prevY,alt,nextY,prevHasBounce))gameX=alt;
-    }
-    gameX=snapToLane(gameX,prevXs,prevY,nextY,prevHasBounce);
-    pushLane(gameX);
-    prevBranchXs=[gameX];
-
-    // Track history
-    lastTypes.push(targetType);
-    if(lastTypes.length>10) lastTypes.shift();
-    lastZones.push(targetZone);
-    if(lastZones.length>10) lastZones.shift();
   }
 }
 
@@ -2474,8 +2071,8 @@ function startGame(){
   dashReady=true;dashCooldown=0;dashActive=false;dashT=0;dashShow=0;
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
-  lastTypes=[];lastZones=[];lastPatternId=-1;breathPhase=0;
-  pads=[];padPositions=[];currentPattern=null;patternIdx=0;prevBranchXs=[];laneHist=[];routeQueue=[];routeCenter=1.00;routeLane=LANE_C;routeElev=0;routeLast='';
+  lastTypes=[];breathPhase=0;
+  pads=[];padPositions=[];prevBranchXs=[];laneHist=[];routeQueue=[];routeCenter=1.00;routeLane=LANE_C;routeElev=0;routeLast='';
   pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
   // Seed straight from the authored OPENING so the very first platforms already
