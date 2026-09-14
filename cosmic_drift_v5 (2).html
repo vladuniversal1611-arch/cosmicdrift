@@ -1352,24 +1352,24 @@ const WEAPONS={
 // Base auto-fire is always the laser. The 3 buttons are ACTIVE abilities,
 // plus a NOVA ultimate that charges from kills.
 const AB={
-  laser: {ch:3, max:3, rt:0, regen:900},   // 3 charges, +1 every 15s
-  rocket:{ch:3, max:3, rt:0, regen:600},   // 3 charges, +1 every 10s
-  spread:{cd:0, cdMax:720},                // 12s cooldown after use
+  laser: {ch:2, max:2, rt:0, regen:1500},  // 2 charges, +1 every 25s
+  rocket:{ch:2, max:2, rt:0, regen:1080},  // 2 charges, +1 every 18s
+  spread:{cd:0, cdMax:960},                // 16s cooldown after use
 };
 let laserBeamT=0;        // frames left of active laser beam
 let spreadModeT=0;       // frames left of spread mode
 let ultCharge=0;         // 0..ULT_MAX, fills from kills
-const ULT_MAX=100, ULT_PER_KILL=2.5;
+const ULT_MAX=100, ULT_PER_KILL=1.7;       // ~60 kills to fill
 
 function useLaser(){
   if(st!=='playing'||laserBeamT>0||AB.laser.ch<=0)return;
   AB.laser.ch--; if(AB.laser.rt<=0)AB.laser.rt=AB.laser.regen;
-  laserBeamT=90; shake(4); sndShield();
+  laserBeamT=66; shake(4); sndShield();
   ftxt(ship.x,ship.y-42,'LASER!','#66ccff');
 }
 function useSpread(){
   if(st!=='playing'||spreadModeT>0||AB.spread.cd>0)return;
-  spreadModeT=300; AB.spread.cd=AB.spread.cdMax;
+  spreadModeT=240; AB.spread.cd=AB.spread.cdMax;
   ftxt(ship.x,ship.y-42,'SPREAD!','#ffaa33'); sndShield();
 }
 function useRocket(){
@@ -1384,7 +1384,7 @@ function useUlt(){
 
 // Homing rocket — seeks the nearest enemy/boss
 function fireHomingRocket(){
-  bullets.push({x:ship.x,y:ship.y-16,vx:0,vy:-7,rocket:true,homing:true,pierce:true,hits:0,explodeR:55,life:200});
+  bullets.push({x:ship.x,y:ship.y-16,vx:0,vy:-7,rocket:true,homing:true,pierce:true,hits:0,explodeR:48,life:200});
 }
 
 // NOVA ultimate — clears the screen and heavily damages the boss
@@ -1396,7 +1396,7 @@ function novaBlast(){
   enemies=[];
   bullets=bullets.filter(b=>!(b.enemy||b.boss)); // wipe enemy fire
   if(boss&&boss.entered){
-    boss.hp-=Math.ceil(boss.mhp*0.25); boss.fl=8;
+    boss.hp-=Math.ceil(boss.mhp*0.12); boss.fl=8;
     if(boss.hp<=boss.mhp*.6)boss.phase=1; if(boss.hp<=boss.mhp*.3)boss.phase=2;
     updateBossBar();
     if(boss.hp<=0)killBoss();
@@ -1899,12 +1899,12 @@ function update(){
     const bw=22; // beam half-width — continuous damage column above the ship
     enemies.forEach(e=>{
       if(!e.dead&&e.y<ship.y&&Math.abs(e.x-ship.x)<bw+e.r){
-        e.hp-=0.7;e.fl=3;
+        e.hp-=0.6;e.fl=3;
         if(e.hp<=0)killEnemy(e);
       }
     });
     if(boss&&boss.entered&&boss.y<ship.y&&Math.abs(boss.x-ship.x)<bw+44){
-      boss.hp-=1;boss.fl=3;
+      boss.hp-=0.6;boss.fl=3;
       if(boss.hp<=boss.mhp*.6)boss.phase=Math.max(boss.phase,1);if(boss.hp<=boss.mhp*.3)boss.phase=Math.max(boss.phase,2);
       updateBossBar();
       if(boss.hp<=0)killBoss();
