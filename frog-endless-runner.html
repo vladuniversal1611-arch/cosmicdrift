@@ -1159,6 +1159,26 @@ function musNote(f,dur,vol,type){
   g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
   o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+dur);
 }
+// Fever percussion — a soft kick + hi-hat that only exist while the state is
+// live, so entering fever audibly kicks the track into drive. Routed through
+// musG (not sfxG) so they respect the music volume and the mute.
+function musKick(){
+  if(!ac)return;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type='sine';o.frequency.setValueAtTime(150,ac.currentTime);
+  o.frequency.exponentialRampToValueAtTime(55,ac.currentTime+.12);
+  g.gain.value=.085;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.16);
+  o.connect(g);g.connect(musG);o.start();o.stop(ac.currentTime+.16);
+}
+function musHat(v){
+  if(!ac)return;
+  const d=.03,n=Math.max(1,ac.sampleRate*d),b=ac.createBuffer(1,n,ac.sampleRate),dd=b.getChannelData(0);
+  for(let i=0;i<n;i++)dd[i]=Math.random()*2-1;
+  const s=ac.createBufferSource();s.buffer=b;
+  const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=6500;
+  const g=ac.createGain();g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
+  s.connect(hp);hp.connect(g);g.connect(musG);s.start();s.stop(ac.currentTime+d);
+}
 function startMus(){
   if(musOn)return;musOn=true;melI=0;
   musIv=setInterval(()=>{
@@ -1170,10 +1190,15 @@ function startMus(){
       const f=MEL[melI%MEL.length]*pitch;
       musNote(f,.18,fever?.045:.03);
       if(fever){musNote(f*2,.13,.022);                         // shimmer octave
+        musNote(f,.12,.016,'sawtooth');                        // a little edge on the lead
         setTimeout(()=>{if(ac&&state===ST.PLAY&&fever)musNote(f*1.5,.10,.02)},80);}  // offbeat tick
     }
-    // Fever bass pulse on the beat drives the pace up on the ear.
-    if(fever&&melI%2===0)musNote(MEL[0]*pitch/2,.20,.03,'triangle');
+    if(fever){
+      // A driving kit under the melody: kick on the quarter, hat on every
+      // eighth (louder on the offbeat) — the "the track just lifted" cue.
+      if(melI%2===0){musNote(MEL[0]*pitch/2,.20,.03,'triangle');musKick();}  // bass + kick on the beat
+      musHat(melI%2===1?.055:.03);
+    }
     melI++;
   },160);
 }
