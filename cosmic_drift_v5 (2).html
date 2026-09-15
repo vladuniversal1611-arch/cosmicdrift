@@ -1137,11 +1137,18 @@ function drawBG(){
 
   const bgk='bg_z'+zoneIdx, hasBg=sprReady(bgk);
   if(hasBg){
-    // Sector backdrop image (cover-fit), gently drifting for a touch of life
+    // Sector backdrop image (cover-fit), gently drifting for a touch of life.
+    // Dimmed + desaturated so the bright, same-hue enemies read clearly on top.
     const spr=SPR[bgk], s=Math.max(W/spr.naturalWidth,H/spr.naturalHeight);
     const dw=spr.naturalWidth*s+8,dh=spr.naturalHeight*s+8;
     const drift=Math.sin(fr*.004)*4;
-    ctx.globalAlpha=1;ctx.drawImage(spr,(W-dw)/2,(H-dh)/2+drift,dw,dh);
+    ctx.globalAlpha=1;ctx.filter='brightness(0.6) saturate(0.82)';
+    ctx.drawImage(spr,(W-dw)/2,(H-dh)/2+drift,dw,dh);
+    ctx.filter='none';
+    // Vignette: darken the busy bright edges where the action happens
+    const vg=ctx.createRadialGradient(W/2,H*.52,H*.16,W/2,H*.52,H*.74);
+    vg.addColorStop(0,'rgba(0,0,6,0)');vg.addColorStop(1,'rgba(0,0,6,.6)');
+    ctx.fillStyle=vg;ctx.fillRect(-2,-2,W+4,H+4);
   } else {
     // Nebulae (slowest parallax layer)
     nebs.forEach(n=>{
@@ -1208,6 +1215,11 @@ function drawEnemySprite(e,key){
   const rot=(e.type==='rock'||e.type==='splitter')?e.rot:(e.type==='kamikaze')?e.angle+Math.PI/2:0;
   const size=e.r*2.35;
   const ar=spr.naturalWidth/spr.naturalHeight;let dw=size,dh=size;if(ar>1)dh=size/ar;else dw=size*ar;
+  // Dark separation halo so the enemy pops off a same-hue background
+  const sr=Math.max(dw,dh)*.62;
+  const sh=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,sr);
+  sh.addColorStop(0,'rgba(0,0,0,.5)');sh.addColorStop(.55,'rgba(0,0,0,.28)');sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh;ctx.beginPath();ctx.arc(e.x,e.y,sr,0,6.28);ctx.fill();
   ctx.save();ctx.translate(e.x,e.y);
   if(e.fl>0){ctx.shadowBlur=18;ctx.shadowColor='#fff';}
   if(rot)ctx.rotate(rot);
