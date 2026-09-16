@@ -1152,6 +1152,15 @@ const MEL=[523,659,784,659,523,587,659,784,880,784,659,523,587,523,659,784];
 let melI=0;
 // Each act transposes the theme so the mood shifts as the chase deepens.
 const ACT_PITCH=[1.00, 1.06, 0.94, 0.84, 1.12];   // garden, wind, storm, night, rush
+// Per-act timbre laid quietly under the melody, so each act SOUNDS like itself
+// and not just the same tune pitched up or down. [interval mult, wave, volume]
+const ACT_COLOR=[
+  null,                       // garden — clean sine, no colour
+  [1.5,  'triangle', .012],   // wind  — airy fifth above
+  [0.5,  'sawtooth', .014],   // storm — growling octave below
+  [0.25, 'sine',     .020],   // night — deep, hollow sub, two octaves down
+  [2.0,  'square',   .010],   // rush  — bright sparkle an octave up
+];
 function musNote(f,dur,vol,type){
   if(!ac)return;
   const o=ac.createOscillator(),g=ac.createGain();
@@ -1189,6 +1198,8 @@ function startMus(){
     if(!rest){
       const f=MEL[melI%MEL.length]*pitch;
       musNote(f,.18,fever?.045:.03);
+      const col=ACT_COLOR[curAct];
+      if(col)musNote(f*col[0],.16,col[2]*(fever?1.4:1),col[1]);  // the act's own colour
       if(fever){musNote(f*2,.13,.022);                         // shimmer octave
         musNote(f,.12,.016,'sawtooth');                        // a little edge on the lead
         setTimeout(()=>{if(ac&&state===ST.PLAY&&fever)musNote(f*1.5,.10,.02)},80);}  // offbeat tick
