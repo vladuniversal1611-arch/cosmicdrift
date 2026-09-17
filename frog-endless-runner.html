@@ -259,10 +259,10 @@ const ACTS=[
   {id:'night', name:'НІЧНЕ НЕБО',     sub:'Він зжер майже все світло. Тримайся ближче.',        icon:'🌙', from:900,  spdMul:1.20, rule:'dark',      col:'#5C6BC0', emo:'😰'},
   {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Ти всередині нього. Ось вони — вкрадені зорі.',   icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081', emo:'🤩'},
 ];
-let curAct=0, actCardT=0, actFlash=0, recFlash=0;
+let curAct=0, actCardT=0, actFlash=0, recFlash=0, actTintT=0;
 function actFor(d){let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
 function enterAct(i){
-  curAct=i;actCardT=2.4;actFlash=1;
+  curAct=i;actCardT=2.4;actFlash=1;actTintT=1;
   if(i>storyP.bestAct){storyP.bestAct=i;chapterNew=i;saveStory()}
   const z=ACTS[i];
   shake=Math.max(shake,.25);addPunch(.6);
@@ -463,6 +463,7 @@ function updateActs(dt){
   updateAttack(dt);
   if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
   if(recFlash>0)recFlash=Math.max(0,recFlash-dt*1.4);
+  if(actTintT>0)actTintT=Math.max(0,actTintT-dt*0.6);   // ~1.7s mood-wash into a new act
 
   const rule=actRule();
 
@@ -2091,7 +2092,7 @@ function startGame(){
   emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
-  curAct=0;actFlash=0;recFlash=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
+  curAct=0;actFlash=0;recFlash=0;actTintT=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
   introT=introSeen?0:INTRO_LEN;actCardT=introSeen?2.2:0;
   atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
   grabCool=0;grabSave=false;
@@ -4680,6 +4681,22 @@ function drawActEffects(){
     ctx.fillRect(0,0,W,H);
   }
 
+  // Act mood-wash — the new act's signature colour swells over the scene and
+  // recedes across the ~1.7s handover, so the world visibly SHIFTS mood into
+  // the act (the atmosphere effects underneath no longer just snap on). Peaks
+  // after the white flash below has faded, so it reads as flash → colour → settle.
+  if(actTintT>0){
+    const sw=Math.sin((1-actTintT)*Math.PI);        // swell 0 → 1 → 0
+    if(sw>0.002){
+      const n=parseInt((ACTS[curAct].col||'#ffffff').replace('#',''),16);
+      const R=(n>>16)&255,G=(n>>8)&255,B=n&255, a=0.30*sw;
+      const g=ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,`rgba(${R},${G},${B},${a})`);
+      g.addColorStop(0.55,`rgba(${R},${G},${B},${a*0.5})`);
+      g.addColorStop(1,`rgba(${R},${G},${B},0)`);
+      ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    }
+  }
   // Act-entry / lightning flash
   if(actFlash>0){
     ctx.fillStyle=`rgba(255,255,255,${0.28*actFlash*actFlash})`;
