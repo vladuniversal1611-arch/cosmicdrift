@@ -191,3 +191,33 @@ Premium mobile game art, high-energy sci-fi, intense glow, polished. No text, no
 
 ## 💡 Порада
 Спочатку зроби **1 сектор повністю** (фон + 6 ворогів), підключимо, подивимось як виглядає в грі — і якщо стиль ок, за цим зразком доробимо решту 4 сектори. Так менше ризику переробляти все.
+
+---
+
+# 🚀 HD-КОРАБЕЛЬ ГРАВЦЯ (для Hangar / скінів / гри)
+
+> Мета: чіткий top-down корабель у тому ж стилі, що зараз (AURORA — темний метал + бірюзові двигуни). База **синьо-сталева**, щоб скіни могли перефарбовувати його фільтром (crimson/emerald/solar/void/wraith). Ніс — строго **ВГОРУ**, симетрія, по центру.
+
+**Головний промт:**
+```
+Top-down view of a single sci-fi fighter spaceship, nose pointing straight UP,
+centered, perfectly symmetric, portrait orientation. Sleek dark gunmetal hull
+with polished steel-blue panels, glowing cyan-blue cockpit canopy, swept-back
+angular wings, twin/triple rear engine nozzles with bright blue-white plasma
+glow. Premium mobile game art, glossy metallic shading, crisp clean edges, soft
+neon rim light, subtle panel lines, high detail, 4K, studio lighting.
+Transparent background (PNG). No text, no UI, no background scenery, no pilot.
+Cool blue color scheme (hue ~215) so it can be recolored.
+Square canvas 1024x1024, ship fills ~80% of height.
+```
+
+**Технічно:**
+| Параметр | Значення |
+|----------|----------|
+| Вид | top-down, ніс УГОРУ |
+| Полотно | 1024×1024 (або більше), квадрат |
+| Фон | прозорий PNG (або чистий **magenta #FF00FF**, якщо прозорість не виходить) |
+| Кольори | синьо-сталеві, hue ~215 (щоб фільтри скінів давали гарні варіанти) |
+| Без | тексту, UI, фону, пілота, підпису |
+
+**Як користуватись:** згенеруй → скинь мені PNG → я приберу фон (rembg), впишу у високій роздільності замість старого спрайта `ship` (170px) → стане чітко в Hangar, скінах і в грі (у грі просто зменшиться, тому лишиться різким).
