@@ -2814,8 +2814,23 @@ function fitScreen(){
 window.addEventListener('resize',fitScreen);
 window.addEventListener('orientationchange',()=>setTimeout(fitScreen,250));
 
+// Hide the Android status bar (top clock/notification shade) — needs the
+// @capacitor/status-bar plugin; harmless no-op if it isn't installed.
+function hideStatusBar(){
+  try{
+    const P=window.Capacitor&&window.Capacitor.Plugins;
+    if(P&&P.StatusBar){
+      P.StatusBar.hide();
+      if(P.StatusBar.setOverlaysWebView)P.StatusBar.setOverlaysWebView({overlay:true});
+    }
+  }catch(e){}
+}
+hideStatusBar();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')hideStatusBar();});
+
 // Request fullscreen on first tap (Android)
 document.getElementById('G').addEventListener('click',()=>{
+  hideStatusBar();
   const el=document.documentElement;
   if(el.requestFullscreen&&!document.fullscreenElement)
     el.requestFullscreen().catch(()=>{});
