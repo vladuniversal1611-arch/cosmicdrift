@@ -1492,10 +1492,26 @@ function buildRouteSection(diff){
     if(i===0&&swing>0.55)cls='SAFE';
     else if(pat.name==='RAPID_ZIGZAG'||pat.name==='AIR_ZIGZAG')cls='PRECISION';
     else if(i===pts.length-1)cls='SAFE';
+    // §4b — SIZE & HOP variety: on a straight, grounded, mid-shape step, roll a
+    // broad platform or a tight little one, so the road stops being a monotone
+    // run of identical 1:1 pads. Only where the extra/less footprint is safe
+    // (low swing, ground level), so placement and reachability stay intact.
+    let gapV=1;
+    if(cls==='NORMAL' && elev===0 && i>0 && i<pts.length-1){
+      const r=Math.random();
+      if(r<0.30) cls='BIG';            // a broad, easy platform to land a run on
+      else if(r>0.80) cls='PRECISION'; // a tight little one for contrast
+      // ...and vary the hop that REACHES this pad — a quick short skip or a
+      // longer leap — so distances differ too (the reach floor still protects
+      // any lane change from being shortened past what's reachable).
+      const g=Math.random();
+      if(g<0.24) gapV=0.74;            // short hop
+      else if(g>0.82) gapV=1.38;       // long leap
+    }
     let loot=null;
     if(i===far)loot='gem';
     else if(i%2===1)loot='coin';
-    const gap=(pat.gap||1)*gapMul;
+    const gap=(pat.gap||1)*gapMul*gapV;
 
     // §11 — a risk line hung off the shape: same depth, further out, pays more
     if(wantRisk&&(i===2||i===pts.length-3)&&elev<2){
@@ -1601,7 +1617,7 @@ function getSpacing(diff, phase){
 // Size CLASSES, not random widths. The old range ran 0.55-1.30 - a 2.4x swing
 // between neighbours - which is exactly what made the route read as a pile of
 // unrelated rectangles. Most of the road is NORMAL, so it looks like one level.
-const SIZE_CLASS={SAFE:1.20, NORMAL:1.00, PRECISION:0.80, RISK:0.76, SPECIAL:1.02};
+const SIZE_CLASS={BIG:1.42, SAFE:1.20, NORMAL:1.00, PRECISION:0.80, RISK:0.76, SPECIAL:1.02};
 function classWidth(cls,diff){
   const base=SIZE_CLASS[cls]!==undefined?SIZE_CLASS[cls]:SIZE_CLASS.NORMAL;
   // Difficulty shaves a little off everything, but never enough to break the
