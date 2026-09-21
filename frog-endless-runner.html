@@ -3624,42 +3624,50 @@ Object.assign(_AD,_PADART);
 // its near edge (rz) forward up the road (rz+len). One top face + one front
 // lip — never a stack of little pads. Styled to match the normal teal slab.
 function drawLongPad(nearRz, gx, elev, len, width, isCurrent){
+  const w=width||1;
   const pn=project(Math.max(nearRz,0.05), gx, elev);
   const pf=project(nearRz+len, gx, elev);
-  const w=width||1;
   const hwN=120*pn.s*w, hwF=120*pf.s*w;
-  const surfN=55*pn.s*w, surfF=55*pf.s*w;   // top-face rises this far above the base line
-  const thickN=28*pn.s*w;
-  const nlx=pn.x-hwN, nrx=pn.x+hwN, nY=pn.y-surfN;          // near surface edge (bottom, big)
-  const flx=pf.x-hwF, frx=pf.x+hwF, fY=pf.y-surfF;          // far surface edge (top, small)
+  const surfN=0, surfF=0;                        // surface sits on the frog's standing line
+  const thickN=26*pn.s*w;                        // a THIN front lip, not a wall
+  const nlx=pn.x-hwN, nrx=pn.x+hwN, nY=pn.y-surfN;   // near surface (frog stands here)
+  const flx=pf.x-hwF, frx=pf.x+hwF, fY=pf.y-surfF;   // far surface
   const c1='#4DD0E1', c2='#00ACC1', c3='#006064';
+  const r=Math.min(14*pn.s, hwN*0.4);
   ctx.save();
-  ctx.shadowColor='rgba(0,229,255,.35)';ctx.shadowBlur=24*pn.s;
-  // Shadow puddle under the near end
-  ctx.shadowBlur=0;
+  // soft ground shadow
   ctx.fillStyle='rgba(0,0,0,.15)';
-  ctx.beginPath();ctx.ellipse(pn.x,pn.y+thickN*0.6,hwN*.92,thickN*.55,0,0,Math.PI*2);ctx.fill();
-  // Front lip (thickness) at the near edge — the darker face you see head-on
-  const fg=ctx.createLinearGradient(0,nY,0,pn.y+thickN);
-  fg.addColorStop(0,c3);fg.addColorStop(.5,darken(c3,25));fg.addColorStop(1,darken(c3,50));
+  ctx.beginPath();ctx.ellipse(pn.x,nY+thickN+4*pn.s,hwN*.92,thickN*.5,0,0,Math.PI*2);ctx.fill();
+  // thin rounded front lip just under the near edge
+  const fg=ctx.createLinearGradient(0,nY,0,nY+thickN);
+  fg.addColorStop(0,c3);fg.addColorStop(1,darken(c3,40));
   ctx.fillStyle=fg;
-  ctx.beginPath();ctx.moveTo(nlx,nY);ctx.lineTo(nrx,nY);ctx.lineTo(nrx,pn.y+thickN*.5);ctx.lineTo(nlx,pn.y+thickN*.5);ctx.closePath();ctx.fill();
-  // Top face — one long trapezoid, near (wide) to far (narrow)
-  ctx.shadowColor='rgba(0,229,255,.5)';ctx.shadowBlur=28*pf.s;
+  ctx.beginPath();
+  ctx.moveTo(nlx,nY);ctx.lineTo(nrx,nY);
+  ctx.lineTo(nrx,nY+thickN-r);ctx.quadraticCurveTo(nrx,nY+thickN,nrx-r,nY+thickN);
+  ctx.lineTo(nlx+r,nY+thickN);ctx.quadraticCurveTo(nlx,nY+thickN,nlx,nY+thickN-r);
+  ctx.closePath();ctx.fill();
+  // long glowing top face, rounded near corners
+  ctx.shadowColor='rgba(0,229,255,.5)';ctx.shadowBlur=26*pf.s;
   const tg=ctx.createLinearGradient(0,fY,0,nY);
-  tg.addColorStop(0,lighten(c1,15));tg.addColorStop(.35,c1);tg.addColorStop(.7,c2);tg.addColorStop(1,c3);
+  tg.addColorStop(0,lighten(c1,18));tg.addColorStop(.45,c1);tg.addColorStop(1,c2);
   ctx.fillStyle=tg;
-  ctx.beginPath();ctx.moveTo(nlx,nY);ctx.lineTo(nrx,nY);ctx.lineTo(frx,fY);ctx.lineTo(flx,fY);ctx.closePath();ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);
+  ctx.lineTo(nrx,nY-r);ctx.quadraticCurveTo(nrx,nY,nrx-r,nY);
+  ctx.lineTo(nlx+r,nY);ctx.quadraticCurveTo(nlx,nY,nlx,nY-r);
+  ctx.closePath();ctx.fill();
   ctx.shadowBlur=0;
-  // Bright leading edge at the far end
-  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=Math.max(1,2*pf.s);
+  // bright far leading edge + a soft lengthwise sheen so it reads as one surface
+  ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=Math.max(1,2*pf.s);
   ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.stroke();
-  // Side rails catch the light so the length reads as one solid surface
-  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=Math.max(1,1.5*pn.s);
-  ctx.beginPath();ctx.moveTo(nlx,nY);ctx.lineTo(flx,fY);ctx.moveTo(nrx,nY);ctx.lineTo(frx,fY);ctx.stroke();
+  const sh=ctx.createLinearGradient(0,fY,0,nY);
+  sh.addColorStop(0,'rgba(255,255,255,0)');sh.addColorStop(.5,'rgba(255,255,255,.12)');sh.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=sh;
+  ctx.beginPath();ctx.moveTo(flx+hwF*.4,fY);ctx.lineTo(frx-hwF*.4,fY);ctx.lineTo(nrx-hwN*.4,nY);ctx.lineTo(nlx+hwN*.4,nY);ctx.closePath();ctx.fill();
   if(isCurrent){
     ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2*pn.s;
-    ctx.beginPath();ctx.moveTo(nlx,nY);ctx.lineTo(nrx,nY);ctx.lineTo(frx,fY);ctx.lineTo(flx,fY);ctx.closePath();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.lineTo(nrx,nY);ctx.lineTo(nlx,nY);ctx.closePath();ctx.stroke();
   }
   ctx.restore();
 }
