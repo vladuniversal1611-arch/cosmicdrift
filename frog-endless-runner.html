@@ -1796,6 +1796,22 @@ function ensurePads(){
       const lastElev=pads.length?(pads[pads.length-1].elev||0):0;
       const elevDrop=Math.abs(myElev-lastElev);
       const nextY=prevY+Math.max(baseGap*(st.gap||1), need+0.25)+(elevDrop>=2?0.8:0);
+      // LONG (run-along) platforms: turn the PREVIOUS pad into a long slab the
+      // frog runs across before it hops. It just extends that pad forward into
+      // part of the gap we now know (never more than ~half, so a real jump
+      // always remains) — the route positions and reachability are untouched.
+      {
+        const li=pads.length-1;
+        if(li>=OPENING.length && li>=1){
+          const lp=pads[li];
+          const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
+                       && (lp.elev||0)===0 && !lp.len && !(pads[li-1]&&pads[li-1].len);
+          const gapToNew = nextY - padPositions[li];
+          if(lone && gapToNew>2.8 && Math.random()<0.30){
+            lp.len = Math.min(2.8, gapToNew*0.52);   // 1.5–2.8 units of run-along
+          }
+        }
+      }
       const unlocked=getUnlockedTypes(dist);
       const mk=(spec,gx)=>{
         let ty=spec.type||'normal';
@@ -4049,6 +4065,21 @@ function drawGame(){
     // Disappearing platforms fade
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
     ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
+    // LONG platform: draw the slab as a strip of overlapping copies stretching
+    // forward (up the road) from the near edge, so it reads as one continuous
+    // long platform the frog runs along. Far copies first, near edge on top.
+    if(pad.len>0){
+      const stepZ=0.42, n=Math.ceil(pad.len/stepZ);
+      for(let s=n;s>=1;s--){
+        const srz=rz+s*stepZ;
+        if(srz>VIEW_AHEAD)continue;
+        const sp=project(srz,pad.gameX,pad.elev);
+        const st=curTurn*(srz/VIEW_AHEAD)*0.28;
+        ctx.globalAlpha=clamp(1-srz/VIEW_AHEAD*.35,0.45,1);
+        drawPad(sp.x,sp.y,sp.s,pad.type,pad.dip,false,pad.width,st);
+      }
+      ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
+    }
     drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt);
     // Landing-target lock-on ring — a soft cyan ellipse on the pad your current
     // lane will land on, so a fork is never a blind guess. Pulses gently and
@@ -4187,38 +4218,55 @@ function drawGame(){
     // A leap covers two gaps, so give it a taller arc to match the distance
     const leapLift=inLeap?1.45:1;
 
+    // LONG platforms split the hop in two: while the frog is still over the
+    // slab's length it does quick LOW hops in place (running along it), then
+    // launches the real arc off the far edge into the gap. Horizontal motion
+    // (frogZ) still uses `bounce`; only the VERTICAL phase changes here.
+    const curLen=(!inLeap&&curIdx2>=0&&curIdx2<pads.length)?(pads[curIdx2].len||0):0;
+    let airBounce=bounce, airLift=1;
+    if(curLen>0){
+      const runEnd=curPos+curLen;
+      if(seq<runEnd){
+        const sub=0.95;                          // one little hop per ~0.95 units
+        airBounce=((seq-curPos)%sub)/sub;
+        airLift=0.42;                            // low, skittering, not a full jump
+      } else {
+        airBounce=clamp((seq-runEnd)/Math.max(nextPos-runEnd,0.01),0,1);
+      }
+    }
+
     // Jump curve — asymmetric, like real gravity. A sine arc is symmetric and
     // reads floaty; this launches hard, hangs at the apex, then accelerates
     // down so the landing has weight and you can time it.
     const APEX=0.44;
     let rawAir;
-    if(bounce<APEX){
-      const t=bounce/APEX;
+    if(airBounce<APEX){
+      const t=airBounce/APEX;
       rawAir=1-Math.pow(1-t,1.7);        // snappy launch easing into the apex
     } else {
-      const t=(bounce-APEX)/(1-APEX);
+      const t=(airBounce-APEX)/(1-APEX);
       rawAir=1-Math.pow(t,1.85);         // hangs, then falls away faster
     }
     // Spring platforms boost jump height 1.6x
     const springMult=(curIdx2>=0&&curIdx2<pads.length&&pads[curIdx2].springBoost)?1.6:1;
-    const airness=Math.max(0,rawAir)*springMult*leapLift;
+    const airness=Math.max(0,rawAir)*springMult*leapLift*airLift;
 
     // Squash / stretch — eased rather than piecewise-linear, and shaped to the
     // new arc: compress on takeoff, stretch through the climb, settle at the
     // apex, stretch again into the fall, then absorb hard on landing.
     let sqX,sqY;
     const ease=t=>t*t*(3-2*t);           // smoothstep
-    if(bounce<.10){                      // TAKEOFF — explode out of the compress
-      const t=ease(bounce/.10);
+    if(airBounce<.10){                   // TAKEOFF — explode out of the compress
+      const t=ease(airBounce/.10);
       sqX=1+.30*(1-t);sqY=1-.24*(1-t);
-    } else if(bounce<APEX){              // CLIMB — stretch thins out toward apex
-      const t=ease((bounce-.10)/(APEX-.10));
+    } else if(airBounce<APEX){           // CLIMB — stretch thins out toward apex
+      const t=ease((airBounce-.10)/(APEX-.10));
       sqX=1-.16*t;sqY=1+.21*t;
-    } else if(bounce<.86){               // FALL — re-stretch as speed builds
-      const t=ease((bounce-APEX)/(.86-APEX));
+    } else if(airBounce<.86){            // FALL — re-stretch as speed builds
+      const t=ease((airBounce-APEX)/(.86-APEX));
       sqX=1-.16*(1-t)-.10*t;sqY=1+.21*(1-t)+.14*t;
     } else {                             // LANDING — absorb the impact
-      const t=ease((bounce-.86)/.14);
+      const t=ease((airBounce-.86)/.14);
       sqX=1-.10+.42*t;sqY=1+.14-.40*t;
     }
 
