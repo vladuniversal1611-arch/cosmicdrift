@@ -1531,18 +1531,12 @@ function buildRouteSection(diff){
     if(i===0&&swing>0.55)cls='SAFE';
     else if(pat.name==='RAPID_ZIGZAG'||pat.name==='AIR_ZIGZAG')cls='PRECISION';
     else if(i===pts.length-1)cls='SAFE';
-    // §4b — SIZE & HOP variety: on a straight, grounded, mid-shape step, roll a
-    // broad platform or a tight little one, so the road stops being a monotone
-    // run of identical 1:1 pads. Only where the extra/less footprint is safe
-    // (low swing, ground level), so placement and reachability stay intact.
+    // §4b — HOP-DISTANCE variety only. Platforms keep ONE uniform footprint
+    // (mixed 3:3 / 2:2 / 1:1 sizes read as messy); we vary only the hop that
+    // reaches this pad — a quick short skip or a longer leap — so distances
+    // differ without dirtying the look.
     let gapV=1;
     if(cls==='NORMAL' && elev===0 && i>0 && i<pts.length-1){
-      const r=Math.random();
-      if(r<0.30) cls='BIG';            // a broad, easy platform to land a run on
-      else if(r>0.80) cls='PRECISION'; // a tight little one for contrast
-      // ...and vary the hop that REACHES this pad — a quick short skip or a
-      // longer leap — so distances differ too (the reach floor still protects
-      // any lane change from being shortened past what's reachable).
       const g=Math.random();
       if(g<0.24) gapV=0.88;            // short hop (still a clear gap, not bunched)
       else if(g>0.82) gapV=1.38;       // long leap
@@ -1656,7 +1650,10 @@ function getSpacing(diff, phase){
 // Size CLASSES, not random widths. The old range ran 0.55-1.30 - a 2.4x swing
 // between neighbours - which is exactly what made the route read as a pile of
 // unrelated rectangles. Most of the road is NORMAL, so it looks like one level.
-const SIZE_CLASS={BIG:1.42, SAFE:1.20, NORMAL:1.00, PRECISION:0.80, RISK:0.76, SPECIAL:1.02};
+// Platforms are visually near-uniform now — the old wide spread of footprints
+// (3:3 / 2:2 / 1:1) read as messy. Sizes sit in a tight band around NORMAL so
+// the road looks clean; length (long run-along slabs) carries the variety.
+const SIZE_CLASS={SAFE:1.08, NORMAL:1.00, PRECISION:0.92, RISK:0.90, SPECIAL:1.02};
 function classWidth(cls,diff){
   const base=SIZE_CLASS[cls]!==undefined?SIZE_CLASS[cls]:SIZE_CLASS.NORMAL;
   // Difficulty shaves a little off everything, but never enough to break the
@@ -4138,11 +4135,6 @@ function drawGame(){
       if(d<bd){bd=d;aimIdx=i}
     }
   }
-  // Targeting clarity: the pad row you must land on NEXT stays bright; rows
-  // further ahead recede. A far pad that happens to line up with your lane no
-  // longer reads as "the one to jump to" — you always land on the next row.
-  const nextRowY = (alive && introT<=0 && curIdx+1<pads.length) ? padPositions[curIdx+1] : null;
-  const curRowY  = pads[curIdx] ? padPositions[curIdx] : null;
   for(const{i,rz}of order){
     const pad=pads[i];
     // Don't draw broken/disappeared platforms
@@ -4161,15 +4153,11 @@ function drawGame(){
     const tilt=curTurn*(rz/VIEW_AHEAD)*0.28;
     // Depth-based alpha — farther = slightly darker
     const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
-    // Targeting dim — the next row and the pad you're on stay bright; anything
-    // beyond the next row recedes so it can't be mistaken for the next target.
-    let targetDim=1;
-    if(nextRowY!==null && padPositions[i]>nextRowY && padPositions[i]!==curRowY) targetDim=0.42;
     // Breakable platforms flicker when cracking
     const breakFlicker=(pad.type==='breakable'&&pad.breakTimer>0)?(.5+.5*Math.sin(gt*30)):1;
     // Disappearing platforms fade
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
-    ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade*targetDim;
+    ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
     // LONG platform: one single continuous slab stretching forward up the road,
     // not a stack of little pads.
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
