@@ -1317,6 +1317,23 @@ const LANE_L=0.35, LANE_C=1.00, LANE_R=1.65;   // legacy anchors for zoneToX()
 const ROUTE_SPACING=3.5;                        // baseline depth between platforms
 const X_MIN=0.12, X_MAX=1.88;                   // playable band
 let routeQueue=[];          // pending steps of the current section
+// LENGTH RHYTHMS — like Morse: recognisable little sequences of long slabs
+// (dashes) and point pads (dots) with short/long hops between, so the road
+// plays phrases instead of one length on repeat. Each entry = the pad you run
+// along {len units, 0 = a point pad} + the hop multiplier to the next.
+let lenPhrase=[];
+function chooseLenPhrase(){
+  const P=[
+    [[4.6,1.0],[4.6,1.0]],                          // ▬ ▬   two long runs
+    [[4.6,0.8],[0,0.8],[4.6,1.0]],                  // ▬ · ▬  long, dot, long
+    [[0,0.72],[0,0.72],[0,0.72],[4.8,1.0]],         // · · · ▬  staccato then a run
+    [[5.2,1.55],[4.6,1.0]],                         // ▬ —leap— ▬
+    [[5.2,0.9],[3.2,0.9],[1.9,1.0]],                // ▬ ▬ ▬ down-ramp long→short
+    [[0,1.4],[4.8,0.8],[0,1.0]],                    // ·  —leap—  ▬  ·
+    [[3.0,0.75],[0,0.75],[3.0,0.75],[0,1.0]],       // ▬·▬·  march
+  ];
+  return P[(Math.random()*P.length)|0].map(e=>({len:e[0],gapMul:e[1]}));
+}
 let routeCenter=1.00;       // the road's current centre — ALL offsets are relative to it
 let routeLane=LANE_C;       // last absolute X the route produced
 let routeElev=0;            // height the road is currently at
@@ -1795,24 +1812,33 @@ function ensurePads(){
       const myElev=(st.fork?st.safe.elev:st.elev)||0;
       const lastElev=pads.length?(pads[pads.length-1].elev||0):0;
       const elevDrop=Math.abs(myElev-lastElev);
-      // LONG (run-along) platforms: turn the PREVIOUS pad into a genuinely long
-      // slab the frog runs across, and RESERVE that run length ON TOP of the
-      // normal hop, so a real jump to this next pad always remains. The extra
-      // distance is just flat running, so route reachability is unaffected.
-      let prevLongLen=0;
+      // LONG (run-along) platforms & LENGTH RHYTHMS. A pad can become a long
+      // slab the frog runs across; its run length is RESERVED on top of the
+      // normal hop so a real jump to the next pad always remains (the reserved
+      // distance is flat running, so reachability is unaffected). Lengths come
+      // either from a Morse-like phrase in progress, or a standalone roll.
+      let prevLongLen=0, gapMul2=1;
       {
         const li=pads.length-1;
         if(li>=OPENING.length && li>=1){
           const lp=pads[li];
           const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
-                       && (lp.elev||0)===0 && !lp.len && !(pads[li-1]&&pads[li-1].len);
-          if(lone && Math.random()<0.32){
-            prevLongLen = 3.0 + Math.random()*2.2;   // 3–5.2 units: a real run
-            lp.len = prevLongLen;
+                       && (lp.elev||0)<=1 && !lp.len;
+          if(lenPhrase.length){                 // continue a running phrase
+            const seg=lenPhrase.shift();
+            if(lone && seg.len>0){ lp.len=seg.len; prevLongLen=seg.len; }
+            gapMul2=seg.gapMul;
+          } else if(lone && Math.random()<0.24){ // start a new phrase (clusters of longs/dots)
+            lenPhrase=chooseLenPhrase();
+            const seg=lenPhrase.shift();
+            if(seg.len>0){ lp.len=seg.len; prevLongLen=seg.len; }
+            gapMul2=seg.gapMul;
+          } else if(lone && Math.random()<0.10){ // an occasional standalone long
+            prevLongLen=3.0+Math.random()*2.0; lp.len=prevLongLen;
           }
         }
       }
-      const nextY=prevY+prevLongLen+Math.max(baseGap*(st.gap||1), need+0.25)+(elevDrop>=2?0.8:0);
+      const nextY=prevY+prevLongLen+Math.max(baseGap*(st.gap||1)*gapMul2, need+0.25)+(elevDrop>=2?0.8:0);
       const unlocked=getUnlockedTypes(dist);
       const mk=(spec,gx)=>{
         let ty=spec.type||'normal';
@@ -2166,7 +2192,7 @@ function startGame(){
   if(!tutorialShown){tutorialAlpha=1}
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];breathPhase=0;
-  pads=[];padPositions=[];prevBranchXs=[];laneHist=[];routeQueue=[];routeCenter=1.00;routeLane=LANE_C;routeElev=0;routeLast='';
+  pads=[];padPositions=[];prevBranchXs=[];laneHist=[];routeQueue=[];lenPhrase=[];routeCenter=1.00;routeLane=LANE_C;routeElev=0;routeLast='';
   pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
   // Seed straight from the authored OPENING so the very first platforms already
