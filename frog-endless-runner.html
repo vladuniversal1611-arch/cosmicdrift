@@ -279,11 +279,15 @@ function enterAct(i){
 // grows act by act — a smudge with eyes in the garden, the whole sky by the
 // star stream. He flinches when you light a castle and gloats when you fall.
 let eaterAngry=0, eaterGloat=0, castlesSaved=0;
+// How much you are CLOSING IN on Хмарожер this run — driven by sustained clean
+// play (perfect combos + fever). It looms him larger and reddens his eyes: the
+// chase, made legible. A stumble resets the combo and he slips away again.
+let eaterClose=0, eaterCaughtSaid=false;
 const castleLitCycle=[-1,-1];   // which fly-by of each castle has already been lit
 function eaterScale(){
   const base=0.70+curAct*0.24;
   const intro=introT>0?1+(1-introU())*2.4:1;     // fills the sky, then flees to the horizon
-  return base*(finaleOn?1.18:1)*(1+eaterGloat*0.35)*(1+eaterAttack*0.5)*(1-eaterFlinch*0.28)*intro;
+  return base*(finaleOn?1.18:1)*(1+eaterClose*0.20)*(1+eaterGloat*0.35)*(1+eaterAttack*0.5)*(1-eaterFlinch*0.28)*intro;
 }
 function drawCloudEater(){
   if(state!==ST.PLAY&&state!==ST.OVER)return;
@@ -310,8 +314,10 @@ function drawCloudEater(){
   }
   // Eyes — the one thing that reads at any size. Yellow, red when provoked.
   ctx.globalAlpha=Math.min(1,bodyA+0.35);
-  const ex=r*0.34, ey=-r*0.05, er=Math.max(3.2,r*0.13)*(1+eaterAngry*0.3);
-  const eyeCol=eaterAngry>0.05?`rgba(255,${Math.round(210-eaterAngry*150)},60,1)`:'#FFD54F';
+  // Provocation reddens the eyes: an angry flash, OR you closing in on him.
+  const prov=Math.max(eaterAngry, eaterClose*0.85);
+  const ex=r*0.34, ey=-r*0.05, er=Math.max(3.2,r*0.13)*(1+prov*0.3);
+  const eyeCol=prov>0.05?`rgba(255,${Math.round(210-prov*150)},60,1)`:'#FFD54F';
   ctx.shadowColor=eyeCol;ctx.shadowBlur=r*0.35;
   ctx.fillStyle=eyeCol;
   for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex,ey,er,er*0.75,0,0,Math.PI*2);ctx.fill()}
@@ -330,6 +336,22 @@ function drawCloudEater(){
 function updateCloudEater(dt){
   if(eaterAngry>0)eaterAngry=Math.max(0,eaterAngry-dt*1.6);
   if(eaterGloat>0)eaterGloat=Math.max(0,eaterGloat-dt*0.5);
+  // You close in on him by stringing clean landings together; fever means you're
+  // right on his tail. The bar eases so he looms in and slips away smoothly.
+  if(state===ST.PLAY&&alive){
+    const tgt=clamp(perfectCombo/12,0,1)*0.75+(fever?0.35:0);
+    eaterClose=sd(eaterClose,Math.min(1,tgt),tgt>eaterClose?2.2:1.1,dt);
+    // The one moment the chase pays off in the story: you actually gain on him.
+    if(eaterClose>0.7&&!eaterCaughtSaid){
+      eaterCaughtSaid=true;eaterAngry=1;
+      if(typeof setEmo==='function')setEmo('😤',1.3);
+      addFloat('Ти наздоганяєш його!',W/2,H*0.30,'#FF7043',22);
+    } else if(eaterClose<0.4&&eaterCaughtSaid){
+      eaterCaughtSaid=false;   // slipped away — can be earned again this run
+    }
+  } else if(eaterClose>0){
+    eaterClose=Math.max(0,eaterClose-dt*1.5);
+  }
 }
 
 // ---- STORY PROGRESS — remembered across runs, so a run is a chapter, not a retry ----
@@ -2108,7 +2130,7 @@ function startGame(){
   emo='';emoT=0;
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
-  curAct=0;actFlash=0;recFlash=0;actTintT=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
+  curAct=0;actFlash=0;recFlash=0;actTintT=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;eaterClose=0;eaterCaughtSaid=false;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
   introT=introSeen?0:INTRO_LEN;actCardT=introSeen?2.2:0;
   atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
   grabCool=0;grabSave=false;
