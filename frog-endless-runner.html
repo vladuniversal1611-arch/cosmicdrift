@@ -1795,23 +1795,24 @@ function ensurePads(){
       const myElev=(st.fork?st.safe.elev:st.elev)||0;
       const lastElev=pads.length?(pads[pads.length-1].elev||0):0;
       const elevDrop=Math.abs(myElev-lastElev);
-      const nextY=prevY+Math.max(baseGap*(st.gap||1), need+0.25)+(elevDrop>=2?0.8:0);
-      // LONG (run-along) platforms: turn the PREVIOUS pad into a long slab the
-      // frog runs across before it hops. It just extends that pad forward into
-      // part of the gap we now know (never more than ~half, so a real jump
-      // always remains) — the route positions and reachability are untouched.
+      // LONG (run-along) platforms: turn the PREVIOUS pad into a genuinely long
+      // slab the frog runs across, and RESERVE that run length ON TOP of the
+      // normal hop, so a real jump to this next pad always remains. The extra
+      // distance is just flat running, so route reachability is unaffected.
+      let prevLongLen=0;
       {
         const li=pads.length-1;
         if(li>=OPENING.length && li>=1){
           const lp=pads[li];
           const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
                        && (lp.elev||0)===0 && !lp.len && !(pads[li-1]&&pads[li-1].len);
-          const gapToNew = nextY - padPositions[li];
-          if(lone && gapToNew>2.8 && Math.random()<0.30){
-            lp.len = Math.min(2.8, gapToNew*0.52);   // 1.5–2.8 units of run-along
+          if(lone && Math.random()<0.32){
+            prevLongLen = 3.0 + Math.random()*2.2;   // 3–5.2 units: a real run
+            lp.len = prevLongLen;
           }
         }
       }
+      const nextY=prevY+prevLongLen+Math.max(baseGap*(st.gap||1), need+0.25)+(elevDrop>=2?0.8:0);
       const unlocked=getUnlockedTypes(dist);
       const mk=(spec,gx)=>{
         let ty=spec.type||'normal';
@@ -2916,6 +2917,22 @@ function updateGame(dt){
             visLane+=(pc-visLane)*k;
           }
         }
+      }
+    }
+  }
+  // Running along a LONG platform: hold the frog on the slab's lane for the
+  // first stretch of the run, then hand steering back near the end — so you run
+  // straight along it and the lane change happens on the JUMP off the far edge,
+  // not by drifting off the side mid-slab.
+  if(!leapActive()){
+    const ci5=getCurrentPadIdx();
+    const cpad=pads[ci5];
+    if(cpad&&cpad.len>0){
+      const along=seq-padPositions[ci5];
+      if(along>=0&&along<cpad.len){
+        const rel=along/cpad.len;                       // 0 → 1 across the run
+        const hold=1-clamp((rel-0.35)/0.30,0,1);        // firm until 35%, free by ~65% to aim the jump
+        if(hold>0) visLane+=(cpad.gameX-visLane)*hold*clamp(11*dt,0,1);
       }
     }
   }
