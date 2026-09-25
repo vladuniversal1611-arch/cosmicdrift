@@ -413,8 +413,8 @@ function updateAttack(dt){
     if(dist>=atkNextDist&&!finaleOn&&actRule()!=='lightning'&&actCardT<=0){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
-      addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ! БІЖИ!',W/2,H*0.22,'#B388FF',22);
-      setEmo('😨',1.2);
+      addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ!',W/2,H*0.16,'#B388FF',16);
+      setEmo('😨',0.7);
       if(navigator.vibrate)navigator.vibrate([40,50,40]);
     }
   } else if(atkPhase===1){
@@ -603,7 +603,7 @@ function drawEmoBubble(x,y,sc){
   else k=1;
   const a=t>0.75?(1-(t-0.75)/0.25):1;
   const rise=t*22*sc;
-  const size=26*sc*k;
+  const size=15*sc*k;                    // a small reaction, not a billboard
   ctx.save();
   ctx.globalAlpha=Math.max(0,a);
   ctx.font=`${size}px Exo2,sans-serif`;
@@ -2470,7 +2470,7 @@ function onLand(idx){
     if(perfectCombo>0&&perfectCombo%10===0){
       hypeT=HYPE_DUR;
       setEmo('🤩',1.6);
-      addFloat('⚡ COMBO x'+perfectCombo+' ⚡',W/2,H*0.20,'#FF00FF',34);
+      addFloat('⚡ COMBO x'+perfectCombo+' ⚡',W/2,H*0.165,'#FF00FF',20);
       if(navigator.vibrate)navigator.vibrate([30,50,30]);
       // Confetti burst of magenta+cyan particles from centre
       for(let i=0;i<28;i++){
@@ -2750,8 +2750,7 @@ function updateGame(dt){
   // === CHASER (shadow wall) ===
   if(dist>100&&!chaserActive){
     chaserActive=true;chaserZ=VIEW_Z+VIEW_AHEAD+5;
-    sfxChaserWarn();chaserWarnShow=1;
-    addFloat('🏃 ТІКАЙ!',W/2,H*.3,'#9C27B0',26);
+    sfxChaserWarn();chaserWarnShow=1;   // the banner below is the only shout
   }
   if(chaserActive&&alive){
     if(chaserWarnShow>0) chaserWarnShow-=dt*.8;
@@ -3392,9 +3391,29 @@ function drawPad(x,y,s,type,dip,isCurrent,width,tilt){
   const usedArt=artKey&&_ok(artKey);
 
   if(usedArt){
+    // The supplied neon sprite is a *frame* with a hollow centre, so it reads as
+    // a wireframe on its own. Paint a solid slab underneath first — thick dark
+    // side face + bright top face — and let the sprite supply only the neon rim.
+    ctx.save();
+    ctx.fillStyle=darken(c3,55);
+    rr(-hw,dO-hh*.25,hw*2,thick+hh*.25,rad*.45);ctx.fill();
+    const btg=ctx.createLinearGradient(0,-hh*2+dO,0,dO);
+    btg.addColorStop(0,lighten(c1,22));btg.addColorStop(.45,c1);btg.addColorStop(1,c2);
+    ctx.fillStyle=btg;
+    rr(-hw,-hh*2+dO,hw*2,hh*2,rad);ctx.fill();
+    ctx.restore();
     ctx.save();
     ctx.shadowColor=glow+'.45)';ctx.shadowBlur=26*s;
     ctx.drawImage(_A[artKey],-hw,-hh*2+dO,hw*2,hh*2+thick);
+    ctx.restore();
+    // Signature diamond gem, on top of the frame so the sprite can't bury it
+    const gs=hh*.40;
+    ctx.save();ctx.translate(0,cy);
+    const gg=ctx.createLinearGradient(0,-gs,0,gs);
+    gg.addColorStop(0,'rgba(255,255,255,.95)');gg.addColorStop(1,'rgba(180,240,255,.7)');
+    ctx.fillStyle=gg;
+    ctx.shadowColor='rgba(180,245,255,.9)';ctx.shadowBlur=18*s;
+    ctx.beginPath();ctx.moveTo(0,-gs);ctx.lineTo(gs*.78,0);ctx.lineTo(0,gs);ctx.lineTo(-gs*.78,0);ctx.closePath();ctx.fill();
     ctx.restore();
     if(isCurrent){
       ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2*s;
@@ -3642,10 +3661,12 @@ function drawLongPad(nearRz, gx, elev, len, width, isCurrent){
   const pf=project(nearRz+len, gx, elev);
   const hwN=120*pn.s*w, hwF=120*pf.s*w;
   const surfN=0, surfF=0;                        // surface sits on the frog's standing line
-  const thickN=26*pn.s*w;                        // a THIN front lip, not a wall
+  const thickN=40*pn.s*w;                        // front lip: solid, but not a wall
   const nlx=pn.x-hwN, nrx=pn.x+hwN, nY=pn.y-surfN;   // near surface (frog stands here)
   const flx=pf.x-hwF, frx=pf.x+hwF, fY=pf.y-surfF;   // far surface
-  const c1=neonOn?'#1B4E7A':'#4DD0E1', c2=neonOn?'#0C2C4A':'#00ACC1', c3=neonOn?'#06182E':'#006064';
+  // Same bright plate palette as the short pads — a dark slab read as a
+  // near-transparent placeholder next to them.
+  const c1='#4DD0E1', c2='#00ACC1', c3='#00434A';
   const r=Math.min(14*pn.s, hwN*0.4);
   ctx.save();
   // soft ground shadow
@@ -3678,9 +3699,14 @@ function drawLongPad(nearRz, gx, elev, len, width, isCurrent){
   sh.addColorStop(0,'rgba(255,255,255,0)');sh.addColorStop(.5,'rgba(255,255,255,.12)');sh.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=sh;
   ctx.beginPath();ctx.moveTo(flx+hwF*.4,fY);ctx.lineTo(frx-hwF*.4,fY);ctx.lineTo(nrx-hwN*.4,nY);ctx.lineTo(nlx+hwN*.4,nY);ctx.closePath();ctx.fill();
+  ctx.save();
+  ctx.shadowColor='rgba(0,229,255,.9)';ctx.shadowBlur=18*pn.s;
+  ctx.strokeStyle='rgba(120,240,255,.95)';ctx.lineWidth=Math.max(2,3.5*pn.s);
+  ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.lineTo(nrx,nY);ctx.lineTo(nlx,nY);ctx.closePath();ctx.stroke();
+  ctx.restore();
   if(isCurrent){
     ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2*pn.s;
-    ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.lineTo(nrx,nY);ctx.lineTo(nlx,nY);ctx.closePath();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(flx+4*pn.s,fY+4*pf.s);ctx.lineTo(frx-4*pn.s,fY+4*pf.s);ctx.lineTo(nrx-5*pn.s,nY-5*pn.s);ctx.lineTo(nlx+5*pn.s,nY-5*pn.s);ctx.closePath();ctx.stroke();
   }
   ctx.restore();
 }
@@ -3958,12 +3984,15 @@ function drawRainbowRoad(){
   if(neonOn){
     // Dark neon road: a translucent dark path with glowing cyan edges + a faint
     // magenta centre line, so platforms read against it instead of the bright bg.
-    const EDGE_L=-.30, EDGE_R=2.30;
+    // Keep the ribbon narrow: at -.30/2.30 perspective flared it across the
+    // whole lower screen and buried the neon skyline behind a blue wash.
+    const EDGE_L=-.06, EDGE_R=2.06;
     // A light ribbon, not a dark strip: faint at the horizon, brightest under
     // the player, so the road itself is the main light source of the scene.
     ctx.fillStyle=cachedGrad('nroad2'+H,()=>{const g=ctx.createLinearGradient(0,vanY,0,baseY);
-      g.addColorStop(0,'rgba(90,200,255,0)');g.addColorStop(.40,'rgba(70,170,255,.055)');
-      g.addColorStop(.75,'rgba(100,200,255,.12)');g.addColorStop(1,'rgba(150,225,255,.20)');return g});
+      g.addColorStop(0,'rgba(90,200,255,0)');g.addColorStop(.38,'rgba(40,120,200,.10)');
+      g.addColorStop(.62,'rgba(50,150,225,.22)');g.addColorStop(.80,'rgba(50,150,225,.10)');
+      g.addColorStop(1,'rgba(40,120,200,0)');return g});
     ctx.beginPath();
     for(let z=VIEW_AHEAD;z>=0;z-=.4){const p=project(z,EDGE_L);z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
     for(let z=0;z<=VIEW_AHEAD;z+=.4){const p=project(z,EDGE_R);ctx.lineTo(p.x,p.y);}
@@ -3976,9 +4005,9 @@ function drawRainbowRoad(){
       for(let z=VIEW_AHEAD;z>=0;z-=.4){const p=project(z,lane);z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
       ctx.stroke();ctx.restore();
     };
-    edge(EDGE_L,0,229,255,3.2,12);
-    edge(EDGE_R,0,229,255,3.2,12);
-    edge(1.0,224,64,251,2,8);
+    edge(EDGE_L,0,229,255,4.5,18);
+    edge(EDGE_R,0,229,255,4.5,18);
+    edge(1.0,224,64,251,1.6,7);
     return;
   }
   const sky=SKY_SKINS[curSky];
@@ -4470,9 +4499,9 @@ function drawGame(){
     }
     if(chaserWarnShow>0.02){
       ctx.save();ctx.globalAlpha=Math.min(chaserWarnShow*2,1);
-      ctx.font=`bold ${48*(1+.2*(1-chaserWarnShow))}px Exo2,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.shadowColor='rgba(156,39,176,.8)';ctx.shadowBlur=25;
-      ctx.fillStyle='#CE93D8';ctx.fillText('🏃 ТІКАЙ!',W/2,H*.28);
+      ctx.font=`bold ${26*(1+.15*(1-chaserWarnShow))}px Exo2,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(156,39,176,.8)';ctx.shadowBlur=18;
+      ctx.fillStyle='#CE93D8';ctx.fillText('🏃 ТІКАЙ!',W/2,H*.245);
       ctx.shadowBlur=0;ctx.globalAlpha=1;ctx.restore();
     }
   }
@@ -4532,17 +4561,18 @@ function drawGame(){
     ctx.globalAlpha=pfa;
     // Scale font: GOOD=24, single PERFECT=30, combo PERFECT=36-48, fever=48-56
     let fontSize;
-    if(isGoodText){fontSize=20}
-    else if(isFeverPerfect){fontSize=Math.min(30+perfectCombo,38)}
-    else if(perfectCombo>=5){fontSize=32}
-    else if(perfectCombo>=2){fontSize=27}
-    else{fontSize=23}
+    if(isGoodText){fontSize=16}
+    else if(isFeverPerfect){fontSize=Math.min(22+perfectCombo*.5,27)}
+    else if(perfectCombo>=5){fontSize=24}
+    else if(perfectCombo>=2){fontSize=21}
+    else{fontSize=18}
     ctx.font=`900 ${fontSize*pfsc}px Exo2,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     const pfCol=isGoodText?'#FFD54F':isFeverPerfect?'#FFD700':perfectText.includes('⚡')?'#E040FB':'#E040FB';
     ctx.shadowColor=isFeverPerfect?'rgba(255,180,0,.8)':pfCol;
     ctx.shadowBlur=isGoodText?8:isFeverPerfect?30:16;
     // Position: GOOD below center, PERFECT higher
-    const textY=isGoodText?H*.155:H*.135;   // above the route, below the HUD
+    const textY=isGoodText?H*.225:H*.205;  // in the haze band under the horizon,
+                                           // clear of both the HUD and the pads
     // Painted sky underneath means a glow alone leaves the text washed out.
     ctx.lineJoin='round';ctx.lineWidth=Math.max(4,fontSize*pfsc*.2);
     ctx.strokeStyle='rgba(32,14,48,.9)';
@@ -4559,16 +4589,20 @@ function drawGame(){
     const msa=Math.min(msShow*4,1);
     ctx.globalAlpha=msa;
     // Compact banner at top
-    const mbY=48+12*(1-msShow); // slides up as it fades
-    ctx.font='24px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(msEmoji,W/2-80,mbY);
-    ctx.font='bold 22px Exo2,sans-serif';
+    const mbY=H*.165+12*(1-msShow); // under the HUD, slides up as it fades
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const line=msEmoji+' '+msText+'  +'+msCoins+'🪙';
+    let fs=16;
+    ctx.font='bold '+fs+'px Exo2,sans-serif';
+    const maxW=W-48;
+    if(ctx.measureText(line).width>maxW){
+      fs=Math.max(11,fs*maxW/ctx.measureText(line).width);
+      ctx.font='bold '+fs+'px Exo2,sans-serif';
+    }
     ctx.shadowColor=msColor;ctx.shadowBlur=12;
     ctx.fillStyle=msColor;
-    ctx.fillText(msText,W/2+10,mbY);
+    ctx.fillText(line,W/2,mbY);
     ctx.shadowBlur=0;
-    ctx.font='14px Exo2,sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
-    ctx.fillText(`+${msCoins}🪙`,W/2+90,mbY);
     ctx.globalAlpha=1;ctx.restore();
   }
   // === CLOSE CALL FLASH ===
