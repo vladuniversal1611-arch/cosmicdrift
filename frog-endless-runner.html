@@ -204,13 +204,25 @@ function edgeGlow(r,g,b,a,depth){
     if(i<2)ctx.fillRect(i===0?0:W-d,0,d,H); else ctx.fillRect(0,i===2?0:H-d,W,d);
   }
 }
+let washK=1;
+function updateWash(){
+  let t=0;
+  if(hypeT>0)t+=0.85*(hypeT/HYPE_DUR);
+  t+=actFlash+recFlash;
+  if(actTintT>0)t+=0.45*Math.sin((1-actTintT)*Math.PI);
+  if(atkPhase===3)t+=0.55*Math.min(1,atkT/1.6);
+  if(fever)t+=0.30*clamp(feverT/1.2,0,1);
+  t+=0.30*flow;
+  const CAP=0.82;   // total full-screen light allowed at once
+  washK=t<=CAP?1:CAP/t;
+}
 function drawFlowGrade(){
   if(flow<=0.02||deathT>=0)return;
   const f=flow;
   // Saturation lift — the world gets richer the better you're doing
   ctx.save();
   ctx.globalCompositeOperation='saturation';
-  ctx.globalAlpha=f*0.35;
+  ctx.globalAlpha=f*0.35*washK;
   ctx.fillStyle='#ff0000';               // full-sat grey source pushes saturation up
   ctx.fillRect(0,0,W,H);
   ctx.restore();
@@ -219,14 +231,14 @@ function drawFlowGrade(){
     const k=(f-0.45)/0.55;
     const g=ctx.createRadialGradient(W/2,H*0.6,H*0.28,W/2,H*0.6,H*0.85);
     g.addColorStop(0,'rgba(255,214,120,0)');
-    g.addColorStop(1,`rgba(255,190,90,${0.22*k})`);
+    g.addColorStop(1,`rgba(255,190,90,${0.22*k*washK})`);
     ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
   // At peak flow the edges pulse with the beat of your combo
   if(f>0.8){
     const k=(f-0.8)/0.2;
-    const pulse=0.5+0.5*Math.sin(gt*7);
-    edgeGlow(255,205,110,0.20*k*(0.55+0.45*pulse),Math.min(W,H)*0.16);
+    const pulse=0.5+0.5*Math.sin(gt*2.2);
+    edgeGlow(255,205,110,0.15*k*(0.80+0.20*pulse)*washK,Math.min(W,H)*0.16);
   }
 }
 function drawFlowMeter(){
@@ -3532,7 +3544,7 @@ function drawPad(x,y,s,type,dip,isCurrent,width,tilt){
     const aw=hw*2*1.2, ah=aw/PAD_ART_ASPECT;
     const ay=-(ah-thick)+dO;                     // keeps the standing line at y=0
     ctx.save();
-    ctx.shadowColor=glow+'.45)';ctx.shadowBlur=26*s;
+    ctx.shadowColor=glow+'.32)';ctx.shadowBlur=15*s;
     ctx.drawImage(_A[artKey],-aw/2,ay,aw,ah);
     ctx.restore();
     if(isCurrent){
@@ -4362,7 +4374,7 @@ function drawGame(){
     // Depth-based alpha — farther = slightly darker
     const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
     // Breakable platforms flicker when cracking
-    const breakFlicker=(pad.type==='breakable'&&pad.breakTimer>0)?(.5+.5*Math.sin(gt*30)):1;
+    const breakFlicker=(pad.type==='breakable'&&pad.breakTimer>0)?(.78+.22*Math.sin(gt*9)):1;
     // Disappearing platforms fade
     const disappearFade=(pad.type==='disappear')?pad.disappearAlpha:1;
     ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade;
@@ -4874,28 +4886,36 @@ function drawGame(){
     }
   }
 
+  updateWash();
   // === HYPE BURST OVERLAY (combo ≥10) ===
   if(hypeT>0){
     const t=hypeT/HYPE_DUR;                              // 1..0
-    const pulse=0.5+0.5*Math.sin(gt*18);
+    const pulse=0.5+0.5*Math.sin(gt*6);
     // Magenta→cyan radial vignette
     const vg=ctx.createRadialGradient(W/2,H/2,W*.15,W/2,H/2,Math.max(W,H)*.75);
     vg.addColorStop(0,'rgba(255,0,255,0)');
-    vg.addColorStop(0.7,`rgba(255,0,255,${.07*t})`);
-    vg.addColorStop(1,`rgba(0,255,255,${.17*t})`);
+    vg.addColorStop(0.7,`rgba(255,0,255,${.07*t*washK})`);
+    vg.addColorStop(1,`rgba(0,255,255,${.17*t*washK})`);
     ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
     // Neon pulse bleeding in from off-screen — same reason as the flow glow:
     // a stroke around the viewport reads as a frame, not as light.
-    edgeGlow(230,60,255,0.30*t*(0.6+0.4*pulse),Math.min(W,H)*0.18);
-    edgeGlow(0,229,255,0.16*t*(0.6+0.4*pulse),Math.min(W,H)*0.09);
+    edgeGlow(230,60,255,0.30*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.18);
+    edgeGlow(0,229,255,0.16*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.09);
   }
 
   drawFlowGrade();
   drawActEffects();
   drawDeathGrade();
   drawFlyCoins();
+  // Filmic pass: pull the mid tones down multiplicatively, then let the bloom
+  // put the highlights back. Dimming everything uniformly just makes a grey
+  // picture; this widens the gap between the lit things and the rest, so the
+  // plates and the rims read as the light sources instead of the whole frame
+  // sitting at one exposure.
+  {ctx.save();ctx.globalCompositeOperation='multiply';
+   ctx.fillStyle='rgb(186,188,205)';ctx.fillRect(0,0,W,H);ctx.restore();}
   {const wash=Math.max(hypeT>0?hypeT/HYPE_DUR:0, actFlash, recFlash);
-   applyBloom((fever?0.40:0.28)*(1-wash*0.7), fever?10:8);}   // the world glows; HUD above stays crisp
+   applyBloom((fever?0.34:0.25)*(1-wash*0.7), fever?9:7);}   // the world glows; HUD above stays crisp
   drawActCard();
   drawIntro();
   drawHUD();
@@ -4960,8 +4980,8 @@ function drawActEffects(){
   // so entering fever reads as heating up, not just a badge switching on.
   if(fever){
     const ramp=clamp(feverT/1.2,0,1);
-    const pulse=0.72+0.28*Math.sin(gt*7);
-    const a=0.21*ramp*pulse;
+    const pulse=0.90+0.10*Math.sin(gt*1.8);
+    const a=0.13*ramp*pulse*washK;
     const g=cachedGrad('fever'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*0.60,H*0.30,W/2,H*0.60,H*0.92);
       gg.addColorStop(0,'rgba(255,140,0,0)');gg.addColorStop(0.6,'rgba(255,110,0,0.5)');gg.addColorStop(1,'rgba(255,80,0,1)');return gg});
     ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
@@ -4974,15 +4994,15 @@ function drawActEffects(){
 
   // ATTACK — the sky closes in around you while he strikes
   if(atkPhase===1||atkPhase===2){
-    const pulse=0.6+0.4*Math.sin(gt*9);
-    const a=(atkPhase===1?0.20:0.14)*pulse;
+    const pulse=0.85+0.15*Math.sin(gt*2.2);
+    const a=(atkPhase===1?0.17:0.12)*pulse;
     const g=ctx.createRadialGradient(W/2,H*0.62,H*0.30,W/2,H*0.62,H*0.85);
     g.addColorStop(0,'rgba(60,20,80,0)');g.addColorStop(1,`rgba(50,10,70,${a+0.14})`);
     ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
   // REPELLED — a clean flash of returned light
   if(atkPhase===3){
-    const a=Math.min(1,atkT/1.6)*0.18;
+    const a=Math.min(1,atkT/1.6)*0.18*washK;
     ctx.fillStyle=`rgba(180,255,220,${a})`;ctx.fillRect(0,0,W,H);
   }
   // NIGHT — a hard vignette so only what's near the frog reads clearly
@@ -5032,7 +5052,7 @@ function drawActEffects(){
   // plus a progress arc so you can see how much is left to survive.
   if(finaleOn){
     const k=finaleIntensity();
-    const pulse=0.55+0.45*Math.sin(gt*11);
+    const pulse=0.82+0.18*Math.sin(gt*2.4);
     ctx.save();
     // Danger vignette
     const vg=ctx.createRadialGradient(W/2,H/2,H*0.22,W/2,H/2,H*0.75);
@@ -5077,7 +5097,7 @@ function drawActEffects(){
     const sw=Math.sin((1-actTintT)*Math.PI);        // swell 0 → 1 → 0
     if(sw>0.002){
       const n=parseInt((ACTS[curAct].col||'#ffffff').replace('#',''),16);
-      const R=(n>>16)&255,G=(n>>8)&255,B=n&255, a=0.30*sw;
+      const R=(n>>16)&255,G=(n>>8)&255,B=n&255, a=0.30*sw*washK;
       const g=ctx.createLinearGradient(0,0,0,H);
       g.addColorStop(0,`rgba(${R},${G},${B},${a})`);
       g.addColorStop(0.55,`rgba(${R},${G},${B},${a*0.5})`);
@@ -5087,13 +5107,13 @@ function drawActEffects(){
   }
   // Act-entry / lightning flash
   if(actFlash>0){
-    ctx.fillStyle=`rgba(255,255,255,${0.15*actFlash*actFlash})`;
+    ctx.fillStyle=`rgba(255,255,255,${0.15*actFlash*actFlash*washK})`;
     ctx.fillRect(0,0,W,H);
   }
   // Record-break flash — warm gold, so the new-best moment reads differently
   // from the cold act/lightning flash.
   if(recFlash>0){
-    ctx.fillStyle=`rgba(255,205,70,${0.34*recFlash*recFlash})`;
+    ctx.fillStyle=`rgba(255,205,70,${0.34*recFlash*recFlash*washK})`;
     ctx.fillRect(0,0,W,H);
   }
 }
@@ -5235,7 +5255,7 @@ function drawHUD(){
     if(fever){ctx.shadowColor='rgba(255,110,220,.7)';ctx.shadowBlur=20;}
     if(!uiFrame('uiPanel',W/2-pw/2,pillY,pw,ph,0.20))neonPanel(W/2-pw/2,pillY,pw,ph,ph/2, fever?255:0, fever?100:229, fever?220:255);
   } else {
-    if(fever){const gl=0.5+0.4*Math.sin(gt*7);ctx.shadowColor='rgba(255,140,0,'+gl+')';ctx.shadowBlur=22;}
+    if(fever){const gl=0.6+0.2*Math.sin(gt*2);ctx.shadowColor='rgba(255,140,0,'+gl+')';ctx.shadowBlur=16;}
     if(draw3H('pill',W/2-pw/2,pillY,pw,ph)){
       /* sliced */
     } else {
