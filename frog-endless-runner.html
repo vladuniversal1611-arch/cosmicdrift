@@ -659,6 +659,7 @@ function updShocks(dt){
   }
 }
 function drawShocks(){
+  return;   // landing shock rings removed at the player's request
   for(const k of shocks){
     const t=1-k.life/k.ml;
     ctx.save();
@@ -1202,6 +1203,7 @@ function updRipples(dt){
   }
 }
 function drawRipples(){
+  return;   // landing rings removed at the player's request
   for(const r of ripples){
     const prog=r.t/r.maxT;
     const a=(1-prog)*(1-prog);
@@ -4205,7 +4207,7 @@ function drawFrog(x,y,sc,rot,sqX,sqY,inAir,height,spriteHint){
   const s=28;
 
   // Shield aura
-  if(shield){ctx.strokeStyle='rgba(255,193,7,.5)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,-s*.2,s*2,0,Math.PI*2);ctx.stroke()}
+  // (shield ring removed — the "Щит" chip in the HUD shows the state)
 
   // Shadow
   const shA=clamp(.15-height*.08,0,.15);
@@ -4622,26 +4624,8 @@ function drawGame(){
     // not a stack of little pads.
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
     else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,Math.max(fog,sinkFog));
-    // Landing-target lock-on ring — a soft cyan ellipse on the pad your current
-    // lane will land on, so a fork is never a blind guess. Pulses gently and
-    // brightens the closer you already are to its centre (a clean PERFECT line).
-    if(i===aimIdx){
-      const w=(pad.width||1);
-      const rx=92*p.s*WSC*w, ryr=rx*0.34, ry=p.y-26*p.s*WSC*w;
-      const centred=1-clamp(Math.abs(visLane-pad.gameX)/getHitRadius(w),0,1);
-      const pulse=0.6+0.18*Math.sin(gt*6)+0.22*centred;
-      ctx.save();
-      ctx.globalAlpha=depthAlpha*clamp(pulse,0,1);
-      ctx.shadowColor='rgba(60,180,230,.7)';ctx.shadowBlur=6*p.s;
-      ctx.strokeStyle='rgba(150,238,255,.98)';
-      ctx.lineWidth=Math.max(2,3.4*p.s);
-      ctx.beginPath();ctx.ellipse(p.x,ry,rx,ryr,0,0,Math.PI*2);ctx.stroke();
-      // a little chevron above, pointing down at it, for instant readability
-      const chy=ry-ryr-10*p.s, chs=7*p.s;
-      ctx.beginPath();ctx.moveTo(p.x-chs,chy);ctx.lineTo(p.x,chy+chs);ctx.lineTo(p.x+chs,chy);ctx.stroke();
-      ctx.shadowBlur=0;
-      ctx.restore();
-    }
+    // (No lock-on ring: the circle over the target platform was removed at the
+    //  player's request. aimIdx still drives camera framing.)
     // Moving platform indicator — small arrows on sides
     if(pad.moving){
       const arrowS=18*p.s;
@@ -4841,7 +4825,9 @@ function drawGame(){
     // actually seat a character in a scene: a contact shadow, so he is standing
     // ON the platform, and a tight cool backlight so his silhouette separates
     // from the plate he is standing on.
-    const fgy=fy-airEff*140*fs*.55;
+    // Same height the body is actually drawn at mid-jump — the old offset left
+    // the glow hanging BELOW him as a disc whenever he was in the air.
+    const fgy=fy-airEff*.85*180*fs-28*fs;
     const air=clamp(airEff,0,1);
     ctx.save();
     // contact shadow — tightens and darkens as he lands, spreads as he rises
@@ -4854,7 +4840,7 @@ function drawGame(){
       ctx.beginPath();ctx.ellipse(fx,fy+6*fs,shR,shR*0.34,0,0,Math.PI*2);ctx.fill();
     }
     // rim light — cool by default, warm only while fever is actually running
-    const rimR=30*fs;
+    const rimR=24*fs;
     const rg=ctx.createRadialGradient(fx,fgy,rimR*0.45,fx,fgy,rimR);
     if(fever){
       const fp2=.22+.06*Math.sin(gt*2);
