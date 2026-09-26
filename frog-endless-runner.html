@@ -3198,6 +3198,35 @@ function drawAbstractMinimal(sky){
   }
 }
 
+// Draw an image and, where they would be visible, its mirrored neighbours, so
+// the picture continues past its own bounds in every direction. drawBg runs
+// inside the camera roll, and no amount of padding is a proof that a roll can
+// never swing an edge into frame — this makes the edge unreachable instead.
+// Neighbours outside the rolled viewport are skipped, so the usual cost is the
+// one draw it was before.
+function drawMirrored(im,x,y,w,h){
+  // How far a roll about (W/2, .93H) can swing a viewport corner outward, plus
+  // the shake. Anything beyond this can never be seen, so it is not drawn.
+  const reach=Math.hypot(W/2,H*0.93)*0.17+22;
+  const bx=-reach, by=-reach, bw=W+reach*2, bh=H+reach*2;
+  const vis=(dx,dy,dw,dh)=>!(dx>bx+bw||dx+dw<bx||dy>by+bh||dy+dh<by);
+  const sw=im.naturalWidth, sh=im.naturalHeight;
+  // Sideways: mirrored copies. A skyline reads fine reflected.
+  for(let i=-1;i<=1;i++){
+    const dx=x+i*w;
+    if(!vis(dx,y,w,h))continue;
+    ctx.save();
+    ctx.translate(dx+(i?w:0), y);
+    ctx.scale(i?-1:1, 1);
+    ctx.drawImage(im,0,0,w+(i?1:0),h);
+    ctx.restore();
+  }
+  // Up and down: the edge row stretched out, not a flipped copy — an upside
+  // down city overhead would be worse than the seam this is here to prevent.
+  const ex=x-w, ew=w*3;
+  if(vis(ex,y-h,ew,h))ctx.drawImage(im,0,0,sw,2,ex,y-h,ew,h+1);
+  if(vis(ex,y+h,ew,h))ctx.drawImage(im,0,sh-2,sw,2,ex,y+h-1,ew,h+1);
+}
 function drawBg(){
   const sky=SKY_SKINS[curSky];
 
@@ -3226,7 +3255,7 @@ function drawBg(){
     const sc=Math.max((W+bgPad*2)/im.naturalWidth,(H+bgPad*2)/im.naturalHeight);
     const iw=im.naturalWidth*sc, ih=im.naturalHeight*sc;
     ctx.fillStyle='#080a24';ctx.fillRect(-W,-H,W*3,H*3);   // deep navy behind, no black flash on roll
-    ctx.drawImage(im,(W-iw)/2,(H-ih)/2+Math.sin(gt*0.15)*16,iw,ih);
+    drawMirrored(im,(W-iw)/2,(H-ih)/2+Math.sin(gt*0.15)*16,iw,ih);
     // Push the city back: at full brightness it competed with the road and the
     // plates, and the frame had no depth order at all.
     // Cover the same oversized rect as the base fill: drawBg runs inside the
