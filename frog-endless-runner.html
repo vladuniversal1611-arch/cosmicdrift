@@ -871,6 +871,7 @@ const DAILY_POOL=[
   {id:'fever2',     text:'Активуй Fever 2 рази за забіг', emoji:'⚡', need:2, reward:60, kind:'feverCount'},
 ];
 let dailyMissions=[], dailyDate='', dailyPlays=0;
+const DAILY_SHARDS=2;
 // Per-run counters that missions track
 let runPerfects=0, runMaxCombo=0, runDiamonds=0, runFever=0;
 function _todayStr(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
@@ -898,6 +899,7 @@ function checkDaily(kind,value){
     if(value>m.prog)m.prog=value;
     if(m.prog>=s.need){
       m.done=true;coins+=s.reward;localStorage.setItem('fCoins',''+coins);
+      if(Prog.d){Prog.d.shards+=DAILY_SHARDS;addWeek(2);Prog.save()}
       if(typeof addFloat==='function')addFloat(`${s.emoji} МІСІЯ! +${s.reward}`,W/2,H*.28,'#4CAF50',22,true);
       anyDone=true;
     }
@@ -968,6 +970,7 @@ const Prog={
       this.d[k]=Object.assign(progDefaults()[k],this.d[k]||{});
     if(!this.d.migrated)this.migrate();
     this.syncUnlocks();
+    try{rollGoals();weekSync()}catch(e){}
     this.save();
   },
   save(){try{localStorage.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
@@ -1058,6 +1061,9 @@ function endRunRewards(){
   // is not worth more than two decent ones)
   const mt=Math.min(50,5+Math.floor(dist/20))-paid.meter;
   if(mt>0){paid.meter+=mt;runChests=runChests.concat(addChestMeter(mt))}
+  const gm=runGoalsDone*20-(paid.goals|0);                 // each goal is a fifth of a chest
+  if(gm>0){paid.goals=(paid.goals|0)+gm;runChests=runChests.concat(addChestMeter(gm))}
+  settleGoals();
   d.stats.bestCombo=Math.max(d.stats.bestCombo,runMaxCombo);
   if(xp>0){paid.xp+=xp;runXP=paid.xp;
     const r=addXP(xp);runLevelUps=runLevelUps.concat(r.ups);
@@ -1066,6 +1072,70 @@ function endRunRewards(){
   Prog.save();
 }
 let runUnlocked=[];
+
+// ---- MissionSystem: run goals + weekly milestones ----
+// Three standing goals, each "in a single run". They scale with player level,
+// stay until done, and pay XP plus chest-meter progress. A finished goal is
+// replaced at the start of the next run so the post-run screen can show it.
+const r10=n=>Math.round(n/10)*10;
+const GOAL_KINDS=[
+  {k:'dist',  ico:'🏃', txt:n=>`Пробіжи ${n} м`,              need:t=>r10(150+40*t),        val:()=>Math.floor(dist)},
+  {k:'coins', ico:'🪙', txt:n=>`Збери ${n} монет`,            need:t=>r10(60+25*t),         val:()=>runCoins},
+  {k:'perf',  ico:'✨', txt:n=>`${n} PERFECT`,                need:t=>8+3*t,                val:()=>runPerfects},
+  {k:'combo', ico:'🔥', txt:n=>`Комбо ×${n}`,                 need:t=>Math.min(30,6+2*t),   val:()=>runMaxCombo},
+  {k:'fever', ico:'⚡', txt:n=>`Увімкни Fever ${n} р.`,        need:t=>1+Math.floor(t/4),    val:()=>runFever},
+  {k:'air',   ico:'🌠', txt:n=>`${n} монет у повітрі`,         need:t=>6+3*t,                val:()=>runAir},
+  {k:'gems',  ico:'💎', txt:n=>`Збери ${n} діаманти`,         need:t=>2+Math.floor(t/3),    val:()=>runDiamonds},
+  {k:'leap',  ico:'🦘', txt:n=>`${n} високих стрибків`,        need:t=>2+Math.floor(t/3),    val:()=>runLeaps},
+  {k:'dash',  ico:'💨', txt:n=>`Ривок ${n} р.`,                need:t=>3+Math.floor(t/3),    val:()=>runDashes, req:()=>modLv('dash')>0},
+];
+let goalXP=0, runGoalsDone=0, runDashes=0, goalTick=0;
+function goalKind(g){return GOAL_KINDS.find(x=>x.k===g.k)}
+function rollGoals(){
+  const d=Prog.d, t=d.lvl;
+  d.goals=(d.goals||[]).filter(g=>g&&!g.done&&goalKind(g));
+  while(d.goals.length<3){
+    const used=d.goals.map(g=>g.k);
+    const pool=GOAL_KINDS.filter(k=>!used.includes(k.k)&&(!k.req||k.req()));
+    const k=pool[Math.floor(Math.random()*pool.length)];
+    d.goals.push({k:k.k,need:k.need(t),xp:30+10*t,best:0,done:false});
+  }
+}
+function updGoals(){
+  for(const g of Prog.d.goals){
+    if(g.done)continue;
+    const v=goalKind(g).val();
+    if(v>=g.need){
+      g.done=true;goalXP+=g.xp;runGoalsDone++;addWeek(1);
+      addFloat(`🎯 ЦІЛЬ ВИКОНАНО · +${g.xp} XP`,W/2,H*.3,'#5CFF9D',18,true);
+      try{sfxPU()}catch(e){}
+    }
+  }
+}
+function settleGoals(){
+  for(const g of Prog.d.goals)if(!g.done)g.best=Math.max(g.best|0,goalKind(g).val());
+}
+function _weekId(){
+  const d=new Date(), t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);
+  const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return t.getUTCFullYear()+'-W'+Math.ceil(((t-y0)/864e5+1)/7);
+}
+// Weekly milestones: goals give 1 point, daily missions 2.
+const WEEK_MS=[{n:5,t:0},{n:12,t:1},{n:20,t:1},{n:30,t:2}];
+function weekSync(){const w=Prog.d.week;if(w.id!==_weekId()){w.id=_weekId();w.n=0;w.claimed=[]}return w}
+function addWeek(n){weekSync().n+=n}
+function claimableCount(){
+  if(!Prog.d)return 0;
+  const w=weekSync();let c=0;
+  WEEK_MS.forEach((m,i)=>{if(w.n>=m.n&&!w.claimed.includes(i))c++});
+  return c;
+}
+function claimWeek(i){
+  const w=weekSync(), m=WEEK_MS[i];
+  if(!m||w.n<m.n||w.claimed.includes(i))return false;
+  w.claimed.push(i);Prog.d.chests[CHESTS[m.t].id]++;Prog.save();return true;
+}
 function affordableUpgrade(){
   for(const m of MODULES)if(!upgradeBlock(m.id))return m;
   return null;
@@ -2706,7 +2776,7 @@ function startGame(){
   if(shopBoost.magnet){magnet=true;magnetT=12;}
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
-  resetRunPay();
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;rollGoals();Prog.save();
   if(modLv('shield')>0)shield=true;
   dashReady=true;dashCooldown=0;
   shopBoost={shield:false,magnet:false,x2:false};
@@ -3141,7 +3211,7 @@ function onLand(idx){
 function doDash(){
   if(!dashReady||!alive||state!==ST.PLAY) return;
   if(!modLv('dash'))return;
-  dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=DASH_DURATION;dashShow=1;
+  dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=DASH_DURATION;dashShow=1;runDashes++;
   sfxDash();shake=.15;
   // Dash = temporary speed burst + invincibility (no seq teleport)
   shield=true; // brief protection
@@ -3537,6 +3607,7 @@ function updateGame(dt){
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
+  if(alive&&(goalTick-=dt)<=0){goalTick=.2;updGoals()}
 
   // Magnet
   if(magnet){
@@ -6866,65 +6937,102 @@ const BOOSTERS=[
 let shopBoost={shield:false,magnet:false,x2:false};
 let runX2Coins=false;
 
-// ========== DAILY MISSIONS SCREEN ==========
+// ========== MISSIONS SCREEN — run goals, dailies, weekly milestones ==========
+function _untilTxt(ms){
+  const h=Math.floor(ms/36e5);
+  return h>=24?Math.ceil(h/24)+' дн':h>0?h+' год':Math.max(1,Math.ceil(ms/6e4))+' хв';
+}
+function _msToMidnight(){const n=new Date(),m=new Date(n);m.setHours(24,0,0,0);return m-n}
+function _msToMonday(){const n=new Date(),m=new Date(n);m.setHours(24,0,0,0);while(m.getDay()!==1)m.setDate(m.getDate()+1);return m-n}
+function missionLayout(){
+  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), top=112+SAFE.t;
+  return {cw,x:W/2-cw/2,top,rowH:62,gap:8,secH:40,weekH:112};
+}
+function weekCardY(L){return L.top+L.secH+3*(L.rowH+L.gap)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
+function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
+  const x=L.x;
+  glassPanel(x,y,L.cw,L.rowH,14);
+  if(done){ctx.save();ctx.globalAlpha=.16;ctx.fillStyle='#5CFF9D';rr(x,y,L.cw,L.rowH,14);ctx.fill();ctx.restore()}
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='22px Exo2,sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText(ico,x+28,y+L.rowH/2+1);
+  ctx.textAlign='left';ctx.font='800 14px Exo2,sans-serif';ctx.fillStyle=done?'#9CFFC4':'#fff';
+  ctx.fillText(fitText(text,L.cw-160),x+54,y+21);
+  const bw=L.cw-54-110;
+  drawBar(x+54,y+36,bw,7,Math.min(1,prog/need),done?'#2EDB77':'#1FA2FF',done?'#9CFFC4':'#36E0FF');
+  ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.8)';
+  ctx.fillText(done?'✓ ВИКОНАНО':`${Math.min(prog,need)}/${need}`,x+54+bw+8,y+40);
+  rewardFn(x+L.cw-14,y+21);
+}
+function drawSecHead(L,y,title,right){
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='900 13px Exo2,sans-serif';ctx.fillStyle='#8FF3FF';
+  ctx.fillText(title,L.x+4,y+22);
+  if(right){ctx.textAlign='right';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';ctx.fillText(right,L.x+L.cw-4,y+22)}
+}
 function drawMissions(){
   gt+=.016;
   drawMenuBg();
-  ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H);
-  const cx=W/2;
-  // Title
-  ctx.fillStyle='#fff';ctx.font='bold 28px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=8;
-  ctx.fillText('📋 ЩОДЕННІ МІСІЇ',cx,H*.08+SAFE.t);
-  ctx.font='14px Exo2,sans-serif';ctx.fillStyle='rgba(255,255,255,.7)';
-  ctx.fillText('Оновлюються щодня. Виконуй — отримуй монети',cx,H*.08+30+SAFE.t);
-  ctx.shadowBlur=0;
-  // Coin chip top right
-  const chipW=90,chipH=36,chipX=W-chipW-16-SAFE.r,chipY=16+SAFE.t;
-  ctx.fillStyle='rgba(0,0,0,.35)';rr(chipX,chipY,chipW,chipH,18);ctx.fill();
-  ctx.strokeStyle='rgba(255,215,0,.55)';ctx.lineWidth=1.5;rr(chipX,chipY,chipW,chipH,18);ctx.stroke();
-  ctx.fillStyle='#FFD54F';ctx.font='bold 20px Exo2,sans-serif';
-  ctx.fillText('🪙 '+coins,chipX+chipW/2,chipY+chipH/2);
-  // Mission cards
-  const cardW=W*.86, cardH=110, gap=16;
-  const startY=H*.22+SAFE.t;
-  ctx.textAlign='left';
-  for(let i=0;i<dailyMissions.length;i++){
-    const m=dailyMissions[i]; const spec=_missionSpec(m); if(!spec)continue;
-    const y=startY+i*(cardH+gap);
-    const x=W/2-cardW/2;
-    // Card background
-    ctx.fillStyle=m.done?'rgba(76,175,80,.85)':'rgba(255,255,255,.95)';
-    rr(x,y,cardW,cardH,18);ctx.fill();
-    ctx.strokeStyle=m.done?'rgba(129,199,132,.9)':'rgba(0,0,0,.1)';ctx.lineWidth=2;
-    rr(x,y,cardW,cardH,18);ctx.stroke();
-    // Emoji
-    ctx.font='bold 42px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle=m.done?'#fff':'#333';
-    ctx.fillText(spec.emoji, x+38, y+cardH/2);
-    // Title text
-    ctx.textAlign='left';ctx.font='bold 16px Exo2,sans-serif';
-    ctx.fillStyle=m.done?'#fff':'#222';
-    ctx.fillText(spec.text, x+78, y+30);
-    // Progress bar
-    const barX=x+78, barY=y+50, barW=cardW-100, barH=10;
-    ctx.fillStyle=m.done?'rgba(255,255,255,.35)':'rgba(0,0,0,.08)';
-    rr(barX,barY,barW,barH,5);ctx.fill();
-    const pct=Math.min(1,m.prog/spec.need);
-    if(pct>0){
-      ctx.fillStyle=m.done?'#fff':'#4CAF50';
-      rr(barX,barY,barW*pct,barH,5);ctx.fill();
-    }
-    // Progress text + reward
-    ctx.font='bold 14px Exo2,sans-serif';ctx.textBaseline='middle';
-    ctx.fillStyle=m.done?'rgba(255,255,255,.9)':'#666';
-    ctx.fillText(`${m.prog}/${spec.need}`, x+78, y+80);
-    ctx.textAlign='right';
-    ctx.fillStyle=m.done?'#fff':'#FFA000';
-    ctx.fillText(m.done?'✓ ОТРИМАНО':`🪙 +${spec.reward}`, x+cardW-18, y+80);
+  ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
+  const L=missionLayout(), d=Prog.d, w=weekSync();
+  const total=L.secH*3+6*(L.rowH+L.gap)+L.weekH+16;
+  uiScrollMax=Math.max(0,L.top+total-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  let y=L.top-uiScroll;
+  drawSecHead(L,y,'ЦІЛІ ЗАБІГУ','за один забіг');y+=L.secH;
+  for(const g of d.goals){
+    const K=goalKind(g);if(!K)continue;
+    drawMissionRow(L,y,K.ico,K.txt(g.need),g.done?g.need:(g.best|0),g.need,g.done,(rx,ry)=>{
+      ctx.textAlign='right';ctx.font='900 13px Exo2,sans-serif';ctx.fillStyle='#8FF3FF';ctx.fillText('+'+g.xp+' XP',rx,ry);
+    });
+    y+=L.rowH+L.gap;
   }
-  // Back button
-  drawBackChip();
+  drawSecHead(L,y,'ЩОДЕННІ','нові через '+_untilTxt(_msToMidnight()));y+=L.secH;
+  for(const m of dailyMissions){
+    const sp=_missionSpec(m);if(!sp)continue;
+    drawMissionRow(L,y,sp.emoji,sp.text,m.done?sp.need:m.prog,sp.need,m.done,(rx,ry)=>{
+      ctx.textAlign='right';ctx.font='900 13px Exo2,sans-serif';
+      const a=String(sp.reward), b=String(DAILY_SHARDS);
+      ctx.fillStyle='#9CF4FF';ctx.fillText(b,rx,ry);let bx=rx-ctx.measureText(b).width-10;drawShardIco(bx,ry,6);
+      bx-=14;ctx.fillStyle='#FFE082';ctx.fillText(a,bx,ry);drawCoinIco(bx-ctx.measureText(a).width-9,ry,6.5);
+    });
+    y+=L.rowH+L.gap;
+  }
+  drawSecHead(L,y,'ТИЖНЕВИЙ ПРОГРЕС','нові через '+_untilTxt(_msToMonday()));y+=L.secH;
+  // weekly track: points bar with chest nodes
+  glassPanel(L.x,y,L.cw,L.weekH,16);
+  ctx.textAlign='left';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='rgba(220,230,255,.85)';
+  ctx.fillText(`Очки: ${w.n}  ·  ціль +1, щоденна +2`,L.x+14,y+20);
+  const maxN=WEEK_MS[WEEK_MS.length-1].n, bx=L.x+24, bw=L.cw-48, by=y+44;
+  drawBar(bx,by,bw,8,w.n/maxN,'#C98A4B','#FFD08A');
+  WEEK_MS.forEach((m,i)=>{
+    const nx=bx+bw*m.n/maxN-(i===WEEK_MS.length-1?14:0), got=w.claimed.includes(i), ready=w.n>=m.n&&!got;
+    const bob=ready?Math.sin(gt*5+i)*2:0;
+    ctx.save();if(!ready&&!got)ctx.globalAlpha=.55;
+    if(ready){ctx.shadowColor='rgba(255,208,138,.9)';ctx.shadowBlur=14}
+    drawChestIco(nx,by+34+bob,30,m.t,got?1:0);
+    ctx.restore();
+    ctx.textAlign='center';ctx.font='800 11px Exo2,sans-serif';
+    ctx.fillStyle=got?'#9CFFC4':ready?'#FFE082':'rgba(200,222,255,.75)';
+    ctx.fillText(got?'✓':ready?'ЗАБРАТИ':String(m.n),nx,by+62);
+  });
+  ctx.restore();
+  // header
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.96)');hg.addColorStop(1,'rgba(4,8,24,.80)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();drawCurrencies(true);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ЗАВДАННЯ',W/2,72+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function missionsTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const L=missionLayout(), wy=weekCardY(L);
+  if(y<L.top-6||y<wy||y>wy+L.weekH)return;
+  const maxN=WEEK_MS[WEEK_MS.length-1].n, bx=L.x+24, bw=L.cw-48;
+  WEEK_MS.forEach((m,i)=>{
+    const nx=bx+bw*m.n/maxN-(i===WEEK_MS.length-1?14:0);
+    if(Math.abs(x-nx)<30&&claimWeek(i)){sfxPU();addTapRipple(x,y)}
+  });
 }
 function drawShop(){
   gt+=.016;
@@ -6980,10 +7088,6 @@ function shopTap(x,y){
       return;
     }
   }
-}
-function missionsTap(x,y){
-  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
-  // Any tap outside cards goes back too? keep only the button for now
 }
 
 // ========== META UI (progression screens) ==========
