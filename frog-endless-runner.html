@@ -151,7 +151,7 @@ function doLeap(){
   const ci=getCurrentPadIdx();
   const target=nextGroup(nextGroup(ci));
   if(padPositions[target]===undefined)return;
-  leapFrom=ci;leapTo=target;leapFlash=1;leapCool=LEAP_COOL;leapArm=0;
+  leapFrom=ci;leapTo=target;leapFlash=1;leapCool=LEAP_COOL;leapArm=0;runLeaps++;
   sfxWhoosh();addPunch(.28);
   setEmo('\uD83D\uDE24',0.9);
   addFloat('\u041F\u0415\u0420\u0415\u041B\u0406\u0422!',W/2,H*0.22,'#4FC3F7',22,true);
@@ -671,6 +671,62 @@ function drawShocks(){
 }
 // Coins that fly to the HUD counter instead of just puffing away
 let flyCoins=[];
+// ---- Air coins: short trails hanging between rows, off the direct line ----
+// Every coin used to sit on a platform the frog lands on anyway, so a magnet
+// had nothing to pull and an upgrade to it would have been a fake. A trail
+// set to one side is a small choice — lean out for it and steer back, or not —
+// and the MAGNET module turns that choice into free coins. Collected when the
+// frog passes the trail's depth within reach of it.
+let airCoins=[], acNext=0;
+const AIR_REACH=0.22;          // lanes, without any magnet
+function airReach(){return AIR_REACH+modStat('magnet')+(magnet?1.2:0)}
+function spawnAirTrails(){
+  let guard=0;
+  while(guard++<40){
+    const i=acNext, j=nextGroup(i);
+    if(padPositions[j]===undefined||j>=pads.length)break;
+    if(i>=OPENING.length&&Math.random()<0.34&&!pads[i].len){
+      const yi=padPositions[i], yj=padPositions[j], gap=yj-yi;
+      if(gap>1.1){
+        const side=Math.random()<.5?-1:1;
+        const mid=(pads[i].gameX+pads[j].gameX)/2;
+        let x=clamp(mid+side*(0.45+Math.random()*0.35),0.14,1.86);
+        if(Math.abs(x-mid)<0.35)x=clamp(mid-side*(0.45+Math.random()*0.35),0.14,1.86);
+        for(let k=0;k<3;k++)airCoins.push({y:yi+gap*(0.3+k*0.2),x,taken:false,ph:Math.random()*6});
+        runAirSpawned+=3;
+      }
+    }
+    acNext=j;
+  }
+}
+function updAirCoins(){
+  if(!alive)return;
+  spawnAirTrails();
+  const R=airReach();
+  for(const c of airCoins){
+    if(c.taken||seq<c.y)continue;
+    c.taken=true;runAirPassed++;
+    if(Math.abs(visLane-c.x)>R)continue;          // passed it, out of reach
+    const mult=(fever?feverCoinMult():1)+comboCoinBonus();
+    runCoins+=mult;runAir++;sfxCoin();
+    const pp=project(Math.max(c.y-seq+VIEW_Z,.1),c.x,0);
+    addCoinFX(pp.x,pp.y-40*pp.s);addFlyCoin(pp.x,pp.y-40*pp.s);
+  }
+  // forget anything the camera has passed
+  if(airCoins.length>60)airCoins=airCoins.filter(c=>!c.taken||c.y>seq-2);
+}
+function drawAirCoins(){
+  const R=airReach();
+  for(const c of airCoins){
+    if(c.taken)continue;
+    const rz=c.y-seq+VIEW_Z; if(rz<0.3||rz>VIEW_AHEAD)continue;
+    const pp=project(rz,c.x,0);
+    // coins inside the magnet's pull lean toward the frog's lane
+    const pull=Math.abs(visLane-c.x)<=R&&R>AIR_REACH?clamp(1-(rz-VIEW_Z)/4,0,1)*0.35:0;
+    const x=pp.x+(project(rz,visLane,0).x-pp.x)*pull;
+    drawCoin(x,pp.y-18*pp.s,pp.s*0.8*WSC,c.ph);
+  }
+}
 function addFlyCoin(x,y){flyCoins.push({x,y,sx:x,sy:y,t:0,d:rand(.45,.65)})}
 function updFlyCoins(dt){
   for(let i=flyCoins.length-1;i>=0;i--){
@@ -776,7 +832,7 @@ function triggerMilestone(m){
 // (time-scaling removed — the hype burst is now purely visual, no slowdown)
 // Fever mode
 let fever=false,feverT=0,feverFlash=0,feverBreakT=0,feverPts=[];
-let feverShield=false;   // absorbs ONE slip per fever, so one wobble never nukes the whole state
+let feverShield=0;       // slips a fever can absorb before it breaks — the Fever Core raises it
 // Milestones
 const MILESTONES=[
   {dist:50, text:'ПЕРШИЙ СЛІД!',emoji:'🚀',color:'#4FC3F7',coins:5},
@@ -849,6 +905,167 @@ function checkDaily(kind,value){
   if(anyDone)saveDaily();
 }
 loadDaily();
+
+// =====================================================================
+// PROGRESSION — SaveSystem · PlayerProgression · UpgradeSystem
+// =====================================================================
+// One versioned save for everything that persists between runs. Coins keep
+// their old key ('fCoins') because half the game already writes it; every
+// new field lives here. Gameplay code never reads the save directly — it asks
+// modLv()/modStat(), so a module's effect is defined in exactly one place.
+const PROG_KEY='fProg', PROG_V=1;
+
+// Each module's stat table is indexed by module level (0 = not owned).
+// Every step is meant to be felt in play, not a +0.2% line on a card.
+const MODULES=[
+  {id:'magnet', name:'МАГНІТ',            icon:'\u{1F9F2}', unlock:1,
+   stat:[0, 0.45, 0.75, 1.05, 1.45, 2.4],     // pull radius, in lanes
+   lv:['', 'Тягне монети з сусідньої смуги', 'Ширший радіус притягання', 'Тягне майже з пів дороги',
+       'Тягне з усього ряду', 'Весь ряд + наступний ряд']},
+  {id:'shield', name:'ЩИТ',               icon:'\u{1F6E1}', unlock:3,
+   stat:[0, 0, 80, 55, 38, 25],               // in-run recharge, seconds (0 = none)
+   lv:['', '1 захист на старті забігу', 'Перезаряджається за 80 с', 'Перезаряджається за 55 с',
+       'Перезаряджається за 38 с', 'Перезаряджається за 25 с']},
+  {id:'dash',   name:'РИВОК',             icon:'⚡',    unlock:5,
+   stat:[0, 8, 6.5, 5, 4, 3],                 // cooldown, seconds
+   lv:['', 'Ривок уперед, кулдаун 8 с', 'Кулдаун 6.5 с', 'Кулдаун 5 с', 'Кулдаун 4 с', 'Кулдаун 3 с, довший ривок']},
+  {id:'fever',  name:'ЯДРО FEVER',        icon:'\u{1F525}', unlock:6, adv:12,
+   stat:[0, 5, 4, 4, 3, 3],                   // PERFECTs needed to ignite fever
+   lv:['', 'Fever після 5 PERFECT', 'Fever після 4 PERFECT', '4 PERFECT · 2 промахи в Fever',
+       '3 PERFECT · монети ×3 у Fever', '3 PERFECT · 3 промахи · ×3']},
+  {id:'djump',  name:'ПОДВІЙНИЙ СТРИБОК', icon:'\u{1F300}', unlock:8,
+   stat:[0, 30, 24, 18, 13, 9],               // recharge, seconds
+   lv:['', 'Рятує від падіння раз на 30 с', 'Раз на 24 с', 'Раз на 18 с', 'Раз на 13 с', 'Раз на 9 с']},
+  {id:'reward', name:'БОНУС НАГОРОД',     icon:'\u{1F4B0}', unlock:10,
+   stat:[1, 1.15, 1.3, 1.5, 1.75, 2.0],       // coin & shard multiplier at run end
+   lv:['', '+15% монет і ядер за забіг', '+30%', '+50%', '+75%', '×2 нагород']},
+];
+const MOD_MAX=5;
+// Fever levels 3+ also change how many slips a fever survives and its coin rate
+const FEVER_SHIELDS=[0,1,1,2,2,3], FEVER_COIN=[1,2,2,2,3,3];
+// Cost to REACH a level. Coins for the basics, fragments (from chests) so
+// progress follows play, core shards for the top two levels.
+// Calibrated against measured income: ~200 coins a casual run, ~650 a strong 550 m one.
+const UP_COST=[null,null,{c:350,f:4,s:0},{c:900,f:8,s:0},{c:2000,f:14,s:8},{c:4000,f:22,s:20}];
+
+function progDefaults(){
+  return {v:PROG_V, xp:0, lvl:1, shards:0,
+    mods:{magnet:1}, frag:{},
+    chests:{wood:0,crystal:0,epic:0}, meter:0,
+    goals:[], goalsDone:0,
+    week:{id:'',n:0,claimed:[]},
+    world:{w:0,l:0,done:{}},
+    stats:{runs:0,perfects:0,bestCombo:0,dist:0},
+    migrated:false};
+}
+const Prog={
+  d:null,
+  load(){
+    let raw=null;try{raw=JSON.parse(localStorage.getItem(PROG_KEY)||'null')}catch(e){}
+    const def=progDefaults();
+    this.d=raw&&typeof raw==='object'?Object.assign(def,raw):def;
+    for(const k of ['mods','frag','chests','week','world','stats'])
+      this.d[k]=Object.assign(progDefaults()[k],this.d[k]||{});
+    if(!this.d.migrated)this.migrate();
+    this.syncUnlocks();
+    this.save();
+  },
+  save(){try{localStorage.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
+  // Skins used to BE the progression (their colour decided your perk). That
+  // system is gone, so anything a player spent on it comes back as coins, and
+  // a returning player gets a chest so the new systems have something in them.
+  migrate(){
+    let refund=0;
+    try{for(const sk of SKINS)if(sk.o&&sk.p>0)refund+=sk.p}catch(e){}
+    try{for(const sk of SKY_SKINS)if(sk.o&&sk.p>0)refund+=sk.p}catch(e){}
+    if(refund>0){coins+=refund;try{localStorage.setItem('fCoins',''+coins)}catch(e){}}
+    if(hs>0)this.d.chests.crystal++;
+    // A returning player keeps what they already had: the dash was always
+    // available before, so their best distance sets their starting level.
+    if(hs>0)this.d.lvl=clamp(1+Math.floor(hs/120),1,7);
+    this.d.refund=refund;
+    this.d.migrated=true;
+  },
+  syncUnlocks(){
+    const got=[];
+    for(const m of MODULES)if(this.d.lvl>=m.unlock&&!(this.d.mods[m.id]>0)){this.d.mods[m.id]=1;got.push(m)}
+    return got;
+  }
+};
+function modLv(id){return (Prog.d&&Prog.d.mods[id])|0}
+// Fever before the Fever Core is unlocked behaves exactly as it always did
+function feverNeed(){return modLv('fever')?modStat('fever'):5}
+function feverShieldCount(){return FEVER_SHIELDS[Math.max(1,modLv('fever'))]}
+function feverCoinMult(){return FEVER_COIN[Math.max(1,modLv('fever'))]}
+function dashCD(){return modLv('dash')?modStat('dash'):DASH_COOLDOWN}
+// Combo pays in coins too, not just score: a long clean streak doubles pickups
+// (+1 per pickup rather than ×2: multiplying on top of Fever inflated a run 2.5×)
+function comboCoinBonus(){return perfectCombo>=10?1:0}
+let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djCD=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
+function modStat(id){const m=MODULES.find(x=>x.id===id);return m?m.stat[modLv(id)]:0}
+function modDef(id){return MODULES.find(x=>x.id===id)}
+function xpNeed(l){return 80+l*60}
+// Upgrade gate: what stops module `id` going up a level right now (or null)
+function upgradeBlock(id){
+  const m=modDef(id), l=modLv(id), d=Prog.d;
+  if(l<1)return 'Відкриється на рівні '+m.unlock;
+  if(l>=MOD_MAX)return 'МАКС';
+  if(m.adv&&l+1>=4&&d.lvl<m.adv)return 'Потрібен рівень '+m.adv;
+  const c=UP_COST[l+1];
+  if(coins<c.c)return 'coins';
+  if((d.frag[id]|0)<c.f)return 'frag';
+  if(d.shards<c.s)return 'shards';
+  return null;
+}
+function doUpgrade(id){
+  if(upgradeBlock(id))return false;
+  const l=modLv(id), c=UP_COST[l+1], d=Prog.d;
+  coins-=c.c;d.frag[id]=(d.frag[id]|0)-c.f;d.shards-=c.s;d.mods[id]=l+1;
+  try{localStorage.setItem('fCoins',''+coins)}catch(e){}
+  Prog.save();return true;
+}
+// Is anything upgradeable right now? (menu badge, post-run hint)
+// ---- RewardSystem: what a run pays, credited once ----
+// A revive continues the same run and dies again, and the old code paid the
+// whole run's coins a second time. Everything here pays only what has not
+// been paid yet, so a revived run is credited exactly once in total.
+let paid={coins:0,shards:0,xp:0,perf:0,counted:false}, djSave=false;
+function resetRunPay(){paid={coins:0,shards:0,xp:0,perf:0,counted:false}}
+function runXPTotal(){return Math.floor(dist/4)+runPerfects+runFever*10+(typeof goalXP!=='undefined'?goalXP:0)}
+function addXP(n){
+  const d=Prog.d, ups=[];
+  d.xp+=n;
+  while(d.xp>=xpNeed(d.lvl)){
+    d.xp-=xpNeed(d.lvl);d.lvl++;ups.push(d.lvl);
+    // every level is a chest; every fifth a better one
+    if(d.lvl%5===0)d.chests.crystal++;else d.chests.wood++;
+  }
+  const unlocked=Prog.syncUnlocks();
+  return {ups,unlocked};
+}
+function endRunRewards(){
+  const d=Prog.d, mult=modStat('reward')||1;
+  const c=Math.round(runCoins*mult)-paid.coins;
+  const sh=Math.round(Math.floor(runDiamonds/4)*mult)-paid.shards;
+  const xp=runXPTotal()-paid.xp;
+  if(c>0){coins+=c;paid.coins+=c}
+  if(sh>0){d.shards+=sh;paid.shards+=sh}
+  runRewardCoins=paid.coins;runShards=paid.shards;
+  if(!paid.counted){paid.counted=true;d.stats.runs++}
+  d.stats.perfects+=runPerfects-paid.perf;paid.perf=runPerfects;
+  d.stats.dist=Math.max(d.stats.dist|0,0)+0;
+  d.stats.bestCombo=Math.max(d.stats.bestCombo,runMaxCombo);
+  if(xp>0){paid.xp+=xp;runXP=paid.xp;
+    const r=addXP(xp);runLevelUps=runLevelUps.concat(r.ups);
+    runUnlocked=(runUnlocked||[]).concat(r.unlocked);}
+  try{localStorage.setItem('fCoins',''+coins)}catch(e){}
+  Prog.save();
+}
+let runUnlocked=[];
+function affordableUpgrade(){
+  for(const m of MODULES)if(!upgradeBlock(m.id))return m;
+  return null;
+}
 
 
 
@@ -1234,7 +1451,8 @@ const SKINS=[
   {n:'Золотий',    c:'#FFD54F',e:'#E65100',ch:'#FFF9C4',ant:'#FFD740',p:500, o:false, perk:'doubleGold',perkDesc:'💰 Монети x2'},
   {n:'Райдужний',  c:'rainbow',e:'#333',   ch:'#FFB3B3',ant:'#FFF',   p:1000,o:false, perk:'comboSaver',perkDesc:'🌈 GOOD не збиває комбо'},
 ];
-function curPerk(){const s=SKINS[curSkin];return s?s.perk:null}
+// Skins no longer grant gameplay perks — modules in the Lab do (see MODULES).
+function curPerk(){return null}
 let extraLifeUsed=false;   // consumed once per run for pink perk
 let curSkin=0;
 try{const s=JSON.parse(localStorage.getItem('fSk')||'[]');s.forEach((v,i)=>{if(SKINS[i])SKINS[i].o=v});curSkin=+(localStorage.getItem('fCS')||0)}catch(e){}
@@ -2140,7 +2358,7 @@ canvas.addEventListener('touchstart',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
-    btnTouch=hitBtn(dashBtnC(),bx,by);
+    btnTouch=modLv('dash')>0&&hitBtn(dashBtnC(),bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(t.clientX)}
   }
 },{passive:false});
@@ -2177,7 +2395,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(t.clientX-r.left)*(W/r.width), ty2=(t.clientY-r.top)*(H/r.height);
-      if(hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
     }
   }
 },{passive:false});
@@ -2191,7 +2409,7 @@ canvas.addEventListener('mousedown',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
-    btnTouch=hitBtn(dashBtnC(),bx,by);
+    btnTouch=modLv('dash')>0&&hitBtn(dashBtnC(),bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(e.clientX)}
   }
 });
@@ -2217,7 +2435,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
-      if(hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
     }
   }
 });
@@ -2472,6 +2690,11 @@ function startGame(){
   runX2Coins=!!shopBoost.x2;
   if(shopBoost.shield)shield=true;
   if(shopBoost.magnet){magnet=true;magnetT=12;}
+  // Modules that act from the first second of the run
+  runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
+  resetRunPay();
+  if(modLv('shield')>0)shield=true;
+  dashReady=true;dashCooldown=0;
   shopBoost={shield:false,magnet:false,x2:false};
   startEaseT=0.7;
   if(introSeen)addFloat('БІЖИ!',W/2,H*0.22,'#FFFFFF',30,true);   // first run gets its own cue from the intro
@@ -2486,6 +2709,8 @@ function die(){
   if(!alive)return;
   if(shield){
     shield=false;shFlash=.5;sfxPU();
+    runShieldUsed=true;
+    if(modStat('shield')>0)shieldCD=modStat('shield');   // Shield module recharges it
     setEmo('😅',1.2);
     addFloat('🛡️',W/2,H*.4,'#4FC3F7',28,true);
     const nextPadIdx=getCurrentPadIdx()+1;
@@ -2516,9 +2741,7 @@ function die(){
   if(fd>hs){hs=fd;localStorage.setItem('fHS',''+hs);newRec=true}
   storyP.castles+=castlesSaved;storyP.attacks+=attacksRepelled;saveStory();
   if(score>bestScore){bestScore=score;localStorage.setItem('fBS',''+bestScore);newScoreRec=true}
-  coins+=runCoins;localStorage.setItem('fCoins',''+coins);
-  // Pick a treasure chest tier based on final score
-  grantChest(score);
+  endRunRewards();
   // Daily mission progress — check every metric at end of run
   dailyPlays++;
   checkDaily('score', score);
@@ -2692,7 +2915,7 @@ function onLand(idx){
   const isGood=!isPerfect&&precision>0.5;
 
   // Gold perk doubles coin pickups (stacks with fever's ×2)
-  const coinMult=(fever?2:1)*(curPerk()==='doubleGold'?2:1)*(runX2Coins?2:1);
+  const coinMult=((fever?feverCoinMult():1)+comboCoinBonus())*(runX2Coins?2:1);
   const feverMult=fever?2:1;
   const scoreBonusMult=1;
 
@@ -2705,7 +2928,7 @@ function onLand(idx){
     // slip actually breaks it. The relief IS the reward either way.
     let saved=false;
     if(fever&&feverShield){
-      feverShield=false;saved=true;
+      feverShield--;saved=true;
       perfectCombo=Math.max(3,perfectCombo-2);   // keep the state, just a dip
     } else {
       if(fever){breakFever(lp.x,lp.y)}
@@ -2716,7 +2939,7 @@ function onLand(idx){
     addFlow(saved?-.10:-.22);
     addPunch(.2);shake=Math.max(shake,.12);
     setEmo(saved?'😤':'😅',1.0);
-    addFloat(saved?'🛡 УТРИМАВ FEVER!':'ВХОПИВСЯ!',lp.x,lp.y-46,saved?'#FFD54F':'#81D4FA',18);
+    addFloat(djSave?'\u{1F300} ПОДВІЙНИЙ СТРИБОК!':saved?'🛡 УТРИМАВ FEVER!':'ВХОПИВСЯ!',lp.x,lp.y-46,djSave?'#8FE9FF':saved?'#FFD54F':'#81D4FA',18);
     addLandFX(lp.x,lp.y,1.1);
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.3);
     for(let i=0;i<8;i++){const a=rand(-Math.PI,0);addP(lp.x,lp.y,Math.cos(a)*.05,Math.sin(a)*.05-.02,'#B3E5FC',rand(1.5,3),.4,'s')}
@@ -2739,6 +2962,8 @@ function onLand(idx){
     }
     const totalPts=Math.floor(2*Math.min(comboMult,5)*feverMult*scoreBonusMult);
     score+=totalPts;
+    // Skill pays: every fifth PERFECT in a row drops a coin
+    if(perfectCombo%5===0){runCoins+=1;addFlyCoin(lp.x,lp.y-18);}
     // Sound: pitch escalates with combo
     const basePitch=880+Math.min(perfectCombo-1,8)*110;
     tone(basePitch,.08,'sine',.12);tone(basePitch*1.25,.07,'sine',.08,.04);
@@ -2776,8 +3001,8 @@ function onLand(idx){
       addFloat('+'+totalPts,lp.x+25,lp.y-25,bonusCol,12+Math.min(comboMult,6));
     }
     // Combo milestones
-    if(perfectCombo===5&&!fever){
-      fever=true;feverT=0;feverFlash=.6;runFever++;feverShield=true;
+    if(perfectCombo>=feverNeed()&&!fever){
+      fever=true;feverT=0;feverFlash=.6;runFever++;feverShield=feverShieldCount();
       setEmo('😤',1.3);
       sfxFever();
       addFloat('🔥 FEVER!',lp.x,lp.y-60,'#FFD700',22);
@@ -2859,12 +3084,22 @@ function onLand(idx){
     for(let i=0;i<10;i++){const a=rand(0,Math.PI*2);addP(lp.x,lp.y-8,Math.cos(a)*.06,Math.sin(a)*.05-.02,'#FF7043',rand(2,3.5),.45,'s')}
   }
   if(pad.coin){pad.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-12);addFlyCoin(lp.x,lp.y-12);sfxCoin();if(fever)addFloat('x2🪙',lp.x+20,lp.y-25,'#FFD700',14)}
-  // Blue magnet perk — sweep coins from the next 2 platforms too
-  if(curPerk()==='magnet'){
-    const ci=getCurrentPadIdx();
-    for(let k=1;k<=2;k++){
-      const mp=pads[ci+k];
-      if(mp&&mp.coin){mp.coin=false;runCoins+=coinMult;addCoinFX(lp.x,lp.y-18-k*8);addFlyCoin(lp.x,lp.y-18-k*8);sfxCoin();}
+  // MAGNET module — coins on the other branches of the row you land in are
+  // pulled in if they sit within the magnet's radius; at max level the next
+  // row is swept too. The radius is in lanes, so it reads the same everywhere.
+  {
+    const R=modStat('magnet');
+    if(R>0){
+      const y0=padPositions[idx];
+      const rows=[y0]; if(modLv('magnet')>=5){const g=nextGroup(idx);if(padPositions[g]!==undefined)rows.push(padPositions[g]);}
+      for(let k=0;k<pads.length;k++){
+        const mp=pads[k];
+        if(!mp||!mp.coin||k===idx||rows.indexOf(padPositions[k])<0)continue;
+        if(Math.abs(mp.gameX-pad.gameX)>R)continue;
+        mp.coin=false;runCoins+=coinMult;sfxCoin();runMagnet++;
+        const mz=padPositions[k]-seq+VIEW_Z, mpp=project(Math.max(mz,.1),mp.gameX,mp.elev);
+        addCoinFX(mpp.x,mpp.y-12);addFlyCoin(mpp.x,mpp.y-12);
+      }
     }
   }
 
@@ -2879,7 +3114,9 @@ function onLand(idx){
   if(pad.diamond){
     pad.diamond=false;runDiamonds++;
     sfxDiamond();runCoins+=3;
-    addFloat('💎 +3',lp.x,lp.y-50,'#00BCD4',18);
+    // every fourth crystal condenses into a core shard; the rest stay coins
+    if(runDiamonds%4===0)addFloat('\u{1F4A0} +1 ЯДРО',lp.x,lp.y-50,'#00BCD4',18);
+    else addFloat('\u{1F48E} +3',lp.x,lp.y-50,'#00BCD4',16);
     for(let i=0;i<6;i++){
       const a=rand(0,Math.PI*2);
       addP(lp.x,lp.y-10,Math.cos(a)*.04,Math.sin(a)*.04-.02,'#00BCD4',rand(2,3.5),.5,'s');
@@ -2889,11 +3126,12 @@ function onLand(idx){
 
 function doDash(){
   if(!dashReady||!alive||state!==ST.PLAY) return;
-  dashReady=false;dashCooldown=DASH_COOLDOWN;dashActive=true;dashT=DASH_DURATION;dashShow=1;
+  if(!modLv('dash'))return;
+  dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=DASH_DURATION;dashShow=1;
   sfxDash();shake=.15;
   // Dash = temporary speed burst + invincibility (no seq teleport)
   shield=true; // brief protection
-  boost=true;boostT=.8; // speed burst for 0.8s
+  boost=true;boostT=modLv('dash')>=5?1.1:.8; // speed burst
   addFloat('⚡ DASH!',W/2,H*.4,'#448AFF',22,true);
   // Dash trail particles
   for(let i=0;i<12;i++){
@@ -3029,6 +3267,12 @@ function updateGame(dt){
   }
 
 
+  // === MODULE RECHARGE ===
+  if(!shield&&shieldCD>0){
+    shieldCD-=dt;
+    if(shieldCD<=0){shieldCD=0;shield=true;sfxPU();addFloat('\u{1F6E1} ЩИТ ГОТОВИЙ',W/2,H*0.3,'#8FE9FF',16,true)}
+  }
+  if(djCD>0)djCD=Math.max(0,djCD-dt);
   // === DASH COOLDOWN ===
   if(!dashReady){
     dashCooldown-=dt;
@@ -3110,7 +3354,8 @@ function updateGame(dt){
       for(const gi of group){
         const pad=pads[gi];
         if(pad.broken||pad.disappeared||(pad.fallOffset&&pad.fallOffset>3)) continue; // skip gone pads
-        const hitR=getHitRadius(pad.width);
+        // Fever is a state worth protecting: landings are a little more forgiving
+        const hitR=getHitRadius(pad.width)*(fever?1.1:1);
         if(Math.abs(frogX-pad.gameX)<=hitR){
           onLand(gi);
           landed=true;
@@ -3147,6 +3392,22 @@ function updateGame(dt){
           if(Math.abs(frogX-pad.gameX)<=hitR+0.15){nearMiss=true;break}
         }
         if(nearMiss) sfxNearMiss();
+        // DOUBLE JUMP module — a missed landing becomes a second hop onto the
+        // nearest platform still standing in the row. It costs the combo like
+        // any rescue, and recharges on its own timer.
+        if(modLv('djump')&&djCD<=0){
+          let bi=-1,bd=1e9;
+          for(const gi of group){const pd=pads[gi];
+            if(pd.broken||pd.disappeared||(pd.fallOffset&&pd.fallOffset>3))continue;
+            const d=Math.abs(frogX-pd.gameX);if(d<bd){bd=d;bi=gi}}
+          if(bi>=0){
+            frogCont=pads[bi].gameX;visLane=pads[bi].gameX;
+            djCD=modStat('djump');djSave=true;grabSave=true;
+            onLand(bi);grabSave=false;djSave=false;
+            addPunch(.35);sfxWhoosh();
+            landed=true;break;
+          }
+        }
         die();break;
       }
     }
@@ -3261,7 +3522,7 @@ function updateGame(dt){
   for(const p of pads)if(p.dip>0)p.dip=sd(p.dip,0,10,dt);
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
-  updShocks(dt);updFlyCoins(dt);
+  updShocks(dt);updFlyCoins(dt);updAirCoins();
 
   // Magnet
   if(magnet){
@@ -4819,6 +5080,7 @@ function drawGame(){
       fy+=ft*70;fs*=(1-ft*.5);ctx.globalAlpha=1-ft*.9;
     }
 
+    drawAirCoins();
     // Character presentation. The warm halo that used to sit here was a big
     // yellow-white disc in a scene with no warm in it, and it read as a cheap
     // sticker rather than a lit character. Replaced with the two things that
@@ -4909,7 +5171,7 @@ function drawGame(){
   // Built from the same glass + rim + controlled glow as the HUD chips, so it
   // belongs to the screen instead of sitting on it. The supplied disc sprite
   // had its own material and read as a separate widget.
-  if(state===ST.PLAY&&alive){
+  if(state===ST.PLAY&&alive&&modLv('dash')>0){
     const dc=dashBtnC(), dx=dc.x, dy=dc.y, r=25;
     const on=dashReady;
     ctx.save();
@@ -4931,7 +5193,7 @@ function drawGame(){
     ctx.shadowBlur=0;
     // cooldown sweep sits inside the rim, not over the face
     if(!on){
-      const cd=1-dashCooldown/DASH_COOLDOWN;
+      const cd=1-dashCooldown/dashCD();
       ctx.strokeStyle='rgba(0,229,255,.55)';ctx.lineWidth=2.5;
       ctx.beginPath();ctx.arc(dx,dy,r-4,-Math.PI/2,-Math.PI/2+cd*Math.PI*2);ctx.stroke();
     }
@@ -5559,8 +5821,16 @@ function drawHUD(){
       const pop=1+comboPop*0.18, cy=T+30;
       ctx.save();
       ctx.translate(L,cy+12);ctx.scale(pop,pop);ctx.translate(-L,-(cy+12));
-      uiChipText(L,cy,'x'+perfectCombo,1,'flame');
+      const cw2=uiChipText(L,cy,'x'+perfectCombo,1,'flame');
       ctx.restore();
+      // Fever charge: how close the streak is to igniting Fever
+      if(!fever){
+        const need=feverNeed(), k=clamp(perfectCombo/need,0,1);
+        ctx.save();
+        ctx.fillStyle='rgba(8,13,38,.8)';rr(L+4,cy+27,cw2-8,3,1.5);ctx.fill();
+        ctx.fillStyle='#FF3DDB';rr(L+4,cy+27,(cw2-8)*k,3,1.5);ctx.fill();
+        ctx.restore();
+      }
     }
   }
 
@@ -5651,10 +5921,14 @@ function drawHUD(){
     // still intact, shown as a pip rather than another element.
     const w=uiChipText(L,py,'FEVER x2',1,'flame');
     ctx.save();
-    const px=L+w+7, pyc=py+12;
-    ctx.strokeStyle=UI.lineHot;ctx.lineWidth=1.3;
-    ctx.beginPath();ctx.arc(px,pyc,4,0,Math.PI*2);ctx.stroke();
-    if(feverShield){ctx.fillStyle=UI.textHot;ctx.beginPath();ctx.arc(px,pyc,2.2,0,Math.PI*2);ctx.fill();}
+    // one pip per slip the fever can still absorb (the Fever Core adds pips)
+    const nP=feverShieldCount();
+    for(let k=0;k<nP;k++){
+      const px=L+w+7+k*11, pyc=py+12;
+      ctx.strokeStyle=UI.lineHot;ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.arc(px,pyc,4,0,Math.PI*2);ctx.stroke();
+      if(k<feverShield){ctx.fillStyle=UI.textHot;ctx.beginPath();ctx.arc(px,pyc,2.2,0,Math.PI*2);ctx.fill();}
+    }
     ctx.restore();
     py-=29;
   }
@@ -6861,6 +7135,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ if(ac&&ac.state==='running')ac.suspend&&ac.suspend(); }
   else { lastT=0; if(ac&&ac.state==='suspended')ac.resume&&ac.resume(); }
 });
+Prog.load();
 initClouds();initBflies();initSideObjects();initAtmo();requestAnimationFrame(loop);
 </script>
 </body>
