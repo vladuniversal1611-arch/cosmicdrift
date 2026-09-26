@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -1029,8 +1029,8 @@ function doUpgrade(id){
 // A revive continues the same run and dies again, and the old code paid the
 // whole run's coins a second time. Everything here pays only what has not
 // been paid yet, so a revived run is credited exactly once in total.
-let paid={coins:0,shards:0,xp:0,perf:0,counted:false}, djSave=false;
-function resetRunPay(){paid={coins:0,shards:0,xp:0,perf:0,counted:false}}
+let paid={coins:0,shards:0,xp:0,perf:0,dist:0,meter:0,counted:false}, djSave=false, runChests=[];
+function resetRunPay(){paid={coins:0,shards:0,xp:0,perf:0,dist:0,meter:0,counted:false};runChests=[]}
 function runXPTotal(){return Math.floor(dist/4)+runPerfects+runFever*10+(typeof goalXP!=='undefined'?goalXP:0)}
 function addXP(n){
   const d=Prog.d, ups=[];
@@ -1053,7 +1053,11 @@ function endRunRewards(){
   runRewardCoins=paid.coins;runShards=paid.shards;
   if(!paid.counted){paid.counted=true;d.stats.runs++}
   d.stats.perfects+=runPerfects-paid.perf;paid.perf=runPerfects;
-  d.stats.dist=Math.max(d.stats.dist|0,0)+0;
+  d.stats.dist=(d.stats.dist|0)+Math.max(0,Math.floor(dist)-paid.dist);paid.dist=Math.max(paid.dist,Math.floor(dist));
+  // chest meter: 5 for showing up, then 1 per 20 m (capped so one epic run
+  // is not worth more than two decent ones)
+  const mt=Math.min(50,5+Math.floor(dist/20))-paid.meter;
+  if(mt>0){paid.meter+=mt;runChests=runChests.concat(addChestMeter(mt))}
   d.stats.bestCombo=Math.max(d.stats.bestCombo,runMaxCombo);
   if(xp>0){paid.xp+=xp;runXP=paid.xp;
     const r=addXP(xp);runLevelUps=runLevelUps.concat(r.ups);
@@ -2354,6 +2358,7 @@ canvas.addEventListener('touchstart',e=>{
   const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
   swHist.length=0;swSample(t.clientX,t.clientY);
   if(state===ST.SKINS)scrollStartV=skinScroll;
+  if(isListScreen())uiScrollStart=uiScroll;
   if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
@@ -2366,6 +2371,7 @@ canvas.addEventListener('touchstart',e=>{
 canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
   if(state===ST.SKINS){const t=e.touches[0];skinScroll=clamp(scrollStartV-(t.clientY-tSY),0,maxSkinScroll());return}
+  if(isListScreen()){const t=e.touches[0];uiScroll=clamp(uiScrollStart-(t.clientY-tSY),0,uiScrollMax);return}
   if(state===ST.PLAY&&alive&&touching){
     const t=e.touches[0];
     if(btnTouch)return;
@@ -2391,6 +2397,8 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
     else if(state===ST.MISSIONS)missionsTap(t.clientX,t.clientY);
     else if(state===ST.SHOP)shopTap(t.clientX,t.clientY);
+    else if(state===ST.LAB)labTap(t.clientX,t.clientY);
+    else if(state===ST.CHESTS)chestsTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -2405,6 +2413,7 @@ canvas.addEventListener('mousedown',e=>{
   initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
   swHist.length=0;swSample(e.clientX,e.clientY);
   if(state===ST.SKINS)scrollStartV=skinScroll;
+  if(isListScreen())uiScrollStart=uiScroll;
   if(state===ST.PLAY&&introT>0.3)introT=0.3;
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
@@ -2415,6 +2424,7 @@ canvas.addEventListener('mousedown',e=>{
 });
 canvas.addEventListener('mousemove',e=>{
   if(mouseDown&&state===ST.SKINS){skinScroll=clamp(scrollStartV-(e.clientY-tSY),0,maxSkinScroll());return}
+  if(mouseDown&&isListScreen()){uiScroll=clamp(uiScrollStart-(e.clientY-tSY),0,uiScrollMax);return}
   if(mouseDown&&state===ST.PLAY&&alive&&touching){
     if(btnTouch)return;
     if(handleFlick(e.clientX,e.clientY))return;
@@ -2432,6 +2442,8 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
     else if(state===ST.MISSIONS)missionsTap(e.clientX,e.clientY);
     else if(state===ST.SHOP)shopTap(e.clientX,e.clientY);
+    else if(state===ST.LAB)labTap(e.clientX,e.clientY);
+    else if(state===ST.CHESTS)chestsTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -2439,6 +2451,7 @@ canvas.addEventListener('mouseup',e=>{
     }
   }
 });
+canvas.addEventListener('wheel',e=>{if(isListScreen()){e.preventDefault();uiScroll=clamp(uiScroll+e.deltaY,0,uiScrollMax)}},{passive:false});
 document.addEventListener('keydown',e=>{
   initAudio();
   if(state===ST.PLAY){
@@ -2451,6 +2464,7 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.MISSIONS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.SHOP&&e.key==='Escape')state=ST.MENU;
+  else if((state===ST.LAB||state===ST.CHESTS)&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -6458,7 +6472,7 @@ function drawMenuJourney(cx,sy){
   // castles re-lit chip (bottom-right of the strip)
   ctx.textAlign='right';ctx.fillStyle='#FFD54F';
   ctx.font='900 12px Exo2,sans-serif';
-  ctx.fillText('🏰 '+(storyP.castles||0),px+pw-16,sy+33);
+  ctx.fillText('🏆 '+bestScore+'   🏰 '+(storyP.castles||0),px+pw-16,sy+33);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 
@@ -6511,10 +6525,11 @@ function drawMenuNav(){
   glassPanel(navX,navY,navW,navH,20);
 
   const items=[
-    {icon:'cart',   fallback:'🎨', label:'СКІНИ',    tint:'rgba(186,104,255,'},
-    {icon:'target', fallback:'🎯', label:'ЗАВДАННЯ', tint:'rgba(255,112,112,'},
-    {icon:'cart',   fallback:'🛒', label:'МАГАЗИН',  tint:'rgba(255,193,64,'},
+    {icon:null,     fallback:'🧪', label:'ЛАБОРАТОРІЯ', tint:'rgba(54,224,255,'},
+    {icon:'target', fallback:'🎯', label:'ЗАВДАННЯ',    tint:'rgba(255,112,112,'},
+    {icon:null,     fallback:'',   label:'СКРИНІ',      tint:'rgba(255,193,64,'},
   ];
+  const badges=navBadges();
   const secW=navW/3;
   for(let i=0;i<3;i++){
     const sx=navX+secW*i+secW/2, iy=navY+30;
@@ -6522,15 +6537,9 @@ function drawMenuNav(){
 
     ctx.save();
     ctx.shadowColor=items[i].tint+'.55)';ctx.shadowBlur=14;
-    if(i===0){
-      // skins slot shows the live hero
-      if(_HERO_LOADED&&_HERO_IMG.naturalWidth>0){
-        const h=36,w=h*_HERO_IMG.naturalWidth/_HERO_IMG.naturalHeight;
-        ctx.drawImage(_HERO_IMG,sx-w/2,iy+bob-h/2,w,h);
-      } else {
-        ctx.font='26px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(items[i].fallback,sx,iy+bob+9);
-      }
-    } else if(!drawImgH(items[i].icon,sx,iy+bob,34)){
+    if(i===2){
+      drawChestIco(sx,iy+bob+6,34,Prog.d.chests.epic?2:Prog.d.chests.crystal?1:0,0);
+    } else if(!items[i].icon||!drawImgH(items[i].icon,sx,iy+bob,34)){
       ctx.font='26px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(items[i].fallback,sx,iy+bob+9);
     }
     ctx.restore();
@@ -6544,16 +6553,24 @@ function drawMenuNav(){
     ctx.font='800 12px Exo2,sans-serif';
     ctx.textAlign='center';
     ctx.fillText(items[i].label,sx,navY+navH-16);
+    drawNavBadge(sx+22,navY+14,badges[i]);
   }
 }
 
+// Stack the lower menu up from the nav dock so short phones never overlap it.
+function menuLayout(){
+  const navTop=H-80-6-SAFE.b;
+  const journey=Math.min(H*.57+78+62+12,navTop-12-46);
+  const prog=journey-12-62;
+  return {play:Math.min(H*.57,prog-14-64),prog,journey};
+}
 function drawMenu(){
   gt+=.016;
 
   // Full living world background
   drawMenuBg();
 
-  const cx=W/2;
+  const cx=W/2, ML=menuLayout();
 
   // 1. Platforms going into distance (behind character)
   drawMenuPlatforms(cx,H*.44);
@@ -6564,18 +6581,18 @@ function drawMenu(){
   // 3. Logo at top (its ribbon carries the story tagline)
   drawMenuLogo(cx,H*.08);
 
-  // 4. Coin chip (top right)
-  drawMenuCoins(cx);
+  // 4. Currencies (top right)
+  drawCurrencies();
 
   // 5. PLAY button — biggest CTA
-  const playY=H*.57;
+  const playY=ML.play;
   drawMenuPlayBtn(cx,playY);
 
-  // 6. Stats panel below play button
-  drawMenuStats(cx,playY+78);
+  // 6. Player level + what unlocks next
+  drawMenuProgress(cx,ML.prog);
 
   // 6b. Persistent journey strip
-  drawMenuJourney(cx,playY+78+62+12);
+  drawMenuJourney(cx,ML.journey);
 
   // 7. Bottom navigation dock
   drawMenuNav();
@@ -6588,17 +6605,15 @@ function drawMenu(){
 
 function menuTap(x,y){
   // PLAY button
-  const bw=W*.68,bh=64,bx=W/2-bw/2,by=H*.57;
+  const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startGame();return}
   // Bottom nav — 3 equal sections
-  const navH=80,navY=H-navH-6;
+  const navH=80,navY=H-navH-6-SAFE.b,navX=10+SAFE.l,navW=W-20-SAFE.l-SAFE.r;
   if(y>=navY&&y<=navY+navH){
-    const navW=W-20,navX=10;
-    const secW=navW/3;
-    const section=Math.floor((x-navX)/secW);
-    if(section===0){sfxClick();state=ST.SKINS;skinScroll=0}
-    else if(section===1){sfxClick();state=ST.MISSIONS}
-    else if(section===2){sfxClick();state=ST.SHOP}
+    const section=Math.floor((x-navX)/(navW/3));
+    if(section===0)openScreen(ST.LAB);
+    else if(section===1)openScreen(ST.MISSIONS);
+    else if(section===2)openScreen(ST.CHESTS);
   }
 }
 
@@ -6971,6 +6986,490 @@ function missionsTap(x,y){
   // Any tap outside cards goes back too? keep only the button for now
 }
 
+// ========== META UI (progression screens) ==========
+// Shared pieces for the screens around the run: the two currencies, level/XP,
+// and a scroll offset every list screen uses (reset whenever a screen opens).
+let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS}
+function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
+function drawShardIco(x,y,r){
+  ctx.save();
+  ctx.beginPath();
+  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/2;ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r)}
+  ctx.closePath();
+  const g=ctx.createLinearGradient(x,y-r,x,y+r);
+  g.addColorStop(0,'#B8FBFF');g.addColorStop(.5,'#35D6F2');g.addColorStop(1,'#1565C0');
+  ctx.fillStyle=g;ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x,y+r);ctx.moveTo(x-r*.87,y-r*.5);ctx.lineTo(x+r*.87,y+r*.5);
+  ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+function drawFragIco(x,y,r){
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/4);
+  const g=ctx.createLinearGradient(-r,-r,r,r);
+  g.addColorStop(0,'#F3B5FF');g.addColorStop(1,'#8E24AA');
+  ctx.fillStyle=g;rr(-r*.72,-r*.72,r*1.44,r*1.44,r*.3);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1.1;rr(-r*.72,-r*.72,r*1.44,r*1.44,r*.3);ctx.stroke();
+  ctx.restore();
+}
+function drawCoinIco(x,y,r){
+  if(!drawImgH('coin',x,y,r*2.2)){ctx.fillStyle='#FFC107';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
+}
+// Coins and core shards, top-right, one chip each stacked vertically so the
+// logo / title in the middle never has to share its row.
+// row=true lays them side by side (sub-screens, where the title has its own row).
+function drawCurrencies(row){
+  const rows=[{v:coins,ico:drawCoinIco,col:'#FFE082'},{v:Prog.d.shards,ico:drawShardIco,col:'#9CF4FF'}];
+  let y=12+SAFE.t;
+  ctx.font='900 15px Exo2,sans-serif';
+  const tw=Math.max(...rows.map(r=>ctx.measureText(String(r.v)).width));
+  const cw=Math.max(row?62:74,34+tw+16), ch=row?34:30;
+  let x=W-12-SAFE.r-cw;
+  if(row)rows.reverse();
+  for(const r of rows){
+    glassPanel(x,y,cw,ch,ch/2);
+    if(row){r.ico(x+17,y+ch/2,9);ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+      ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);x-=cw+6;continue}
+    r.ico(x+17,y+ch/2,9);
+    ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+    ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);
+    y+=ch+6;
+  }
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  return y;
+}
+function drawBar(x,y,w,h,pct,c1,c2){
+  ctx.fillStyle='rgba(255,255,255,.10)';rr(x,y,w,h,h/2);ctx.fill();
+  if(pct>0){
+    const g=ctx.createLinearGradient(x,0,x+w,0);g.addColorStop(0,c1);g.addColorStop(1,c2);
+    ctx.fillStyle=g;rr(x,y,Math.max(h,w*clamp(pct,0,1)),h,h/2);ctx.fill();
+  }
+}
+function nextUnlock(){
+  let n=null;for(const m of MODULES)if(m.unlock>Prog.d.lvl&&(!n||m.unlock<n.unlock))n=m;
+  return n;
+}
+function drawLevelBadge(x,y,r){
+  const d=Prog.d, pct=d.xp/xpNeed(d.lvl);
+  ctx.save();
+  ctx.fillStyle='rgba(6,10,30,.9)';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=3.5;ctx.beginPath();ctx.arc(x,y,r-2,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='#36E0FF';ctx.lineCap='round';
+  ctx.beginPath();ctx.arc(x,y,r-2,-Math.PI/2,-Math.PI/2+Math.PI*2*clamp(pct,0.02,1));ctx.stroke();
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font=`900 ${Math.round(r*.78)}px Exo2,sans-serif`;ctx.fillText(String(d.lvl),x,y-r*.1);
+  ctx.fillStyle='rgba(160,225,255,.85)';ctx.font=`800 ${Math.max(7,Math.round(r*.3))}px Exo2,sans-serif`;
+  ctx.fillText('РІВ',x,y+r*.5);
+  ctx.restore();
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+// Menu centre-piece under PLAY: where the player is and what comes next.
+function drawMenuProgress(cx,sy){
+  const d=Prog.d, pw=W*.78, ph=62, px=cx-pw/2;
+  glassPanel(px,sy,pw,ph,16);
+  drawLevelBadge(px+32,sy+ph/2,22);
+  const tx=px+64, bw=pw-64-14;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 13px Exo2,sans-serif';
+  ctx.fillText('РІВЕНЬ '+d.lvl,tx,sy+16);
+  ctx.textAlign='right';ctx.fillStyle='rgba(160,225,255,.9)';ctx.font='800 11px Exo2,sans-serif';
+  ctx.fillText(`${d.xp}/${xpNeed(d.lvl)} XP`,px+pw-14,sy+16);
+  drawBar(tx,sy+26,bw,8,d.xp/xpNeed(d.lvl),'#1FA2FF','#36E0FF');
+  ctx.textAlign='left';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.78)';
+  const nu=nextUnlock();
+  let line=nu?`Далі: ${nu.icon} ${nu.name} · рів. ${nu.unlock}`:'Усі модулі відкрито';
+  ctx.fillText(fitText(line,bw),tx,sy+47);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function chestCount(){const c=Prog.d.chests;return (c.wood|0)+(c.crystal|0)+(c.epic|0)}
+function navBadges(){
+  return [affordableUpgrade()?'!':0,
+    (typeof claimableCount==='function'?claimableCount():0),
+    chestCount()];
+}
+function drawNavBadge(x,y,v){
+  if(!v)return;
+  const s=String(v), r=9;
+  ctx.save();
+  ctx.font='900 11px Exo2,sans-serif';
+  const w=Math.max(r*2,ctx.measureText(s).width+10);
+  ctx.fillStyle='#FF3D6E';rr(x-w/2,y-r,w,r*2,r);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;rr(x-w/2,y-r,w,r*2,r);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(s,x,y+.5);
+  ctx.restore();
+}
+// Vector chest — no sprite exists for it; tier 0 wood, 1 crystal, 2 epic.
+const CHEST_COL=[['#C98A4B','#7A4A22','#FFD08A'],['#4FC3F7','#1A5F9E','#B8F2FF'],['#D46BFF','#5E1A8C','#FFC6FF']];
+function drawChestIco(x,y,s,tier,open){
+  const c=CHEST_COL[tier|0];
+  ctx.save();ctx.translate(x,y);
+  const w=s, h=s*.62, lh=s*.36;
+  // body
+  let g=ctx.createLinearGradient(0,-h*.1,0,h*.5);g.addColorStop(0,c[0]);g.addColorStop(1,c[1]);
+  ctx.fillStyle=g;rr(-w/2,-h*.1,w,h*.6,s*.08);ctx.fill();
+  // lid
+  ctx.save();
+  if(open){ctx.translate(0,-h*.1);ctx.rotate(-0.5*open);ctx.translate(0,h*.1)}
+  g=ctx.createLinearGradient(0,-h*.1-lh,0,-h*.1);g.addColorStop(0,c[2]);g.addColorStop(1,c[0]);
+  ctx.fillStyle=g;rr(-w/2,-h*.1-lh,w,lh,s*.14);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=Math.max(1,s*.03);rr(-w/2,-h*.1-lh,w,lh,s*.14);ctx.stroke();
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(-w*.3,-h*.1-lh+2,w*.08,lh-2);ctx.fillRect(w*.22,-h*.1-lh+2,w*.08,lh-2);
+  ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=Math.max(1,s*.03);rr(-w/2,-h*.1,w,h*.6,s*.08);ctx.stroke();
+  // bands + lock
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(-w*.3,-h*.1,w*.08,h*.6);ctx.fillRect(w*.22,-h*.1,w*.08,h*.6);
+  ctx.fillStyle='#FFE082';rr(-s*.08,-h*.16,s*.16,s*.2,s*.04);ctx.fill();
+  ctx.restore();
+}
+
+// ---- CORE LAB: upgrade the run modules ----
+const MOD_TINT={magnet:'#FF5C8A',shield:'#4FC3F7',dash:'#FFD54F',fever:'#FF7A3D',djump:'#8C7CFF',reward:'#5CFF9D'};
+let labFlash={}, labMsg='', labMsgT=0;
+function labLayout(){
+  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), ch=138, gap=10;
+  const top=138+SAFE.t;
+  return {cw,ch,gap,top,x:W/2-cw/2,bottom:H-SAFE.b-10};
+}
+function labBtnRect(L,i){
+  const y=L.top+i*(L.ch+L.gap)-uiScroll;
+  return {x:L.x+L.cw-124,y:y+L.ch-46,w:112,h:36};
+}
+function drawCostRow(x,y,m,l){
+  const c=UP_COST[l+1], d=Prog.d;
+  const items=[{ok:coins>=c.c,t:String(c.c),ico:drawCoinIco}];
+  if(c.f)items.push({ok:(d.frag[m.id]|0)>=c.f,t:`${d.frag[m.id]|0}/${c.f}`,ico:drawFragIco});
+  if(c.s)items.push({ok:d.shards>=c.s,t:`${d.shards}/${c.s}`,ico:drawShardIco});
+  ctx.font='800 12px Exo2,sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+  for(const it of items){
+    it.ico(x+7,y,6.5);
+    ctx.fillStyle=it.ok?'#EAFBFF':'#FF8A9E';
+    ctx.fillText(it.t,x+17,y+.5);
+    x+=17+ctx.measureText(it.t).width+12;
+  }
+}
+function fitText(s,w){
+  if(ctx.measureText(s).width<=w)return s;
+  while(s.length>2&&ctx.measureText(s+'…').width>w)s=s.slice(0,-1);
+  return s+'…';
+}
+function drawLab(){
+  gt+=.016;
+  drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
+  const L=labLayout(), d=Prog.d;
+  uiScrollMax=Math.max(0,L.top+MODULES.length*(L.ch+L.gap)-L.gap+8-L.bottom);
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  // list (clipped under the header)
+  ctx.save();
+  ctx.beginPath();ctx.rect(0,L.top-8,W,H-(L.top-8));ctx.clip();
+  for(let i=0;i<MODULES.length;i++){
+    const m=MODULES[i], l=modLv(m.id), y=L.top+i*(L.ch+L.gap)-uiScroll, x=L.x;
+    if(y>H||y+L.ch<L.top-8)continue;
+    const locked=l<1, tint=MOD_TINT[m.id]||'#36E0FF';
+    glassPanel(x,y,L.cw,L.ch,16);
+    const fl=labFlash[m.id]||0;
+    if(fl>0){ctx.save();ctx.globalAlpha=fl*.35;ctx.fillStyle=tint;rr(x,y,L.cw,L.ch,16);ctx.fill();ctx.restore();labFlash[m.id]=Math.max(0,fl-.03)}
+    ctx.save();if(locked)ctx.globalAlpha=.55;
+    // icon disc
+    ctx.fillStyle=locked?'rgba(120,130,160,.35)':tint+'33';
+    ctx.beginPath();ctx.arc(x+36,y+36,23,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=locked?'rgba(200,210,230,.4)':tint;ctx.lineWidth=2;ctx.stroke();
+    ctx.font='24px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+    ctx.fillText(m.icon,x+36,y+37);
+    // name + level pips
+    ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='900 15px Exo2,sans-serif';
+    ctx.fillText(fitText(m.name,L.cw-150),x+70,y+24);
+    for(let k=0;k<MOD_MAX;k++){
+      ctx.fillStyle=k<l?tint:'rgba(255,255,255,.14)';
+      rr(x+70+k*22,y+40,18,6,3);ctx.fill();
+    }
+    ctx.textAlign='right';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=locked?'rgba(200,210,230,.8)':'rgba(200,235,255,.9)';
+    ctx.fillText(locked?'🔒':`РІВ ${l}/${MOD_MAX}`,x+L.cw-14,y+24);
+    // effect now / next
+    ctx.textAlign='left';ctx.font='700 12px Exo2,sans-serif';
+    const tw=L.cw-28;
+    if(locked){
+      ctx.fillStyle='rgba(220,230,255,.85)';ctx.fillText(fitText('Дає: '+m.lv[1],tw),x+14,y+72);
+    }else{
+      ctx.fillStyle='rgba(220,230,255,.85)';ctx.fillText(fitText('Зараз: '+m.lv[l],tw),x+14,y+72);
+      if(l<MOD_MAX){ctx.fillStyle='#8FF3FF';ctx.fillText(fitText('Далі: '+m.lv[l+1],tw),x+14,y+90);}
+    }
+    ctx.restore();
+    // bottom row: cost + button, or the reason it can't go up
+    const b=labBtnRect(L,i), blk=upgradeBlock(m.id);
+    const by=b.y+b.h/2;
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    if(locked){
+      ctx.fillStyle='#FFD54F';ctx.font='800 12px Exo2,sans-serif';
+      ctx.fillText('🔒 Відкриється на рівні гравця '+m.unlock,x+14,by);
+    }else if(l>=MOD_MAX){
+      ctx.fillStyle='#FFD54F';ctx.font='900 13px Exo2,sans-serif';ctx.fillText('★ МАКСИМУМ',x+14,by);
+    }else if(blk&&blk.startsWith('Потрібен')){
+      ctx.fillStyle='#FFD54F';ctx.font='800 12px Exo2,sans-serif';ctx.fillText('🔒 '+blk+' гравця',x+14,by);
+    }else{
+      drawCostRow(x+12,by,m,l);
+      const ok=!blk;
+      ctx.save();
+      if(ok){ctx.shadowColor='rgba(92,255,157,.6)';ctx.shadowBlur=10+Math.sin(gt*4)*4}
+      const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);
+      if(ok){g.addColorStop(0,'#7CFF6B');g.addColorStop(1,'#1E9E4A')}else{g.addColorStop(0,'rgba(120,130,160,.55)');g.addColorStop(1,'rgba(70,80,110,.55)')}
+      ctx.fillStyle=g;rr(b.x,b.y,b.w,b.h,b.h/2);ctx.fill();
+      ctx.restore();
+      ctx.textAlign='center';ctx.fillStyle=ok?'#fff':'rgba(230,236,255,.7)';ctx.font='900 13px Exo2,sans-serif';
+      ctx.fillText('ПОКРАЩИТИ',b.x+b.w/2,by+1);
+    }
+    ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  }
+  ctx.restore();
+  // header over the list
+  const hg=ctx.createLinearGradient(0,0,0,L.top);
+  hg.addColorStop(0,'rgba(4,8,24,.96)');hg.addColorStop(1,'rgba(4,8,24,.80)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-8);
+  drawBackChip();
+  drawCurrencies(true);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ЛАБОРАТОРІЯ',W/2,72+SAFE.t);
+  // player level strip
+  const sw=Math.min(W-24,440), sx=W/2-sw/2, sy=94+SAFE.t;
+  ctx.textAlign='left';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#8FF3FF';
+  ctx.fillText('РІВЕНЬ '+d.lvl,sx,sy+8);
+  ctx.textAlign='right';ctx.fillStyle='rgba(200,222,255,.8)';
+  ctx.fillText(`${d.xp}/${xpNeed(d.lvl)} XP`,sx+sw,sy+8);
+  drawBar(sx,sy+18,sw,6,d.xp/xpNeed(d.lvl),'#1FA2FF','#36E0FF');
+  // scroll hint
+  if(uiScrollMax>0&&uiScroll<uiScrollMax-4){
+    const fg=ctx.createLinearGradient(0,H-50,0,H);fg.addColorStop(0,'rgba(4,8,24,0)');fg.addColorStop(1,'rgba(4,8,24,.85)');
+    ctx.fillStyle=fg;ctx.fillRect(0,H-50,W,50);
+  }
+  if(labMsgT>0){
+    labMsgT-=.016;
+    ctx.save();ctx.globalAlpha=Math.min(1,labMsgT*2);
+    ctx.font='800 13px Exo2,sans-serif';
+    const w=ctx.measureText(labMsg).width+30, bx=W/2-w/2, byy=H-60-SAFE.b;
+    uiPill(bx,byy,w,32,2);
+    ctx.fillStyle=UI.textGold;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(labMsg,W/2,byy+16.5);
+    ctx.restore();
+  }
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function labTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const L=labLayout();
+  if(y<L.top-8)return;
+  for(let i=0;i<MODULES.length;i++){
+    const m=MODULES[i], b=labBtnRect(L,i);
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){
+      if(modLv(m.id)<1||modLv(m.id)>=MOD_MAX)return;
+      const blk=upgradeBlock(m.id);
+      if(!blk){doUpgrade(m.id);sfxPU();labFlash[m.id]=1;labMsg=`${m.icon} ${m.name} → рівень ${modLv(m.id)}`;labMsgT=1.8}
+      else{
+        sfxLand();
+        labMsg=blk==='coins'?'Не вистачає монет — збирай їх у забігах':
+               blk==='frag'?'Потрібні фрагменти — вони випадають зі скринь':
+               blk==='shards'?'Потрібні ядра — алмази в забігах і скрині':blk;
+        labMsgT=2.2;
+      }
+      return;
+    }
+  }
+}
+
+// ---- ChestSystem ----
+// Chests pay coins, core shards and module fragments. Fragments are never a
+// lottery: they always go to the unlocked module that is furthest behind (lowest
+// level, then least progress toward its next level), so every chest moves an
+// upgrade forward. Fragments for a module that is already maxed turn into shards.
+// Every 10th chest opened is upgraded to Epic, so luck never gates progress.
+const CHESTS=[
+  {id:'wood',   name:'ДЕРЕВ’ЯНА',  c:[90,140],  s:1,  f:4,  split:1},
+  {id:'crystal',name:'КРИШТАЛЕВА',      c:[220,320], s:4,  f:10, split:2},
+  {id:'epic',   name:'ЕПІЧНА',          c:[550,750], s:12, f:24, split:3},
+];
+const EPIC_PITY=10, METER_MAX=100;
+function fragTargets(n){
+  const d=Prog.d, list=MODULES.filter(m=>modLv(m.id)>=1&&modLv(m.id)<MOD_MAX);
+  list.sort((a,b)=>{
+    const la=modLv(a.id), lb=modLv(b.id);
+    if(la!==lb)return la-lb;
+    const pa=(d.frag[a.id]|0)/UP_COST[la+1].f, pb=(d.frag[b.id]|0)/UP_COST[lb+1].f;
+    return pa-pb;
+  });
+  return list.slice(0,n);
+}
+// Opens one chest of tier t (0..2); returns the list of rewards for the reveal.
+function openChest(t){
+  const d=Prog.d, key=CHESTS[t].id;
+  if(!(d.chests[key]>0))return null;
+  d.chests[key]--;
+  d.opened=(d.opened|0)+1;
+  let tier=t;
+  if(tier<2&&d.opened%EPIC_PITY===0)tier=2;       // pity: every 10th chest is Epic
+  const T=CHESTS[tier], out=[];
+  const c=Math.round(T.c[0]+Math.random()*(T.c[1]-T.c[0]));
+  coins+=c;out.push({k:'coins',n:c});
+  let sh=T.s;
+  const tg=fragTargets(T.split);
+  if(tg.length){
+    // split the fragments across the neediest modules, the first gets the rest
+    const per=Math.floor(T.f/tg.length);
+    tg.forEach((m,i)=>{
+      const n=i===0?T.f-per*(tg.length-1):per;
+      d.frag[m.id]=(d.frag[m.id]|0)+n;out.push({k:'frag',id:m.id,n});
+    });
+  }else sh+=Math.ceil(T.f/2);                      // everything maxed → shards
+  d.shards+=sh;out.push({k:'shards',n:sh});
+  try{localStorage.setItem('fCoins',''+coins)}catch(e){}
+  Prog.save();
+  return {tier,upgraded:tier!==t,items:out};
+}
+// Runs fill a meter; a full meter is a chest. Distance and goals both count,
+// so even short runs creep it forward.
+function addChestMeter(n){
+  const d=Prog.d, got=[];
+  d.meter=(d.meter|0)+n;
+  while(d.meter>=METER_MAX){
+    d.meter-=METER_MAX;d.meterN=(d.meterN|0)+1;
+    const t=d.meterN%4===0?1:0;                    // every 4th meter chest is Crystal
+    d.chests[CHESTS[t].id]++;got.push(t);
+  }
+  return got;
+}
+
+// ---- Chests screen ----
+let chestOpen=null, chestAnimT=0;
+function chestLayout(){
+  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), ch=96, gap=12, top=160+SAFE.t;
+  return {cw,ch,gap,top,x:W/2-cw/2};
+}
+function drawRewardItem(x,y,it){
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  if(it.k==='coins'){drawCoinIco(x+12,y,10);ctx.fillStyle='#FFE082';ctx.font='900 17px Exo2,sans-serif';ctx.fillText('+'+it.n+' монет',x+30,y+1)}
+  else if(it.k==='shards'){drawShardIco(x+12,y,10);ctx.fillStyle='#9CF4FF';ctx.font='900 17px Exo2,sans-serif';ctx.fillText('+'+it.n+' ядер',x+30,y+1)}
+  else{
+    const m=modDef(it.id), l=modLv(it.id), need=UP_COST[Math.min(MOD_MAX,l+1)];
+    drawFragIco(x+12,y,10);
+    ctx.fillStyle='#F3B5FF';ctx.font='900 16px Exo2,sans-serif';
+    ctx.fillText(`+${it.n} ${m.icon} ${m.name}`,x+30,y-6);
+    ctx.fillStyle='rgba(220,230,255,.8)';ctx.font='700 11px Exo2,sans-serif';
+    ctx.fillText(need&&l<MOD_MAX?`фрагменти ${Prog.d.frag[it.id]|0}/${need.f}`:'фрагменти',x+30,y+11);
+  }
+}
+function drawChests(){
+  gt+=.016;
+  drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
+  const L=chestLayout(), d=Prog.d;
+  drawBackChip();drawCurrencies(true);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('СКРИНІ',W/2,72+SAFE.t);
+  // chest meter
+  const sw=L.cw, sx=L.x, sy=96+SAFE.t;
+  ctx.textAlign='left';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#FFD08A';
+  ctx.fillText('ШКАЛА СКРИНІ',sx,sy+8);
+  ctx.textAlign='right';ctx.fillStyle='rgba(200,222,255,.8)';
+  ctx.fillText(`${d.meter|0}/${METER_MAX}`,sx+sw,sy+8);
+  drawBar(sx,sy+18,sw,7,(d.meter|0)/METER_MAX,'#C98A4B','#FFD08A');
+  ctx.textAlign='left';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';
+  const left=EPIC_PITY-((d.opened|0)%EPIC_PITY);
+  ctx.fillText(`Забіги та цілі заповнюють шкалу · епічна гарантовано через ${left}`,sx,sy+40);
+  // the three chest rows
+  for(let t=0;t<3;t++){
+    const T=CHESTS[t], n=d.chests[T.id]|0, y=L.top+t*(L.ch+L.gap), x=L.x;
+    glassPanel(x,y,L.cw,L.ch,16);
+    ctx.save();if(!n)ctx.globalAlpha=.5;
+    const bob=n?Math.sin(gt*2.2+t)*2:0;
+    drawChestIco(x+52,y+L.ch/2+8+bob,58,t,0);
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';ctx.font='900 16px Exo2,sans-serif';ctx.fillText(fitText(T.name,L.cw-224),x+100,y+26);
+    ctx.fillStyle='rgba(200,222,255,.8)';ctx.font='700 11px Exo2,sans-serif';
+    // contents as icon + amount, same language as the Lab costs
+    let ix=x+100;
+    ctx.font='800 12px Exo2,sans-serif';
+    for(const [ico,t] of [[drawCoinIco,T.c[0]+'–'+T.c[1]],[drawShardIco,String(T.s)],[drawFragIco,String(T.f)]]){
+      ico(ix+7,y+78,6.5);ctx.fillStyle='rgba(220,230,255,.85)';ctx.fillText(t,ix+17,y+78.5);
+      ix+=17+ctx.measureText(t).width+10;
+    }
+    ctx.fillStyle=n?'#FFE082':'rgba(200,210,230,.7)';ctx.font='900 14px Exo2,sans-serif';
+    ctx.fillText('× '+n,x+100,y+50);
+    ctx.restore();
+    const b=chestBtnRect(L,t);
+    if(n){
+      ctx.save();ctx.shadowColor='rgba(255,208,138,.6)';ctx.shadowBlur=10+Math.sin(gt*4)*4;
+      const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
+      ctx.fillStyle=g;rr(b.x,b.y,b.w,b.h,b.h/2);ctx.fill();ctx.restore();
+      ctx.fillStyle='#3A1E00';ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('ВІДКРИТИ',b.x+b.w/2,b.y+b.h/2+1);
+    }
+  }
+  const hy=L.top+3*(L.ch+L.gap)+6;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.65)';
+  ctx.fillText('Фрагменти йдуть модулю, якому найбільше треба',W/2,hy);
+  ctx.fillText('Надлишок для максимальних модулів стає ядрами',W/2,hy+16);
+  if(chestOpen)drawChestReveal();
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function chestBtnRect(L,t){const y=L.top+t*(L.ch+L.gap);return {x:L.x+L.cw-118,y:y+L.ch/2-18,w:106,h:36}}
+function drawChestReveal(){
+  chestAnimT+=.016;
+  const a=Math.min(1,chestAnimT*4);
+  ctx.save();
+  ctx.fillStyle=`rgba(2,4,16,${.82*a})`;ctx.fillRect(0,0,W,H);
+  const cx=W/2, cy=H*.34;
+  const shake=chestAnimT<.7?Math.sin(chestAnimT*60)*(4*(1-chestAnimT/.7)):0;
+  const open=clamp((chestAnimT-.7)/.25,0,1);
+  const tier=chestOpen.tier;
+  if(open>0){
+    // burst of light behind the lid
+    const g=ctx.createRadialGradient(cx,cy-20,4,cx,cy-20,140);
+    g.addColorStop(0,`rgba(255,240,200,${.55*open})`);g.addColorStop(1,'rgba(255,240,200,0)');
+    ctx.fillStyle=g;ctx.fillRect(cx-160,cy-180,320,320);
+  }
+  drawChestIco(cx+shake,cy,120,tier,open);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 20px Exo2,sans-serif';
+  ctx.fillText(CHESTS[tier].name+' СКРИНЯ',cx,cy+70);
+  if(chestOpen.upgraded&&open>0){ctx.fillStyle='#F3B5FF';ctx.font='800 12px Exo2,sans-serif';ctx.fillText('★ 10-та скриня — покращено до епічної!',cx,cy+92)}
+  // reward rows fly in one after another
+  const items=chestOpen.items, rw=Math.min(W-48,320), rx=cx-rw/2;
+  let y=cy+118;
+  items.forEach((it,i)=>{
+    const u=clamp((chestAnimT-1.0-i*.18)/.25,0,1);
+    if(u<=0){y+=50;return}
+    ctx.save();ctx.globalAlpha=u;ctx.translate(0,(1-u)*14);
+    glassPanel(rx,y,rw,42,14);
+    drawRewardItem(rx+12,y+21,it);
+    ctx.restore();
+    y+=50;
+  });
+  if(chestAnimT>1.0+items.length*.18+.3){
+    ctx.globalAlpha=.6+.4*Math.sin(gt*4)**2;
+    ctx.fillStyle='#fff';ctx.font='800 13px Exo2,sans-serif';ctx.textAlign='center';
+    ctx.fillText('Торкнись, щоб забрати',cx,Math.min(H-30-SAFE.b,y+18));
+  }
+  ctx.restore();
+}
+function chestsTap(x,y){
+  if(chestOpen){
+    // first tap skips the animation, the second closes
+    const end=1.0+chestOpen.items.length*.18+.3;
+    if(chestAnimT<end){chestAnimT=end;return}
+    chestOpen=null;sfxClick();return;
+  }
+  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const L=chestLayout();
+  for(let t=0;t<3;t++){
+    const b=chestBtnRect(L,t);
+    if(x>=b.x-6&&x<=b.x+b.w+6&&y>=b.y-6&&y<=b.y+b.h+6){
+      const r=openChest(t);
+      if(r){chestOpen=r;chestAnimT=0;sfxPU()}
+      return;
+    }
+  }
+}
+
 let skinScroll=0, scrollStartV=0;
 function skinListSy(){return 100+SAFE.t}
 function skinRowH(){return skinTab===0?100:80}     // card height + gap
@@ -7110,6 +7609,8 @@ function loop(ts){
       case ST.SKINS:drawSkins();break;
       case ST.MISSIONS:drawMissions();break;
       case ST.SHOP:drawShop();break;
+      case ST.LAB:drawLab();break;
+      case ST.CHESTS:drawChests();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     if(transT>0){
