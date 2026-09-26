@@ -401,21 +401,57 @@ function lightningActive(){return actRule()==='lightning'||atkPhase===2}
 // evasion is a second platform in that row. Give the doomed row a sibling on
 // the other side, so the bolt becomes a lane choice you see 1.1 s ahead.
 function ensureSibling(k){
-  if(k<=0||k>=pads.length-1)return;
+  if(k<=0||k>=pads.length-1)return false;
   const y=padPositions[k];
-  if(padPositions[k-1]===y||padPositions[k+1]===y)return;   // already a fork
+  if(padPositions[k-1]===y||padPositions[k+1]===y)return true;   // already a fork
   const src=pads[k], x=src.gameX;
   let x2=x<1.0?x+0.98:x-0.98;
   if(x2<X_MIN||x2>X_MAX)x2=x<1.0?X_MAX:X_MIN;
   // reachable from every branch of the row before, and leads on to the row after
   const prevXs=[];for(let i=k-1;i>=0&&padPositions[i]===padPositions[k-1];i--)prevXs.push(pads[i].gameX);
   const dyIn=y-padPositions[k-1], dyOut=padPositions[k+1]-y;
-  if(!reachableFromAll(prevXs,padPositions[k-1],x2,y,false))return;
-  if(!isReachable(x2,y,pads[k+1].gameX,padPositions[k+1],false))return;
+  if(!reachableFromAll(prevXs,padPositions[k-1],x2,y,false))return false;
+  if(!isReachable(x2,y,pads[k+1].gameX,padPositions[k+1],false))return false;
   const sib=makePad(x2,'normal',getDifficulty());
   sib.width=classWidth('SAFE',getDifficulty());sib.elev=src.elev||0;sib.coin=false;sib.pu=null;
   pads.splice(k+1,0,sib);padPositions.splice(k+1,0,y);
   if(leapTo>k)leapTo++; if(leapFrom>k)leapFrom++;
+  return true;
+}
+// Every index in the row that pad k belongs to.
+function rowOf(k){
+  const y=padPositions[k], out=[];
+  for(let i=k;i>=0&&padPositions[i]===y;i--)out.unshift(i);
+  for(let i=k+1;i<pads.length&&padPositions[i]===y;i++)out.push(i);
+  return out;
+}
+// A bolt is only worth firing at a row the player can actually dodge within.
+// Anything else is a flash that means nothing, which is what this used to be:
+// measured over ~600 m, 78% of strikes offered no alternative platform at all.
+function pickBoltTarget(warn){
+  const ci=getCurrentPadIdx();
+  for(let off=2;off<=6;off++){
+    const k=ci+off;
+    if(!pads[k]||pads[k].broken||pads[k].disappeared)continue;
+    // The strike has to land BEFORE the player gets there. Without this the
+    // row can arrive mid-warning, the pad breaks under a frog already standing
+    // on it, and the telegraph was never a choice at all.
+    const eta=(padPositions[k]-seq)/Math.max(spd,0.001);
+    if(eta<warn+0.45||eta>warn+3.0)continue;
+    if(rowOf(k).length>1||ensureSibling(k)){
+      const row=rowOf(k).filter(i=>!pads[i].broken&&!pads[i].disappeared);
+      if(row.length<2)continue;
+      // Mostly strike the platform the player is already lined up on, so the
+      // bolt demands a move; sometimes not, so it can't be read blind.
+      if(Math.random()<0.75){
+        let best=row[0],bd=1e9;
+        for(const i of row){const d=Math.abs(visLane-pads[i].gameX);if(d<bd){bd=d;best=i}}
+        return best;
+      }
+      return row[Math.floor(Math.random()*row.length)];
+    }
+  }
+  return -1;
 }
 function sfxRoar(){if(!ac)return;for(let i=0;i<4;i++)tone(95-i*14,.38,'sawtooth',.05,i*.05);noise(.28,.05,0)}
 function updateAttack(dt){
@@ -485,7 +521,7 @@ function finaleIntensity(){return finaleOn?Math.min(1,0.35+finaleT*0.65):0}
 
 // --- Zone rule state ---
 let windPhase=0, windForce=0;            // wind
-let boltT=0, boltIdx=-1, boltWarn=0, boltStrike=0;  // lightning
+let boltT=0, boltIdx=-1, boltWarn=0, boltStrike=0, boltTaught=false;  // lightning
 const BOLT_WARN=1.1, BOLT_STRIKE=0.22;
 
 function actRule(){return ACTS[curAct].rule}
@@ -515,13 +551,21 @@ function updateActs(dt){
   if(lightningActive()){
     boltT-=dt;
     if(boltT<=0&&boltIdx<0){
-      const ci=getCurrentPadIdx();
-      const cand=ci+2+Math.floor(Math.random()*3);
-      if(pads[cand]){boltIdx=cand;boltWarn=BOLT_WARN;boltStrike=0;
-        if(atkPhase===2)atkBolts++;              // an attack strike is pure threat
-        else ensureSibling(cand);               // only the storm act makes it a real choice
+      // The first bolt of a run gets a longer look, and the row it picks has to
+      // be far enough out for THAT warning, not the standard one.
+      const warn=boltTaught?BOLT_WARN:BOLT_WARN+0.6;
+      const cand=pickBoltTarget(warn);
+      if(cand>=0){
+        boltIdx=cand;boltWarn=warn;boltStrike=0;
+        if(!boltTaught){
+          boltTaught=true;
+          addFloat('\u26A1 СТРИБАЙ НА ІНШУ!',W/2,H*0.17,'#FFD54F',19);
+        }
+        if(atkPhase===2)atkBolts++;
+        boltT=atkPhase===2?1.2:rand(2.2,3.4)*(1-finaleIntensity()*0.62);
+      } else {
+        boltT=0.35;      // no dodgeable row yet — wait rather than flash for nothing
       }
-      boltT=atkPhase===2?1.0:rand(2.0,3.2)*(1-finaleIntensity()*0.62);   // finale = near-constant strikes
     }
     if(boltIdx>=0){
       if(boltWarn>0){
@@ -530,8 +574,18 @@ function updateActs(dt){
           boltStrike=BOLT_STRIKE;
           shake=Math.max(shake,.45);addPunch(.7);actFlash=1;
           if(navigator.vibrate)navigator.vibrate(60);
-          // Anyone standing on the struck pad is out
-          if(alive&&actRule()==='lightning'&&frogStandingOn(boltIdx))die();   // attack bolts don't kill
+          // The platform is GONE. The landing code already refuses a broken pad,
+          // so the choice the telegraph offered is the one that decides the run.
+          const bp=pads[boltIdx];
+          if(bp&&!bp.broken){
+            bp.broken=true;bp.zapped=1;
+            const bz=(padPositions[boltIdx]||0)-seq+VIEW_Z;
+            if(bz>0.2){const lp=project(bz,bp.gameX,bp.elev);
+              for(let i=0;i<14;i++){const a=rand(0,Math.PI*2);
+                addP(lp.x,lp.y,Math.cos(a)*.07,Math.sin(a)*.05-.03,i%2?'#B388FF':'#E1F5FE',rand(2,4),.5,'s');}}
+            sfxBreak();
+          }
+          if(alive&&frogStandingOn(boltIdx))die();
         }
       } else if(boltStrike>0){
         boltStrike-=dt;
@@ -2190,7 +2244,7 @@ function startGame(){
   atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
   grabCool=0;grabSave=false;
   storyP.runs++;saveStory();
-  windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;
+  windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
   newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
@@ -4730,16 +4784,30 @@ function drawGame(){
       if(boltWarn>0){
         // Telegraph — the doomed pad must be unmistakable, so flood it red,
         // ring it, and hang a warning bolt above it. Blink accelerates.
-        const u=1-boltWarn/BOLT_WARN;
-        const blink=0.45+0.55*Math.abs(Math.sin(u*u*34));
+        const u=clamp(1-boltWarn/BOLT_WARN,0,1);   // >1 warn just starts calmer
+        // Ramp, don't strobe. A blink that accelerates reads as noise; danger
+        // closing in reads as information.
+        const blink=0.40+0.60*u;
         ctx.save();
+        // The choice is only a choice if the safe platform is named too
+        for(const si of rowOf(boltIdx)){
+          if(si===boltIdx)continue;
+          const sp=pads[si]; if(!sp||sp.broken||sp.disappeared)continue;
+          const sq=project(rz,sp.gameX,sp.elev);
+          const shw=120*sq.s*(sp.width||1);
+          ctx.strokeStyle=`rgba(90,255,170,${0.38+0.38*u})`;
+          ctx.lineWidth=Math.max(2.5,4*sq.s);
+          ctx.shadowColor='rgba(60,255,150,.8)';ctx.shadowBlur=Math.max(8,16*sq.s);
+          ctx.beginPath();ctx.ellipse(sq.x,sq.y-18*sq.s,shw*1.12,Math.max(9,46*sq.s),0,0,Math.PI*2);ctx.stroke();
+          ctx.shadowBlur=0;
+        }
         // Red wash over the pad top
-        ctx.fillStyle=`rgba(255,40,40,${0.30*blink})`;
-        ctx.beginPath();ctx.ellipse(q.x,q.y-16*q.s,hw*1.05,44*q.s,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle=`rgba(255,45,45,${0.48*blink})`;
+        ctx.beginPath();ctx.ellipse(q.x,q.y-16*q.s,hw*1.05,Math.max(9,44*q.s),0,0,Math.PI*2);ctx.fill();
         // Closing ring
-        ctx.strokeStyle=`rgba(255,70,70,${blink})`;ctx.lineWidth=6*q.s;
-        ctx.shadowColor='rgba(255,0,0,1)';ctx.shadowBlur=26*q.s;
-        ctx.beginPath();ctx.ellipse(q.x,q.y-18*q.s,hw*(1.45-u*0.4),52*q.s*(1.45-u*0.4),0,0,Math.PI*2);ctx.stroke();
+        ctx.strokeStyle=`rgba(255,70,70,${blink})`;ctx.lineWidth=Math.max(3,6*q.s);
+        ctx.shadowColor='rgba(255,0,0,1)';ctx.shadowBlur=Math.max(12,26*q.s);
+        ctx.beginPath();ctx.ellipse(q.x,q.y-18*q.s,hw*(1.45-u*0.4),Math.max(11,52*q.s)*(1.45-u*0.4),0,0,Math.PI*2);ctx.stroke();
         // Descending guide line from the sky — shows where it will hit
         ctx.strokeStyle=`rgba(255,90,90,${0.35*blink})`;ctx.lineWidth=3*q.s;
         ctx.setLineDash([10*q.s,10*q.s]);
