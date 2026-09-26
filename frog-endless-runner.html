@@ -1075,10 +1075,16 @@ function initAtmo(){
   atmoParticles=[];
   for(let i=0;i<MAX_ATMO;i++) atmoParticles.push(createAtmo());
 }
+// Keep motes out of the middle of the screen: the lane the player reads is the
+// one place extra sparkle costs more than it gives.
+function atmoX(){
+  const x=rand(0,W), c=W/2, edge=W*0.19;
+  return Math.abs(x-c)<edge ? (x<c?x-edge:x+edge) : x;
+}
 function createAtmo(){
-  const type=Math.random()<.4?'firefly':(Math.random()<.5?'dust':'spark');
+  const type=Math.random()<.22?'firefly':(Math.random()<.6?'dust':'spark');
   return{
-    x:rand(0,W),y:rand(H*.15,H*.85),
+    x:atmoX(),y:rand(H*.15,H*.85),
     vx:rand(-.3,.3),vy:rand(-.2,-.05),
     size:type==='firefly'?rand(1.5,3):rand(.5,1.5),
     phase:rand(0,Math.PI*2),
@@ -1092,26 +1098,29 @@ function updAtmo(dt){
     p.y+=p.vy*dt*20;
     p.life-=dt;
     if(p.life<=0||p.x<-20||p.x>W+20||p.y<H*.05){
-      p.x=rand(0,W);p.y=rand(H*.4,H*.85);
+      p.x=atmoX();p.y=rand(H*.4,H*.85);
       p.vx=rand(-.3,.3);p.vy=rand(-.2,-.05);
       p.life=rand(1,3);p.phase=rand(0,Math.PI*2);
-      p.type=Math.random()<.4?'firefly':(Math.random()<.5?'dust':'spark');
-      p.size=p.type==='firefly'?rand(1.5,3):rand(.5,1.5);
+      p.type=Math.random()<.22?'firefly':(Math.random()<.6?'dust':'spark');
+      p.size=p.type==='firefly'?rand(1.2,2.2):rand(.5,1.3);
     }
   }
 }
 function drawAtmo(){
   for(const p of atmoParticles){
-    const a=clamp(p.life/1,.0,1)*.6;
+    // Dimmer toward the middle of the screen as well as out of it, and in the
+    // scene palette — the motes used to be green, which is not in it.
+    const lane=clamp((Math.abs(p.x-W/2)/(W*0.5)-0.28)/0.5,0,1);
+    const a=clamp(p.life/1,.0,1)*.42*(0.25+0.75*lane);
     if(p.type==='firefly'){
-      const pulse=.3+Math.sin(gt*4+p.phase)*.4;
-      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*3);
-      g.addColorStop(0,`rgba(180,255,120,${a*pulse})`);
-      g.addColorStop(1,'rgba(180,255,120,0)');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.size*3,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=`rgba(220,255,180,${a*pulse})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*.6,0,Math.PI*2);ctx.fill();
+      const pulse=.35+Math.sin(gt*2.2+p.phase)*.3;
+      // A flat disc, not a gradient: there are dozens of these every frame
+      ctx.fillStyle=`rgba(58,141,255,${(a*pulse*0.55).toFixed(3)})`;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*2.1,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=`rgba(190,238,255,${(a*pulse).toFixed(3)})`;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*.55,0,Math.PI*2);ctx.fill();
     } else if(p.type==='dust'){
-      ctx.fillStyle=`rgba(180,220,200,${a*.3})`;
+      ctx.fillStyle=`rgba(154,196,232,${(a*.28).toFixed(3)})`;
       ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
     } else {
       const sparkA=a*(.3+Math.sin(gt*6+p.phase)*.2);
@@ -1124,14 +1133,17 @@ function drawAtmo(){
 // ========== CENTER LANE GLOW ==========
 function drawCenterGlow(){
   ctx.save();
-  for(let z=0;z<VIEW_AHEAD;z+=.15){
-    const p=project(z,1);
-    const nextP=project(z+.15,1);
-    const a=clamp(1-z/VIEW_AHEAD,.0,1)*.04;
-    const pulse=1+Math.sin(gt*2-z*.5)*.3;
-    ctx.strokeStyle=`rgba(255,255,255,${a*pulse})`;
-    ctx.lineWidth=3*p.s;
-    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(nextP.x,nextP.y);ctx.stroke();
+  // One stroked path with a gradient down it, rather than ~200 separate
+  // one-segment strokes per frame for the same line.
+  {
+    const near=project(0,1), far=project(VIEW_AHEAD,1);
+    const g=ctx.createLinearGradient(0,far.y,0,near.y);
+    g.addColorStop(0,'rgba(234,251,255,0)');
+    g.addColorStop(1,'rgba(234,251,255,.05)');
+    ctx.strokeStyle=g;ctx.lineWidth=2.2*near.s;
+    ctx.beginPath();
+    for(let z=VIEW_AHEAD;z>=0;z-=.5){const p=project(z,1);z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)}
+    ctx.stroke();
   }
   for(let i=0;i<6;i++){
     const pz=((gt*spd*.5+i*.6)%VIEW_AHEAD);
@@ -1158,31 +1170,22 @@ function updRipples(dt){
 function drawRipples(){
   for(const r of ripples){
     const prog=r.t/r.maxT;
-    const a=(1-prog);
-
-    // Central glow burst — big bright flash like Tiles Hop
-    const glowR=(20+prog*60)*r.s;
-    const gg=ctx.createRadialGradient(r.x,r.y,0,r.x,r.y,glowR);
-    gg.addColorStop(0,`rgba(255,235,59,${a*.5})`);
-    gg.addColorStop(.4,`rgba(255,193,7,${a*.25})`);
-    gg.addColorStop(1,'rgba(255,152,0,0)');
-    ctx.fillStyle=gg;ctx.beginPath();ctx.arc(r.x,r.y,glowR,0,Math.PI*2);ctx.fill();
-
-    // Expanding diamond outline
-    const dSize=(15+prog*45)*r.s;
-    ctx.save();ctx.translate(r.x,r.y);ctx.rotate(Math.PI/4+prog*.3);
-    ctx.strokeStyle=`rgba(0,229,255,${a*.6})`;
-    ctx.lineWidth=2.5*r.s*(1-prog);
-    ctx.shadowColor='rgba(0,229,255,.5)';ctx.shadowBlur=10*r.s;
-    ctx.strokeRect(-dSize,-dSize*.4,dSize*2,dSize*.8);
-    ctx.shadowBlur=0;
-    ctx.restore();
-
-    // Outer ripple ring
-    const ringR=(10+prog*50)*r.s;
-    ctx.strokeStyle=`rgba(180,100,255,${a*.35})`;
-    ctx.lineWidth=2*r.s*(1-prog);
-    ctx.beginPath();ctx.ellipse(r.x,r.y,ringR,ringR*.3,0,0,Math.PI*2);ctx.stroke();
+    const a=(1-prog)*(1-prog);
+    // One impact, in the scene palette. This used to be three unrelated shapes
+    // at once — an orange burst, a rotating rectangle outline and a purple
+    // ellipse — which is what made a landing read as debug output.
+    const core=(10+prog*26)*r.s;
+    const gg=ctx.createRadialGradient(r.x,r.y,0,r.x,r.y,core);
+    gg.addColorStop(0,`rgba(234,251,255,${a*.42})`);
+    gg.addColorStop(.45,`rgba(0,229,255,${a*.20})`);
+    gg.addColorStop(1,'rgba(0,229,255,0)');
+    ctx.fillStyle=gg;
+    ctx.beginPath();ctx.ellipse(r.x,r.y,core,core*.38,0,0,Math.PI*2);ctx.fill();
+    // a single shockwave ring, flattened to the platform's perspective
+    const ringR=(14+prog*52)*r.s;
+    ctx.strokeStyle=`rgba(0,229,255,${a*.55})`;
+    ctx.lineWidth=Math.max(1,2.2*r.s*(1-prog));
+    ctx.beginPath();ctx.ellipse(r.x,r.y,ringR,ringR*.34,0,0,Math.PI*2);ctx.stroke();
   }
 }
 
@@ -3357,6 +3360,14 @@ function drawBg(){
       g.addColorStop(0,'rgba(8,10,36,.30)');g.addColorStop(.45,'rgba(8,10,36,.34)');
       g.addColorStop(1,'rgba(8,10,36,.44)');return g});
     ctx.fillStyle=scr;ctx.fillRect(-W,-H,W*3,H*3);
+    // Clear the corridor the player reads. The city sat directly behind the
+    // platforms and competed with them; darkening the middle band leaves the
+    // detail out at the edges, where it decorates instead of interfering.
+    const cor=cachedGrad('ncorr'+W,()=>{const g=ctx.createLinearGradient(0,0,W,0);
+      g.addColorStop(0,'rgba(5,8,28,0)');g.addColorStop(.22,'rgba(5,8,28,.34)');
+      g.addColorStop(.5,'rgba(5,8,28,.52)');g.addColorStop(.78,'rgba(5,8,28,.34)');
+      g.addColorStop(1,'rgba(5,8,28,0)');return g});
+    ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
     return;
   }
 
@@ -3503,7 +3514,7 @@ function drawBg(){
 }
 
 
-function drawPad(x,y,s,type,dip,isCurrent,width,tilt){
+function drawPad(x,y,s,type,dip,isCurrent,width,tilt,fog){
   width=width||1;
   tilt=tilt||0;
   ctx.save();ctx.translate(x,y);
@@ -3543,9 +3554,16 @@ function drawPad(x,y,s,type,dip,isCurrent,width,tilt){
     const aw=hw*2*1.2, ah=aw/PAD_ART_ASPECT;
     const ay=-(ah-thick)+dO;                     // keeps the standing line at y=0
     ctx.save();
-    ctx.shadowColor=glow+'.32)';ctx.shadowBlur=15*s;
     ctx.drawImage(_A[artKey],-aw/2,ay,aw,ah);
     ctx.restore();
+    if(fog>0.02){
+      // Tint toward the sky, clipped to the plate so the silhouette stays crisp
+      ctx.save();
+      ctx.globalCompositeOperation='source-atop';
+      ctx.fillStyle='rgba(12,20,58,'+fog.toFixed(3)+')';
+      ctx.fillRect(-aw/2,ay,aw,ah);
+      ctx.restore();
+    }
     if(isCurrent){
       ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=2*s;
       rr(-aw/2+3*s,ay+3*s,aw-6*s,ah-thick-6*s,rad*.6);ctx.stroke();
@@ -3824,12 +3842,11 @@ function drawLongPad(nearRz, gx, elev, len, width, isCurrent){
   ctx.lineTo(nlx+r,nY+thickN);ctx.quadraticCurveTo(nlx,nY+thickN,nlx,nY+thickN-r);
   ctx.closePath();ctx.fill();
   // long glowing top face, rounded near corners
-  ctx.shadowColor='rgba(0,200,238,.28)';ctx.shadowBlur=11*pf.s;
   const tg=ctx.createLinearGradient(0,fY,0,nY);
   // Brightest at the far edge where the light is, falling away toward the
   // camera — a flat fill over this much area read as a lit panel.
-  tg.addColorStop(0,lighten(c1,26));tg.addColorStop(.30,c1);
-  tg.addColorStop(.70,c2);tg.addColorStop(1,darken(c2,30));
+  tg.addColorStop(0,lighten(c1,10));tg.addColorStop(.30,c1);
+  tg.addColorStop(.70,c2);tg.addColorStop(1,darken(c2,22));
   ctx.fillStyle=tg;
   ctx.beginPath();
   ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);
@@ -3838,20 +3855,30 @@ function drawLongPad(nearRz, gx, elev, len, width, isCurrent){
   ctx.closePath();ctx.fill();
   ctx.shadowBlur=0;
   // bright far leading edge + a soft lengthwise sheen so it reads as one surface
-  ctx.strokeStyle='rgba(234,251,255,.55)';ctx.lineWidth=Math.max(1,2*pf.s);
+  ctx.strokeStyle='rgba(234,251,255,.34)';ctx.lineWidth=Math.max(1,1.6*pf.s);
   ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.stroke();
   const sh=ctx.createLinearGradient(0,fY,0,nY);
   sh.addColorStop(0,'rgba(255,255,255,0)');sh.addColorStop(.30,'rgba(210,245,255,.13)');sh.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=sh;
   ctx.beginPath();ctx.moveTo(flx+hwF*.4,fY);ctx.lineTo(frx-hwF*.4,fY);ctx.lineTo(nrx-hwN*.4,nY);ctx.lineTo(nlx+hwN*.4,nY);ctx.closePath();ctx.fill();
   ctx.save();
-  ctx.shadowColor='rgba(0,200,238,.6)';ctx.shadowBlur=10*pn.s;
   ctx.strokeStyle='rgba(1,186,226,.95)';ctx.lineWidth=Math.max(2,3*pn.s);
   ctx.beginPath();ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.lineTo(nrx,nY);ctx.lineTo(nlx,nY);ctx.closePath();ctx.stroke();
   ctx.restore();
   if(isCurrent){
-    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2*pn.s;
+    ctx.strokeStyle='rgba(234,251,255,.26)';ctx.lineWidth=1.5*pn.s;
     ctx.beginPath();ctx.moveTo(flx+4*pn.s,fY+4*pf.s);ctx.lineTo(frx-4*pn.s,fY+4*pf.s);ctx.lineTo(nrx-5*pn.s,nY-5*pn.s);ctx.lineTo(nlx+5*pn.s,nY-5*pn.s);ctx.closePath();ctx.stroke();
+  }
+  // Same atmospheric fade the plates get, so a slab in the distance recedes
+  // with them instead of staying the brightest thing on screen.
+  {
+    const f=clamp((nearRz/VIEW_AHEAD-0.16)/0.84,0,1)**1.15*0.46;
+    if(f>0.02){
+      ctx.fillStyle='rgba(12,20,58,'+f.toFixed(3)+')';
+      ctx.beginPath();
+      ctx.moveTo(flx,fY);ctx.lineTo(frx,fY);ctx.lineTo(nrx,nY+thickN);ctx.lineTo(nlx,nY+thickN);
+      ctx.closePath();ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -4053,7 +4080,8 @@ function drawCoin(x,y,s,bob){
   const key=face<.18?'coinC':face<.62?'coinB':'coinA';
   if(_ok(key)){
     const im=_A[key],h=30,w=h*im.naturalWidth/im.naturalHeight;
-    ctx.shadowColor='rgba(255,190,40,.55)';ctx.shadowBlur=12;
+    ctx.fillStyle='rgba(255,196,77,.16)';
+    ctx.beginPath();ctx.arc(0,0,h*0.62,0,Math.PI*2);ctx.fill();
     ctx.drawImage(im,-w/2,-h/2,w,h);
   } else {
     const gg=ctx.createRadialGradient(0,0,3,0,0,16);gg.addColorStop(0,'rgba(255,215,0,.3)');gg.addColorStop(1,'rgba(255,215,0,0)');ctx.fillStyle=gg;ctx.beginPath();ctx.arc(0,0,16,0,Math.PI*2);ctx.fill();
@@ -4153,9 +4181,9 @@ function drawRainbowRoad(){
       for(let z=VIEW_AHEAD;z>=0;z-=.4){const p=project(z,lane);z===VIEW_AHEAD?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
       ctx.stroke();ctx.restore();
     };
-    edge(EDGE_L,0,229,255,4.5,18);
-    edge(EDGE_R,0,229,255,4.5,18);
-    edge(1.0,224,64,251,1.6,7);
+    edge(EDGE_L,0,229,255,4.2,10);
+    edge(EDGE_R,0,229,255,4.2,10);
+    edge(1.0,154,77,255,1.4,0);
     return;
   }
   const sky=SKY_SKINS[curSky];
@@ -4370,8 +4398,14 @@ function drawGame(){
     // same direction and each further one leans a little more (matches the
     // yellow outlines the user sketched).
     const tilt=curTurn*(rz/VIEW_AHEAD)*0.28;
-    // Depth-based alpha — farther = slightly darker
-    const depthAlpha=clamp(1-rz/VIEW_AHEAD*.35, 0.45, 1);
+    // Depth. Fading a plate with globalAlpha showed the background THROUGH it,
+    // which is what made the far field look muddy. Distance now tints toward
+    // the sky colour instead — atmospheric perspective, so far plates go darker
+    // and less saturated while staying solid.
+    // The nearest rows stay clear — the player has to read the next platform
+    // instantly — and only the far field recedes.
+    const fog=clamp((rz/VIEW_AHEAD-0.16)/0.84,0,1)**1.15*0.46;
+    const depthAlpha=1;
     // Breakable platforms flicker when cracking
     const breakFlicker=(pad.type==='breakable'&&pad.breakTimer>0)?(.78+.22*Math.sin(gt*9)):1;
     // Disappearing platforms fade
@@ -4380,7 +4414,7 @@ function drawGame(){
     // LONG platform: one single continuous slab stretching forward up the road,
     // not a stack of little pads.
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
-    else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt);
+    else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,fog);
     // Landing-target lock-on ring — a soft cyan ellipse on the pad your current
     // lane will land on, so a fork is never a blind guess. Pulses gently and
     // brightens the closer you already are to its centre (a clean PERFECT line).
@@ -4594,15 +4628,36 @@ function drawGame(){
       fy+=ft*70;fs*=(1-ft*.5);ctx.globalAlpha=1-ft*.9;
     }
 
-    // Frog glow — enhanced during fever
-    ctx.save();
+    // Character presentation. The warm halo that used to sit here was a big
+    // yellow-white disc in a scene with no warm in it, and it read as a cheap
+    // sticker rather than a lit character. Replaced with the two things that
+    // actually seat a character in a scene: a contact shadow, so he is standing
+    // ON the platform, and a tight cool backlight so his silhouette separates
+    // from the plate he is standing on.
     const fgy=fy-airEff*140*fs*.55;
-    const glowR=fever?70*fs:50*fs;
-    const glowA=fever?(.3+.1*Math.sin(feverT*6)):.18;
-    const fgg=ctx.createRadialGradient(fx,fgy,0,fx,fgy,glowR);
-    fgg.addColorStop(0,`rgba(255,${fever?200:255},${fever?0:200},${glowA})`);
-    fgg.addColorStop(1,`rgba(255,${fever?180:255},${fever?0:100},0)`);
-    ctx.fillStyle=fgg;ctx.beginPath();ctx.arc(fx,fgy,glowR,0,Math.PI*2);ctx.fill();
+    const air=clamp(airEff,0,1);
+    ctx.save();
+    // contact shadow — tightens and darkens as he lands, spreads as he rises
+    const shR=34*fs*(1+air*0.7), shA=0.42*(1-air*0.75);
+    if(shA>0.01){
+      const sg=ctx.createRadialGradient(fx,fy+6*fs,0,fx,fy+6*fs,shR);
+      sg.addColorStop(0,`rgba(2,5,20,${shA})`);
+      sg.addColorStop(1,'rgba(2,5,20,0)');
+      ctx.fillStyle=sg;
+      ctx.beginPath();ctx.ellipse(fx,fy+6*fs,shR,shR*0.34,0,0,Math.PI*2);ctx.fill();
+    }
+    // rim light — cool by default, warm only while fever is actually running
+    const rimR=30*fs;
+    const rg=ctx.createRadialGradient(fx,fgy,rimR*0.45,fx,fgy,rimR);
+    if(fever){
+      const fp2=.22+.06*Math.sin(gt*2);
+      rg.addColorStop(0,`rgba(255,61,219,${fp2})`);
+      rg.addColorStop(1,'rgba(255,61,219,0)');
+    } else {
+      rg.addColorStop(0,'rgba(0,229,255,.17)');
+      rg.addColorStop(1,'rgba(0,229,255,0)');
+    }
+    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(fx,fgy,rimR,0,Math.PI*2);ctx.fill();
     ctx.restore();
     // Fever trail sparkles
     if(fever&&airEff>.2&&Math.random()<.5){
