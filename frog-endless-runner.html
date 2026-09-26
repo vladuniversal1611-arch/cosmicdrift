@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -314,7 +314,7 @@ const ACTS=[
   {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Ти всередині нього. Ось вони — вкрадені зорі.',   icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081', emo:'🤩'},
 ];
 let curAct=0, actCardT=0, actFlash=0, recFlash=0, actTintT=0;
-function actFor(d){let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
+function actFor(d){if(runMode.lvl)return runMode.w;let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
 function enterAct(i){
   curAct=i;actCardT=2.4;actFlash=1;actTintT=1;
   if(i>storyP.bestAct){storyP.bestAct=i;chapterNew=i;saveStory()}
@@ -525,6 +525,7 @@ function updateAttack(dt){
 const FINALE_LEN=45;          // metres of build-up before the next act
 let finaleOn=false, finaleT=0, finaleWarnT=0, finaleClearT=0;
 function finaleRange(){
+  if(runMode.lvl)return runMode.l===WORLD_LV-1?[runMode.goal-60,runMode.goal+1]:null;
   const nxt=ACTS[curAct+1];
   if(!nxt)return null;                       // last act runs forever
   return [nxt.from-FINALE_LEN, nxt.from];
@@ -1072,6 +1073,46 @@ function endRunRewards(){
   Prog.save();
 }
 let runUnlocked=[];
+
+// ---- WorldProgression: 5 worlds × (5 levels + a challenge) ----
+// Each world is one of the existing acts, played on its own so its rule is the
+// thing you learn there. A level is a finite run with a finish line; the sixth
+// is a longer, faster challenge that ends in the act's gauntlet and unlocks the
+// next world. Endless mode is untouched and stays one tap away on PLAY.
+const WORLD_LV=6;
+const WORLD_INFO=['Основи: PERFECT, комбо і Fever','Новинка: вітер зносить убік','Новинка: блискавка розбиває платформу','Новинка: темрява — видно лише поруч','Новинка: шалена швидкість'];
+function levelGoal(w,l){return l===WORLD_LV-1?380+w*40:140+l*35+w*25}
+function levelReward(w,l){
+  const ch=l===WORLD_LV-1;
+  return {c:ch?250+w*150:60+w*30+l*10, xp:ch?120+w*40:40+w*10+l*5, chest:ch?(w===4?2:1):-1};
+}
+let runMode={lvl:false,w:0,l:0,goal:0}, levelWin=false, winT=0, runClear=null;
+function lvKey(w,l){return w+'-'+l}
+function levelDone(w,l){return !!Prog.d.world.done[lvKey(w,l)]}
+function worldUnlocked(w){return w===0||levelDone(w-1,WORLD_LV-1)}
+function levelUnlocked(w,l){return worldUnlocked(w)&&(l===0||levelDone(w,l-1))}
+// The next level the player hasn't cleared (for the menu strip)
+function nextLevel(){
+  for(let w=0;w<ACTS.length;w++)for(let l=0;l<WORLD_LV;l++)if(!levelDone(w,l))return levelUnlocked(w,l)?{w,l}:null;
+  return null;
+}
+function worldsCleared(){let n=0;for(let w=0;w<ACTS.length;w++)if(levelDone(w,WORLD_LV-1))n++;return n}
+function startEndless(){runMode={lvl:false,w:0,l:0,goal:0};startGame()}
+function startLevel(w,l){if(!levelUnlocked(w,l))return;runMode={lvl:true,w,l,goal:levelGoal(w,l)};startGame()}
+function winLevel(){
+  const {w,l}=runMode, k=lvKey(w,l), first=!levelDone(w,l), r=levelReward(w,l);
+  levelWin=true;winT=0;
+  Prog.d.world.done[k]=true;
+  runClear={w,l,first,c:first?r.c:0,chest:first?r.chest:-1};
+  if(first){
+    runCoins+=0;coins+=r.c;goalXP+=r.xp;
+    if(r.chest>=0)Prog.d.chests[CHESTS[r.chest].id]++;
+  }
+  addFloat(l===WORLD_LV-1?'🏆 ВИПРОБУВАННЯ ПРОЙДЕНО!':'🏁 РІВЕНЬ ПРОЙДЕНО!',W/2,H*.26,'#5CFF9D',26,true);
+  setEmo('🤩',2);sfxPU();addPunch(.6);
+  for(let i=0;i<34;i++){const a=rand(0,Math.PI*2),sp=rand(.05,.14);addP(W/2,H*.42,Math.cos(a)*sp,Math.sin(a)*sp,['#5CFF9D','#FFD54F','#36E0FF'][i%3],rand(2,4),1,'s')}
+  finishRun();
+}
 
 // ---- MissionSystem: run goals + weekly milestones ----
 // Three standing goals, each "in a single run". They scale with player level,
@@ -2469,6 +2510,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.SHOP)shopTap(t.clientX,t.clientY);
     else if(state===ST.LAB)labTap(t.clientX,t.clientY);
     else if(state===ST.CHESTS)chestsTap(t.clientX,t.clientY);
+    else if(state===ST.WORLDS)worldsTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -2514,6 +2556,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.SHOP)shopTap(e.clientX,e.clientY);
     else if(state===ST.LAB)labTap(e.clientX,e.clientY);
     else if(state===ST.CHESTS)chestsTap(e.clientX,e.clientY);
+    else if(state===ST.WORLDS)worldsTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -2529,12 +2572,12 @@ document.addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
     if(e.key==='Shift'){e.preventDefault();tryLeap()}
     if(e.key===' '){e.preventDefault();tryLeap()}
-  }else if(state===ST.MENU&&(e.key==='Enter'))startGame();
+  }else if(state===ST.MENU&&(e.key==='Enter'))startEndless();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
   else if(state===ST.SKINS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.MISSIONS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.SHOP&&e.key==='Escape')state=ST.MENU;
-  else if((state===ST.LAB||state===ST.CHESTS)&&e.key==='Escape')state=ST.MENU;
+  else if((state===ST.LAB||state===ST.CHESTS||state===ST.WORLDS)&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -2724,7 +2767,7 @@ function updSpdLines(dt){
 function startGame(){
   sfxClick();state=ST.PLAY;
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;camY=0;frogElev=0;
-  alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;
+  alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;levelWin=false;winT=0;runClear=null;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
   extraLifeUsed=false;
   msT=0;msTier=0;msLast=0;
@@ -2821,13 +2864,20 @@ function die(){
   const fp=project(Math.max(frogRelZ,.1),visLane);
   addSplash(fp.x,fp.y,2.5);shake=.5;
   if(navigator.vibrate)navigator.vibrate(100);
+  finishRun();
+  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},900);
+}
+// Everything a run pays and records when it ends, by a fall or at a finish line
+function finishRun(){
   const fd=Math.floor(dist);
   if(fd>hs){hs=fd;localStorage.setItem('fHS',''+hs);newRec=true}
-  storyP.castles+=castlesSaved;storyP.attacks+=attacksRepelled;saveStory();
+  // a revived run ends twice; count its castles, attacks and play once
+  storyP.castles+=castlesSaved-(paid.castles|0);storyP.attacks+=attacksRepelled-(paid.atk|0);saveStory();
+  paid.castles=castlesSaved;paid.atk=attacksRepelled;
   if(score>bestScore){bestScore=score;localStorage.setItem('fBS',''+bestScore);newScoreRec=true}
   endRunRewards();
   // Daily mission progress — check every metric at end of run
-  dailyPlays++;
+  if(!paid.played){paid.played=true;dailyPlays++}
   checkDaily('score', score);
   checkDaily('dist', Math.floor(dist));
   checkDaily('runCoins', runCoins);
@@ -2837,7 +2887,7 @@ function die(){
   checkDaily('feverCount', runFever);
   checkDaily('dailyPlays', dailyPlays);
   saveDaily();
-  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},900);
+  Prog.save();
 }
 
 function getCurrentPadIdx(){
@@ -3232,6 +3282,15 @@ function updateGame(dt){
     if(punch>0)punch=Math.max(0,punch-dt*4.5);
     return;
   }
+  // Finish line: the world eases to a stop, then the results panel comes up
+  if(levelWin){
+    winT+=dt;
+    if(winT>1.7&&state===ST.PLAY){state=ST.OVER;goT=0}
+    const k=Math.max(0,1-winT/0.9);
+    updPts(dt);if(punch>0)punch=Math.max(0,punch-dt*4.5);
+    if(k<=0)return;
+    dt*=k;
+  }
   gt+=dt;
   // Gradual speed ramp: starts at GAME_SPD, plateaus at GAME_SPD_MAX
   const rampProgress=score>SPD_RAMP_START?1-Math.exp(-(score-SPD_RAMP_START)/SPD_RAMP_SCALE):0;
@@ -3608,6 +3667,7 @@ function updateGame(dt){
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
   if(alive&&(goalTick-=dt)<=0){goalTick=.2;updGoals()}
+  if(runMode.lvl&&!levelWin&&alive&&dist>=runMode.goal)winLevel();
 
   // Magnet
   if(magnet){
@@ -6527,15 +6587,17 @@ function drawMenuJourney(cx,sy){
   ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.fillStyle='rgba(200,222,255,.72)';
   ctx.font='700 10px Exo2,sans-serif';
-  ctx.fillText('ПОДОРОЖ',px+16,sy+15);
-  const actName=ACTS[storyP.bestAct]?ACTS[storyP.bestAct].name:ACTS[0].name;
+  ctx.fillText('СВІТИ',px+16,sy+15);
+  // the next level to play, tap to open the map
+  const nl=nextLevel(), wA=ACTS[nl?nl.w:ACTS.length-1];
   ctx.fillStyle='#fff';ctx.font='900 12px Exo2,sans-serif';
-  ctx.fillText(`${ACTS[storyP.bestAct]?ACTS[storyP.bestAct].icon:''} ${actName}`,px+16,sy+31);
-  // 5 act pips (right), lit up to the furthest act ever reached
+  const lvTxt=nl?(nl.l===WORLD_LV-1?'ВИПРОБУВАННЯ':'РІВЕНЬ '+(nl.w+1)+'-'+(nl.l+1)):'ВСЕ ПРОЙДЕНО';
+  ctx.fillText(fitText(`${wA.icon} ${lvTxt}  ▶`,pw*.55),px+16,sy+31);
+  // 5 world pips (right), lit for each world whose challenge is cleared
   const n=ACTS.length, pipR=5, gap=15, tot=(n-1)*gap;
-  const startX=px+pw-16-tot;
+  const startX=px+pw-16-tot, wc=worldsCleared();
   for(let i=0;i<n;i++){
-    const x=startX+i*gap, y=sy+15, lit=i<=storyP.bestAct;
+    const x=startX+i*gap, y=sy+15, lit=i<wc;
     ctx.beginPath();ctx.arc(x,y,pipR,0,Math.PI*2);
     ctx.fillStyle=lit?ACTS[i].col:'rgba(255,255,255,.14)';ctx.fill();
     if(lit){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1;ctx.stroke();}
@@ -6677,7 +6739,9 @@ function drawMenu(){
 function menuTap(x,y){
   // PLAY button
   const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
-  if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startGame();return}
+  if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
+  const ML=menuLayout(), jw=W*.78;
+  if(y>=ML.journey&&y<=ML.journey+46&&Math.abs(x-W/2)<=jw/2){openScreen(ST.WORLDS);return}
   // Bottom nav — 3 equal sections
   const navH=80,navY=H-navH-6-SAFE.b,navX=10+SAFE.l,navW=W-20-SAFE.l-SAFE.r;
   if(y>=navY&&y<=navY+navH){
@@ -7094,7 +7158,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   ctx.save();
@@ -7574,6 +7638,83 @@ function chestsTap(x,y){
   }
 }
 
+// ---- Worlds screen: the chapter map ----
+function worldLayout(){
+  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), top=112+SAFE.t;
+  return {cw,x:W/2-cw/2,top,ch:128,gap:12};
+}
+function worldNodePos(L,w,l){
+  const y=L.top+w*(L.ch+L.gap)-uiScroll;
+  const n=WORLD_LV, span=L.cw-44, nx=L.x+22+span*(l+.5)/n;
+  return {x:nx,y:y+92,r:l===WORLD_LV-1?17:14};
+}
+function drawWorlds(){
+  gt+=.016;
+  drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
+  const L=worldLayout();
+  uiScrollMax=Math.max(0,L.top+ACTS.length*(L.ch+L.gap)+8-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  const nx=nextLevel();
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  for(let w=0;w<ACTS.length;w++){
+    const A=ACTS[w], y=L.top+w*(L.ch+L.gap)-uiScroll, open=worldUnlocked(w);
+    if(y>H||y+L.ch<0)continue;
+    glassPanel(L.x,y,L.cw,L.ch,16);
+    ctx.save();ctx.globalAlpha=.20;
+    const g=ctx.createLinearGradient(L.x,0,L.x+L.cw,0);g.addColorStop(0,A.col);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;rr(L.x,y,L.cw,L.ch,16);ctx.fill();ctx.restore();
+    ctx.save();if(!open)ctx.globalAlpha=.5;
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.font='22px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(A.icon,L.x+14,y+24);
+    ctx.font='900 15px Exo2,sans-serif';ctx.fillText(fitText(`СВІТ ${w+1} · ${A.name}`,L.cw-70),L.x+46,y+22);
+    ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(210,228,255,.85)';
+    ctx.fillText(fitText(open?WORLD_INFO[w]:`🔒 Пройди випробування світу ${w}`,L.cw-60),L.x+46,y+42);
+    // track line under the nodes
+    const p0=worldNodePos(L,w,0), p5=worldNodePos(L,w,WORLD_LV-1);
+    ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p5.x,p5.y);ctx.stroke();
+    let cnt=0;
+    for(let l=0;l<WORLD_LV;l++){
+      const p=worldNodePos(L,w,l), done=levelDone(w,l), un=levelUnlocked(w,l), cur=nx&&nx.w===w&&nx.l===l;
+      if(done)cnt++;
+      const r=p.r*(cur?1+Math.sin(gt*4)*.06:1);
+      ctx.save();
+      if(cur){ctx.shadowColor=A.col;ctx.shadowBlur=14}
+      ctx.fillStyle=done?A.col:un?'rgba(20,30,70,.95)':'rgba(40,46,70,.8)';
+      ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=done||cur?'#fff':'rgba(255,255,255,.25)';ctx.lineWidth=cur?2.5:1.5;ctx.stroke();
+      ctx.restore();
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=done?'#0b1226':'#fff';
+      ctx.font=l===WORLD_LV-1?'15px Exo2,sans-serif':'900 13px Exo2,sans-serif';
+      ctx.fillText(l===WORLD_LV-1?(un||done?'👑':'🔒'):un||done?String(l+1):'·',p.x,p.y+1);
+    }
+    ctx.textAlign='right';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#FFE082';
+    ctx.fillText(`${cnt}/${WORLD_LV}`,L.x+L.cw-14,y+22);
+    ctx.restore();
+  }
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.96)');hg.addColorStop(1,'rgba(4,8,24,.80)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();drawCurrencies(true);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('СВІТИ',W/2,72+SAFE.t);
+  ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';
+  ctx.fillText('Рівні з фінішем · нескінченний забіг — кнопка ГРАТИ',W/2,96+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function worldsTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const L=worldLayout();
+  if(y<L.top-6)return;
+  for(let w=0;w<ACTS.length;w++)for(let l=0;l<WORLD_LV;l++){
+    const p=worldNodePos(L,w,l);
+    if(Math.hypot(x-p.x,y-p.y)<p.r+10){
+      if(levelUnlocked(w,l))startLevel(w,l);else sfxLand();
+      return;
+    }
+  }
+}
+
 let skinScroll=0, scrollStartV=0;
 function skinListSy(){return 100+SAFE.t}
 function skinRowH(){return skinTab===0?100:80}     // card height + gap
@@ -7715,6 +7856,7 @@ function loop(ts){
       case ST.SHOP:drawShop();break;
       case ST.LAB:drawLab();break;
       case ST.CHESTS:drawChests();break;
+      case ST.WORLDS:drawWorlds();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     if(transT>0){
