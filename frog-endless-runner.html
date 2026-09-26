@@ -245,17 +245,16 @@ function drawFlowMeter(){
   if(flow<=0.02)return;
   // A bare coloured stick on the screen edge reads as a stray artefact, so give
   // it the same dark-glass capsule the rest of the HUD uses.
-  const bw=6, bh=H*0.22, bx=W-bw-9, by=H*0.47;
-  ctx.save();
-  ctx.globalAlpha=0.85;
-  ctx.fillStyle='rgba(6,14,36,.72)';rr(bx,by,bw,bh,bw/2);ctx.fill();
-  ctx.strokeStyle='rgba(0,229,255,.28)';ctx.lineWidth=1;
-  rr(bx+.5,by+.5,bw-1,bh-1,bw/2);ctx.stroke();
+  const bw=5, bh=H*0.20, bx=W-bw-10-SAFE.r, by=H*0.48;
   const t=flowTier();
-  const col=t===2?'#FFC94D':t===1?'#FF9E5C':'#3FA8D8';
+  ctx.save();
+  ctx.fillStyle=UI.glass;rr(bx,by,bw,bh,bw/2);ctx.fill();
+  ctx.strokeStyle=t===2?UI.lineGold:UI.line;ctx.lineWidth=1;
+  rr(bx+.5,by+.5,bw-1,bh-1,bw/2);ctx.stroke();
+  const col=t===2?'#FFC44D':t===1?'#3A8DFF':'#1C6EA8';
   const fh=Math.max(bw,(bh-3)*flow);
   ctx.fillStyle=col;
-  if(t===2){ctx.shadowColor='rgba(255,201,77,.55)';ctx.shadowBlur=7}
+  if(t===2){ctx.shadowColor='rgba(255,196,77,.45)';ctx.shadowBlur=5}
   rr(bx+1.5,by+bh-1.5-fh,bw-3,fh,(bw-3)/2);ctx.fill();
   ctx.restore();
 }
@@ -4657,45 +4656,47 @@ function drawGame(){
 
 
 
-  // === DASH COOLDOWN INDICATOR ===
+  // === DASH BUTTON ===
+  // Built from the same glass + rim + controlled glow as the HUD chips, so it
+  // belongs to the screen instead of sitting on it. The supplied disc sprite
+  // had its own material and read as a separate widget.
   if(state===ST.PLAY&&alive){
+    const dc=dashBtnC(), dx=dc.x, dy=dc.y, r=25;
+    const on=dashReady;
     ctx.save();
-    const dc=dashBtnC(), dx=dc.x, dy=dc.y;
-    if(_ok('dash')){
-      const im=_A.dash, d=52;
-      ctx.globalAlpha=dashReady?1:.45;
-      ctx.drawImage(im,dx-d/2,dy-d/2,d,d);
-      ctx.globalAlpha=1;
-      if(_ok('bolt')){
-        const bi=_A.bolt, bh=dashReady?26:22, bw=bh*bi.naturalWidth/bi.naturalHeight;
-        ctx.globalAlpha=dashReady?1:.5;
-        ctx.drawImage(bi,dx-bw/2,dy-bh/2,bw,bh);
-        ctx.globalAlpha=1;
-      }
-      if(!dashReady){
-        // cooldown wedge over the face
-        const cdProg=1-dashCooldown/DASH_COOLDOWN;
-        ctx.beginPath();ctx.moveTo(dx,dy);
-        ctx.arc(dx,dy,24,-Math.PI/2,-Math.PI/2+cdProg*Math.PI*2);ctx.closePath();
-        ctx.fillStyle='rgba(120,200,255,.28)';ctx.fill();
-      }
-    } else {
-      ctx.beginPath();ctx.arc(dx,dy,22,0,Math.PI*2);
-      ctx.fillStyle=dashReady?'rgba(68,138,255,.3)':'rgba(100,100,100,.2)';ctx.fill();
-      ctx.strokeStyle=dashReady?'rgba(68,138,255,.7)':'rgba(100,100,100,.4)';ctx.lineWidth=2;ctx.stroke();
-      if(!dashReady){
-        const cdProg=1-dashCooldown/DASH_COOLDOWN;
-        ctx.beginPath();ctx.moveTo(dx,dy);
-        ctx.arc(dx,dy,22,-Math.PI/2,-Math.PI/2+cdProg*Math.PI*2);ctx.closePath();
-        ctx.fillStyle='rgba(68,138,255,.25)';ctx.fill();
-      }
-      ctx.font=`${dashReady?'18':'14'}px Exo2,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('\u26a1',dx,dy);
+    // body
+    const bg=ctx.createRadialGradient(dx,dy-r*0.5,r*0.2,dx,dy,r);
+    bg.addColorStop(0, on?'rgba(26,62,120,.92)':'rgba(14,22,52,.88)');
+    bg.addColorStop(1, on?'rgba(7,13,42,.94)':'rgba(6,10,30,.90)');
+    ctx.fillStyle=bg;ctx.beginPath();ctx.arc(dx,dy,r,0,Math.PI*2);ctx.fill();
+    // inner top highlight — the glass read
+    const hi=ctx.createLinearGradient(0,dy-r,0,dy);
+    hi.addColorStop(0,'rgba(255,255,255,.13)');hi.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=hi;ctx.beginPath();ctx.arc(dx,dy,r-1.5,0,Math.PI*2);ctx.fill();
+    // rim
+    ctx.shadowColor=on?'rgba(0,229,255,.55)':'rgba(0,120,160,.25)';
+    ctx.shadowBlur=on?7:3;
+    ctx.strokeStyle=on?'rgba(0,229,255,.72)':'rgba(96,140,180,.42)';
+    ctx.lineWidth=UI.bw;
+    ctx.beginPath();ctx.arc(dx,dy,r-UI.bw/2,0,Math.PI*2);ctx.stroke();
+    ctx.shadowBlur=0;
+    // cooldown sweep sits inside the rim, not over the face
+    if(!on){
+      const cd=1-dashCooldown/DASH_COOLDOWN;
+      ctx.strokeStyle='rgba(0,229,255,.55)';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(dx,dy,r-4,-Math.PI/2,-Math.PI/2+cd*Math.PI*2);ctx.stroke();
     }
-    // Ready flash
+    // bolt
+    ctx.globalAlpha=on?1:0.42;
+    if(!drawImgH('bolt',dx,dy,on?24:21)){
+      ctx.fillStyle=on?'#EAFBFF':'rgba(200,225,245,.8)';
+      ctx.font='900 19px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('\u26A1',dx,dy+1);
+    }
+    ctx.globalAlpha=1;
     if(dashShow>0){
-      ctx.strokeStyle=`rgba(68,138,255,${dashShow})`;ctx.lineWidth=3;
-      ctx.beginPath();ctx.arc(dx,dy,28,0,Math.PI*2);ctx.stroke();
+      ctx.strokeStyle='rgba(0,229,255,'+(dashShow*0.7)+')';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(dx,dy,r+4*(1-dashShow)+2,0,Math.PI*2);ctx.stroke();
     }
     ctx.restore();
   }
@@ -5218,161 +5219,185 @@ function uiFrame(k,x,y,w,h,capFrac){
   const ey=h*0.34, ex=h*0.18;
   return draw3H(k,x-ex,y-ey,w+ex*2,h+ey*2,capFrac||0.18);
 }
+// ========== HUD ==========
+// One UI language for every element on the gameplay screen. Before this the
+// act chip, the coin chip and the score sat on supplied frame sprites while the
+// power-ups were flat rectangles and the record chip had a gold border of its
+// own — four materials on one screen. Everything now goes through uiPill(), so
+// radius, border width, glass, glow and type scale are defined once.
+const UI={
+  glass:'rgba(8,13,38,0.76)',
+  glassHot:'rgba(34,8,40,0.76)',
+  line:'rgba(0,229,255,0.42)',
+  lineHot:'rgba(255,61,219,0.50)',
+  lineGold:'rgba(255,196,77,0.52)',
+  text:'#EAFBFF',
+  textHot:'#FFD9F5',
+  textGold:'#FFE0A3',
+  dim:'rgba(146,196,232,0.80)',
+  bw:1.5,
+  glow:5,
+  fSmall:'800 11px Exo2,sans-serif',
+  fChip:'800 13px Exo2,sans-serif',
+  fMeta:'700 12px Exo2,sans-serif',
+  fScore:'900 42px Exo2,sans-serif'
+};
+// tone: 0 cyan (default), 1 magenta (fever), 2 gold (reward)
+function uiPill(x,y,w,h,tone){
+  const line=tone===1?UI.lineHot:tone===2?UI.lineGold:UI.line;
+  ctx.save();
+  ctx.fillStyle=tone===1?UI.glassHot:UI.glass;
+  rr(x,y,w,h,h/2);ctx.fill();
+  // a single soft inner highlight along the top edge reads as glass
+  const g=ctx.createLinearGradient(0,y,0,y+h);
+  g.addColorStop(0,'rgba(255,255,255,.10)');g.addColorStop(.55,'rgba(255,255,255,0)');
+  ctx.fillStyle=g;rr(x,y,w,h,h/2);ctx.fill();
+  ctx.shadowColor=line;ctx.shadowBlur=UI.glow;
+  ctx.strokeStyle=line;ctx.lineWidth=UI.bw;
+  rr(x+UI.bw/2,y+UI.bw/2,w-UI.bw,h-UI.bw,h/2);ctx.stroke();
+  ctx.restore();
+}
+// A chip with an optional sprite icon; returns its width so callers can stack.
+function uiChipText(x,y,label,tone,iconKey,maxW){
+  ctx.font=UI.fChip;
+  const iw=iconKey&&_ok(iconKey)?17:0;
+  // The centre belongs to the score; a long act name used to run straight into
+  // it on a narrow phone, so the chip is clipped to the room it actually has.
+  if(maxW){
+    const room=maxW-22-iw;
+    if(ctx.measureText(label).width>room){
+      while(label.length>1&&ctx.measureText(label+'\u2026').width>room)label=label.slice(0,-1);
+      label+='\u2026';
+    }
+  }
+  const w=ctx.measureText(label).width+22+iw, h=24;
+  uiPill(x,y,w,h,tone);
+  if(iw)drawImgH(iconKey,x+13,y+h/2,17);
+  ctx.fillStyle=tone===1?UI.textHot:tone===2?UI.textGold:UI.text;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText(label,x+11+iw,y+h/2+0.5);
+  return w;
+}
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
-
   drawFlowMeter();
 
-  // Act badge — which act you're in, top-left
+  const L=12+SAFE.l, R=W-12-SAFE.r, T=10+SAFE.t;
+  // The score is sized to the screen and its box is reserved first; the side
+  // columns only get what is left, so nothing can overlap it at any width.
+  const scoreSize=Math.max(30,Math.min(42,W*0.115));
+  const fScore='900 '+Math.round(scoreSize)+'px Exo2,sans-serif';
+  ctx.font=fScore;
+  const scoreHalf=Math.max(38,ctx.measureText(String(score)).width/2)+14;
+  const sideMax=Math.max(58,W/2-scoreHalf-L-6);
+  const baseY=T+scoreSize*0.58;
+
+  // --- left column: where you are, then how well it is going ---
   {
     const z=ACTS[curAct];
-    const lbl=z.icon+' '+z.name;
-    ctx.font='800 11px Exo2,sans-serif';
-    const aw=ctx.measureText(lbl).width+20, ah=22, ax=10+SAFE.l, ay=10+SAFE.t;
-    ctx.save();
-    if(neonOn){ if(!uiFrame('uiChip',ax,ay,aw,ah))neonPanel(ax,ay,aw,ah,11,0,229,255); ctx.fillStyle='#BDF6FF'; }
-    else { ctx.fillStyle='rgba(10,16,40,.62)';rr(ax,ay,aw,ah,11);ctx.fill();
-      ctx.strokeStyle=z.col;ctx.lineWidth=1.2;rr(ax,ay,aw,ah,11);ctx.stroke();ctx.fillStyle=z.col; }
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(lbl,ax+aw/2,ay+ah/2+1);
-    ctx.restore();
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    // Live combo chip — persistent awareness of the flow, right below the act
-    // badge, popping on each perfect and running warm in fever.
+    // Full name when the screen has room for it, icon only when it does not —
+    // truncating a location to one letter tells the player nothing, and the act
+    // card already announces the name on entry.
+    ctx.font=UI.fChip;
+    const full=z.icon+' '+z.name;
+    uiChipText(L,T,ctx.measureText(full).width+22<=sideMax?full:z.icon,0);
     if(perfectCombo>=2){
-      const cl='🔥 x'+perfectCombo, pop=1+comboPop*0.22;
-      ctx.font='900 13px Exo2,sans-serif';
-      const cw=ctx.measureText(cl).width+20, chh=22, cxA=10+SAFE.l, cyA=ay+ah+8;
+      const pop=1+comboPop*0.18, cy=T+30;
       ctx.save();
-      ctx.translate(cxA+cw/2,cyA+chh/2);ctx.scale(pop,pop);ctx.translate(-(cxA+cw/2),-(cyA+chh/2));
-      const warm=fever;
-      if(neonOn){ if(!uiFrame('uiChipM',cxA,cyA,cw,chh))neonPanel(cxA,cyA,cw,chh,11,224,64,251); ctx.fillStyle='#FFB8FF'; }
-      else { ctx.fillStyle=warm?'rgba(70,30,10,.78)':'rgba(10,16,40,.62)';rr(cxA,cyA,cw,chh,11);ctx.fill();
-        ctx.strokeStyle=warm?'rgba(255,170,60,.95)':'rgba(255,213,79,.85)';ctx.lineWidth=1.4;rr(cxA,cyA,cw,chh,11);ctx.stroke();
-        ctx.fillStyle=warm?'#FFE0B2':'#FFD54F'; }
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(cl,cxA+cw/2,cyA+chh/2+1);
+      ctx.translate(L,cy+12);ctx.scale(pop,pop);ctx.translate(-L,-(cy+12));
+      uiChipText(L,cy,'x'+perfectCombo,1,'flame');
       ctx.restore();
-      ctx.textAlign='center';ctx.textBaseline='middle';
     }
   }
 
-
-  // --- score pill ---
+  // --- centre: the score is the hero, everything under it is secondary ---
   const scoreTxt=String(score);
-  ctx.font='900 30px Exo2,sans-serif';
-  const pw=Math.max(132,ctx.measureText(scoreTxt).width+96), ph=58, pillY=6+SAFE.t;
-  // In fever the pill runs hot — a warm glow ties the HUD to the flow state.
+  ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.save();
-  if(neonOn){
-    if(fever){ctx.shadowColor='rgba(255,110,220,.7)';ctx.shadowBlur=20;}
-    if(!uiFrame('uiPanel',W/2-pw/2,pillY,pw,ph,0.20))neonPanel(W/2-pw/2,pillY,pw,ph,ph/2, fever?255:0, fever?100:229, fever?220:255);
-  } else {
-    if(fever){const gl=0.6+0.2*Math.sin(gt*2);ctx.shadowColor='rgba(255,140,0,'+gl+')';ctx.shadowBlur=16;}
-    if(draw3H('pill',W/2-pw/2,pillY,pw,ph)){
-      /* sliced */
-    } else {
-      ctx.fillStyle=fever?'rgba(60,30,10,.82)':'rgba(16,28,64,.8)';rr(W/2-pw/2,pillY,pw,ph,ph/2);ctx.fill();
-      ctx.strokeStyle=fever?'rgba(255,180,80,.95)':'rgba(255,255,255,.85)';ctx.lineWidth=3;rr(W/2-pw/2,pillY,pw,ph,ph/2);ctx.stroke();
-    }
-  }
+  ctx.font=fScore;
+  ctx.shadowColor=fever?'rgba(255,61,219,.55)':'rgba(0,150,220,.55)';
+  ctx.shadowBlur=14;
+  ctx.lineJoin='round';ctx.lineWidth=7;
+  ctx.strokeStyle='rgba(4,7,26,.85)';
+  ctx.strokeText(scoreTxt,W/2,baseY);
+  ctx.shadowBlur=0;
+  ctx.fillStyle=fever?UI.textHot:UI.text;
+  ctx.fillText(scoreTxt,W/2,baseY);
   ctx.restore();
-  ctx.fillStyle=neonOn?(fever?'#FFD0F0':'#EFFFFF'):(fever?'#FFE0B2':'#fff');
-  ctx.fillText(scoreTxt,W/2,28+SAFE.t);
-  ctx.fillStyle=neonOn?'rgba(150,220,255,.9)':'rgba(200,222,255,.8)';
-  ctx.font='800 12px Exo2,sans-serif';
-  ctx.fillText(Math.floor(dist)+' \u043c',W/2,49+SAFE.t);
+  ctx.font=UI.fMeta;ctx.fillStyle=UI.dim;
+  ctx.fillText(Math.floor(dist)+' м',W/2,baseY+24);
 
-  // --- run coin chip ---
-  const coinTxt=String(runCoins);
-  ctx.font='900 15px Exo2,sans-serif';
-  const cw=Math.max(58,ctx.measureText(coinTxt).width+46), ch=32, cx0=W-10-SAFE.r-cw, cy0=10+SAFE.t;
-  if(neonOn){ if(!uiFrame('uiChip',cx0,cy0,cw,ch))neonPanel(cx0,cy0,cw,ch,ch/2,0,229,255); }
-  else if(draw3H('pill',cx0,cy0,cw,ch)){
-    /* sliced */
-  } else {
-    ctx.fillStyle='rgba(16,28,64,.8)';rr(cx0,cy0,cw,ch,ch/2);ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;rr(cx0,cy0,cw,ch,ch/2);ctx.stroke();
-  }
-  if(!drawImgH('coinA',cx0+17,cy0+ch/2,23)){
-    ctx.fillStyle='#FFC107';ctx.beginPath();ctx.arc(cx0+17,cy0+ch/2,9,0,Math.PI*2);ctx.fill();
-  }
-  ctx.textAlign='left';ctx.fillStyle='#FFE082';
-  ctx.fillText(coinTxt,cx0+31,cy0+ch/2+1);
-  ctx.textAlign='center';
-
-  // --- checkpoint progress bar ---
-  const bw=W*.42,bh=9,bx=W/2-bw/2,by=62+SAFE.t;
+  // --- progress: one thin bar, not a decorated widget ---
+  const bw=Math.min(W*0.46,190), bh=6, bx=W/2-bw/2, by=baseY+38;
   const prog=clamp(dist/100,0,1);
-  if(neonOn){ctx.fillStyle='rgba(8,16,44,.8)';rr(bx,by,bw,bh,bh/2);ctx.fill();ctx.strokeStyle='rgba(0,229,255,.35)';ctx.lineWidth=1;rr(bx,by,bw,bh,bh/2);ctx.stroke();}
-  else if(!draw3H('barTk',bx,by,bw,bh,.2))
-    {ctx.fillStyle='rgba(10,22,52,.75)';rr(bx,by,bw,bh,bh/2);ctx.fill()}
+  ctx.fillStyle='rgba(6,11,34,.78)';rr(bx,by,bw,bh,bh/2);ctx.fill();
+  ctx.strokeStyle='rgba(0,229,255,.22)';ctx.lineWidth=1;
+  rr(bx+.5,by+.5,bw-1,bh-1,bh/2);ctx.stroke();
   if(prog>0){
-    const fw=bw*prog;
-    ctx.save();ctx.beginPath();rr(bx,by,fw,bh,bh/2);ctx.clip();
-    if(neonOn){ctx.shadowColor='rgba(0,229,255,.8)';ctx.shadowBlur=8;ctx.fillStyle='#2CE8FF';ctx.fillRect(bx,by,fw,bh);ctx.shadowBlur=0;}
-    else if(!draw3H('barFl',bx,by,bw,bh,.2)) {ctx.fillStyle='#FF9800';ctx.fillRect(bx,by,fw,bh)}
+    ctx.save();ctx.beginPath();rr(bx,by,bw*prog,bh,bh/2);ctx.clip();
+    const pg=ctx.createLinearGradient(bx,0,bx+bw,0);
+    pg.addColorStop(0,'#1C6EA8');pg.addColorStop(1,'#00E5FF');
+    ctx.shadowColor='rgba(0,229,255,.55)';ctx.shadowBlur=6;
+    ctx.fillStyle=pg;ctx.fillRect(bx,by,bw*prog,bh);
     ctx.restore();
   }
   for(let i=0;i<4;i++){
     const dx2=bx+bw*((i+1)/5), reached=prog>=(i+1)/5;
-    if(_ok('dot')){
-      ctx.globalAlpha=reached?1:.5;
-      drawImgH('dot',dx2,by+bh/2,reached?13:10);
-      ctx.globalAlpha=1;
-    } else {
-      ctx.fillStyle=reached?'rgba(255,152,0,.9)':'rgba(255,255,255,.3)';
-      ctx.beginPath();ctx.arc(dx2,by+bh/2,3.5,0,Math.PI*2);ctx.fill();
-    }
+    ctx.fillStyle=reached?'rgba(234,251,255,.95)':'rgba(146,196,232,.30)';
+    ctx.beginPath();ctx.arc(dx2,by+bh/2,2,0,Math.PI*2);ctx.fill();
   }
-  if(!drawImgH('flag',bx+bw+11,by+bh/2-3,22)){
-    ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillRect(bx+bw+8,by-6,2,14);
-  }
-  ctx.textBaseline='alphabetic';
+  // finish marker
+  ctx.strokeStyle='rgba(234,251,255,.55)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(bx+bw+7,by-4);ctx.lineTo(bx+bw+7,by+bh+4);ctx.stroke();
+  ctx.fillStyle='rgba(234,251,255,.75)';
+  ctx.beginPath();ctx.moveTo(bx+bw+8,by-4);ctx.lineTo(bx+bw+15,by-1);ctx.lineTo(bx+bw+8,by+2);ctx.closePath();ctx.fill();
 
-  // --- record-approach chip ---
-  // The whole game is "next time, closer". So the moment your personal best
-  // comes within reach, put it on screen and let it tick down — the closer it
-  // gets the harder it pulses, so the last few metres before a new record are
-  // the tensest of the run.
+  // --- right: currency ---
+  {
+    ctx.font=UI.fChip;
+    const txt=String(runCoins);
+    const w=Math.min(sideMax,ctx.measureText(txt).width+22+17);
+    uiPill(R-w,T,w,24,2);
+    if(!drawImgH('coinA',R-w+13,T+12,18)){
+      ctx.fillStyle='#FFC107';ctx.beginPath();ctx.arc(R-w+13,T+12,7,0,Math.PI*2);ctx.fill();
+    }
+    ctx.fillStyle=UI.textGold;ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(txt,R-w+24,T+12.5);
+  }
+
+  // --- record approach: same pill, gold tone, no border of its own ---
   {
     const dRec=hs-dist;
-    if(hs>=40 && dRec>0 && dRec<=60){
-      const u=1-dRec/60;                       // 0 far → 1 about to break it
-      const spd=4+u*6, puls=0.5+0.5*Math.sin(gt*spd);
-      const txt='🏆 РЕКОРД за '+Math.ceil(dRec)+' м';
-      ctx.font='900 13px Exo2,sans-serif';
-      const rcw=ctx.measureText(txt).width+24, rch=24, rcx=W/2-rcw/2, rcy=by+bh+9;
-      const pop=1+u*0.06*puls;
+    if(hs>=40&&dRec>0&&dRec<=60){
+      const u=1-dRec/60;
+      const pop=1+u*0.05*(0.5+0.5*Math.sin(gt*2.5));
+      const txt='\u{1F3C6} РЕКОРД за '+Math.ceil(dRec)+' м';
+      ctx.font=UI.fChip;
+      const w=ctx.measureText(txt).width+22, x=W/2-w/2, y=by+bh+10;
       ctx.save();
-      ctx.translate(W/2,rcy+rch/2);ctx.scale(pop,pop);ctx.translate(-W/2,-(rcy+rch/2));
-      ctx.shadowColor='rgba(255,190,60,'+(.35+.45*u*puls)+')';ctx.shadowBlur=8+14*u*puls;
-      ctx.fillStyle='rgba(40,26,6,.8)';rr(rcx,rcy,rcw,rch,12);ctx.fill();
-      ctx.shadowBlur=0;
-      ctx.strokeStyle='rgba(255,'+Math.round(190-70*u)+',60,'+(.7+.3*puls)+')';ctx.lineWidth=1.5;rr(rcx,rcy,rcw,rch,12);ctx.stroke();
-      ctx.fillStyle=u>.7?'#FFCC80':'#FFE082';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(txt,W/2,rcy+rch/2+1);
+      ctx.translate(W/2,y+12);ctx.scale(pop,pop);ctx.translate(-W/2,-(y+12));
+      uiPill(x,y,w,24,2);
+      ctx.fillStyle=UI.textGold;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(txt,W/2,y+12.5);
       ctx.restore();
-      ctx.textAlign='center';ctx.textBaseline='alphabetic';
     }
   }
 
-  let py=H-60-SAFE.b;
-  if(shield){ctx.fillStyle='rgba(255,193,7,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px Exo2,sans-serif';ctx.textAlign='left';ctx.fillText('🛡️ Щит',16,py+15);py-=24}
-  if(magnet){ctx.fillStyle='rgba(244,67,54,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px Exo2,sans-serif';ctx.textAlign='left';ctx.fillText('🧲 '+Math.ceil(magnetT)+'с',16,py+15);py-=24}
-  if(boost){ctx.fillStyle='rgba(255,235,59,.5)';rr(10,py,80,20,10);ctx.fill();ctx.fillStyle='#fff';ctx.font='bold 11px Exo2,sans-serif';ctx.textAlign='left';ctx.fillText('⚡ '+Math.ceil(boostT)+'с',16,py+15);py-=24}
-  if(fever){
-    if(neonOn){ if(!uiFrame('uiChipM',10,py,104,22))neonPanel(10,py,104,22,11,255,90,220); ctx.fillStyle='#FFD0F0'; }
-    else { const fp2=.6+.2*Math.sin(gt*5);
-      ctx.fillStyle=`rgba(255,215,0,${fp2})`;rr(10,py,100,22,11);ctx.fill();
-      ctx.strokeStyle='rgba(255,180,0,.6)';ctx.lineWidth=1.5;rr(10,py,100,22,11);ctx.stroke();
-      ctx.fillStyle='#fff'; }
-    ctx.font='900 12px Exo2,sans-serif';ctx.textAlign='left';
-    if(drawImgH('flame',22,py+11,19)) ctx.fillText('FEVER x2',33,py+16);
-    else ctx.fillText('🔥 FEVER x2',16,py+16);
-    py-=26;
+  // --- bottom left: active states, same chips, stacked ---
+  let py=H-58-SAFE.b;
+  const state=(label,tone,icon)=>{uiChipText(L,py,label,tone,icon);py-=29};
+  if(fever)  state('FEVER x2',1,'flame');
+  if(boost)  state('⚡ '+Math.ceil(boostT)+'с',0,null);
+  if(magnet) state('\u{1F9F2} '+Math.ceil(magnetT)+'с',0,null);
+  if(shield) state('\u{1F6E1} Щит',2,null);
+
+  if(dist<3&&alive&&introT<=0){
+    const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*2)*.2);
+    ctx.save();ctx.globalAlpha=ha;ctx.fillStyle=UI.dim;
+    ctx.font=UI.fMeta;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Веди пальцем',W/2,H*0.72);ctx.restore();
   }
-  if(dist<3&&alive&&introT<=0){const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*3)*.2);ctx.globalAlpha=ha;ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='15px Exo2,sans-serif';ctx.textAlign='center';ctx.fillText('☝️ тримай палець і веди',W/2,H*.855);ctx.fillText('↑ свайп вгору — ПЕРЕЛІТ',W/2,H*.895);ctx.globalAlpha=1}
+  ctx.textAlign='center';ctx.textBaseline='middle';
 }
 
 // ========== MENU ==========
