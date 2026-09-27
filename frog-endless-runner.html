@@ -396,7 +396,7 @@ function updateCloudEater(dt){
     const tgt=clamp(perfectCombo/12,0,1)*0.75+(fever?0.35:0);
     eaterClose=sd(eaterClose,Math.min(1,tgt),tgt>eaterClose?2.2:1.1,dt);
     // The one moment the chase pays off in the story: you actually gain on him.
-    if(eaterClose>0.7&&!eaterCaughtSaid){
+    if(eaterClose>0.7&&!eaterCaughtSaid&&curWorld()!==0){
       eaterCaughtSaid=true;eaterAngry=1;
       if(typeof setEmo==='function')setEmo('😤',1.3);
       addFloat(runMode.lvl?'Сигнал Ядра сильнішає!':'Ти наздоганяєш його!',W/2,H*0.22,'#FF7043',22,true);
@@ -500,7 +500,7 @@ function updateAttack(dt){
   if(introT>0||!alive)return;
   if(atkPhase===0){
     // Not in the storm act (the whole act IS his attack), not over an act card
-    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&curWorld()!==4){
+    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&curWorld()!==4&&curWorld()!==0){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
       addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ!',W/2,H*0.16,'#B388FF',16,true);
@@ -1900,6 +1900,7 @@ function drawAtmo(){
 
 // ========== CENTER LANE GLOW ==========
 function drawCenterGlow(){
+  if(curWorld()===0&&_ok('bg'))return;
   ctx.save();
   // One stroked path with a gradient down it, rather than ~200 separate
   // one-segment strokes per frame for the same line.
@@ -2876,7 +2877,7 @@ canvas.addEventListener('touchstart',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
-    btnTouch=modLv('dash')>0&&hitBtn(dashBtnC(),bx,by);
+    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by));
     if(!btnTouch){touching=true;frogCont=xToLane(t.clientX)}
   }
 },{passive:false});
@@ -2885,7 +2886,7 @@ canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
   if(state===ST.SKINS){const t=e.touches[0];skinScroll=clamp(scrollStartV-(t.clientY-tSY),0,maxSkinScroll());return}
   if(isListScreen()){const t=e.touches[0];uiScroll=clamp(uiScrollStart-(t.clientY-tSY),0,uiScrollMax);return}
-  if(state===ST.PLAY&&alive&&touching){
+  if(state===ST.PLAY&&alive&&touching&&!paused){
     const t=e.touches[0];
     if(btnTouch)return;
     // A vertical flick is the leap (or, mid-arc, a trick) and consumes the
@@ -2919,7 +2920,9 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(t.clientX-r.left)*(W/r.width), ty2=(t.clientY-r.top)*(H/r.height);
-      if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      if(paused){pauseTap(tx,ty2)}
+      else if(hitPause(tx,ty2)){paused=true;sfxClick()}
+      else if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
     }
   }
 },{passive:false});
@@ -2934,14 +2937,14 @@ canvas.addEventListener('mousedown',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
-    btnTouch=modLv('dash')>0&&hitBtn(dashBtnC(),bx,by);
+    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by));
     if(!btnTouch){touching=true;frogCont=xToLane(e.clientX)}
   }
 });
 canvas.addEventListener('mousemove',e=>{
   if(mouseDown&&state===ST.SKINS){skinScroll=clamp(scrollStartV-(e.clientY-tSY),0,maxSkinScroll());return}
   if(mouseDown&&isListScreen()){uiScroll=clamp(uiScrollStart-(e.clientY-tSY),0,uiScrollMax);return}
-  if(mouseDown&&state===ST.PLAY&&alive&&touching){
+  if(mouseDown&&state===ST.PLAY&&alive&&touching&&!paused){
     if(btnTouch)return;
     if(handleFlick(e.clientX,e.clientY))return;
     frogCont=xToLane(e.clientX);
@@ -2966,13 +2969,17 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
-      if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      if(paused){pauseTap(tx,ty2)}
+      else if(hitPause(tx,ty2)){paused=true;sfxClick()}
+      else if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
     }
   }
 });
 canvas.addEventListener('wheel',e=>{if(isListScreen()){e.preventDefault();uiScroll=clamp(uiScroll+e.deltaY,0,uiScrollMax)}},{passive:false});
 document.addEventListener('keydown',e=>{
   initAudio();
+  if(state===ST.PLAY&&(e.key==='Escape'||e.key==='p')&&alive){paused=!paused;return}
+  if(state===ST.PLAY&&paused)return;
   if(state===ST.PLAY){
     if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-.5,0,2)}
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
@@ -3173,7 +3180,7 @@ function updSpdLines(dt){
 
 // ========== GAME LOGIC ==========
 function startGame(){
-  sfxClick();state=ST.PLAY;
+  sfxClick();state=ST.PLAY;paused=false;
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;camY=0;frogElev=0;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;levelWin=false;winT=0;runClear=null;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
@@ -4300,9 +4307,48 @@ const WB={
 };
 function bgReach(){return Math.hypot(W/2,H*0.93)*0.17+22}
 function drawWorldBackdrop(w){
+  if(w===0&&_ok('bg')){drawGardenIsles();return}
   if(w===0&&_ok('sky')){drawGardenBackdrop();return}
   if(w===3&&_ok('skyNeon')){drawSkyDistrictBackdrop();return}
   drawCityBackdrop(WB[w]||WB[1],w);
+}
+// Cloudy Garden: the painted valley (waterfalls, trees, sun) fills the whole
+// screen, and below the horizon a sea of cloud rolls toward you — the plates
+// hang over it like the concept, with no floor and no road.
+let _gCloud=null;
+function drawGardenIsles(){
+  const im=_A.bg, over=1.28;
+  const iw0=Math.max(W,H*im.naturalWidth/im.naturalHeight)*over, ih0=iw0*im.naturalHeight/im.naturalWidth;
+  const px=-(curTurn*W*0.10);
+  ctx.fillStyle='#5a9be0';ctx.fillRect(-W,-H,W*3,H*3);
+  ctx.drawImage(im,W/2-iw0/2+px,H*0.42-ih0*0.52,iw0,ih0);
+  // soft atmospheric wash: the painting is very saturated
+  const wa=cachedGrad('gwash'+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(150,190,255,.10)');g.addColorStop(.35,'rgba(170,200,255,.18)');g.addColorStop(.6,'rgba(190,205,255,.30)');g.addColorStop(1,'rgba(120,130,200,.30)');return g});
+  ctx.fillStyle=wa;ctx.fillRect(-W,-H,W*3,H*3);
+  // the cloud sea: banded puffs that stream toward the camera
+  if(!_gCloud){_gCloud=[];for(let i=0;i<34;i++)_gCloud.push({d:Math.random(),x:Math.random()*1.6-0.3,s:0.6+Math.random()*0.8,t:Math.random()})}
+  const hor=H*0.36, flow=(typeof spd==='number'?spd:6)*0.0025;
+  const base=cachedGrad('gsea'+H,()=>{const g=ctx.createLinearGradient(0,hor-H*0.05,0,H);
+    g.addColorStop(0,'rgba(236,240,255,0)');g.addColorStop(.10,'rgba(232,236,255,.42)');g.addColorStop(.45,'rgba(205,210,245,.50)');g.addColorStop(1,'rgba(120,120,200,.62)');return g});
+  ctx.fillStyle=base;ctx.fillRect(-W,hor-H*0.05,W*3,H*3);
+  ctx.save();
+  _gCloud.sort((a,b)=>a.d-b.d);
+  for(const c of _gCloud){
+    if(state===ST.PLAY&&alive)c.d+=flow*(0.3+c.d)*0.016*60*0.016;
+    if(c.d>1){c.d-=1;c.x=Math.random()*1.6-0.3}
+    const y=hor+c.d*c.d*(H-hor)*1.05, r=W*(0.10+c.d*0.55)*c.s;
+    const x=W*c.x+px*(0.3+c.d);
+    const a=Math.min(1,c.d*4)*(1-Math.max(0,c.d-0.85)/0.15);
+    const g=ctx.createRadialGradient(x,y-r*0.1,r*0.1,x,y,r);
+    g.addColorStop(0,`rgba(255,255,255,${0.78*a})`);g.addColorStop(.55,`rgba(240,240,255,${0.5*a})`);g.addColorStop(1,'rgba(220,220,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(x,y,r,r*0.42,0,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  // shade the lane the player reads so the plates and frog pop off the white
+  const cor=cachedGrad('gisle'+W+H,()=>{const g=ctx.createRadialGradient(W/2,H*0.72,H*0.05,W/2,H*0.72,H*0.6);
+    g.addColorStop(0,'rgba(70,60,150,.30)');g.addColorStop(1,'rgba(70,60,150,0)');return g});
+  ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
 }
 function drawGardenBackdrop(){
   const im=_A.sky, hor=H*0.33, reach=bgReach();
@@ -5266,6 +5312,7 @@ const WATER_DEPTH=9;      // world units of depth covered by one texture pass
 // the same project() perspective (so they bend with turns) and fade into the
 // sky near the horizon. Only shown on daytime skies flagged with `rainbow`.
 function drawRainbowRoad(){
+  if(curWorld()===0&&_ok('bg')&&(state===ST.PLAY||state===ST.OVER))return;   // the garden floats over cloud
   const vanY=H*.18, baseY=H*.93;
   if(neonOn){
     // Dark neon road: a translucent dark path with glowing cyan edges + a faint
@@ -5354,7 +5401,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
-  if(curWorld()===4)drawCoreBeacon();else drawCloudEater();
+  if(curWorld()===4)drawCoreBeacon();else if(curWorld()!==0)drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
@@ -6453,9 +6500,140 @@ function uiChipText(x,y,label,tone,iconKey,maxW){
   ctx.fillText(label,x+11+iw,y+h/2+0.5);
   return w;
 }
+// ---- HUD pieces in the concept's language: hex badges, a fever gauge, pause ----
+function hexPath(x,y,r){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/2;ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r)}
+  ctx.closePath();
+}
+function hexBadge(x,y,r,line,fillA){
+  ctx.save();
+  hexPath(x,y,r);
+  const g=ctx.createLinearGradient(0,y-r,0,y+r);
+  g.addColorStop(0,`rgba(24,40,96,${fillA||.92})`);g.addColorStop(1,`rgba(6,10,34,${fillA||.94})`);
+  ctx.fillStyle=g;ctx.fill();
+  ctx.shadowColor=line;ctx.shadowBlur=8;ctx.strokeStyle=line;ctx.lineWidth=2;hexPath(x,y,r-1);ctx.stroke();
+  ctx.restore();
+}
+// COMBO ×N — the streak is the thing you are protecting, so it gets a real badge
+function drawComboBadge(x,y){
+  if(perfectCombo<2)return y;
+  const pop=1+comboPop*0.16, hot=fever||perfectCombo>=feverNeed();
+  const w=112,h=48;
+  ctx.save();
+  ctx.translate(x+w/2,y+h/2);ctx.scale(pop,pop);ctx.translate(-(x+w/2),-(y+h/2));
+  // plate
+  ctx.fillStyle='rgba(10,12,40,.86)';rr(x+18,y+6,w-18,h-12,12);ctx.fill();
+  ctx.strokeStyle=hot?'rgba(255,61,219,.75)':'rgba(255,170,60,.65)';ctx.lineWidth=1.6;rr(x+18,y+6,w-18,h-12,12);ctx.stroke();
+  // flame hex
+  hexBadge(x+22,y+h/2,22,hot?'#FF3DDB':'#FFA23C');
+  if(!drawImgH('flame',x+22,y+h/2,24)){ctx.font='20px Exo2';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🔥',x+22,y+h/2)}
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,220,170,.85)';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('КОМБО',x+50,y+16);
+  const g=ctx.createLinearGradient(0,y+20,0,y+44);g.addColorStop(0,'#FFE07A');g.addColorStop(1,'#FF8A1E');
+  ctx.font='900 22px Exo2,sans-serif';ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='rgba(40,10,0,.8)';
+  ctx.strokeText('x'+perfectCombo,x+50,y+32);ctx.fillStyle=g;ctx.fillText('x'+perfectCombo,x+50,y+32);
+  ctx.restore();
+  return y+h+6;
+}
+// Left column: the run modules you own, each with its level and live state
+function drawModuleColumn(x,y){
+  const list=[];
+  if(modLv('magnet'))list.push({id:'magnet',ico:'🧲',col:'#FF5CC8',on:magnet,prog:magnet?magnetT/12:1});
+  if(modLv('shield'))list.push({id:'shield',ico:'🛡',col:'#4FC3F7',on:shield,prog:shield?1:(modStat('shield')>0?1-shieldCD/modStat('shield'):0)});
+  if(modLv('djump')) list.push({id:'djump', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
+  const r=19;
+  for(const m of list){
+    const cy=y+r;
+    ctx.save();
+    ctx.globalAlpha=m.on?1:.62;
+    hexBadge(x+r,cy,r,m.on?m.col:'rgba(120,150,200,.6)');
+    ctx.font='17px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+    ctx.fillText(m.ico,x+r,cy+1);
+    ctx.restore();
+    // recharge sweep for the ones that come back
+    if(!m.on&&m.prog>0&&m.prog<1){
+      ctx.save();ctx.strokeStyle=m.col;ctx.lineWidth=2.4;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(x+r,cy,r+3,-Math.PI/2,-Math.PI/2+Math.PI*2*m.prog);ctx.stroke();ctx.restore();
+    }
+    // level tag
+    ctx.save();
+    ctx.fillStyle='rgba(6,10,34,.95)';rr(x+r-9,cy+r-6,18,13,6.5);ctx.fill();
+    ctx.strokeStyle=m.col;ctx.lineWidth=1;rr(x+r-9,cy+r-6,18,13,6.5);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='900 9px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(String(modLv(m.id)),x+r,cy+r+.8);
+    ctx.restore();
+    y+=r*2+14;
+  }
+}
+// Right edge: the fever gauge — fills with the PERFECT streak, burns while on
+function drawFeverGauge(){
+  const w=16, h=Math.min(H*0.22,170), x=W-12-SAFE.r-w, y=H*0.40;
+  const need=feverNeed(), k=fever?1:clamp(perfectCombo/need,0,1);
+  ctx.save();
+  // label hex
+  const hx=x+w/2, hy=y-24;
+  hexBadge(hx,hy,18,fever?'#FF3DDB':'rgba(255,120,200,.55)');
+  if(!drawImgH('flame',hx,hy-3,16)){ctx.font='13px Exo2';ctx.textAlign='center';ctx.fillText('🔥',hx,hy-3)}
+  ctx.fillStyle=fever?'#FFD9F5':'rgba(255,200,235,.8)';ctx.font='900 7px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('FEVER',hx,hy+9);
+  // tube
+  ctx.fillStyle='rgba(8,10,34,.82)';rr(x,y,w,h,w/2);ctx.fill();
+  ctx.strokeStyle=fever?'rgba(255,61,219,.8)':'rgba(255,120,200,.45)';ctx.lineWidth=1.5;rr(x+.5,y+.5,w-1,h-1,w/2);ctx.stroke();
+  if(k>0){
+    const fh=Math.max(w-4,(h-4)*k);
+    const g=ctx.createLinearGradient(0,y+h,0,y);
+    g.addColorStop(0,'#FF3D6E');g.addColorStop(.5,'#FF8A3C');g.addColorStop(1,'#FFE07A');
+    if(fever){ctx.shadowColor='rgba(255,90,160,.8)';ctx.shadowBlur=8+4*Math.sin(gt*6)}
+    ctx.fillStyle=g;rr(x+2,y+h-2-fh,w-4,fh,(w-4)/2);ctx.fill();
+  }
+  ctx.restore();
+  // while burning: the slips it can still absorb, as pips under the tube
+  if(fever){
+    const n=feverShieldCount();
+    for(let i=0;i<n;i++){
+      const py=y+h+10+i*11;
+      ctx.strokeStyle=UI.lineHot;ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(x+w/2,py,4,0,Math.PI*2);ctx.stroke();
+      if(i<feverShield){ctx.fillStyle=UI.textHot;ctx.beginPath();ctx.arc(x+w/2,py,2.2,0,Math.PI*2);ctx.fill()}
+    }
+  }
+}
+// ---- Pause ----
+let paused=false;
+function pauseBtnC(){return {x:12+SAFE.l+22,y:H-64-SAFE.b,r:22}}
+function hitPause(x,y){const c=pauseBtnC();return Math.hypot(x-c.x,y-c.y)<=c.r+10}
+function drawPauseBtn(){
+  const c=pauseBtnC();
+  hexBadge(c.x,c.y,c.r,'rgba(0,229,255,.75)');
+  ctx.fillStyle='#EAFBFF';rr(c.x-7,c.y-8,5,16,2);ctx.fill();rr(c.x+2,c.y-8,5,16,2);ctx.fill();
+}
+function pauseRects(){const bw=Math.min(W-80,260),x=W/2-bw/2;return {go:{x,y:H*.48,w:bw,h:54},menu:{x,y:H*.48+70,w:bw,h:44}}}
+function drawPause(){
+  ctx.save();
+  ctx.fillStyle='rgba(3,6,20,.72)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 30px Exo2,sans-serif';ctx.fillText('ПАУЗА',W/2,H*.36);
+  ctx.fillStyle=UI.dim;ctx.font='700 13px Exo2,sans-serif';ctx.fillText(`${curZone().icon} ${curZone().name} · ${Math.floor(dist)} м`,W/2,H*.36+32);
+  const R=pauseRects();
+  const g=ctx.createLinearGradient(0,R.go.y,0,R.go.y+R.go.h);g.addColorStop(0,'#7CFF6B');g.addColorStop(1,'#1E9E4A');
+  ctx.shadowColor='rgba(92,255,157,.5)';ctx.shadowBlur=14;
+  ctx.fillStyle=g;rr(R.go.x,R.go.y,R.go.w,R.go.h,R.go.h/2);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='#fff';ctx.font='900 19px Exo2,sans-serif';ctx.fillText('▶  ПРОДОВЖИТИ',W/2,R.go.y+R.go.h/2+1);
+  uiPill(R.menu.x,R.menu.y,R.menu.w,R.menu.h,0);
+  ctx.fillStyle=UI.text;ctx.font='800 14px Exo2,sans-serif';ctx.fillText('ВИЙТИ В МЕНЮ',W/2,R.menu.y+R.menu.h/2+1);
+  ctx.restore();
+}
+function pauseTap(x,y){
+  const R=pauseRects(), inR=r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h;
+  if(inR(R.go)){paused=false;sfxClick();return}
+  // leaving mid-run ends it: the run pays what it earned so far, like a fall
+  if(inR(R.menu)){paused=false;sfxClick();alive=false;finishRun();state=ST.MENU;return}
+}
+addEventListener('visibilitychange',()=>{if(document.hidden&&state===ST.PLAY&&alive)paused=true});
+
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
-  drawFlowMeter();
+  drawFeverGauge();
 
   const L=12+SAFE.l, R=W-12-SAFE.r, T=10+SAFE.t;
   // The score is sized to the screen and its box is reserved first; the side
@@ -6476,26 +6654,16 @@ function drawHUD(){
     ctx.font=UI.fChip;
     const full=z.icon+' '+z.name;
     uiChipText(L,T,ctx.measureText(full).width+22<=sideMax?full:z.icon,0);
-    if(perfectCombo>=2){
-      const pop=1+comboPop*0.18, cy=T+30;
-      ctx.save();
-      ctx.translate(L,cy+12);ctx.scale(pop,pop);ctx.translate(-L,-(cy+12));
-      const cw2=uiChipText(L,cy,'x'+perfectCombo,1,'flame');
-      ctx.restore();
-      // Fever charge: how close the streak is to igniting Fever
-      if(!fever){
-        const need=feverNeed(), k=clamp(perfectCombo/need,0,1);
-        ctx.save();
-        ctx.fillStyle='rgba(8,13,38,.8)';rr(L+4,cy+27,cw2-8,3,1.5);ctx.fill();
-        ctx.fillStyle='#FF3DDB';rr(L+4,cy+27,(cw2-8)*k,3,1.5);ctx.fill();
-        ctx.restore();
-      }
-    }
+    const cy=drawComboBadge(L,T+30);
+    drawModuleColumn(L,Math.max(cy,T+86)+4);
   }
 
   // --- centre: the score is the hero, everything under it is secondary ---
   const scoreTxt=String(score);
   ctx.textAlign='center';ctx.textBaseline='middle';
+  {ctx.font=fScore;const pw=Math.max(110,ctx.measureText(scoreTxt).width+44),ph=scoreSize+26,px=W/2-pw/2,py=T-4;
+   ctx.save();ctx.fillStyle='rgba(8,12,40,.62)';rr(px,py,pw,ph,14);ctx.fill();
+   ctx.strokeStyle=fever?'rgba(255,61,219,.5)':'rgba(0,229,255,.42)';ctx.lineWidth=1.5;rr(px+.75,py+.75,pw-1.5,ph-1.5,14);ctx.stroke();ctx.restore()}
   ctx.save();
   ctx.font=fScore;
   ctx.shadowColor=fever?'rgba(255,61,219,.55)':'rgba(0,150,220,.55)';
@@ -6513,7 +6681,7 @@ function drawHUD(){
   ctx.fillText(Math.floor(dist)+' м',W/2,distY);
 
   // --- progress: one thin bar, not a decorated widget ---
-  const bw=Math.min(W*0.46,190), bh=6, bx=W/2-bw/2, by=distY+13;
+  const bw=Math.max(80,Math.min(W*0.46,190,W-2*(L+124))), bh=6, bx=W/2-bw/2, by=distY+13;   // clear of the combo badge
   hudBottomY=by+bh;
   const prog=clamp(dist/100,0,1);
   ctx.fillStyle='rgba(6,11,34,.78)';rr(bx,by,bw,bh,bh/2);ctx.fill();
@@ -6570,30 +6738,9 @@ function drawHUD(){
     }
   }
 
-  // --- bottom left: active states, same chips, stacked ---
-  // bottom row shares its centre line with the dash button on the right
-  let py=dashBtnC().y-12;
-  const state=(label,tone,icon)=>{uiChipText(L,py,label,tone,icon);py-=29};
-  if(fever){
-    // Same chip as the combo multiplier up top. That one is the running
-    // multiplier; this one is the state — and whether its one-slip shield is
-    // still intact, shown as a pip rather than another element.
-    const w=uiChipText(L,py,'FEVER x2',1,'flame');
-    ctx.save();
-    // one pip per slip the fever can still absorb (the Fever Core adds pips)
-    const nP=feverShieldCount();
-    for(let k=0;k<nP;k++){
-      const px=L+w+7+k*11, pyc=py+12;
-      ctx.strokeStyle=UI.lineHot;ctx.lineWidth=1.3;
-      ctx.beginPath();ctx.arc(px,pyc,4,0,Math.PI*2);ctx.stroke();
-      if(k<feverShield){ctx.fillStyle=UI.textHot;ctx.beginPath();ctx.arc(px,pyc,2.2,0,Math.PI*2);ctx.fill();}
-    }
-    ctx.restore();
-    py-=29;
-  }
-  if(boost)  state('⚡ '+Math.ceil(boostT)+'с',0,null);
-  if(magnet) state('\u{1F9F2} '+Math.ceil(magnetT)+'с',0,null);
-  if(shield) state('\u{1F6E1} Щит',2,null);
+  // --- bottom left: pause ---
+  if(state===ST.PLAY&&alive)drawPauseBtn();
+  if(boost)uiChipText(L+54,pauseBtnC().y-12,'⚡ '+Math.ceil(boostT)+'с',0,null);
 
   if(dist<3&&alive&&introT<=0){
     const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*2)*.2);
@@ -8393,7 +8540,7 @@ function loop(ts){
     ctx.clearRect(0,0,W,H);
     switch(state){
       case ST.MENU:drawMenu();break;
-      case ST.PLAY:{if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt);drawGame();break}
+      case ST.PLAY:{if(!paused){if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt)}drawGame();if(paused)drawPause();break}
       case ST.OVER:drawGame();drawOver();break;
       case ST.SKINS:drawSkins();break;
       case ST.MISSIONS:drawMissions();break;
