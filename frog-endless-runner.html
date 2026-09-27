@@ -5006,6 +5006,49 @@ function drawLongPadArt(nearRz,gx,elev,len,width,isCurrent){
   const N=Math.max(24,Math.min(140,Math.round((pN.y-pF.y)/3)));
   const f=clamp((nearRz/VIEW_AHEAD-0.16)/0.84,0,1)**1.15*0.46, dk=f>0.02?darkArt('padA4'):null;
   ctx.save();
+  // --- the body: the slab is as thick as the standard plates, all along its
+  // length. Each depth sample gets its top edge and a copy dropped by the
+  // plate thickness and nudged toward the screen centre, so the side facing
+  // the camera shows as a wall while the far side tucks under the top.
+  const E=[];
+  for(let i=0;i<=N;i++){
+    const z=farZ-(farZ-nearCut)*i/N, pz=project(z,gx,elev), hw=120*pz.s*w*WSC*1.05;
+    const t=hw*0.50, dx=(W/2-pz.x)*0.08*pz.s;
+    E.push({y:pz.y,l:pz.x-hw,r:pz.x+hw,t,dx,s:pz.s});
+  }
+  // soft shadow on whatever is below
+  ctx.save();ctx.fillStyle='#0a0e30';
+  for(const [k,a] of [[0,.05],[0.12,.05],[0.24,.05]]){      // three inset passes = a soft edge
+    ctx.globalAlpha=a;ctx.beginPath();
+    E.forEach((e,i)=>{const x=e.l+(e.r-e.l)*k+e.dx*2,y=e.y+e.t*2.2;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+    for(let i=E.length-1;i>=0;i--){const e=E[i];ctx.lineTo(e.r-(e.r-e.l)*k+e.dx*2,e.y+e.t*2.2)}
+    ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+  // side walls: dark gunmetal, lighter toward the camera, with a lit strip and panel seams
+  const wall=(side)=>{
+    for(let i=0;i<N;i++){
+      const a=E[i], b=E[i+1];
+      const ax=side<0?a.l:a.r, bx=side<0?b.l:b.r;
+      const k=i/N;
+      ctx.fillStyle=`rgb(${Math.round(14+22*k)},${Math.round(26+30*k)},${Math.round(58+44*k)})`;
+      ctx.beginPath();ctx.moveTo(ax,a.y);ctx.lineTo(bx,b.y);ctx.lineTo(bx+b.dx,b.y+b.t);ctx.lineTo(ax+a.dx,a.y+a.t);ctx.closePath();ctx.fill();
+    }
+    // lit strip a third of the way down the wall, like the plates' side lights
+    ctx.save();ctx.strokeStyle='rgba(0,229,255,.75)';ctx.shadowColor='rgba(0,229,255,.8)';ctx.shadowBlur=6;
+    ctx.lineWidth=Math.max(1,E[N].s*2.2);ctx.beginPath();
+    E.forEach((e,i)=>{const x=(side<0?e.l:e.r)+e.dx*0.35,y=e.y+e.t*0.35;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+    ctx.stroke();ctx.restore();
+    // bottom bevel
+    ctx.strokeStyle='rgba(4,8,24,.9)';ctx.lineWidth=Math.max(1,E[N].s*1.6);ctx.beginPath();
+    E.forEach((e,i)=>{const x=(side<0?e.l:e.r)+e.dx,y=e.y+e.t;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+    ctx.stroke();
+    // panel seams every few metres
+    ctx.strokeStyle='rgba(5,10,30,.7)';ctx.lineWidth=1;
+    const step=Math.max(3,Math.round(N/Math.max(2,len/1.6)));
+    for(let i=step;i<N;i+=step){const e=E[i],x=side<0?e.l:e.r;ctx.beginPath();ctx.moveTo(x,e.y);ctx.lineTo(x+e.dx,e.y+e.t);ctx.stroke()}
+  };
+  wall(-1);wall(1);
   for(let i=0;i<N;i++){
     const z1=farZ-(farZ-nearCut)*i/N, z0=farZ-(farZ-nearCut)*(i+1)/N;   // z1 far, z0 near
     const p1=project(z1,gx,elev), p0=project(z0,gx,elev);
