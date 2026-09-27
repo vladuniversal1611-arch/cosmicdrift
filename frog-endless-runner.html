@@ -314,7 +314,7 @@ const ACTS=[
   {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Ти всередині нього. Ось вони — вкрадені зорі.',   icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081', emo:'🤩'},
 ];
 let curAct=0, actCardT=0, actFlash=0, recFlash=0, actTintT=0;
-function actFor(d){if(runMode.lvl)return SW[runMode.w].act;let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
+function actFor(d){return SW[curWorld()].act;let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
 function enterAct(i){
   curAct=i;actCardT=2.4;actFlash=1;actTintT=1;
   if(i>storyP.bestAct){storyP.bestAct=i;chapterNew=i;saveStory()}
@@ -500,7 +500,7 @@ function updateAttack(dt){
   if(introT>0||!alive)return;
   if(atkPhase===0){
     // Not in the storm act (the whole act IS his attack), not over an act card
-    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&!(runMode.lvl&&runMode.w===4)){
+    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&curWorld()!==4){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
       addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ!',W/2,H*0.16,'#B388FF',16,true);
@@ -526,9 +526,9 @@ const FINALE_LEN=45;          // metres of build-up before the next act
 let finaleOn=false, finaleT=0, finaleWarnT=0, finaleClearT=0;
 function finaleRange(){
   if(runMode.lvl)return runMode.l===WORLD_LV-1?[runMode.goal-60,runMode.goal+1]:null;
-  const nxt=ACTS[curAct+1];
-  if(!nxt)return null;                       // last act runs forever
-  return [nxt.from-FINALE_LEN, nxt.from];
+  // endless: a gauntlet closes every 400 m
+  const k=Math.max(1,Math.ceil((dist+1)/400));
+  return [k*400-FINALE_LEN, k*400];
 }
 function updateFinale(dt){
   const r=finaleRange();
@@ -537,7 +537,7 @@ function updateFinale(dt){
     finaleOn=true;finaleWarnT=1.8;
     shake=Math.max(shake,.2);
     setEmo('\uD83D\uDE30',1.4);
-    addFloat('⚠ ХМАРОЖЕР ПОРУЧ',W/2,H*0.24,'#FF5252',26,true);
+    addFloat(curWorld()===4?'⚠ НЕСТАБІЛЬНІСТЬ ЯДРА':'⚠ ХМАРОЖЕР ПОРУЧ',W/2,H*0.24,'#FF5252',26,true);
     if(navigator.vibrate)navigator.vibrate([20,40,20,40,20]);
   }
   if(!inside&&finaleOn){
@@ -638,7 +638,7 @@ function updateActs(dt){
 // Zone-driven speed multiplier, eased so entering a zone isn't a jolt
 let actSpdCur=1;
 function actSpeedMul(dt){
-  const target=runMode.lvl?levelProfile().s:ACTS[curAct].spdMul;
+  const target=levelProfile().s;
   actSpdCur+=(target-actSpdCur)*Math.min(1,dt*1.5);
   return actSpdCur;
 }
@@ -958,7 +958,7 @@ function progDefaults(){
     week:{id:'',n:0,claimed:[]},
     world:{w:0,l:0,done:{}},
     stats:{runs:0,perfects:0,bestCombo:0,dist:0},
-    story:{seen:{},mem:[],v:0},
+    story:{seen:{},mem:[],v:0}, endW:0,
     migrated:false};
 }
 const Prog={
@@ -1097,7 +1097,19 @@ function nextLevel(){
   return null;
 }
 function worldsCleared(){let n=0;for(let w=0;w<ACTS.length;w++)if(levelDone(w,WORLD_LV-1))n++;return n}
-function startEndless(){runMode={lvl:false,w:0,l:0,goal:0};startGame()}
+// Endless is a run in one world: the Cloudy Garden at first, then any world
+// the story has opened. The choice is remembered.
+function endlessWorld(){const w=Prog.d.endW|0;return worldUnlocked(w)?w:0}
+function endlessWorlds(){const o=[];for(let w=0;w<SW.length;w++)if(worldUnlocked(w))o.push(w);return o}
+function cycleEndlessWorld(dir){
+  const o=endlessWorlds();if(o.length<2)return false;
+  const i=o.indexOf(endlessWorld());
+  Prog.d.endW=o[(i+dir+o.length)%o.length];Prog.save();return true;
+}
+function startEndless(){
+  if(!storySeen('intro')){playScene('intro',()=>startEndless());return}
+  runMode={lvl:false,w:0,l:0,goal:0,ew:endlessWorld()};startGame();
+}
 function startLevel(w,l){
   if(!levelUnlocked(w,l))return;
   // the story opens the first time the player steps into it
@@ -1167,16 +1179,18 @@ const COLLAPSE=[
   {at:.75, r:['rush','lightning','wind','dark'], s:1.38, msg:'⚠ КОЛАПС!'},
 ];
 let collapsePh=-1;
+function curWorld(){return runMode.lvl?runMode.w:(runMode.ew|0)}
 function isCollapse(){return runMode.lvl&&runMode.w===4&&runMode.l===WORLD_LV-1}
 function levelProfile(){
   if(isCollapse()){const f=dist/runMode.goal;let p=COLLAPSE[0];for(const c of COLLAPSE)if(f>=c.at)p=c;return {r:p.r,s:p.s,m:1.4}}
+  if(!runMode.lvl)return LV_PROFILE[curWorld()][Math.min(4,Math.floor(dist/220))];   // endless climbs the world's own ladder
   return LV_PROFILE[runMode.w][runMode.l];
 }
-function hasRule(r){return runMode.lvl?levelProfile().r.includes(r):actRule()===r}
+function hasRule(r){return levelProfile().r.includes(r)}
 // What the HUD / act card call the place you are in
 function curZone(){
-  if(!runMode.lvl)return ACTS[curAct];
-  const s=SW[runMode.w];
+  const s=SW[curWorld()];
+  if(!runMode.lvl)return {name:s.name,icon:s.icon,col:s.col,sub:'Нескінченний забіг · '+s.mech,emo:s.emo[0]};
   return {name:s.name,icon:s.icon,col:s.col,sub:s.beats[runMode.l],emo:s.emo[runMode.l]};
 }
 function updCollapse(){
@@ -1468,8 +1482,7 @@ function logChipRect(){const w=170;return {x:W/2-w/2,y:86+SAFE.t,w,h:24}}
 
 // In-run look for the story worlds: reactor heat, collapse alarms, the Core
 function drawStoryFx(){
-  if(!runMode.lvl)return;
-  const w=runMode.w;
+  const w=curWorld();
   if(w===2){
     const a=(0.17+0.06*Math.sin(gt*2.1))*washK;
     const g=cachedGrad('heat'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*.55,H*.28,W/2,H*.55,H*.9);
@@ -1488,7 +1501,7 @@ function drawStoryFx(){
 // growing as you close in.
 function drawCoreBeacon(){
   const far=project(VIEW_AHEAD*0.98,1,0);
-  const f=clamp(dist/runMode.goal,0,1);
+  const f=runMode.lvl?clamp(dist/runMode.goal,0,1):0.55;
   const R=W*(0.07+0.13*f*f)*(1+Math.sin(gt*3)*0.03);
   const x=far.x, y=far.y-R*0.7;
   ctx.save();ctx.translate(x,y);
@@ -2351,8 +2364,8 @@ function buildRouteSection(diff){
 
   const out=[];
   const startX=routeCenter;
-  const lvM=runMode.lvl?levelProfile().m:1;
-  const canMove=runMode.lvl?lvM>0:getUnlockedTypes(dist).includes('moving_h');
+  const lvM=levelProfile().m;
+  const canMove=lvM>0;
   let py=pts[0].y, movedLast=false;
   for(let i=0;i<pts.length;i++){
     const pt=pts[i];
@@ -3171,7 +3184,7 @@ function startGame(){
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
   curAct=0;actFlash=0;recFlash=0;actTintT=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;eaterClose=0;eaterCaughtSaid=false;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
-  introT=introSeen||runMode.lvl?0:INTRO_LEN;actCardT=introSeen||runMode.lvl?2.4:0;collapsePh=-1;storyQ=null;
+  introT=0;actCardT=2.4;collapsePh=-1;storyQ=null;
   atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
   grabCool=0;grabSave=false;
   storyP.runs++;saveStory();
@@ -4276,6 +4289,157 @@ function drawMirrored(im,x,y,w,h){
   if(vis(ex,y-h,ew,h))ctx.drawImage(im,0,0,sw,2,ex,y-h,ew,h+1);
   if(vis(ex,y+h,ew,h))ctx.drawImage(im,0,sh-2,sw,2,ex,y+h-1,ew,h+1);
 }
+// ---- World backdrops: every story world has its own place ----
+// 0 garden: open sky, a treeline on the horizon, grass underfoot
+// 1 neon city (the original look) · 2 reactor: the city in furnace light
+// 3 sky district: purple cloud spires · 4 central core: cold cyan city
+const WB={
+  1:{sky:['#05061a','#0b0d2e','#191345','#2b1a5c'],haze:'46,120,225',ground:'9,11,38'},
+  2:{sky:['#0d0303','#2a0a05','#5a1a08','#8a3410'],tint:'#ff8a4a',haze:'255,120,40',ground:'22,8,4'},
+  4:{sky:['#010a12','#03222c','#064452','#0b6a78'],tint:'#8ff0ff',haze:'120,240,255',ground:'2,16,22'},
+};
+function bgReach(){return Math.hypot(W/2,H*0.93)*0.17+22}
+function drawWorldBackdrop(w){
+  if(w===0&&_ok('sky')){drawGardenBackdrop();return}
+  if(w===3&&_ok('skyNeon')){drawSkyDistrictBackdrop();return}
+  drawCityBackdrop(WB[w]||WB[1],w);
+}
+function drawGardenBackdrop(){
+  const im=_A.sky, hor=H*0.33, reach=bgReach();
+  const drift=-(curTurn*W*0.18);
+  const iw=Math.max(W+reach*2+Math.abs(drift)*2+40, H*0.62*im.naturalWidth/im.naturalHeight);
+  const ih=iw*im.naturalHeight/im.naturalWidth;
+  const iy=hor-ih*0.90;                             // the painted hills sit on the horizon
+  ctx.fillStyle='#0c3fae';ctx.fillRect(-W,-H,W*3,iy+H+4);
+  ctx.drawImage(im,W/2-iw/2+drift,iy,iw,ih);
+  // drifting cloud banks — it is the CLOUDY garden
+  ctx.save();
+  for(let i=0;i<5;i++){
+    const cw=W*(0.5+0.18*(i%3)), cx=((gt*(6+i*2)+i*W*0.47)%(W+cw*2))-cw+drift*0.5, cy=H*(0.03+0.05*i);
+    const g=ctx.createRadialGradient(cx,cy,2,cx,cy,cw*0.5);
+    g.addColorStop(0,'rgba(240,248,255,.26)');g.addColorStop(1,'rgba(240,248,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(cx,cy,cw*0.5,cw*0.16,0,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  // treeline along the horizon, sliding with the road's bend
+  const props=['treeR','bush','treeP','treeR','bush','treeP','treeR','flower'];
+  if(props.every(k=>_ok(k))){
+    const th=H*0.052, step=th*0.95, off=(drift*1.3-gt*3)%(step*props.length);
+    ctx.save();
+    for(let x=off-step*props.length-reach,i=0;x<W+reach+step;x+=step,i++){
+      const k=props[((i%props.length)+props.length)%props.length], img=_A[k];
+      const h=th*(k==='treeP'?1.15:k==='bush'||k==='flower'?0.62:1)*(0.85+0.3*((i*37%10)/10));
+      const wv=h*img.naturalWidth/img.naturalHeight;
+      ctx.drawImage(img,x-wv/2,hor-h+2,wv,h);
+    }
+    ctx.restore();
+  }
+  // aerial haze on the treeline, then meadow falling into shade toward the player
+  const hz=cachedGrad('ghaze'+H,()=>{const g=ctx.createLinearGradient(0,hor-H*0.08,0,hor+H*0.03);
+    g.addColorStop(0,'rgba(190,225,255,0)');g.addColorStop(.7,'rgba(190,225,255,.30)');g.addColorStop(1,'rgba(190,225,255,0)');return g});
+  ctx.fillStyle=hz;ctx.fillRect(-W,hor-H*0.08,W*3,H*0.11);
+  const gd=cachedGrad('gground'+H,()=>{const g=ctx.createLinearGradient(0,hor,0,H*0.75);
+    g.addColorStop(0,'#3f7d3a');g.addColorStop(.25,'#24552a');g.addColorStop(.6,'#12321c');g.addColorStop(1,'#0a1f14');return g});
+  ctx.fillStyle=gd;ctx.fillRect(-W,hor,W*3,H*3);
+  // grass tufts receding on the meadow, so the ground has scale
+  if(_ok('grass')){
+    ctx.save();ctx.globalAlpha=0.55;
+    for(let i=0;i<14;i++){
+      const d=(i*0.137+0.05)%1, y=hor+H*0.02+d*d*H*0.30, sc=0.25+d*0.9;
+      const gx=((i*211.7)%(W*1.4))-W*0.2+drift*(1-d);
+      if(Math.abs(gx-W/2)<W*(0.12+d*0.25))continue;       // keep the road corridor clear
+      const h=H*0.035*sc, wv=h*_A.grass.naturalWidth/_A.grass.naturalHeight;
+      ctx.drawImage(_A.grass,gx-wv/2,y-h,wv,h);
+    }
+    ctx.restore();
+  }
+  // tone it down so the plates stay the brightest thing (the game was once far too bright)
+  const scr=cachedGrad('gScrim'+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(6,16,40,.08)');g.addColorStop(.3,'rgba(6,20,30,.14)');g.addColorStop(.45,'rgba(6,20,30,.30)');g.addColorStop(1,'rgba(4,12,10,.50)');return g});
+  ctx.fillStyle=scr;ctx.fillRect(-W,-H,W*3,H*3);
+  const cor=cachedGrad('gcorr'+W,()=>{const g=ctx.createLinearGradient(0,0,W,0);
+    g.addColorStop(0,'rgba(4,14,12,0)');g.addColorStop(.25,'rgba(4,14,12,.20)');g.addColorStop(.5,'rgba(4,14,12,.34)');
+    g.addColorStop(.75,'rgba(4,14,12,.20)');g.addColorStop(1,'rgba(4,14,12,0)');return g});
+  ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
+}
+function drawSkyDistrictBackdrop(){
+  const im=_A.skyNeon, reach=bgReach(), hor=H*0.32;
+  const drift=-(curTurn*W*0.2)-gt*3;
+  ctx.fillStyle='#0a0620';ctx.fillRect(-W,-H,W*3,H*3);
+  const iw=W+reach*2+Math.abs(curTurn*W*0.2)*2+60, ih=iw*im.naturalHeight/im.naturalWidth;
+  const iy=hor-ih*0.55;
+  // mirrored pair so the slow drift never shows an edge
+  const x0=((drift%iw)+iw)%iw-iw;
+  for(let k=0;k<3;k++){
+    const x=x0+k*iw;
+    ctx.save();
+    if(k%2){ctx.translate(x+iw,iy);ctx.scale(-1,1);ctx.drawImage(im,0,0,iw,ih)}
+    else ctx.drawImage(im,x,iy,iw,ih);
+    ctx.restore();
+  }
+  const gd=cachedGrad('sground'+H,()=>{const g=ctx.createLinearGradient(0,hor-H*0.02,0,H*0.62);
+    g.addColorStop(0,'rgba(20,10,46,0)');g.addColorStop(.35,'rgba(20,10,46,.85)');g.addColorStop(1,'rgba(12,6,30,1)');return g});
+  ctx.fillStyle=gd;ctx.fillRect(-W,hor-H*0.02,W*3,H*3);
+  const scr=cachedGrad('sScrim'+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(10,6,32,.36)');g.addColorStop(1,'rgba(10,6,32,.50)');return g});
+  ctx.fillStyle=scr;ctx.fillRect(-W,-H,W*3,H*3);
+  const cor=cachedGrad('scorr'+W,()=>{const g=ctx.createLinearGradient(0,0,W,0);
+    g.addColorStop(0,'rgba(8,4,26,0)');g.addColorStop(.5,'rgba(8,4,26,.45)');g.addColorStop(1,'rgba(8,4,26,0)');return g});
+  ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
+}
+function drawCityBackdrop(T,w){
+    const sg=cachedGrad('nsky'+w+H,()=>{const g=ctx.createLinearGradient(0,-H*0.3,0,H*0.5);
+      g.addColorStop(0,T.sky[0]);g.addColorStop(.45,T.sky[1]);
+      g.addColorStop(.78,T.sky[2]);g.addColorStop(1,T.sky[3]);return g});
+    ctx.fillStyle=sg;ctx.fillRect(-W,-H,W*3,H*3);
+
+    // Stars, seeded off their index so they hold still while the city slides
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    for(let i=0;i<34;i++){
+      const sx=((i*137.5)%1)*0+ (i*73.13)%(W*1.6)-W*0.3;
+      const sy=((i*151.7)%(H*0.34))-H*0.06;
+      const tw=0.45+0.55*Math.sin(gt*1.3+i*2.1);
+      ctx.globalAlpha=0.30*tw; ctx.fillRect(sx,sy,1.6,1.6);
+    }
+    ctx.globalAlpha=1;
+
+    const im=_A.cityPano;
+    const ch=H*0.27, cw=ch*im.naturalWidth/im.naturalHeight;
+    const cy=H*0.32-ch;                                  // skyline base at .32H
+    // Slides opposite the bend, plus a slow constant drift so it is never still
+    const drift=-(curTurn*W*0.26)-gt*4;
+    const reach=Math.hypot(W/2,H*0.93)*0.17+22;
+    let x0=drift%cw; if(x0>-reach)x0-=cw;
+    for(let x=x0;x<W+reach;x+=cw-1)ctx.drawImage(im,x,cy,cw+1,ch);
+    // the same skyline, lit by this district: multiply a colour through it
+    if(T.tint){ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle=T.tint;ctx.fillRect(-W,cy,W*3,ch+2);ctx.restore()}
+
+    // Ground haze where the city meets the road, so the two are one space
+    const hz=cachedGrad('nhaze'+w+H,()=>{const g=ctx.createLinearGradient(0,H*0.14,0,H*0.44);
+      g.addColorStop(0,`rgba(${T.haze},0)`);g.addColorStop(.62,`rgba(${T.haze},.13)`);
+      g.addColorStop(1,'rgba(20,24,70,0)');return g});
+    ctx.fillStyle=hz;ctx.fillRect(-W,H*0.14,W*3,H*0.30);
+
+    // Below the horizon there is no sky, only the dark the road sits on
+    const gd=cachedGrad('nground'+w+H,()=>{const g=ctx.createLinearGradient(0,H*0.30,0,H*0.62);
+      g.addColorStop(0,`rgba(${T.ground},0)`);g.addColorStop(1,`rgba(${T.ground},1)`);return g});
+    ctx.fillStyle=gd;ctx.fillRect(-W,H*0.28,W*3,H*3);
+
+    // Push it all back so the plates and the road stay the brightest things
+    const scr=cachedGrad('nbgScrim'+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'rgba(8,10,36,.30)');g.addColorStop(.45,'rgba(8,10,36,.34)');
+      g.addColorStop(1,'rgba(8,10,36,.44)');return g});
+    ctx.fillStyle=scr;ctx.fillRect(-W,-H,W*3,H*3);
+    // Clear the corridor the player reads. The city sat directly behind the
+    // platforms and competed with them; darkening the middle band leaves the
+    // detail out at the edges, where it decorates instead of interfering.
+    const cor=cachedGrad('ncorr'+W,()=>{const g=ctx.createLinearGradient(0,0,W,0);
+      g.addColorStop(0,'rgba(5,8,28,0)');g.addColorStop(.22,'rgba(5,8,28,.34)');
+      g.addColorStop(.5,'rgba(5,8,28,.52)');g.addColorStop(.78,'rgba(5,8,28,.34)');
+      g.addColorStop(1,'rgba(5,8,28,0)');return g});
+    ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
+}
+
 function drawBg(){
   const sky=SKY_SKINS[curSky];
 
@@ -4301,54 +4465,7 @@ function drawBg(){
   // The previous art was a framed composition (a cluster left, a cluster right,
   // empty middle) and on a narrow screen it read as two separate sprites.
   if(neonOn && _ok('cityPano')){
-    const sg=cachedGrad('nsky'+H,()=>{const g=ctx.createLinearGradient(0,-H*0.3,0,H*0.5);
-      g.addColorStop(0,'#05061a');g.addColorStop(.45,'#0b0d2e');
-      g.addColorStop(.78,'#191345');g.addColorStop(1,'#2b1a5c');return g});
-    ctx.fillStyle=sg;ctx.fillRect(-W,-H,W*3,H*3);
-
-    // Stars, seeded off their index so they hold still while the city slides
-    ctx.fillStyle='rgba(255,255,255,.55)';
-    for(let i=0;i<34;i++){
-      const sx=((i*137.5)%1)*0+ (i*73.13)%(W*1.6)-W*0.3;
-      const sy=((i*151.7)%(H*0.34))-H*0.06;
-      const tw=0.45+0.55*Math.sin(gt*1.3+i*2.1);
-      ctx.globalAlpha=0.30*tw; ctx.fillRect(sx,sy,1.6,1.6);
-    }
-    ctx.globalAlpha=1;
-
-    const im=_A.cityPano;
-    const ch=H*0.27, cw=ch*im.naturalWidth/im.naturalHeight;
-    const cy=H*0.32-ch;                                  // skyline base at .32H
-    // Slides opposite the bend, plus a slow constant drift so it is never still
-    const drift=-(curTurn*W*0.26)-gt*4;
-    const reach=Math.hypot(W/2,H*0.93)*0.17+22;
-    let x0=drift%cw; if(x0>-reach)x0-=cw;
-    for(let x=x0;x<W+reach;x+=cw-1)ctx.drawImage(im,x,cy,cw+1,ch);
-
-    // Ground haze where the city meets the road, so the two are one space
-    const hz=cachedGrad('nhaze'+H,()=>{const g=ctx.createLinearGradient(0,H*0.14,0,H*0.44);
-      g.addColorStop(0,'rgba(40,110,220,0)');g.addColorStop(.62,'rgba(46,120,225,.13)');
-      g.addColorStop(1,'rgba(20,24,70,0)');return g});
-    ctx.fillStyle=hz;ctx.fillRect(-W,H*0.14,W*3,H*0.30);
-
-    // Below the horizon there is no sky, only the dark the road sits on
-    const gd=cachedGrad('nground'+H,()=>{const g=ctx.createLinearGradient(0,H*0.30,0,H*0.62);
-      g.addColorStop(0,'rgba(9,11,38,0)');g.addColorStop(1,'rgba(9,11,38,1)');return g});
-    ctx.fillStyle=gd;ctx.fillRect(-W,H*0.28,W*3,H*3);
-
-    // Push it all back so the plates and the road stay the brightest things
-    const scr=cachedGrad('nbgScrim'+H,()=>{const g=ctx.createLinearGradient(0,0,0,H);
-      g.addColorStop(0,'rgba(8,10,36,.30)');g.addColorStop(.45,'rgba(8,10,36,.34)');
-      g.addColorStop(1,'rgba(8,10,36,.44)');return g});
-    ctx.fillStyle=scr;ctx.fillRect(-W,-H,W*3,H*3);
-    // Clear the corridor the player reads. The city sat directly behind the
-    // platforms and competed with them; darkening the middle band leaves the
-    // detail out at the edges, where it decorates instead of interfering.
-    const cor=cachedGrad('ncorr'+W,()=>{const g=ctx.createLinearGradient(0,0,W,0);
-      g.addColorStop(0,'rgba(5,8,28,0)');g.addColorStop(.22,'rgba(5,8,28,.34)');
-      g.addColorStop(.5,'rgba(5,8,28,.52)');g.addColorStop(.78,'rgba(5,8,28,.34)');
-      g.addColorStop(1,'rgba(5,8,28,0)');return g});
-    ctx.fillStyle=cor;ctx.fillRect(-W,-H,W*3,H*3);
+    drawWorldBackdrop(state===ST.PLAY||state===ST.OVER?curWorld():1);
     return;
   }
 
@@ -5237,7 +5354,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
-  if(runMode.lvl&&runMode.w===4)drawCoreBeacon();else drawCloudEater();
+  if(curWorld()===4)drawCoreBeacon();else drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
@@ -6138,7 +6255,7 @@ function drawActEffects(){
     ctx.font='bold 26px Exo2,sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=12;
-    ctx.fillText('⚠  ХМАРОЖЕР ПОРУЧ  ⚠',W/2,H*0.20);
+    ctx.fillText(curWorld()===4?'⚠  НЕСТАБІЛЬНІСТЬ ЯДРА  ⚠':'⚠  ХМАРОЖЕР ПОРУЧ  ⚠',W/2,H*0.20);
     ctx.shadowBlur=0;ctx.restore();
   }
   // Green afterglow for clearing it
@@ -7094,6 +7211,23 @@ function menuLayout(){
   const prog=journey-12-62;
   return {play:Math.min(H*.57,prog-14-64),prog,journey};
 }
+// Which world PLAY runs in. One world at first; the story adds the rest.
+function worldPickRect(){const y=menuLayout().play-44, w=Math.min(W*.78,300);return {x:W/2-w/2,y,w,h:30}}
+function drawMenuWorldPick(cx,y){
+  const r=worldPickRect(), wz=SW[endlessWorld()], many=endlessWorlds().length>1;
+  uiPill(r.x,r.y,r.w,r.h,0);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle=UI.text;ctx.font='900 13px Exo2,sans-serif';
+  ctx.fillText(fitText(`${wz.icon} ${wz.name}`,r.w-70),cx,r.y+r.h/2+.5);
+  if(many){
+    ctx.fillStyle='#8FF3FF';ctx.font='900 15px Exo2,sans-serif';
+    ctx.fillText('◀',r.x+18,r.y+r.h/2+.5);ctx.fillText('▶',r.x+r.w-18,r.y+r.h/2+.5);
+  }else{
+    ctx.fillStyle='rgba(200,222,255,.55)';ctx.font='800 11px Exo2,sans-serif';ctx.fillText('🔒',r.x+r.w-18,r.y+r.h/2+.5);
+  }
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+let menuPickMsgT=0;
 function drawMenu(){
   gt+=.016;
 
@@ -7116,6 +7250,7 @@ function drawMenu(){
 
   // 5. PLAY button — biggest CTA
   const playY=ML.play;
+  drawMenuWorldPick(cx,playY-44);
   drawMenuPlayBtn(cx,playY);
 
   // 6. Player level + what unlocks next
@@ -7126,6 +7261,13 @@ function drawMenu(){
 
   // 7. Bottom navigation dock
   drawMenuNav();
+  if(menuPickMsgT>0){
+    menuPickMsgT-=.016;
+    const r=worldPickRect(), msg='Нові світи для забігу відкриваються в Історії';
+    ctx.save();ctx.globalAlpha=Math.min(1,menuPickMsgT*2);ctx.font='800 12px Exo2,sans-serif';
+    const w=ctx.measureText(msg).width+26;uiPill(W/2-w/2,r.y-36,w,28,2);
+    ctx.fillStyle=UI.textGold;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(msg,W/2,r.y-22);ctx.restore();
+  }
 
   // Vignette overlay for depth
   const vigG=ctx.createRadialGradient(cx,H*.4,H*.2,cx,H*.4,H*.8);
@@ -7137,6 +7279,12 @@ function menuTap(x,y){
   // PLAY button
   const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
+  const pr=worldPickRect();
+  if(y>=pr.y-6&&y<=pr.y+pr.h+6&&x>=pr.x&&x<=pr.x+pr.w){
+    if(cycleEndlessWorld(x<W/2?-1:1))sfxClick();
+    else{sfxLand();addTapRipple(x,y);menuPickMsgT=2.2}
+    return;
+  }
   const ML=menuLayout(), jw=W*.78;
   if(y>=ML.journey&&y<=ML.journey+46&&Math.abs(x-W/2)<=jw/2){openScreen(ST.WORLDS);return}
   // Bottom nav — 3 equal sections
