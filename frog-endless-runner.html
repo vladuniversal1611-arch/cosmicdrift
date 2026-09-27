@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -314,7 +314,7 @@ const ACTS=[
   {id:'rush',  name:'ЗОРЯНИЙ ПОТІК',  sub:'Ти всередині нього. Ось вони — вкрадені зорі.',   icon:'🌠', from:1300, spdMul:1.34, rule:'rush',      col:'#FF4081', emo:'🤩'},
 ];
 let curAct=0, actCardT=0, actFlash=0, recFlash=0, actTintT=0;
-function actFor(d){if(runMode.lvl)return runMode.w;let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
+function actFor(d){if(runMode.lvl)return SW[runMode.w].act;let z=0;for(let i=0;i<ACTS.length;i++)if(d>=ACTS[i].from)z=i;return z}
 function enterAct(i){
   curAct=i;actCardT=2.4;actFlash=1;actTintT=1;
   if(i>storyP.bestAct){storyP.bestAct=i;chapterNew=i;saveStory()}
@@ -399,7 +399,7 @@ function updateCloudEater(dt){
     if(eaterClose>0.7&&!eaterCaughtSaid){
       eaterCaughtSaid=true;eaterAngry=1;
       if(typeof setEmo==='function')setEmo('😤',1.3);
-      addFloat('Ти наздоганяєш його!',W/2,H*0.22,'#FF7043',22,true);
+      addFloat(runMode.lvl?'Сигнал Ядра сильнішає!':'Ти наздоганяєш його!',W/2,H*0.22,'#FF7043',22,true);
     } else if(eaterClose<0.4&&eaterCaughtSaid){
       eaterCaughtSaid=false;   // slipped away — can be earned again this run
     }
@@ -435,7 +435,7 @@ let closeCallDone=false;             // "never been this close" fires once per r
 // A short cooldown (in landings) stops it from becoming ride-the-edge immunity.
 let grabCool=0, grabSave=false;
 const GRAB_BAND=0.22;   // world units beyond the hit radius that still get caught
-function lightningActive(){return actRule()==='lightning'||atkPhase===2}
+function lightningActive(){return hasRule('lightning')||atkPhase===2}
 // A struck platform has to be DODGEABLE, not just survivable by luck: the run
 // auto-advances and the route puts one platform per row, so the only real
 // evasion is a second platform in that row. Give the doomed row a sibling on
@@ -500,7 +500,7 @@ function updateAttack(dt){
   if(introT>0||!alive)return;
   if(atkPhase===0){
     // Not in the storm act (the whole act IS his attack), not over an act card
-    if(dist>=atkNextDist&&!finaleOn&&actRule()!=='lightning'&&actCardT<=0){
+    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&!(runMode.lvl&&runMode.w===4)){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
       addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ!',W/2,H*0.16,'#B388FF',16,true);
@@ -578,10 +578,8 @@ function updateActs(dt){
   if(recFlash>0)recFlash=Math.max(0,recFlash-dt*1.4);
   if(actTintT>0)actTintT=Math.max(0,actTintT-dt*0.6);   // ~1.7s mood-wash into a new act
 
-  const rule=actRule();
-
   // --- WIND: a drifting lateral force the player must counter-steer ---
-  if(rule==='wind'){
+  if(hasRule('wind')){
     windPhase+=dt*0.55;
     windForce=Math.sin(windPhase)*0.85+Math.sin(windPhase*2.3+1.1)*0.35;
     const gust=0.32+finaleIntensity()*0.75;   // the finale turns drift into a storm
@@ -598,6 +596,7 @@ function updateActs(dt){
       const cand=pickBoltTarget(warn);
       if(cand>=0){
         boltIdx=cand;boltWarn=warn;boltStrike=0;
+        if(runMode.lvl&&Math.random()<.4)setEmo('😨',1);
         if(!boltTaught){
           boltTaught=true;
           addFloat('\u26A1 СТРИБАЙ НА ІНШУ!',W/2,H*0.17,'#FFD54F',19,true);
@@ -639,7 +638,7 @@ function updateActs(dt){
 // Zone-driven speed multiplier, eased so entering a zone isn't a jolt
 let actSpdCur=1;
 function actSpeedMul(dt){
-  const target=ACTS[curAct].spdMul;
+  const target=runMode.lvl?levelProfile().s:ACTS[curAct].spdMul;
   actSpdCur+=(target-actSpdCur)*Math.min(1,dt*1.5);
   return actSpdCur;
 }
@@ -959,6 +958,7 @@ function progDefaults(){
     week:{id:'',n:0,claimed:[]},
     world:{w:0,l:0,done:{}},
     stats:{runs:0,perfects:0,bestCombo:0,dist:0},
+    story:{seen:{},mem:[],v:0},
     migrated:false};
 }
 const Prog={
@@ -967,11 +967,11 @@ const Prog={
     let raw=null;try{raw=JSON.parse(localStorage.getItem(PROG_KEY)||'null')}catch(e){}
     const def=progDefaults();
     this.d=raw&&typeof raw==='object'?Object.assign(def,raw):def;
-    for(const k of ['mods','frag','chests','week','world','stats'])
+    for(const k of ['mods','frag','chests','week','world','stats','story'])
       this.d[k]=Object.assign(progDefaults()[k],this.d[k]||{});
     if(!this.d.migrated)this.migrate();
     this.syncUnlocks();
-    try{rollGoals();weekSync()}catch(e){}
+    try{rollGoals();weekSync();storyMigrate()}catch(e){}
     this.save();
   },
   save(){try{localStorage.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
@@ -1086,7 +1086,7 @@ function levelReward(w,l){
   const ch=l===WORLD_LV-1;
   return {c:ch?250+w*150:60+w*30+l*10, xp:ch?120+w*40:40+w*10+l*5, chest:ch?(w===4?2:1):-1};
 }
-let runMode={lvl:false,w:0,l:0,goal:0}, levelWin=false, winT=0, runClear=null;
+let runMode={lvl:false,w:0,l:0,goal:0}, levelWin=false, winT=0, runClear=null, storyQ=null;
 function lvKey(w,l){return w+'-'+l}
 function levelDone(w,l){return !!Prog.d.world.done[lvKey(w,l)]}
 function worldUnlocked(w){return w===0||levelDone(w-1,WORLD_LV-1)}
@@ -1098,10 +1098,17 @@ function nextLevel(){
 }
 function worldsCleared(){let n=0;for(let w=0;w<ACTS.length;w++)if(levelDone(w,WORLD_LV-1))n++;return n}
 function startEndless(){runMode={lvl:false,w:0,l:0,goal:0};startGame()}
-function startLevel(w,l){if(!levelUnlocked(w,l))return;runMode={lvl:true,w,l,goal:levelGoal(w,l)};startGame()}
+function startLevel(w,l){
+  if(!levelUnlocked(w,l))return;
+  // the story opens the first time the player steps into it
+  if(!storySeen('intro')){playScene('intro',()=>startLevel(w,l));return}
+  runMode={lvl:true,w,l,goal:levelGoal(w,l)};startGame();
+  setEmo(SW[w].emo[l],2.2);
+}
 function winLevel(){
   const {w,l}=runMode, k=lvKey(w,l), first=!levelDone(w,l), r=levelReward(w,l);
   levelWin=true;winT=0;
+  {const ev=storyEventFor(w,l);storyQ=ev&&!storySeen(ev)?ev:null}
   Prog.d.world.done[k]=true;
   runClear={w,l,first,c:first?r.c:0,chest:first?r.chest:-1};
   if(first){
@@ -1112,6 +1119,387 @@ function winLevel(){
   setEmo('🤩',2);sfxPU();addPunch(.6);
   for(let i=0;i<34;i++){const a=rand(0,Math.PI*2),sp=rand(.05,.14);addP(W/2,H*.42,Math.cos(a)*sp,Math.sin(a)*sp,['#5CFF9D','#FFD54F','#36E0FF'][i%3],rand(2,4),1,'s')}
   finishRun();
+}
+
+// =====================================================================
+// STORY LAYER — "ХТО ВИМКНУВ ЯДРО?"
+// =====================================================================
+// Sits on top of the worlds/levels that already exist: it names each world,
+// gives every level a one-line beat, decides which EXISTING rules a level
+// plays with, and plays a short scene at a few fixed moments. Endless mode
+// never reads any of this — every hook below is gated on runMode.lvl.
+const SW=[
+  {name:'ХМАРНИЙ САД',      icon:'🌤️', col:'#4FC3F7', act:0,
+   status:'Знайди перший сигнал.',      done:'Сад стабільний.',          mech:'Основи · рухомі платформи',
+   beats:['Звичайний ранок у Хмарному Саду.','Енергосистеми починають збоїти.','Платформи стають нестабільними.','Знайди перший сигнал Ядра.','Сигнал посилюється.','Віднови Енерговузол Саду.'],
+   emo:['😊','😟','😬','🧐','😮','😤']},
+  {name:'НЕОНОВЕ МІСТО',    icon:'🏙️', col:'#FF3DDB', act:2,
+   status:'Відстеж доступ до Ядра.',    done:'Слід доступу знайдено.',   mech:'Блискавки · рухомі платформи',
+   beats:['Місто без світла. Будь уважним.','Блискавки б’ють по платформах.','Шукай сліди доступу.','Сигнал веде в центр міста.','Хтось був тут перед тобою.','Віднови Міський Енерговузол.'],
+   emo:['😯','😨','🧐','😮','🤨','😤']},
+  {name:'РЕАКТОРНИЙ РАЙОН', icon:'☢️', col:'#FF7A1A', act:4,
+   status:'Віднови журнал доступу.',    done:'Журнал відновлено.',       mech:'Жар · висока швидкість',
+   beats:['Жар реактора. Швидкість росте.','Тут небезпечно. Не зупиняйся.','Реактор перевантажено.','Знайди журнал доступу.','Розряди в зоні реактора.','Охолоди Вузол Реактора.'],
+   emo:['😰','😬','😨','🧐','😨','😤']},
+  {name:'НЕБЕСНИЙ РАЙОН',   icon:'☁️', col:'#B388FF', act:3,
+   status:'Знайди останній сигнал.',    done:'Останній сигнал знайдено.', mech:'Вітер · темрява',
+   beats:['Вітер на висоті.','Хмари закрили світло.','Темрява і вітер разом.','Ще один спогад поруч.','Буря над районом.','Знайди останній сигнал.'],
+   emo:['😯','😟','😰','🧐','😨','😤']},
+  {name:'ЦЕНТРАЛЬНЕ ЯДРО',  icon:'💠', col:'#7DF9FF', act:4,
+   status:'Віднови Ядро.',              done:'Ядро відновлено.',          mech:'Усе разом · колапс',
+   beats:['Енергія Ядра нестабільна.','Розряди в темряві.','Ядро тягне тебе вперед.','Система на межі.','Все одразу. Ти близько.','КОЛАПС ЯДРА. Дістанься центру.'],
+   emo:['😮','😨','😬','😰','😤','😤']},
+];
+// Which existing rules a level plays with, its pace, and how often the road
+// uses moving platforms. Each world teaches one thing, then combines.
+const LV_PROFILE=[
+  [{r:[],s:1.00,m:0},{r:[],s:1.00,m:0},{r:[],s:1.02,m:1},{r:[],s:1.03,m:1.2},{r:[],s:1.05,m:1.2},{r:[],s:1.08,m:1.4}],
+  [{r:[],s:1.04,m:1.8},{r:['lightning'],s:1.04,m:.6},{r:['lightning'],s:1.06,m:1.4},{r:['lightning'],s:1.08,m:1.6},{r:['lightning'],s:1.10,m:1.8},{r:['lightning'],s:1.13,m:1.8}],
+  [{r:['rush'],s:1.10,m:.8},{r:['rush'],s:1.14,m:1},{r:['rush'],s:1.16,m:1.2},{r:['rush'],s:1.18,m:1.2},{r:['rush','lightning'],s:1.18,m:1},{r:['rush','lightning'],s:1.22,m:1.4}],
+  [{r:['wind'],s:1.10,m:.8},{r:['dark'],s:1.10,m:.8},{r:['wind','dark'],s:1.12,m:1},{r:['wind','dark'],s:1.14,m:1},{r:['wind','lightning'],s:1.16,m:1.2},{r:['wind','dark','lightning'],s:1.18,m:1.2}],
+  [{r:['lightning','wind'],s:1.18,m:1},{r:['dark','lightning'],s:1.20,m:1},{r:['rush','wind'],s:1.24,m:1.2},{r:['lightning','dark','wind'],s:1.24,m:1.2},{r:['lightning','dark','wind','rush'],s:1.26,m:1.4},null],
+];
+// CORE COLLAPSE — the final challenge escalates through four phases by distance
+const COLLAPSE=[
+  {at:0,   r:['wind','dark'],                    s:1.20, msg:'⚠ ЯДРО: КРИТИЧНИЙ СТАН'},
+  {at:.25, r:['wind','dark','lightning'],        s:1.25, msg:'⚠ РОЗРЯДИ!'},
+  {at:.50, r:['rush','lightning','wind'],        s:1.32, msg:'⚠ ПРИСКОРЕННЯ'},
+  {at:.75, r:['rush','lightning','wind','dark'], s:1.38, msg:'⚠ КОЛАПС!'},
+];
+let collapsePh=-1;
+function isCollapse(){return runMode.lvl&&runMode.w===4&&runMode.l===WORLD_LV-1}
+function levelProfile(){
+  if(isCollapse()){const f=dist/runMode.goal;let p=COLLAPSE[0];for(const c of COLLAPSE)if(f>=c.at)p=c;return {r:p.r,s:p.s,m:1.4}}
+  return LV_PROFILE[runMode.w][runMode.l];
+}
+function hasRule(r){return runMode.lvl?levelProfile().r.includes(r):actRule()===r}
+// What the HUD / act card call the place you are in
+function curZone(){
+  if(!runMode.lvl)return ACTS[curAct];
+  const s=SW[runMode.w];
+  return {name:s.name,icon:s.icon,col:s.col,sub:s.beats[runMode.l],emo:s.emo[runMode.l]};
+}
+function updCollapse(){
+  if(!isCollapse())return;
+  const f=dist/runMode.goal;let ph=0;
+  COLLAPSE.forEach((c,i)=>{if(f>=c.at)ph=i});
+  if(ph!==collapsePh){
+    collapsePh=ph;
+    addFloat(COLLAPSE[ph].msg,W/2,H*.2,'#FF5470',22,true);
+    setEmo(ph>=2?'😤':'😰',1.4);shake=Math.max(shake,.25);
+    if(navigator.vibrate)navigator.vibrate([30,50,30]);
+  }
+}
+function storyEnergy(){return Math.round(Object.keys(Prog.d.world.done).length/(ACTS.length*WORLD_LV)*100)}
+
+// ---- Memory fragments: story collectibles found at fixed beats ----
+const MEMORIES=[
+  'Все було нормально.',
+  'Ядро захищало місто.',
+  'Несанкціонований доступ до Ядра.',
+  'Це не була аварія.',
+  'ЖУРНАЛ ДОСТУПУ: вхід о 03:17.',
+  'Команда вимкнення прийшла зсередини.',
+  'Ядро не зламалося. Його вимкнули.',
+  'Хтось хотів, щоб місто згасло.',
+  'Ядро ще пам’ятає, хто це був.',
+  'Той, хто це зробив, досі підключений.',
+];
+// ---- Story events: after level 2, after level 4, and at the world's end ----
+// kind: 'sys' lines are system readouts, the rest is the frog's world.
+const STORY={
+  intro:{sys:true,intro:true,lines:['ЗБІЙ СИСТЕМИ','ЗВ’ЯЗОК З ЯДРОМ ВТРАЧЕНО','Щось не так…','Знайди Ядро.'],emo:'😨',say:'Що це було?!',btn:'СТАРТ'},
+  w0a:{lines:['ЕНЕРГІЯ САДУ: 61%','Світло гасне район за районом.'],emo:'😟',say:'Що відбувається?'},
+  w0b:{lines:['СИГНАЛ ЯДРА ЗНАЙДЕНО','Слабкий… але живий.'],emo:'😮',say:'Це спогад Ядра?',mem:0},
+  w0w:{world:0,lines:['Сад знову стабільний.','Але сигнал ішов звідкись ще.'],emo:'🤩',say:'Далі — місто!',mem:1},
+  w1a:{lines:['Місто темне.','На панелі — чужий ключ доступу.'],emo:'😨',say:'Хтось був тут.'},
+  w1b:{lines:['Хтось отримав доступ до Ядра.','Це не була аварія.'],emo:'🤨',say:'Навмисно?..',mem:2},
+  w1w:{world:1,lines:['СЛІД ДОСТУПУ ЗНАЙДЕНО','Сигнал веде до Реактора.'],emo:'😤',say:'Я йду за ним.',mem:3},
+  w2a:{lines:['ТЕМПЕРАТУРА: КРИТИЧНА','Реактор перевантажили навмисно.'],emo:'😰',say:'Гаряче!'},
+  w2b:{lines:['ЖУРНАЛ ДОСТУПУ ЯДРА','Несанкціонований доступ.'],emo:'😮',say:'Ось він — журнал!',mem:4},
+  w2w:{world:2,lines:['Команду вимкнення віддали зсередини.'],emo:'😠',say:'Зсередини?!',mem:5},
+  w3a:{lines:['На висоті сигнал чистіший.','Ядро не зламалося.'],emo:'🤔',say:'Не зламалося?'},
+  w3b:{lines:['Його вимкнули.','Хтось хотів, щоб місто згасло.'],emo:'😠',say:'Хто на таке здатен?',mem:6},
+  w3w:{world:3,lines:['ОСТАННІЙ СИГНАЛ ЗНАЙДЕНО','Він веде до Ядра.'],emo:'😤',say:'Я вже близько.',mem:7},
+  w4a:{lines:['ЯДРО: 12% ПОТУЖНОСТІ','Воно ще відповідає тобі.'],emo:'😲',say:'Воно мене чує!'},
+  w4b:{lines:['ПОПЕРЕДЖЕННЯ: КОЛАПС','Дістанься центру, поки не пізно.'],emo:'😤',say:'Я встигну.',mem:8},
+  w4w:{world:4,final:true,lines:['ЯДРО ВІДНОВЛЕНО.','НЕВІДОМИЙ ДОСТУП ВИЯВЛЕНО.','ЗВ’ЯЗОК ВТРАЧЕНО.'],emo:'😳',say:'…хто ти?',mem:9},
+};
+function storyEventFor(w,l){return l===1?'w'+w+'a':l===3?'w'+w+'b':l===WORLD_LV-1?'w'+w+'w':null}
+function storySeen(id){return !!Prog.d.story.seen[id]}
+function markStory(id){
+  const st=Prog.d.story, S=STORY[id];
+  st.seen[id]=true;
+  if(S&&S.mem!=null&&!st.mem.includes(S.mem))st.mem.push(S.mem);
+}
+// A save from before the story existed keeps everything it earned: every beat
+// whose level is already cleared counts as seen and its memory as found.
+function storyMigrate(){
+  const st=Prog.d.story;
+  if(st.v)return;
+  let any=false;
+  for(let w=0;w<ACTS.length;w++)for(let l=0;l<WORLD_LV;l++)if(levelDone(w,l)){
+    any=true;const id=storyEventFor(w,l);if(id)markStory(id);
+  }
+  if(any)st.seen.intro=true;
+  st.v=1;
+}
+
+// ---- Scene player (ST.STORY) ----
+let scene=null;
+function playScene(id,after){
+  const S=STORY[id];if(!S){after&&after();return}
+  const firstMem=S.mem!=null&&!Prog.d.story.mem.includes(S.mem);
+  markStory(id);Prog.save();
+  scene={id,S,t:0,after,memNew:firstMem,world:S.world!=null?S.world:null};
+  state=ST.STORY;
+  try{sfxFever()}catch(e){}
+}
+// Timeline: when each line lands. The finale holds a beat between lines.
+function sceneTimes(S){
+  const base=S.intro?1.9:0.35, step=S.final?1.6:0.85;
+  return S.lines.map((_,i)=>base+i*step);
+}
+function sceneEnd(sc){
+  const S=sc.S, t=sceneTimes(S);
+  let e=t[t.length-1]+0.7;
+  if(S.mem!=null)e+=0.8;
+  if(S.world!=null)e+=S.final?1.6:0.9;
+  return e;
+}
+// Where the scene's text ends when fully revealed (mirrors drawScene's layout)
+function sceneBottom(sc){
+  const S=sc.S, R=Math.min(W,H)*.11;
+  let y=H*.2+SAFE.t+R*1.7+(S.intro?64:40);
+  for(const ln of S.lines)y+=ln===ln.toUpperCase()?34:30;
+  if(S.mem!=null)y+=78;
+  if(S.world!=null){y+=S.final?60:34+(SW[S.world+1]?5:4)*22}
+  return y;
+}
+let sceneDots=null;
+function drawScene(){
+  const sc=scene;if(!sc){state=ST.MENU;return}
+  const S=sc.S;sc.t+=.016;gt+=.016;
+  const t=sc.t, col=S.world!=null?SW[S.world].col:S.intro?'#FF5470':'#36E0FF';
+  // background: the intro starts in the living garden and the lights go out
+  if(S.intro){
+    drawMenuBg();
+    const flick=t>0.5&&t<1.3?(Math.sin(t*38)>0?.55:.1):0;
+    const dark=clamp((t-1.1)/0.6,0,1)*0.9;
+    ctx.fillStyle=`rgba(2,4,14,${Math.max(flick,dark)})`;ctx.fillRect(0,0,W,H);
+  }else{
+    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#040816');g.addColorStop(1,'#0a0f2a');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  }
+  // drifting motes
+  if(!sceneDots){sceneDots=[];for(let i=0;i<40;i++)sceneDots.push({x:Math.random(),y:Math.random(),v:.01+Math.random()*.03,r:.6+Math.random()*1.6})}
+  ctx.save();
+  for(const d of sceneDots){
+    d.y-=d.v*.016;if(d.y<0)d.y+=1;
+    ctx.globalAlpha=.25+.25*Math.sin(gt*2+d.x*20);
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(d.x*W,d.y*H,d.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  // the Core: a ring that stutters while it is failing
+  const cyC=H*.2+SAFE.t, R=Math.min(W,H)*.11;
+  const on=S.intro?clamp((t-1.4)/.4,0,1):1;
+  const unstable=S.world==null;               // steady once a world's node is restored
+  ctx.save();ctx.translate(W/2,cyC);
+  const fl=unstable?(.6+.4*Math.abs(Math.sin(t*7.3)*Math.sin(t*3.1))):1;
+  ctx.globalAlpha=on*fl;
+  const cg=ctx.createRadialGradient(0,0,R*.1,0,0,R*1.9);
+  cg.addColorStop(0,S.final&&t>sceneTimes(S)[1]?'rgba(255,80,110,.55)':'rgba(125,249,255,.55)');cg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(0,0,R*1.9,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#BFFBFF';ctx.lineWidth=2.5;
+  for(let k=0;k<3;k++){
+    ctx.beginPath();ctx.arc(0,0,R*(.55+k*.22),gt*(k%2?-1:1)*(0.6+k*.3)+k,gt*(k%2?-1:1)*(0.6+k*.3)+k+Math.PI*(1.1+k*.2));ctx.stroke();
+  }
+  ctx.fillStyle='#E8FEFF';ctx.beginPath();ctx.arc(0,0,R*.28,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  // system warning bar (intro)
+  if(S.intro&&t>0.6){
+    const a=clamp((t-0.6)/.2,0,1)*(.7+.3*Math.sin(t*8));
+    ctx.save();ctx.globalAlpha=a;
+    ctx.fillStyle='rgba(255,40,80,.18)';ctx.fillRect(0,cyC+R*1.7,W,30);
+    ctx.fillStyle='#FF5470';ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('⚠  ПОПЕРЕДЖЕННЯ СИСТЕМИ  ⚠',W/2,cyC+R*1.7+15);
+    ctx.restore();
+  }
+  // lines
+  const times=sceneTimes(S);
+  let y=cyC+R*1.7+(S.intro?64:40);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  S.lines.forEach((ln,i)=>{
+    const u=clamp((t-times[i])/.45,0,1);if(u<=0)return;
+    const sys=ln===ln.toUpperCase();
+    ctx.save();ctx.globalAlpha=u;
+    let fs=sys?20:17;
+    do{ctx.font=`${sys?900:700} ${fs}px Exo2,sans-serif`;fs-=.5}while(ctx.measureText(ln).width>W-40&&fs>11);
+    ctx.fillStyle=sys?(S.final&&i>0?'#FF6B85':'#8FF3FF'):'#fff';
+    if(sys){ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10}
+    ctx.fillText(ln,W/2,y+(1-u)*8);
+    ctx.restore();
+    y+=sys?34:30;
+  });
+  let tt=times[times.length-1]+0.7;
+  // memory card
+  if(S.mem!=null){
+    const u=clamp((t-tt)/.45,0,1);
+    if(u>0){
+      const cw=Math.min(W-48,340), cx=W/2-cw/2, cy=y+8;
+      ctx.save();ctx.globalAlpha=u;
+      glassPanel(cx,cy,cw,62,14);
+      ctx.strokeStyle='rgba(243,181,255,.8)';ctx.lineWidth=1.5;rr(cx,cy,cw,62,14);ctx.stroke();
+      ctx.fillStyle='#F3B5FF';ctx.font='900 11px Exo2,sans-serif';
+      ctx.fillText(`${sc.memNew?'НОВИЙ ':''}СПОГАД ${String(S.mem+1).padStart(2,'0')} · ЖУРНАЛ ЯДРА`,W/2,cy+18);
+      ctx.fillStyle='#fff';let fs=15;
+      do{ctx.font=`italic 700 ${fs}px Exo2,sans-serif`;fs-=.5}while(ctx.measureText('«'+MEMORIES[S.mem]+'»').width>cw-20&&fs>10);
+      ctx.fillText('«'+MEMORIES[S.mem]+'»',W/2,cy+42);
+      ctx.restore();
+      y+=78;
+    }
+    tt+=0.8;
+  }
+  // world complete checklist, or the finale's sign-off
+  if(S.world!=null){
+    const u=clamp((t-tt)/.45,0,1);
+    if(u>0&&!S.final){
+      const w=S.world, nx=SW[w+1];
+      const rows=['Історію світу пройдено','Енергію відновлено','Скриню отримано','Спогад знайдено'];
+      if(nx)rows.push('Відкрито: '+nx.icon+' '+nx.name);
+      ctx.save();ctx.globalAlpha=u;
+      ctx.font='900 13px Exo2,sans-serif';ctx.fillStyle=SW[w].col;ctx.fillText('СВІТ '+(w+1)+' ВІДНОВЛЕНО',W/2,y+10);
+      ctx.font='700 13px Exo2,sans-serif';
+      rows.forEach((r,i)=>{
+        const a=clamp((t-tt-i*.15)/.3,0,1);ctx.globalAlpha=u*a;
+        ctx.fillStyle='#9CFFC4';ctx.fillText('✓  '+r,W/2,y+34+i*22);
+      });
+      ctx.restore();
+      y+=34+rows.length*22;
+    }
+    if(S.final){
+      const u2=clamp((t-tt)/.8,0,1);
+      if(u2>0){
+        ctx.save();ctx.globalAlpha=u2;ctx.fillStyle='#fff';ctx.font='900 26px Exo2,sans-serif';
+        ctx.shadowColor='#B388FF';ctx.shadowBlur=18;
+        ctx.fillText('ДАЛІ БУДЕ',W/2,y+24);
+        ctx.shadowBlur=0;ctx.font='700 12px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.8)';
+        ctx.fillText('ХТО ВИМКНУВ ЯДРО?',W/2,y+52);
+        ctx.restore();
+      }
+    }
+  }
+  // the frog, with a short reaction — sized to the room left between the text
+  // and the button, so a long world-complete list never runs under it
+  const btnTop=H-70-SAFE.b;
+  const fh=clamp(Math.min(110,H*.14,btnTop-16-(sceneBottom(sc)+8+30)),0,110);   // +30: the speech bubble
+  const fy=btnTop-16-fh/2;
+  const fa=S.intro?1:clamp(t/.4,0,1);
+  ctx.save();ctx.globalAlpha=fa;
+  const bob=Math.sin(gt*2.4)*3;
+  if(fh>=40&&_HERO_LOADED&&_HERO_IMG.naturalWidth>0){
+    const fw=fh*_HERO_IMG.naturalWidth/_HERO_IMG.naturalHeight;
+    ctx.drawImage(_HERO_IMG,W/2-fw/2-40,fy-fh/2+bob,fw,fh);
+  }
+  const say=fh<40?'':S.intro&&t<1.4?'':S.say;
+  if(say){
+    const ba=clamp((t-(S.intro?1.5:.5))/.3,0,1);
+    ctx.globalAlpha=fa*ba;
+    ctx.font='800 13px Exo2,sans-serif';
+    const txt=S.emo+' '+say, bw=ctx.measureText(txt).width+24, bx=W/2+10, by=fy-fh/2-6;
+    ctx.fillStyle='rgba(234,251,255,.95)';rr(bx,by-16,bw,32,16);ctx.fill();
+    ctx.beginPath();ctx.moveTo(bx+8,by+10);ctx.lineTo(bx-6,by+22);ctx.lineTo(bx+22,by+14);ctx.fill();
+    ctx.fillStyle='#0b1226';ctx.textAlign='left';ctx.fillText(txt,bx+12,by+1);
+  }
+  ctx.restore();
+  // continue
+  const ready=t>=sceneEnd(sc);
+  const bw=Math.min(W-64,300), bh=52, bx=W/2-bw/2, by=H-70-SAFE.b;
+  ctx.save();
+  ctx.globalAlpha=ready?1:.35;
+  const bg=ctx.createLinearGradient(0,by,0,by+bh);bg.addColorStop(0,'#36E0FF');bg.addColorStop(1,'#1565C0');
+  if(ready){ctx.shadowColor='rgba(54,224,255,.6)';ctx.shadowBlur=14}
+  ctx.fillStyle=bg;rr(bx,by,bw,bh,bh/2);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='#fff';ctx.font='900 17px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(S.btn||'ДАЛІ',W/2,by+bh/2+1);
+  ctx.restore();
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function sceneTap(){
+  const sc=scene;if(!sc)return;
+  const e=sceneEnd(sc);
+  if(sc.t<e){sc.t=e;return}                 // first tap reveals everything
+  scene=null;sfxClick();
+  if(sc.after)sc.after();else state=ST.MENU;
+}
+
+// ---- Core log: the memories found so far ----
+function logLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440);return {cw,x:W/2-cw/2,top:124+SAFE.t,rh:64,gap:8}}
+function drawLog(){
+  gt+=.016;drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.8)';ctx.fillRect(0,0,W,H);
+  const L=logLayout(), found=Prog.d.story.mem;
+  uiScrollMax=Math.max(0,L.top+MEMORIES.length*(L.rh+L.gap)+8-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  MEMORIES.forEach((m,i)=>{
+    const y=L.top+i*(L.rh+L.gap)-uiScroll, got=found.includes(i), w=Math.floor(i/2);
+    if(y>H||y+L.rh<0)return;
+    glassPanel(L.x,y,L.cw,L.rh,14);
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillStyle=got?'#F3B5FF':'rgba(200,210,230,.5)';ctx.font='900 11px Exo2,sans-serif';
+    ctx.fillText(`СПОГАД ${String(i+1).padStart(2,'0')}  ·  ${SW[w].icon} ${SW[w].name}`,L.x+14,y+20);
+    ctx.font=got?'italic 700 14px Exo2,sans-serif':'700 13px Exo2,sans-serif';
+    ctx.fillStyle=got?'#fff':'rgba(200,210,230,.45)';
+    ctx.fillText(got?fitText('«'+m+'»',L.cw-28):'🔒 Ще не знайдено',L.x+14,y+43);
+  });
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ЖУРНАЛ ЯДРА',W/2,72+SAFE.t);
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#F3B5FF';
+  ctx.fillText(`ХТО ВИМКНУВ ЯДРО?  ·  ${found.length}/${MEMORIES.length}`,W/2,98+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function logTap(x,y){if(hitBackChip(x,y)){sfxClick();state=ST.WORLDS;uiScroll=0}}
+function logChipRect(){const w=170;return {x:W/2-w/2,y:86+SAFE.t,w,h:24}}
+
+// In-run look for the story worlds: reactor heat, collapse alarms, the Core
+function drawStoryFx(){
+  if(!runMode.lvl)return;
+  const w=runMode.w;
+  if(w===2){
+    const a=(0.17+0.06*Math.sin(gt*2.1))*washK;
+    const g=cachedGrad('heat'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*.55,H*.28,W/2,H*.55,H*.9);
+      gg.addColorStop(0,'rgba(255,110,20,0)');gg.addColorStop(1,'rgba(255,90,10,1)');return gg});
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
+  }
+  if(isCollapse()&&alive){
+    const k=collapsePh>=0?(collapsePh+1)/COLLAPSE.length:0.25;
+    const a=(0.08+0.10*k)*(0.6+0.4*Math.abs(Math.sin(gt*(3+collapsePh*1.5))));
+    const g=cachedGrad('alarm'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*.55,H*.3,W/2,H*.55,H*.95);
+      gg.addColorStop(0,'rgba(255,40,80,0)');gg.addColorStop(1,'rgba(255,40,80,1)');return gg});
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
+  }
+}
+// In the Central Core the thing at the end of the road is the Core itself,
+// growing as you close in.
+function drawCoreBeacon(){
+  const far=project(VIEW_AHEAD*0.98,1,0);
+  const f=clamp(dist/runMode.goal,0,1);
+  const R=W*(0.07+0.13*f*f)*(1+Math.sin(gt*3)*0.03);
+  const x=far.x, y=far.y-R*0.7;
+  ctx.save();ctx.translate(x,y);
+  const fl=0.7+0.3*Math.abs(Math.sin(gt*5.3));
+  const g=ctx.createRadialGradient(0,0,R*.1,0,0,R*2.2);
+  g.addColorStop(0,`rgba(200,255,255,${.7*fl})`);g.addColorStop(.4,'rgba(125,249,255,.25)');g.addColorStop(1,'rgba(125,249,255,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,R*2.2,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=`rgba(191,251,255,${.8*fl})`;ctx.lineWidth=Math.max(1.5,R*.06);
+  for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(0,0,R*(.5+k*.2),gt*(k%2?-1:1)+k,gt*(k%2?-1:1)+k+Math.PI*1.2);ctx.stroke()}
+  ctx.fillStyle='#F0FEFF';ctx.beginPath();ctx.arc(0,0,R*.25,0,Math.PI*2);ctx.fill();
+  ctx.restore();
 }
 
 // ---- MissionSystem: run goals + weekly milestones ----
@@ -1669,7 +2057,7 @@ function startMus(){
     if(!ac||state!==ST.PLAY)return;
     const pitch=ACT_PITCH[curAct]||1;
     // Night runs sparse — every other beat rests, matching "only what's near".
-    const rest=(actRule()==='dark')&&(melI%2===1);
+    const rest=hasRule('dark')&&(melI%2===1);
     if(!rest){
       const f=MEL[melI%MEL.length]*pitch;
       musNote(f,.18,fever?.045:.03);
@@ -1963,7 +2351,8 @@ function buildRouteSection(diff){
 
   const out=[];
   const startX=routeCenter;
-  const canMove=getUnlockedTypes(dist).includes('moving_h');
+  const lvM=runMode.lvl?levelProfile().m:1;
+  const canMove=runMode.lvl?lvM>0:getUnlockedTypes(dist).includes('moving_h');
   let py=pts[0].y, movedLast=false;
   for(let i=0;i<pts.length;i++){
     const pt=pts[i];
@@ -2016,7 +2405,7 @@ function buildRouteSection(diff){
     // beat, and rarer at low difficulty.
     let stepType='normal';
     if(canMove && i>0 && i<pts.length-1 && elev===0 && cls==='NORMAL'
-       && !movedLast && Math.random()<lerp(0.05,0.17,diff)){
+       && !movedLast && Math.random()<lerp(0.05,0.17,diff)*lvM){
       stepType='moving_h'; movedLast=true;
     } else movedLast=false;
     out.push(step(x,elev,cls,{loot,gap,type:stepType}));
@@ -2511,6 +2900,8 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.LAB)labTap(t.clientX,t.clientY);
     else if(state===ST.CHESTS)chestsTap(t.clientX,t.clientY);
     else if(state===ST.WORLDS)worldsTap(t.clientX,t.clientY);
+    else if(state===ST.STORY)sceneTap();
+    else if(state===ST.LOG)logTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -2557,6 +2948,8 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.LAB)labTap(e.clientX,e.clientY);
     else if(state===ST.CHESTS)chestsTap(e.clientX,e.clientY);
     else if(state===ST.WORLDS)worldsTap(e.clientX,e.clientY);
+    else if(state===ST.STORY)sceneTap();
+    else if(state===ST.LOG)logTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -2578,6 +2971,8 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.MISSIONS&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.SHOP&&e.key==='Escape')state=ST.MENU;
   else if((state===ST.LAB||state===ST.CHESTS||state===ST.WORLDS)&&e.key==='Escape')state=ST.MENU;
+  else if(state===ST.STORY&&(e.key==='Enter'||e.key===' '))sceneTap();
+  else if(state===ST.LOG&&e.key==='Escape')state=ST.WORLDS;
 });
 
 // ========== PARTICLES ==========
@@ -2776,7 +3171,7 @@ function startGame(){
   punch=0;shocks=[];flyCoins=[];deathT=-1;flow=0;
   leapFrom=-1;leapTo=-1;leapArm=0;leapCool=0;leapFlash=0;leapLanded=false;
   curAct=0;actFlash=0;recFlash=0;actTintT=0;actSpdCur=1;eaterAngry=0;eaterGloat=0;eaterClose=0;eaterCaughtSaid=false;castlesSaved=0;castleLitCycle[0]=-1;castleLitCycle[1]=-1;
-  introT=introSeen?0:INTRO_LEN;actCardT=introSeen?2.2:0;
+  introT=introSeen||runMode.lvl?0:INTRO_LEN;actCardT=introSeen||runMode.lvl?2.4:0;collapsePh=-1;storyQ=null;
   atkPhase=0;atkT=0;atkBolts=0;atkNextDist=rand(70,95);attacksRepelled=0;eaterAttack=0;eaterFlinch=0;closeCallDone=false;chapterNew=0;
   grabCool=0;grabSave=false;
   storyP.runs++;saveStory();
@@ -3285,7 +3680,10 @@ function updateGame(dt){
   // Finish line: the world eases to a stop, then the results panel comes up
   if(levelWin){
     winT+=dt;
-    if(winT>1.7&&state===ST.PLAY){state=ST.OVER;goT=0}
+    if(winT>1.7&&state===ST.PLAY){
+      const toOver=()=>{state=ST.OVER;goT=0};
+      if(storyQ){const q=storyQ;storyQ=null;playScene(q,toOver)}else toOver();
+    }
     const k=Math.max(0,1-winT/0.9);
     updPts(dt);if(punch>0)punch=Math.max(0,punch-dt*4.5);
     if(k<=0)return;
@@ -3585,7 +3983,7 @@ function updateGame(dt){
   // its hit band), and only near touchdown — so it sharpens intent into a
   // cleaner PERFECT without ever steering for you or catching a pad you missed.
   // Never during a leap (it lands itself) or wind (you're meant to counter it).
-  if(!leapActive() && actRule()!=='wind'){
+  if(!leapActive() && !hasRule('wind')){
     const ci4=getCurrentPadIdx();
     const a0=padPositions[ci4], a1=padPositions[ci4+1];
     if(a0!==undefined && a1!==undefined && a1>a0){
@@ -3667,7 +4065,7 @@ function updateGame(dt){
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
   if(alive&&(goalTick-=dt)<=0){goalTick=.2;updGoals()}
-  if(runMode.lvl&&!levelWin&&alive&&dist>=runMode.goal)winLevel();
+  if(runMode.lvl&&!levelWin&&alive){updCollapse();if(dist>=runMode.goal)winLevel()}
 
   // Magnet
   if(magnet){
@@ -4839,7 +5237,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
-  drawCloudEater();
+  if(runMode.lvl&&runMode.w===4)drawCoreBeacon();else drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
@@ -4900,7 +5298,7 @@ function drawGame(){
   // Drawn before the platforms so gameplay elements stay crisp.
   {
     const hzTop=H*.255, hzBot=H*.50;
-    const night=actRule()==='dark';
+    const night=hasRule('dark');
     const hz=ctx.createLinearGradient(0,hzTop,0,hzBot);
     hz.addColorStop(0,night?'rgba(30,44,80,0)':'rgba(198,228,242,0)');
     hz.addColorStop(.16,night?'rgba(30,44,80,.26)':'rgba(198,228,242,.30)');
@@ -5563,7 +5961,7 @@ function drawGame(){
   }
 
   drawFlowGrade();
-  drawActEffects();
+  drawActEffects();drawStoryFx();
   drawDeathGrade();
   drawFlyCoins();
   // Filmic pass: pull the mid tones down multiplicatively, then let the bloom
@@ -5634,7 +6032,6 @@ function drawDeathGrade(){
 }
 
 function drawActEffects(){
-  const rule=actRule();
 
   // FEVER — warm heat around the edges that builds as you settle into the state,
   // so entering fever reads as heating up, not just a badge switching on.
@@ -5668,14 +6065,14 @@ function drawActEffects(){
     ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
   }
   // NIGHT — a hard vignette so only what's near the frog reads clearly
-  if(rule==='dark'){
+  if(hasRule('dark')){
     const g=cachedGrad('night'+W+H,()=>{const lx=W/2,ly=H*0.72,gg=ctx.createRadialGradient(lx,ly,H*0.06,lx,ly,H*0.62);
       gg.addColorStop(0,'rgba(4,6,26,0)');gg.addColorStop(0.55,'rgba(4,6,26,.55)');gg.addColorStop(1,'rgba(2,3,16,.93)');return gg});
     ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   }
 
   // WIND — streaks blowing in the current gust direction
-  if(rule==='wind'){
+  if(hasRule('wind')){
     const dir=windForce>=0?1:-1;
     const mag=Math.min(1,Math.abs(windForce));
     ctx.save();
@@ -5694,7 +6091,7 @@ function drawActEffects(){
   }
 
   // RUSH — radial speed lines from the vanishing point
-  if(rule==='rush'){
+  if(hasRule('rush')){
     const cxr=W/2, cyr=H*0.18;
     ctx.save();
     ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=2;
@@ -5758,7 +6155,7 @@ function drawActEffects(){
   if(actTintT>0){
     const sw=Math.sin((1-actTintT)*Math.PI);        // swell 0 → 1 → 0
     if(sw>0.002){
-      const n=parseInt((ACTS[curAct].col||'#ffffff').replace('#',''),16);
+      const n=parseInt((curZone().col||'#ffffff').replace('#',''),16);
       const R=(n>>16)&255,G=(n>>8)&255,B=n&255, a=0.30*sw*washK;
       const g=ctx.createLinearGradient(0,0,0,H);
       g.addColorStop(0,`rgba(${R},${G},${B},${a})`);
@@ -5782,7 +6179,7 @@ function drawActEffects(){
 
 function drawActCard(){
   if(actCardT<=0||state!==ST.PLAY||!alive)return;
-  const z=ACTS[curAct];
+  const z=curZone();
   const T=2.4, t=1-actCardT/T;                 // 0 → 1
   // Slide in, hold, slide out
   let a=1, off=0;
@@ -5955,7 +6352,7 @@ function drawHUD(){
 
   // --- left column: where you are, then how well it is going ---
   {
-    const z=ACTS[curAct];
+    const z=curZone();
     // Full name when the screen has room for it, icon only when it does not —
     // truncating a location to one letter tells the player nothing, and the act
     // card already announces the name on entry.
@@ -6221,9 +6618,9 @@ function drawMenuLogo(cx,ty){
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.font='800 11px Exo2,sans-serif';
   ctx.lineJoin='round';ctx.lineWidth=3.5;ctx.strokeStyle='rgba(52,12,84,.9)';
-  ctx.strokeText('НАЗДОЖЕНИ ХМАРОЖЕРА',cx,ribY-1);
+  ctx.strokeText('ХТО ВИМКНУВ ЯДРО?',cx,ribY-1);
   ctx.fillStyle='#FFE9A8';
-  ctx.fillText('НАЗДОЖЕНИ ХМАРОЖЕРА',cx,ribY-1);
+  ctx.fillText('ХТО ВИМКНУВ ЯДРО?',cx,ribY-1);
   ctx.textBaseline='alphabetic';
 }
 
@@ -6587,12 +6984,12 @@ function drawMenuJourney(cx,sy){
   ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.fillStyle='rgba(200,222,255,.72)';
   ctx.font='700 10px Exo2,sans-serif';
-  ctx.fillText('СВІТИ',px+16,sy+15);
-  // the next level to play, tap to open the map
-  const nl=nextLevel(), wA=ACTS[nl?nl.w:ACTS.length-1];
+  ctx.fillText(`ІСТОРІЯ · ЕНЕРГІЯ ЯДРА ${storyEnergy()}%`,px+16,sy+15);
+  // where the story is: the next world/level, tap to open the map
+  const nl=nextLevel(), wA=SW[nl?nl.w:SW.length-1];
   ctx.fillStyle='#fff';ctx.font='900 12px Exo2,sans-serif';
-  const lvTxt=nl?(nl.l===WORLD_LV-1?'ВИПРОБУВАННЯ':'РІВЕНЬ '+(nl.w+1)+'-'+(nl.l+1)):'ВСЕ ПРОЙДЕНО';
-  ctx.fillText(fitText(`${wA.icon} ${lvTxt}  ▶`,pw*.55),px+16,sy+31);
+  const lvTxt=nl?`${wA.name} ${nl.w+1}-${nl.l+1}`:'ДАЛІ БУДЕ…';
+  ctx.fillText(fitText(`${wA.icon} ${lvTxt}  ▶`,pw*.62),px+16,sy+31);
   // 5 world pips (right), lit for each world whose challenge is cleared
   const n=ACTS.length, pipR=5, gap=15, tot=(n-1)*gap;
   const startX=px+pw-16-tot, wc=worldsCleared();
@@ -7142,7 +7539,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   ctx.save();
@@ -7650,10 +8047,16 @@ function drawWorlds(){
     ctx.fillStyle=g;rr(L.x,y,L.cw,L.ch,16);ctx.fill();ctx.restore();
     ctx.save();if(!open)ctx.globalAlpha=.5;
     ctx.textAlign='left';ctx.textBaseline='middle';
-    ctx.font='22px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(A.icon,L.x+14,y+24);
-    ctx.font='900 15px Exo2,sans-serif';ctx.fillText(fitText(`СВІТ ${w+1} · ${A.name}`,L.cw-70),L.x+46,y+22);
-    ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(210,228,255,.85)';
-    ctx.fillText(fitText(open?WORLD_INFO[w]:`🔒 Пройди випробування світу ${w}`,L.cw-60),L.x+46,y+42);
+    const Z=SW[w], wdone=levelDone(w,WORLD_LV-1);
+    let anyDone=false;for(let l=0;l<WORLD_LV;l++)if(levelDone(w,l))anyDone=true;
+    const stTxt=!open?'ЗАКРИТО':wdone?'ВІДНОВЛЕНО':anyDone?'У ПРОЦЕСІ':'ВІДКРИТО';
+    const stCol=!open?'rgba(200,210,230,.7)':wdone?'#5CFF9D':anyDone?'#FFD54F':'#36E0FF';
+    ctx.font='22px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(Z.icon,L.x+14,y+24);
+    ctx.font='900 15px Exo2,sans-serif';ctx.fillText(fitText(`${w+1} · ${Z.name}`,L.cw-150),L.x+46,y+22);
+    ctx.font='700 12px Exo2,sans-serif';ctx.fillStyle=open?'#fff':'rgba(210,228,255,.85)';
+    ctx.fillText(fitText(!open?`🔒 Віднови світ ${w}, щоб відкрити`:wdone?'✓ '+Z.done:'«'+Z.status+'»',L.cw-60),L.x+46,y+43);
+    ctx.font='700 10px Exo2,sans-serif';ctx.fillStyle='rgba(180,205,240,.7)';
+    ctx.fillText(fitText(Z.mech,L.cw-60),L.x+46,y+60);
     // track line under the nodes
     const p0=worldNodePos(L,w,0), p5=worldNodePos(L,w,WORLD_LV-1);
     ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p5.x,p5.y);ctx.stroke();
@@ -7672,8 +8075,12 @@ function drawWorlds(){
       ctx.font=l===WORLD_LV-1?'15px Exo2,sans-serif':'900 13px Exo2,sans-serif';
       ctx.fillText(l===WORLD_LV-1?(un||done?'👑':'🔒'):un||done?String(l+1):'·',p.x,p.y+1);
     }
-    ctx.textAlign='right';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#FFE082';
-    ctx.fillText(`${cnt}/${WORLD_LV}`,L.x+L.cw-14,y+22);
+    ctx.font='900 10px Exo2,sans-serif';
+    const sw2=ctx.measureText(stTxt).width+16, sx2=L.x+L.cw-12-sw2;
+    ctx.strokeStyle=stCol;ctx.lineWidth=1.2;rr(sx2,y+12,sw2,20,10);ctx.stroke();
+    ctx.fillStyle=stCol;ctx.textAlign='center';ctx.fillText(stTxt,sx2+sw2/2,y+22.5);
+    ctx.textAlign='right';ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle='#FFE082';
+    ctx.fillText(`${cnt}/${WORLD_LV}`,L.x+L.cw-14,y+44);
     ctx.restore();
   }
   ctx.restore();
@@ -7682,12 +8089,17 @@ function drawWorlds(){
   drawBackChip();drawCurrencies(true);
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
   ctx.fillText('СВІТИ',W/2,72+SAFE.t);
-  ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';
-  ctx.fillText('Рівні з фінішем · нескінченний забіг — кнопка ГРАТИ',W/2,96+SAFE.t);
+  // Core log chip: the mystery, and how much of it has been found
+  const lc=logChipRect(), nm=Prog.d.story.mem.length;
+  uiPill(lc.x,lc.y,lc.w,lc.h,nm?1:0);
+  ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=nm?UI.textHot:UI.text;
+  ctx.fillText(`📜 ЖУРНАЛ ЯДРА · ${nm}/${MEMORIES.length}`,W/2,lc.y+lc.h/2+.5);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 function worldsTap(x,y){
   if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const lc=logChipRect();
+  if(x>=lc.x&&x<=lc.x+lc.w&&y>=lc.y-6&&y<=lc.y+lc.h+6){openScreen(ST.LOG);return}
   const L=worldLayout();
   if(y<L.top-6)return;
   for(let w=0;w<ACTS.length;w++)for(let l=0;l<WORLD_LV;l++){
@@ -7841,6 +8253,8 @@ function loop(ts){
       case ST.LAB:drawLab();break;
       case ST.CHESTS:drawChests();break;
       case ST.WORLDS:drawWorlds();break;
+      case ST.STORY:drawScene();break;
+      case ST.LOG:drawLog();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     if(transT>0){
