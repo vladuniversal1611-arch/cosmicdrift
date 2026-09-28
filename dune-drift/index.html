@@ -44,16 +44,37 @@
   }
   #right{ text-align:right; }
   #coins{ font-size:17px; font-weight:300; letter-spacing:.1em; text-shadow:var(--shadow); }
+  #speed{ margin-top:4px; font-size:12px; font-weight:300; letter-spacing:.14em; color:var(--ink-soft);
+           font-variant-numeric:tabular-nums; transition:color .3s ease, text-shadow .3s ease; }
+  #speed.hot{ color:#ffe7ae; text-shadow:0 0 12px rgba(255,214,140,.55); }
   #phase{ margin-top:6px; font-size:10px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-soft); }
 
   /* --- центральні спливаючі підписи трюків --- */
   #trick{
-    position:absolute; left:0; right:0; top:32%; text-align:center;
-    font-size:22px; font-weight:300; letter-spacing:.24em; text-transform:uppercase;
+    position:absolute; left:0; right:0; top:30%; text-align:center;
     text-shadow:var(--shadow); opacity:0; transform:translateY(8px);
     transition:opacity .25s ease, transform .5s cubic-bezier(.2,.8,.2,1);
   }
   #trick.show{ opacity:1; transform:translateY(-6px); }
+  #trick .t-main{ font-size:26px; font-weight:300; letter-spacing:.28em; text-transform:uppercase; }
+  #trick .t-sub{ margin-top:6px; font-size:12px; font-weight:400; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-soft); }
+  #trick.gold .t-main{ color:#ffe3a3; text-shadow:0 0 22px rgba(255,205,120,.65), var(--shadow); }
+  #trick.dim .t-main{ color:rgba(255,255,255,.6); }
+
+  /* --- зони керування (перші секунди заїзду) --- */
+  #zones{
+    position:absolute; left:0; right:0; bottom:0; height:34%;
+    display:flex; opacity:0; transition:opacity 1.2s ease;
+  }
+  #zones.on{ opacity:1; }
+  .zone{
+    flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
+    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 26px);
+    font-size:11px; line-height:1.9; letter-spacing:.2em; text-transform:uppercase;
+    color:rgba(255,255,255,.72); text-align:center;
+  }
+  .zone b{ display:inline-block; margin-right:8px; font-weight:600; color:#fff; }
+  .zone + .zone{ border-left:1px solid rgba(255,255,255,.18); }
 
   /* --- екрани --- */
   .screen{
@@ -75,9 +96,10 @@
   }
   @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
   .big{ font-size:clamp(44px,15vw,88px); font-weight:100; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
-  .row{ display:flex; gap:26px; margin-top:12px; color:var(--ink-soft); font-size:11px; letter-spacing:.24em; text-transform:uppercase; }
+  .row{ display:flex; gap:20px; margin-top:12px; color:var(--ink-soft); font-size:11px; letter-spacing:.24em; text-transform:uppercase; }
   .row b{ display:block; margin-top:5px; font-size:19px; font-weight:300; letter-spacing:.06em; color:var(--ink); }
-  .legend{ margin-top:30px; font-size:11px; line-height:2; letter-spacing:.14em; color:var(--ink-soft); }
+  .legend{ margin-top:30px; font-size:11px; line-height:2.1; letter-spacing:.14em; color:var(--ink-soft); }
+  .legend span{ color:var(--ink); letter-spacing:.2em; text-transform:uppercase; margin-right:6px; }
   #loading{
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
     background:#10131c; color:var(--ink-soft); font-size:11px; letter-spacing:.4em;
@@ -98,12 +120,19 @@
     </div>
     <div id="right">
       <div id="coins">✦ 0</div>
+      <div id="speed">0 km/h</div>
       <div id="phase">dawn</div>
     </div>
   </div>
 
   <!-- спливаючі підписи трюків -->
-  <div id="trick"></div>
+  <div id="trick"><div class="t-main"></div><div class="t-sub"></div></div>
+
+  <!-- Підказка зон керування: ліва половина — стрибок, права — стрибок з обертом -->
+  <div id="zones">
+    <div class="zone"><b>tap</b>jump</div>
+    <div class="zone"><b>tap</b>jump + flip<br><b>hold</b>keep spinning</div>
+  </div>
 
   <!-- Екран старту -->
   <div class="screen on" id="start">
@@ -111,9 +140,10 @@
     <div class="tag">an endless sand odyssey</div>
     <div class="hint">Tap to play</div>
     <div class="legend">
-      tap — jump<br>
-      hold in the air — backflip<br>
-      land clean for a boost
+      <span>left side</span> jump<br>
+      <span>right side</span> jump + backflip<br>
+      <span>hold</span> keep spinning<br>
+      land clean to gain speed · perfect for a rush
     </div>
   </div>
 
@@ -125,6 +155,7 @@
       <div>best<b id="bestScore">0</b></div>
       <div>sand<b id="finalDist">0 m</b></div>
       <div>gems<b id="finalCoins">0</b></div>
+      <div>perfect<b id="finalPerfect">0</b></div>
     </div>
     <div class="hint">Tap to retry</div>
   </div>
@@ -180,11 +211,24 @@ const CFG = {
   SPEED_MAX:      31,      // максимальна «природна» швидкість
   SPEED_RAMP:     3200,    // через скільки метрів досягається максимум
   SLOPE_ACCEL:    24,      // як сильно схил розганяє/гальмує
-  FLIP_SPEED:     10.2,    // рад/с під час сальто (повний оберт ≈ 0.62 с)
-  FLIP_TOLERANCE: 1.12,    // допустима помилка кута при приземленні (рад)
-  BOOST_TIME:     1.7,     // тривалість прискорення після трюку
-  BOOST_MULT:     1.38,    // множник швидкості під час прискорення
-  RIDE_OFFSET:    0.42,    // висота дошки над поверхнею
+  UPHILL:         0.45,    // підйом гальмує слабше, ніж спуск розганяє
+  FLIP_SPEED:     10.2,    // рад/с під час оберту (повний оберт ≈ 0.62 с)
+  FLIP_TOLERANCE: 1.0,     // кут, після якого приземлення = падіння (рад)
+  PERFECT_MARGIN: 0.28,    // оберт докручено менш ніж за стільки секунд до піску = Perfect
+  PERFECT_SLOPE: -0.22,    // приземлення з великого польоту на такий спуск = Perfect landing
+  BOOST_TIME:     1.2,     // тривалість ривка після ідеального трюку
+  BOOST_MULT:     1.25,    // множник швидкості під час ривка
+  MOM_MAX:        14,      // стеля накопиченої бонусної швидкості
+  MOM_DECAY:      0.45,    // як швидко бонусна швидкість згасає (юн/с за секунду)
+  RIDE_OFFSET:    0.20,    // висота дошки над кромкою
+  JUMP_VY_MAX:    36,      // стеля вертикальної швидкості стрибка
+  PERFECT_JUMP_MULT:   1.12,  // стрибок точно на краю трампліна — вище
+  PERFECT_JUMP_WINDOW: 0.10,  // вікно «Perfect jump» до краю (с)
+
+  // Зручність керування
+  HOLD_DELAY:     0.15,    // з якого моменту натискання вважається утриманням (с)
+  COYOTE:         0.12,    // ще можна стрибнути після зльоту з краю (с)
+  BUFFER:         0.14,    // тап перед приземленням спрацює одразу після нього (с)
 
   // Терен
   DX:             0.5,     // крок семплу поверхні
@@ -805,11 +849,18 @@ function updateLayers(camX) {
    Меш — стрічка з чотирьох рядів по z: задній схил, гребінь,
    передній край і «тіло» піску вниз.
    ------------------------------------------------------------------ */
+/** Площина, у якій живуть гравець і обʼєкти. Вона ж — лінія катання. */
+const ENT_Z = 3.0;
+const ENT_SURF = 0.0;
+
+/* Ряди стрічки піску по глибині. Ряд на ENT_Z лежить рівно на висоті
+   heightAt(x) і є верхнім краєм силуету, тож райдер завжди ковзає
+   по чіткій видимій кромці, а не «тоне» в піску. */
 const ROWS = [
-  { z: -CFG.BAND, dy: -3.4, c: 0.58, nz: -0.85 },  // задній схил
-  { z: 0,         dy:  1.1, c: 1.00, nz:  0.10 },  // гребінь (освітлений сонцем)
-  { z:  CFG.BAND, dy:  0.0, c: 0.86, nz:  0.80 },  // передній край
-  { z:  CFG.BAND, dy: -7.0, c: 0.44, nz:  0.55 },  // тінь одразу під гребенем
+  { z: -CFG.BAND, dy: -2.6, c: 0.58, nz: -0.90 },  // задній схил (ховається за кромкою)
+  { z: ENT_Z,     dy:  0.0, c: 1.00, nz:  0.05 },  // ЛІНІЯ КАТАННЯ
+  { z:  CFG.BAND, dy: -0.9, c: 0.84, nz:  0.85 },  // передній скат
+  { z:  CFG.BAND, dy: -7.0, c: 0.44, nz:  0.55 },  // тінь під гребенем
   { z:  CFG.BAND, dy: -95,  c: 0.26, nz:  0.35 },  // глибоке тіло піску
 ];
 
@@ -818,10 +869,11 @@ const terrain = {
   i0: 0,              // абсолютний індекс samples[0]
   idx: 0,             // наступний індекс для генерації
   y: 0,               // поточна висота генератора
-  coins: [], rocks: [],
-  coinCursor: 0, rockCursor: 0,
-  lastGapX: -1e9,
-  diff: 0,
+  coins: [], rocks: [], lips: [],
+  coinCursor: 0, rockCursor: 0, lipCursor: 0,
+  diff: 0,            // складність 0..1 (росте з дистанцією)
+  intro: 0,           // крок вступного сценарію
+  intense: 0,         // скільки «гострих» шматків поспіль
 };
 
 function sampleY(i) {
@@ -846,11 +898,12 @@ function slopeAt(x) {
   return (heightAt(x + CFG.DX) - heightAt(x - CFG.DX)) / (2 * CFG.DX);
 }
 
+/* --- Примітиви форм ----------------------------------------------- */
 function pushSample(y, solid) {
   terrain.samples.push({ y, solid });
   terrain.idx++;
 }
-/** Гладкий сегмент від поточної точки до (x + len, targetY). */
+/** Гладкий S-сегмент (smoothstep) до висоти targetY: пласкі кінці, м'які гребені. */
 function pushSeg(len, targetY, solid = true) {
   const x0 = terrain.idx * CFG.DX, y0 = terrain.y;
   len = Math.max(len, CFG.DX * 2);
@@ -860,82 +913,235 @@ function pushSeg(len, targetY, solid = true) {
   }
   terrain.y = targetY;
 }
-/** Обрив — майже вертикальна стінка вниз (природний трамплін). */
+/** Квадратична крива: 'in' — полого → круто (трамплін), 'out' — круто → полого (схил приземлення). */
+function pushEase(len, dy, mode) {
+  const x0 = terrain.idx * CFG.DX, y0 = terrain.y;
+  len = Math.max(len, CFG.DX * 2);
+  while (terrain.idx * CFG.DX < x0 + len) {
+    const t = (terrain.idx * CFG.DX - x0) / len;
+    const e = mode === 'in' ? t * t : 1 - (1 - t) * (1 - t);
+    pushSample(y0 + dy * e, true);
+  }
+  terrain.y = y0 + dy;
+}
+/** Обрив — майже вертикальна стінка вниз. */
 function pushCliff(drop) {
   pushSample(terrain.y - drop * 0.45, true);
   terrain.y -= drop;
   pushSample(terrain.y, true);
 }
 
-/** Скільки гравець здатен перелетіти на поточній швидкості. */
-function jumpDistance() {
-  const air = 2 * CFG.JUMP / CFG.GRAVITY;
-  return Math.max(6, player.speed * air);
+/** Базова швидкість, яку гравець матиме в точці x (без бонусного розгону). */
+function baseSpeedAt(x) {
+  return lerp(CFG.SPEED_START, CFG.SPEED_MAX, clamp((x - startX) / CFG.SPEED_RAMP, 0, 1)) * view.scale;
+}
+/** Скільки гравець перелітає звичайним стрибком по рівному. */
+function jumpDistance(v = player.speed) {
+  return Math.max(6, v * 2 * CFG.JUMP / CFG.GRAVITY);
 }
 
-/** Дорожка кристалів: лінією над поверхнею або дугою над прірвою. */
-function placeCoins(x0, n, spacing, arcH) {
-  for (let k = 0; k < n; k++) {
-    const x = x0 + k * spacing;
-    const t = n > 1 ? k / (n - 1) : 0.5;
-    const arc = arcH ? Math.sin(t * Math.PI) * arcH : 0;
-    terrain.coins.push({ x, y: heightAt(x) + 1.7 + arc, taken: false, mesh: null });
+/* --- Кристали --------------------------------------------------------- */
+function addCoin(x, y) {
+  if (y < heightAt(x) + 1.0) return;              // не ховаємо кристал у пісок
+  terrain.coins.push({ x, y, taken: false, mesh: null });
+}
+/** Лінія кристалів над поверхнею. */
+function placeCoinLine(x0, n, spacing, lift = 1.7) {
+  for (let k = 0; k < n; k++) { const x = x0 + k * spacing; addCoin(x, heightAt(x) + lift); }
+}
+/** Кристали вздовж балістичної дуги — показують ідеальну траєкторію стрибка. */
+function placeCoinArc(x0, y0, vx, vy, n, step) {
+  for (let i = 1; i <= n; i++) {
+    const t = i * step;
+    addCoin(x0 + vx * t, y0 + vy * t - 0.5 * CFG.GRAVITY * t * t + 0.85);
   }
 }
 
-/** Кам'яна стіна-перешкода на щойно створеному схилі. */
-function placeRock(x) {
-  if (x - terrain.lastGapX < 14) return;
-  const w = rr(1.0, 2.0), h = rr(1.9, 3.2);
-  terrain.rocks.push({ x, y: heightAt(x), w, h, mesh: null, hit: false });
+/* --- Перешкоди, які треба перестрибнути ----------------------------- */
+const OBST = {
+  block:  { w: [2.2, 3.0], h: [1.0, 1.4] },    // низька широка брила
+  rock:   { w: [1.1, 1.7], h: [1.5, 2.3] },    // зубчаста скеля
+  pillar: { w: [0.6, 0.8], h: [2.5, 3.0] },    // уламок колони — потрібен точний стрибок
+};
+function placeObstacle(x, type) {
+  const o = OBST[type];
+  const r = { x, y: heightAt(x), w: rr(o.w[0], o.w[1]), h: rr(o.h[0], o.h[1]),
+              type, mesh: null, hit: false, cleared: false };
+  terrain.rocks.push(r);
+  return r;
 }
 
-/* --- Фічі рельєфу ------------------------------------------------- */
-function featureDune() {
-  const crest  = clamp(terrain.y + rr(3, 8),  -9, 12);
-  pushSeg(rr(15, 27), crest);
-  const crestX = terrain.idx * CFG.DX;
-  const trough = clamp(crest - rr(3.5, 9), -11, 9);
-  pushSeg(rr(14, 26), trough);
+/* --- ШМАТКИ ТРАСИ ------------------------------------------------------
+   Карта складається з продуманих «сет-пісів», а не з випадкового шуму:
+   кожен дає свою динаміку і свій шанс на ідеальний стрибок чи оберт.
+   ------------------------------------------------------------------- */
 
-  if (rnd() < 0.55) placeCoins(crestX - rr(4, 10), ri(3, 6), rr(1.7, 2.3), rr(0, 1.2));
-  if (rnd() < 0.22 + 0.30 * terrain.diff) placeRock(terrain.idx * CFG.DX - rr(3, 9));
+/** Спокійні пологі дюни — пауза для дихання між гострими моментами. */
+function pieceCruise(short = false) {
+  const n = short ? 1 : ri(1, 2);
+  const L = short ? [16, 22] : [24, 36];
+  for (let i = 0; i < n; i++) {
+    const up = clamp(terrain.y + rr(2, 4.5), -12, 15);
+    pushSeg(rr(L[0], L[1]), up);
+    const cx = terrain.idx * CFG.DX;
+    const downLen = rr(L[0], L[1]);
+    pushSeg(downLen, clamp(up - rr(2.5, 5), -12, 15));
+    if (rnd() < 0.6) placeCoinLine(cx - 6, ri(3, 5), 2.0);
+    // зрідка — одинока перешкода посеред спуску, щоб спокій не присипляв
+    if (!short && rnd() < 0.3 + terrain.diff * 0.3) {
+      const v = baseSpeedAt(cx) * 0.9;
+      placeObstacleWithHint(cx + downLen * 0.62, rnd() < 0.5 ? 'rock' : 'block', v);
+    }
+  }
 }
 
-function featureRamp() {
-  pushSeg(rr(8, 13), clamp(terrain.y + rr(3, 6), -8, 13));     // короткий підйом
-  pushCliff(rr(4, 9));                                          // і різкий обрив
+/** Довгий пологий підйом назад на «робочу» висоту. */
+function pieceClimb() {
+  const target = rr(5, 9);
+  const rise = target - terrain.y;
+  pushSeg(clamp(rise * 4.6, 24, 70), target);
+  pushSeg(rr(8, 12), target + rr(0.3, 1.0));      // коротке плато
+}
+
+/** Ритмічні горби: на швидкості кожен гребінь сам підкидає райдера.
+    rising = true — горби йдуть сходинками вгору: так траса набирає висоту
+    не нудним підйомом, а ритмом. */
+function pieceRollers(rising = false) {
+  const v = baseSpeedAt(terrain.idx * CFG.DX);
+  const k = ri(3, 5);
+  const half = clamp(v * 0.34, 4.5, 8.5);
+  const A = rr(1.8, 2.8);
+  let yBase = terrain.y;
+  for (let i = 0; i < k; i++) {
+    const step = rising ? rr(1.3, 2.1) : -rr(0, 0.6);
+    pushSeg(half, yBase + A + Math.max(0, step));
+    const cx = terrain.idx * CFG.DX;
+    yBase += step;
+    pushSeg(half, yBase);
+    addCoin(cx + 1.4, heightAt(cx) + 2.5);
+  }
+}
+
+/** Трамплін: розгін униз → крутий край → політ → довгий схил для приземлення.
+    Стрибок точно на краю дає «Perfect jump» і час на подвійне сальто. */
+function pieceKicker(withGap) {
+  const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;    // обережна оцінка швидкості
+  pushSeg(rr(16, 24), terrain.y - rr(3, 5));             // розгін
+  const kLen = rr(7, 10), kH = rr(2.6, 4.2);
+  pushEase(kLen, kH, 'in');                              // трамплін
+  const lipX = terrain.idx * CFG.DX, lipY = terrain.y;
+  terrain.lips.push({ x: lipX, used: false });
+  const vyLip = Math.min(1.3, 2 * kH / kLen) * v;
+
+  if (withGap) {
+    // прірву можна перелетіти навіть без стрибка — сам трамплін підкидає
+    const farDrop = rr(2.5, 5);
+    const t = (vyLip + Math.sqrt(vyLip * vyLip + 2 * CFG.GRAVITY * farDrop)) / CFG.GRAVITY;
+    const span = clamp(v * t * rr(0.5, 0.6), 5, 20);
+    const n = Math.ceil(span / CFG.DX);
+    for (let i = 0; i < n; i++) pushSample(lipY - 0.7, false);
+    terrain.y = lipY - farDrop;
+    pushSample(terrain.y, true);
+    pushEase(rr(28, 38), -rr(4, 7), 'out');
+  } else {
+    pushCliff(rr(1.2, 2.5));
+    pushEase(rr(30, 42), -rr(5, 8), 'out');
+  }
+  pushSeg(rr(10, 16), terrain.y - rr(0, 1));             // вихід на рівне
+
+  const vyPerfect = Math.min(CFG.JUMP_VY_MAX, (Math.min(vyLip, 18) + CFG.JUMP) * CFG.PERFECT_JUMP_MULT);
+  placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, vyPerfect, 6, 0.14);
+}
+
+/** Скеля: підйом на плато → обрив → крутий схил. Велика висота для кількох обертів. */
+function pieceDrop() {
+  const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;
+  pushSeg(rr(12, 16), terrain.y + rr(2.5, 4));
+  pushSeg(rr(6, 9), terrain.y + 0.3);
+  const lipX = terrain.idx * CFG.DX, lipY = terrain.y;
+  terrain.lips.push({ x: lipX, used: false });
+  pushCliff(rr(5, 8));
+  pushEase(rr(28, 38), -rr(4, 7), 'out');
+  pushSeg(rr(10, 14), terrain.y - 0.5);
+  placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, CFG.JUMP * CFG.PERFECT_JUMP_MULT, 6, 0.15);
+}
+
+/** Перешкода з дугою кристалів: вона підказує, звідки стрибати. */
+function placeObstacleWithHint(x, type, v) {
+  placeObstacle(x, type);
+  const tUp = CFG.JUMP / CFG.GRAVITY;
+  const xs = x - v * tUp;
+  placeCoinArc(xs, heightAt(xs) + CFG.RIDE_OFFSET, v, CFG.JUMP, 5, tUp * 0.4);
+}
+
+/** Ділянка з перешкодами на легкому спуску. Дуга кристалів підказує момент стрибка. */
+function pieceObstacles() {
+  const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;
+  const jd = jumpDistance(v);
+  const n = ri(1, 2 + Math.round(terrain.diff * 2));
+  const spacing = jd * rr(1.35, 1.7) + 3;              // завжди є де приземлитись між ними
   const x0 = terrain.idx * CFG.DX;
-  placeCoins(x0 + 2, ri(3, 6), rr(2.0, 2.6), rr(2.5, 5));       // нагорода за політ
-  pushSeg(rr(16, 28), clamp(terrain.y - rr(2, 6), -11, 9));
+  pushSeg(12 + n * spacing + 8, terrain.y - rr(0.5, 1.8));
+  const types = terrain.diff < 0.25 ? ['block', 'rock'] : ['block', 'rock', 'pillar'];
+  for (let i = 0; i < n; i++) placeObstacleWithHint(x0 + 12 + i * spacing + rr(-1, 1), pick(types), v);
 }
 
-function featureGap() {
-  const lip = clamp(terrain.y + rr(1.5, 4), -8, 12);
-  pushSeg(rr(9, 15), lip);                                      // виїзд на край
-  const span = jumpDistance() * rr(0.40, 0.52 + 0.22 * terrain.diff);
-  const x0 = terrain.idx * CFG.DX;
-  const n = Math.ceil(span / CFG.DX);
-  for (let i = 0; i < n; i++) pushSample(lip - 0.7, false);      // сама прірва
-  placeCoins(x0 + span * 0.15, ri(3, 5), (span * 0.7) / 4, rr(1.5, 3.5));
-  terrain.lastGapX = terrain.idx * CFG.DX;
-  terrain.y = lip - rr(0, 2.5);                                 // далекий край
-  pushSample(terrain.y, true);
-  pushSeg(rr(15, 26), clamp(terrain.y - rr(2, 6), -11, 9));
+/** Сценарій перших хвилин: гравець одразу знайомиться з кожним елементом. */
+const INTRO = [
+  () => pieceCruise(true),
+  () => pieceRollers(true),
+  () => pieceKicker(false),      // перший трамплін — одразу видно, навіщо стрибати на краю
+  () => pieceObstacles(),
+  () => pieceRollers(true),
+];
+
+/** Режисер траси: чергує напругу й спокій, стежить за висотою та складністю. */
+function nextPiece() {
+  const x = terrain.idx * CFG.DX;
+  terrain.diff = clamp((x - startX) / 2600, 0, 1);
+  if (terrain.intro < INTRO.length) { INTRO[terrain.intro++](); return; }
+  if (terrain.y < -9) { pieceClimb(); return; }            // запобіжник
+
+  const intenseLimit = 2 + Math.round(terrain.diff * 2);
+  if (terrain.intense >= intenseLimit) {                  // після серії — видих
+    terrain.intense = 0;
+    if (terrain.y < 1) pieceRollers(true); else if (rnd() < 0.6) pieceCruise(); else pieceRollers();
+    return;
+  }
+  terrain.intense++;
+  const r = rnd();
+  // трамплін і скеля спускають униз — якщо ми низько, спершу набираємо висоту ритмом
+  const descend = fn => { if (terrain.y < 2) pieceRollers(true); fn(); };
+  if (r < 0.24)      descend(() => pieceKicker(false));
+  else if (r < 0.39) descend(() => pieceKicker(true));
+  else if (r < 0.49) descend(pieceDrop);
+  else if (r < 0.82) pieceObstacles();
+  else               pieceRollers(terrain.y < 3);
+}
+
+/** Тримає хвости списків відсортованими — курсори активації розраховують на це. */
+function sortTail(list, cursor) {
+  if (list.length - cursor < 2) return;
+  const tail = list.splice(cursor);
+  tail.sort((a, b) => a.x - b.x);
+  for (const t of tail) list.push(t);
 }
 
 /** Генеруємо рельєф, поки він не покриє x. */
 function ensureTerrain(x) {
   while (terrain.idx * CFG.DX < x) {
-    const r = rnd();
-    const canGap = terrain.idx * CFG.DX - terrain.lastGapX > 60;
-    if (canGap && r < 0.20 + 0.10 * terrain.diff) featureGap();
-    else if (r < 0.42) featureRamp();
-    else featureDune();
+    nextPiece();
+    sortTail(terrain.coins, terrain.coinCursor);
+    sortTail(terrain.rocks, terrain.rockCursor);
   }
 }
 
-/** Прибираємо семпли, що залишились далеко позаду. */
+/** Прибираємо семпли й обʼєкти, що лишились далеко позаду. */
+function trimList(list, cursorKey, minX) {
+  let k = 0;
+  while (k < terrain[cursorKey] && list[k].x < minX && !list[k].mesh) k++;
+  if (k > 32) { list.splice(0, k); terrain[cursorKey] -= k; }
+}
 function trimTerrain(minX) {
   const need = Math.floor(minX / CFG.DX) - 40;
   const drop = need - terrain.i0;
@@ -943,6 +1149,9 @@ function trimTerrain(minX) {
     terrain.samples.splice(0, drop);
     terrain.i0 += drop;
   }
+  trimList(terrain.coins, 'coinCursor', minX);
+  trimList(terrain.rocks, 'rockCursor', minX);
+  trimList(terrain.lips, 'lipCursor', minX);
 }
 
 /* --- Меш піску ---------------------------------------------------- */
@@ -971,13 +1180,32 @@ const sandMesh = new THREE.Mesh(sandGeo, sandMat);
 sandMesh.frustumCulled = false;
 scene.add(sandMesh);
 
-/** Перебудовуємо видиму частину стрічки піску (дешево: ~1000 вершин). */
+/* --- Лінія катання: тонка освітлена кромка по поверхні --------------
+   Саме по ній ковзає дошка — поверхня читається чітко на будь-якому фоні. */
+const LINE_H = 0.24;
+const lineGeo = new THREE.BufferGeometry();
+const linePos = new THREE.BufferAttribute(new Float32Array(SAND_N * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage);
+{
+  const idx = [];
+  for (let i = 0; i < SAND_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+  lineGeo.setIndex(idx);
+  lineGeo.setAttribute('position', linePos);
+  lineGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+}
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+lineMesh.frustumCulled = false;
+lineMesh.position.z = ENT_Z - 0.03;
+scene.add(lineMesh);
+
+/** Перебудовуємо видиму частину стрічки піску (дешево: ~1200 вершин). */
 function updateSandMesh(camX) {
   const R = ROWS.length;
-  const pa = sandPos.array, na = sandNrm.array, ca = sandCol.array;
+  const pa = sandPos.array, na = sandNrm.array, ca = sandCol.array, la = linePos.array;
   const startIdx = Math.floor((camX - view.visW * 0.62 - 10) / CFG.DX);
   const baseX = startIdx * CFG.DX;
   sandMesh.position.x = baseX;
+  lineMesh.position.x = baseX;
 
   for (let i = 0; i < SAND_N; i++) {
     const gi = startIdx + i;
@@ -985,44 +1213,48 @@ function updateSandMesh(camX) {
     const y = sampleY(gi);
     const solid = sampleSolid(gi);
     const slope = (sampleY(gi + 1) - sampleY(gi - 1)) / (2 * CFG.DX);
-    const ripple = 0.10 * Math.sin((baseX + lx) * 2.1);           // легка вітрова рябь
+    const ripple = 0.10 * Math.sin((baseX + lx) * 2.1);       // вітрова рябь — лише на скаті
     for (let r = 0; r < R; r++) {
       const row = ROWS[r];
       const o = (i * R + r) * 3;
       pa[o] = lx;
       // над проваллям верхні ряди злипаються (піску нема), а нижні лишаються
       // темною стіною — так безодня читається глибиною, а не діркою в екрані
-      pa[o + 1] = solid ? y + row.dy + (r === 1 ? ripple : 0) : (r < R - 2 ? y : y + row.dy);
+      pa[o + 1] = solid ? y + row.dy + (r === 2 ? ripple : 0) : (r < R - 2 ? y : y + row.dy);
       pa[o + 2] = row.z;
       const shade = solid ? row.c : row.c * 0.34;
       ca[o] = ca[o + 1] = ca[o + 2] = shade;
       if (r >= R - 2) { na[o] = 0; na[o + 1] = -0.30; na[o + 2] = 0.95; }
       else {
-        const nx = -slope, ny = 1, nz = row.nz + ripple * 0.5;
+        const nx = -slope, ny = 1, nz = row.nz + (r === 2 ? ripple * 0.5 : 0);
         const inv = 1 / Math.hypot(nx, ny, nz);
         na[o] = nx * inv; na[o + 1] = ny * inv; na[o + 2] = nz * inv;
       }
     }
+    // кромка: над проваллям зникає
+    const lo = i * 6;
+    la[lo] = lx; la[lo + 1] = y;                        la[lo + 2] = 0;
+    la[lo + 3] = lx; la[lo + 4] = solid ? y - LINE_H : y; la[lo + 5] = 0;
   }
   sandPos.needsUpdate = true;
   sandNrm.needsUpdate = true;
   sandCol.needsUpdate = true;
+  linePos.needsUpdate = true;
   sandMat.color.copy(sky.sand);
+  lineMat.color.copy(sky.sand).lerp(sky.light, 0.7).lerp(sky.sunColor, 0.3).multiplyScalar(1.08);
 }
 
 /* ------------------------------------------------------------------
    8. ОБ'ЄКТИ НА ТРАСІ: кристали (очки) та кам'яні стіни (перешкоди).
    Меші беруться з пулів — сміттяр не прокидається під час гри.
    ------------------------------------------------------------------ */
-const ENT_Z = 3.0;           // площина, у якій живуть гравець і обʼєкти
-const ENT_SURF = 0.63;       // підйом верхньої смуги піску на цьому z
-
 const coinMat  = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
 const coinGlowMat = new THREE.MeshBasicMaterial({
   map: TEX.glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending,
   depthWrite: false, fog: false,
 });
 const rockMat  = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+const rockRimMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });   // світла обвідка — читається на будь-якому фоні
 
 /** Один кристал: ромб + адитивне сяйво. */
 function makeCoinMesh() {
@@ -1039,18 +1271,30 @@ function makeCoinMesh() {
   return g;
 }
 
-/** Кілька заготовок зубчастих скель — щоб перешкоди не були однаковими. */
-const ROCK_GEOS = (() => {
-  const out = [];
-  for (let v = 0; v < 6; v++) {
-    const pts = [new THREE.Vector2(-0.5, 0)];
-    const n = ri(4, 7);
+/* Заготовки силуетів перешкод. Усі нормовані до ширини 1 і висоти 1,
+   тож меш масштабується рівно під хітбокс (w × h). */
+const OBST_GEOS = (() => {
+  const shape = pts => new THREE.ShapeGeometry(new THREE.Shape(pts.map(p => new THREE.Vector2(p[0], p[1]))));
+  const out = { rock: [], block: [], pillar: [] };
+  for (let v = 0; v < 5; v++) {
+    // зубчаста скеля
+    // асиметрична скеля: вершина зміщена, край нерівний
+    const pts = [[-0.5, 0]];
+    const n = ri(7, 9), skew = rr(0.6, 1.5);
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      pts.push(new THREE.Vector2(-0.5 + t, 0.55 + 0.45 * Math.sin(t * Math.PI) + rr(-0.16, 0.16)));
+      const prof = Math.sin(Math.pow(t, skew) * Math.PI);
+      pts.push([-0.5 + t + rr(-0.03, 0.03), Math.min(1, 0.42 + 0.58 * prof + rr(-0.1, 0.06) * prof)]);
     }
-    pts.push(new THREE.Vector2(0.5, 0));
-    out.push(new THREE.ShapeGeometry(new THREE.Shape(pts)));
+    pts.push([0.5, 0]);
+    out.rock.push(shape(pts));
+    // брила з відколотими кутами
+    const c1 = rr(0.05, 0.16), c2 = rr(0.05, 0.16);
+    out.block.push(shape([[-0.5, 0], [0.5, 0], [0.5, 1 - c2], [0.5 - c2 * 0.7, 1], [-0.5 + c1 * 0.7, 1], [-0.5, 1 - c1]]));
+    // уламок колони: база, стовбур, надламаний верх
+    const b = rr(0.86, 0.95);
+    out.pillar.push(shape([[-0.5, 0], [0.5, 0], [0.5, 0.08], [0.36, 0.1], [0.36, b - 0.06],
+      [0.22, b + rr(-0.03, 0.05)], [0.05, 1], [-0.12, b - rr(0.02, 0.08)], [-0.36, b], [-0.36, 0.1], [-0.5, 0.08]]));
   }
   return out;
 })();
@@ -1064,7 +1308,14 @@ function takeCoinMesh() {
 }
 function freeCoinMesh(m) { scene.remove(m); pools.coin.push(m); }
 function takeRockMesh() {
-  const m = pools.rock.pop() || new THREE.Mesh(pick(ROCK_GEOS), rockMat);
+  let m = pools.rock.pop();
+  if (!m) {
+    m = new THREE.Mesh(OBST_GEOS.rock[0], rockMat);
+    const rim = new THREE.Mesh(OBST_GEOS.rock[0], rockRimMat);
+    rim.position.z = -0.03;
+    m.add(rim);
+    m.userData.rim = rim;
+  }
   m.visible = true; scene.add(m); return m;
 }
 function freeRockMesh(m) { scene.remove(m); pools.rock.push(m); }
@@ -1077,7 +1328,7 @@ function updateEntities(camX, dt) {
     const c = terrain.coins[terrain.coinCursor++];
     if (c.taken || c.x < xL) continue;
     c.mesh = takeCoinMesh();
-    c.mesh.position.set(c.x, c.y + ENT_SURF, ENT_Z);
+    c.mesh.position.set(c.x, c.y + ENT_SURF, ENT_Z + 0.1);
     c.phase = rr(0, TAU);
     active.coins.push(c);
   }
@@ -1085,15 +1336,17 @@ function updateEntities(camX, dt) {
     const r = terrain.rocks[terrain.rockCursor++];
     if (r.x < xL) continue;
     r.mesh = takeRockMesh();
-    r.mesh.geometry = pick(ROCK_GEOS);
-    r.mesh.scale.set(r.w * 2.1, r.h, 1);
-    r.mesh.position.set(r.x, r.y + ENT_SURF - 0.1, ENT_Z - 0.2);
+    r.mesh.geometry = r.mesh.userData.rim.geometry = pick(OBST_GEOS[r.type]);
+    r.mesh.scale.set(r.w * 1.1, r.h, 1);
+    r.mesh.userData.rim.scale.set(1 + 0.18 / (r.w * 1.1), 1 + 0.12 / r.h, 1);
+    r.mesh.position.set(r.x, r.y - 0.12, ENT_Z - 0.2);
     active.rocks.push(r);
   }
 
   coinMat.color.copy(sky.coin).multiplyScalar(1.7);       // яскравіше за 1.0 → блумить
   coinGlowMat.color.copy(sky.coin).multiplyScalar(0.34);
-  rockMat.color.copy(sky.rock);
+  rockMat.color.copy(sky.rider).lerp(sky.rock, 0.3);           // темний силует, як райдер
+  rockRimMat.color.copy(lineMat.color).multiplyScalar(0.92);
 
   const t = performance.now() * 0.001;
   for (let i = active.coins.length - 1; i >= 0; i--) {
@@ -1151,9 +1404,10 @@ function buildRider() {
 const RIDER_SCALE = 1.3;
 const player = {
   x: 0, y: 0, vy: 0, speed: CFG.SPEED_START,
-  grounded: true, angle: 0, flip: 0, flipping: false,
-  boost: 0, combo: 0, airTime: 0, dead: false, deadTime: 0,
-  coins: 0, score: 0, dist: 0, tricks: 0,
+  grounded: true, angle: 0, flip: 0, flipTarget: 0, flipDoneT: -1,
+  boost: 0, momentum: 0, combo: 0, airTime: 0, jumped: false, leftGroundT: -1,
+  dead: false, deadTime: 0, deathReason: '',
+  coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0,
   obj: buildRider(),
   shadow: new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.15), new THREE.MeshBasicMaterial({
     map: TEX.shadow, transparent: true, color: 0x000000, depthWrite: false, fog: false, opacity: 0.3,
@@ -1163,7 +1417,7 @@ player.obj.scale.setScalar(RIDER_SCALE);
 player.obj.position.z = ENT_Z;
 scene.add(player.obj);
 player.shadow.rotation.x = -1.18;
-player.shadow.position.z = ENT_Z - 0.4;
+player.shadow.position.z = ENT_Z + 0.3;
 scene.add(player.shadow);
 
 /* ------------------------------------------------------------------
@@ -1514,7 +1768,7 @@ function renderFrame(time) {
 const GS = { START: 0, PLAY: 1, OVER: 2 };
 let state = GS.START;
 let time = 0;
-let camY = 6, shake = 0, sandAcc = 0, startX = 0;
+let camY = 6, shake = 0, sandAcc = 0, startX = 8, playTime = 0;
 const _hzVec = new THREE.Vector3();
 
 const EL = {
@@ -1522,13 +1776,18 @@ const EL = {
   score: document.getElementById('score'),
   multi: document.getElementById('multi'),
   coins: document.getElementById('coins'),
+  speed: document.getElementById('speed'),
   phase: document.getElementById('phase'),
   trick: document.getElementById('trick'),
+  trickMain: document.querySelector('#trick .t-main'),
+  trickSub: document.querySelector('#trick .t-sub'),
+  zones: document.getElementById('zones'),
   start: document.getElementById('start'),
   over: document.getElementById('over'),
   finalScore: document.getElementById('finalScore'),
   finalDist: document.getElementById('finalDist'),
   finalCoins: document.getElementById('finalCoins'),
+  finalPerfect: document.getElementById('finalPerfect'),
   bestScore: document.getElementById('bestScore'),
   loading: document.getElementById('loading'),
 };
@@ -1536,14 +1795,18 @@ const EL = {
 let best = 0;
 try { best = parseInt(localStorage.getItem('duneDriftBest') || '0', 10) || 0; } catch (e) {}
 
-const input = { down: false, held: 0 };
+/* Стан введення. down — чи утримується щось (палець або клавіша).
+   pressT — коли почалося поточне натискання (для розрізнення тапу й утримання).
+   bufferT — тап у повітрі лівою стороною: стрибнемо одразу після приземлення. */
+const input = { down: false, side: 'L', pressT: -1, bufferT: -1 };
 
 /* --- підписи трюків ---------------------------------------------- */
 let trickTimer = 0;
-function showTrick(text) {
-  EL.trick.textContent = text;
-  EL.trick.classList.add('show');
-  trickTimer = 1.1;
+function showTrick(main, sub = '', tone = '') {
+  EL.trickMain.textContent = main;
+  EL.trickSub.textContent = sub;
+  EL.trick.className = 'show ' + tone;
+  trickTimer = 1.15;
 }
 
 /* --- частинки піску та іскри ------------------------------------- */
@@ -1555,15 +1818,16 @@ function sandSpray(dt) {
   while (sandAcc > 1) {
     sandAcc -= 1;
     dust.spawn(
-      player.x - 1.0 + rr(-0.3, 0.3), player.y + ENT_SURF + rr(-0.05, 0.25), ENT_Z - rr(0.2, 1.2),
+      player.x - 1.0 + rr(-0.3, 0.3), player.y + rr(-0.1, 0.15), ENT_Z - rr(0.2, 1.2),
       -player.speed * rr(0.08, 0.34) + rr(-1.5, 0.5), rr(1.5, 6.0),
       rr(0.3, 0.85), rr(0.45, 1.0), sandColor(0.75), 7,
     );
   }
 }
-function landingBurst() {
-  for (let i = 0; i < 22; i++) {
-    dust.spawn(player.x + rr(-1.1, 1.1), player.y + ENT_SURF, ENT_Z - rr(0, 1.4),
+function landingBurst(k = 1) {
+  const n = Math.round(22 * k);
+  for (let i = 0; i < n; i++) {
+    dust.spawn(player.x + rr(-1.1, 1.1), player.y - 0.1, ENT_Z - rr(0, 1.4),
       rr(-7, 3), rr(2, 10), rr(0.35, 1.0), rr(0.5, 1.1), sandColor(0.85), 9);
   }
 }
@@ -1582,34 +1846,39 @@ function resetWorld(seed) {
   for (const r of active.rocks) { freeRockMesh(r.mesh); r.mesh = null; }
   active.coins.length = 0; active.rocks.length = 0;
 
+  startX = 8;
   terrain.samples.length = 0;
-  terrain.coins.length = 0; terrain.rocks.length = 0;
+  terrain.coins.length = 0; terrain.rocks.length = 0; terrain.lips.length = 0;
   terrain.i0 = 0; terrain.idx = 0; terrain.y = 5;
-  terrain.coinCursor = 0; terrain.rockCursor = 0;
-  terrain.lastGapX = -1e9; terrain.diff = 0;
+  terrain.coinCursor = 0; terrain.rockCursor = 0; terrain.lipCursor = 0;
+  terrain.diff = 0; terrain.intense = 0; terrain.intro = 0;
 
+  player.speed = CFG.SPEED_START * view.scale;
   pushSample(terrain.y, true);
   pushSeg(34, -1);                        // спокійний з'їзд на старті
   ensureTerrain(240);
 
-  player.x = 8; player.y = heightAt(8) + CFG.RIDE_OFFSET; player.vy = 0;
-  player.speed = CFG.SPEED_START * view.scale;
-  player.grounded = true; player.angle = 0; player.flip = 0; player.flipping = false;
-  player.boost = 0; player.combo = 0; player.airTime = 0;
-  player.dead = false; player.deadTime = 0;
-  player.coins = 0; player.score = 0; player.dist = 0; player.tricks = 0;
+  Object.assign(player, {
+    x: startX, y: heightAt(startX) + CFG.RIDE_OFFSET, vy: 0,
+    grounded: true, angle: 0, flip: 0, flipTarget: 0, flipDoneT: -1,
+    boost: 0, momentum: 0, combo: 0, airTime: 0, jumped: false, leftGroundT: -1,
+    dead: false, deadTime: 0, deathReason: '',
+    coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0,
+  });
   player.obj.rotation.z = 0;
-  startX = player.x;
   camY = player.y + view.visH * 0.1;
-  sandAcc = 0; shake = 0;
+  sandAcc = 0; shake = 0; playTime = 0;
+  input.bufferT = -1;
 }
 
 function startGame() {
   resetWorld((Math.random() * 1e9) | 0);
   state = GS.PLAY;
+  input.down = false;                      // тап, що стартував гру, не рахуємо утриманням
   EL.start.classList.remove('on');
   EL.over.classList.remove('on');
   EL.hud.classList.add('on');
+  EL.zones.classList.add('on');            // підказка зон керування на перші секунди
   EL.multi.textContent = 'score';
 }
 
@@ -1624,9 +1893,11 @@ function gameOver() {
   EL.finalScore.textContent = Math.floor(player.score).toLocaleString('en-US');
   EL.finalDist.textContent = Math.floor(player.dist) + ' m';
   EL.finalCoins.textContent = player.coins;
+  EL.finalPerfect.textContent = player.perfects;
   EL.bestScore.textContent = best.toLocaleString('en-US');
   setTimeout(() => { if (state === GS.OVER) EL.over.classList.add('on'); }, 850);
   EL.hud.classList.remove('on');
+  EL.zones.classList.remove('on');
 }
 
 function die(reason) {
@@ -1638,143 +1909,274 @@ function die(reason) {
   gameOver();
 }
 
-/* --- керування --------------------------------------------------- */
-function onPress() {
-  input.down = true;
-  if (state === GS.START) { startGame(); return; }
-  if (state === GS.OVER) {
-    if (player.deadTime > 0.9) { startGame(); }
-    return;
+/* --- стрибки та оберти ------------------------------------------- */
+/** Найближчий край трампліна поблизу x (для «Perfect jump»). */
+function nearestLip(x) {
+  const L = terrain.lips;
+  while (terrain.lipCursor < L.length && L[terrain.lipCursor].x < x - 6) terrain.lipCursor++;
+  const lip = L[terrain.lipCursor];
+  return lip && Math.abs(lip.x - x) < 6 ? lip : null;
+}
+
+function doJump() {
+  // стрибок додається до вертикальної швидкості з трампліна — край дає більше висоти
+  let vy = Math.max(0, Math.min(player.vy, 18)) + CFG.JUMP;
+  const lip = nearestLip(player.x);
+  const vx = player.speed;
+  const perfect = lip && !lip.used &&
+    lip.x - player.x < vx * CFG.PERFECT_JUMP_WINDOW && player.x - lip.x < vx * CFG.COYOTE + 0.4;
+  if (perfect) {
+    lip.used = true;
+    vy *= CFG.PERFECT_JUMP_MULT;
+    player.score += 50;
+    showTrick('Perfect jump', '+50', 'gold');
+    sparkBurst(player.x, player.y + 0.4, sky.coin, 16);
   }
-  if (player.grounded && !player.dead) {
-    const sl = slopeAt(player.x);
-    player.grounded = false;
-    // зі схилу вниз відштовхуватись легше — стрибок виходить вищим
-    player.vy = CFG.JUMP * (1 + clamp(-sl, 0, 0.7) * 0.28);
-    player.airTime = 0;
-    landingBurst();
+  player.vy = Math.min(vy, CFG.JUMP_VY_MAX);
+  if (player.grounded) player.airTime = 0;
+  player.grounded = false;
+  player.jumped = true;
+  landingBurst(0.5);
+}
+
+/** Додає один повний оберт до черги: він докрутиться сам. */
+function queueFlip() {
+  const base = Math.max(player.flipTarget, Math.ceil(player.flip / TAU - 1e-4) * TAU);
+  player.flipTarget = Math.min(base + TAU, player.flip + TAU * 4);
+  player.flipDoneT = -1;
+}
+
+/* --- керування ---------------------------------------------------
+   Ліва половина екрана: тап — стрибок.
+   Права половина:       тап — стрибок + бекфліп (у повітрі — ще один оберт).
+   Утримання будь-де:     крутимось, поки тримаєш; після відпускання
+                          оберт сам докручується до цілого.
+   Клавіатура: пробіл/↑/← — стрибок, →/D/Shift — стрибок з обертом. */
+function onPress(side) {
+  input.down = true;
+  input.side = side;
+  input.pressT = time;
+  if (state === GS.START) { startGame(); return; }
+  if (state === GS.OVER) { if (player.deadTime > 0.9) startGame(); return; }
+  if (player.dead) return;
+
+  const coyote = !player.grounded && !player.jumped && time - player.leftGroundT < CFG.COYOTE;
+  if (player.grounded || coyote) {
+    doJump();
+    if (side === 'R') queueFlip();
+  } else if (side === 'R') {
+    queueFlip();
+  } else {
+    input.bufferT = time;                    // стрибнемо, щойно торкнемось піску
   }
 }
-function onRelease() { input.down = false; }
 
-canvas.addEventListener('pointerdown', e => { e.preventDefault(); onPress(); });
-window.addEventListener('pointerup', onRelease);
-window.addEventListener('pointercancel', onRelease);
-window.addEventListener('blur', onRelease);
+const pointers = new Set();
+const keysHeld = new Set();
+function refreshDown() { input.down = pointers.size > 0 || keysHeld.size > 0; }
+function sideOf(clientX) { return clientX < window.innerWidth * 0.5 ? 'L' : 'R'; }
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  pointers.add(e.pointerId);
+  onPress(sideOf(e.clientX));
+});
+const pointerEnd = e => { pointers.delete(e.pointerId); refreshDown(); };
+window.addEventListener('pointerup', pointerEnd);
+window.addEventListener('pointercancel', pointerEnd);
+window.addEventListener('blur', () => { pointers.clear(); keysHeld.clear(); refreshDown(); });
+
+const KEY_SIDE = { Space: 'L', ArrowUp: 'L', ArrowLeft: 'L', KeyW: 'L', KeyA: 'L', Enter: 'L',
+                   ArrowRight: 'R', KeyD: 'R', ShiftLeft: 'R', ShiftRight: 'R' };
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') {
-    e.preventDefault();
-    if (!input.down) onPress(); else input.down = true;
-  }
+  const side = KEY_SIDE[e.code];
+  if (!side) return;
+  e.preventDefault();
+  if (e.repeat || keysHeld.has(e.code)) return;
+  keysHeld.add(e.code);
+  onPress(side);
 });
-window.addEventListener('keyup', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') onRelease();
-});
+window.addEventListener('keyup', e => { if (keysHeld.delete(e.code)) refreshDown(); });
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
-/* --- приземлення і трюки ----------------------------------------- */
+/* --- приземлення, трюки, розгін ---------------------------------- */
 const TRICK_NAMES = ['', 'Backflip', 'Double backflip', 'Triple backflip', 'Quad backflip'];
 
-function land(h) {
-  const turns = player.flip / TAU;
-  const near = Math.round(turns);
-  const err = Math.abs(player.flip - near * TAU);
+/** Вдале приземлення додає гравцю швидкість, що накопичується. */
+function gainSpeed(v) {
+  const add = v * view.scale;
+  player.momentum = Math.min(CFG.MOM_MAX * view.scale, player.momentum + add);
+  player.speed += add * 0.6;                         // миттєвий поштовх уперед
+}
 
-  if (err > CFG.FLIP_TOLERANCE) {           // сів не на дошку
-    player.y = h + CFG.RIDE_OFFSET;
-    die('crash');
-    return;
-  }
+function land(h) {
+  const slope = slopeAt(player.x);
+  // наскільки корпус не збігся з нахилом схилу (з урахуванням недокрученого оберту)
+  const err = Math.abs(wrapPi(player.angle + player.flip - Math.atan(slope)));
+  const flips = Math.round(player.flip / TAU);
+  const air = player.airTime;
+  const margin = player.flipDoneT > 0 ? time - player.flipDoneT : 0;   // скільки летів уже рівно
 
   player.grounded = true;
   player.y = h + CFG.RIDE_OFFSET;
-  player.vy = 0;
-  landingBurst();
-  shake = Math.min(0.25, 0.04 + player.airTime * 0.12);
+  player.vy = slope * player.speed;
+  player.jumped = false;
 
-  if (near >= 1) {                          // чистий бекфліп → бонус і розгін
-    player.combo = Math.min(player.combo + 1, 9);
-    player.tricks += near;
-    const pts = 120 * near * player.combo;
-    player.score += pts;
-    player.boost = CFG.BOOST_TIME;
-    showTrick((TRICK_NAMES[Math.min(near, 4)] || 'Flip x' + near) +
-              (player.combo > 1 ? '  ×' + player.combo : '') + '  +' + pts);
-    sparkBurst(player.x, player.y + 1.0, sky.coin, 26);
-  } else if (player.airTime > 0.7) {         // просто довгий політ
-    const pts = Math.floor(player.airTime * 45);
-    player.score += pts;
-    showTrick('Air  +' + pts);
+  if (err > CFG.FLIP_TOLERANCE) { die('crash'); return; }   // приземлився посеред оберту
+
+  /* Оцінка приземлення:
+     PERFECT — оберт докручено в останню мить перед піском, або великий політ
+               закінчився точно на спуску (трамплін, скеля);
+     SKETCHY — сів на підйом чи на самому краю допуску → швидкість падає;
+     CLEAN   — усе інше вдале. */
+  const downhill = slope < CFG.PERFECT_SLOPE;
+  const uphill = slope > 0.35 && air > 0.5;
+  const perfect = flips >= 1 ? margin < CFG.PERFECT_MARGIN && !uphill
+                             : air > 0.5 && downhill;
+  const sketchy = !perfect && (uphill || err > CFG.FLIP_TOLERANCE * 0.7);
+
+  if (air > 0.18) {
+    landingBurst(perfect ? 1.3 : 1);
+    shake = Math.min(0.25, 0.04 + air * 0.1);
   }
+
+  if (flips >= 1) {
+    player.combo = sketchy ? 1 : Math.min(player.combo + 1, 9);
+    player.tricks += flips;
+    let pts = 150 * flips * player.combo;
+    if (perfect) pts = Math.round(pts * 1.5);
+    if (sketchy) pts = Math.round(pts * 0.5);
+    player.score += pts;
+    const name = (TRICK_NAMES[Math.min(flips, 4)] || flips + '× flip') + (player.combo > 1 ? '  ×' + player.combo : '');
+    if (perfect) {
+      player.perfects++;
+      gainSpeed(3.2 * flips);
+      player.boost = CFG.BOOST_TIME;
+      showTrick('Perfect', name + '  +' + pts, 'gold');
+      sparkBurst(player.x, player.y + 1.0, sky.coin, 30);
+    } else if (sketchy) {
+      player.momentum *= 0.6;
+      showTrick('Sketchy', name + '  +' + pts, 'dim');
+    } else {
+      gainSpeed(1.8 * flips);
+      showTrick('Clean', name + '  +' + pts);
+      sparkBurst(player.x, player.y + 1.0, sky.coin, 16);
+    }
+  } else if (air > 0.5) {
+    if (perfect) {
+      player.perfects++;
+      player.score += 40;
+      gainSpeed(1.4);
+      showTrick('Perfect landing', '+40', 'gold');
+    } else if (sketchy) {
+      player.momentum *= 0.6;
+      player.combo = 0;
+      showTrick('Sketchy', 'speed lost', 'dim');
+    } else if (air > 0.9) {
+      const pts = Math.floor(air * 45);
+      player.score += pts;
+      showTrick('Air', '+' + pts);
+    }
+  }
+
   player.flip = 0;
-  player.flipping = false;
+  player.flipTarget = 0;
+  player.flipDoneT = -1;
   player.airTime = 0;
+
+  // тап у повітрі перед самим приземленням — одразу стрибаємо знову
+  if (time - input.bufferT < CFG.BUFFER) {
+    input.bufferT = -1;
+    doJump();
+  }
 }
 
 /* --- фізика ------------------------------------------------------ */
 function updatePhysics(dt) {
-  terrain.diff = clamp(player.dist / 2600, 0, 1);
+  playTime += dt;
+  if (playTime > 6.5) EL.zones.classList.remove('on');
 
-  // Цільова швидкість зростає з дистанцією. Підйом гальмує, спуск розганяє,
-  // але «дно» швидкості тримаємо високо — застрягти на схилі неможливо.
-  const target = lerp(CFG.SPEED_START, CFG.SPEED_MAX, clamp(player.dist / CFG.SPEED_RAMP, 0, 1)) * view.scale;
-  const pull = player.speed < target ? 1.8 : 0.35;
-  player.speed += (target - player.speed) * pull * dt;
-  if (player.grounded) player.speed += -slopeAt(player.x) * CFG.SLOPE_ACCEL * dt;
+  // Базова швидкість росте з дистанцією, бонусна (momentum) — від вдалих приземлень.
+  const base = baseSpeedAt(player.x);
+  player.momentum = Math.max(0, player.momentum - CFG.MOM_DECAY * view.scale * dt);
+  const target = base + player.momentum;
+  player.speed += (target - player.speed) * (player.speed < target ? 1.8 : 0.6) * dt;
+  if (player.grounded) {
+    const sl = slopeAt(player.x);
+    player.speed -= sl * CFG.SLOPE_ACCEL * (sl > 0 ? CFG.UPHILL : 1) * view.scale * dt;
+  }
   if (player.boost > 0) player.boost = Math.max(0, player.boost - dt);
-  player.speed = clamp(player.speed, target * 0.62, target * 1.9);
+  player.speed = clamp(player.speed, base * 0.72, (base + CFG.MOM_MAX * view.scale) * 1.35);
+  player.maxSpeed = Math.max(player.maxSpeed, player.speed);
 
   const vx = player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1);
+  const yPrev = player.y, vyPrev = player.vy;
   player.x += vx * dt;
   player.dist = player.x - startX;
 
   ensureTerrain(player.x + view.visW * 1.2 + 90);
   trimTerrain(player.x - view.visW);
 
+  const G = CFG.GRAVITY;
   const h = heightAt(player.x);
   const solid = solidAt(player.x);
 
   if (player.grounded) {
-    if (!solid) {                                  // край прірви — падаємо
+    // Балістичний прогноз: якщо поверхня йде вниз швидше, ніж тягне гравітація,
+    // дошка відривається сама — так працюють трампліни, гребені й обриви.
+    const yBall = yPrev + vyPrev * dt - 0.5 * G * dt * dt;
+    const yGround = h + CFG.RIDE_OFFSET;
+    if (!solid || yGround < yBall - 0.04) {
       player.grounded = false;
-      player.vy = -2;
+      player.y = yBall;
+      player.vy = vyPrev - G * dt;
+      player.airTime = 0;
+      player.jumped = false;
+      player.leftGroundT = time;
     } else {
-      const hNext = heightAt(player.x + vx * dt * 1.35);
-      const vTerr = (hNext - h) / Math.max(dt, 1e-4);
-      if (vTerr < -16) {                           // гребінь підкинув — вільний політ
-        player.grounded = false;
-        player.vy = vTerr * 0.5;
-        player.airTime = 0;
-      } else {
-        player.y = h + CFG.RIDE_OFFSET;
-        player.vy = 0;
-      }
+      player.y = yGround;
+      player.vy = slopeAt(player.x) * vx;
     }
-  }
-
-  if (!player.grounded) {
-    const flipping = input.down && player.airTime > 0.04;
-    if (flipping) { player.flipping = true; player.flip += CFG.FLIP_SPEED * dt; }
-    // під час сальто падіння трохи сповільнюється — встигаєш докрутити
-    player.vy -= CFG.GRAVITY * (flipping ? 0.84 : 1) * dt;
+  } else {
+    // утримання крутить; після відпускання оберт докручується до цілого
+    const spinHeld = input.down && time - input.pressT > CFG.HOLD_DELAY;
+    if (spinHeld) {
+      player.flip += CFG.FLIP_SPEED * dt;
+      player.flipTarget = Math.max(player.flipTarget, Math.ceil(player.flip / TAU - 1e-4) * TAU);
+    } else if (player.flip < player.flipTarget) {
+      player.flip = Math.min(player.flipTarget, player.flip + CFG.FLIP_SPEED * dt);
+    }
+    const rotating = spinHeld || player.flip < player.flipTarget;
+    if (rotating) player.flipDoneT = -1;
+    else if (player.flipTarget > 0 && player.flipDoneT < 0) player.flipDoneT = time;
+    // під час оберту падіння трохи сповільнюється — встигаєш докрутити
+    player.vy -= G * (rotating ? 0.84 : 1) * dt;
     player.y += player.vy * dt;
     player.airTime += dt;
-    if (player.flipping && rnd() < 0.5) {
+    if (rotating && rnd() < 0.6) {
       dust.spawn(player.x + rr(-0.8, 0.8), player.y + rr(0.2, 1.4), ENT_Z - 0.4,
-        rr(-2, 0), rr(-1, 1), rr(0.15, 0.4), rr(0.3, 0.6), sandColor(0.4), 1);
+        rr(-2, 0), rr(-1, 1), rr(0.15, 0.4), rr(0.3, 0.6), sandColor(0.45), 1);
     }
     if (solid && player.vy <= 0 && player.y <= h + CFG.RIDE_OFFSET) {
       land(h);
+      if (player.dead) return;
     } else if (!solid && player.y < h - 14) {      // впав у прірву
       die('void');
       return;
     }
   }
 
-  // кут дошки: на землі — за нахилом, у повітрі — плавно вирівнюється
-  const targetAngle = player.grounded ? Math.atan(slopeAt(player.x)) : player.angle * 0.9;
-  player.angle += (targetAngle - player.angle) * Math.min(1, dt * 12);
+  // кут дошки: на землі — за схилом; у повітрі — за траєкторією (носом униз на спуску),
+  // тож приземлення на спуск трампліна саме по собі виходить рівним
+  let targetAngle;
+  if (player.grounded) targetAngle = Math.atan(slopeAt(player.x));
+  else {
+    const traj = clamp(Math.atan2(player.vy, vx) * 0.55, -0.85, 0.55);
+    const near = clamp(1 - (player.y - heightAt(player.x + vx * 0.15)) / 4, 0, 1);  // райдер готується до приземлення
+    targetAngle = lerp(traj, Math.atan(slopeAt(player.x + vx * 0.1)), near);
+  }
+  player.angle += (targetAngle - player.angle) * Math.min(1, dt * (player.grounded ? 14 : 4));
 
   // збір кристалів
   for (const c of active.coins) {
@@ -1784,14 +2186,23 @@ function updatePhysics(dt) {
       c.taken = true;
       player.coins++;
       player.score += 25;
-      sparkBurst(c.x, c.y + ENT_SURF, sky.coin, 12);
+      sparkBurst(c.x, c.y, sky.coin, 12);
     }
   }
-  // перешкоди
+  // перешкоди: удар — кінець заїзду, перестрибнув — бонус
   for (const r of active.rocks) {
-    if (r.hit) continue;
-    if (player.x + 0.72 > r.x - r.w * 0.5 && player.x - 0.72 < r.x + r.w * 0.5 &&
-        player.y < r.y + r.h * 0.88) {
+    if (r.hit || r.cleared) continue;
+    const left = r.x - r.w * 0.5, right = r.x + r.w * 0.5;
+    if (player.x - 0.5 > right) {
+      r.cleared = true;
+      if (!player.grounded || player.airTime > 0) {
+        player.score += 30;
+        sparkBurst(r.x, r.y + r.h + 0.3, sky.coin, 8);
+      }
+      continue;
+    }
+    if (player.x + 0.55 > left && player.x - 0.45 < right &&
+        player.y - CFG.RIDE_OFFSET < r.y + r.h * 0.9) {
       r.hit = true;
       die('rock');
       return;
@@ -1799,6 +2210,11 @@ function updatePhysics(dt) {
   }
 
   if (player.grounded) sandSpray(dt);
+  // світний шлейф під час прискорення
+  if (player.boost > 0 && rnd() < 0.8) {
+    dust.spawn(player.x - 0.6, player.y + rr(0.4, 1.4), ENT_Z - 0.2,
+      -rr(1, 3), rr(-0.5, 0.5), rr(0.18, 0.4), rr(0.4, 0.8), tmpColor.copy(sky.coin).multiplyScalar(0.6), 0);
+  }
   player.score += vx * dt * 0.55;                  // очки за пройдений шлях
 }
 
@@ -1847,7 +2263,7 @@ function updatePlayerVisual(dt) {
   const stretch = lerp(3.4, 1.1, clamp(sky.sunV * 1.4, 0, 1));
   const skew = -(sky.sunU - 0.5) * stretch * 2.2;
   player.shadow.visible = state !== GS.START && solidAt(player.x) && sky.shadow > 0.02;
-  player.shadow.position.set(player.x + skew, hs + ENT_SURF + 0.05, ENT_Z - 0.35);
+  player.shadow.position.set(player.x + skew, hs + 0.03, ENT_Z + 0.3);
   player.shadow.scale.set(stretch * (1 + air * 0.06), 1 + air * 0.04, 1);
   player.shadow.material.opacity = sky.shadow * (1 - air / 12) * 0.9;
 }
@@ -1874,6 +2290,8 @@ function updateUI(dt) {
   uiAcc = 0;
   EL.score.textContent = Math.floor(player.score).toLocaleString('en-US');
   EL.coins.textContent = '✦ ' + player.coins;
+  EL.speed.textContent = Math.round(player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1) / view.scale * 3.2) + ' km/h';
+  EL.speed.classList.toggle('hot', player.momentum > 2 * view.scale || player.boost > 0);
   EL.phase.textContent = sky.name;
   EL.multi.textContent = player.combo > 1 ? 'combo ×' + player.combo : 'score';
 }
@@ -1881,6 +2299,7 @@ function updateUI(dt) {
 /* --- головний цикл ----------------------------------------------- */
 let lastT = performance.now();
 let started = false;
+let camLead = 7;
 
 function tick(now) {
   requestAnimationFrame(tick);
@@ -1897,13 +2316,17 @@ function tick(now) {
   else if (state === GS.START) updateAttract(dt);
   else updateDying(dt);
 
-  // камера: тримає гравця трохи лівіше центру, по вертикалі — з інерцією
-  const camTargetY = player.y + view.visH * 0.12;
+  // камера: тримає гравця лівіше центру; на швидкості дивиться далі вперед,
+  // а в падінні трохи опускається, щоб було видно місце приземлення
+  const momRatio = clamp(player.momentum / (CFG.MOM_MAX * view.scale), 0, 1);
+  camLead += (view.lead * (1 + 0.35 * momRatio) - camLead) * (1 - Math.exp(-dt / 0.6));
+  const fallBias = player.grounded ? 0 : clamp(player.vy * 0.08, -3, 1.5);
+  const camTargetY = player.y + view.visH * 0.12 + fallBias;
   camY += (camTargetY - camY) * (1 - Math.exp(-dt / CFG.CAM_LAG));
   if (shake > 0) shake = Math.max(0, shake - dt * 1.6);
   const sh = shake * shake;
   camera.position.set(
-    player.x + view.lead + rr(-sh, sh) * 0.6,
+    player.x + camLead + rr(-sh, sh) * 0.6,
     camY + rr(-sh, sh) * 0.9,
     CFG.CAM_Z,
   );
