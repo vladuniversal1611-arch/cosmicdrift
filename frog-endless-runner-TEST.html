@@ -954,8 +954,8 @@ const MODULES=[
        'Тягне з усього ряду', 'Весь ряд + наступний ряд']},
   {id:'shield', name:'ЩИТ',               icon:'\u{1F6E1}', unlock:3,
    stat:[0, 0, 80, 55, 38, 25],               // in-run recharge, seconds (0 = none)
-   lv:['', '1 захист на старті забігу', 'Перезаряджається за 80 с', 'Перезаряджається за 55 с',
-       'Перезаряджається за 38 с', 'Перезаряджається за 25 с']},
+   lv:['', 'Подвійний тап — щит на 6 с, раз за забіг', 'Щит 6 с · заряд за 80 с', 'Щит 7 с · заряд за 55 с',
+       'Щит 8 с · заряд за 38 с', 'Щит 9 с · заряд за 25 с']},
   {id:'dash',   name:'РИВОК',             icon:'⚡',    unlock:5,
    stat:[0, 8, 6.5, 5, 4, 3],                 // cooldown, seconds
    lv:['', 'Ривок уперед, кулдаун 8 с', 'Кулдаун 6.5 с', 'Кулдаун 5 с', 'Кулдаун 4 с', 'Кулдаун 3 с, довший ривок']},
@@ -1033,6 +1033,10 @@ function dashCD(){return modLv('dash')?modStat('dash'):DASH_COOLDOWN}
 // Combo pays in coins too, not just score: a long clean streak doubles pickups
 // (+1 per pickup rather than ×2: multiplying on top of Fever inflated a run 2.5×)
 function comboCoinBonus(){return perfectCombo>=10?1:0}
+// Shield: a charge you spend on purpose (double tap), like a hoverboard —
+// it never saves you on its own.
+const SHIELD_DUR=[0,6,6,7,8,9];
+let shieldCharges=0, shieldT=0, graceT=0, lastTapT=0, lastTapX=0, lastTapY=0, shieldHintT=0;
 let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djCD=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
 function modStat(id){const m=MODULES.find(x=>x.id===id);return m?m.stat[modLv(id)]:0}
 function modDef(id){return MODULES.find(x=>x.id===id)}
@@ -2999,6 +3003,7 @@ canvas.addEventListener('touchend',e=>{
       if(paused){pauseTap(tx,ty2)}
       else if(hitPause(tx,ty2)){paused=true;sfxClick()}
       else if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      else playTap(tx,ty2);
     }
   }
 },{passive:false});
@@ -3048,6 +3053,7 @@ canvas.addEventListener('mouseup',e=>{
       if(paused){pauseTap(tx,ty2)}
       else if(hitPause(tx,ty2)){paused=true;sfxClick()}
       else if(modLv('dash')>0&&hitBtn(dashBtnC(),tx,ty2)){ if(dashReady)doDash() }
+      else playTap(tx,ty2);
     }
   }
 });
@@ -3060,6 +3066,7 @@ document.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft'||e.key==='a'){frogCont=clamp(frogCont-.5,0,2)}
     if(e.key==='ArrowRight'||e.key==='d'){frogCont=clamp(frogCont+.5,0,2)}
     if(e.key==='Shift'){e.preventDefault();tryLeap()}
+    if(e.key==='s'||e.key==='ArrowDown'){activateShield()}
     if(e.key===' '){e.preventDefault();tryLeap()}
   }else if(state===ST.MENU&&(e.key==='Enter'))startEndless();
   else if(state===ST.OVER){if(e.key==='Enter'||e.key===' ')startGame();if(e.key==='Escape')state=ST.MENU}
@@ -3273,7 +3280,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
@@ -3306,12 +3313,14 @@ function startGame(){
   frogCont=pads[0].gameX;visLane=pads[0].gameX;   // the opening no longer starts dead centre
   // Apply any boosters bought in the shop, then clear them (one run only)
   runX2Coins=!!shopBoost.x2;
-  if(shopBoost.shield)shield=true;
+  if(shopBoost.shield)shieldCharges++;
   if(shopBoost.magnet){magnet=true;magnetT=12;}
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;rollGoals();Prog.save();
-  if(modLv('shield')>0)shield=true;
+  shieldT=0;graceT=0;lastTapT=0;
+  shieldCharges+=modLv('shield')>0?1:0;
+  if(shieldCharges>0&&Prog.d.stats.runs<6)shieldHintT=3.2;
   dashReady=true;dashCooldown=0;
   shopBoost={shield:false,magnet:false,x2:false};
   startEaseT=0.7;
@@ -3325,10 +3334,16 @@ function startGame(){
 
 function die(){
   if(!alive)return;
+  // a dash or the moment after a revive carries you over a miss
+  if(dashActive||graceT>0){
+    const np=pads[getCurrentPadIdx()+1];if(np)frogCont=np.gameX;
+    return;
+  }
   if(shield){
-    shield=false;shFlash=.5;sfxPU();
+    // the active shield takes the hit and breaks
+    shield=false;shieldT=0;shFlash=.5;sfxPU();
     runShieldUsed=true;
-    if(modStat('shield')>0)shieldCD=modStat('shield');   // Shield module recharges it
+    if(modStat('shield')>0&&shieldCharges===0)shieldCD=modStat('shield');
     setEmo('😅',1.2);
     addFloat('🛡️',W/2,H*.4,'#4FC3F7',28,true);
     const nextPadIdx=getCurrentPadIdx()+1;
@@ -3497,8 +3512,8 @@ function onLand(idx){
       const amt=10;runCoins+=amt;
       addFloat('🎰 +'+amt+'🪙',lp.x,lp.y-50,'#FFD700',22);
     } else if(prize==='shield'){
-      shield=true;
-      addFloat('🎰 🛡️ ЩИТ!',lp.x,lp.y-50,'#4FC3F7',22);
+      shieldCharges++;
+      addFloat('🎰 🛡️ +1 ЩИТ',lp.x,lp.y-50,'#4FC3F7',22);
     } else if(prize==='magnet'){
       magnet=true;magnetT=8;
       addFloat('🎰 🧲 МАГНІТ!',lp.x,lp.y-50,'#F44336',22);
@@ -3730,7 +3745,7 @@ function onLand(idx){
 
   if(pad.pu){
     const t=pad.pu;pad.pu=null;sfxPU();
-    if(t==='shield'){shield=true;addFloat('🛡️ ЩИТ!',lp.x,lp.y-40,'#4FC3F7',22)}
+    if(t==='shield'){shieldCharges++;addFloat('🛡️ +1 ЩИТ',lp.x,lp.y-40,'#4FC3F7',22)}
     else if(t==='magnet'){magnet=true;magnetT=6;addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
   }
@@ -3749,13 +3764,27 @@ function onLand(idx){
   }
 }
 
+function activateShield(){
+  if(!alive||state!==ST.PLAY||shield||shieldCharges<=0)return false;
+  shieldCharges--;shield=true;shieldT=SHIELD_DUR[Math.max(1,modLv('shield'))]||6;
+  shFlash=.5;sfxPU();shieldHintT=0;
+  addFloat('🛡️ ЩИТ!',W/2,H*.4,'#4FC3F7',24,true);
+  if(navigator.vibrate)navigator.vibrate(25);
+  return true;
+}
+// Two quick taps anywhere in the play area (not on a button) raise the shield
+function playTap(x,y){
+  const now=performance.now();
+  if(now-lastTapT<330&&Math.hypot(x-lastTapX,y-lastTapY)<90){lastTapT=0;activateShield();return}
+  lastTapT=now;lastTapX=x;lastTapY=y;
+}
 function doDash(){
   if(!dashReady||!alive||state!==ST.PLAY) return;
   if(!modLv('dash'))return;
   dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=DASH_DURATION;dashShow=1;runDashes++;
   sfxDash();shake=.15;
   // Dash = temporary speed burst + invincibility (no seq teleport)
-  shield=true; // brief protection
+  // invincible only while the dash lasts (checked in die())
   boost=true;boostT=modLv('dash')>=5?1.1:.8; // speed burst
   addFloat('⚡ DASH!',W/2,H*.4,'#448AFF',22,true);
   // Dash trail particles
@@ -3907,8 +3936,15 @@ function updateGame(dt){
   // === MODULE RECHARGE ===
   if(!shield&&shieldCD>0){
     shieldCD-=dt;
-    if(shieldCD<=0){shieldCD=0;shield=true;sfxPU();addFloat('\u{1F6E1} ЩИТ ГОТОВИЙ',W/2,H*0.3,'#8FE9FF',16,true)}
+    if(shieldCD<=0){shieldCD=0;shieldCharges++;sfxPU();addFloat('\u{1F6E1} ЩИТ ГОТОВИЙ · 2× ТАП',W/2,H*0.3,'#8FE9FF',16,true)}
   }
+  if(shield&&shieldT>0){
+    shieldT-=dt;
+    if(shieldT<=0){shieldT=0;shield=false;
+      if(modStat('shield')>0&&shieldCharges===0)shieldCD=modStat('shield');}
+  }
+  if(graceT>0)graceT=Math.max(0,graceT-dt);
+  if(shieldHintT>0)shieldHintT=Math.max(0,shieldHintT-dt);
   if(djCD>0)djCD=Math.max(0,djCD-dt);
   // === DASH COOLDOWN ===
   if(!dashReady){
@@ -6489,14 +6525,8 @@ function drawActEffects(){
   // DARK — the difficulty is not seeing FAR (plates surface from the dark
   // closer than usual); the play area keeps full contrast. Only the sky and
   // the far field dim, from the top down, with a light edge vignette.
-  if(hasRule('dark')){
-    const g=cachedGrad('night2'+W+H,()=>{const gg=ctx.createLinearGradient(0,0,0,H*0.62);
-      gg.addColorStop(0,'rgba(3,4,20,.62)');gg.addColorStop(0.45,'rgba(3,4,20,.40)');gg.addColorStop(1,'rgba(3,4,20,0)');return gg});
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,H*0.62);
-    const v=cachedGrad('night3'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*0.62,H*0.30,W/2,H*0.62,H*0.80);
-      gg.addColorStop(0,'rgba(3,4,20,0)');gg.addColorStop(1,'rgba(3,4,20,.30)');return gg});
-    ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
-  }
+  // DARK — no overlay at all (it cost the play area its contrast); the rule
+  // is that far platforms surface from the haze later than usual.
 
   // WIND — streaks blowing in the current gust direction
   if(hasRule('wind')){
@@ -6804,7 +6834,8 @@ function drawComboBadge(x,y){
 function drawModuleColumn(x,y){
   const list=[];
   if(modLv('magnet'))list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:1});   // the module always pulls
-  if(modLv('shield'))list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield,prog:shield?1:(modStat('shield')>0?1-shieldCD/modStat('shield'):0)});
+  if(modLv('shield')||shieldCharges>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldCharges>0,
+    prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldCharges>0?1:(shieldCD>0?1-shieldCD/modStat('shield'):0),active:shield,n:shieldCharges});
   if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
   const r=19;
   for(const m of list){
@@ -6818,7 +6849,11 @@ function drawModuleColumn(x,y){
     ctx.fillText(m.ico,x+r,cy+1);}
     ctx.restore();
     // recharge sweep for the ones that come back
-    if(!m.on&&m.prog>0&&m.prog<1){
+    if(m.active){
+      // shield up: a bright ring that drains with the time left
+      ctx.save();ctx.strokeStyle='#BFF6FF';ctx.shadowColor=m.col;ctx.shadowBlur=10;ctx.lineWidth=3;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(x+r,cy,r+3,-Math.PI/2,-Math.PI/2+Math.PI*2*m.prog);ctx.stroke();ctx.restore();
+    } else if(!m.on&&m.prog>0&&m.prog<1){
       ctx.save();ctx.strokeStyle=m.col;ctx.lineWidth=2.4;ctx.lineCap='round';
       ctx.beginPath();ctx.arc(x+r,cy,r+3,-Math.PI/2,-Math.PI/2+Math.PI*2*m.prog);ctx.stroke();ctx.restore();
     }
@@ -7009,7 +7044,16 @@ function drawHUD(){
 
   // --- bottom left: pause ---
   if(state===ST.PLAY&&alive)drawPauseBtn();
-  if(boost)uiChipText(L+54,pauseBtnC().y-12,'⚡ '+Math.ceil(boostT)+'с',0,null);
+  {let cx=L+54;const cy=pauseBtnC().y-12;
+   if(shield)cx+=uiChipText(cx,cy,'🛡 '+Math.ceil(shieldT)+'с',0,null)+6;
+   if(boost)uiChipText(cx,cy,'⚡ '+Math.ceil(boostT)+'с',0,null);}
+  // teach the gesture while a charge is waiting
+  if(shieldHintT>0&&shieldCharges>0&&!shield&&alive){
+    ctx.save();ctx.globalAlpha=Math.min(1,shieldHintT)*(0.75+0.25*Math.sin(gt*5));
+    ctx.font=UI.fChip;const t='🛡 2× ТАП — ЩИТ',w=ctx.measureText(t).width+22;
+    uiPill(W/2-w/2,H*0.64,w,26,0);ctx.fillStyle=UI.text;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,W/2,H*0.64+13.5);
+    ctx.restore();
+  }
 
   if(dist<3&&alive&&introT<=0){
     const ha=Math.max(0,1-dist/3)*(0.5+Math.sin(gt*2)*.2);
@@ -7885,7 +7929,7 @@ function doRevive(){
   coins-=50;__LS.setItem('fCoins',''+coins);
   reviveUsed=true;reviveShow=1;
   alive=true;falling=false;fallT=0;
-  shield=true; // gift shield on revive
+  graceT=2.5; // a moment to find your feet after a revive
   // Place frog on next safe pad
   const ci=getCurrentPadIdx();
   const ni=Math.min(ci+1,pads.length-1);
