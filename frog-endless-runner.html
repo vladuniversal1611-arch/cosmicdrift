@@ -969,7 +969,11 @@ function progDefaults(){
 const Prog={
   d:null,
   load(){
-    let raw=null;try{raw=JSON.parse(localStorage.getItem(PROG_KEY)||'null')}catch(e){}
+    // If the save exists but cannot be read right now, play from memory and
+    // never write: overwriting it with defaults would wipe a player's progress.
+    let raw=null;this.readOnly=false;
+    try{const txt=localStorage.getItem(PROG_KEY);raw=JSON.parse(txt||'null');if(txt&&(!raw||typeof raw!=='object'))this.readOnly=true}
+    catch(e){this.readOnly=true}
     const def=progDefaults();
     this.d=raw&&typeof raw==='object'?Object.assign(def,raw):def;
     for(const k of ['mods','frag','chests','week','world','stats','story'])
@@ -979,7 +983,7 @@ const Prog={
     try{rollGoals();weekSync();storyMigrate()}catch(e){}
     this.save();
   },
-  save(){try{localStorage.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
+  save(){if(this.readOnly)return;try{localStorage.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
   // Skins used to BE the progression (their colour decided your perk). That
   // system is gone, so anything a player spent on it comes back as coins, and
   // a returning player gets a chest so the new systems have something in them.
