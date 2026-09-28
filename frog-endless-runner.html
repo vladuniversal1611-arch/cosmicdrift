@@ -2187,6 +2187,9 @@ function getUnlockedTypes(d){
 // ==========================================================================
 const LANE_L=0.35, LANE_C=1.00, LANE_R=1.65;   // legacy anchors for zoneToX()
 const ROUTE_SPACING=3.85;                       // baseline depth between platforms (more breathing room)
+// The chunky painted plates read as a pile at the old spacing, so every gap
+// (route and opening) is stretched by this much.
+const SPACING_K=1.25;
 const X_MIN=0.12, X_MAX=1.88;                   // playable band
 let routeQueue=[];          // pending steps of the current section
 // LENGTH RHYTHMS — like Morse: recognisable little sequences of long slabs
@@ -2516,7 +2519,7 @@ function getSpacing(diff, phase){
   // is a real jump, close enough that the route never reads as empty.
   const base=lerp(ROUTE_SPACING+0.25, ROUTE_SPACING-0.35, diff);   // 3.75 -> 3.15
   const mod=phase==='recovery'?1.13:phase==='easy'?1.04:phase==='hard'?0.93:1.0;
-  return clamp(base*mod+rand(-0.12,0.12), 3.0, 4.2);
+  return clamp(base*mod+rand(-0.12,0.12), 3.0, 4.2)*SPACING_K;
 }
 
 // === WIDTH ===
@@ -2652,7 +2655,7 @@ function ensurePads(){
     // --- Scripted opening: the first jumps are authored, never random ---
     if(pads.length<OPENING.length){
       const st=OPENING[pads.length];
-      const y=prevY+(pads.length===0?0:st.gap);
+      const y=prevY+(pads.length===0?0:st.gap*SPACING_K);
       const gx=clamp(1.0+st.x,0.1,1.9);
       padPositions.push(y);
       const op=makePad(gx,st.t,0);op.elev=0;
@@ -3236,7 +3239,7 @@ function startGame(){
   let oy=0;
   for(let i=0;i<OPENING.length;i++){
     const st=OPENING[i];
-    oy+=(i===0?0:st.gap);
+    oy+=(i===0?0:st.gap*SPACING_K);
     padPositions.push(oy);
     const op=makePad(clamp(1.0+st.x,0.1,1.9), st.t, 0);
     op.elev=0;
@@ -5771,11 +5774,15 @@ function drawGame(){
     // this is 1 anyway. Long slabs have their own near-end dissolve.
     const passFade=pad.len>0?1:clamp((rz-1.25)/(VIEW_Z-0.55-1.25),0,1);
     if(passFade<=0.01) continue;
+    // The farthest rows are tiny and pile up at the horizon; they fade in a
+    // little nearer instead, so the far field stays readable.
+    const farFade=clamp((VIEW_AHEAD*0.90-rz)/(VIEW_AHEAD*0.14),0,1);
+    if(farFade<=0.01) continue;
     // It sinks into the dark rather than turning to glass: the plate darkens
     // toward the ground colour while it is still solid, and only the last
     // stretch fades out. A see-through platform is exactly what the brief bans.
     const sinkFog=(1-passFade)*0.85;
-    ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade*clamp(passFade*2.2,0,1);
+    ctx.globalAlpha=depthAlpha*breakFlicker*disappearFade*clamp(passFade*2.2,0,1)*farFade;
     // Frame the plate he is going to land on, not the one sliding away behind.
     if(i===aimIdx&&!(pad.len>0)){
       const hwI=120*p.s*WSC*(pad.width||1)*1.2;
