@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1b1033">
+<title>Dune Drift — endless sandboarding</title>
+<style>
+  /* ============================================================
+     UI: мінімалістичний, тиха елегантна типографіка
+     ============================================================ */
+  :root{
+    --ink: rgba(255,255,255,.92);
+    --ink-soft: rgba(255,255,255,.58);
+    --shadow: 0 2px 18px rgba(0,0,0,.35);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden; background:#10131c;
+    font-family: "Avenir Next","Helvetica Neue",-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    user-select:none; -webkit-user-select:none; touch-action:none;
+  }
+  #c{ display:block; width:100%; height:100%; }
+
+  /* Шар інтерфейсу поверх канви */
+  #ui{ position:fixed; inset:0; pointer-events:none; display:flex; flex-direction:column; }
+
+  /* --- HUD --- */
+  #hud{
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px 0 20px;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    opacity:0; transition:opacity .7s ease;
+  }
+  #hud.on{ opacity:1; }
+  .score{
+    font-size:34px; font-weight:200; letter-spacing:.06em;
+    text-shadow:var(--shadow); font-variant-numeric:tabular-nums;
+  }
+  .sub{
+    margin-top:4px; font-size:11px; font-weight:400; letter-spacing:.28em;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  #right{ text-align:right; }
+  #coins{ font-size:17px; font-weight:300; letter-spacing:.1em; text-shadow:var(--shadow); }
+  #phase{ margin-top:6px; font-size:10px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-soft); }
+
+  /* --- центральні спливаючі підписи трюків --- */
+  #trick{
+    position:absolute; left:0; right:0; top:32%; text-align:center;
+    font-size:22px; font-weight:300; letter-spacing:.24em; text-transform:uppercase;
+    text-shadow:var(--shadow); opacity:0; transform:translateY(8px);
+    transition:opacity .25s ease, transform .5s cubic-bezier(.2,.8,.2,1);
+  }
+  #trick.show{ opacity:1; transform:translateY(-6px); }
+
+  /* --- екрани --- */
+  .screen{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:32px; gap:10px;
+    background:radial-gradient(ellipse at 50% 52%, rgba(8,10,20,.10) 0%, rgba(6,8,16,.42) 100%);
+    opacity:0; visibility:hidden; transition:opacity .8s ease, visibility .8s;
+  }
+  .screen.on{ opacity:1; visibility:visible; }
+  .title{
+    font-size:clamp(38px,12vw,74px); font-weight:100; letter-spacing:.22em;
+    text-transform:uppercase; line-height:1.05; text-shadow:0 4px 40px rgba(0,0,0,.5);
+  }
+  .tag{ font-size:11px; letter-spacing:.42em; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; }
+  .hint{
+    margin-top:34px; font-size:13px; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--ink); animation:breathe 3.4s ease-in-out infinite;
+  }
+  @keyframes breathe{ 0%,100%{opacity:.35} 50%{opacity:1} }
+  .big{ font-size:clamp(44px,15vw,88px); font-weight:100; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+  .row{ display:flex; gap:26px; margin-top:12px; color:var(--ink-soft); font-size:11px; letter-spacing:.24em; text-transform:uppercase; }
+  .row b{ display:block; margin-top:5px; font-size:19px; font-weight:300; letter-spacing:.06em; color:var(--ink); }
+  .legend{ margin-top:30px; font-size:11px; line-height:2; letter-spacing:.14em; color:var(--ink-soft); }
+  #loading{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:#10131c; color:var(--ink-soft); font-size:11px; letter-spacing:.4em;
+    text-transform:uppercase; transition:opacity .6s ease; z-index:5;
+  }
+  #loading.off{ opacity:0; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="ui">
+  <!-- HUD -->
+  <div id="hud">
+    <div>
+      <div class="score" id="score">0</div>
+      <div class="sub" id="multi">score</div>
+    </div>
+    <div id="right">
+      <div id="coins">✦ 0</div>
+      <div id="phase">dawn</div>
+    </div>
+  </div>
+
+  <!-- спливаючі підписи трюків -->
+  <div id="trick"></div>
+
+  <!-- Екран старту -->
+  <div class="screen on" id="start">
+    <div class="title">Dune<br>Drift</div>
+    <div class="tag">an endless sand odyssey</div>
+    <div class="hint">Tap to play</div>
+    <div class="legend">
+      tap — jump<br>
+      hold in the air — backflip<br>
+      land clean for a boost
+    </div>
+  </div>
+
+  <!-- Екран Game Over -->
+  <div class="screen" id="over">
+    <div class="tag">the dunes rest</div>
+    <div class="big" id="finalScore">0</div>
+    <div class="row">
+      <div>best<b id="bestScore">0</b></div>
+      <div>sand<b id="finalDist">0 m</b></div>
+      <div>gems<b id="finalCoins">0</b></div>
+    </div>
+    <div class="hint">Tap to retry</div>
+  </div>
+</div>
+
+<div id="loading">loading the desert…</div>
+
+<!-- Three.js r160 (UMD) через cdnjs — жодних інших зовнішніх ресурсів -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script>
+"use strict";
+/* ==================================================================
+   DUNE DRIFT
+   Нескінченний ранер у стилі Alto's Odyssey.
+   Уся геометрія та всі текстури генеруються кодом, зовнішніх ассетів нема.
+
+   Структура файлу:
+     1. Константи та математичні утиліти
+     2. Палітри та цикл дня/ночі
+     3. Процедурні canvas-текстури
+     4. Рендерер, сцена, камера, світло
+     5. Небо (shader-градієнт + сонце/місяць + зорі + хмари)
+     6. Паралакс-шари силуетів (гори, дюни, руїни, повітряні кулі)
+     7. Терен: процедурна генерація дюн + меш-стрічка + запити висоти
+     8. Об'єкти трасою: кристали, кам'яні стіни
+     9. Гравець (силуетний райдер) та фізика
+    10. Частинки: пісок, пилок/світлячки, метеори, іскри
+    11. Пост-обробка: bloom + вінʼєтка
+    12. Ігровий цикл, введення, рахунок, UI
+   ================================================================== */
+
+/* ------------------------------------------------------------------
+   1. КОНСТАНТИ ТА УТИЛІТИ
+   ------------------------------------------------------------------ */
+const TAU = Math.PI * 2;
+
+const CFG = {
+  // Фізика
+  GRAVITY:        58,      // прискорення вільного падіння (юніти/с²)
+  JUMP:           22.0,    // імпульс стрибка
+  SPEED_START:    15,      // початкова швидкість
+  SPEED_MAX:      31,      // максимальна «природна» швидкість
+  SPEED_RAMP:     3200,    // через скільки метрів досягається максимум
+  SLOPE_ACCEL:    24,      // як сильно схил розганяє/гальмує
+  FLIP_SPEED:     10.2,    // рад/с під час сальто (повний оберт ≈ 0.62 с)
+  FLIP_TOLERANCE: 1.12,    // допустима помилка кута при приземленні (рад)
+  BOOST_TIME:     1.7,     // тривалість прискорення після трюку
+  BOOST_MULT:     1.38,    // множник швидкості під час прискорення
+  RIDE_OFFSET:    0.42,    // висота дошки над поверхнею
+
+  // Терен
+  DX:             0.5,     // крок семплу поверхні
+  BAND:           7.0,     // напівглибина верхньої смуги піску по z
+
+  // Камера
+  CAM_Z:          36,      // відстань камери
+  CAM_LEAD:       7.2,     // на скільки камера дивиться вперед
+  CAM_LAG:        0.30,    // час згладжування камери по вертикалі (с)
+
+  // Цикл дня: кожна фаза ~60с, 5 фаз = 5 хвилин на повне коло
+  PHASE_SEC:      60,
+};
+
+const clamp  = (v, a, b) => v < a ? a : (v > b ? b : v);
+const lerp   = (a, b, t) => a + (b - a) * t;
+const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+const smoothBand = (a, b, x) => smooth((x - a) / (b - a));
+const wrapPi = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+
+/** Детермінований ГПВЧ (mulberry32) — щоб генерація була керованою. */
+function makeRandom(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+let rnd = makeRandom((Math.random() * 1e9) | 0);
+const rr  = (a, b) => a + (b - a) * rnd();          // випадкове в діапазоні
+const ri  = (a, b) => Math.floor(rr(a, b + 1));     // випадкове ціле
+const pick = arr => arr[Math.floor(rnd() * arr.length)];
+
+/** Плавний 1D value-noise — основа для силуетів дальніх шарів. */
+function noise1(x, seed) {
+  const i = Math.floor(x), f = x - i;
+  const h = n => {
+    let t = Math.imul((n + seed) ^ 0x9E3779B9, 0x85EBCA6B);
+    t ^= t >>> 13; t = Math.imul(t, 0xC2B2AE35);
+    return ((t ^ (t >>> 16)) >>> 0) / 4294967296;
+  };
+  return lerp(h(i), h(i + 1), smooth(f));
+}
+/** Фрактальний шум (кілька октав) — м'які силуети гір. */
+function fbm1(x, seed, oct = 4) {
+  let a = 0.5, f = 1, sum = 0, norm = 0;
+  for (let i = 0; i < oct; i++) { sum += a * noise1(x * f, seed + i * 97); norm += a; a *= 0.5; f *= 2.07; }
+  return sum / norm;
+}
+
+/* ------------------------------------------------------------------
+   2. ПАЛІТРИ ТА ЦИКЛ ДНЯ/НОЧІ
+   Небо — головний герой. П'ять фаз плавно переходять одна в одну,
+   кожна ~60 секунд: світанок → день → захід → сутінки → ніч → ...
+   ------------------------------------------------------------------ */
+const PALETTES = [
+  { // 0 — СВІТАНОК: персиковий → рожевий → блакитний
+    name: 'dawn',
+    skyBottom: 0xffd0a6, skyLower: 0xffb2b4, skyUpper: 0xe9a6c6, skyTop: 0x9dc3e6,
+    sunColor: 0xfff2d6, glowColor: 0xff9a68, sunU: 0.80, sunV: 0.055, sunSize: 0.052,
+    discAlpha: 1.0, glowStrength: 0.70, glowFall: 5.2,
+    cloud: 0xffd9d2, cloudI: 0.30, starI: 0.05,
+    fog: 0xfec0ac, fogNear: 34, fogFar: 205,
+    light: 0xffd0a0, lightI: 2.1, hemiSky: 0xffc9d8, hemiGround: 0xc98d7a, hemiI: 1.5,
+    sand: 0xf0bb90, rider: 0x6d4257, rock: 0x8a5a63, coin: 0xfff0b0,
+    L0: 0xf7cbc6, L1: 0xeaadae, L2: 0xca8d9c, L3: 0x93687c,
+    bloom: 0.80, shadow: 0.30,
+  },
+  { // 1 — ДЕНЬ: бірюзовий → світло-жовтий
+    name: 'day',
+    skyBottom: 0xfdf1c4, skyLower: 0xc6e8da, skyUpper: 0x74cbcb, skyTop: 0x2f9fbd,
+    sunColor: 0xffffff, glowColor: 0xfff6cc, sunU: 0.64, sunV: 0.62, sunSize: 0.030,
+    discAlpha: 1.0, glowStrength: 0.42, glowFall: 7.5,
+    cloud: 0xffffff, cloudI: 0.42, starI: 0.0,
+    fog: 0xd2ece3, fogNear: 40, fogFar: 235,
+    light: 0xfff6e0, lightI: 2.5, hemiSky: 0xbfe8e4, hemiGround: 0xd8b98a, hemiI: 1.7,
+    sand: 0xf5dfab, rider: 0x3e6b72, rock: 0x4f7b7e, coin: 0xfff4c4,
+    L0: 0xc8e4dc, L1: 0xa2d2cc, L2: 0x6fb2b0, L3: 0x3f8187,
+    bloom: 0.55, shadow: 0.20,
+  },
+  { // 2 — ЗАХІД: помаранчевий → малиновий → фіолетовий
+    name: 'sunset',
+    skyBottom: 0xffb058, skyLower: 0xff6d55, skyUpper: 0xd1417f, skyTop: 0x6a2a8d,
+    sunColor: 0xfff0c8, glowColor: 0xff7638, sunU: 0.20, sunV: 0.065, sunSize: 0.058,
+    discAlpha: 1.0, glowStrength: 1.05, glowFall: 4.2,
+    cloud: 0xffb49a, cloudI: 0.34, starI: 0.10,
+    fog: 0xfd8a68, fogNear: 30, fogFar: 195,
+    light: 0xffa464, lightI: 2.3, hemiSky: 0xff9a86, hemiGround: 0x8c4a60, hemiI: 1.4,
+    sand: 0xe89468, rider: 0x4a2646, rock: 0x6b3352, coin: 0xffe9a8,
+    L0: 0xffa87c, L1: 0xe9766c, L2: 0xa84670, L3: 0x5e2b5d,
+    bloom: 1.05, shadow: 0.34,
+  },
+  { // 3 — СУТІНКИ: фіолетовий → темно-синій
+    name: 'dusk',
+    skyBottom: 0x8e4d88, skyLower: 0x5c3b81, skyUpper: 0x33306c, skyTop: 0x1a2252,
+    sunColor: 0xffd0b0, glowColor: 0xa95f92, sunU: 0.12, sunV: -0.04, sunSize: 0.040,
+    discAlpha: 0.0, glowStrength: 0.62, glowFall: 5.0,
+    cloud: 0x8f5f95, cloudI: 0.22, starI: 0.40,
+    fog: 0x4c3b70, fogNear: 28, fogFar: 180,
+    light: 0xa878c0, lightI: 1.5, hemiSky: 0x6b4a86, hemiGround: 0x3a2c58, hemiI: 1.2,
+    sand: 0x93789c, rider: 0x181533, rock: 0x2c2450, coin: 0xffe7b4,
+    L0: 0x6e4d82, L1: 0x503c70, L2: 0x372d5c, L3: 0x231f44,
+    bloom: 1.10, shadow: 0.16,
+  },
+  { // 4 — НІЧ: темно-синій → індиго, зорі та метеори
+    name: 'night',
+    skyBottom: 0x1b2554, skyLower: 0x141b46, skyUpper: 0x0e1337, skyTop: 0x070a22,
+    sunColor: 0xe4ecff, glowColor: 0x6d86c8, sunU: 0.72, sunV: 0.52, sunSize: 0.034,
+    discAlpha: 1.0, glowStrength: 0.50, glowFall: 6.4,
+    cloud: 0x2b3a70, cloudI: 0.20, starI: 1.0,
+    fog: 0x151c42, fogNear: 26, fogFar: 175,
+    light: 0x9db4e8, lightI: 1.15, hemiSky: 0x2a3b74, hemiGround: 0x14183a, hemiI: 1.0,
+    sand: 0x5a6698, rider: 0x080b1d, rock: 0x141a38, coin: 0xcfe6ff,
+    L0: 0x2b3562, L1: 0x222b52, L2: 0x182040, L3: 0x10152e,
+    bloom: 1.25, shadow: 0.10,
+  },
+];
+
+const COLOR_KEYS = ['skyBottom','skyLower','skyUpper','skyTop','sunColor','glowColor','cloud',
+                    'fog','light','hemiSky','hemiGround','sand','rider','rock','coin',
+                    'L0','L1','L2','L3'];
+const NUM_KEYS   = ['sunU','sunV','sunSize','discAlpha','glowStrength','glowFall',
+                    'cloudI','starI','fogNear','fogFar','lightI','hemiI','bloom','shadow'];
+
+// Перетворюємо hex у THREE.Color один раз (THREE сам переводить sRGB → linear)
+const PAL = PALETTES.map(p => {
+  const o = { name: p.name };
+  for (const k of COLOR_KEYS) o[k] = new THREE.Color(p[k]);
+  for (const k of NUM_KEYS)   o[k] = p[k];
+  return o;
+});
+
+/** Поточна (інтерполірована) палітра — живий обʼєкт, який читає вся сцена. */
+const sky = { name: 'dawn', phase: 0, f: 0 };
+for (const k of COLOR_KEYS) sky[k] = new THREE.Color();
+for (const k of NUM_KEYS)   sky[k] = 0;
+
+let cycleTime = CFG.PHASE_SEC * 0.25;   // стартуємо посеред світанку
+
+/** Оновлення палітри: плавний перехід із «затримкою» на кожній фазі. */
+function updateDayCycle(dt) {
+  cycleTime += dt;
+  const total = CFG.PHASE_SEC * PAL.length;
+  const t = (cycleTime / CFG.PHASE_SEC) % PAL.length;
+  const i = Math.floor(t);
+  const raw = t - i;
+  // smoothstep робить «полку» на кожній фазі, а перехід — плавним
+  const f = smooth((raw - 0.16) / 0.74);
+  const a = PAL[i], b = PAL[(i + 1) % PAL.length];
+
+  for (const k of COLOR_KEYS) sky[k].copy(a[k]).lerp(b[k], f);
+  for (const k of NUM_KEYS)   sky[k] = lerp(a[k], b[k], f);
+  sky.phase = i; sky.f = f;
+  sky.name = f < 0.5 ? a.name : b.name;
+  sky.cycle = (cycleTime % total) / total;
+}
+
+/* ------------------------------------------------------------------
+   3. ПРОЦЕДУРНІ CANVAS-ТЕКСТУРИ (жодних файлів)
+   ------------------------------------------------------------------ */
+/** М'яка світна пляма — для частинок, кристалів, іскор. */
+function makeGlowTexture(size = 128, hardness = 0.16) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(size / 2, size / 2, size * hardness, size / 2, size / 2, size / 2);
+  grad.addColorStop(0.0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.75, 'rgba(255,255,255,0.10)');
+  grad.addColorStop(1.0, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+/** Розмита пляма тіні під райдером. */
+function makeShadowTexture(size = 128) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0.0, 'rgba(0,0,0,0.85)');
+  grad.addColorStop(0.45, 'rgba(0,0,0,0.42)');
+  grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const TEX = { glow: makeGlowTexture(), soft: makeGlowTexture(128, 0.0), shadow: makeShadowTexture() };
+
+/* ------------------------------------------------------------------
+   4. РЕНДЕРЕР, СЦЕНА, КАМЕРА, СВІТЛО
+   ------------------------------------------------------------------ */
+const canvas = document.getElementById('c');
+const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent);
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
+} catch (e) {
+  document.getElementById('loading').textContent = 'WebGL is not available';
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.6 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xffffff, CFG.CAM_Z, 200);   // колір туману = колір неба
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 2000);
+camera.position.set(0, 6, CFG.CAM_Z);
+scene.add(camera);                                     // щоб діти камери (небо) рендерились
+
+// Одне сонце/місяць + м'яке небесне підсвічування
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+scene.add(sunLight);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x804030, 1.5);
+scene.add(hemi);
+
+/** Параметри видимої області — адаптуються під портрет/ландшафт. */
+const view = { w: 1, h: 1, aspect: 1, visW: 36, visH: 36, scale: 1, lead: CFG.CAM_LEAD };
+const RESIZE_HOOKS = [];
+
+function onResize() {
+  const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+  view.w = w; view.h = h; view.aspect = w / h;
+
+  // Підбираємо поле зору так, щоб і в портреті кадр залишався гарним:
+  // спершу бажана ширина, далі обмежуємо вертикаль, щоб райдер не був крихтою.
+  let visW = 20 + 16 * view.aspect;
+  let visH = visW / view.aspect;
+  if (visH > 46) { visH = 46; visW = visH * view.aspect; }
+  if (visH < 24) { visH = 24; visW = visH * view.aspect; }
+  view.visW = visW; view.visH = visH;
+  view.scale = clamp(visW / 36, 0.70, 1.12);          // вузький кадр → спокійніша швидкість
+  view.lead  = visW * 0.19;
+
+  camera.aspect = view.aspect;
+  camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(visH * 0.5 / CFG.CAM_Z));
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(w, h, false);
+  for (const fn of RESIZE_HOOKS) fn(w, h);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => setTimeout(onResize, 120));
+
+/* ------------------------------------------------------------------
+   5. НЕБО — shader-градієнт, сонце/місяць, гало, зорі, хмарні смуги.
+   Площина живе як дитина камери, тож завжди заповнює кадр.
+   ------------------------------------------------------------------ */
+const SKY_DIST = 900;
+
+const skyUniforms = {
+  uBottom:  { value: new THREE.Color() },
+  uLower:   { value: new THREE.Color() },
+  uUpper:   { value: new THREE.Color() },
+  uTop:     { value: new THREE.Color() },
+  uSunColor:{ value: new THREE.Color() },
+  uGlowColor:{ value: new THREE.Color() },
+  uCloudColor:{ value: new THREE.Color() },
+  uSun:     { value: new THREE.Vector2(0.8, 0.2) },
+  uAspect:  { value: 1 },
+  uSunSize: { value: 0.05 },
+  uDiscAlpha:{ value: 1 },
+  uGlowStrength:{ value: 1 },
+  uGlowFall:{ value: 5 },
+  uCloudI:  { value: 0.3 },
+  uStarI:   { value: 0 },
+  uTime:    { value: 0 },
+  uHorizon: { value: 0.45 },
+};
+
+const skyMat = new THREE.ShaderMaterial({
+  uniforms: skyUniforms,
+  depthWrite: false, depthTest: false, fog: false, side: THREE.DoubleSide,
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+    uniform vec3 uBottom,uLower,uUpper,uTop,uSunColor,uGlowColor,uCloudColor;
+    uniform vec2 uSun;
+    uniform float uAspect,uSunSize,uDiscAlpha,uGlowStrength,uGlowFall,uCloudI,uStarI,uTime,uHorizon;
+
+    float hash21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
+    float vnoise(vec2 p){
+      vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+      float a=hash21(i), b=hash21(i+vec2(1.0,0.0)), c=hash21(i+vec2(0.0,1.0)), d=hash21(i+vec2(1.0,1.0));
+      return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+    }
+    float fbm(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=2.03; a*=0.5; } return s; }
+
+    void main(){
+      vec2 uv = vUv;
+
+      /* g — висота над лінією горизонту (0 = горизонт, 1 = зеніт).
+         Завдяки цьому градієнт і сонце не тонуть за дюнами. */
+      float g = clamp((uv.y - uHorizon) / max(0.12, 1.0 - uHorizon), 0.0, 1.0);
+
+      /* вертикальний градієнт із чотирьох кольорів палітри */
+      vec3 col = mix(uBottom, uLower, smoothstep(0.00, 0.26, g));
+      col = mix(col, uUpper, smoothstep(0.22, 0.60, g));
+      col = mix(col, uTop,   smoothstep(0.56, 0.99, g));
+
+      /* дуже м'які хмарні смуги — повільно пливуть */
+      float cl = fbm(vec2(uv.x*uAspect*2.3 + uTime*0.010, g*5.0 - uTime*0.0025));
+      float band = smoothstep(0.50, 0.88, cl) * smoothstep(0.02, 0.26, g) * smoothstep(0.95, 0.40, g);
+      col = mix(col, uCloudColor, band * uCloudI);
+
+      /* зорі (вночі) з легким мерехтінням, згасають біля горизонту */
+      float horizon = smoothstep(0.0, 0.30, g);
+      if (uStarI > 0.002) {
+        vec2 g = vec2(uv.x*uAspect, uv.y) * 115.0;
+        vec2 cell = floor(g), f = fract(g);
+        float h = hash21(cell);
+        if (h > 0.905) {
+          vec2 sp = vec2(hash21(cell + 11.3), hash21(cell + 27.7));
+          float mag = (h - 0.905) / 0.095;
+          float tw  = 0.55 + 0.45 * sin(uTime*1.7 + h*60.0);
+          float s   = smoothstep(0.17, 0.0, length(f - sp)) * mag * tw;
+          col += vec3(1.0, 0.97, 0.92) * s * uStarI * 2.4 * horizon;
+        }
+      }
+
+      /* сонце або місяць: диск + широке гало (адитивно, щоб гарно блумило) */
+      vec2 dv = vec2((uv.x - uSun.x) * uAspect, uv.y - uSun.y);
+      float d = length(dv);
+      col += uGlowColor * exp(-d * uGlowFall) * uGlowStrength;
+      float disc = smoothstep(uSunSize, uSunSize * 0.66, d);
+      col += uSunColor * disc * uDiscAlpha * 2.6;
+
+      /* теплий відблиск на горизонті з боку сонця */
+      col += uGlowColor * uGlowStrength * 0.34
+             * exp(-max(0.0, g) * 5.5)
+             * smoothstep(0.9, 0.02, abs(uv.x - uSun.x));
+
+      gl_FragColor = vec4(col, 1.0);
+      #include <colorspace_fragment>
+    }
+  `,
+});
+
+const skyMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), skyMat);
+skyMesh.position.z = -SKY_DIST;
+skyMesh.frustumCulled = false;
+skyMesh.renderOrder = -1000;
+camera.add(skyMesh);
+
+RESIZE_HOOKS.push(() => {
+  const hh = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5) * SKY_DIST;
+  skyMesh.scale.set(hh * view.aspect * 1.04, hh * 1.04, 1);
+  skyUniforms.uAspect.value = view.aspect;
+});
+
+/** Переносимо поточну палітру в юніформи неба, туман і світло. */
+function applySkyPalette(time) {
+  skyUniforms.uBottom.value.copy(sky.skyBottom);
+  skyUniforms.uLower.value.copy(sky.skyLower);
+  skyUniforms.uUpper.value.copy(sky.skyUpper);
+  skyUniforms.uTop.value.copy(sky.skyTop);
+  skyUniforms.uSunColor.value.copy(sky.sunColor);
+  skyUniforms.uGlowColor.value.copy(sky.glowColor);
+  skyUniforms.uCloudColor.value.copy(sky.cloud);
+  const hz = skyUniforms.uHorizon.value;
+  skyUniforms.uSun.value.set(sky.sunU, hz + sky.sunV * (1 - hz));
+  skyUniforms.uSunSize.value = sky.sunSize;
+  skyUniforms.uDiscAlpha.value = sky.discAlpha;
+  skyUniforms.uGlowStrength.value = sky.glowStrength;
+  skyUniforms.uGlowFall.value = sky.glowFall;
+  skyUniforms.uCloudI.value = sky.cloudI;
+  skyUniforms.uStarI.value = sky.starI;
+  skyUniforms.uTime.value = time;
+
+  // Туман кольору неба біля горизонту — саме він створює «мрійливу» глибину
+  scene.fog.color.copy(sky.fog);
+  scene.fog.near = sky.fogNear;
+  scene.fog.far = sky.fogFar;
+
+  // Сонце як directional light: кут і колір ідуть за позицією диска в небі
+  sunLight.color.copy(sky.light);
+  sunLight.intensity = sky.lightI;
+  hemi.color.copy(sky.hemiSky);
+  hemi.groundColor.copy(sky.hemiGround);
+  hemi.intensity = sky.hemiI;
+}
+
+/* ------------------------------------------------------------------
+   6. ПАРАЛАКС-ШАРИ: 4 рівні пласких силуетів.
+   Дальні — світліші й розмитіші туманом, ближні — насиченіші.
+   Кожен шар рухається зі своєю швидкістю (factor): 0 = стоїть із гравцем,
+   1 = мчить разом із ним.
+   ------------------------------------------------------------------ */
+/** Пласка «стрічка-силует» довільної висотної функції. */
+class SilhouetteBand {
+  constructor({ factor, z, amp, baseY, freq, seed, ridged, samples = 190, colorKey }) {
+    Object.assign(this, { factor, z, amp, baseY, freq, seed, ridged, colorKey });
+    this.n = samples;
+    this.material = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+    this.decorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+    // ширина, яку треба покрити на цій глибині (перспектива розширює кадр)
+    this.depthScale = (CFG.CAM_Z - z) / CFG.CAM_Z;
+
+    const pos = new Float32Array(this.n * 2 * 3);
+    const idx = [];
+    for (let i = 0; i < this.n - 1; i++) {
+      const a = i * 2;
+      idx.push(a, a + 1, a + 3, a, a + 3, a + 2);
+    }
+    this.geo = new THREE.BufferGeometry();
+    this.attr = new THREE.BufferAttribute(pos, 3);
+    this.attr.setUsage(THREE.DynamicDrawUsage);
+    this.geo.setAttribute('position', this.attr);
+    this.geo.setIndex(idx);
+    this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+
+    this.group = new THREE.Group();
+    this.group.position.z = z;
+    this.mesh = new THREE.Mesh(this.geo, this.material);
+    this.mesh.frustumCulled = false;
+    this.group.add(this.mesh);
+    scene.add(this.group);
+
+    this.decor = [];        // декоративні силуети (руїни, каміння, кулі)
+    this.spawnAhead = 0;    // наступна pattern-координата для спавну
+    this.resize();
+  }
+
+  resize() {
+    this.halfW = view.visW * this.depthScale * 0.62 + 24;
+    this.step = (this.halfW * 2) / (this.n - 1);
+    this.bottom = -view.visH * this.depthScale - 90;
+    if (this.anchorScreen !== undefined) {
+      // шар переднього плану кріпимо до кадру: збільшення від близькості компенсуємо
+      const mag = 1 / this.depthScale;
+      this.baseY = this.anchorScreen * view.visH / mag;
+      this.amp = this.ampScreen * view.visH / mag;
+    }
+  }
+
+  /** Висота силуету в pattern-координаті p. */
+  height(p) {
+    const n = fbm1(p * this.freq, this.seed, this.ridged ? 3 : 4);
+    const v = this.ridged ? Math.pow(1 - Math.abs(2 * n - 1), 1.6) : n;
+    return this.baseY + (v - 0.35) * this.amp;
+  }
+
+  update(camX) {
+    const a = this.attr.array;
+    const shift = camX * this.factor;
+    for (let i = 0; i < this.n; i++) {
+      const lx = -this.halfW + i * this.step;
+      const y = this.height(lx + shift);
+      const o = i * 6;
+      a[o] = lx;     a[o + 1] = y;           a[o + 2] = 0;
+      a[o + 3] = lx; a[o + 4] = this.bottom; a[o + 5] = 0;
+    }
+    this.attr.needsUpdate = true;
+    this.group.position.x = camX;
+    if (this.anchorScreen !== undefined) this.group.position.y = camY;
+    if (this.tint) this.material.color.copy(sky[this.colorKey]).lerp(sky.rider, this.tint);
+    else this.material.color.copy(sky[this.colorKey]);
+    this.decorMaterial.color.copy(this.material.color).lerp(sky.rider, 0.34);
+
+    // декорації живуть у pattern-координатах і перевикористовуються
+    for (let i = this.decor.length - 1; i >= 0; i--) {
+      const d = this.decor[i];
+      const lx = d.p - shift;
+      if (lx < -this.halfW - 30) {              // пішла за кадр — знімаємо
+        this.group.remove(d.obj);
+        d.obj.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+        this.decor.splice(i, 1);
+        continue;
+      }
+      d.obj.position.x = lx;
+      if (d.follow) d.obj.position.y = this.height(d.p) + d.yOff;
+      if (d.bob)    d.obj.position.y = d.y0 + Math.sin(performance.now() * 0.0004 * d.bob + d.phase) * 1.4;
+    }
+  }
+
+  /** Додає декорацію, якщо попереду ще порожньо. */
+  maybeSpawn(camX, factory, gapMin, gapMax) {
+    const shift = camX * this.factor;
+    const edge = shift + this.halfW + 12;
+    if (this.spawnAhead === 0) this.spawnAhead = shift + rr(0, this.halfW);
+    while (this.spawnAhead < edge) {
+      const d = factory(this, this.spawnAhead);
+      if (d) { this.group.add(d.obj); this.decor.push(d); }
+      this.spawnAhead += rr(gapMin, gapMax);
+    }
+  }
+}
+
+/** Прямокутник-силует (базовий будівельний блок декорацій). */
+function rect(mat, x, y, w, h) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  m.position.set(x + w / 2, y + h / 2, 0);
+  return m;
+}
+
+/** Руїни храму — плоский силует із колон, платформи та обвалених архітравів. */
+function makeRuin(mat) {
+  const g = new THREE.Group();
+  const w = rr(9, 17), cols = ri(3, 5), ch = rr(5, 9);
+  g.add(rect(mat, 0, 0, w, 1.1));                        // платформа
+  g.add(rect(mat, 0.7, 1.1, w - 1.4, 0.7));              // стилобат
+  const step = (w - 2.6) / (cols - 1);
+  for (let i = 0; i < cols; i++) {
+    const broken = rnd() < 0.34 ? rr(0.25, 0.7) : 1;     // частина колон обвалена
+    g.add(rect(mat, 1.3 + i * step - 0.45, 1.8, 0.9, ch * broken));
+  }
+  if (rnd() < 0.6) g.add(rect(mat, 1.0, 1.8 + ch, w - 2.0, 0.8));  // архітрав
+  if (rnd() < 0.4) g.add(rect(mat, 2.2, 2.6 + ch, w - 4.4, 0.7));  // фронтон
+  return g;
+}
+
+/** Скелі-валуни: приплюснуті кола. */
+function makeRocks(mat) {
+  const g = new THREE.Group();
+  const n = ri(2, 3);
+  for (let i = 0; i < n; i++) {
+    const r = rr(0.9, 2.3);
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 14), mat);
+    m.scale.y = rr(0.42, 0.7);
+    m.position.set(i * rr(1.5, 3.0), r * 0.22, 0);
+    g.add(m);
+  }
+  return g;
+}
+
+/** Сухе дерево / кактус-силует. */
+function makeTree(mat) {
+  const g = new THREE.Group();
+  const h = rr(3.5, 7);
+  g.add(rect(mat, -0.22, 0, 0.44, h));
+  const arms = ri(1, 3);
+  for (let i = 0; i < arms; i++) {
+    const y = h * rr(0.35, 0.8), dir = rnd() < 0.5 ? -1 : 1, len = rr(1.2, 2.6);
+    const a = rect(mat, 0, y, len, 0.34);
+    a.position.x = dir * len * 0.5;
+    a.rotation.z = dir * rr(0.3, 0.9);
+    g.add(a);
+    g.add(rect(mat, dir * len * 0.9 - 0.17, y + len * 0.5, 0.34, rr(0.8, 2.0)));
+  }
+  return g;
+}
+
+/** Повітряна куля — тихий привіт оригіналу; пливе високо в небі. */
+function makeBalloon(mat) {
+  const g = new THREE.Group();
+  const r = rr(1.5, 2.8);
+  const b = new THREE.Mesh(new THREE.CircleGeometry(r, 18), mat);
+  b.scale.y = 1.22;
+  g.add(b);
+  g.add(rect(mat, -0.1, -r * 1.42, 0.2, r * 0.42));
+  g.add(rect(mat, -r * 0.26, -r * 1.78, r * 0.52, r * 0.42));
+  return g;
+}
+
+// Чотири шари: від далеких гір до близьких дюн
+const layers = [
+  new SilhouetteBand({ factor: 0.055, z: -120, amp: 26, baseY: 2,   freq: 0.0085, seed: 11, ridged: true,  colorKey: 'L0' }),
+  new SilhouetteBand({ factor: 0.130, z: -80,  amp: 17, baseY: -3,  freq: 0.0140, seed: 27, ridged: false, colorKey: 'L1' }),
+  new SilhouetteBand({ factor: 0.270, z: -48,  amp: 12, baseY: -7,  freq: 0.0200, seed: 43, ridged: false, colorKey: 'L2' }),
+  new SilhouetteBand({ factor: 0.470, z: -24,  amp: 9,  baseY: -11, freq: 0.0290, seed: 61, ridged: false, colorKey: 'L3' }),
+];
+// П'ятий шар — темний передній план: проноситься найшвидше й додає глибини кадру
+const foreground = new SilhouetteBand({
+  factor: 1.0, z: 20, amp: 4, baseY: -14, freq: 0.135, seed: 89, ridged: false,
+  samples: 120, colorKey: 'L3',
+});
+foreground.anchorScreen = -0.38;   // верхівка нижче центру кадру
+foreground.ampScreen = 0.075;
+foreground.tint = 0.62;            // помітно темніший за свій шар
+foreground.resize();
+
+RESIZE_HOOKS.push(() => { layers.forEach(l => l.resize()); foreground.resize(); });
+
+// Матеріал для куль — трохи світліший за свій шар
+const balloonMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+
+function updateLayers(camX) {
+  for (const l of layers) l.update(camX);
+  foreground.update(camX);
+
+  // руїни та дерева на середньому шарі
+  layers[2].maybeSpawn(camX, (l, p) => {
+    const obj = rnd() < 0.55 ? makeRuin(l.decorMaterial) : makeTree(l.decorMaterial);
+    return { obj, p, follow: true, yOff: -0.6 };
+  }, 60, 190);
+
+  // валуни й кактуси на ближньому шарі
+  layers[3].maybeSpawn(camX, (l, p) => {
+    const obj = rnd() < 0.5 ? makeRocks(l.decorMaterial) : makeTree(l.decorMaterial);
+    return { obj, p, follow: true, yOff: -0.4 };
+  }, 34, 90);
+
+  // повітряні кулі високо над дюнами
+  layers[1].maybeSpawn(camX, (l, p) => {
+    if (rnd() > 0.35) return null;
+    const obj = makeBalloon(balloonMat);
+    const y0 = l.height(p) + rr(16, 34);
+    obj.position.y = y0;
+    return { obj, p, y0, bob: rr(0.7, 1.5), phase: rr(0, TAU) };
+  }, 90, 260);
+
+  balloonMat.color.copy(sky.L1).lerp(sky.skyLower, 0.45);
+}
+
+/* ------------------------------------------------------------------
+   7. ТЕРЕН — процедурні дюни.
+   Поверхня описана масивом семплів із кроком DX; форми будуються з
+   smoothstep-сегментів, тому гребені й ложбини завжди гладкі (C1).
+   Меш — стрічка з чотирьох рядів по z: задній схил, гребінь,
+   передній край і «тіло» піску вниз.
+   ------------------------------------------------------------------ */
+const ROWS = [
+  { z: -CFG.BAND, dy: -3.4, c: 0.58, nz: -0.85 },  // задній схил
+  { z: 0,         dy:  1.1, c: 1.00, nz:  0.10 },  // гребінь (освітлений сонцем)
+  { z:  CFG.BAND, dy:  0.0, c: 0.86, nz:  0.80 },  // передній край
+  { z:  CFG.BAND, dy: -7.0, c: 0.44, nz:  0.55 },  // тінь одразу під гребенем
+  { z:  CFG.BAND, dy: -95,  c: 0.26, nz:  0.35 },  // глибоке тіло піску
+];
+
+const terrain = {
+  samples: [],        // { y, solid }
+  i0: 0,              // абсолютний індекс samples[0]
+  idx: 0,             // наступний індекс для генерації
+  y: 0,               // поточна висота генератора
+  coins: [], rocks: [],
+  coinCursor: 0, rockCursor: 0,
+  lastGapX: -1e9,
+  diff: 0,
+};
+
+function sampleY(i) {
+  const s = terrain.samples[i - terrain.i0];
+  return s ? s.y : terrain.y;
+}
+function sampleSolid(i) {
+  const s = terrain.samples[i - terrain.i0];
+  return s ? s.solid : true;
+}
+/** Висота поверхні в довільній точці x (лінійна інтерполяція семплів). */
+function heightAt(x) {
+  const f = x / CFG.DX, i = Math.floor(f);
+  return lerp(sampleY(i), sampleY(i + 1), f - i);
+}
+/** Чи є під точкою твердий ґрунт (ні — значить прірва). */
+function solidAt(x) {
+  return sampleSolid(Math.floor(x / CFG.DX));
+}
+/** Нахил поверхні (dy/dx). */
+function slopeAt(x) {
+  return (heightAt(x + CFG.DX) - heightAt(x - CFG.DX)) / (2 * CFG.DX);
+}
+
+function pushSample(y, solid) {
+  terrain.samples.push({ y, solid });
+  terrain.idx++;
+}
+/** Гладкий сегмент від поточної точки до (x + len, targetY). */
+function pushSeg(len, targetY, solid = true) {
+  const x0 = terrain.idx * CFG.DX, y0 = terrain.y;
+  len = Math.max(len, CFG.DX * 2);
+  while (terrain.idx * CFG.DX < x0 + len) {
+    const t = (terrain.idx * CFG.DX - x0) / len;
+    pushSample(y0 + (targetY - y0) * smooth(t), solid);
+  }
+  terrain.y = targetY;
+}
+/** Обрив — майже вертикальна стінка вниз (природний трамплін). */
+function pushCliff(drop) {
+  pushSample(terrain.y - drop * 0.45, true);
+  terrain.y -= drop;
+  pushSample(terrain.y, true);
+}
+
+/** Скільки гравець здатен перелетіти на поточній швидкості. */
+function jumpDistance() {
+  const air = 2 * CFG.JUMP / CFG.GRAVITY;
+  return Math.max(6, player.speed * air);
+}
+
+/** Дорожка кристалів: лінією над поверхнею або дугою над прірвою. */
+function placeCoins(x0, n, spacing, arcH) {
+  for (let k = 0; k < n; k++) {
+    const x = x0 + k * spacing;
+    const t = n > 1 ? k / (n - 1) : 0.5;
+    const arc = arcH ? Math.sin(t * Math.PI) * arcH : 0;
+    terrain.coins.push({ x, y: heightAt(x) + 1.7 + arc, taken: false, mesh: null });
+  }
+}
+
+/** Кам'яна стіна-перешкода на щойно створеному схилі. */
+function placeRock(x) {
+  if (x - terrain.lastGapX < 14) return;
+  const w = rr(1.0, 2.0), h = rr(1.9, 3.2);
+  terrain.rocks.push({ x, y: heightAt(x), w, h, mesh: null, hit: false });
+}
+
+/* --- Фічі рельєфу ------------------------------------------------- */
+function featureDune() {
+  const crest  = clamp(terrain.y + rr(3, 8),  -9, 12);
+  pushSeg(rr(15, 27), crest);
+  const crestX = terrain.idx * CFG.DX;
+  const trough = clamp(crest - rr(3.5, 9), -11, 9);
+  pushSeg(rr(14, 26), trough);
+
+  if (rnd() < 0.55) placeCoins(crestX - rr(4, 10), ri(3, 6), rr(1.7, 2.3), rr(0, 1.2));
+  if (rnd() < 0.22 + 0.30 * terrain.diff) placeRock(terrain.idx * CFG.DX - rr(3, 9));
+}
+
+function featureRamp() {
+  pushSeg(rr(8, 13), clamp(terrain.y + rr(3, 6), -8, 13));     // короткий підйом
+  pushCliff(rr(4, 9));                                          // і різкий обрив
+  const x0 = terrain.idx * CFG.DX;
+  placeCoins(x0 + 2, ri(3, 6), rr(2.0, 2.6), rr(2.5, 5));       // нагорода за політ
+  pushSeg(rr(16, 28), clamp(terrain.y - rr(2, 6), -11, 9));
+}
+
+function featureGap() {
+  const lip = clamp(terrain.y + rr(1.5, 4), -8, 12);
+  pushSeg(rr(9, 15), lip);                                      // виїзд на край
+  const span = jumpDistance() * rr(0.40, 0.52 + 0.22 * terrain.diff);
+  const x0 = terrain.idx * CFG.DX;
+  const n = Math.ceil(span / CFG.DX);
+  for (let i = 0; i < n; i++) pushSample(lip - 0.7, false);      // сама прірва
+  placeCoins(x0 + span * 0.15, ri(3, 5), (span * 0.7) / 4, rr(1.5, 3.5));
+  terrain.lastGapX = terrain.idx * CFG.DX;
+  terrain.y = lip - rr(0, 2.5);                                 // далекий край
+  pushSample(terrain.y, true);
+  pushSeg(rr(15, 26), clamp(terrain.y - rr(2, 6), -11, 9));
+}
+
+/** Генеруємо рельєф, поки він не покриє x. */
+function ensureTerrain(x) {
+  while (terrain.idx * CFG.DX < x) {
+    const r = rnd();
+    const canGap = terrain.idx * CFG.DX - terrain.lastGapX > 60;
+    if (canGap && r < 0.20 + 0.10 * terrain.diff) featureGap();
+    else if (r < 0.42) featureRamp();
+    else featureDune();
+  }
+}
+
+/** Прибираємо семпли, що залишились далеко позаду. */
+function trimTerrain(minX) {
+  const need = Math.floor(minX / CFG.DX) - 40;
+  const drop = need - terrain.i0;
+  if (drop > 200) {
+    terrain.samples.splice(0, drop);
+    terrain.i0 += drop;
+  }
+}
+
+/* --- Меш піску ---------------------------------------------------- */
+const SAND_N = 240;                                  // семплів у видимому вікні
+const sandGeo = new THREE.BufferGeometry();
+const sandPos = new THREE.BufferAttribute(new Float32Array(SAND_N * ROWS.length * 3), 3).setUsage(THREE.DynamicDrawUsage);
+const sandNrm = new THREE.BufferAttribute(new Float32Array(SAND_N * ROWS.length * 3), 3).setUsage(THREE.DynamicDrawUsage);
+const sandCol = new THREE.BufferAttribute(new Float32Array(SAND_N * ROWS.length * 3), 3).setUsage(THREE.DynamicDrawUsage);
+{
+  const idx = [];
+  const R = ROWS.length;
+  for (let i = 0; i < SAND_N - 1; i++) {
+    for (let r = 0; r < R - 1; r++) {
+      const a = i * R + r, b = a + R;         // наступний семпл по x
+      idx.push(a, a + 1, b + 1, a, b + 1, b);
+    }
+  }
+  sandGeo.setIndex(idx);
+  sandGeo.setAttribute('position', sandPos);
+  sandGeo.setAttribute('normal', sandNrm);
+  sandGeo.setAttribute('color', sandCol);
+  sandGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+}
+const sandMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true, fog: true });
+const sandMesh = new THREE.Mesh(sandGeo, sandMat);
+sandMesh.frustumCulled = false;
+scene.add(sandMesh);
+
+/** Перебудовуємо видиму частину стрічки піску (дешево: ~1000 вершин). */
+function updateSandMesh(camX) {
+  const R = ROWS.length;
+  const pa = sandPos.array, na = sandNrm.array, ca = sandCol.array;
+  const startIdx = Math.floor((camX - view.visW * 0.62 - 10) / CFG.DX);
+  const baseX = startIdx * CFG.DX;
+  sandMesh.position.x = baseX;
+
+  for (let i = 0; i < SAND_N; i++) {
+    const gi = startIdx + i;
+    const lx = i * CFG.DX;
+    const y = sampleY(gi);
+    const solid = sampleSolid(gi);
+    const slope = (sampleY(gi + 1) - sampleY(gi - 1)) / (2 * CFG.DX);
+    const ripple = 0.10 * Math.sin((baseX + lx) * 2.1);           // легка вітрова рябь
+    for (let r = 0; r < R; r++) {
+      const row = ROWS[r];
+      const o = (i * R + r) * 3;
+      pa[o] = lx;
+      // над проваллям верхні ряди злипаються (піску нема), а нижні лишаються
+      // темною стіною — так безодня читається глибиною, а не діркою в екрані
+      pa[o + 1] = solid ? y + row.dy + (r === 1 ? ripple : 0) : (r < R - 2 ? y : y + row.dy);
+      pa[o + 2] = row.z;
+      const shade = solid ? row.c : row.c * 0.34;
+      ca[o] = ca[o + 1] = ca[o + 2] = shade;
+      if (r >= R - 2) { na[o] = 0; na[o + 1] = -0.30; na[o + 2] = 0.95; }
+      else {
+        const nx = -slope, ny = 1, nz = row.nz + ripple * 0.5;
+        const inv = 1 / Math.hypot(nx, ny, nz);
+        na[o] = nx * inv; na[o + 1] = ny * inv; na[o + 2] = nz * inv;
+      }
+    }
+  }
+  sandPos.needsUpdate = true;
+  sandNrm.needsUpdate = true;
+  sandCol.needsUpdate = true;
+  sandMat.color.copy(sky.sand);
+}
+
+/* ------------------------------------------------------------------
+   8. ОБ'ЄКТИ НА ТРАСІ: кристали (очки) та кам'яні стіни (перешкоди).
+   Меші беруться з пулів — сміттяр не прокидається під час гри.
+   ------------------------------------------------------------------ */
+const ENT_Z = 3.0;           // площина, у якій живуть гравець і обʼєкти
+const ENT_SURF = 0.63;       // підйом верхньої смуги піску на цьому z
+
+const coinMat  = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+const coinGlowMat = new THREE.MeshBasicMaterial({
+  map: TEX.glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending,
+  depthWrite: false, fog: false,
+});
+const rockMat  = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+
+/** Один кристал: ромб + адитивне сяйво. */
+function makeCoinMesh() {
+  const g = new THREE.Group();
+  const d = new THREE.Mesh(new THREE.CircleGeometry(0.34, 4), coinMat);
+  d.rotation.z = Math.PI / 4;
+  d.scale.y = 1.5;
+  g.add(d);
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), coinGlowMat);
+  glow.position.z = -0.05;
+  g.add(glow);
+  g.userData.diamond = d;
+  g.userData.glow = glow;
+  return g;
+}
+
+/** Кілька заготовок зубчастих скель — щоб перешкоди не були однаковими. */
+const ROCK_GEOS = (() => {
+  const out = [];
+  for (let v = 0; v < 6; v++) {
+    const pts = [new THREE.Vector2(-0.5, 0)];
+    const n = ri(4, 7);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      pts.push(new THREE.Vector2(-0.5 + t, 0.55 + 0.45 * Math.sin(t * Math.PI) + rr(-0.16, 0.16)));
+    }
+    pts.push(new THREE.Vector2(0.5, 0));
+    out.push(new THREE.ShapeGeometry(new THREE.Shape(pts)));
+  }
+  return out;
+})();
+
+const pools = { coin: [], rock: [] };
+const active = { coins: [], rocks: [] };
+
+function takeCoinMesh() {
+  const m = pools.coin.pop() || makeCoinMesh();
+  m.visible = true; scene.add(m); return m;
+}
+function freeCoinMesh(m) { scene.remove(m); pools.coin.push(m); }
+function takeRockMesh() {
+  const m = pools.rock.pop() || new THREE.Mesh(pick(ROCK_GEOS), rockMat);
+  m.visible = true; scene.add(m); return m;
+}
+function freeRockMesh(m) { scene.remove(m); pools.rock.push(m); }
+
+/** Активуємо/деактивуємо обʼєкти у вікні видимості. */
+function updateEntities(camX, dt) {
+  const xL = camX - view.visW * 0.75, xR = camX + view.visW * 0.75 + 6;
+
+  while (terrain.coinCursor < terrain.coins.length && terrain.coins[terrain.coinCursor].x < xR) {
+    const c = terrain.coins[terrain.coinCursor++];
+    if (c.taken || c.x < xL) continue;
+    c.mesh = takeCoinMesh();
+    c.mesh.position.set(c.x, c.y + ENT_SURF, ENT_Z);
+    c.phase = rr(0, TAU);
+    active.coins.push(c);
+  }
+  while (terrain.rockCursor < terrain.rocks.length && terrain.rocks[terrain.rockCursor].x < xR) {
+    const r = terrain.rocks[terrain.rockCursor++];
+    if (r.x < xL) continue;
+    r.mesh = takeRockMesh();
+    r.mesh.geometry = pick(ROCK_GEOS);
+    r.mesh.scale.set(r.w * 2.1, r.h, 1);
+    r.mesh.position.set(r.x, r.y + ENT_SURF - 0.1, ENT_Z - 0.2);
+    active.rocks.push(r);
+  }
+
+  coinMat.color.copy(sky.coin).multiplyScalar(1.7);       // яскравіше за 1.0 → блумить
+  coinGlowMat.color.copy(sky.coin).multiplyScalar(0.34);
+  rockMat.color.copy(sky.rock);
+
+  const t = performance.now() * 0.001;
+  for (let i = active.coins.length - 1; i >= 0; i--) {
+    const c = active.coins[i];
+    if (c.taken || c.x < xL) { freeCoinMesh(c.mesh); c.mesh = null; active.coins.splice(i, 1); continue; }
+    c.mesh.userData.diamond.rotation.y += dt * 2.6;
+    const pulse = 0.85 + 0.15 * Math.sin(t * 2.4 + c.phase);
+    c.mesh.userData.glow.scale.setScalar(pulse);
+    c.mesh.position.y = c.y + ENT_SURF + Math.sin(t * 1.5 + c.phase) * 0.12;
+  }
+  for (let i = active.rocks.length - 1; i >= 0; i--) {
+    const r = active.rocks[i];
+    if (r.x < xL) { freeRockMesh(r.mesh); r.mesh = null; active.rocks.splice(i, 1); }
+  }
+}
+
+/* ------------------------------------------------------------------
+   9. ГРАВЕЦЬ — плоский силует райдера на дошці (контражур).
+   ------------------------------------------------------------------ */
+const riderMat = new THREE.MeshBasicMaterial({ color: 0x000000, fog: true });
+
+function buildRider() {
+  const g = new THREE.Group();
+  const add = (x, y, w, h, rot = 0) => {
+    const m = rect(riderMat, x, y, w, h);
+    m.rotation.z = rot;
+    g.add(m);
+    return m;
+  };
+  // дошка
+  add(-1.15, -0.13, 2.3, 0.24);
+  add(-1.24, -0.06, 0.16, 0.20, 0.5);          // загнутий носок
+  add(1.08, -0.06, 0.16, 0.20, -0.5);
+  // ноги
+  add(-0.52, 0.02, 0.30, 0.78, -0.22);
+  add(0.16, 0.02, 0.30, 0.72, 0.14);
+  // корпус
+  add(-0.24, 0.66, 0.50, 0.66, 0.16);
+  // рука вперед
+  add(0.02, 0.92, 0.62, 0.17, -0.55);
+  // голова
+  const head = new THREE.Mesh(new THREE.CircleGeometry(0.25, 14), riderMat);
+  head.position.set(-0.06, 1.46, 0);
+  g.add(head);
+  // шарф, що розвівається
+  const scarf = [];
+  for (let i = 0; i < 4; i++) {
+    const s = rect(riderMat, -0.3 - i * 0.34, 1.26, 0.36, 0.15 - i * 0.02);
+    g.add(s); scarf.push(s);
+  }
+  g.userData.scarf = scarf;
+  return g;
+}
+
+const RIDER_SCALE = 1.3;
+const player = {
+  x: 0, y: 0, vy: 0, speed: CFG.SPEED_START,
+  grounded: true, angle: 0, flip: 0, flipping: false,
+  boost: 0, combo: 0, airTime: 0, dead: false, deadTime: 0,
+  coins: 0, score: 0, dist: 0, tricks: 0,
+  obj: buildRider(),
+  shadow: new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.15), new THREE.MeshBasicMaterial({
+    map: TEX.shadow, transparent: true, color: 0x000000, depthWrite: false, fog: false, opacity: 0.3,
+  })),
+};
+player.obj.scale.setScalar(RIDER_SCALE);
+player.obj.position.z = ENT_Z;
+scene.add(player.obj);
+player.shadow.rotation.x = -1.18;
+player.shadow.position.z = ENT_Z - 0.4;
+scene.add(player.shadow);
+
+/* ------------------------------------------------------------------
+   10. ЧАСТИНКИ
+   Один універсальний пул точок (пісок, іскри від кристалів, шлейф трюку)
+   + повільний пилок/світлячки в повітрі + нічні метеори.
+   ------------------------------------------------------------------ */
+const pointsVert = `
+  attribute float aSize; attribute float aAlpha; attribute vec3 aColor;
+  uniform float uScale;
+  varying float vA; varying vec3 vC;
+  void main(){
+    vA = aAlpha; vC = aColor;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = max(1.0, aSize * uScale / max(0.001, -mv.z));
+  }`;
+const pointsFrag = `
+  precision highp float;
+  uniform sampler2D uMap;
+  varying float vA; varying vec3 vC;
+  void main(){
+    vec4 t = texture2D(uMap, gl_PointCoord);
+    gl_FragColor = vec4(vC * t.rgb, t.a * vA);
+    if (gl_FragColor.a < 0.003) discard;
+    #include <colorspace_fragment>
+  }`;
+
+/** Пул частинок із адитивним змішуванням. */
+class Dust {
+  constructor(max, size = 1) {
+    this.max = max; this.n = 0;
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3);
+    this.siz = new Float32Array(max);
+    this.alp = new Float32Array(max);
+    this.vx = new Float32Array(max);
+    this.vy = new Float32Array(max);
+    this.life = new Float32Array(max);
+    this.max_life = new Float32Array(max);
+    this.grav = new Float32Array(max);
+
+    const g = new THREE.BufferGeometry();
+    this.aPos = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aCol = new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aSiz = new THREE.BufferAttribute(this.siz, 1).setUsage(THREE.DynamicDrawUsage);
+    this.aAlp = new THREE.BufferAttribute(this.alp, 1).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.aPos);
+    g.setAttribute('aColor', this.aCol);
+    g.setAttribute('aSize', this.aSiz);
+    g.setAttribute('aAlpha', this.aAlp);
+    g.setDrawRange(0, 0);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { uMap: { value: TEX.soft }, uScale: { value: 400 } },
+      vertexShader: pointsVert, fragmentShader: pointsFrag,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(g, this.mat);
+    this.points.frustumCulled = false;
+    this.geo = g;
+    scene.add(this.points);
+  }
+
+  spawn(x, y, z, vx, vy, size, life, color, grav = 0) {
+    let i = this.n < this.max ? this.n++ : (this.rot = ((this.rot | 0) + 1) % this.max);
+    const o = i * 3;
+    this.pos[o] = x; this.pos[o + 1] = y; this.pos[o + 2] = z;
+    this.col[o] = color.r; this.col[o + 1] = color.g; this.col[o + 2] = color.b;
+    this.vx[i] = vx; this.vy[i] = vy;
+    this.siz[i] = size; this.alp[i] = 1;
+    this.life[i] = life; this.max_life[i] = life; this.grav[i] = grav;
+  }
+
+  update(dt) {
+    for (let i = 0; i < this.n; i++) {
+      if (this.life[i] <= 0) { this.alp[i] = 0; continue; }
+      this.life[i] -= dt;
+      const o = i * 3;
+      this.vy[i] -= this.grav[i] * dt;
+      this.pos[o] += this.vx[i] * dt;
+      this.pos[o + 1] += this.vy[i] * dt;
+      const k = clamp(this.life[i] / this.max_life[i], 0, 1);
+      this.alp[i] = k * k;
+    }
+    this.geo.setDrawRange(0, this.n);
+    this.aPos.needsUpdate = this.aAlp.needsUpdate = this.aCol.needsUpdate = this.aSiz.needsUpdate = true;
+  }
+}
+const dust = new Dust(700);
+
+/** Пилок у повітрі / світлячки вночі — завжди кружляють біля камери. */
+class Motes {
+  constructor(max = 150) {
+    this.max = max;
+    this.px = new Float32Array(max); this.py = new Float32Array(max);
+    this.ph = new Float32Array(max); this.sp = new Float32Array(max);
+    this.sz = new Float32Array(max);
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3);
+    this.siz = new Float32Array(max);
+    this.alp = new Float32Array(max);
+    this.aPos = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aCol = new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aSiz = new THREE.BufferAttribute(this.siz, 1).setUsage(THREE.DynamicDrawUsage);
+    this.aAlp = new THREE.BufferAttribute(this.alp, 1).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.aPos); g.setAttribute('aColor', this.aCol);
+    g.setAttribute('aSize', this.aSiz);   g.setAttribute('aAlpha', this.aAlp);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { uMap: { value: TEX.soft }, uScale: { value: 400 } },
+      vertexShader: pointsVert, fragmentShader: pointsFrag,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(g, this.mat);
+    this.points.frustumCulled = false;
+    scene.add(this.points);
+    for (let i = 0; i < max; i++) {
+      this.px[i] = rr(-60, 60); this.py[i] = rr(-0.75, 1.0);
+      this.ph[i] = rr(0, TAU);  this.sp[i] = rr(0.25, 0.9);
+      this.sz[i] = rr(0.07, 0.22);
+    }
+  }
+  update(t, camX, camY, dt) {
+    const halfW = view.visW * 0.8, halfH = view.visH * 0.5;
+    // вночі це світлячки, вдень — пилок у промені сонця
+    const night = clamp(sky.starI, 0, 1);
+    const c = tmpMoteColor.copy(sky.coin).lerp(sky.glowColor, 0.45);
+    for (let i = 0; i < this.max; i++) {
+      this.px[i] -= this.sp[i] * 1.6 * dt;                        // тихий дрейф назад
+      let dx = this.px[i] - camX;
+      if (dx < -halfW) { this.px[i] += halfW * 2; dx += halfW * 2; }   // загортаємо у вікно камери
+      if (dx >  halfW) { this.px[i] -= halfW * 2; dx -= halfW * 2; }
+      const o = i * 3;
+      this.pos[o] = camX + dx;
+      this.pos[o + 1] = camY + this.py[i] * halfH + Math.sin(t * this.sp[i] + this.ph[i]) * 1.3;
+      this.pos[o + 2] = ENT_Z + 2 + (i % 5) * 1.5;
+      this.col[o] = c.r; this.col[o + 1] = c.g; this.col[o + 2] = c.b;
+      this.siz[i] = this.sz[i] * (1 + night * 0.8);
+      this.alp[i] = (0.09 + 0.6 * night) * (0.5 + 0.5 * Math.sin(t * 1.6 * this.sp[i] + this.ph[i]));
+    }
+    this.aPos.needsUpdate = this.aCol.needsUpdate = this.aSiz.needsUpdate = this.aAlp.needsUpdate = true;
+  }
+}
+const tmpMoteColor = new THREE.Color();
+const motes = new Motes(isMobile ? 90 : 150);
+
+/** Метеори — тільки вночі, рідко, як тихий подарунок. */
+class Meteors {
+  constructor(n = 3) {
+    this.items = [];
+    const tex = TEX.soft;
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+      }));
+      m.visible = false; scene.add(m);
+      this.items.push({ mesh: m, life: 0, vx: 0, vy: 0 });
+    }
+    this.timer = rr(4, 12);
+  }
+  update(dt, camX, camY) {
+    this.timer -= dt * clamp(sky.starI * 1.4, 0, 1);
+    if (this.timer <= 0) {
+      this.timer = rr(5, 16);
+      const it = this.items.find(i => i.life <= 0);
+      if (it) {
+        it.life = it.total = rr(0.9, 1.5);
+        const len = rr(7, 16);
+        it.mesh.scale.set(len, rr(0.25, 0.5), 1);
+        it.mesh.rotation.z = -rr(0.35, 0.75);
+        it.vx = -rr(30, 55); it.vy = -rr(18, 34);
+        it.mesh.position.set(camX + rr(10, 40), camY + rr(22, 46), -20);
+        it.mesh.material.color.copy(sky.sunColor);
+        it.mesh.visible = true;
+      }
+    }
+    for (const it of this.items) {
+      if (it.life <= 0) continue;
+      it.life -= dt;
+      it.mesh.position.x += it.vx * dt;
+      it.mesh.position.y += it.vy * dt;
+      const k = clamp(it.life / it.total, 0, 1);
+      it.mesh.material.opacity = Math.sin(k * Math.PI) * 0.9;
+      if (it.life <= 0) it.mesh.visible = false;
+    }
+  }
+}
+const meteors = new Meteors(3);
+
+RESIZE_HOOKS.push((w, h) => {
+  const pr = renderer.getPixelRatio();
+  const s = h * pr * 0.5 / Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5);
+  dust.mat.uniforms.uScale.value = s;
+  motes.mat.uniforms.uScale.value = s;
+});
+
+/* ------------------------------------------------------------------
+   11. ПОСТ-ОБРОБКА — власний легкий bloom (без зовнішніх аддонів):
+   сцена → bright-pass → два рівні гаусового блюру → композит
+   із вінʼєткою та дрібним зерном.
+   ------------------------------------------------------------------ */
+const fsQuadScene = new THREE.Scene();
+const fsQuadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null);
+fsQuad.frustumCulled = false;
+fsQuadScene.add(fsQuad);
+
+const QUAD_VERT = `
+  varying vec2 vUv;
+  void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+const hdrType = renderer.capabilities.isWebGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType;
+function makeRT(w, h, depth = false, samples = 0) {
+  const rt = new THREE.WebGLRenderTarget(Math.max(1, w), Math.max(1, h), {
+    type: hdrType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    depthBuffer: depth, stencilBuffer: false, generateMipmaps: false,
+  });
+  if (samples) rt.samples = samples;
+  return rt;
+}
+let rtScene = makeRT(2, 2, true, (renderer.capabilities.isWebGL2 && !isMobile) ? 4 : 0);
+let rtHalfA = makeRT(2, 2), rtHalfB = makeRT(2, 2);
+let rtQuadA = makeRT(2, 2), rtQuadB = makeRT(2, 2);
+
+const brightMat = new THREE.ShaderMaterial({
+  uniforms: { tDiffuse: { value: null }, uThreshold: { value: 0.72 }, uSoft: { value: 0.45 } },
+  vertexShader: QUAD_VERT,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv; uniform sampler2D tDiffuse; uniform float uThreshold, uSoft;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = max(c.r, max(c.g, c.b));
+      float k = max(0.0, l - uThreshold) / max(l, 1e-4);
+      k = smoothstep(0.0, uSoft, k) * k;
+      gl_FragColor = vec4(c * k, 1.0);
+    }`,
+});
+
+const blurMat = new THREE.ShaderMaterial({
+  uniforms: { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uTexel: { value: new THREE.Vector2() } },
+  vertexShader: QUAD_VERT,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 uDir, uTexel;
+    void main(){
+      vec2 d = uDir * uTexel;
+      vec3 s = texture2D(tDiffuse, vUv).rgb * 0.227027;
+      s += (texture2D(tDiffuse, vUv + d*1.3846).rgb + texture2D(tDiffuse, vUv - d*1.3846).rgb) * 0.316216;
+      s += (texture2D(tDiffuse, vUv + d*3.2308).rgb + texture2D(tDiffuse, vUv - d*3.2308).rgb) * 0.070270;
+      gl_FragColor = vec4(s, 1.0);
+    }`,
+});
+
+const compMat = new THREE.ShaderMaterial({
+  uniforms: {
+    tDiffuse: { value: null }, tBloomA: { value: null }, tBloomB: { value: null },
+    uBloom: { value: 0.8 }, uTime: { value: 0 }, uVignette: { value: 0.22 },
+    uFade: { value: 0 }, uFadeColor: { value: new THREE.Color() },
+  },
+  vertexShader: QUAD_VERT,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D tDiffuse, tBloomA, tBloomB;
+    uniform float uBloom, uTime, uVignette, uFade;
+    uniform vec3 uFadeColor;
+    void main(){
+      vec3 base = texture2D(tDiffuse, vUv).rgb;
+      vec3 b = texture2D(tBloomA, vUv).rgb * 0.62 + texture2D(tBloomB, vUv).rgb * 0.95;
+      vec3 col = base + b * uBloom;
+
+      /* вінʼєтка — м'яко притемнює кути, погляд тримається на центрі */
+      vec2 q = vUv - 0.5;
+      float vig = 1.0 - uVignette * dot(q, q) * 3.2;
+      col *= clamp(vig, 0.0, 1.0);
+
+      /* мікрозерно, щоб градієнти неба не смугували */
+      float g = fract(sin(dot(vUv * vec2(1024.0, 768.0) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
+      col += (g - 0.5) * 0.008;
+
+      col = mix(col, uFadeColor, uFade);
+      gl_FragColor = vec4(col, 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+
+function resizePost(w, h) {
+  const pr = renderer.getPixelRatio();
+  const W = Math.max(2, Math.floor(w * pr)), H = Math.max(2, Math.floor(h * pr));
+  rtScene.setSize(W, H);
+  rtHalfA.setSize(W >> 1, H >> 1); rtHalfB.setSize(W >> 1, H >> 1);
+  rtQuadA.setSize(W >> 2, H >> 2); rtQuadB.setSize(W >> 2, H >> 2);
+}
+RESIZE_HOOKS.push(resizePost);
+
+function blit(mat, target) {
+  fsQuad.material = mat;
+  renderer.setRenderTarget(target);
+  renderer.clear();
+  renderer.render(fsQuadScene, fsQuadCam);
+}
+
+/** Повний кадр: сцена в HDR-таргет, потім bloom і композит на екран. */
+function renderFrame(time) {
+  renderer.setRenderTarget(rtScene);
+  renderer.clear();
+  renderer.render(scene, camera);
+
+  brightMat.uniforms.tDiffuse.value = rtScene.texture;
+  blit(brightMat, rtHalfA);
+
+  const hw = rtHalfA.width, hh = rtHalfA.height;
+  blurMat.uniforms.tDiffuse.value = rtHalfA.texture;
+  blurMat.uniforms.uDir.value.set(1, 0);
+  blurMat.uniforms.uTexel.value.set(1 / hw, 1 / hh);
+  blit(blurMat, rtHalfB);
+
+  blurMat.uniforms.tDiffuse.value = rtHalfB.texture;
+  blurMat.uniforms.uDir.value.set(0, 1);
+  blit(blurMat, rtHalfA);
+
+  const qw = rtQuadA.width, qh = rtQuadA.height;
+  blurMat.uniforms.tDiffuse.value = rtHalfA.texture;
+  blurMat.uniforms.uDir.value.set(1, 0);
+  blurMat.uniforms.uTexel.value.set(1 / qw, 1 / qh);
+  blit(blurMat, rtQuadA);
+
+  blurMat.uniforms.tDiffuse.value = rtQuadA.texture;
+  blurMat.uniforms.uDir.value.set(0, 1);
+  blit(blurMat, rtQuadB);
+
+  compMat.uniforms.tDiffuse.value = rtScene.texture;
+  compMat.uniforms.tBloomA.value = rtHalfA.texture;
+  compMat.uniforms.tBloomB.value = rtQuadB.texture;
+  compMat.uniforms.uBloom.value = sky.bloom * (1 + player.boost * 0.35);
+  compMat.uniforms.uTime.value = time;
+  renderer.setRenderTarget(null);
+  blit(compMat, null);
+}
+
+/* ------------------------------------------------------------------
+   12. ІГРОВИЙ ЦИКЛ, ВВЕДЕННЯ, РАХУНОК, UI
+   ------------------------------------------------------------------ */
+const GS = { START: 0, PLAY: 1, OVER: 2 };
+let state = GS.START;
+let time = 0;
+let camY = 6, shake = 0, sandAcc = 0, startX = 0;
+const _hzVec = new THREE.Vector3();
+
+const EL = {
+  hud: document.getElementById('hud'),
+  score: document.getElementById('score'),
+  multi: document.getElementById('multi'),
+  coins: document.getElementById('coins'),
+  phase: document.getElementById('phase'),
+  trick: document.getElementById('trick'),
+  start: document.getElementById('start'),
+  over: document.getElementById('over'),
+  finalScore: document.getElementById('finalScore'),
+  finalDist: document.getElementById('finalDist'),
+  finalCoins: document.getElementById('finalCoins'),
+  bestScore: document.getElementById('bestScore'),
+  loading: document.getElementById('loading'),
+};
+
+let best = 0;
+try { best = parseInt(localStorage.getItem('duneDriftBest') || '0', 10) || 0; } catch (e) {}
+
+const input = { down: false, held: 0 };
+
+/* --- підписи трюків ---------------------------------------------- */
+let trickTimer = 0;
+function showTrick(text) {
+  EL.trick.textContent = text;
+  EL.trick.classList.add('show');
+  trickTimer = 1.1;
+}
+
+/* --- частинки піску та іскри ------------------------------------- */
+const tmpColor = new THREE.Color();
+function sandColor(mul = 0.55) { return tmpColor.copy(sky.sand).lerp(sky.glowColor, 0.25).multiplyScalar(mul); }
+
+function sandSpray(dt) {
+  sandAcc += player.speed * dt * 2.6;
+  while (sandAcc > 1) {
+    sandAcc -= 1;
+    dust.spawn(
+      player.x - 1.0 + rr(-0.3, 0.3), player.y + ENT_SURF + rr(-0.05, 0.25), ENT_Z - rr(0.2, 1.2),
+      -player.speed * rr(0.08, 0.34) + rr(-1.5, 0.5), rr(1.5, 6.0),
+      rr(0.3, 0.85), rr(0.45, 1.0), sandColor(0.75), 7,
+    );
+  }
+}
+function landingBurst() {
+  for (let i = 0; i < 22; i++) {
+    dust.spawn(player.x + rr(-1.1, 1.1), player.y + ENT_SURF, ENT_Z - rr(0, 1.4),
+      rr(-7, 3), rr(2, 10), rr(0.35, 1.0), rr(0.5, 1.1), sandColor(0.85), 9);
+  }
+}
+function sparkBurst(x, y, color, n = 14) {
+  for (let i = 0; i < n; i++) {
+    const a = rr(0, TAU), v = rr(2, 9);
+    dust.spawn(x, y, ENT_Z + rr(-0.4, 0.6), Math.cos(a) * v, Math.sin(a) * v,
+      rr(0.2, 0.55), rr(0.35, 0.8), tmpColor.copy(color).multiplyScalar(0.9), 3);
+  }
+}
+
+/* --- скидання гри ------------------------------------------------ */
+function resetWorld(seed) {
+  rnd = makeRandom(seed >>> 0);
+  for (const c of active.coins) { freeCoinMesh(c.mesh); c.mesh = null; }
+  for (const r of active.rocks) { freeRockMesh(r.mesh); r.mesh = null; }
+  active.coins.length = 0; active.rocks.length = 0;
+
+  terrain.samples.length = 0;
+  terrain.coins.length = 0; terrain.rocks.length = 0;
+  terrain.i0 = 0; terrain.idx = 0; terrain.y = 5;
+  terrain.coinCursor = 0; terrain.rockCursor = 0;
+  terrain.lastGapX = -1e9; terrain.diff = 0;
+
+  pushSample(terrain.y, true);
+  pushSeg(34, -1);                        // спокійний з'їзд на старті
+  ensureTerrain(240);
+
+  player.x = 8; player.y = heightAt(8) + CFG.RIDE_OFFSET; player.vy = 0;
+  player.speed = CFG.SPEED_START * view.scale;
+  player.grounded = true; player.angle = 0; player.flip = 0; player.flipping = false;
+  player.boost = 0; player.combo = 0; player.airTime = 0;
+  player.dead = false; player.deadTime = 0;
+  player.coins = 0; player.score = 0; player.dist = 0; player.tricks = 0;
+  player.obj.rotation.z = 0;
+  startX = player.x;
+  camY = player.y + view.visH * 0.1;
+  sandAcc = 0; shake = 0;
+}
+
+function startGame() {
+  resetWorld((Math.random() * 1e9) | 0);
+  state = GS.PLAY;
+  EL.start.classList.remove('on');
+  EL.over.classList.remove('on');
+  EL.hud.classList.add('on');
+  EL.multi.textContent = 'score';
+}
+
+function gameOver() {
+  state = GS.OVER;
+  player.dead = true;
+  player.deadTime = 0;
+  if (player.score > best) {
+    best = Math.floor(player.score);
+    try { localStorage.setItem('duneDriftBest', String(best)); } catch (e) {}
+  }
+  EL.finalScore.textContent = Math.floor(player.score).toLocaleString('en-US');
+  EL.finalDist.textContent = Math.floor(player.dist) + ' m';
+  EL.finalCoins.textContent = player.coins;
+  EL.bestScore.textContent = best.toLocaleString('en-US');
+  setTimeout(() => { if (state === GS.OVER) EL.over.classList.add('on'); }, 850);
+  EL.hud.classList.remove('on');
+}
+
+function die(reason) {
+  if (player.dead) return;
+  player.deathReason = reason;
+  player.combo = 0;
+  landingBurst();
+  shake = 0.55;
+  gameOver();
+}
+
+/* --- керування --------------------------------------------------- */
+function onPress() {
+  input.down = true;
+  if (state === GS.START) { startGame(); return; }
+  if (state === GS.OVER) {
+    if (player.deadTime > 0.9) { startGame(); }
+    return;
+  }
+  if (player.grounded && !player.dead) {
+    const sl = slopeAt(player.x);
+    player.grounded = false;
+    // зі схилу вниз відштовхуватись легше — стрибок виходить вищим
+    player.vy = CFG.JUMP * (1 + clamp(-sl, 0, 0.7) * 0.28);
+    player.airTime = 0;
+    landingBurst();
+  }
+}
+function onRelease() { input.down = false; }
+
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); onPress(); });
+window.addEventListener('pointerup', onRelease);
+window.addEventListener('pointercancel', onRelease);
+window.addEventListener('blur', onRelease);
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') {
+    e.preventDefault();
+    if (!input.down) onPress(); else input.down = true;
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') onRelease();
+});
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+/* --- приземлення і трюки ----------------------------------------- */
+const TRICK_NAMES = ['', 'Backflip', 'Double backflip', 'Triple backflip', 'Quad backflip'];
+
+function land(h) {
+  const turns = player.flip / TAU;
+  const near = Math.round(turns);
+  const err = Math.abs(player.flip - near * TAU);
+
+  if (err > CFG.FLIP_TOLERANCE) {           // сів не на дошку
+    player.y = h + CFG.RIDE_OFFSET;
+    die('crash');
+    return;
+  }
+
+  player.grounded = true;
+  player.y = h + CFG.RIDE_OFFSET;
+  player.vy = 0;
+  landingBurst();
+  shake = Math.min(0.25, 0.04 + player.airTime * 0.12);
+
+  if (near >= 1) {                          // чистий бекфліп → бонус і розгін
+    player.combo = Math.min(player.combo + 1, 9);
+    player.tricks += near;
+    const pts = 120 * near * player.combo;
+    player.score += pts;
+    player.boost = CFG.BOOST_TIME;
+    showTrick((TRICK_NAMES[Math.min(near, 4)] || 'Flip x' + near) +
+              (player.combo > 1 ? '  ×' + player.combo : '') + '  +' + pts);
+    sparkBurst(player.x, player.y + 1.0, sky.coin, 26);
+  } else if (player.airTime > 0.7) {         // просто довгий політ
+    const pts = Math.floor(player.airTime * 45);
+    player.score += pts;
+    showTrick('Air  +' + pts);
+  }
+  player.flip = 0;
+  player.flipping = false;
+  player.airTime = 0;
+}
+
+/* --- фізика ------------------------------------------------------ */
+function updatePhysics(dt) {
+  terrain.diff = clamp(player.dist / 2600, 0, 1);
+
+  // Цільова швидкість зростає з дистанцією. Підйом гальмує, спуск розганяє,
+  // але «дно» швидкості тримаємо високо — застрягти на схилі неможливо.
+  const target = lerp(CFG.SPEED_START, CFG.SPEED_MAX, clamp(player.dist / CFG.SPEED_RAMP, 0, 1)) * view.scale;
+  const pull = player.speed < target ? 1.8 : 0.35;
+  player.speed += (target - player.speed) * pull * dt;
+  if (player.grounded) player.speed += -slopeAt(player.x) * CFG.SLOPE_ACCEL * dt;
+  if (player.boost > 0) player.boost = Math.max(0, player.boost - dt);
+  player.speed = clamp(player.speed, target * 0.62, target * 1.9);
+
+  const vx = player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1);
+  player.x += vx * dt;
+  player.dist = player.x - startX;
+
+  ensureTerrain(player.x + view.visW * 1.2 + 90);
+  trimTerrain(player.x - view.visW);
+
+  const h = heightAt(player.x);
+  const solid = solidAt(player.x);
+
+  if (player.grounded) {
+    if (!solid) {                                  // край прірви — падаємо
+      player.grounded = false;
+      player.vy = -2;
+    } else {
+      const hNext = heightAt(player.x + vx * dt * 1.35);
+      const vTerr = (hNext - h) / Math.max(dt, 1e-4);
+      if (vTerr < -16) {                           // гребінь підкинув — вільний політ
+        player.grounded = false;
+        player.vy = vTerr * 0.5;
+        player.airTime = 0;
+      } else {
+        player.y = h + CFG.RIDE_OFFSET;
+        player.vy = 0;
+      }
+    }
+  }
+
+  if (!player.grounded) {
+    const flipping = input.down && player.airTime > 0.04;
+    if (flipping) { player.flipping = true; player.flip += CFG.FLIP_SPEED * dt; }
+    // під час сальто падіння трохи сповільнюється — встигаєш докрутити
+    player.vy -= CFG.GRAVITY * (flipping ? 0.84 : 1) * dt;
+    player.y += player.vy * dt;
+    player.airTime += dt;
+    if (player.flipping && rnd() < 0.5) {
+      dust.spawn(player.x + rr(-0.8, 0.8), player.y + rr(0.2, 1.4), ENT_Z - 0.4,
+        rr(-2, 0), rr(-1, 1), rr(0.15, 0.4), rr(0.3, 0.6), sandColor(0.4), 1);
+    }
+    if (solid && player.vy <= 0 && player.y <= h + CFG.RIDE_OFFSET) {
+      land(h);
+    } else if (!solid && player.y < h - 14) {      // впав у прірву
+      die('void');
+      return;
+    }
+  }
+
+  // кут дошки: на землі — за нахилом, у повітрі — плавно вирівнюється
+  const targetAngle = player.grounded ? Math.atan(slopeAt(player.x)) : player.angle * 0.9;
+  player.angle += (targetAngle - player.angle) * Math.min(1, dt * 12);
+
+  // збір кристалів
+  for (const c of active.coins) {
+    if (c.taken) continue;
+    const dx = c.x - player.x, dy = c.y - (player.y + 0.85);
+    if (dx * dx + dy * dy < 3.4) {
+      c.taken = true;
+      player.coins++;
+      player.score += 25;
+      sparkBurst(c.x, c.y + ENT_SURF, sky.coin, 12);
+    }
+  }
+  // перешкоди
+  for (const r of active.rocks) {
+    if (r.hit) continue;
+    if (player.x + 0.72 > r.x - r.w * 0.5 && player.x - 0.72 < r.x + r.w * 0.5 &&
+        player.y < r.y + r.h * 0.88) {
+      r.hit = true;
+      die('rock');
+      return;
+    }
+  }
+
+  if (player.grounded) sandSpray(dt);
+  player.score += vx * dt * 0.55;                  // очки за пройдений шлях
+}
+
+/** Спокійна «атракт»-прогулянка на екрані старту. */
+function updateAttract(dt) {
+  player.x += 8 * view.scale * dt;
+  ensureTerrain(player.x + view.visW * 1.2 + 90);
+  trimTerrain(player.x - view.visW);
+  player.y = heightAt(player.x) + CFG.RIDE_OFFSET;
+  player.angle = Math.atan(slopeAt(player.x));
+}
+
+/** Падіння після аварії — райдер котиться і завмирає. */
+function updateDying(dt) {
+  player.deadTime += dt;
+  player.speed *= Math.pow(0.22, dt);
+  player.x += player.speed * dt;
+  player.vy -= CFG.GRAVITY * 0.7 * dt;
+  player.y += player.vy * dt;
+  const h = heightAt(player.x);
+  if (solidAt(player.x) && player.y < h + CFG.RIDE_OFFSET) {
+    player.y = h + CFG.RIDE_OFFSET;
+    player.vy = 0;
+  }
+  player.flip += dt * 3.0 * clamp(player.speed / 10, 0, 1);
+  ensureTerrain(player.x + view.visW * 1.2 + 90);
+}
+
+/* --- візуальне оновлення гравця ---------------------------------- */
+function updatePlayerVisual(dt) {
+  riderMat.color.copy(sky.rider);
+  player.obj.visible = state !== GS.START;
+  player.obj.position.set(player.x, player.y + ENT_SURF, ENT_Z);
+  player.obj.rotation.z = player.angle + player.flip;
+
+  // шарф розвівається тим сильніше, чим швидше летимо
+  const sc = player.obj.userData.scarf;
+  for (let i = 0; i < sc.length; i++) {
+    sc[i].rotation.z = Math.sin(time * 9 + i * 0.9) * 0.28 * (0.4 + player.speed / 30);
+    sc[i].position.y = 1.33 + Math.sin(time * 9 + i * 0.9) * 0.1;
+  }
+
+  // м'яка витягнута тінь: довга на світанку/заході, коротка опівдні
+  const hs = heightAt(player.x);
+  const air = clamp(player.y - hs, 0, 12);
+  const stretch = lerp(3.4, 1.1, clamp(sky.sunV * 1.4, 0, 1));
+  const skew = -(sky.sunU - 0.5) * stretch * 2.2;
+  player.shadow.visible = state !== GS.START && solidAt(player.x) && sky.shadow > 0.02;
+  player.shadow.position.set(player.x + skew, hs + ENT_SURF + 0.05, ENT_Z - 0.35);
+  player.shadow.scale.set(stretch * (1 + air * 0.06), 1 + air * 0.04, 1);
+  player.shadow.material.opacity = sky.shadow * (1 - air / 12) * 0.9;
+}
+
+/** Сонце як directional light: напрямок повторює позицію диска в небі. */
+function updateSun() {
+  const sx = (sky.sunU - 0.5) * view.visW * 1.5;
+  const sy = (sky.sunV - 0.05) * view.visH * 0.85 + 6;
+  sunLight.position.set(camera.position.x + sx, camera.position.y + sy, 95);
+  sunLight.target.position.set(camera.position.x, camera.position.y - 4, 0);
+  sunLight.target.updateMatrixWorld();
+}
+scene.add(sunLight.target);
+
+/* --- UI ---------------------------------------------------------- */
+let uiAcc = 0;
+function updateUI(dt) {
+  if (trickTimer > 0) {
+    trickTimer -= dt;
+    if (trickTimer <= 0) EL.trick.classList.remove('show');
+  }
+  uiAcc += dt;
+  if (uiAcc < 0.08) return;
+  uiAcc = 0;
+  EL.score.textContent = Math.floor(player.score).toLocaleString('en-US');
+  EL.coins.textContent = '✦ ' + player.coins;
+  EL.phase.textContent = sky.name;
+  EL.multi.textContent = player.combo > 1 ? 'combo ×' + player.combo : 'score';
+}
+
+/* --- головний цикл ----------------------------------------------- */
+let lastT = performance.now();
+let started = false;
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  if (dt > 0.05) dt = 0.05;            // після згортання вкладки не «телепортуємось»
+  if (dt <= 0) return;
+  time += dt;
+
+  updateDayCycle(dt);
+  applySkyPalette(time);
+
+  if (state === GS.PLAY) updatePhysics(dt);
+  else if (state === GS.START) updateAttract(dt);
+  else updateDying(dt);
+
+  // камера: тримає гравця трохи лівіше центру, по вертикалі — з інерцією
+  const camTargetY = player.y + view.visH * 0.12;
+  camY += (camTargetY - camY) * (1 - Math.exp(-dt / CFG.CAM_LAG));
+  if (shake > 0) shake = Math.max(0, shake - dt * 1.6);
+  const sh = shake * shake;
+  camera.position.set(
+    player.x + view.lead + rr(-sh, sh) * 0.6,
+    camY + rr(-sh, sh) * 0.9,
+    CFG.CAM_Z,
+  );
+
+  // екранна висота лінії горизонту — потрібна шейдеру неба
+  camera.updateMatrixWorld();
+  _hzVec.set(camera.position.x, 0, -80).project(camera);
+  skyUniforms.uHorizon.value = clamp(_hzVec.y * 0.5 + 0.5, 0.06, 0.88);
+
+  updateSun();
+  updateSandMesh(camera.position.x);
+  updateLayers(camera.position.x);
+  updateEntities(camera.position.x, dt);
+  updatePlayerVisual(dt);
+  dust.update(dt);
+  motes.update(time, camera.position.x, camY, dt);
+  meteors.update(dt, camera.position.x, camY);
+  updateUI(dt);
+
+  renderFrame(time);
+
+  if (!started) {                       // ховаємо прелоадер після першого кадру
+    started = true;
+    EL.loading.classList.add('off');
+    setTimeout(() => EL.loading.remove(), 800);
+  }
+}
+
+/* --- старт ------------------------------------------------------- */
+onResize();
+resetWorld((Math.random() * 1e9) | 0);
+updateDayCycle(0);
+applySkyPalette(0);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
