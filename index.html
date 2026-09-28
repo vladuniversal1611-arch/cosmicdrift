@@ -134,8 +134,8 @@ const WORLDS=[
 const STORY={
 prologue:[
 {t:'The Heartlight',b:'At the center of the world burned the Heartlight — a living star whose glow gave breath to every realm.'},
-{t:'The Shattering',b:'One night, it broke. Darkness swept the eight realms. The guardians fell into a stone sleep, and the light scattered into countless lost Echoes.'},
-{t:'The Last Lightweaver',b:'You alone can still bend light with a touch. Weave each lost Echo home, rekindle the realms — and forge the Heartlight anew.'}
+{t:'The Shattering',b:'One night, it broke. Darkness swept the eight realms, the guardians fell into a stone sleep, and the light scattered into countless lost Echoes. No one knows why.'},
+{t:'The Last Lightweaver',b:'You wake with no memory of who you were — only the power to bend light with a touch. Every Echo you guide home returns a piece of what you lost.'}
 ],
 chapters:[
 'Where the first Echoes still flicker in the grass. Weave them home, and watch life return to the meadow.',
@@ -150,8 +150,31 @@ chapters:[
 ending:[
 {t:'The Heartlight Reforged',b:'The final Echo settles home. Light erupts from the Nexus and races across all eight realms at once.'},
 {t:'The Living World',b:'Rivers glow. Guardians wake. The whole world breathes again — because you wove it back to life. Thank you, Lightweaver.'}
+],
+// Shown after the ending, depending on how many Deep Memories were recovered
+trueEnding:{eyebrow:'True Ending',t:'The Open Hand',b:'You build no walls this time. The Heartlight shines unguarded over every realm — it never needed a keeper. Only someone brave enough to let it go.'},
+lostEnding:{eyebrow:'Epilogue',t:'Something Is Missing',b:'Deep memories are still scattered in the realms. Weave more gently — fewer lines, lighter touch — and the whole truth will return.'},
+// Memories: the mystery of the Shattering. [w][0] = finish the world, [w][1] = Deep Memory at 24★ in it
+memories:[
+[{t:'A Name',b:'Warmth. A tower of glass at the heart of the world, and a voice calling you "Keeper".'},
+ {t:'The Keeper',b:'You were the Heartlight\'s keeper. Your task was simple: let its light flow outward, to every realm.'}],
+[{t:'The Fear',b:'Each night the dark pressed closer. You began to fear the day the light would run out.'},
+ {t:'Counting',b:'You started counting the light. Measuring it. Holding a little back — just in case.'}],
+[{t:'The Walls',b:'You grew walls of crystal around the Heartlight, so not a single ray could slip away.'},
+ {t:'The Quiet',b:'The realms dimmed. The guardians called for you. You told yourself it was for their own good.'}],
+[{t:'The Cage',b:'From the old machines you forged gates and locks, and sealed the light inside.'},
+ {t:'The Warning',b:'The Stone Golem begged you: "Light that cannot move is not light. It is a fire waiting to burst."'}],
+[{t:'The Trembling',b:'The Heartlight pushed against its cage, brighter and brighter, until the sky itself shook.'},
+ {t:'Your Hands',b:'You held on. You held on with everything you had.'}],
+[{t:'The Truth',b:'It did not break because of the dark. It broke because of your grip. The Shattering was you.'},
+ {t:'The Forgetting',b:'Your memories flew away with the Echoes. You woke with nothing — nothing but the gift of bending light.'}],
+[{t:'Why Lines Fade',b:'Now you understand. The lines you draw fade because they must. You guide the light — you never hold it.'},
+ {t:'The Lightest Touch',b:'The fewer lines you draw, the freer the light flows. The gentlest touch was always the strongest.'}],
+[{t:'The Choice',b:'At the Nexus the Heartlight can be reforged — or caged again. This time, the choice is yours.'},
+ {t:'Forgiveness',b:'The guardians do not blame you. They only waited for you to open your hand.'}]
 ]
 };
+const DEEP_STARS=24;// stars needed in a world (of 30) to recover its Deep Memory
 
 const CREATURES=[
 {name:'Forest Sprite',icon:'🧚',desc:'A tiny guardian of new growth',world:0},
@@ -172,6 +195,28 @@ const CREATURES=[
 {name:'Prism Moth',icon:'🦋',desc:'Wings scatter all colors',world:6},
 {name:'Nexus Core',icon:'💠',desc:'The heart of all connections',world:7},
 {name:'Infinity Wyrm',icon:'🐲',desc:'Endless and eternal',world:7}
+];
+
+// What each guardian says when it wakes — hints at the truth of the Shattering
+const CREATURE_SAY=[
+'You came back! The grass remembers your footsteps.',
+'The Echoes trust you. I\'m not sure I do yet.',
+'Light bends here. It never breaks — unless someone forces it.',
+'Water and light are alike. Dam them, and they rise.',
+'I watched you in the dark. You draw like someone afraid to.',
+'I warned you once, Keeper. Do you remember?',
+'Every spark wants to fly. Don\'t close your fist.',
+'I have been reborn many times. So can a world.',
+'The sky shook the night it broke. I was there.',
+'Drift with it. Don\'t fight the current.',
+'Time forgives, Keeper. But it does not forget.',
+'I saw who held the Heartlight last. Look at your hands.',
+'Fire never burns what lets it breathe.',
+'I am what remains when light is kept too long.',
+'Between realities, your memories are waiting.',
+'One light, many colors. None of them yours to keep.',
+'Every path leads here. Every choice does too.',
+'Open your hand, Keeper. It was always the answer.'
 ];
 
 const ARTIFACTS=[
@@ -373,9 +418,9 @@ lv.hint={x1:mx-px,y1:my-py,x2:mx+px,y2:my+py};
 /*═══════════════════════════════════════════════════
   SAVE
 ═══════════════════════════════════════════════════*/
-function freshSave(){return{lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},chapters:{},seenIntro:0,settings:{sfx:true,music:true}}}
+function freshSave(){return{lv:0,stars:{},creatures:{},artifacts:{},totalStars:0,eventsShown:{},worldLife:{},chapters:{},memories:{},seenIntro:0,settings:{sfx:true,music:true}}}
 let save=freshSave();
-function loadSave(){try{const s=localStorage.getItem('ef_save3');if(s){save=Object.assign(freshSave(),JSON.parse(s));save.chapters=save.chapters||{};sfxOn=save.settings?.sfx!==false;musicOn=save.settings?.music!==false}}catch(e){}}
+function loadSave(){try{const s=localStorage.getItem('ef_save3');if(s){save=Object.assign(freshSave(),JSON.parse(s));save.chapters=save.chapters||{};save.memories=save.memories||{};sfxOn=save.settings?.sfx!==false;musicOn=save.settings?.music!==false}}catch(e){}}
 function doSave(){save.settings={sfx:sfxOn,music:musicOn};save.totalStars=Object.values(save.stars).reduce((a,b)=>a+b,0);try{localStorage.setItem('ef_save3',JSON.stringify(save))}catch(e){}}
 loadSave();
 
@@ -413,6 +458,20 @@ function gy(n){return(H-FH)/2+60+n*(FH-120)}
 // Perfect Weave: the minimum lines that earns 3 stars. Derived from each level's max.
 function perfectLines(ld){return ld.pf??Math.max(1,Math.round((ld.ml||3)*.5))}
 function perfectCount(){let n=0;for(const k in save.stars)if(save.stars[k]>=3)n++;return n}
+// ── Living world: how alive a realm is = stars earned there / max ──
+function worldLevels(w){const r=[];LEVELS.forEach((l,i)=>{if(l.w===w)r.push(i)});return r}
+function worldStars(w){return worldLevels(w).reduce((a,i)=>a+(save.stars[i]||0),0)}
+function worldLifeOf(w){return clamp(worldStars(w)/(worldLevels(w).length*3),0,1)}
+// ── Memories: finishing a realm and mastering it each return a piece of the truth ──
+let pendingMemories=[];
+function memoryCard(w,i){const m=STORY.memories[w][i];return{eyebrow:(i?'Deep Memory · ':'Memory · ')+WORLDS[w].name,t:m.t,b:m.b}}
+function memoryCount(){return Object.keys(save.memories).length}
+function deepCount(){return Object.keys(save.memories).filter(k=>k.endsWith('_1')).length}
+function checkMemories(){
+for(let w=0;w<WORLDS.length;w++){const lv=worldLevels(w);
+if(!save.memories[w+'_0']&&lv.every(i=>save.stars[i]>0)){save.memories[w+'_0']=1;pendingMemories.push(memoryCard(w,0))}
+if(!save.memories[w+'_1']&&worldStars(w)>=DEEP_STARS){save.memories[w+'_1']=1;pendingMemories.push(memoryCard(w,1))}}}
+function allMemoryCards(){const c=[];for(let w=0;w<WORLDS.length;w++)for(let i=0;i<2;i++)if(save.memories[w+'_'+i])c.push(memoryCard(w,i));return c}
 function wrapText(txt,maxW){const words=txt.split(' ');const lines=[];let cur='';
 for(const w of words){const test=cur?cur+' '+w:w;if(X.measureText(test).width>maxW&&cur){lines.push(cur);cur=w}else cur=test}
 if(cur)lines.push(cur);return lines}
@@ -602,7 +661,7 @@ if(lvUsedAd)stars=1;// borrowed lines can't be perfect
 if(stars>=3)setTimeout(()=>sfx.discover(),300);
 save.stars[curLv]=Math.max(save.stars[curLv]||0,stars);
 save.lv=Math.max(save.lv,curLv+1);
-const wI=LEVELS[curLv].w;save.worldLife[wI]=Math.min(1,(save.worldLife[wI]||0)+.04+stars*.02);
+checkMemories();
 // Check milestones
 const justReached=curLv+1;
 for(const m of MILESTONES){
@@ -648,6 +707,27 @@ const t=gameTime*.08;for(let i=0;i<50;i++){const sx=(i*137.5+t*15)%W,sy=(i*97.3+
 /*═══════════════════════════════════════════════════
   DRAW GAME OBJECTS
 ═══════════════════════════════════════════════════*/
+// The realm visibly heals as you earn stars in it: darkness recedes, light-blooms grow, motes rise
+const BLOOM_ORDER=[7,2,12,4,15,9,0,17,5,11,14,1,8,16,3,13,6,10];
+function drawLife(w){
+const life=worldLifeOf(w),wd=WORLDS[w],fl=gx(0),fb=gy(1),ft=gy(0),n=BLOOM_ORDER.length;
+// light returning: the realm's own color rises from the ground
+if(life>0){const lg=X.createLinearGradient(0,fb,0,fb-(fb-ft)*.6);lg.addColorStop(0,wd.accent+Math.round(life*70).toString(16).padStart(2,'0'));lg.addColorStop(1,wd.accent+'00');X.fillStyle=lg;X.fillRect(fl,ft,FW,fb-ft)}
+const shown=Math.round(life*n);
+for(let k=0;k<shown;k++){const i=BLOOM_ORDER[k];
+const x=fl+(i+.5)/n*FW,sway=Math.sin(gameTime*1.3+i)*4*SC,h=(22+(i*11)%26)*SC,tx=x+sway,ty=fb-h;
+X.globalAlpha=.7;X.strokeStyle=wd.color;X.lineWidth=2*SC;X.lineCap='round';X.beginPath();X.moveTo(x,fb);X.quadraticCurveTo(x-sway*.5,fb-h*.55,tx,ty);X.stroke();
+X.beginPath();X.moveTo(x-sway*.3,fb-h*.35);X.quadraticCurveTo(x-7*SC,fb-h*.45,x-9*SC,fb-h*.3);X.stroke();
+X.globalAlpha=1;glow(tx,ty,16*SC,wd.accent+'88',.55+.35*Math.sin(gameTime*2+i));
+X.fillStyle='#fff';X.beginPath();X.arc(tx,ty,2.4*SC,0,TAU);X.fill()}
+const motes=Math.round(life*18);
+for(let i=0;i<motes;i++){const x=fl+((i*.618+.1)%1)*FW,cyc=(gameTime*.05+i*.13)%1,y=fb-cyc*(fb-ft);
+X.globalAlpha=.55*Math.sin(cyc*PI);X.fillStyle=wd.accent;X.beginPath();X.arc(x+Math.sin(gameTime+i)*8,y,2.2*SC,0,TAU);X.fill()}
+X.globalAlpha=1;
+// darkness that hasn't been healed yet: the world is dim and closes in from the edges
+const dark=1-life;if(dark>.01){X.fillStyle=`rgba(0,0,0,${.3*dark})`;X.fillRect(0,0,W,H);
+const vg=X.createRadialGradient(W/2,H/2,Math.min(W,H)*.2,W/2,H/2,Math.max(W,H)*.7);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,`rgba(0,0,0,${.85*dark})`);X.fillStyle=vg;X.fillRect(0,0,W,H)}
+}
 function drawField(){const fl=gx(0),ft=gy(0);X.strokeStyle='rgba(255,255,255,.05)';X.lineWidth=1;X.strokeRect(fl,ft,FW,FH-120)}
 function drawOrbs(){
 for(const o of orbs){
@@ -737,7 +817,12 @@ X.globalAlpha=1;X.restore();
 // Lines report — teaches the Perfect Weave goal
 if(t>.9){const pf=perfectLines(LEVELS[curLv]);const la=clamp((t-.9)*3,0,1);X.globalAlpha=la;
 X.fillStyle=perfect?'#fbbf24':'rgba(255,255,255,.55)';X.font=`${11*SC}px sans-serif`;X.textAlign='center';
-X.fillText(perfect?`Woven in ${linesUsed} line${linesUsed===1?'':'s'} — flawless!`:`${linesUsed} lines used · weave in ${pf} for ★★★`,W/2,H*.335);X.globalAlpha=1}
+X.fillText(perfect?`Woven in ${linesUsed} line${linesUsed===1?'':'s'} — flawless!`:`${linesUsed} lines used · weave in ${pf} for ★★★`,W/2,H*.335);
+// how much of this realm you've brought back
+const w=LEVELS[curLv].w,st=worldStars(w);X.fillStyle=WORLDS[w].color;X.font=`bold ${11*SC}px sans-serif`;
+X.fillText(`${WORLDS[w].name} · ${Math.round(worldLifeOf(w)*100)}% alive`,W/2,H*.37);
+if(!save.memories[w+'_1']){X.fillStyle='rgba(255,255,255,.4)';X.font=`${10*SC}px sans-serif`;X.fillText(`Deep Memory: ${st} / ${DEEP_STARS}★ in this realm`,W/2,H*.395)}
+X.globalAlpha=1}
 
 // NEXT GOAL HOOK
 const goal=getNextGoal(curLv+1);
@@ -793,7 +878,7 @@ if(t>.8){
 const a=clamp((t-.8)*2,0,1);X.globalAlpha=a;
 X.shadowColor='#fbbf24';X.shadowBlur=20;X.fillStyle='#fff';X.font=`bold ${24*SC}px sans-serif`;X.textAlign='center';X.fillText(m.title,W/2,H*.48);X.shadowBlur=0;
 X.fillStyle='rgba(255,255,255,.7)';X.font=`${14*SC}px sans-serif`;X.fillText(m.text,W/2,H*.55);
-if(m.type==='creature'){X.fillStyle='rgba(255,255,255,.4)';X.font=`${11*SC}px sans-serif`;X.fillText(CREATURES[m.id].desc,W/2,H*.60)}
+if(m.type==='creature'){X.fillStyle='rgba(251,191,36,.75)';X.font=`italic ${12*SC}px sans-serif`;let qy=H*.61;for(const ln of wrapText(`“${CREATURE_SAY[m.id]}”`,Math.min(FW,W)*.8)){X.fillText(ln,W/2,qy);qy+=17*SC}}
 if(m.type==='artifact'){X.fillStyle='rgba(255,255,255,.4)';X.font=`${11*SC}px sans-serif`;X.fillText(ARTIFACTS[m.id].desc,W/2,H*.60)}
 X.globalAlpha=1;
 }
@@ -973,7 +1058,7 @@ X.shadowColor='#8b5cf6';X.shadowBlur=25;X.fillStyle='#fff';X.font=`bold ${28*SC}
 X.fillStyle='rgba(255,255,255,.4)';X.font=`${13*SC}px sans-serif`;X.fillText('The Living World',0,14);X.restore();
 // Tagline — the pitch
 X.fillStyle='rgba(167,139,250,.65)';X.font=`italic ${12*SC}px sans-serif`;X.textAlign='center';
-X.fillText('Weave lost light home. Bring a dead world back to life.',W/2,H*.30);
+X.fillText('Light can\'t be held — only guided home.',W/2,H*.30);
 // Stats
 const prog=save.lv,tot=LEVELS.length,pw=perfectCount();
 X.fillStyle='rgba(255,255,255,.3)';X.font=`${11*SC}px sans-serif`;X.textAlign='center';X.fillText(`${prog}/${tot} levels   ★ ${save.totalStars||0}   ✦ ${pw} Perfect`,W/2,H*.42);
@@ -1006,7 +1091,7 @@ X.fillStyle='#fff';X.shadowColor='#fbbf24';X.shadowBlur=30;X.beginPath();X.arc(W
 // eyebrow / kind
 const eyebrow=c.eyebrow||(storyKind==='prologue'?'PROLOGUE':storyKind==='ending'?'FINALE':'CHAPTER');
 X.fillStyle='rgba(167,139,250,.8)';X.font=`bold ${10*SC}px sans-serif`;X.textAlign='center';X.textBaseline='middle';
-X.fillText(eyebrow.toUpperCase().split('').join(' '),W/2,H*.46);
+const eb=eyebrow.toUpperCase();X.fillText(eb.length<16?eb.split('').join(' '):eb,W/2,H*.46);
 // title
 X.fillStyle='#fff';X.shadowColor='#8b5cf6';X.shadowBlur=18;X.font=`bold ${23*SC}px sans-serif`;X.fillText(c.t||'',W/2,H*.51);X.shadowBlur=0;
 // body (wrapped)
@@ -1018,7 +1103,7 @@ if(storyCards.length>1){const n=storyCards.length,dw=14*SC,tot=n*dw,sx=W/2-tot/2
 X.globalAlpha=1;
 }
 function setupStory(){clearUI();const last=storyIdx>=storyCards.length-1;const bw=180*SC,bh=46*SC;
-let lbl=storyKind==='prologue'?(last?'Begin Weaving':'Next'):storyKind==='ending'?(last?'Return Home':'Next'):(last?'Enter the Realm':'Next');
+let lbl=!last?'Next':storyKind==='prologue'?'Begin Weaving':storyKind==='ending'?'Return Home':storyKind==='memory'?'Continue':'Enter the Realm';
 addB(W/2-bw/2,H*.78,bw,bh,lbl,'story_next','primary');
 if(storyKind!=='ending')addB(W/2-bw/2,H*.78+bh+8,bw,bh*.62,'Skip','story_skip','small');}
 
@@ -1041,7 +1126,8 @@ X.fillStyle='#fff';X.font=`bold ${b.h*.34}px sans-serif`;X.textAlign='center';X.
 function setupMenu(){clearUI();const bw=180*SC,bh=46*SC;
 addB(W/2-bw/2,H*.52,bw,bh,'Play','play','primary');
 addB(W/2-bw/2,H*.52+bh+10,bw,bh*.75,'Collection','collection','small');
-addB(W/2-bw/2,H*.52+bh+10+bh*.75+10,bw,bh*.75,'Settings','settings','small')}
+addB(W/2-bw/2,H*.52+bh+10+bh*.75+10,bw,bh*.75,`Memories ${memoryCount()}/${WORLDS.length*2}`,'memories','small');
+addB(W/2-bw/2,H*.52+bh+10+(bh*.75+10)*2,bw,bh*.75,'Settings','settings','small')}
 function setupMap(){clearUI();addB(14,8,42,42,'←','back_menu','small');addB(W-56,8,42,42,'📦','collection','small')}
 function setupLevel(){clearUI();addB(14,8,42,42,'←','back_map','small');
 const rw=72*SC;addB(W/2-rw/2,H-52,rw,32,'Restart','restart','small');
@@ -1076,9 +1162,12 @@ if(!save.chapters[w]){save.chapters[w]=1;doSave();
 showStory([{eyebrow:'Chapter '+(w+1),t:WORLDS[w].name,b:STORY.chapters[w]}],'chapter',()=>doInitLevel(idx));
 return}
 doInitLevel(idx);if(withEvent)maybeRandomEvent(idx)}
-function advanceFromWin(){
+// Recovered memories play before anything else, then `then` continues
+function flushMemories(then){if(!pendingMemories.length)return then();const c=pendingMemories;pendingMemories=[];showStory(c,'memory',then)}
+function advanceFromWin(){flushMemories(()=>{
 if(curLv+1<LEVELS.length)enterLevel(curLv+1,true);
-else showStory(STORY.ending,'ending',()=>{state='map';setupMap();megaConfetti(60)})}
+else{const full=deepCount()>=WORLDS.length;
+showStory([...STORY.ending,full?STORY.trueEnding:STORY.lostEnding],'ending',()=>{state='map';setupMap();megaConfetti(60)})}})}
 function act(a){
 sfx.click();
 if(a==='play'){if(!save.seenIntro){showStory(STORY.prologue,'prologue',()=>{save.seenIntro=1;doSave();state='map';setupMap();scrollToCurrentLevel()})}else{state='map';setupMap();scrollToCurrentLevel()}}
@@ -1086,12 +1175,13 @@ else if(a==='back_menu'){state='menu';setupMenu();stopMusic()}
 else if(a==='back_map'){state='map';setupMap()}
 else if(a==='back_prev'){state=prevState;if(state==='menu')setupMenu();else if(state==='map')setupMap()}
 else if(a==='settings'){state='settings';setupSettings()}
+else if(a==='memories'){const c=allMemoryCards();showStory(c.length?c:[{eyebrow:'Memories',t:'Nothing Yet',b:'Your past is scattered with the Echoes. Finish a realm to remember — master it to remember more.'}],'memory',()=>{state='menu';setupMenu()})}
 else if(a==='collection'){prevState=state;state='collection';setupCollection()}
 else if(a==='restart'||a==='retry'||a==='replay'){resize();initLevel(curLv);state='level';setupLevel()}
 else if(a==='next'){
 if(milestoneQueue.length>0){curMilestone=milestoneQueue.shift();milestoneTimer=0;state='milestone';setupMilestone();sfx.milestone();megaConfetti(40);return}
 advanceFromWin()}
-else if(a==='to_map'){state='map';setupMap()}
+else if(a==='to_map'){flushMemories(()=>{state='map';setupMap()})}
 else if(a==='toggle_sfx'){sfxOn=!sfxOn;doSave();setupSettings()}
 else if(a==='toggle_music'){musicOn=!musicOn;if(!musicOn)stopMusic();doSave();setupSettings()}
 else if(a==='reset'){save=freshSave();doSave();sfxOn=true;musicOn=true;state='menu';setupMenu()}
@@ -1198,7 +1288,7 @@ if(state==='menu'){drawMenu();setupMenu();drawUI()}
 else if(state==='map'){drawMap();setupMap();drawUI()}
 else if(state==='collection'){drawCollection();setupCollection();drawUI()}
 else if(state==='level'){
-const wd=WORLDS[LEVELS[curLv]?.w||0];drawBG(wd.bg1,wd.bg2);drawField();drawLvObjs();drawLines();
+const wd=WORLDS[LEVELS[curLv]?.w||0];drawBG(wd.bg1,wd.bg2);drawLife(LEVELS[curLv]?.w||0);drawField();drawLvObjs();drawLines();
 if(showHint){hintAnim+=dt;const h=LEVELS[curLv]?.hint;if(h){const ha=clamp(hintAnim*2,0,1)*(.4+.2*Math.sin(gameTime*4));X.globalAlpha=ha;X.strokeStyle='#fbbf24';X.lineWidth=3*SC;X.setLineDash([6,6]);X.lineCap='round';X.shadowColor='#fbbf24';X.shadowBlur=8;X.beginPath();X.moveTo(gx(h.x1),gy(h.y1));X.lineTo(gx(h.x2),gy(h.y2));X.stroke();X.setLineDash([]);X.shadowBlur=0;X.globalAlpha=1;if(hintAnim>6)showHint=false}}
 drawTargets();drawOrbs();drawP();drawHUD();setupLevel();drawUI();
 if(lvWon){drawWin(dt);if(winTimer>1.5){if(milestoneQueue.length===0)setupWin();drawUI()}}
