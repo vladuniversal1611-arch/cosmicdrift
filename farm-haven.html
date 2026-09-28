@@ -292,6 +292,7 @@ const ITEMS={
  crayfish:{n:'Рак',e:'🦞',sell:40}, trout:{n:'Форель',e:'🐡',sell:60},
  goldfish:{n:'Золота рибка',e:'🎏',sell:150}, catfish:{n:'Сом Балтазар',e:'🐋',sell:500},
  // levels 12–20: orchard fruit, 3-step chains, crafts and delicacies
+ moonfish:{n:'Місячна рибка',e:'🌙',sell:260},
  apple:{n:'Яблуко',e:'🍎',sell:95}, cherry:{n:'Вишня',e:'🍒',sell:120}, peach:{n:'Персик',e:'🍑',sell:140},
  dough:{n:'Тісто',e:'🫓',sell:300}, fruitpie:{n:'Фруктовий пиріг',e:'🥧',sell:850},
  juice:{n:'Сік',e:'🧃',sell:480}, fabric:{n:'Тканина',e:'🧵',sell:200},
@@ -1031,6 +1032,7 @@ function objEmoji(o){
  if(o.k==='tractor')return '🚜';
  if(o.k==='greenhouse')return '🏡';
  if(o.k==='lukas')return '⛺';
+ if(o.k==='nytree')return '🎄';
  if(o.k==='spouse')return S.family&&S.family.spouse?NPCS[S.family.spouse].e:'🧑';
  if(o.k==='child')return ['👶','🧒','🧑'][Math.max(0,childStage())];
  if(o.k==='house')return '🏡';
@@ -1043,8 +1045,8 @@ function bldgBadge(bk){
  const d=BUILDINGS[bk];
  return ITEMS[Object.keys(d.recipes[0].out)[0]].e;
 }
-const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46,greenhouse:56,lukas:48};
-const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30,greenhouse:34,lukas:32};
+const OBJ_SIZE={tree:44,rock:26,weed:24,house:66,barn:54,deco:32,board:38,ship:48,volcano:96,spouse:34,child:28,museum:58,tractor:46,greenhouse:56,lukas:48,nytree:64};
+const HITR={tree:28,rock:22,weed:20,house:48,barn:42,deco:24,soil:30,crop:30,bldg:44,board:28,ship:42,volcano:56,ytree:32,spouse:26,child:24,museum:34,tractor:30,greenhouse:34,lukas:32,nytree:34};
 /* --- per-frame draw --- */
 let lastTs=0;
 function frame(ts){
@@ -1171,6 +1173,12 @@ function frame(ts){
   if(o.k==='lukas'){
    const bob=Math.sin(ts/240)*4;
    emoji(cx,'🧙',q.x,q.y-38+bob,20);
+   if(fairOn())emoji(cx,'🎡',q.x+26,q.y-20,24);
+  }
+  if(o.k==='nytree'){
+   const tw=.55+.45*Math.sin(ts/180);
+   cx.globalAlpha=tw; emoji(cx,'⭐',q.x,q.y-66,18); cx.globalAlpha=1;
+   if(!sevDone(sevActive()))emoji(cx,'🎁',q.x+22,q.y-8,18);
   }
   if(o.k==='greenhouse'){
    emoji(cx,'🌱',q.x,q.y-34,20);
@@ -1543,6 +1551,9 @@ function handleObj(o){
   case 'greenhouse':
    openGreenhouse();
    break;
+  case 'nytree':
+   showTab('quests'); toast('🎄 Новий рік у долині — подарунки у вкладці «Люди»');
+   break;
   case 'lukas':
    openLukas();
    break;
@@ -1855,6 +1866,7 @@ function renderQuests(){
  const el=$('tab-quests');
  let html='';
  html+=onboardHTML();
+ html+=sevHTML();
  // real-calendar event of the year
  const cev=calActive();
  if(cev){
@@ -2430,6 +2442,11 @@ function fishCatch(){
  if(weatherNow().id==='fog')tbl.find(f=>f.id==='goldfish').w*=3; // у тумані клює краще
  if(S.friend&&friendPerk('fisherman'))tbl.find(f=>f.id==='goldfish').w*=2;
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)tbl.find(f=>f.id==='boot').w*=5; // отруєна річка
+ const sev=sevActive();
+ if(sev&&sev.id==='nightfish'){ // нічна риболовля: рідкісна риба клює частіше, а вночі — Місячна рибка
+  tbl.find(f=>f.id==='goldfish').w*=3; tbl.find(f=>f.id==='trout').w*=2;
+  if(nightInfo().dark>.15)tbl.push({id:'moonfish',w:14});
+ }
  let total=0; for(const f of tbl)total+=f.w;
  let r=Math.random()*total, pick=tbl[0];
  for(const f of tbl){ r-=f.w; if(r<=0){ pick=f; break; } }
@@ -2442,6 +2459,10 @@ function fishCatch(){
  }else if(pick.id==='goldfish'){
   fishUI('ЗОЛОТА РИБКА! Рідкісний улов!','🎏',false);
   addXp(15); sUp();
+ }else if(pick.id==='moonfish'){
+  dg('moonfish',1);
+  fishUI('МІСЯЧНА РИБКА! Сяє, наче шматочок місяця','🌙',false);
+  addXp(25); sUp();
  }else{
   fishUI('Спіймано: '+it.n+'! (+'+sellPrice(pick.id)+'🪙 у крамниці)',it.e,false);
   addXp(pick.id==='trout'?8:pick.id==='crayfish'?6:3); sCoin();
@@ -2592,6 +2613,95 @@ function tickStories(){
   sUp(); toast('📜 У долині щось відбувається! Дивись вкладку «Люди»');
   save();
  }
+}
+
+/* ---------- special events of the in-game year (one per season) ---------- */
+const SEASON_EVENTS=[
+ {id:'soniabd',season:'spring',from:2,to:3,e:'🎂',n:'День народження Соні',
+  tx:'Соні сьогодні виповнюється дев’ять! Спечи їй торт — і вся долина прийде на свято разом із тобою.',
+  need:{flower:5,egg:3,wheat:5},rwTxt:'усім мешканцям +дружба, 🎈 прикраса, 300🪙, 💧✨'},
+ {id:'nightfish',season:'summer',from:2,to:4,e:'🌙',n:'Нічна риболовля',
+  tx:'Теплі ночі — Петро каже, що зараз клює найрідкісніша риба. Золота рибка й форель трапляються частіше, а вночі з глибини піднімається Місячна рибка!'},
+ {id:'lukasfair',season:'autumn',from:1,to:3,e:'🎡',n:'Ярмарок Лукаса',
+  tx:'Лукас розбив намет на всі дні ярмарку: подвійний асортимент, ярмаркова прикраса, скрині за монети та вигідний обмін есенції.'},
+ {id:'newyear',season:'winter',from:6,to:7,e:'🎄',n:'Новий рік у долині',
+  tx:'На фермі виросла святкова ялинка! Спечи новорічне печиво й пригости всіх мешканців — вони не залишаться в боргу.',
+  need:{flour:3,egg:5,honey:1},rwTxt:'усім мешканцям +дружба, їхні подарунки, 🏆, 💧✨'},
+];
+function sevActive(){
+ const s=season().id, d=dayOfSeason();
+ return SEASON_EVENTS.find(e=>e.season===s&&d>=e.from&&d<=e.to)||null;
+}
+function sevKey(e){ return e.id+'-'+yearNum(); }
+function sevDone(e){ return !!(e&&S.sevDone&&S.sevDone[sevKey(e)]); }
+function nextSev(){ // the next special event and how many game days until it starts
+ const d0=dayNum();
+ for(let i=1;i<=4*DAYS_PER_SEASON;i++){
+  const d=d0+i, s=SEASONS[Math.floor(d/DAYS_PER_SEASON)%4].id, ds=d%DAYS_PER_SEASON;
+  const e=SEASON_EVENTS.find(x=>x.season===s&&x.from===ds);
+  if(e)return {e,days:i};
+ }
+ return null;
+}
+function ensureSevObjs(){
+ const ev=sevActive(), want=!!(ev&&ev.id==='newyear');
+ const has=S.world.objs.some(o=>o.k==='nytree');
+ if(want&&!has){ const p=freeSpot(56)||{x:700,y:560}; S.world.objs.push({k:'nytree',x:p.x,y:p.y}); }
+ else if(!want&&has)S.world.objs=S.world.objs.filter(o=>o.k!=='nytree');
+}
+function sevHTML(){
+ const ev=sevActive();
+ let html='';
+ if(ev){
+  const done=sevDone(ev);
+  html+='<div class="secTitle">✨ Сьогодні в долині</div><div class="card" style="background:#fff4de">';
+  html+='<h3>'+ev.e+' '+ev.n+' <span class="badge">до дня '+(ev.to+1)+'</span></h3><p>'+ev.tx+'</p>';
+  if(ev.id==='nightfish'){
+   const night=nightInfo().dark>.15;
+   html+='<p class="'+(night?'needok':'muted')+'">'+(night?'🌙 Зараз ніч — Місячна рибка клює!':'☀️ Поки день: рідкісна риба клює частіше, а Місячна — лише вночі')+'</p>';
+   html+='<div class="rowline"><span class="muted">Спіймано Місячних рибок: '+st('moonfish')+'</span>'+(fishingAllowed()?'<button class="btn gold small" onclick="openFishing()">🎣 На озеро</button>':'<span class="muted">🔒 спершу відкрий озеро (Петро)</span>')+'</div>';
+  }else if(ev.id==='lukasfair'){
+   html+='<div class="rowline"><span class="muted">Намет ⛺🎡 стоїть на фермі</span><button class="btn gold small" onclick="openLukas()">До ярмарку</button></div>';
+  }else if(done){
+   html+='<p class="needok">✅ Свято вдалося! Наступного року — знову.</p>';
+  }else{
+   html+='<div class="rowline"><span>'+needHTML(ev.need)+'</span><button class="btn small'+(hasAll(ev.need)?' gold':'')+'" '+(hasAll(ev.need)?'':'disabled')+' onclick="claimSev()">'+(ev.id==='soniabd'?'🎂 Привітати':'🎁 Пригостити')+'</button></div><p class="muted">Нагорода: '+ev.rwTxt+'</p>';
+  }
+  html+='</div>';
+ }else{
+  const nx=nextSev();
+  if(nx)html+='<div class="card"><p class="muted">📅 Наступна подія: '+nx.e.e+' <b>'+nx.e.n+'</b> — через '+nx.days+' '+(nx.days===1?'день':nx.days<5?'дні':'днів')+' ('+SEASONS.find(x=>x.id===nx.e.season).name.toLowerCase()+', день '+(nx.e.from+1)+')</p></div>';
+ }
+ return html;
+}
+const NY_GIFTS={carpenter:{wood:8},baker:{flour:3},fisherman:{trout:2},beekeeper:{honey:3},elder:{essence:1}};
+function claimSev(){
+ const ev=sevActive();
+ if(!ev||!ev.need||sevDone(ev))return;
+ if(!takeAll(ev.need)){ sErr(); toast('Бракує: '+needHTML(ev.need).replace(/<[^>]+>/g,'')); return; }
+ if(!S.sevDone)S.sevDone={};
+ S.sevDone[sevKey(ev)]=true; dg('fest',1);
+ ensureFriend();
+ const ups=[];
+ const boost=ev.id==='newyear'?40:30;
+ for(const k of FRIEND_NPCS){ const b=friendLevel(k); S.friend[k].pts+=boost; ups.push([k,b]); }
+ S.tears=(S.tears||0)+1;
+ let body;
+ if(ev.id==='soniabd'){
+  S.coins+=300; addXp(40);
+  const p=freeSpot(40); if(p){ S.world.objs.push({k:'deco',x:p.x,y:p.y,e:'🎈'}); S.decoCount++; }
+  body='<p>Соня задуває свічки на торті, а вся долина співає «Многая літа»! Богдан приніс вирізьблену ляльку, Мирон — медові пряники, а Петро... мовчки подарував гарну мушлю.</p><p><i>«Це найкращий день народження! Дідусь би сміявся з нами»</i></p>'+
+   '<p class="needok">Усі мешканці +дружба · 🎈 прикраса на фермі · +300🪙 · 💧✨ +1 · +40⭐</p>';
+ }else{
+  const got=[];
+  for(const k of FRIEND_NPCS){ const g=NY_GIFTS[k]; for(const it in g){ give(it,g[it]); got.push(NPCS[k].e+ITEMS[it].e+'×'+g[it]); } }
+  give('trophy',1); addXp(80);
+  body='<p>Під ялинкою — гора подарунків! Кожен мешканець скуштував твого печива й приніс щось від себе. За вікном падає сніг, а в хаті тепло.</p>'+
+   '<p>'+got.join(' · ')+'</p><p class="needok">Усі мешканці +дружба · 🏆 · 💧✨ +1 · +80⭐</p>';
+ }
+ sUp();
+ modal(ev.e+' '+ev.n,body,[{t:'Чудово!',fn:()=>chainFriendUps(ups)}]);
+ ensureSevObjs(); save(); refresh();
 }
 
 /* ---------- real-calendar events: the living year ---------- */
@@ -3154,8 +3264,10 @@ function craftDeco(k){
 
 /* ---------- Lukas the travelling merchant ---------- */
 const LUKAS_DECOS=['🦩','⛲','🎠','🏰','🗿','🌈','🎡','🪺'];
-function lukasHere(){ return dayNum()%3===0; } // visits every 3rd game-day
+function lukasHere(){ return dayNum()%3===0||fairOn(); } // visits every 3rd game-day, and stays for the autumn fair
+function fairOn(){ const e=sevActive(); return !!(e&&e.id==='lukasfair'); }
 function lukasDeco(){ return LUKAS_DECOS[dayNum()%LUKAS_DECOS.length]; }
+function fairDeco(){ return LUKAS_DECOS[(dayNum()+4)%LUKAS_DECOS.length]; }
 function ensureLukasObj(){
  const here=lukasHere(), has=S.world.objs.some(o=>o.k==='lukas');
  if(here&&!has)S.world.objs.push({k:'lukas',x:820,y:560});
@@ -3163,12 +3275,20 @@ function ensureLukasObj(){
 }
 function openLukas(){
  const deco=lukasDeco(), bk='lukasDeco'+dayNum();
- let html='<p class="muted" style="font-size:11px">«Хо-хо! Мандрівний торговець Лукас до ваших послуг. Товар рідкісний — беріть, поки я тут!»</p>';
+ const fair=fairOn();
+ let html='<p class="muted" style="font-size:11px">'+(fair?'«Ярмарок! Сьогодні я розклав <b>увесь</b> свій крам — подвійний асортимент!»':'«Хо-хо! Мандрівний торговець Лукас до ваших послуг. Товар рідкісний — беріть, поки я тут!»')+'</p>';
  html+='<div class="rowline"><span>✨ Есенція <span class="muted">(2💎 → 3✨)</span></span><button class="btn small'+(invGet('crystal')>=2?' gold':'')+'" '+(invGet('crystal')>=2?'':'disabled')+' onclick="lukasBuy(\'essence\')">Обмін</button></div>';
  html+='<div class="rowline"><span>🎁 Таємнича скринька <span class="muted">(1💎)</span></span><button class="btn small'+(invGet('crystal')>=1?' gold':'')+'" '+(invGet('crystal')>=1?'':'disabled')+' onclick="lukasBuy(\'mystery\')">Купити</button></div>';
  html+='<div class="rowline"><span>'+deco+' Екзотична прикраса <span class="muted">(900🪙)</span></span>'+
   (S.lukasBought===bk?'<span class="needok">куплено ✅</span>':'<button class="btn small'+(S.coins>=900?'':'')+'" '+(S.coins>=900?'':'disabled')+' onclick="lukasBuy(\'deco\')">Купити</button>')+'</div>';
- modal('🧙 Мандрівний торговець',html);
+ if(fair){
+  const d2=fairDeco();
+  html+='<div class="rowline"><span>'+d2+' Ярмаркова прикраса <span class="muted">(1200🪙)</span></span>'+
+   (S.lukasBought2===bk?'<span class="needok">куплено ✅</span>':'<button class="btn small" '+(S.coins>=1200?'':'disabled')+' onclick="lukasBuy(\'deco2\')">Купити</button>')+'</div>';
+  html+='<div class="rowline"><span>🎪 Ярмаркова скриня <span class="muted">(400🪙, без кристалів)</span></span><button class="btn small'+(S.coins>=400?' gold':'')+'" '+(S.coins>=400?'':'disabled')+' onclick="lukasBuy(\'fairbox\')">Купити</button></div>';
+  html+='<div class="rowline"><span>✨ Ярмарковий обмін <span class="muted">(3💎 → 6✨)</span></span><button class="btn small'+(invGet('crystal')>=3?' gold':'')+'" '+(invGet('crystal')>=3?'':'disabled')+' onclick="lukasBuy(\'essence2\')">Обмін</button></div>';
+ }
+ modal(fair?'🎡 Ярмарок Лукаса':'🧙 Мандрівний торговець',html);
 }
 function lukasBuy(kind){
  if(kind==='essence'){
@@ -3184,6 +3304,26 @@ function lukasBuy(kind){
   else if(r<.8){ give('crystal',2); toast('🎁 Скринька: 💎×2 (пощастило!)'); }
   else if(r<.95){ give('gem',2); toast('🎁 Скринька: 💠×2'); }
   else { give('trophy',1); toast('🎁 Скринька: 🏆 кубок!'); }
+ }else if(kind==='essence2'){
+  if(!fairOn()||invGet('crystal')<3){ sErr(); return; }
+  S.inv.crystal-=3; give('essence',6); sCoin(); toast('✨ +6 есенції (ярмаркова ціна!)');
+ }else if(kind==='fairbox'){
+  if(!fairOn()||S.coins<400){ sErr(); toast('Не вистачає монет'); return; }
+  S.coins-=400; sCoin();
+  const r=Math.random();
+  if(r<.3){ const c=500+ri(700); S.coins+=c; toast('🎪 Скриня: '+c+'🪙!'); }
+  else if(r<.55){ give('feed',15); give('flower',5); toast('🎪 Скриня: 🌰×15 і 🌸×5'); }
+  else if(r<.8){ give('essence',1); give('honey',2); toast('🎪 Скриня: ✨ і 🍯×2'); }
+  else if(r<.97){ give('crystal',1); toast('🎪 Скриня: 💎 кристал!'); }
+  else { give('trophy',1); toast('🎪 Скриня: 🏆 кубок ярмарку!'); }
+ }else if(kind==='deco2'){
+  const bk='lukasDeco'+dayNum();
+  if(!fairOn()||S.lukasBought2===bk)return;
+  if(S.coins<1200){ sErr(); toast('Не вистачає монет'); return; }
+  S.coins-=1200; S.lukasBought2=bk;
+  const spot=freeSpot(40);
+  if(spot){ S.world.objs.push({k:'deco',x:spot.x,y:spot.y,e:fairDeco()}); S.decoCount++; }
+  sCoin(); toast(fairDeco()+' Ярмаркову прикрасу встановлено!');
  }else if(kind==='deco'){
   const bk='lukasDeco'+dayNum();
   if(S.lukasBought===bk)return;
@@ -3276,7 +3416,7 @@ function giveGift(k){
  checkFriendLevel(k,before);
  save(); refresh();
 }
-function checkFriendLevel(k,before){
+function checkFriendLevel(k,before,after){
  const now=friendLevel(k);
  if(now>before){
   const f=S.friend[k];
@@ -3290,8 +3430,16 @@ function checkFriendLevel(k,before){
   }
   sUp();
   modal(NPCS[k].e+' '+NPCS[k].n+' — '+friendHearts(k),
-   '<p><i>'+FRIEND_LETTERS[k][now-1]+'</i></p><p class="needok">Дружба '+now+'/5 · +'+rw+'🪙 +30⭐'+extra+'</p>');
+   '<p><i>'+FRIEND_LETTERS[k][now-1]+'</i></p><p class="needok">Дружба '+now+'/5 · +'+rw+'🪙 +30⭐'+extra+'</p>',
+   after?[{t:'Гаразд',fn:after}]:undefined);
  }
+}
+// show several friendship level-ups one after another (modals replace each other otherwise)
+function chainFriendUps(ups){
+ const i=ups.findIndex(([k,b])=>friendLevel(k)>b);
+ if(i<0)return;
+ const [k,b]=ups[i], rest=ups.slice(i+1);
+ checkFriendLevel(k,b,()=>chainFriendUps(rest));
 }
 function friendPerk(k){ return friendLevel(k)>=5; }
 function friendHTML(){
@@ -3320,6 +3468,7 @@ const ACH=[
  {id:'fish50',e:'🎣',n:'Майстер вудки',d:'Злови 50 рибин',rw:{coins:400},p:()=>[st('fish'),50]},
  {id:'fish200',e:'🌊',n:'Володар глибин',d:'Злови 200 рибин',rw:{coins:1200,crystal:1},p:()=>[st('fish'),200]},
  {id:'goldf',e:'🎏',n:'Золота удача',d:'Злови золоту рибку',rw:{coins:300},p:()=>[st('goldfish'),1]},
+ {id:'moonf',e:'🌙',n:'Місячний рибалка',d:'Злови Місячну рибку під час нічної риболовлі',rw:{coins:600,crystal:1},p:()=>[st('moonfish'),1]},
  {id:'balt',e:'🐋',n:'Легенда озера',d:'Злови сома Балтазара',rw:{coins:500},p:()=>[S.story.flags.balt?1:0,1]},
  {id:'ord5',e:'📋',n:'Надійний постачальник',d:'Виконай 5 замовлень',rw:{coins:150},p:()=>[st('order'),5]},
  {id:'ord25',e:'📦',n:'Логіст долини',d:'Виконай 25 замовлень',rw:{coins:500},p:()=>[st('order'),25]},
@@ -3675,7 +3824,14 @@ function renderHUD(){
   cb.style.display='block';
   cb.textContent=cev.e+' '+cev.n+' — справжнє свято сьогодні! Тисни';
   cb.onclick=()=>showTab('quests');
- }else cb.style.display='none';
+ }else{
+  const sev=sevActive();
+  if(sev&&!sevDone(sev)){
+   cb.style.display='block';
+   cb.textContent=sev.e+' '+sev.n+(sev.need?' — тисни, щоб узяти участь':' — триває зараз! Тисни');
+   cb.onclick=()=>showTab('quests');
+  }else cb.style.display='none';
+ }
  const fb=$('festbanner');
  if(festActive()&&!S.fest[festKey()]){
   const f=FESTIVALS[s.id];
@@ -3746,6 +3902,11 @@ function tick(){
  if(d!==S.lastDay){
   const days=d-S.lastDay;
   S.lastDay=d;
+  const hadLukas=S.world.objs.some(o=>o.k==='lukas');
+  ensureLukasObj(); ensureSevObjs();
+  if(lukasHere()&&!hadLukas&&!fairOn())toast('🧙 Мандрівний торговець Лукас завітав до долини! (намет на фермі ⛺)');
+  const sev=sevActive();
+  if(sev&&dayOfSeason()===sev.from&&!sevDone(sev))toast(sev.e+' '+sev.n+' — дивись вкладку «Люди»!');
   const weeds=objsW().filter(o=>o.k==='weed').length;
   let weedChance=hasCat()?.25:.5;
   if(S.guardians)weedChance*=Math.max(.3,1-.15*S.guardians);
