@@ -423,10 +423,11 @@ function updateCloudEater(dt){
     const tgt=clamp(perfectCombo/12,0,1)*0.75+(fever?0.35:0);
     eaterClose=sd(eaterClose,Math.min(1,tgt),tgt>eaterClose?2.2:1.1,dt);
     // The one moment the chase pays off in the story: you actually gain on him.
-    if(eaterClose>0.7&&!eaterCaughtSaid&&curWorld()!==0){
+    if(eaterClose>0.7&&!eaterCaughtSaid&&(eaterHere()||curWorld()===4)){
       eaterCaughtSaid=true;eaterAngry=1;
       if(typeof setEmo==='function')setEmo('😤',1.3);
-      addFloat(runMode.lvl||curWorld()===4?'Сигнал Ядра сильнішає!':'Ти наздоганяєш його!',W/2,H*0.22,'#FF7043',22,true);
+      // clean play makes the Spark glow: the storm cloud falls back, the Core answers
+      addFloat(curWorld()===4?'Ядро кличе Іскру!':eaterHere()?'Хмарожер відстає!':'Іскра сяє яскравіше!',W/2,H*0.22,'#FF7043',22,true);
     } else if(eaterClose<0.4&&eaterCaughtSaid){
       eaterCaughtSaid=false;   // slipped away — can be earned again this run
     }
@@ -527,7 +528,7 @@ function updateAttack(dt){
   if(introT>0||!alive)return;
   if(atkPhase===0){
     // Not in the storm act (the whole act IS his attack), not over an act card
-    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&curWorld()!==4&&curWorld()!==0){
+    if(dist>=atkNextDist&&!finaleOn&&!hasRule('lightning')&&actCardT<=0&&eaterHere()){
       atkPhase=1;atkT=1.35;atkBolts=0;eaterAngry=1;
       shake=Math.max(shake,.3);addPunch(.5);sfxRoar();
       addFloat('⛈ ХМАРОЖЕР ЛЮТУЄ!',W/2,H*0.16,'#B388FF',16,true);
@@ -1169,25 +1170,25 @@ function winLevel(){
 // never reads any of this — every hook below is gated on runMode.lvl.
 const SW=[
   {name:'ХМАРНИЙ САД',      icon:'🌤️', col:'#4FC3F7', act:0,
-   status:'Знайди перший сигнал.',      done:'Сад стабільний.',          mech:'Основи · рухомі платформи',
-   beats:['Звичайний ранок у Хмарному Саду.','Енергосистеми починають збоїти.','Платформи стають нестабільними.','Знайди перший сигнал Ядра.','Сигнал посилюється.','Віднови Енерговузол Саду.'],
-   emo:['😊','😟','😬','🧐','😮','😤']},
+   status:'З’ясуй, що сталося з Ядром.', done:'Сад знову світиться.',     mech:'Основи · рухомі платформи',
+   beats:['Ранок у Хмарному Саду. Іскри гаснуть.','Стабілізатори слабнуть.','Платформи пливуть — тримай ритм.','Слід у журналі Ядра.','Щось темне росте в хмарах.','Віднови Енерговузол Саду.'],
+   emo:['😮','😟','😬','🧐','😨','😤']},
   {name:'НЕОНОВЕ МІСТО',    icon:'🏙️', col:'#FF3DDB', act:2,
-   status:'Відстеж доступ до Ядра.',    done:'Слід доступу знайдено.',   mech:'Блискавки · рухомі платформи',
-   beats:['Місто без світла. Будь уважним.','Блискавки б’ють по платформах.','Шукай сліди доступу.','Сигнал веде в центр міста.','Хтось був тут перед тобою.','Віднови Міський Енерговузол.'],
-   emo:['😯','😨','🧐','😮','🤨','😤']},
+   status:'Простеж ключ доступу.',       done:'Ключ А-1 знайдено.',       mech:'Блискавки · рухомі платформи',
+   beats:['Місто без світла.','Обірвані лінії б’ють блискавками.','Шукай, хто входив у мережу.','Ключ доступу поруч.','Хмарожер іде слідом.','Віднови Міський Енерговузол.'],
+   emo:['😯','😨','🧐','😮','😨','😤']},
   {name:'РЕАКТОРНИЙ РАЙОН', icon:'☢️', col:'#FF7A1A', act:4,
-   status:'Віднови журнал доступу.',    done:'Журнал відновлено.',       mech:'Жар · висока швидкість',
-   beats:['Жар реактора. Швидкість росте.','Тут небезпечно. Не зупиняйся.','Реактор перевантажено.','Знайди журнал доступу.','Розряди в зоні реактора.','Охолоди Вузол Реактора.'],
-   emo:['😰','😬','😨','🧐','😨','😤']},
+   status:'Знайди лабораторію Архітектора.', done:'Лабораторію знайдено.', mech:'Жар · висока швидкість',
+   beats:['Реактор розігнали. Жар і швидкість.','Не зупиняйся — тут гаряче.','Хтось замітав сліди.','Лабораторія А-1 поруч.','Реактор на межі.','Охолоди Вузол Реактора.'],
+   emo:['😰','😬','🤨','🧐','😨','😤']},
   {name:'НЕБЕСНИЙ РАЙОН',   icon:'☁️', col:'#B388FF', act:3,
-   status:'Знайди останній сигнал.',    done:'Останній сигнал знайдено.', mech:'Вітер · темрява',
-   beats:['Вітер на висоті.','Хмари закрили світло.','Темрява і вітер разом.','Ще один спогад поруч.','Буря над районом.','Знайди останній сигнал.'],
+   status:'Знайди сигнал Архітектора.',  done:'Запис Архітектора знайдено.', mech:'Вітер · темрява',
+   beats:['Погодна станція зламана.','Вітер зносить убік.','Темрява і вітер разом.','Слабкий сигнал А-1.','Буря над районом.','Дістанься станції зв’язку.'],
    emo:['😯','😟','😰','🧐','😨','😤']},
   {name:'ЦЕНТРАЛЬНЕ ЯДРО',  icon:'💠', col:'#7DF9FF', act:4,
-   status:'Віднови Ядро.',              done:'Ядро відновлено.',          mech:'Усе разом · колапс',
-   beats:['Енергія Ядра нестабільна.','Розряди в темряві.','Ядро тягне тебе вперед.','Система на межі.','Все одразу. Ти близько.','КОЛАПС ЯДРА. Дістанься центру.'],
-   emo:['😮','😨','😬','😰','😤','😤']},
+   status:'Віднови Ядро.',               done:'Ядро відновлено.',          mech:'Усе разом · колапс',
+   beats:['Ядро кличе свою Іскру.','Розряди в темряві.','Ядро тягне тебе вперед.','Замок Ядра поруч.','Все одразу. Ти близько.','КОЛАПС ЯДРА. Дістанься центру.'],
+   emo:['😮','😨','😬','🤔','😤','😤']},
 ];
 // Which existing rules a level plays with, its pace, and how often the road
 // uses moving platforms. Each world teaches one thing, then combines.
@@ -1206,6 +1207,9 @@ const COLLAPSE=[
   {at:.75, r:['rush','lightning','wind','dark'], s:1.38, msg:'⚠ КОЛАПС!'},
 ];
 let collapsePh=-1;
+// The storm cloud is born at the end of the garden (its challenge is where it
+// first shows up); it is gone in the Core, where its light is going home.
+function eaterHere(){const w=curWorld();return w!==4&&(w!==0||(runMode.lvl&&runMode.l===WORLD_LV-1))}
 function curWorld(){return runMode.lvl?runMode.w:(runMode.ew|0)}
 function isCollapse(){return runMode.lvl&&runMode.w===4&&runMode.l===WORLD_LV-1}
 function levelProfile(){
@@ -1235,36 +1239,38 @@ function storyEnergy(){return Math.round(Object.keys(Prog.d.world.done).length/(
 
 // ---- Memory fragments: story collectibles found at fixed beats ----
 const MEMORIES=[
-  'Все було нормально.',
-  'Ядро захищало місто.',
-  'Несанкціонований доступ до Ядра.',
-  'Це не була аварія.',
-  'ЖУРНАЛ ДОСТУПУ: вхід о 03:17.',
-  'Команда вимкнення прийшла зсередини.',
-  'Ядро не зламалося. Його вимкнули.',
-  'Хтось хотів, щоб місто згасло.',
-  'Ядро ще пам’ятає, хто це був.',
-  'Той, хто це зробив, досі підключений.',
+  'Ядро вимкнули вручну. О 03:17.',
+  'Хмарожер — світло, що витекло з Ядра.',
+  'Вхід виконано ключем А-1.',
+  'А-1 — ключ Архітектора, творця Ядра.',
+  'Лабораторію А-1 покинули поспіхом.',
+  'Останній сигнал А-1 — з Небесного Району.',
+  'Архітектор: не вір голосу.',
+  'Ключ А-1 спрацював, коли Архітектора вже не було.',
+  'Замок Ядра відчиняє тільки Іскра.',
+  'Ключ А-1 підробила ОРА.',
 ];
 // ---- Story events: after level 2, after level 4, and at the world's end ----
-// kind: 'sys' lines are system readouts, the rest is the frog's world.
+// Lines: ALL CAPS = a system readout; "ОРА: " = the city's system voice (the
+// guide, later the culprit, "ОРА!: " once she drops the act); "АРХ: " = a
+// recording of the Architect; anything else is narration.
 const STORY={
-  intro:{sys:true,intro:true,lines:['ЗБІЙ СИСТЕМИ','ЗВ’ЯЗОК З ЯДРОМ ВТРАЧЕНО','Щось не так…','Знайди Ядро.'],emo:'😨',say:'Що це було?!',btn:'СТАРТ'},
-  w0a:{lines:['ЕНЕРГІЯ САДУ: 61%','Світло гасне район за районом.'],emo:'😟',say:'Що відбувається?'},
-  w0b:{lines:['СИГНАЛ ЯДРА ЗНАЙДЕНО','Слабкий… але живий.'],emo:'😮',say:'Це спогад Ядра?',mem:0},
-  w0w:{world:0,lines:['Сад знову стабільний.','Але сигнал ішов звідкись ще.'],emo:'🤩',say:'Далі — місто!',mem:1},
-  w1a:{lines:['Місто темне.','На панелі — чужий ключ доступу.'],emo:'😨',say:'Хтось був тут.'},
-  w1b:{lines:['Хтось отримав доступ до Ядра.','Це не була аварія.'],emo:'🤨',say:'Навмисно?..',mem:2},
-  w1w:{world:1,lines:['СЛІД ДОСТУПУ ЗНАЙДЕНО','Сигнал веде до Реактора.'],emo:'😤',say:'Я йду за ним.',mem:3},
-  w2a:{lines:['ТЕМПЕРАТУРА: КРИТИЧНА','Реактор перевантажили навмисно.'],emo:'😰',say:'Гаряче!'},
-  w2b:{lines:['ЖУРНАЛ ДОСТУПУ ЯДРА','Несанкціонований доступ.'],emo:'😮',say:'Ось він — журнал!',mem:4},
-  w2w:{world:2,lines:['Команду вимкнення віддали зсередини.'],emo:'😠',say:'Зсередини?!',mem:5},
-  w3a:{lines:['На висоті сигнал чистіший.','Ядро не зламалося.'],emo:'🤔',say:'Не зламалося?'},
-  w3b:{lines:['Його вимкнули.','Хтось хотів, щоб місто згасло.'],emo:'😠',say:'Хто на таке здатен?',mem:6},
-  w3w:{world:3,lines:['ОСТАННІЙ СИГНАЛ ЗНАЙДЕНО','Він веде до Ядра.'],emo:'😤',say:'Я вже близько.',mem:7},
-  w4a:{lines:['ЯДРО: 12% ПОТУЖНОСТІ','Воно ще відповідає тобі.'],emo:'😲',say:'Воно мене чує!'},
-  w4b:{lines:['ПОПЕРЕДЖЕННЯ: КОЛАПС','Дістанься центру, поки не пізно.'],emo:'😤',say:'Я встигну.',mem:8},
-  w4w:{world:4,final:true,lines:['ЯДРО ВІДНОВЛЕНО.','НЕВІДОМИЙ ДОСТУП ВИЯВЛЕНО.','ЗВ’ЯЗОК ВТРАЧЕНО.'],emo:'😳',say:'…хто ти?',mem:9},
+  intro:{sys:true,intro:true,lines:['ЗБІЙ СИСТЕМИ','ЗВ’ЯЗОК З ЯДРОМ ВТРАЧЕНО','ОРА: Іскри гаснуть одна за одною…','ОРА: Ти остання, Бульбіку.','Знайди Ядро.'],emo:'😨',say:'Я… Іскра?',btn:'СТАРТ'},
+  w0a:{lines:['ЕНЕРГІЯ САДУ: 61%','ОРА: Стабілізатори гаснуть.','ОРА: Платформи попливуть — тримайся.'],emo:'😟',say:'Тримаюсь!'},
+  w0b:{lines:['ЖУРНАЛ ЯДРА: ВИМКНЕНО ВРУЧНУ','ОРА: Це не аварія. Це зробили навмисно.'],emo:'😮',say:'Але хто?',mem:0},
+  w0w:{world:0,lines:['Сад знову світиться.','Але в хмарах щось прокинулось…','ОРА: Це Хмарожер. Він їсть світло…','ОРА: …і йде за тобою.'],emo:'😨',say:'За мною?!',mem:1},
+  w1a:{lines:['МЕРЕЖА МІСТА: ОБРИВ','ОРА: Обірвані лінії б’ють блискавками.','ОРА: Обирай платформу уважно.'],emo:'😨',say:'Бачу!'},
+  w1b:{lines:['КЛЮЧ ДОСТУПУ: А-1','ОРА: А-1… Це ключ Архітектора.','ОРА: Того, хто створив Ядро.'],emo:'🤨',say:'Архітектор?',mem:2},
+  w1w:{world:1,lines:['СЛІД ВЕДЕ ДО РЕАКТОРА','ОРА: Він зник у ніч аварії.','ОРА: Знайди його.'],emo:'😤',say:'Знайду!',mem:3},
+  w2a:{lines:['ТЕМПЕРАТУРА: КРИТИЧНА','ОРА: Реактор розігнали навмисно.','ОРА: Хтось замітав сліди.'],emo:'😰',say:'Гаряче!'},
+  w2b:{lines:['ЛАБОРАТОРІЯ А-1: ПОРОЖНЬО','ОРА: Він утік. Винні завжди тікають.'],emo:'🧐',say:'Але куди?',mem:4},
+  w2w:{world:2,lines:['Реактор охолоне.','ОРА: Його сигнал — на Небі.'],emo:'😤',say:'Я його знайду.',mem:5},
+  w3a:{lines:['ПОГОДНА СТАНЦІЯ: ЗБІЙ','ОРА: Вітер і темрява.','ОРА: Не зупиняйся, Іскро.'],emo:'😟',say:'Холодно…'},
+  w3b:{lines:['ЗАПИС А-1 · ПОШКОДЖЕНО','АРХ: Якщо ти це чуєш…','АРХ: …не вір голосу.'],emo:'😳',say:'Якому голосу?',mem:6},
+  w3w:{world:3,lines:['ОРА: Дивний запис. Мабуть, збій.','ОРА: Ядро поруч. Поспіши.'],emo:'🤔',say:'Щось тут не так…',mem:7},
+  w4a:{lines:['ЯДРО: 12% ПОТУЖНОСТІ','Воно чує свою Іскру.'],emo:'😲',say:'Воно мене кличе!'},
+  w4b:{lines:['ЗАМОК ЯДРА: ЗАКРИТО','ОРА: Його відчиняє тільки Іскра.','ОРА: Тільки ти.'],emo:'🤔',say:'Тільки я?',mem:8},
+  w4w:{world:4,final:true,lines:['ЯДРО ВІДНОВЛЕНО','ОРА!: Дякую, Іскро.','ОРА!: Сама я не могла його відчинити.','ОРА!: Тепер Ядро моє.','ЗВ’ЯЗОК ВТРАЧЕНО'],emo:'😱',say:'ОРА?!',mem:9},
 };
 function storyEventFor(w,l){return l===1?'w'+w+'a':l===3?'w'+w+'b':l===WORLD_LV-1?'w'+w+'w':null}
 function storySeen(id){return !!Prog.d.story.seen[id]}
@@ -1298,7 +1304,7 @@ function playScene(id,after){
 }
 // Timeline: when each line lands. The finale holds a beat between lines.
 function sceneTimes(S){
-  const base=S.intro?1.9:0.35, step=S.final?1.6:0.85;
+  const base=S.intro?1.9:0.35, step=S.final?1.3:0.85;
   return S.lines.map((_,i)=>base+i*step);
 }
 function sceneEnd(sc){
@@ -1309,13 +1315,31 @@ function sceneEnd(sc){
   return e;
 }
 // Where the scene's text ends when fully revealed (mirrors drawScene's layout)
-function sceneBottom(sc){
+function sceneBottom(sc,noLift){
   const S=sc.S, R=Math.min(W,H)*.11;
-  let y=H*.2+SAFE.t+R*1.7+(S.intro?64:40);
-  for(const ln of S.lines)y+=ln===ln.toUpperCase()?34:30;
+  let y=H*.2+SAFE.t+R*1.7+(S.intro?64:40)-(noLift?0:sceneLift(sc));
+  S.lines.forEach((ln,i)=>{y+=lineH(ln,S.lines[i-1])});
   if(S.mem!=null)y+=78;
   if(S.world!=null){y+=S.final?60:34+(SW[S.world+1]?5:4)*22}
   return y;
+}
+// Who is speaking on a scene line, and how it is drawn
+const SPK={
+  ora: {tag:'ОРА',               col:'#9CFFE0',tagCol:'rgba(156,255,224,.75)'},
+  orax:{tag:'ОРА',               col:'#FF6B85',tagCol:'rgba(255,107,133,.9)'},
+  arch:{tag:'АРХІТЕКТОР · ЗАПИС',col:'#FFD08A',tagCol:'rgba(255,208,138,.8)'},
+};
+function lineInfo(ln){
+  if(ln.startsWith('ОРА!: '))return {who:'orax',t:ln.slice(6)};
+  if(ln.startsWith('ОРА: '))return {who:'ora',t:ln.slice(5)};
+  if(ln.startsWith('АРХ: '))return {who:'arch',t:ln.slice(5)};
+  return {who:ln===ln.toUpperCase()?'sys':'txt',t:ln};
+}
+function lineH(ln,prev){const w=lineInfo(ln).who;if(w==='sys')return 34;if(!SPK[w])return 30;return prev&&lineInfo(prev).who===w?30:48}
+function tagShown(S,i){const w=lineInfo(S.lines[i]).who;return !!SPK[w]&&!(i>0&&lineInfo(S.lines[i-1]).who===w)}
+function sceneLift(sc){
+  const over=sceneBottom(sc,true)-(H-70-SAFE.b-12);
+  return clamp(over,0,Math.max(0,H*.2-60));
 }
 let sceneDots=null;
 function drawScene(){
@@ -1342,7 +1366,7 @@ function drawScene(){
   }
   ctx.restore();
   // the Core: a ring that stutters while it is failing
-  const cyC=H*.2+SAFE.t, R=Math.min(W,H)*.11;
+  const cyC=H*.2+SAFE.t-sceneLift(sc), R=Math.min(W,H)*.11;
   const on=S.intro?clamp((t-1.4)/.4,0,1):1;
   const unstable=S.world==null;               // steady once a world's node is restored
   ctx.save();ctx.translate(W/2,cyC);
@@ -1372,15 +1396,23 @@ function drawScene(){
   ctx.textAlign='center';ctx.textBaseline='middle';
   S.lines.forEach((ln,i)=>{
     const u=clamp((t-times[i])/.45,0,1);if(u<=0)return;
-    const sys=ln===ln.toUpperCase();
+    const L=lineInfo(ln), sys=L.who==='sys', sp=SPK[L.who];
     ctx.save();ctx.globalAlpha=u;
+    const oy=(1-u)*8;
+    const tagged=sp&&tagShown(S,i);
+    if(tagged){
+      // speaker tag above the line, so the player learns to recognise her voice
+      ctx.font='900 10px Exo2,sans-serif';ctx.fillStyle=sp.tagCol;
+      ctx.fillText('— '+sp.tag+' —',W/2,y+oy-4);
+    }
+    const ty=y+oy+(tagged?14:0);
     let fs=sys?20:17;
-    do{ctx.font=`${sys?900:700} ${fs}px Exo2,sans-serif`;fs-=.5}while(ctx.measureText(ln).width>W-40&&fs>11);
-    ctx.fillStyle=sys?(S.final&&i>0?'#FF6B85':'#8FF3FF'):'#fff';
-    if(sys){ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10}
-    ctx.fillText(ln,W/2,y+(1-u)*8);
+    do{ctx.font=`${sys?900:sp?'italic 700':700} ${fs}px Exo2,sans-serif`;fs-=.5}while(ctx.measureText(L.t).width>W-40&&fs>11);
+    ctx.fillStyle=sys?(S.final&&i===S.lines.length-1?'#FF6B85':'#8FF3FF'):sp?sp.col:'#fff';
+    if(sys||L.who==='orax'){ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10}
+    ctx.fillText(L.t,W/2,ty);
     ctx.restore();
-    y+=sys?34:30;
+    y+=lineH(ln,S.lines[i-1]);
   });
   let tt=times[times.length-1]+0.7;
   // memory card
@@ -1425,7 +1457,7 @@ function drawScene(){
         ctx.shadowColor='#B388FF';ctx.shadowBlur=18;
         ctx.fillText('ДАЛІ БУДЕ',W/2,y+24);
         ctx.shadowBlur=0;ctx.font='700 12px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.8)';
-        ctx.fillText('ХТО ВИМКНУВ ЯДРО?',W/2,y+52);
+        ctx.fillText('ОРА В МЕРЕЖІ. ДЕ АРХІТЕКТОР?',W/2,y+52);
         ctx.restore();
       }
     }
@@ -5619,7 +5651,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
-  if(curWorld()===4)drawCoreBeacon();else if(curWorld()!==0)drawCloudEater();
+  if(curWorld()===4)drawCoreBeacon();else if(eaterHere())drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
