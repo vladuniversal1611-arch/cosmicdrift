@@ -639,7 +639,7 @@ function updateActs(dt){
       if(boltWarn>0){
         boltWarn-=dt;
         if(boltWarn<=0){
-          boltStrike=BOLT_STRIKE;
+          boltStrike=BOLT_STRIKE;if(alive)rc.boltDodge++;
           shake=Math.max(shake,.45);addPunch(.7);actFlash=1;
           if(navigator.vibrate)navigator.vibrate(60);
           // The platform is GONE. The landing code already refuses a broken pad,
@@ -1003,7 +1003,7 @@ const Prog={
       this.d[k]=Object.assign(progDefaults()[k],this.d[k]||{});
     if(!this.d.migrated)this.migrate();
     this.syncUnlocks();
-    try{rollGoals();weekSync();storyMigrate()}catch(e){}
+    try{resEnsure();weekSync();storyMigrate()}catch(e){}
     this.save();
   },
   save(){if(this.readOnly)return;try{__LS.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
@@ -1100,7 +1100,7 @@ function endRunRewards(){
   if(mt>0){paid.meter+=mt;runChests=runChests.concat(addChestMeter(mt))}
   const gm=runGoalsDone*20-(paid.goals|0);                 // each goal is a fifth of a chest
   if(gm>0){paid.goals=(paid.goals|0)+gm;runChests=runChests.concat(addChestMeter(gm))}
-  settleGoals();
+  resSettle();
   d.stats.bestCombo=Math.max(d.stats.bestCombo,runMaxCombo);
   if(xp>0){paid.xp+=xp;runXP=paid.xp;
     const r=addXP(xp);runLevelUps=runLevelUps.concat(r.ups);
@@ -1596,48 +1596,173 @@ function drawCoreBeacon(){
   ctx.restore();
 }
 
-// ---- MissionSystem: run goals + weekly milestones ----
-// Three standing goals, each "in a single run". They scale with player level,
-// stay until done, and pay XP plus chest-meter progress. A finished goal is
-// replaced at the start of the next run so the post-run screen can show it.
-const r10=n=>Math.round(n/10)*10;
-const GOAL_KINDS=[
-  {k:'dist',  ico:'🏃', txt:n=>`Пробіжи ${n} м`,              need:t=>r10(150+40*t),        val:()=>Math.floor(dist)},
-  {k:'coins', ico:'🪙', txt:n=>`Збери ${n} монет`,            need:t=>r10(60+25*t),         val:()=>runCoins},
-  {k:'perf',  ico:'✨', txt:n=>`${n} PERFECT`,                need:t=>8+3*t,                val:()=>runPerfects},
-  {k:'combo', ico:'🔥', txt:n=>`Комбо ×${n}`,                 need:t=>Math.min(30,6+2*t),   val:()=>runMaxCombo},
-  {k:'fever', ico:'⚡', txt:n=>`Увімкни Fever ${n} р.`,        need:t=>1+Math.floor(t/4),    val:()=>runFever},
-  {k:'air',   ico:'🌠', txt:n=>`${n} монет у повітрі`,         need:t=>6+3*t,                val:()=>runAir},
-  {k:'gems',  ico:'💎', txt:n=>`Збери ${n} діаманти`,         need:t=>2+Math.floor(t/3),    val:()=>runDiamonds},
-  {k:'leap',  ico:'🦘', txt:n=>`${n} високих стрибків`,        need:t=>2+Math.floor(t/3),    val:()=>runLeaps},
-  {k:'dash',  ico:'💨', txt:n=>`Ривок ${n} р.`,                need:t=>3+Math.floor(t/3),    val:()=>runDashes, req:()=>modLv('dash')>0},
+// =====================================================================
+// CORE RESONANCE — ×1 → ×30 score multiplier earned through mission sets
+// =====================================================================
+// Three missions at a time. Most accumulate over any number of runs
+// ("40 PERFECT in total"); a few must be done in one run ("in one run" in the
+// text). Finish all three and Resonance goes up by one, permanently. It
+// multiplies SCORE only — coins stay their own economy.
+const RES_MAX=30;
+// per-run counters the library reads (reset in startGame)
+let rc={movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
+  boltDodge:0,ruleDist:{lightning:0,dark:0,rush:0,wind:0},noShield:true};
+function rcReset(){rc={movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
+  boltDodge:0,ruleDist:{lightning:0,dark:0,rush:0,wind:0},noShield:true}}
+const D=v=>Math.floor(v);
+// Ukrainian plural: 1 стрибок · 2 стрибки · 5 стрибків
+function pl(n,a,b,c){const t=n%100,u=n%10;return (t>10&&t<20)?c:u===1?a:(u>=2&&u<=4)?b:c}
+// k: id · g: group (never two of a group in one set) · m: 'sum' across runs
+// or 'one' in a single run · t: [easy, medium, hard] targets · v: this run's value
+// req: only offered when it can actually be done
+const RES_LIB=[
+  {k:'perf',   g:'perf', ico:'✨', m:'sum', t:[15,40,90],   txt:n=>`${n} PERFECT`,                       v:()=>runPerfects},
+  {k:'perf1',  g:'perf', ico:'✨', m:'one', t:[10,20,35],   txt:n=>`${n} PERFECT за один забіг`,         v:()=>runPerfects},
+  {k:'combo',  g:'combo',ico:'🔥', m:'one', t:[6,12,25],    txt:n=>`Комбо ×${n}`,                         v:()=>runMaxCombo},
+  {k:'fever',  g:'fever',ico:'⚡', m:'sum', t:[2,5,12],     txt:n=>`Fever ${n} р.`,                       v:()=>runFever},
+  {k:'fever1', g:'fever',ico:'⚡', m:'one', t:[1,2,3],      txt:n=>`Fever ${n} р. за один забіг`,         v:()=>runFever},
+  {k:'feverT', g:'fever',ico:'⏱', m:'sum', t:[15,40,90],   txt:n=>`${n} с у Fever`,                      v:()=>D(rc.feverT)},
+  {k:'feverD', g:'fever',ico:'🏃', m:'sum', t:[60,200,500], txt:n=>`${n} м у Fever`,                      v:()=>D(rc.feverDist)},
+  {k:'dist',   g:'dist', ico:'🏃', m:'sum', t:[400,1200,3000],txt:n=>`Пробіжи ${n} м`,                    v:()=>D(dist)},
+  {k:'dist1',  g:'dist', ico:'🏁', m:'one', t:[150,300,500],txt:n=>`${n} м за один забіг`,               v:()=>D(dist)},
+  {k:'clean',  g:'dist', ico:'🛡', m:'one', t:[150,250,400],txt:n=>`${n} м без щита`,                    v:()=>rc.noShield?D(dist):0},
+  {k:'coins',  g:'coins',ico:'🪙', m:'sum', t:[200,600,1500],txt:n=>`Збери ${n} ${pl(n,'монету','монети','монет')}`,                   v:()=>runCoins},
+  {k:'coins1', g:'coins',ico:'🪙', m:'one', t:[80,180,350], txt:n=>`${n} ${pl(n,'монета','монети','монет')} за один забіг`,           v:()=>runCoins},
+  {k:'air',    g:'coins',ico:'🌠', m:'sum', t:[15,40,90],   txt:n=>`${n} монет у повітрі`,                v:()=>runAir},
+  {k:'gems',   g:'gems', ico:'💎', m:'sum', t:[2,5,10],     txt:n=>`Збери ${n} ${pl(n,'діамант','діаманти','діамантів')}`,                 v:()=>runDiamonds},
+  {k:'gems1',  g:'gems', ico:'💎', m:'one', t:[1,2,4],      txt:n=>`${n} ${pl(n,'діамант','діаманти','діамантів')} за один забіг`,         v:()=>runDiamonds},
+  {k:'leap',   g:'leap', ico:'🦘', m:'sum', t:[3,10,25],    txt:n=>`${n} ${pl(n,'високий стрибок','високі стрибки','високих стрибків')}`,               v:()=>runLeaps},
+  {k:'mov',    g:'mov',  ico:'↔️', m:'sum', t:[5,15,35],    txt:n=>`${n} ${pl(n,'рухома платформа','рухомі платформи','рухомих платформ')}`,               v:()=>rc.movLand, req:()=>worldUnlocked(1)},
+  {k:'movP',   g:'mov',  ico:'↔️', m:'sum', t:[2,6,15],     txt:n=>`${n} PERFECT на рухомих`,             v:()=>rc.movPerf, req:()=>worldUnlocked(1)},
+  {k:'long',   g:'mov',  ico:'🛤', m:'sum', t:[10,30,80],   txt:n=>`${n} ${pl(n,'довга платформа','довгі платформи','довгих платформ')}`,                v:()=>rc.longLand},
+  {k:'dash',   g:'dash', ico:'💨', m:'sum', t:[3,10,25],    txt:n=>`Ривок ${n} р.`,                       v:()=>runDashes, req:()=>modLv('dash')>0},
+  {k:'shOn',   g:'shield',ico:'🛡',m:'sum', t:[2,5,12],     txt:n=>`Увімкни щит ${n} р.`,                 v:()=>rc.shOn, req:()=>modLv('shield')>0},
+  {k:'shSave', g:'shield',ico:'🛡',m:'sum', t:[1,3,8],      txt:n=>`Щит рятує ${n} р.`,                   v:()=>rc.shSave, req:()=>modLv('shield')>0},
+  {k:'dj',     g:'shield',ico:'🌀',m:'sum', t:[1,3,8],      txt:n=>`Подвійний стрибок рятує ${n} р.`,     v:()=>rc.djSave, req:()=>modLv('djump')>0},
+  {k:'bolt',   g:'rule', ico:'🌩', m:'sum', t:[3,10,25],    txt:n=>`Ухились від ${n} ${pl(n,'блискавки','блискавок','блискавок')}`,          v:()=>rc.boltDodge, req:()=>worldUnlocked(1)},
+  {k:'ltD',    g:'rule', ico:'🌩', m:'sum', t:[100,300,800],txt:n=>`${n} м під блискавками`,              v:()=>D(rc.ruleDist.lightning), req:()=>worldUnlocked(1)},
+  {k:'rushD',  g:'rule', ico:'🚀', m:'sum', t:[100,300,800],txt:n=>`${n} м на шаленій швидкості`,        v:()=>D(rc.ruleDist.rush), req:()=>worldUnlocked(2)},
+  {k:'windD',  g:'rule', ico:'🌬', m:'sum', t:[100,300,800],txt:n=>`${n} м проти вітру`,                  v:()=>D(rc.ruleDist.wind), req:()=>worldUnlocked(3)},
+  {k:'darkD',  g:'rule', ico:'🌑', m:'sum', t:[100,300,800],txt:n=>`${n} м у темряві`,                    v:()=>D(rc.ruleDist.dark), req:()=>worldUnlocked(3)},
+  {k:'w0',     g:'world',ico:'🌤️', m:'sum', t:[300,800,2000],txt:n=>`${n} м у Хмарному Саду`,             v:()=>curWorld()===0?D(dist):0},
+  {k:'w1',     g:'world',ico:'🏙️', m:'sum', t:[300,800,2000],txt:n=>`${n} м у Неоновому Місті`,           v:()=>curWorld()===1?D(dist):0, req:()=>worldUnlocked(1)},
+  {k:'w2',     g:'world',ico:'☢️', m:'sum', t:[300,800,2000],txt:n=>`${n} м у Реакторі`,                  v:()=>curWorld()===2?D(dist):0, req:()=>worldUnlocked(2)},
+  {k:'w3',     g:'world',ico:'☁️', m:'sum', t:[300,800,2000],txt:n=>`${n} м у Небесному Районі`,          v:()=>curWorld()===3?D(dist):0, req:()=>worldUnlocked(3)},
+  {k:'w4',     g:'world',ico:'💠', m:'sum', t:[300,800,2000],txt:n=>`${n} м у Центральному Ядрі`,         v:()=>curWorld()===4?D(dist):0, req:()=>worldUnlocked(4)},
+  {k:'lvls',   g:'story',ico:'🗺', m:'sum', t:[1,2,4],      txt:n=>n===1?'Пройди рівень історії':`Пройди ${n} ${pl(n,'рівень','рівні','рівнів')} історії`,          v:()=>levelWin?1:0},
+  {k:'runs',   g:'runs', ico:'🎮', m:'sum', t:[3,6,10],     txt:n=>`Зіграй ${n} ${pl(n,'забіг','забіги','забігів')}`,                 v:()=>1},
 ];
-let goalXP=0, runGoalsDone=0, runDashes=0, goalTick=0;
-function goalKind(g){return GOAL_KINDS.find(x=>x.k===g.k)}
-function rollGoals(){
-  const d=Prog.d, t=d.lvl;
-  d.goals=(d.goals||[]).filter(g=>g&&!g.done&&goalKind(g));
-  while(d.goals.length<3){
-    const used=d.goals.map(g=>g.k);
-    const pool=GOAL_KINDS.filter(k=>!used.includes(k.k)&&(!k.req||k.req()));
-    const k=pool[Math.floor(Math.random()*pool.length)];
-    d.goals.push({k:k.k,need:k.need(t),xp:30+10*t,best:0,done:false});
-  }
+// Rank rewards: rank reached → what it pays (chest tiers 0/1/2)
+function resReward(r){
+  if(r>RES_MAX)return {chest:1};                                  // past ×30: every set is a crystal chest
+  if(r%10===0)return {chest:2};
+  if(r%5===0)return {chest:r<10?0:1};
+  if(r%5===4)return {shards:r<20?1:2};
+  if(r%5===2)return {frag:r<10?1:r<20?2:3};
+  return {coins:100+r*25};
 }
-function updGoals(){
-  for(const g of Prog.d.goals){
-    if(g.done)continue;
-    const v=goalKind(g).val();
-    if(v>=g.need){
-      g.done=true;goalXP+=g.xp;runGoalsDone++;addWeek(1);
-      addFloat(`🎯 ЦІЛЬ ВИКОНАНО · +${g.xp} XP`,W/2,H*.3,'#5CFF9D',18,true);
+function resLib(k){return RES_LIB.find(x=>x.k===k)}
+function resMult(){return Prog.d&&Prog.d.res?Math.min(RES_MAX,Prog.d.res.rank):1}
+// a run is scored at the Resonance it started with, even if it ranks up at the end
+let runResMult=1;
+function finalScore(){return score*runResMult}
+// difficulty mix of a set by rank: early sets are easy; one hard from ×16
+function resTiers(rank){
+  if(rank<4)return [0,0,0];
+  if(rank<10)return [0,0,1];
+  if(rank<16)return [0,1,1];
+  if(rank<24)return [1,1,2];
+  return [1,2,2];
+}
+function resTarget(L,tier){
+  const lv=Prog.d.lvl, k=lv<=5?0.8:lv<=10?0.9:lv<=20?1:1.1;      // gentle, and capped
+  let n=L.t[tier]*k;
+  n=n>=100?Math.round(n/10)*10:n>=20?Math.round(n/5)*5:Math.max(1,Math.round(n));
+  return n;
+}
+function resNew(avoid){
+  const R=Prog.d.res, used=R.set.map(m=>resLib(m.k).g).concat(avoid||[]);
+  const tier=resTiers(R.rank)[R.set.length]|0;
+  const pool=RES_LIB.filter(L=>!used.includes(L.g)&&(!L.req||L.req()));
+  const L=pool[Math.floor(Math.random()*pool.length)]||RES_LIB[0];
+  return {k:L.k,need:resTarget(L,tier),tier,p:0,done:false};
+}
+function resFill(){const R=Prog.d.res;while(R.set.length<3)R.set.push(resNew())}
+function resEnsure(){
+  const d=Prog.d;
+  if(!d.res||typeof d.res!=='object')d.res={rank:1,set:[],sets:0,rr:{day:'',n:0},pend:null};
+  d.res.set=(d.res.set||[]).filter(m=>m&&resLib(m.k));
+  resFill();
+}
+// live progress of a mission during the current run
+function resProg(m){
+  const L=resLib(m.k), v=L.v();
+  return L.m==='sum'?Math.min(m.need,(m.base!=null?m.base:m.p)+v):Math.max(m.p,Math.min(m.need,v));
+}
+function resRunStart(){
+  resEnsure();runResMult=resMult();
+  for(const m of Prog.d.res.set)m.base=m.p;
+  rcReset();
+}
+// checked a few times a second in a run: toast each mission as it lands
+function resTick(){
+  if(!Prog.d.res)return;
+  for(const m of Prog.d.res.set){
+    if(m.done)continue;
+    if(resProg(m)>=m.need){
+      m.done=true;goalXP+=30+10*Prog.d.lvl;runGoalsDone++;addWeek(1);
+      addFloat('🔷 МІСІЮ ВИКОНАНО',W/2,H*.3,'#8FF3FF',18,true);
       try{sfxPU()}catch(e){}
     }
   }
 }
-function settleGoals(){
-  for(const g of Prog.d.goals)if(!g.done)g.best=Math.max(g.best|0,goalKind(g).val());
+// end of run: bank progress (idempotent across a revive) and rank up
+function resSettle(){
+  resEnsure();
+  const R=Prog.d.res;
+  for(const m of R.set){
+    const L=resLib(m.k);
+    if(L.m==='sum'){m.p=Math.min(m.need,(m.base!=null?m.base:m.p)+L.v())}
+    else m.p=Math.max(m.p,Math.min(m.need,L.v()));
+    if(m.p>=m.need)m.done=true;
+  }
+  if(R.set.every(m=>m.done)&&!R.pend){
+    const from=R.rank, to=R.rank+1, rw=resReward(to);
+    R.sets++;R.rank=Math.min(RES_MAX,to);
+    if(rw.coins)coins+=rw.coins;
+    if(rw.shards)Prog.d.shards+=rw.shards;
+    if(rw.frag){const t=fragTargets(1)[0];if(t)Prog.d.frag[t.id]=(Prog.d.frag[t.id]|0)+rw.frag;else Prog.d.shards+=rw.frag}
+    if(rw.chest!=null)Prog.d.chests[CHESTS[rw.chest].id]++;
+    R.pend={from,to:Math.min(RES_MAX+1,to),rw,t:0};                // the results screen celebrates it
+    R.set=[];resFill();
+    for(const m of R.set)m.base=m.p;
+    try{__LS.setItem('fCoins',''+coins)}catch(e){}
+  }
 }
+// swap a stuck mission: one free a day, then 50 / 100 / 200 coins
+function _dayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function rerollCost(){
+  const rr=Prog.d.res.rr;if(rr.day!==_dayKey()){rr.day=_dayKey();rr.n=0}
+  return rr.n===0?0:[50,100,200][Math.min(2,rr.n-1)];
+}
+function resReroll(i){
+  const R=Prog.d.res, m=R.set[i];if(!m||m.done)return false;
+  const c=rerollCost();if(coins<c)return false;
+  coins-=c;R.rr.n++;
+  const g=resLib(m.k).g;R.set.splice(i,1);
+  const nm=resNew([g]);nm.tier=m.tier;nm.need=resTarget(resLib(nm.k),m.tier);R.set.splice(i,0,nm);
+  try{__LS.setItem('fCoins',''+coins)}catch(e){}
+  Prog.save();return true;
+}
+function resRewardTxt(rw){
+  if(rw.chest!=null)return CHESTS[rw.chest].name.toLowerCase()+' скриня';
+  if(rw.shards)return '+'+rw.shards+' ядр'+(rw.shards>1?'а':'о');
+  if(rw.frag)return '+'+rw.frag+' фрагмент'+(rw.frag>1?'и':'');
+  return '+'+rw.coins+' монет';
+}
+
+// ---- MissionSystem: weekly milestones (run missions are Core Resonance above) ----
+let goalXP=0, runGoalsDone=0, runDashes=0, goalTick=0;
 function _weekId(){
   const d=new Date(), t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);
@@ -3321,7 +3446,8 @@ function startGame(){
   if(shopBoost.magnet){magnet=true;magnetT=12;}
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
-  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;rollGoals();Prog.save();
+  if(Prog.d.res)Prog.d.res.pend=null;
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;resRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
   shieldCharges+=modLv('shield')>0?1:0;
   if(shieldCharges>0&&Prog.d.stats.runs<6)shieldHintT=3.2;
@@ -3345,7 +3471,7 @@ function die(){
   }
   if(shield){
     // the active shield takes the hit and breaks
-    shield=false;shieldT=0;shFlash=.5;sfxPU();
+    shield=false;shieldT=0;shFlash=.5;sfxPU();rc.shSave++;
     runShieldUsed=true;
     if(modStat('shield')>0&&shieldCharges===0)shieldCD=modStat('shield');
     setEmo('😅',1.2);
@@ -3384,7 +3510,7 @@ function finishRun(){
   // a revived run ends twice; count its castles, attacks and play once
   storyP.castles+=castlesSaved-(paid.castles|0);storyP.attacks+=attacksRepelled-(paid.atk|0);saveStory();
   paid.castles=castlesSaved;paid.atk=attacksRepelled;
-  if(score>bestScore){bestScore=score;__LS.setItem('fBS',''+bestScore);newScoreRec=true}
+  if(finalScore()>bestScore){bestScore=finalScore();__LS.setItem('fBS',''+bestScore);newScoreRec=true}
   endRunRewards();
   // Daily mission progress — check every metric at end of run
   if(!paid.played){paid.played=true;dailyPlays++}
@@ -3430,6 +3556,8 @@ function onLand(idx){
   if(pad.broken||pad.disappeared) return;
 
   pad.landed=true;pad.dip=.5;
+  if(pad.type==='moving_h'||pad.moving)rc.movLand++;
+  if(pad.len>0)rc.longLand++;
 
   // === TRAP LANE — 3 sections, 2 traps, 1 safe ===
   if(pad.type==='trap_lane'){
@@ -3557,6 +3685,7 @@ function onLand(idx){
   const perfThresh=curPerk()==='wideZone'?0.65:0.75;
   const isPerfect=precision>perfThresh;
   const isGood=!isPerfect&&precision>0.5;
+  if(isPerfect&&(pad.type==='moving_h'||pad.moving))rc.movPerf++;
 
   // Gold perk doubles coin pickups (stacks with fever's ×2)
   const coinMult=((fever?feverCoinMult():1)+comboCoinBonus())*(runX2Coins?2:1);
@@ -3626,7 +3755,7 @@ function onLand(idx){
     }
     runPerfects++;
     addFlow(.13);                       // clean landings build the state
-    if(comboMult>runMaxCombo)runMaxCombo=comboMult;
+    if(perfectCombo>runMaxCombo)runMaxCombo=perfectCombo;   // the real streak, not the capped score multiplier
     // Ring effect on platform
     addRipple(lp.x,lp.y+5*lp.s,lp.s*1.8);
     addRipple(lp.x,lp.y+3*lp.s,lp.s*1.2); // double ring for PERFECT
@@ -3770,7 +3899,7 @@ function onLand(idx){
 
 function activateShield(){
   if(!alive||state!==ST.PLAY||shield||shieldCharges<=0)return false;
-  shieldCharges--;shield=true;shieldT=SHIELD_DUR[Math.max(1,modLv('shield'))]||6;
+  shieldCharges--;shield=true;rc.shOn++;rc.noShield=false;shieldT=SHIELD_DUR[Math.max(1,modLv('shield'))]||6;
   shFlash=.5;sfxPU();shieldHintT=0;
   addFloat('🛡️ ЩИТ!',W/2,H*.4,'#4FC3F7',24,true);
   if(navigator.vibrate)navigator.vibrate(25);
@@ -3863,7 +3992,9 @@ function updateGame(dt){
   }
   seq+=spd*dt;
   const prevDist=dist;
-  dist+=spd*dt*.5;
+  const _dd=spd*dt*.5;dist+=_dd;
+  if(fever){rc.feverT+=dt;rc.feverDist+=_dd}
+  for(const r of ['lightning','dark','rush','wind'])if(hasRule(r))rc.ruleDist[r]+=_dd;
   // The story's promise, kept: the moment a run passes the old record.
   // The build-up (the ticking chip) pays off here with a gold flash, a
   // triumphant sting, and a burst — the peak beat of the whole run.
@@ -4079,7 +4210,7 @@ function updateGame(dt){
             const d=Math.abs(frogX-pd.gameX);if(d<bd){bd=d;bi=gi}}
           if(bi>=0){
             frogCont=pads[bi].gameX;visLane=pads[bi].gameX;
-            djCD=modStat('djump');djSave=true;grabSave=true;
+            djCD=modStat('djump');djSave=true;grabSave=true;rc.djSave++;
             onLand(bi);grabSave=false;djSave=false;
             addPunch(.35);sfxWhoosh();
             landed=true;break;
@@ -4200,7 +4331,7 @@ function updateGame(dt){
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
-  if(alive&&(goalTick-=dt)<=0){goalTick=.2;updGoals()}
+  if(alive&&(goalTick-=dt)<=0){goalTick=.2;resTick()}
   if(runMode.lvl&&!levelWin&&alive){updCollapse();if(dist>=runMode.goal)winLevel()}
 
   // Magnet
@@ -6949,7 +7080,7 @@ function drawHUD(){
   const scoreSize=Math.max(30,Math.min(42,W*0.115));
   const fScore='900 '+Math.round(scoreSize)+'px Exo2,sans-serif';
   ctx.font=fScore;
-  const scoreHalf=Math.max(38,ctx.measureText(String(score)).width/2)+14;
+  const scoreHalf=Math.max(38,ctx.measureText(String(finalScore())).width/2)+14;
   const sideMax=Math.max(58,W/2-scoreHalf-L-6);
   const baseY=T+scoreSize*0.58;
 
@@ -6967,11 +7098,16 @@ function drawHUD(){
   }
 
   // --- centre: the score is the hero, everything under it is secondary ---
-  const scoreTxt=String(score);
+  const scoreTxt=String(finalScore());
   ctx.textAlign='center';ctx.textBaseline='middle';
   {ctx.font=fScore;const pw=Math.max(110,ctx.measureText(scoreTxt).width+44),ph=scoreSize+26,px=W/2-pw/2,py=T-4;
    ctx.save();ctx.fillStyle='rgba(8,12,40,.62)';rr(px,py,pw,ph,14);ctx.fill();
-   ctx.strokeStyle=fever?'rgba(255,61,219,.5)':'rgba(0,229,255,.42)';ctx.lineWidth=1.5;rr(px+.75,py+.75,pw-1.5,ph-1.5,14);ctx.stroke();ctx.restore()}
+   ctx.strokeStyle=fever?'rgba(255,61,219,.5)':'rgba(0,229,255,.42)';ctx.lineWidth=1.5;rr(px+.75,py+.75,pw-1.5,ph-1.5,14);ctx.stroke();ctx.restore();
+   const rm=resMult();
+   if(rm>1){const t='×'+rm;ctx.save();ctx.font='900 11px Exo2,sans-serif';const tw=ctx.measureText(t).width+12;
+     const bx=px+pw-tw/2-4, by=py+2;ctx.fillStyle='#0b3a52';rr(bx-tw/2,by-8,tw,17,8.5);ctx.fill();
+     ctx.strokeStyle='#36E0FF';ctx.lineWidth=1.2;rr(bx-tw/2,by-8,tw,17,8.5);ctx.stroke();
+     ctx.fillStyle='#BFFBFF';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,bx,by+.5);ctx.restore()}}
   ctx.save();
   ctx.font=fScore;
   ctx.shadowColor=fever?'rgba(255,61,219,.55)':'rgba(0,150,220,.55)';
@@ -7743,6 +7879,8 @@ function menuTap(x,y){
   // PLAY button
   const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
+  {const ML2=menuLayout(), pw2=W*.78;
+   if(y>=ML2.prog&&y<=ML2.prog+62&&Math.abs(x-W/2)<=pw2/2){openScreen(ST.MISSIONS);return}}
   const pr=worldPickRect();
   if(y>=pr.y-6&&y<=pr.y+pr.h+6&&x>=pr.x&&x<=pr.x+pr.w){
     if(cycleEndlessWorld(x<W/2?-1:1))sfxClick();
@@ -7778,7 +7916,7 @@ function overBlocks(){
   b.push({k:'score',h:70});
   b.push({k:'grid',h:112});
   b.push({k:'xp',h:runLevelUps.length?64:44});
-  b.push({k:'goals',h:24+Prog.d.goals.length*24});
+  b.push({k:'goals',h:Prog.d.res&&Prog.d.res.pend?24+70+3*22:26+3*24});
   const hint=overChestsEarned()>0||affordableUpgrade();
   if(hint)b.push({k:'hint',h:46});
   if(canRevive())b.push({k:'revive',h:52});
@@ -7840,7 +7978,7 @@ function drawOver(){
       }
     }else if(k==='score'){
       ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle='#fff';ctx.font='900 44px Exo2,sans-serif';ctx.fillText(String(score),cx,y+26);
+      ctx.fillStyle='#fff';ctx.font='900 44px Exo2,sans-serif';ctx.fillText(String(finalScore()),cx,y+26);
       ctx.fillStyle='rgba(180,210,240,.75)';ctx.font='800 11px Exo2,sans-serif';
       ctx.fillText(`ОЧКІВ  ·  РЕКОРД ${bestScore}`,cx,y+58);
     }else if(k==='grid'){
@@ -7872,19 +8010,40 @@ function drawOver(){
         ctx.fillText(fitText(`⬆ НОВИЙ РІВЕНЬ ${d.lvl}!${un}`,iw),cx,y+50);
       }
     }else if(k==='goals'){
+      const R=Prog.d.res, P=R.pend;
       ctx.textAlign='left';ctx.textBaseline='middle';
-      ctx.fillStyle='rgba(180,210,240,.75)';ctx.font='800 10px Exo2,sans-serif';ctx.fillText('ЦІЛІ ЗАБІГУ',ix,y+8);
-      Prog.d.goals.forEach((g,i)=>{
-        const K=goalKind(g);if(!K)return;
-        const gy=y+24+i*24+8;
-        ctx.font='14px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(K.ico,ix,gy);
-        ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=g.done?'#9CFFC4':'rgba(230,238,255,.9)';
-        ctx.fillText(fitText(K.txt(g.need),iw-110),ix+24,gy);
-        ctx.textAlign='right';
-        ctx.fillStyle=g.done?'#5CFF9D':'rgba(200,222,255,.7)';
-        ctx.fillText(g.done?`✓ +${g.xp} XP`:`${Math.min(g.need,K.val())}/${g.need}`,ix+iw,gy);
-        ctx.textAlign='left';
+      ctx.fillStyle='#8FF3FF';ctx.font='900 11px Exo2,sans-serif';
+      ctx.fillText('🔷 РЕЗОНАНС ЯДРА',ix,y+8);
+      ctx.textAlign='right';ctx.fillStyle='rgba(200,222,255,.8)';ctx.font='800 11px Exo2,sans-serif';
+      ctx.fillText(P?'НОВИЙ РАНГ!':`${R.set.filter(m=>m.done).length}/3 · ×${resMult()} очок`,ix+iw,y+8);
+      let my=y+26;
+      if(P){
+        // the rank-up moment: old multiplier flips to the new one with a pulse
+        P.t=(P.t||0)+.016;
+        const u=clamp(P.t/0.9,0,1), pop=1+0.25*Math.sin(Math.min(1,P.t/0.5)*Math.PI);
+        ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+        const g=ctx.createRadialGradient(cx,my+24,4,cx,my+24,90);g.addColorStop(0,`rgba(125,249,255,${0.35*(1-u*0.5)})`);g.addColorStop(1,'rgba(125,249,255,0)');
+        ctx.fillStyle=g;ctx.fillRect(ix,my-10,iw,70);
+        ctx.font='900 18px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.6)';ctx.fillText('×'+P.from,cx-62,my+22);
+        ctx.fillText('→',cx-30,my+22);
+        ctx.translate(cx+16,my+22);ctx.scale(pop,pop);
+        ctx.font='900 34px Exo2,sans-serif';ctx.fillStyle='#BFFBFF';ctx.shadowColor='#36E0FF';ctx.shadowBlur=16*u;
+        ctx.fillText('×'+Math.min(RES_MAX,P.to),0,0);
+        ctx.restore();
+        ctx.textAlign='center';ctx.fillStyle=UI.textGold;ctx.font='800 12px Exo2,sans-serif';
+        ctx.fillText('Нагорода: '+resRewardTxt(P.rw)+(P.to>RES_MAX?' · максимум ×30':''),cx,my+54);
+        my+=70;
+        ctx.textAlign='left';ctx.fillStyle='rgba(180,210,240,.7)';ctx.font='800 10px Exo2,sans-serif';
+      }
+      R.set.forEach((m,i)=>{
+        const L=resLib(m.k), gy=my+i*(P?22:24)+8, pv=m.done?m.need:m.p;
+        ctx.textAlign='left';ctx.font='14px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(L.ico,ix,gy);
+        ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=m.done?'#9CFFC4':'rgba(230,238,255,.9)';
+        ctx.fillText(fitText(L.txt(m.need),iw-100),ix+24,gy);
+        ctx.textAlign='right';ctx.fillStyle=m.done?'#5CFF9D':'rgba(200,222,255,.75)';
+        ctx.fillText(m.done?'✓':`${pv}/${m.need}`,ix+iw,gy);
       });
+      ctx.textAlign='left';
     }else if(k==='hint'){
       // chests to open take priority; otherwise point at an upgrade
       const n=overChestsEarned(), up=affordableUpgrade();
@@ -8005,7 +8164,10 @@ function missionLayout(){
   const cw=Math.min(W-24-SAFE.l-SAFE.r,440), top=112+SAFE.t;
   return {cw,x:W/2-cw/2,top,rowH:62,gap:8,secH:40,weekH:112};
 }
-function weekCardY(L){return L.top+L.secH+3*(L.rowH+L.gap)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
+const RES_CARD=66;
+function weekCardY(L){return L.top+L.secH+RES_CARD+3*(L.rowH+L.gap)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
+function resRowY(L,i){return L.top+L.secH+RES_CARD+i*(L.rowH+L.gap)-uiScroll}
+function rerollRect(L,i){const y=resRowY(L,i);return {x:L.x+L.cw-96,y:y+8,w:84,h:26}}
 function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
   const x=L.x;
   glassPanel(x,y,L.cw,L.rowH,14);
@@ -8030,19 +8192,39 @@ function drawMissions(){
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=missionLayout(), d=Prog.d, w=weekSync();
-  const total=L.secH*3+6*(L.rowH+L.gap)+L.weekH+16;
+  const total=L.secH*3+RES_CARD+6*(L.rowH+L.gap)+L.weekH+16;
   uiScrollMax=Math.max(0,L.top+total-(H-SAFE.b));
   uiScroll=clamp(uiScroll,0,uiScrollMax);
   ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
   let y=L.top-uiScroll;
-  drawSecHead(L,y,'ЦІЛІ ЗАБІГУ','за один забіг');y+=L.secH;
-  for(const g of d.goals){
-    const K=goalKind(g);if(!K)continue;
-    drawMissionRow(L,y,K.ico,K.txt(g.need),g.done?g.need:(g.best|0),g.need,g.done,(rx,ry)=>{
-      ctx.textAlign='right';ctx.font='900 13px Exo2,sans-serif';ctx.fillStyle='#8FF3FF';ctx.fillText('+'+g.xp+' XP',rx,ry);
+  const R=d.res, rk=resMult();
+  drawSecHead(L,y,'РЕЗОНАНС ЯДРА','місії складаються з забігів');y+=L.secH;
+  // rank card: the multiplier, how many of the set are done, the next reward
+  glassPanel(L.x,y,L.cw,RES_CARD-8,16);
+  ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.font='900 30px Exo2,sans-serif';ctx.fillStyle='#BFFBFF';ctx.shadowColor='#36E0FF';ctx.shadowBlur=10;
+  ctx.fillText('×'+rk,L.x+16,y+(RES_CARD-8)/2+1);ctx.restore();
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  const nd=R.set.filter(m=>m.done).length;
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText(rk>=RES_MAX?'Максимальний резонанс':`До ×${rk+1}: ${nd}/3 місій`,L.x+86,y+18);
+  drawBar(L.x+86,y+28,L.cw-86-16,7,nd/3,'#1FA2FF','#36E0FF');
+  ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.textGold;
+  ctx.fillText(fitText('Нагорода: '+resRewardTxt(resReward(rk+1))+' · множник очок',L.cw-100),L.x+86,y+46);
+  y+=RES_CARD;
+  const cost=rerollCost();
+  R.set.forEach((m,i)=>{
+    const Lb=resLib(m.k);
+    drawMissionRow(L,y,Lb.ico,Lb.txt(m.need),m.done?m.need:m.p,m.need,m.done,(rx,ry)=>{
+      if(m.done)return;
+      const r=rerollRect(L,i);
+      uiPill(r.x,r.y,r.w,r.h,cost?2:0);
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 11px Exo2,sans-serif';
+      ctx.fillStyle=cost?UI.textGold:UI.text;
+      ctx.fillText(cost?`⟳ ${cost} 🪙`:'⟳ ЗАМІНИТИ',r.x+r.w/2,r.y+r.h/2+.5);
     });
     y+=L.rowH+L.gap;
-  }
+  });
   drawSecHead(L,y,'ЩОДЕННІ','нові через '+_untilTxt(_msToMidnight()));y+=L.secH;
   for(const m of dailyMissions){
     const sp=_missionSpec(m);if(!sp)continue;
@@ -8084,7 +8266,15 @@ function drawMissions(){
 function missionsTap(x,y){
   if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
   const L=missionLayout(), wy=weekCardY(L);
-  if(y<L.top-6||y<wy||y>wy+L.weekH)return;
+  if(y<L.top-6)return;
+  for(let i=0;i<3;i++){
+    const r=rerollRect(L,i), m=Prog.d.res.set[i];
+    if(m&&!m.done&&x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+6){
+      if(resReroll(i))sfxPU();else{sfxLand();addTapRipple(x,y)}
+      return;
+    }
+  }
+  if(y<wy||y>wy+L.weekH)return;
   const maxN=WEEK_MS[WEEK_MS.length-1].n, bx=L.x+24, bw=L.cw-48;
   WEEK_MS.forEach((m,i)=>{
     const nx=bx+bw*m.n/maxN-(i===WEEK_MS.length-1?14:0);
@@ -8238,8 +8428,13 @@ function drawMenuProgress(cx,sy){
   ctx.fillText(`${d.xp}/${xpNeed(d.lvl)} XP`,px+pw-14,sy+16);
   drawBar(tx,sy+26,bw,8,d.xp/xpNeed(d.lvl),'#1FA2FF','#36E0FF');
   ctx.textAlign='left';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.78)';
-  const nu=nextUnlock();
-  let line=nu?`Далі: ${nu.icon} ${nu.name} · рів. ${nu.unlock}`:'Усі модулі відкрито';
+  // the reason to press PLAY: Resonance and the mission closest to done
+  const R=d.res;let line;
+  if(R){
+    const open=R.set.filter(m=>!m.done).sort((a,b)=>b.p/b.need-a.p/a.need)[0];
+    line=`🔷 ×${resMult()}`+(open?` · ${resLib(open.k).txt(open.need)}: ${open.p}/${open.need}`:' · набір виконано!');
+  }else{const nu=nextUnlock();line=nu?`Далі: ${nu.icon} ${nu.name} · рів. ${nu.unlock}`:'Усі модулі відкрито'}
+  ctx.fillStyle='#BFFBFF';
   ctx.fillText(fitText(line,bw),tx,sy+47);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
