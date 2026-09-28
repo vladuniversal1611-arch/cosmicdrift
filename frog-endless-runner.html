@@ -5808,7 +5808,8 @@ function drawGame(){
     if(passFade<=0.01) continue;
     // The farthest rows are tiny and pile up at the horizon; they fade in a
     // little nearer instead, so the far field stays readable.
-    const farFade=clamp((VIEW_AHEAD*0.90-rz)/(VIEW_AHEAD*0.14),0,1);
+    const farK=hasRule('dark')?0.62:0.90;   // in the dark you only see what is close
+    const farFade=clamp((VIEW_AHEAD*farK-rz)/(VIEW_AHEAD*0.14),0,1);
     if(farFade<=0.01) continue;
     // It sinks into the dark rather than turning to glass: the plate darkens
     // toward the ground colour while it is still solid, and only the last
@@ -6332,17 +6333,11 @@ function drawGame(){
   if(msT>0){
     const t=msT/MS_DUR;                                  // 1..0
     const alpha=Math.sin(t*Math.PI)*(0.35+0.15*msTier);  // eases in-out, stronger for bigger tiers
-    // Rainbow band across the whole screen
-    const rg=ctx.createLinearGradient(0,0,W,H);
-    const cols=msTier>=3
-      ? ['#FF3B30','#FF9500','#FFD60A','#34C759','#00C7BE','#5AC8FA','#AF52DE']
-      : msTier===2
-        ? ['#FF6EC7','#FFD700','#00E5FF']
-        : ['#00E5FF','#69F0AE'];
-    cols.forEach((c,i)=>rg.addColorStop(i/(cols.length-1),c));
-    ctx.save();
-    ctx.globalAlpha=alpha;ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
-    ctx.restore();
+    // Only the screen rim celebrates. A full-screen colour band here (up to
+    // 50% opaque) washed the whole scene cyan every 100 m and killed its contrast.
+    const cols=msTier>=3?[[255,214,64],[255,61,219]]:msTier===2?[[255,110,199],[255,215,0]]:[[0,229,255],[105,240,174]];
+    edgeGlow(cols[0][0],cols[0][1],cols[0][2],0.34*alpha,Math.min(W,H)*0.14);
+    edgeGlow(cols[1][0],cols[1][1],cols[1][2],0.18*alpha,Math.min(W,H)*0.07);
     // Pulsing white ring emanating from centre for epic tier
     if(msTier>=2){
       const ringR=Math.max(W,H)*(1-t);
@@ -6357,15 +6352,10 @@ function drawGame(){
     const t=hypeT/HYPE_DUR;                              // 1..0
     const pulse=0.5+0.5*Math.sin(gt*6);
     // Magenta→cyan radial vignette
-    const vg=ctx.createRadialGradient(W/2,H/2,W*.15,W/2,H/2,Math.max(W,H)*.75);
-    vg.addColorStop(0,'rgba(255,0,255,0)');
-    vg.addColorStop(0.7,`rgba(255,0,255,${.07*t*washK})`);
-    vg.addColorStop(1,`rgba(0,255,255,${.17*t*washK})`);
-    ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
-    // Neon pulse bleeding in from off-screen — same reason as the flow glow:
-    // a stroke around the viewport reads as a frame, not as light.
-    edgeGlow(230,60,255,0.30*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.18);
-    edgeGlow(0,229,255,0.16*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.09);
+    // Only the rim lights up: a full-screen tint here washed the whole frame
+    // cyan every tenth PERFECT and flattened the contrast of the play area.
+    edgeGlow(230,60,255,0.22*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.12);
+    edgeGlow(0,229,255,0.10*t*(0.6+0.4*pulse)*washK,Math.min(W,H)*0.06);
   }
 
   drawFlowGrade();
@@ -6473,10 +6463,16 @@ function drawActEffects(){
     ctx.save();ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
   }
   // NIGHT — a hard vignette so only what's near the frog reads clearly
+  // DARK — the difficulty is not seeing FAR (plates surface from the dark
+  // closer than usual); the play area keeps full contrast. Only the sky and
+  // the far field dim, from the top down, with a light edge vignette.
   if(hasRule('dark')){
-    const g=cachedGrad('night'+W+H,()=>{const lx=W/2,ly=H*0.72,gg=ctx.createRadialGradient(lx,ly,H*0.06,lx,ly,H*0.62);
-      gg.addColorStop(0,'rgba(4,6,26,0)');gg.addColorStop(0.55,'rgba(4,6,26,.55)');gg.addColorStop(1,'rgba(2,3,16,.93)');return gg});
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    const g=cachedGrad('night2'+W+H,()=>{const gg=ctx.createLinearGradient(0,0,0,H*0.62);
+      gg.addColorStop(0,'rgba(3,4,20,.62)');gg.addColorStop(0.45,'rgba(3,4,20,.40)');gg.addColorStop(1,'rgba(3,4,20,0)');return gg});
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H*0.62);
+    const v=cachedGrad('night3'+W+H,()=>{const gg=ctx.createRadialGradient(W/2,H*0.62,H*0.30,W/2,H*0.62,H*0.80);
+      gg.addColorStop(0,'rgba(3,4,20,0)');gg.addColorStop(1,'rgba(3,4,20,.30)');return gg});
+    ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
   }
 
   // WIND — streaks blowing in the current gust direction
