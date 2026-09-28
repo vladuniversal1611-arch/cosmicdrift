@@ -1003,7 +1003,7 @@ const Prog={
       this.d[k]=Object.assign(progDefaults()[k],this.d[k]||{});
     if(!this.d.migrated)this.migrate();
     this.syncUnlocks();
-    try{resEnsure();weekSync();storyMigrate()}catch(e){}
+    try{resEnsure();weekSync();storyMigrate();huntSync();daysSinceFirst()}catch(e){}
     this.save();
   },
   save(){if(this.readOnly)return;try{__LS.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
@@ -1761,28 +1761,136 @@ function resRewardTxt(rw){
   return '+'+rw.coins+' монет';
 }
 
+// =====================================================================
+// SPARK HUNT — three fragments of a Core signal hidden in runs each day
+// =====================================================================
+// A fragment sits on a platform somewhere in a run; land on it to take it.
+// Three a day complete that day's signal. The week pays out on a ladder by
+// how many days you completed, so coming back tomorrow is worth something.
+const HUNT_LADDER=[{d:1,rw:{coins:150}},{d:3,rw:{frag:1}},{d:5,rw:{shards:1}},{d:7,rw:{chest:1}}];
+const HUNT_ORA=['ОРА: Я ловлю уламки старого сигналу Ядра.','ОРА: Ще один уламок. Сигнал… дивний.','ОРА: Цей сигнал старший за мене.','ОРА: Не зважай на нього, Іскро.'];
+let huntNext=1e9, huntPad=null;
+function daysSinceFirst(){const d=Prog.d;if(!d.first)d.first=Date.now();return Math.floor((Date.now()-d.first)/864e5)}
+function huntOn(){return daysSinceFirst()>=1||Prog.d.stats.runs>=6}
+function huntSync(){
+  const d=Prog.d;
+  if(!d.hunt||typeof d.hunt!=='object')d.hunt={day:'',got:0,week:'',days:0,paid:[]};
+  const h=d.hunt;
+  if(h.day!==_dayKey()){h.day=_dayKey();h.got=0}
+  if(h.week!==_weekId()){h.week=_weekId();h.days=0;h.paid=[]}
+  return h;
+}
+function huntRunStart(){
+  huntPad=null;
+  huntNext=huntOn()&&huntSync().got<3?rand(60,180):1e9;
+}
+// asked while the road is generated: should this platform (at depth y) carry one?
+function huntWants(y){return huntPad===null&&y/2>=huntNext}
+function huntPlace(pd){pd.frag=true;huntPad=pd;huntNext=1e9}
+// a fragment the frog went past is lost; another turns up further on
+function huntUpdate(){
+  if(huntPad&&!huntPad.frag)huntPad=null;
+  if(huntPad){
+    const i=pads.indexOf(huntPad);
+    if(i<0||padPositions[i]<seq-2){huntPad.frag=false;huntPad=null;if(huntSync().got<3)huntNext=dist+rand(80,160)}
+  }
+}
+function huntGrant(rw){
+  if(rw.coins)coins+=rw.coins;
+  if(rw.shards)Prog.d.shards+=rw.shards;
+  if(rw.frag){const t=fragTargets(1)[0];if(t)Prog.d.frag[t.id]=(Prog.d.frag[t.id]|0)+rw.frag;else Prog.d.shards+=rw.frag}
+  if(rw.chest!=null)Prog.d.chests[CHESTS[rw.chest].id]++;
+  try{__LS.setItem('fCoins',''+coins)}catch(e){}
+}
+function huntCollect(lp){
+  const h=huntSync();huntPad=null;
+  h.got=Math.min(3,h.got+1);
+  sfxPU();shake=Math.max(shake,.15);
+  if(h.got<3){
+    addFloat(`🔷 ФРАГМЕНТ СИГНАЛУ ${h.got}/3`,W/2,H*.3,'#9CE8FF',18,true);
+    huntNext=dist+rand(120,260);
+  }else{
+    h.days++;addWeek(3);
+    addFloat('📡 СИГНАЛ ЯДРА ЗІБРАНО!',W/2,H*.3,'#BFFBFF',20,true);
+    addFloat(HUNT_ORA[Math.min(HUNT_ORA.length-1,h.days-1)].replace('ОРА: ','ОРА: '),W/2,H*.3+26,'#9CFFE0',14,true);
+    huntGrant({coins:60});
+    for(let i=0;i<HUNT_LADDER.length;i++){
+      const L=HUNT_LADDER[i];
+      if(h.days>=L.d&&!h.paid.includes(i)){h.paid.push(i);huntGrant(L.rw)}
+    }
+  }
+  setEmo('😮',1.2);
+  Prog.save();
+}
+function drawHuntFrag(x,y,s,bob){
+  // never smaller than a readable token, even far down the road
+  const k=Math.max(s,0.62), b=Math.sin(gt*3+bob)*4*k, r=26;
+  // a beam of light over the platform, so a fragment reads from far away
+  ctx.save();
+  const bh=H*0.20*k, bw=12*k;
+  const bg=ctx.createLinearGradient(0,y-bh,0,y);bg.addColorStop(0,'rgba(0,229,255,0)');bg.addColorStop(1,`rgba(0,229,255,${0.55+0.2*Math.sin(gt*4)})`);
+  ctx.fillStyle=bg;ctx.fillRect(x-bw/2,y-bh,bw,bh);
+  ctx.restore();
+  ctx.save();ctx.translate(x,y-44*s+b);ctx.scale(k,k);
+  const pulse=0.8+0.2*Math.sin(gt*5);
+  const g=ctx.createRadialGradient(0,0,2,0,0,r*2.1);g.addColorStop(0,`rgba(0,229,255,${.6*pulse})`);g.addColorStop(1,'rgba(0,229,255,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r*2.1,0,Math.PI*2);ctx.fill();
+  // the signal disc: dark body, the missing thirds dim, this piece bright
+  const bd=ctx.createLinearGradient(0,-r,0,r);bd.addColorStop(0,'#3FD9FF');bd.addColorStop(1,'#0A5FA8');
+  ctx.fillStyle=bd;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+  ctx.lineWidth=3.5;ctx.strokeStyle='#FFFFFF';ctx.stroke();
+  const h=huntSync().got;
+  ctx.rotate(gt*0.8);
+  for(let i=0;i<3;i++){
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r-5,-Math.PI/2+i*2.094+0.08,-Math.PI/2+(i+1)*2.094-0.08);ctx.closePath();
+    ctx.fillStyle=i===h?'#FFFFFF':'rgba(4,30,70,.45)';ctx.fill();
+  }
+  ctx.restore();
+}
+
 // ---- MissionSystem: weekly milestones (run missions are Core Resonance above) ----
-let goalXP=0, runGoalsDone=0, runDashes=0, goalTick=0;
+let goalXP=0, runGoalsDone=0, runDashes=0, goalTick=0, runStreak=null;
 function _weekId(){
   const d=new Date(), t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);
   const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
   return t.getUTCFullYear()+'-W'+Math.ceil(((t-y0)/864e5+1)/7);
 }
-// Weekly milestones: goals give 1 point, daily missions 2.
-const WEEK_MS=[{n:5,t:0},{n:12,t:1},{n:20,t:1},{n:30,t:2}];
-function weekSync(){const w=Prog.d.week;if(w.id!==_weekId()){w.id=_weekId();w.n=0;w.claimed=[]}return w}
+// WEEKLY CORE REPAIR — seven milestones through the week. Points: a run +1
+// (up to 10 a week), a Resonance mission +1, a daily mission +2, a completed
+// Spark Hunt day +3.
+const WEEK_MS=[{n:3,rw:{coins:150}},{n:7,rw:{frag:1}},{n:12,rw:{coins:250}},{n:18,rw:{frag:2}},
+  {n:25,rw:{shards:1}},{n:33,rw:{chest:1}},{n:42,rw:{chest:2}}];
+function weekOn(){return daysSinceFirst()>=2||Prog.d.stats.runs>=15}
+function weekRun(){const w=weekSync();if((w.runs|0)<10){w.runs=(w.runs|0)+1;w.n++}}
+// SPARK STREAK — finish at least one run a day. Missing a day restarts it,
+// but a streak reward already earned is never taken back.
+const STREAK_RW={1:{coins:100},2:{coins:100},3:{frag:1},4:{coins:150},5:{frag:1},6:{coins:200},7:{shards:1},
+  14:{chest:1},21:{shards:2},30:{chest:2}};
+function streakRun(){
+  const d=Prog.d;if(!d.streak)d.streak={last:'',n:0,best:0};
+  const st=d.streak, today=_dayKey();
+  if(st.last===today)return null;
+  const y=new Date();y.setDate(y.getDate()-1);
+  const yk=y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+  st.n=st.last===yk?st.n+1:1;st.last=today;st.best=Math.max(st.best|0,st.n);
+  const rw=STREAK_RW[st.n]||(st.n>7?{coins:100}:null);
+  if(rw)huntGrant(rw);
+  return {n:st.n,rw};
+}
+function weekSync(){const w=Prog.d.week;if(w.id!==_weekId()){w.id=_weekId();w.n=0;w.claimed=[];w.runs=0}return w}
 function addWeek(n){weekSync().n+=n}
 function claimableCount(){
   if(!Prog.d)return 0;
   const w=weekSync();let c=0;
+  if(!weekOn())return 0;
   WEEK_MS.forEach((m,i)=>{if(w.n>=m.n&&!w.claimed.includes(i))c++});
   return c;
 }
 function claimWeek(i){
   const w=weekSync(), m=WEEK_MS[i];
   if(!m||w.n<m.n||w.claimed.includes(i))return false;
-  w.claimed.push(i);Prog.d.chests[CHESTS[m.t].id]++;Prog.save();return true;
+  w.claimed.push(i);huntGrant(m.rw);Prog.save();return true;
 }
 function affordableUpgrade(){
   for(const m of MODULES)if(!upgradeBlock(m.id))return m;
@@ -2884,7 +2992,7 @@ function ensurePads(){
         if(li>=OPENING.length && li>=1){
           const lp=pads[li];
           const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
-                       && (lp.elev||0)<=1 && !lp.len;
+                       && (lp.elev||0)<=1 && !lp.len && !lp.frag;   // a fragment sits on a plain plate
           if(lenPhrase.length){                 // continue a running phrase
             const seg=lenPhrase.shift();
             if(lone && seg.len>0){ lp.len=seg.len; prevLongLen=seg.len; }
@@ -2910,6 +3018,7 @@ function ensurePads(){
         if(pd.moving){pd.moving.amp=Math.min(pd.moving.amp,0.24);pd.moving.spd=Math.min(pd.moving.spd,1.7);}
         if(spec.loot==='coin')pd.coin=true;
         if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
+        if(!st.fork&&!pd.diamond&&huntWants(nextY))huntPlace(pd);
         return pd;
       };
       if(st.fork){
@@ -3447,7 +3556,7 @@ function startGame(){
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
-  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;resRunStart();Prog.save();
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;resRunStart();huntRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
   shieldCharges+=modLv('shield')>0?1:0;
   if(shieldCharges>0&&Prog.d.stats.runs<6)shieldHintT=3.2;
@@ -3513,7 +3622,7 @@ function finishRun(){
   if(finalScore()>bestScore){bestScore=finalScore();__LS.setItem('fBS',''+bestScore);newScoreRec=true}
   endRunRewards();
   // Daily mission progress — check every metric at end of run
-  if(!paid.played){paid.played=true;dailyPlays++}
+  if(!paid.played){paid.played=true;dailyPlays++;weekRun();runStreak=streakRun()}
   checkDaily('score', score);
   checkDaily('dist', Math.floor(dist));
   checkDaily('runCoins', runCoins);
@@ -3884,6 +3993,7 @@ function onLand(idx){
   }
   // Mystery box — roll one of 5 rewards on land, apply immediately
   // Gem collection — a diamond pickup pays coins
+  if(pad.frag){pad.frag=false;huntCollect(lp)}
   if(pad.diamond){
     pad.diamond=false;runDiamonds++;
     sfxDiamond();runCoins+=3;
@@ -4331,7 +4441,7 @@ function updateGame(dt){
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
-  if(alive&&(goalTick-=dt)<=0){goalTick=.2;resTick()}
+  if(alive&&(goalTick-=dt)<=0){goalTick=.2;resTick();huntUpdate()}
   if(runMode.lvl&&!levelWin&&alive){updCollapse();if(dist>=runMode.goal)winLevel()}
 
   // Magnet
@@ -6116,7 +6226,8 @@ function drawGame(){
       ctx.restore();
     }
     ctx.globalAlpha=depthAlpha;
-    if(pad.diamond&&_ok('gemN'))drawGem(p.x,p.y,p.s,i*1.7);
+    if(pad.frag)drawHuntFrag(p.x,p.y,p.s,i*1.3);
+    else if(pad.diamond&&_ok('gemN'))drawGem(p.x,p.y,p.s,i*1.7);
     else if(pad.coin)drawCoin(p.x,p.y,p.s,i*1.7);
     if(pad.pu)drawPUIcon(p.x,p.y,p.s,pad.pu,i*2.3);
     ctx.globalAlpha=1;
@@ -7975,6 +8086,9 @@ function drawOver(){
       }else if(newScoreRec||newRec){
         ctx.fillStyle='#FFD54F';ctx.font='900 12px Exo2,sans-serif';
         ctx.fillText(newScoreRec?'🏆 НОВИЙ РЕКОРД':'🏆 РЕКОРД ДИСТАНЦІЇ',cx,y+36);
+      }else if(runStreak&&weekOn()){
+        ctx.fillStyle='#FFB86B';ctx.font='900 12px Exo2,sans-serif';
+        ctx.fillText(`🔥 Серія ${runStreak.n} ${pl(runStreak.n,'день','дні','днів')}`+(runStreak.rw?' · '+resRewardTxt(runStreak.rw):''),cx,y+36);
       }
     }else if(k==='score'){
       ctx.textAlign='center';ctx.textBaseline='middle';
@@ -8165,7 +8279,9 @@ function missionLayout(){
   return {cw,x:W/2-cw/2,top,rowH:62,gap:8,secH:40,weekH:112};
 }
 const RES_CARD=66;
-function weekCardY(L){return L.top+L.secH+RES_CARD+3*(L.rowH+L.gap)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
+const HUNT_CARD=118;
+function huntH(L){return huntOn()?L.secH+HUNT_CARD:0}
+function weekCardY(L){return L.top+L.secH+RES_CARD+3*(L.rowH+L.gap)+huntH(L)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
 function resRowY(L,i){return L.top+L.secH+RES_CARD+i*(L.rowH+L.gap)-uiScroll}
 function rerollRect(L,i){const y=resRowY(L,i);return {x:L.x+L.cw-96,y:y+8,w:84,h:26}}
 function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
@@ -8192,7 +8308,7 @@ function drawMissions(){
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=missionLayout(), d=Prog.d, w=weekSync();
-  const total=L.secH*3+RES_CARD+6*(L.rowH+L.gap)+L.weekH+16;
+  const total=L.secH*3+RES_CARD+huntH(L)+6*(L.rowH+L.gap)+L.weekH+16;
   uiScrollMax=Math.max(0,L.top+total-(H-SAFE.b));
   uiScroll=clamp(uiScroll,0,uiScrollMax);
   ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
@@ -8225,6 +8341,36 @@ function drawMissions(){
     });
     y+=L.rowH+L.gap;
   });
+  if(huntOn()){
+    const h=huntSync();
+    drawSecHead(L,y,'ПОЛЮВАННЯ НА ІСКРИ','нові через '+_untilTxt(_msToMidnight()));y+=L.secH;
+    glassPanel(L.x,y,L.cw,HUNT_CARD-8,16);
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#fff';
+    ctx.fillText(h.got>=3?'Сигнал Ядра на сьогодні зібрано':'Фрагменти сигналу на платформах',L.x+14,y+18);
+    // today's three pieces of the signal disc
+    for(let i=0;i<3;i++){
+      const cx=L.x+L.cw-24-(2-i)*28, cy=y+20, got=i<h.got;
+      ctx.save();ctx.translate(cx,cy);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,11,-Math.PI/2+i*2.094,-Math.PI/2+(i+1)*2.094);ctx.closePath();
+      ctx.fillStyle=got?'#BFFBFF':'rgba(255,255,255,.12)';ctx.fill();
+      ctx.strokeStyle=got?'#36E0FF':'rgba(200,222,255,.35)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+    }
+    // the week: 7 day pips and what each rung pays
+    const px0=L.x+30, pw=L.cw-60, py=y+64;
+    for(let d=1;d<=7;d++){
+      const x=px0+pw*(d-1)/6, on=d<=h.days, rung=HUNT_LADDER.find(Lr=>Lr.d===d);
+      ctx.beginPath();ctx.arc(x,py,rung?8:5,0,Math.PI*2);
+      ctx.fillStyle=on?'#36E0FF':'rgba(255,255,255,.12)';ctx.fill();
+      if(rung){ctx.strokeStyle=on?'#fff':'rgba(255,208,138,.7)';ctx.lineWidth=1.5;ctx.stroke();
+        ctx.textAlign='center';ctx.font='700 10px Exo2,sans-serif';ctx.fillStyle=on?'#9CFFC4':UI.textGold;
+        const rw=rung.rw;ctx.fillText(rw.coins?rw.coins+' 🪙':rw.frag?'фрагмент':rw.shards?'ядро':'скриня',x,py+21);}
+      ctx.textAlign='center';ctx.font='800 9px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';
+      ctx.fillText(d+'д',x,py-14);
+    }
+    ctx.textAlign='left';
+    y+=HUNT_CARD;
+  }
   drawSecHead(L,y,'ЩОДЕННІ','нові через '+_untilTxt(_msToMidnight()));y+=L.secH;
   for(const m of dailyMissions){
     const sp=_missionSpec(m);if(!sp)continue;
@@ -8236,24 +8382,38 @@ function drawMissions(){
     });
     y+=L.rowH+L.gap;
   }
-  drawSecHead(L,y,'ТИЖНЕВИЙ ПРОГРЕС','нові через '+_untilTxt(_msToMonday()));y+=L.secH;
-  // weekly track: points bar with chest nodes
+  drawSecHead(L,y,'ВІДНОВЛЕННЯ ЯДРА · ТИЖДЕНЬ',weekOn()?'нові через '+_untilTxt(_msToMonday()):'');y+=L.secH;
   glassPanel(L.x,y,L.cw,L.weekH,16);
-  ctx.textAlign='left';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='rgba(220,230,255,.85)';
-  ctx.fillText(`Очки: ${w.n}  ·  ціль +1, щоденна +2`,L.x+14,y+20);
-  const maxN=WEEK_MS[WEEK_MS.length-1].n, bx=L.x+24, bw=L.cw-48, by=y+44;
-  drawBar(bx,by,bw,8,w.n/maxN,'#C98A4B','#FFD08A');
-  WEEK_MS.forEach((m,i)=>{
-    const nx=bx+bw*m.n/maxN-(i===WEEK_MS.length-1?14:0), got=w.claimed.includes(i), ready=w.n>=m.n&&!got;
-    const bob=ready?Math.sin(gt*5+i)*2:0;
-    ctx.save();if(!ready&&!got)ctx.globalAlpha=.55;
-    if(ready){ctx.shadowColor='rgba(255,208,138,.9)';ctx.shadowBlur=14}
-    drawChestIco(nx,by+34+bob,30,m.t,got?1:0);
-    ctx.restore();
-    ctx.textAlign='center';ctx.font='800 11px Exo2,sans-serif';
-    ctx.fillStyle=got?'#9CFFC4':ready?'#FFE082':'rgba(200,222,255,.75)';
-    ctx.fillText(got?'✓':ready?'ЗАБРАТИ':String(m.n),nx,by+62);
-  });
+  if(!weekOn()){
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 13px Exo2,sans-serif';ctx.fillStyle='rgba(220,230,255,.8)';
+    ctx.fillText('🔒 Відкриється на третій день гри',L.x+L.cw/2,y+L.weekH/2);
+  }else{
+    const st=Prog.d.streak||{n:0};
+    ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='rgba(220,230,255,.9)';
+    ctx.fillText(`Енергія: ${w.n}`,L.x+14,y+18);
+    ctx.textAlign='right';ctx.fillStyle='#FFB86B';
+    ctx.fillText(`🔥 Серія: ${st.n|0} ${pl(st.n|0,'день','дні','днів')}`,L.x+L.cw-14,y+18);
+    ctx.textAlign='left';ctx.font='700 10px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.6)';
+    ctx.fillText('забіг +1 · місія +1 · щоденна +2 · сигнал +3',L.x+14,y+34);
+    // seven evenly spaced milestones; the bar fills piecewise between them
+    const n=WEEK_MS.length, bx=L.x+30, bw=L.cw-60, by=y+50;
+    let fill=0;for(let i=0;i<n;i++){const a0=i?WEEK_MS[i-1].n:0,a1=WEEK_MS[i].n;if(w.n>=a1)fill=i/(n-1);else{if(i>0)fill=(i-1+clamp((w.n-a0)/(a1-a0),0,1))/(n-1);break}}
+    drawBar(bx,by,bw,6,fill,'#C98A4B','#FFD08A');
+    WEEK_MS.forEach((m,i)=>{
+      const nx=bx+bw*i/(n-1), got=w.claimed.includes(i), ready=w.n>=m.n&&!got, rw=m.rw;
+      const bob=ready?Math.sin(gt*5+i)*2:0;
+      ctx.save();if(!ready&&!got)ctx.globalAlpha=.6;
+      if(ready){ctx.shadowColor='rgba(255,208,138,.9)';ctx.shadowBlur=14}
+      if(rw.chest!=null)drawChestIco(nx,by+30+bob,26,rw.chest,got?1:0);
+      else if(rw.coins)drawCoinIco(nx,by+26+bob,9);
+      else if(rw.shards)drawShardIco(nx,by+26+bob,9);
+      else drawFragIco(nx,by+26+bob,9);
+      ctx.restore();
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 10px Exo2,sans-serif';
+      ctx.fillStyle=got?'#9CFFC4':ready?'#FFE082':'rgba(200,222,255,.75)';
+      ctx.fillText(got?'✓':ready?'ЗАБРАТИ':String(m.n),nx,by+48);
+    });
+  }
   ctx.restore();
   // header
   const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.96)');hg.addColorStop(1,'rgba(4,8,24,.80)');
@@ -8275,9 +8435,10 @@ function missionsTap(x,y){
     }
   }
   if(y<wy||y>wy+L.weekH)return;
-  const maxN=WEEK_MS[WEEK_MS.length-1].n, bx=L.x+24, bw=L.cw-48;
+  if(!weekOn())return;
+  const n=WEEK_MS.length, bx=L.x+30, bw=L.cw-60;
   WEEK_MS.forEach((m,i)=>{
-    const nx=bx+bw*m.n/maxN-(i===WEEK_MS.length-1?14:0);
+    const nx=bx+bw*i/(n-1);
     if(Math.abs(x-nx)<30&&claimWeek(i)){sfxPU();addTapRipple(x,y)}
   });
 }
