@@ -1,4 +1,4 @@
-const CACHE = 'hillrush-v1';
+const CACHE = 'hillrush-v2';
 const ASSETS = ['./hill_rush.html', './sw.js'];
 
 self.addEventListener('install', e => {
