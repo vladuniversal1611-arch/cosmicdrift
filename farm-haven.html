@@ -633,6 +633,7 @@ function load(){
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
 function fmt(n){ return Math.floor(n).toLocaleString('uk-UA'); }
+function esc(t){ return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtT(s){ s=Math.max(0,Math.ceil(s)); const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
 function invGet(id){ return S.inv[id]||0; }
 function give(id,n){ S.inv[id]=(S.inv[id]||0)+n; }
@@ -1191,6 +1192,12 @@ function frame(ts){
   const d=ANIMALS[a.type], q=isoP(wd.x,wd.y);
   drawShadow(cx,q.x,q.y+2,11);
   emoji(cx,d.e,q.x,q.y-8,28);
+  if(a.name&&cam.s>=.8){
+   cx.font='600 10px system-ui,sans-serif'; cx.textAlign='center'; cx.textBaseline='middle';
+   const w=cx.measureText(a.name).width+8;
+   cx.fillStyle='rgba(255,250,235,.85)'; cx.fillRect(q.x-w/2,q.y+7,w,13);
+   cx.fillStyle='#4a3a1c'; cx.fillText(a.name,q.x,q.y+13.5);
+  }
   if(a.readyAt&&now()>=a.readyAt){
    const bob=Math.sin(ts/220)*3;
    emoji(cx,ITEMS[d.product].e,q.x,q.y-32+bob,17);
@@ -1370,7 +1377,7 @@ function tapWorld(x,y){
   if(Math.hypot(wd.x-x,wd.y-y)<24){
    const a=S.animals[i];
    if(a.readyAt&&now()>=a.readyAt)collectAnimal(i);
-   else if(a.readyAt)toast(ANIMALS[a.type].e+' '+ITEMS[ANIMALS[a.type].product].e+' через '+fmtT((a.readyAt-now())/1000));
+   else if(a.readyAt)toast(animalLabel(a)+': '+ITEMS[ANIMALS[a.type].product].e+' через '+fmtT((a.readyAt-now())/1000));
    else feedAnimal(i);
    return;
   }
@@ -1601,7 +1608,7 @@ function renderSeedbar(){
 function animalsHTML(){
  if(!S.animals.length)
   return '<div class="card"><p class="muted">Поки що тварин немає. Купи їх нижче — і вони гулятимуть у загоні біля комори (кури — з 2 рівня).</p></div>';
- let html='<div class="card">';
+ let html='<div class="card"><p class="muted" style="font-size:11px">✏️ Дай тварині ім’я — улюбленці сумують на чверть повільніше, тож частіше дають подвійний продукт.</p>';
  S.animals.forEach((a,i)=>{
   const d=ANIMALS[a.type];
   const hap=Math.round(a.hap);
@@ -1614,24 +1621,56 @@ function animalsHTML(){
   }else{
    action=`<button class="btn small" onclick="feedAnimal(${i})">Годувати (1 🌰)</button>`;
   }
-  html+=`<div class="rowline"><span>${d.e} <b>${d.n}</b> <span class="muted">${hearts} ${hap}%</span></span>${action}</div>`;
+  const nm=a.name?`<b>${esc(a.name)}</b> <span class="muted" style="font-size:11px">${d.n.toLowerCase()} 💛</span>`:`<b>${d.n}</b>`;
+  html+=`<div class="rowline"><span>${d.e} ${nm} <span class="muted">${hearts} ${hap}%</span> <button class="btn small ghost" style="padding:2px 7px" onclick="nameAnimal(${i})" title="Дати ім’я">✏️</button></span>${action}</div>`;
  });
  return html+'</div>';
 }
+const PET_NAMES={
+ chicken:['Ряба','Квочка','Пір’їнка','Зернятко','Курочка Ряба'], duck:['Кряква','Хвиля','Пухнастик','Качуня'],
+ cow:['Зірка','Ромашка','Мурка','Буренка','Калина'], goat:['Мека','Бешкетниця','Козуня','Ріжка'],
+ sheep:['Хмаринка','Білосніжка','Кучерик','Вовнянка'], pig:['Хрюша','Пятачок','Ласунка','Трюфелька'],
+ rabbit:['Вушко','Пухнастик','Стрибунець','Морквинка'], horse:['Вітер','Гнідко','Буран','Зоря'],
+ bee:['Медунка','Дзижчик','Золотинка'], dove:['Сизик','Листоноша','Біляночка'], snail:['Повзунчик','Равлик Павлик','Черепашка'],
+};
+function nameAnimal(i){
+ const a=S.animals[i], d=ANIMALS[a.type];
+ const pool=PET_NAMES[a.type]||['Друг'];
+ const sug=pool[ri(pool.length)];
+ modal(d.e+' Ім’я для тварини',
+  '<p>'+(a.name?'Зараз цю тварину звуть <b>'+esc(a.name)+'</b>. Нове ім’я?':'Як назвеш цю тварину ('+d.n.toLowerCase()+')?')+'</p>'+
+  '<input id="anIn" maxlength="16" value="'+esc(a.name||'')+'" placeholder="Напр., '+esc(sug)+'" style="width:100%;padding:9px;border-radius:10px;border:1px solid #cdc4a4;font-size:15px">'+
+  '<p class="muted" style="font-size:11px">Улюбленці сумують на чверть повільніше. Порожнє поле — прибрати ім’я.</p>',
+  [{t:'Зберегти',fn:()=>{
+    const v=((document.getElementById('anIn')||{}).value||'').trim().slice(0,16);
+    const had=!!a.name; a.name=v||undefined;
+    if(v&&!had){ a.hap=Math.min(100,a.hap+10); dg('named',1); sUp(); }
+    toast(v?d.e+' «'+v+'» — чудове ім’я! 💛':d.e+' Ім’я прибрано');
+    save(); refresh();
+   }},
+   {t:'🎲 '+sug,ghost:true,fn:()=>{
+    const had=!!a.name; a.name=sug;
+    if(!had){ a.hap=Math.min(100,a.hap+10); dg('named',1); sUp(); }
+    toast(d.e+' «'+sug+'» — чудове ім’я! 💛'); save(); refresh();
+   }},
+   {t:'Скасувати',ghost:true}]);
+ setTimeout(()=>{ const el=document.getElementById('anIn'); if(el)el.focus(); },50);
+}
+function animalLabel(a){ return ANIMALS[a.type].e+(a.name?' '+a.name:''); }
 function feedAnimal(i){
  const a=S.animals[i], d=ANIMALS[a.type];
  if(invGet('feed')<1){ sErr(); toast('Немає корму 🌰 — купи в Крамниці або зроби з кукурудзи'); return; }
  S.inv.feed--;
  a.hap=Math.min(100,a.hap+20);
  a.readyAt=now()+d.time*1000;
- sPop(); dg('feed',1); toast(d.e+' Нагодовано! Продукт буде за '+fmtT(d.time));
+ sPop(); dg('feed',1); toast(animalLabel(a)+' Нагодовано! Продукт буде за '+fmtT(d.time));
  refresh();
 }
 function collectAnimal(i){
  const a=S.animals[i], d=ANIMALS[a.type];
  const q=1+(a.hap>=80?1:0);
  give(d.product,q); a.readyAt=0; addXp(4); sCoin();
- toast(ITEMS[d.product].e+' +'+q+' '+ITEMS[d.product].n);
+ toast(ITEMS[d.product].e+' +'+q+' '+ITEMS[d.product].n+(a.name?' від '+a.name:''));
  refresh();
 }
 
@@ -3507,6 +3546,7 @@ const ACH=[
  {id:'museumAll',e:'🎓',n:'Хранитель історії',d:'Заверши всі колекції музею',rw:{coins:3000,crystal:3},p:()=>[COLLECTIONS.filter(colDone).length,COLLECTIONS.length]},
  {id:'friend1',e:'💞',n:'Добрий сусід',d:'Здружись із кимось до 5 зірок',rw:{coins:600},p:()=>[Math.max(...FRIEND_NPCS.map(friendLevel)),5]},
  {id:'friendAll',e:'🤗',n:'Душа долини',d:'Здружись з усіма до 5 зірок',rw:{coins:3000,crystal:3},p:()=>[FRIEND_NPCS.filter(k=>friendLevel(k)>=5).length,FRIEND_NPCS.length]},
+ {id:'named5',e:'🏷',n:'У кожного є ім’я',d:'Дай імена 5 тваринам',rw:{coins:400},p:()=>[S.animals.filter(a=>a.name).length,5]},
  {id:'pets',e:'🐾',n:'Улюбленці',d:'Заведи песика і котика',rw:{coins:800},p:()=>[S.pets?S.pets.length:0,2]},
  {id:'deco10',e:'🎀',n:'Прикрашай',d:'Постав 10 прикрас на фермі',rw:{coins:500},p:()=>[S.decoCount||0,10]},
 ];
@@ -3793,7 +3833,7 @@ function installApp(){
 }
 function nameFarm(){
  modal('🏷 Назва ферми',
-  '<p>Як назвеш свою ферму?</p><input id="fnIn" maxlength="22" value="'+(S.farmName||'')+'" placeholder="Напр., Сонячна долина" style="width:100%;padding:9px;border-radius:10px;border:1px solid #cdc4a4;font-size:15px">',
+  '<p>Як назвеш свою ферму?</p><input id="fnIn" maxlength="22" value="'+esc(S.farmName||'')+'" placeholder="Напр., Сонячна долина" style="width:100%;padding:9px;border-radius:10px;border:1px solid #cdc4a4;font-size:15px">',
   [{t:'Зберегти',fn:()=>{ const v=(document.getElementById('fnIn')||{}).value; if(v!==undefined){ S.farmName=v.trim().slice(0,22); save(); refresh(); toast('🏷 Ферму названо: '+(S.farmName||'—')); } }},{t:'Скасувати',ghost:true}]);
  setTimeout(()=>{ const el=document.getElementById('fnIn'); if(el)el.focus(); },50);
 }
@@ -3896,7 +3936,7 @@ function tick(){
  // animal happiness decay
  let hapDecay=weatherNow().id==='blizzard'?1/15:1/30;
  if(S.story&&S.story.flags&&S.story.flags.krukPoison)hapDecay*=2;
- S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-hapDecay); });
+ S.animals.forEach(a=>{ a.hap=Math.max(0,a.hap-hapDecay*(a.name?.75:1)); });
  // new day events
  const d=dayNum();
  if(d!==S.lastDay){
