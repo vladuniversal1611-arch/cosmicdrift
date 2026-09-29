@@ -740,7 +740,7 @@ function updAirCoins(){
     if(Math.abs(visLane-c.x)>R)continue;          // passed it, out of reach
     const mult=(fever?feverCoinMult():1)+comboCoinBonus();
     runCoins+=mult;runAir++;sfxCoin();
-    const pp=project(Math.max(c.y-seq+VIEW_Z,.1),c.x,0);
+    const pp=project(Math.max(c.y-seq+VIEW_Z,.1),c.x,c.e||0);
     addCoinFX(pp.x,pp.y-40*pp.s);addFlyCoin(pp.x,pp.y-40*pp.s);
   }
   // forget anything the camera has passed
@@ -751,10 +751,10 @@ function drawAirCoins(){
   for(const c of airCoins){
     if(c.taken)continue;
     const rz=c.y-seq+VIEW_Z; if(rz<0.3||rz>VIEW_AHEAD)continue;
-    const pp=project(rz,c.x,0);
+    const pp=project(rz,c.x,c.e||0);
     // coins inside the magnet's pull lean toward the frog's lane
     const pull=Math.abs(visLane-c.x)<=R&&R>AIR_REACH?clamp(1-(rz-VIEW_Z)/4,0,1)*0.35:0;
-    const x=pp.x+(project(rz,visLane,0).x-pp.x)*pull;
+    const x=pp.x+(project(rz,visLane,c.e||0).x-pp.x)*pull;
     drawCoin(x,pp.y-18*pp.s,pp.s*0.8*WSC,c.ph);
   }
 }
@@ -3207,6 +3207,32 @@ function validateSection(sec,fromLane,fromElev){
 
 // ROOFS: a jet pad on the ground launches you onto a run of high slabs
 // (the "second floor") full of coins, then a two-step way back down.
+// JETPACK: a pickup on a plain pad; wearing it you fly over the road for a
+// few seconds, steering through a line of coins in the air, then land.
+const JP_DUR=7;
+let jpT=0, jetLift=0, jpNext=130;
+function startJetpack(idx){
+  jpT=JP_DUR;rc.jet=(rc.jet|0)+1;
+  addFloat('🎒 ДЖЕТПАК!',W/2,H*.3,'#FFB74D',22,true);
+  try{sfxBoost()}catch(e){}
+  shake=Math.max(shake,.2);addPunch(.3);
+  // a smooth coin line to fly along, laid over the stretch the pack covers
+  const y0=padPositions[idx]+0.8, y1=padPositions[idx]+spd*JP_DUR*0.92, ph=Math.random()*6;
+  for(let y=y0;y<y1;y+=0.9){
+    airCoins.push({y,x:clamp(1+0.62*Math.sin(y*0.33+ph),0.2,1.8),e:3.2,taken:false,ph:Math.random()*6});
+    runAirSpawned++;
+  }
+}
+function drawJetpackIco(x,y,s){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='#FF7A1A';ctx.beginPath();ctx.moveTo(-9,10);ctx.lineTo(-5,20+Math.sin(gt*30)*3);ctx.lineTo(-1,10);ctx.fill();
+  ctx.beginPath();ctx.moveTo(1,10);ctx.lineTo(5,20+Math.cos(gt*30)*3);ctx.lineTo(9,10);ctx.fill();
+  const g=ctx.createLinearGradient(-12,0,12,0);g.addColorStop(0,'#FFB74D');g.addColorStop(.5,'#FFE0B2');g.addColorStop(1,'#E65100');
+  ctx.fillStyle=g;ctx.strokeStyle='#5D2A00';ctx.lineWidth=1.6;
+  rr(-12,-12,10,22,5);ctx.fill();ctx.stroke();rr(2,-12,10,22,5);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#546E7A';rr(-4,-8,8,14,3);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
 let roofNext=5;     // road sections until the next roof run (reset each run); the generator runs far ahead, so distance can't pace it
 function roofSection(){
   const L=[], x0=clamp(routeLane,0.5,1.5), H=4, n=9+(Math.random()*5|0);
@@ -3473,6 +3499,7 @@ function ensurePads(){
         }
         const pd=makePad(gx,ty,diff);
         if(!st.fork)lastMkMov=ty==='moving_h';
+        if(!runMode.lvl&&!st.fork&&!spec.elev&&ty==='normal'&&--jpNext<=0){pd.jp=true;jpNext=Math.round(rand(150,200))}
         pd.width=classWidth(spec.cls||'NORMAL',diff);
         pd.elev=spec.elev||0;
         // slides wider and faster the further you get
@@ -3988,7 +4015,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));jpT=0;jetLift=0;jpNext=Math.round(rand(90,115));magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
@@ -4043,6 +4070,7 @@ function startGame(){
 
 function die(){
   if(!alive)return;
+  if(jpT>0)return;                    // nothing reaches you up there
   // a dash or the moment after a revive carries you over a miss
   if(dashActive||graceT>0){
     const np=pads[getCurrentPadIdx()+1];if(np)frogCont=np.gameX;
@@ -4136,6 +4164,7 @@ function onLand(idx){
 
   pad.landed=true;pad.dip=.5;
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
+  if(pad.jp&&!pad.jpTaken){pad.jpTaken=true;startJetpack(idx)}
   if(pad.type==='jet'&&!pad.jetUsed){
     // up onto the roofs: a kick, a burst, and a moment of grace for the climb
     pad.jetUsed=true;rc.roof++;
@@ -4548,6 +4577,9 @@ function updateGame(dt){
   spd=baseSpd*spdMul;
   spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
   spd*=headStartTick();            // a bought head start flies the first stretch
+  if(jpT>0){jpT-=dt;graceT=Math.max(graceT,.3);
+    if(jpT<=0){jpT=0;graceT=Math.max(graceT,1.4);addFloat('🎒 ПРИЗЕМЛЕННЯ',W/2,H*.3,'#FFE0B2',16,true)}}
+  jetLift=sd(jetLift,jpT>0.35?3.2:0,jpT>0?2.2:3.2,dt);
   // Launch ramp: the first ~0.7 s of a run eases the world up from ~45% to full
   // speed, so the start reads as accelerating away instead of a hard jerk.
   if(startEaseT>0){
@@ -4731,6 +4763,7 @@ function updateGame(dt){
   const curPadIdx=getCurrentPadIdx();
   while(lastIdx<curPadIdx){
     lastIdx++;
+    if(jpT>0) continue;                 // on the jetpack every row is flown over
     // Mid-leap: platforms between launch and target are flown over entirely —
     // neither a landing nor a miss.
     if(leapActive()&&lastIdx>leapFrom&&lastIdx<leapTo) continue;
@@ -6641,6 +6674,7 @@ function drawGame(){
     // (No lock-on ring: the circle over the target platform was removed at the
     //  player's request. aimIdx still drives camera framing.)
     // Moving platform indicator — small arrows on sides
+    if(pad.jp&&!pad.jpTaken){const k=p.s*WSC;drawJetpackIco(p.x,p.y-62*k+Math.sin(gt*3+i)*5*k,Math.max(.5,2.1*k))}
     if(pad.type==='jet'&&!pad.jetUsed){
       const cs=Math.max(7,30*p.s*WSC), cy=p.y-40*p.s*WSC-((gt*2.2)%1)*cs*.9;
       ctx.save();ctx.globalAlpha=depthAlpha;ctx.strokeStyle='#FFD54F';ctx.lineWidth=Math.max(2.5,6*p.s*WSC);ctx.lineJoin='round';ctx.lineCap='round';
@@ -6832,7 +6866,7 @@ function drawGame(){
       const a=pads[curIdx2]?pads[curIdx2].elev||0:0;
       const bEl=pads[nextIdx]?pads[nextIdx].elev||0:0;
       const k=bounce*bounce*(3-2*bounce);          // smoothstep
-      frogElev=a+(bEl-a)*k;
+      frogElev=a+(bEl-a)*k+jetLift;
     }
     const fp=project(frogZ,jumpLaneX,frogElev);
     let fx=fp.x,fy=fp.y,fs=fp.s*1.7*WSC;
@@ -6877,6 +6911,12 @@ function drawGame(){
     ctx.fillStyle=rg;ctx.beginPath();ctx.arc(fx,fgy,rimR,0,Math.PI*2);ctx.fill();
     ctx.restore();
     // Fever trail sparkles
+    if(jpT>0&&alive){
+      // the pack sits behind him (drawn first), flames from under it
+      const hy=fy-airEff*.85*180*fs;
+      drawJetpackIco(fx,hy-30*fs,fs*1.45);
+      for(let k2=0;k2<2;k2++)addP(fx+rand(-7,7),hy-6*fs,rand(-.01,.01),rand(.03,.06),['#FFB74D','#FF7A1A','#FFE0B2'][Math.random()*3|0],rand(2,3.5),.35,'c');
+    }
     if(fever&&airEff>.2&&Math.random()<.5){
       addP(fx+rand(-6,6),fy+8,rand(-.02,.02),rand(.01,.03),'#FFD700',rand(1.5,2.5),.3,'s');
     }
@@ -7830,6 +7870,7 @@ function drawHUD(){
   if(state===ST.PLAY&&alive)drawPauseBtn();
   {let cx=L+54;const cy=pauseBtnC().y-12;
    if(shield)cx+=uiChipText(cx,cy,'🛡 '+Math.ceil(shieldT)+'с',0,null)+6;
+   if(jpT>0)cx+=uiChipText(cx,cy,'🎒 '+Math.ceil(jpT)+'с',0,null)+6;
    if(boost)uiChipText(cx,cy,'⚡ '+Math.ceil(boostT)+'с',0,null);}
   // teach the gesture while a charge is waiting
   if(shieldHintT>0&&shieldAvail()>0&&!shield&&alive){
