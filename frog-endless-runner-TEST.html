@@ -69,7 +69,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11,WARD:12};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11,WARD:12,STORE:13};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -1088,7 +1088,7 @@ function addXP(n){
   return {ups,unlocked};
 }
 function endRunRewards(){
-  const d=Prog.d, mult=modStat('reward')||1;
+  const d=Prog.d, mult=(modStat('reward')||1)*(runBoost.x2?2:1);
   const c=Math.round(runCoins*mult)-paid.coins;
   const sh=Math.round(Math.floor(runDiamonds/4)*mult)-paid.shards;
   const xp=runXPTotal()-paid.xp;
@@ -2146,6 +2146,160 @@ function drawSkinChip(){
   ctx.fillText('СКІНИ',r.x+40,r.y+r.h/2+1);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
   drawNavBadge(r.x+r.w-4,r.y+2,n);
+}
+// ---- Store: where coins keep mattering after the Lab is maxed ----
+// Consumables (keys, spare shields, one-run boosters, chests) are the
+// endless sink; jump trails are the long-term cosmetic goals.
+function inv(){const d=Prog.d;if(!d.inv||typeof d.inv!=='object')d.inv={sh:0};if(!d.arm||typeof d.arm!=='object')d.arm={hs:0,x2:false,res:false};
+  if(!Array.isArray(d.trails))d.trails=[];return d.inv}
+function invSh(){return Prog.d?inv().sh|0:0}
+let runStockSh=false, runBoost={hs:0,x2:false,res:false}, hsEnd=0;
+function stockShReady(){return !runStockSh&&invSh()>0}
+function shieldAvail(){return shieldCharges+(stockShReady()?1:0)}
+const TRAILS=[
+  {id:'spark',  n:'Іскри',      p:2000,  col:()=>Math.random()<.5?'#FFE082':'#FFFFFF', tp:'s', vy:[.01,.03]},
+  {id:'snow',   n:'Сніжинки',   p:5000,  col:()=>Math.random()<.5?'#E3F6FF':'#9FE3FF', tp:'c', vy:[.005,.015]},
+  {id:'fire',   n:'Полум’я',    p:8000,  col:()=>['#FFB300','#FF6D00','#FF3D00'][Math.random()*3|0], tp:'c', vy:[-.03,-.01]},
+  {id:'neon',   n:'Неон',       p:12000, col:()=>Math.random()<.5?'#FF3DDB':'#36E0FF', tp:'c', vy:[-.005,.01]},
+  {id:'rainbow',n:'Веселка',    p:25000, col:()=>`hsl(${(gt*240+Math.random()*60)%360},95%,62%)`, tp:'s', vy:[-.005,.015]},
+];
+function curTrail(){const id=Prog.d&&Prog.d.trail;return TRAILS.find(t=>t.id===id&&Prog.d.trails.includes(id))||null}
+function emitTrail(x,y){
+  const T=curTrail();if(!T||paused)return;
+  addP(x+rand(-9,9),y+rand(0,12),rand(-.015,.015),rand(T.vy[0],T.vy[1]),T.col(),rand(2.4,4.2),.5,T.tp);
+}
+const SHOP=[
+  {sec:'КЛЮЧІ ЯДРА',sub:'продовжити забіг'},
+  {id:'key1',ico:'key',  name:'Ключ Ядра',        txt:'Продовжити забіг після падіння', p:2500, buy:d=>{d.keys=(d.keys|0)+1}},
+  {id:'key3',ico:'key',  name:'3 ключі Ядра',     txt:'Вигідніше на 1 000 монет',      p:6500, buy:d=>{d.keys=(d.keys|0)+3}},
+  {sec:'ЩИТИ В ЗАПАС',sub:'2× тап · один за забіг'},
+  {id:'sh1', ico:'shield',name:'Щит',             txt:'Запасний заряд щита',           p:300,  buy:d=>{inv().sh++}},
+  {id:'sh5', ico:'shield',name:'5 щитів',          txt:'Вигідніше на 300 монет',        p:1200, buy:d=>{inv().sh+=5}},
+  {sec:'БУСТЕРИ',sub:'на наступний забіг'},
+  {id:'hs200',ico:'🚀',  name:'Ривок 200 м',      txt:'Автопольот на старті забігу',   p:500,  arm:'hs', v:200},
+  {id:'hs500',ico:'🚀',  name:'Ривок 500 м',      txt:'Далекий автопольот на старті',  p:1500, arm:'hs', v:500},
+  {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:400,  arm:'x2'},
+  {id:'res2',ico:'🔷',   name:'Резонанс +2',      txt:'Множник очок +2 на забіг',      p:600,  arm:'res'},
+  {sec:'СКРИНІ',sub:'відкриваються в розділі СКРИНІ'},
+  {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:500,  buy:d=>{d.chests.wood++}},
+  {id:'chC', chest:1,    name:'Кришталева скриня',txt:'Більше фрагментів · шанс на ключ',p:2500,buy:d=>{d.chests.crystal++}},
+  {sec:'СЛІДИ СТРИБКА',sub:'видно в кожному стрибку'},
+  ...TRAILS.map(t=>({id:'tr_'+t.id,trail:t.id,name:t.n,txt:'Слід за Бульбіком у польоті',p:t.p})),
+];
+function shopArmed(it){const a=Prog.d.arm;return it.arm==='hs'?a.hs===it.v:it.arm?!!a[it.arm]:false}
+function shopState(it){
+  inv();
+  if(it.trail){const own=Prog.d.trails.includes(it.trail);return own?(Prog.d.trail===it.trail?'on':'own'):coins>=it.p?'buy':'poor'}
+  if(it.arm){if(shopArmed(it))return 'armed';if(it.arm==='hs'&&Prog.d.arm.hs)return 'busy'}
+  return coins>=it.p?'buy':'poor';
+}
+let shopMsg='', shopMsgT=0;
+function shopBuy(it,x,y){
+  const st=shopState(it), d=Prog.d;
+  if(st==='on'){d.trail='';Prog.save();sfxClick();return}
+  if(st==='own'){d.trail=it.trail;Prog.save();sfxPU();return}
+  if(st==='armed'||st==='busy'){shopMsg=st==='armed'?'Вже діє на наступний забіг':'Ривок уже куплено на наступний забіг';shopMsgT=2;sfxLand();return}
+  if(st==='poor'){shopMsg=`Не вистачає ${it.p-coins} монет`;shopMsgT=2;sfxLand();return}
+  coins-=it.p;
+  if(it.trail){d.trails.push(it.trail);d.trail=it.trail}
+  else if(it.arm){if(it.arm==='hs')d.arm.hs=it.v;else d.arm[it.arm]=true}
+  else it.buy(d);
+  try{__LS.setItem('fCoins',''+coins)}catch(e){}
+  Prog.save();sfxPU();addTapRipple(x,y);
+  shopMsg=it.chest!=null?'Скриня чекає в розділі СКРИНІ':it.arm?'Діятиме в наступному забігу':it.trail?'Слід обрано!':'Куплено!';shopMsgT=2;
+}
+// start of an endless run: arm what was bought
+function boosterRunStart(){
+  inv();const a=Prog.d.arm;
+  runStockSh=false;hsEnd=0;runBoost={hs:0,x2:false,res:false};
+  if(runMode.lvl)return;                       // story levels stay as designed
+  runBoost={hs:a.hs|0,x2:!!a.x2,res:!!a.res};
+  Prog.d.arm={hs:0,x2:false,res:false};
+  if(runBoost.res)runResMult+=2;
+  if(runBoost.hs)hsEnd=runBoost.hs;
+  const t=[runBoost.hs?`🚀 РИВОК ${runBoost.hs} м`:'',runBoost.x2?'💰 МОНЕТИ ×2':'',runBoost.res?'🔷 РЕЗОНАНС +2':''].filter(Boolean);
+  if(t.length)addFloat(t.join('  ·  '),W/2,H*.3,'#FFE082',16,true);
+}
+// head start: autopilot onto the nearest next pad, twice the pace, untouchable
+function headStartTick(){
+  if(!hsEnd)return 1;
+  if(dist>=hsEnd){hsEnd=0;graceT=Math.max(graceT,1.5);addFloat('🚀 РИВОК ЗАВЕРШЕНО',W/2,H*.3,'#9CFFE0',16,true);return 1}
+  graceT=Math.max(graceT,.4);boost=true;boostT=Math.max(boostT,.2);
+  const ci=getCurrentPadIdx(), ny=padPositions[ci+1], cx=pads[ci]?pads[ci].gameX:1;let best=-1,bd=1e9;
+  for(let i=ci+1;i<pads.length&&padPositions[i]===ny;i++){const pd=pads[i];if(pd.broken||pd.disappeared)continue;const dd=Math.abs(cx-pd.gameX);if(dd<bd){bd=dd;best=i}}
+  if(best>=0)frogCont=pads[best].gameX;
+  return 2.2;
+}
+
+function shopLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440);return {cw,x:W/2-cw/2,top:124+SAFE.t,rh:64,gap:8,secH:40}}
+function shopRows(L){let y=L.top;return SHOP.map(it=>{const r={it,y,h:it.sec?L.secH:L.rh};y+=it.sec?L.secH:L.rh+L.gap;return r})}
+function shopBtnRect(L,y){const w=96;return {x:L.x+L.cw-w-10,y:y+L.rh/2-16,w,h:32}}
+function drawShopIco(it,x,y){
+  if(it.ico==='key')drawKeyIco(x,y,14);
+  else if(it.ico==='shield'){if(!drawImgH('icoShield',x,y,34)){ctx.font='24px Exo2,sans-serif';ctx.fillText('🛡',x,y+1)}}
+  else if(it.chest!=null)drawChestIco(x,y+6,34,it.chest,0);
+  else if(it.trail){const T=TRAILS.find(t=>t.id===it.trail);for(let i=0;i<7;i++){const a=gt*2+i*.9;ctx.fillStyle=T.col();ctx.globalAlpha=.4+.6*((i+1)/7);
+      ctx.beginPath();ctx.arc(x-14+i*4.5,y+6-Math.sin(i*.6+gt*3)*6,1.6+i*.35,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1}
+  else{ctx.font='24px Exo2,sans-serif';ctx.fillText(it.ico,x,y+1)}
+}
+function drawStore(){
+  gt+=.016;drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
+  const L=shopLayout(), rows=shopRows(L);
+  const last=rows[rows.length-1];
+  uiScrollMax=Math.max(0,last.y+last.h+12-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  for(const r of rows){
+    const it=r.it, y=r.y-uiScroll;if(y>H||y+r.h<0)continue;
+    if(it.sec){drawSecHead(L,y,it.sec,it.sub||'');continue}
+    const st=shopState(it);
+    glassPanel(L.x,y,L.cw,L.rh,14);
+    if(st==='armed'||st==='on'){ctx.save();ctx.strokeStyle='rgba(120,255,170,.85)';ctx.lineWidth=2;rr(L.x+1,y+1,L.cw-2,L.rh-2,13);ctx.stroke();ctx.restore()}
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';drawShopIco(it,L.x+32,y+L.rh/2);ctx.restore();
+    const tx=L.x+62, tw=L.cw-62-112;
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(fitText(it.name,tw),tx,y+22);
+    ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;ctx.fillText(fitText(it.txt,tw),tx,y+42);
+    // right: price / state
+    const b=shopBtnRect(L,y);
+    if(st==='armed'||st==='on'||st==='own'){
+      ctx.textAlign='center';ctx.font='900 12px Exo2,sans-serif';
+      ctx.fillStyle=st==='own'?UI.text:'#9CFFC4';
+      if(st==='own'){uiPill(b.x,b.y,b.w,b.h,0);ctx.fillStyle=UI.text}
+      ctx.fillText(st==='armed'?'✓ АКТИВНО':st==='on'?'✓ ОБРАНО':'ОБРАТИ',b.x+b.w/2,b.y+b.h/2+1);
+    }else{
+      ctx.save();if(st!=='buy')ctx.globalAlpha=.5;
+      const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
+      ctx.fillStyle=g;rr(b.x,b.y,b.w,b.h,b.h/2);ctx.fill();
+      ctx.font='900 13px Exo2,sans-serif';const lab=fmtN(it.p), lw=ctx.measureText(lab).width;
+      drawCoinIco(b.x+b.w/2-lw/2-6,b.y+b.h/2,8);
+      ctx.fillStyle='#3A1E00';ctx.textAlign='left';ctx.fillText(lab,b.x+b.w/2-lw/2+6,b.y+b.h/2+1);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();drawCurrencies(true);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('МАГАЗИН',W/2,72+SAFE.t);
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=shopMsgT>0?'#FFE082':UI.dim;
+  const hs=[invSh()?`🛡 запас: ${invSh()}`:'',Prog.d.arm.hs||Prog.d.arm.x2||Prog.d.arm.res?'🚀 бустери чекають на забіг':''].filter(Boolean).join('  ·  ');
+  ctx.fillText(shopMsgT>0?shopMsg:(hs||'монети → ключі, щити, бустери, скрині, сліди'),W/2,98+SAFE.t);
+  if(shopMsgT>0)shopMsgT-=.016;
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function storeTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const L=shopLayout();if(y<L.top-6)return;
+  for(const r of shopRows(L)){
+    if(r.it.sec)continue;
+    const ry=r.y-uiScroll;if(y<ry||y>ry+r.h)continue;
+    const b=shopBtnRect(L,ry);
+    if(x>=b.x-10&&x<=b.x+b.w+10)shopBuy(r.it,x,y);
+    return;
+  }
 }
 function affordableUpgrade(){
   for(const m of MODULES)if(!upgradeBlock(m.id))return m;
@@ -3491,6 +3645,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.LOG)logTap(t.clientX,t.clientY);
     else if(state===ST.ACH)achTap(t.clientX,t.clientY);
     else if(state===ST.WARD)wardTap(t.clientX,t.clientY);
+    else if(state===ST.STORE)storeTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -3544,6 +3699,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.LOG)logTap(e.clientX,e.clientY);
     else if(state===ST.ACH)achTap(e.clientX,e.clientY);
     else if(state===ST.WARD)wardTap(e.clientX,e.clientY);
+    else if(state===ST.STORE)storeTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -3575,6 +3731,7 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.LOG&&e.key==='Escape')state=ST.WORLDS;
   else if(state===ST.ACH&&e.key==='Escape'){state=ST.MISSIONS;achList=null}
   else if(state===ST.WARD&&e.key==='Escape'){wardLeave();state=ST.MENU}
+  else if(state===ST.STORE&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -3779,7 +3936,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
@@ -3817,10 +3974,10 @@ function startGame(){
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
-  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;resRunStart();huntRunStart();Prog.save();
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;resRunStart();huntRunStart();boosterRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
   shieldCharges+=modLv('shield')>0?1:0;
-  if(shieldCharges>0&&Prog.d.stats.runs<6)shieldHintT=3.2;
+  if(shieldAvail()>0&&(Prog.d.stats.runs<6||shieldCharges===0))shieldHintT=3.2;
   dashReady=true;dashCooldown=0;
   shopBoost={shield:false,magnet:false,x2:false};
   startEaseT=0.7;
@@ -4269,8 +4426,11 @@ function onLand(idx){
 }
 
 function activateShield(){
-  if(!alive||state!==ST.PLAY||shield||shieldCharges<=0)return false;
-  shieldCharges--;shield=true;rc.shOn++;rc.noShield=false;shieldT=SHIELD_DUR[Math.max(1,modLv('shield'))]||6;
+  if(!alive||state!==ST.PLAY||shield)return false;
+  if(shieldCharges>0)shieldCharges--;
+  else if(stockShReady()){runStockSh=true;inv().sh--;Prog.save()}   // a spare from the Store
+  else return false;
+  shield=true;rc.shOn++;rc.noShield=false;shieldT=SHIELD_DUR[Math.max(1,modLv('shield'))]||6;
   shFlash=.5;sfxPU();shieldHintT=0;
   addFloat('🛡️ ЩИТ!',W/2,H*.4,'#4FC3F7',24,true);
   if(navigator.vibrate)navigator.vibrate(25);
@@ -4330,6 +4490,7 @@ function updateGame(dt){
   spdMul=sd(spdMul,tgtMul,1.8,dt);
   spd=baseSpd*spdMul;
   spd*=actSpeedMul(dt);            // each act ramps the pace up a notch
+  spd*=headStartTick();            // a bought head start flies the first stretch
   // Launch ramp: the first ~0.7 s of a run eases the world up from ~45% to full
   // speed, so the start reads as accelerating away instead of a hard jerk.
   if(startEaseT>0){
@@ -6633,6 +6794,7 @@ function drawGame(){
     if(fever&&airEff>.2&&Math.random()<.5){
       addP(fx+rand(-6,6),fy+8,rand(-.02,.02),rand(.01,.03),'#FFD700',rand(1.5,2.5),.3,'s');
     }
+    if(airEff>.2&&alive&&state===ST.PLAY)emitTrail(fx,fy);
 
     markImportant(fx-36*fs,fx+36*fs,fy-airEff*120*fs);
     drawFrog(fx,fy,fs,rot,sqX,sqY,airEff>.2,airEff*.85);
@@ -7349,8 +7511,8 @@ function drawComboBadge(x,y){
 function drawModuleColumn(x,y){
   const list=[];
   if(modLv('magnet'))list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:1});   // the module always pulls
-  if(modLv('shield')||shieldCharges>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldCharges>0,
-    prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldCharges>0?1:(shieldCD>0?1-shieldCD/modStat('shield'):0),active:shield,n:shieldCharges});
+  if(modLv('shield')||shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
+    prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail()});
   if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
   const r=19;
   for(const m of list){
@@ -7568,7 +7730,7 @@ function drawHUD(){
    if(shield)cx+=uiChipText(cx,cy,'🛡 '+Math.ceil(shieldT)+'с',0,null)+6;
    if(boost)uiChipText(cx,cy,'⚡ '+Math.ceil(boostT)+'с',0,null);}
   // teach the gesture while a charge is waiting
-  if(shieldHintT>0&&shieldCharges>0&&!shield&&alive){
+  if(shieldHintT>0&&shieldAvail()>0&&!shield&&alive){
     ctx.save();ctx.globalAlpha=Math.min(1,shieldHintT)*(0.75+0.25*Math.sin(gt*5));
     ctx.font=UI.fChip;const t='🛡 2× ТАП — ЩИТ',w=ctx.measureText(t).width+22;
     uiPill(W/2-w/2,H*0.64,w,26,0);ctx.fillStyle=UI.text;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,W/2,H*0.64+13.5);
@@ -8155,10 +8317,11 @@ function drawMenuNav(){
     {icon:null,     fallback:'🧪', label:'ЛАБОРАТОРІЯ', tint:'rgba(54,224,255,'},
     {icon:'target', fallback:'🎯', label:'ЗАВДАННЯ',    tint:'rgba(255,112,112,'},
     {icon:null,     fallback:'',   label:'СКРИНІ',      tint:'rgba(255,193,64,'},
+    {icon:null,     fallback:'🛒', label:'МАГАЗИН',     tint:'rgba(92,255,157,'},
   ];
   const badges=navBadges();
-  const secW=navW/3;
-  for(let i=0;i<3;i++){
+  const NI=items.length, secW=navW/NI;
+  for(let i=0;i<NI;i++){
     const sx=navX+secW*i+secW/2, iy=navY+30;
     const bob=Math.sin(gt*2+i*1.3)*1.6;
 
@@ -8166,20 +8329,23 @@ function drawMenuNav(){
     ctx.shadowColor=items[i].tint+'.55)';ctx.shadowBlur=14;
     if(i===2){
       drawChestIco(sx,iy+bob+6,34,Prog.d.chests.epic?2:Prog.d.chests.crystal?1:0,0);
+    } else if(i===3){
+      // store: a little stack of coins
+      drawCoinIco(sx-8,iy+bob+6,10);drawCoinIco(sx+8,iy+bob+6,10);drawCoinIco(sx,iy+bob-6,11);
     } else if(!items[i].icon||!drawImgH(items[i].icon,sx,iy+bob,34)){
       ctx.font='26px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(items[i].fallback,sx,iy+bob+9);
     }
     ctx.restore();
 
-    if(i<2){
+    if(i<NI-1){
       ctx.beginPath();ctx.moveTo(navX+secW*(i+1),navY+16);ctx.lineTo(navX+secW*(i+1),navY+navH-16);
       ctx.strokeStyle='rgba(150,190,255,.22)';ctx.lineWidth=1.5;ctx.stroke();
     }
 
     ctx.fillStyle='rgba(226,238,255,.92)';
-    ctx.font='800 12px Exo2,sans-serif';
+    ctx.font=`800 ${NI>3?11:12}px Exo2,sans-serif`;
     ctx.textAlign='center';
-    ctx.fillText(items[i].label,sx,navY+navH-16);
+    ctx.fillText(fitText(items[i].label,secW-6),sx,navY+navH-16);
     drawNavBadge(sx+22,navY+14,badges[i]);
   }
 }
@@ -8275,10 +8441,11 @@ function menuTap(x,y){
   // Bottom nav — 3 equal sections
   const navH=80,navY=H-navH-6-SAFE.b,navX=10+SAFE.l,navW=W-20-SAFE.l-SAFE.r;
   if(y>=navY&&y<=navY+navH){
-    const section=Math.floor((x-navX)/(navW/3));
+    const section=Math.floor((x-navX)/(navW/4));
     if(section===0)openScreen(ST.LAB);
     else if(section===1)openScreen(ST.MISSIONS);
     else if(section===2)openScreen(ST.CHESTS);
+    else if(section===3)openScreen(ST.STORE);
   }
 }
 
@@ -8976,7 +9143,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH||state===ST.WARD}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH||state===ST.WARD||state===ST.STORE}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   ctx.save();
@@ -9060,9 +9227,10 @@ function drawCurrencies(row){
   const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
   if(keysHave()>0)rows.push({k:'keys',v:keysHave(),ico:drawKeyIco,col:'#FFD54F'});
   let y=12+SAFE.t;
-  ctx.font='900 15px Exo2,sans-serif';
+  const tight=row&&rows.length>2, fnt=tight?'900 13px Exo2,sans-serif':'900 15px Exo2,sans-serif';
+  ctx.font=fnt;
   const tw=Math.max(...rows.map(r=>ctx.measureText(String(r.v)).width));
-  const cw=Math.max(row?62:74,34+tw+16), ch=row?34:30;
+  const cw=tight?Math.max(52,30+tw+10):Math.max(row?62:74,34+tw+16), ch=row?34:30;
   let x=W-12-SAFE.r-cw;
   if(row)rows.reverse();
   for(const r of rows){
@@ -9071,8 +9239,8 @@ function drawCurrencies(row){
     const bs=1+.35*curBump[r.k];
     if(bs>1){ctx.save();ctx.translate(x+17,y+ch/2);ctx.scale(bs,bs);r.ico(0,0,9);ctx.restore()}
     else if(row){r.ico(x+17,y+ch/2,9)}
-    if(row){ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
-      ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);x-=cw+6;continue}
+    if(row){ctx.font=fnt;ctx.textAlign='right';ctx.textBaseline='middle';
+      ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-(tight?9:13),y+ch/2+1);x-=cw+(tight?4:6);continue}
     if(bs<=1)r.ico(x+17,y+ch/2,9);
     ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
     ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);
@@ -9759,6 +9927,7 @@ function loop(ts){
       case ST.LOG:drawLog();break;
       case ST.ACH:drawAch();break;
       case ST.WARD:drawWard();break;
+      case ST.STORE:drawStore();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
