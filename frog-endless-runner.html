@@ -1258,7 +1258,25 @@ const STORY={
   w4a:{lines:['ЯДРО: 12% ПОТУЖНОСТІ','Воно чує свою Іскру.'],emo:'😲',say:'Воно мене кличе!'},
   w4b:{lines:['ЗАМОК ЯДРА: ЗАКРИТО','ОРА: Його відчиняє тільки Іскра.','ОРА: Тільки ти.'],emo:'🤔',say:'Тільки я?',mem:8},
   w4w:{world:4,final:true,lines:['ЯДРО ВІДНОВЛЕНО','ОРА!: Дякую, Іскро.','ОРА!: Сама я не могла його відчинити.','ОРА!: Тепер Ядро моє.','ЗВ’ЯЗОК ВТРАЧЕНО'],emo:'😱',say:'ОРА?!',mem:9},
+  // first-time explainers for the retention systems, played from the menu
+  tHunt:{lines:['НОВЕ: ПОЛЮВАННЯ НА ІСКРИ','ОРА: Ядро шле сигнал — 3 фрагменти щодня.','ОРА: Шукай блакитні диски з променем.','ОРА: Збери всі три — і Ядро віддячить.','Прогрес — у ЗАВДАННЯХ'],emo:'😮',say:'Шукаю!'},
+  tWeek:{lines:['НОВЕ: ВІДНОВЛЕННЯ ЯДРА','ОРА: Забіги й місії дають Ядру енергію.','ОРА: За тиждень — сім нагород, аж до скринь.','ОРА: Грай щодня — серія дає більше.','Нагороди — у ЗАВДАННЯХ'],emo:'😃',say:'Щодня!'},
+  tAch:{lines:['НОВЕ: ЛІТОПИС ІСКРИ','ОРА: Ядро пам’ятає кожен твій подвиг.','ОРА: За кожен запис — нагорода.','ЗАВДАННЯ → 🏆 ЛІТОПИС'],emo:'🤩',say:'Забираю!'},
 };
+// Which explainer is due now (one per menu visit, in unlock order)
+function tutDue(){
+  const d=Prog.d;if(!d||!d.story.seen.intro)return null;
+  if(!storySeen('tHunt')&&huntOn())return 'tHunt';
+  if(!storySeen('tWeek')&&weekOn())return 'tWeek';
+  if(!storySeen('tAch')&&achData().got.length>0)return 'tAch';
+  return null;
+}
+let tutT=0, tutLast=0;
+function menuTutorial(){
+  const now=performance.now();if(now-tutLast>250)tutT=0;tutLast=now;tutT+=.016;
+  if(tutT<0.9)return;
+  const id=tutDue();if(id){tutT=0;playScene(id,()=>{state=ST.MENU})}
+}
 function storyEventFor(w,l){return l===1?'w'+w+'a':l===3?'w'+w+'b':l===WORLD_LV-1?'w'+w+'w':null}
 function storySeen(id){return !!Prog.d.story.seen[id]}
 function markStory(id){
@@ -8019,6 +8037,7 @@ function drawMenuWorldPick(cx,y){
 let menuPickMsgT=0;
 function drawMenu(){
   gt+=.016;
+  menuTutorial();
 
   // Full living world background
   drawMenuBg();
