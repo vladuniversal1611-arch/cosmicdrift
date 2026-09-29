@@ -3233,7 +3233,14 @@ function drawJetpackIco(x,y,s){
   ctx.fillStyle='#546E7A';rr(-4,-8,8,14,3);ctx.fill();ctx.stroke();
   ctx.restore();
 }
-let roofNext=5;     // road sections until the next roof run (reset each run); the generator runs far ahead, so distance can't pace it
+let roofNext=5, lastLandElev=0, lastLandJet=false;
+// jumping from the ground straight at a roof: you hit the building
+function roofBlocked(pad){return !(jpT>0||lastLandJet||(pad.elev||0)-lastLandElev<4)}
+function roofWall(pad){
+  if(!roofBlocked(pad))return false;
+  addFloat('💥 СТІНА!',W/2,H*.35,'#FF8A80',20,true);shake=Math.max(shake,.4);
+  return true;
+}     // road sections until the next roof run (reset each run); the generator runs far ahead, so distance can't pace it
 function roofSection(){
   const L=[], x0=clamp(routeLane,0.5,1.5), H=4, n=9+(Math.random()*5|0);
   L.push(step(x0,0,'WIDE',{type:'jet',gap:1.05}));
@@ -3247,8 +3254,27 @@ function roofSection(){
   routeLane=1.0;routeElev=0;routeCenter=1.0;routeLast='ROOF';
   return L;
 }
+// GROUND OR ROOF: a jet pad beside a plain one. The roof side pays more but
+// slides; the ground side is calm. From the ground you can't climb back up
+// (you'd hit the wall) — you can always jump down.
+function roofForkSection(){
+  const L=[], left=Math.random()<.5, n=8+(Math.random()*4|0);
+  const gx=()=>left?rand(1.38,1.52):rand(0.48,0.62), rx=()=>left?rand(0.48,0.62):rand(1.38,1.52);
+  // a centre plate first, so both sides are one easy hop away
+  L.push(step(1.0,0,'SAFE',{gap:1.0,hint:left?'🚀 ДАХ ◀   ▶ ЗЕМЛЯ':'ЗЕМЛЯ ◀   ▶ 🚀 ДАХ'}));
+  L.push({fork:true,twin:true,par:true,gap:1.05,safe:step(gx(),0,'NORMAL',{gap:1.05}),risk:step(rx(),0,'WIDE',{type:'jet',gap:1.05})});
+  for(let i=0;i<n;i++){
+    const g=i===0?1.35:0.95;
+    L.push({fork:true,twin:true,par:true,gap:g,
+      safe:step(gx(),0,'NORMAL',{loot:i%3===1?'coin':null,gap:g}),
+      risk:step(rx(),4,'WIDE',{loot:i===(n>>1)?'gem':'coin',gap:g,type:i%3===2?'moving_h':'normal'})});
+  }
+  L.push(step(1.0,0,'NORMAL',{loot:'coin',gap:1.2}));
+  routeLane=1.0;routeElev=0;routeCenter=1.0;routeLast='ROOF';
+  return L;
+}
 function nextSection(diff){
-  if(!runMode.lvl&&--roofNext<=0&&dist>120){roofNext=Math.round(lerp(24,16,diff)+rand(0,5));return roofSection()}
+  if(!runMode.lvl&&--roofNext<=0&&dist>120){roofNext=Math.round(lerp(24,16,diff)+rand(0,5));return Math.random()<.5?roofForkSection():roofSection()}
   const saveC=routeCenter,saveL=routeLane,saveE=routeElev,saveN=routeLast;
   for(let attempt=0;attempt<5;attempt++){
     const sec=buildRouteSection(diff);
@@ -3499,16 +3525,27 @@ function ensurePads(){
         }
         const pd=makePad(gx,ty,diff);
         if(!st.fork)lastMkMov=ty==='moving_h';
+        if(spec.hint)pd.hint=spec.hint;
         if(!runMode.lvl&&!st.fork&&!spec.elev&&ty==='normal'&&--jpNext<=0){pd.jp=true;jpNext=Math.round(rand(150,200))}
         pd.width=classWidth(spec.cls||'NORMAL',diff);
         pd.elev=spec.elev||0;
         // slides wider and faster the further you get
-        if(pd.moving){pd.moving.amp=Math.min(pd.moving.amp,lerp(0.22,0.36,diff));pd.moving.spd=Math.min(pd.moving.spd,lerp(1.5,2.2,diff));}
+        if(pd.moving){pd.moving.amp=Math.min(pd.moving.amp,st.fork?0.16:lerp(0.22,0.36,diff));pd.moving.spd=Math.min(pd.moving.spd,lerp(1.5,2.2,diff));}
         if(spec.loot==='coin')pd.coin=true;
         if(spec.loot==='gem'){pd.coin=true;pd.diamond=true}
         if(!st.fork&&!pd.diamond&&huntWants(nextY))huntPlace(pd);
         return pd;
       };
+      if(st.fork&&st.par){
+        // parallel tracks (ground / roof): each side keeps its own lane
+        const sx=st.safe.lane, rx=st.risk.lane;
+        padPositions.push(nextY);pads.push(mk(st.safe,sx));
+        const rp=mk(st.risk,rx);rp.risky=false;
+        padPositions.push(nextY);pads.push(rp);
+        prevBranchXs=[sx,rx];pushLane(sx);
+        lastTypes.push(st.safe.type||'normal');if(lastTypes.length>10)lastTypes.shift();
+        continue;
+      }
       if(st.fork){
         let sx=clamp(st.safe.lane,0.12,1.88);
         let rx=clamp(st.risk.lane,0.12,1.88);
@@ -4015,7 +4052,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));jpT=0;jetLift=0;jpNext=Math.round(rand(90,115));magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));lastLandElev=0;lastLandJet=false;jpT=0;jetLift=0;jpNext=Math.round(rand(90,115));magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
@@ -4163,8 +4200,11 @@ function onLand(idx){
   if(pad.broken||pad.disappeared) return;
 
   pad.landed=true;pad.dip=.5;
+  lastLandElev=pad.elev||0;lastLandJet=pad.type==='jet';
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
   if(pad.jp&&!pad.jpTaken){pad.jpTaken=true;startJetpack(idx)}
+  if(pad.hint){addFloat(pad.hint,W/2,H*.3,'#FFE082',18,true);pad.hint=null}
+  if((pad.elev||0)>=4&&!pad.roofPaid){pad.roofPaid=true;const b=fever?6:3;runCoins+=b;addFloat('+'+b+' 🏙️',lp.x+22,lp.y-30,'#FFE082',13)}   // the roof pays extra
   if(pad.type==='jet'&&!pad.jetUsed){
     // up onto the roofs: a kick, a burst, and a moment of grace for the climb
     pad.jetUsed=true;rc.roof++;
@@ -4787,6 +4827,7 @@ function updateGame(dt){
         // Fever is a state worth protecting: landings are a little more forgiving
         const hitR=getHitRadius(pad.width)*(fever?1.1:1);
         if(Math.abs(frogX-pad.gameX)<=hitR){
+          if(roofWall(pad)){landed=false;break}
           onLand(gi);
           landed=true;
           if(grabCool>0)grabCool--;      // clean landings recover the grab
@@ -4801,6 +4842,7 @@ function updateGame(dt){
           for(const gi of group){
             const pad=pads[gi];
             if(pad.broken||pad.disappeared||(pad.fallOffset&&pad.fallOffset>3)) continue;
+            if(roofBlocked(pad)) continue;
             const d=Math.abs(frogX-pad.gameX), hitR=getHitRadius(pad.width);
             if(d<=hitR+GRAB_BAND && d<grabDist){grabDist=d;grabIdx=gi}
           }
@@ -4829,6 +4871,7 @@ function updateGame(dt){
           let bi=-1,bd=1e9;
           for(const gi of group){const pd=pads[gi];
             if(pd.broken||pd.disappeared||(pd.fallOffset&&pd.fallOffset>3))continue;
+            if(roofBlocked(pd))continue;
             const d=Math.abs(frogX-pd.gameX);if(d<bd){bd=d;bi=gi}}
           if(bi>=0){
             frogCont=pads[bi].gameX;visLane=pads[bi].gameX;
