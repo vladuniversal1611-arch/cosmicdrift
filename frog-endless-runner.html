@@ -478,6 +478,8 @@ function pickBoltTarget(warn){
   for(let off=2;off<=6;off++){
     const k=ci+off;
     if(!pads[k]||pads[k].broken||pads[k].disappeared)continue;
+    // never around the special set pieces: jet pads, roofs, lifts, pickups
+    {let bad=false;for(let j=k-1;j<=k+2;j++){const q=pads[j];if(q&&(q.type==='jet'||(q.elev||0)>=3||q.lift||q.jp))bad=true}if(bad)continue}
     // The strike has to land BEFORE the player gets there. Without this the
     // row can arrive mid-warning, the pad breaks under a frog already standing
     // on it, and the telegraph was never a choice at all.
@@ -3131,9 +3133,12 @@ function buildRouteSection(diff){
       if(x+dir*off>X_MAX||x+dir*off<X_MIN)dir=-dir;
       const rx=x+dir*off;
       if(rx>=X_MIN&&rx<=X_MAX){
+        // LIFTS: sometimes the pair rides up and down in opposite phase —
+        // one is up while the other sinks below the road. Pick the rising one.
+        const lf=dist>250&&diff>0.35&&Math.random()<0.4?{spd:rand(0.9,1.2),ph:rand(0,Math.PI*2)}:null;
         out.push({fork:true,twin:true,gap,
-          safe:step(x,0,'NORMAL',{loot,gap}),
-          risk:step(rx,0,'NORMAL',{loot:'coin',gap})});
+          safe:step(x,0,'NORMAL',{loot,gap,lift:lf&&{base:-0.3,amp:1.6,spd:lf.spd,ph:lf.ph}}),
+          risk:step(rx,0,'NORMAL',{loot:'coin',gap,lift:lf&&{base:-0.3,amp:1.6,spd:lf.spd,ph:lf.ph+Math.PI}})});
         routeLane=x;routeElev=0;
         continue;
       }
@@ -3209,8 +3214,12 @@ function drawJetpackIco(x,y,s){
 }
 let roofNext=5, lastLandElev=0, lastLandJet=false;
 // jumping from the ground straight at a roof: you hit the building
-function roofBlocked(pad){return !(jpT>0||lastLandJet||(pad.elev||0)-lastLandElev<4)}
+function padSunk(pad){return !!(pad.lift&&pad.elev<-0.6)}
+// flying over a jet pad or a roof counts as having been up there
+function flyOver(pad){if(!pad)return;if(pad.type==='jet')lastLandJet=true;if((pad.elev||0)>=3)lastLandElev=pad.elev}
+function roofBlocked(pad){return padSunk(pad)||!(jpT>0||lastLandJet||(pad.elev||0)-Math.max(0,lastLandElev)<4)}
 function roofWall(pad){
+  if(padSunk(pad)){addFloat('⬇ ЛІФТ ВНИЗУ!',W/2,H*.35,'#8FD8FF',20,true);return true}
   if(!roofBlocked(pad))return false;
   addFloat('💥 СТІНА!',W/2,H*.35,'#FF8A80',20,true);shake=Math.max(shake,.4);
   return true;
@@ -3471,7 +3480,7 @@ function ensurePads(){
         if(li>=OPENING.length && li>=1){
           const lp=pads[li];
           const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
-                       && (lp.elev||0)<=1 && !lp.len && !lp.frag && lp.type!=='jet';   // a fragment sits on a plain plate
+                       && (lp.elev||0)<=1 && !lp.len && !lp.frag && lp.type!=='jet' && !lp.lift;   // a fragment sits on a plain plate
           if(lenPhrase.length){                 // continue a running phrase
             const seg=lenPhrase.shift();
             if(lone && seg.len>0){ lp.len=seg.len; prevLongLen=seg.len; }
@@ -3499,6 +3508,10 @@ function ensurePads(){
         }
         const pd=makePad(gx,ty,diff);
         if(!st.fork)lastMkMov=ty==='moving_h';
+        if(spec.lift)pd.lift=Object.assign({},spec.lift);
+        else if(!st.fork&&ty==='normal'&&!spec.elev&&dist>250&&Math.random()<lerp(.015,.05,diff))
+          pd.lift={base:1.1,amp:1.0,spd:rand(1.2,1.8),ph:rand(0,Math.PI*2)};   // a lone lift: just a moving height
+        if(pd.lift)pd.elev=pd.lift.base+Math.sin(gt*pd.lift.spd+pd.lift.ph)*pd.lift.amp;
         if(spec.hint)pd.hint=spec.hint;
         if(!runMode.lvl&&!st.fork&&!spec.elev&&ty==='normal'&&--jpNext<=0){pd.jp=true;jpNext=Math.round(rand(150,200))}
         pd.width=classWidth(spec.cls||'NORMAL',diff);
@@ -3535,6 +3548,9 @@ function ensurePads(){
         if(split){
           const rp=mk(st.risk,rx);rp.risky=!st.twin;
           padPositions.push(nextY);pads.push(rp);
+        }else{
+          // the pair didn't fit: a lone plate must never be a sinking lift
+          const sp=pads[pads.length-1];if(sp.lift&&sp.lift.base<0){sp.lift=null;sp.elev=0}
         }
         prevBranchXs=split?[sx,rx]:[sx];
         pushLane(sx);
@@ -4732,6 +4748,7 @@ function updateGame(dt){
     if(p.moving){
       p.gameX=clamp(p.moving.baseX+Math.sin(gt*p.moving.spd+p.moving.phase)*p.moving.amp, 0.08, 1.92);
     }
+    if(p.lift)p.elev=p.lift.base+Math.sin(gt*p.lift.spd+p.lift.ph)*p.lift.amp;
     // Breakable countdown — platform breaks after timer expires
     if(p.type==='breakable' && p.breakTimer>0 && !p.broken){
       p.breakTimer-=dt;
@@ -4777,10 +4794,10 @@ function updateGame(dt){
   const curPadIdx=getCurrentPadIdx();
   while(lastIdx<curPadIdx){
     lastIdx++;
-    if(jpT>0) continue;                 // on the jetpack every row is flown over
+    if(jpT>0){flyOver(pads[lastIdx]);continue}     // on the jetpack every row is flown over
     // Mid-leap: platforms between launch and target are flown over entirely —
     // neither a landing nor a miss.
-    if(leapActive()&&lastIdx>leapFrom&&lastIdx<leapTo) continue;
+    if(leapActive()&&lastIdx>leapFrom&&lastIdx<leapTo){flyOver(pads[lastIdx]);continue}
     if(leapActive()&&lastIdx===leapTo){leapLanded=true;leapFrom=-1;leapTo=-1}
     if(lastIdx>=0&&lastIdx<pads.length){
       // Collect all pads at this same Y position
@@ -6687,10 +6704,20 @@ function drawGame(){
     // even though the camera rises with you
     if((pad.elev||0)>=3&&!(pad.len>0))drawRoofBuilding(p,project(rz,pad.gameX,0),pad,i,fog);
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
-    else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,Math.max(fog,sinkFog));
+    else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,Math.max(fog,sinkFog,pad.lift&&pad.elev<0?Math.min(.4,-pad.elev*.25):0));
     // (No lock-on ring: the circle over the target platform was removed at the
     //  player's request. aimIdx still drives camera framing.)
     // Moving platform indicator — small arrows on sides
+    if(pad.lift){
+      const k=p.s*WSC, hw=120*k*(pad.width||1), up=Math.cos(gt*pad.lift.spd+pad.lift.ph)>0, a=Math.max(6,16*k);
+      ctx.save();ctx.globalAlpha=depthAlpha*.8;ctx.strokeStyle=padSunk(pad)?'#FF8A80':'#8FF3FF';ctx.lineWidth=Math.max(2,4*k);ctx.lineCap='round';ctx.lineJoin='round';
+      for(const sx of [-1,1]){const ax=p.x+sx*(hw+a*1.2), ay=p.y-30*k;
+        ctx.beginPath();ctx.moveTo(ax,ay-a);ctx.lineTo(ax,ay+a);
+        if(up){ctx.moveTo(ax-a*.5,ay-a*.5);ctx.lineTo(ax,ay-a);ctx.lineTo(ax+a*.5,ay-a*.5)}
+        else{ctx.moveTo(ax-a*.5,ay+a*.5);ctx.lineTo(ax,ay+a);ctx.lineTo(ax+a*.5,ay+a*.5)}
+        ctx.stroke()}
+      ctx.restore();
+    }
     if(pad.jp&&!pad.jpTaken){const k=p.s*WSC;drawJetpackIco(p.x,p.y-62*k+Math.sin(gt*3+i)*5*k,Math.max(.5,2.1*k))}
     if(pad.type==='jet'&&!pad.jetUsed){
       const cs=Math.max(7,30*p.s*WSC), cy=p.y-40*p.s*WSC-((gt*2.2)%1)*cs*.9;
