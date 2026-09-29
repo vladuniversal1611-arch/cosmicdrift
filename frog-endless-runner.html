@@ -397,7 +397,7 @@ function updateCloudEater(dt){
   // You close in on him by stringing clean landings together; fever means you're
   // right on his tail. The bar eases so he looms in and slips away smoothly.
   if(state===ST.PLAY&&alive){
-    const tgt=clamp(perfectCombo/12,0,1)*0.75+(fever?0.35:0);
+    const tgt=chase?1-chase.got/CHASE_NEED*.6:clamp(perfectCombo/12,0,1)*0.75+(fever?0.35:0);
     eaterClose=sd(eaterClose,Math.min(1,tgt),tgt>eaterClose?2.2:1.1,dt);
     // The one moment the chase pays off in the story: you actually gain on him.
     if(eaterClose>0.7&&!eaterCaughtSaid&&(eaterHere()||curWorld()===4)){
@@ -500,10 +500,58 @@ function pickBoltTarget(warn){
   }
   return -1;
 }
+// ---- CHASE: Хмарожер swoops in; string PERFECT landings to shake him off.
+// Make it in time and he drops a chest; fail and he grabs a quarter of the
+// coins you have picked up this run.
+const CHASE_T=15, CHASE_NEED=8;
+let chase=null, chaseNext=650;
+function chaseOK(){return !runMode.lvl&&curWorld()!==4&&atkPhase===0&&!finaleOn&&jpT<=0&&!hsEnd&&lastLandElev<3&&introT<=0&&actCardT<=0}
+function updateChase(dt){
+  if(!alive||state!==ST.PLAY)return;
+  if(!chase){
+    if(dist>=chaseNext&&chaseOK()){
+      chase={t:CHASE_T,got:0};eaterAngry=1;shake=Math.max(shake,.3);addPunch(.4);
+      try{sfxRoar()}catch(e){}
+      addFloat('👹 ХМАРОЖЕР НАЗДОГАНЯЄ!',W/2,H*.22,'#FF7043',20,true);
+      setEmo('😨',1.2);if(navigator.vibrate)navigator.vibrate([40,40,40]);
+    }
+    return;
+  }
+  chase.t-=dt;
+  if(chase.t<=0){
+    const st=Math.min(runCoins,Math.max(10,Math.floor(runCoins*0.25)));
+    runCoins=Math.max(0,runCoins-st);eaterGloat=1;
+    addFloat(`👹 ХМАРОЖЕР ВКРАВ ${st} ${pl(st,'монету','монети','монет')}!`,W/2,H*.22,'#FF5252',18,true);
+    setEmo('😭',1.4);chase=null;chaseNext=dist+rand(700,1000);
+  }
+}
+function chaseLand(perfect){
+  if(!chase)return;
+  if(!perfect){chase.got=Math.max(0,chase.got-2);return}
+  chase.got++;
+  if(chase.got>=CHASE_NEED){
+    huntGrant({chest:0});rc.chase=(rc.chase|0)+1;eaterFlinch=1;
+    addFloat('✨ ВТІК! +🎁 СКРИНЯ',W/2,H*.22,'#69F0AE',22,true);
+    try{sfxMilestone()}catch(e){}setEmo('😎',1.4);
+    for(let k=0;k<22;k++){const a=rand(0,Math.PI*2),sp=rand(.05,.12);addP(W/2,H*0.3,Math.cos(a)*sp,Math.sin(a)*sp,'#69F0AE',rand(2,4),.7,'s')}
+    chase=null;chaseNext=dist+rand(700,1000);
+  }
+}
+function drawChaseBanner(){
+  if(!chase)return;
+  const w=Math.min(W-40,260), x=W/2-w/2, y=102+SAFE.t, u=chase.t/CHASE_T;
+  ctx.save();
+  uiPill(x,y,w,30,1);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 13px Exo2,sans-serif';
+  ctx.fillStyle=u<.3&&Math.sin(gt*12)>0?'#FF8A80':'#FFE0F4';
+  ctx.fillText(`👹 ВТЕЧА · PERFECT ${chase.got}/${CHASE_NEED} · ${Math.ceil(chase.t)}с`,W/2,y+15.5);
+  drawBar(x+14,y+34,w-28,5,chase.got/CHASE_NEED,'#1DE9B6','#69F0AE');
+  ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
 function sfxRoar(){if(!ac)return;for(let i=0;i<4;i++)tone(95-i*14,.38,'sawtooth',.05,i*.05);noise(.28,.05,0)}
 function updateAttack(dt){
   if(eaterFlinch>0)eaterFlinch=Math.max(0,eaterFlinch-dt*0.6);
-  eaterAttack=sd(eaterAttack,(atkPhase===1||atkPhase===2)?1:0,3.5,dt);
+  eaterAttack=sd(eaterAttack,(atkPhase===1||atkPhase===2||chase)?1:0,3.5,dt);
   if(introT>0||!alive)return;
   if(atkPhase===0){
     // Not in the storm act (the whole act IS his attack), not over an act card
@@ -581,6 +629,7 @@ function updateActs(dt){
   if(actCardT>0)actCardT-=dt;
   updateCloudEater(dt);
   updateAttack(dt);
+  updateChase(dt);
   if(actFlash>0)actFlash=Math.max(0,actFlash-dt*1.6);
   if(recFlash>0)recFlash=Math.max(0,recFlash-dt*1.4);
   if(actTintT>0)actTintT=Math.max(0,actTintT-dt*0.6);   // ~1.7s mood-wash into a new act
@@ -4042,7 +4091,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));lastLandElev=0;lastLandJet=false;jpT=0;jetLift=0;jpNext=Math.round(rand(90,115));magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));chase=null;chaseNext=rand(550,750);lastLandElev=0;lastLandJet=false;jpT=0;jetLift=0;jpNext=Math.round(rand(90,115));magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
@@ -4333,6 +4382,7 @@ function onLand(idx){
   const isPerfect=precision>perfThresh;
   const isGood=!isPerfect&&precision>0.5;
   if(isPerfect&&(pad.type==='moving_h'||pad.moving))rc.movPerf++;
+  chaseLand(isPerfect);
 
   // Gold perk doubles coin pickups (stacks with fever's ×2)
   const coinMult=((fever?feverCoinMult():1)+comboCoinBonus())*(runX2Coins?2:1);
@@ -6505,7 +6555,7 @@ function drawGame(){
   const tiltAng=-curTurn*0.09 - clamp(laneVel*0.016,-0.055,0.055);
   ctx.translate(pivotX,pivotY);ctx.rotate(tiltAng);ctx.translate(-pivotX,-pivotY);
   drawBg();
-  if(curWorld()===4)drawCoreBeacon();else if(eaterHere())drawCloudEater();
+  if(curWorld()===4)drawCoreBeacon();else if(eaterHere()||chase)drawCloudEater();
   drawRainbowRoad();
 
   // Far parallax layers (0,1) — disabled to remove trees
@@ -7910,6 +7960,7 @@ function drawHUD(){
     }
   }
 
+  drawChaseBanner();
   // --- bottom left: pause ---
   if(state===ST.PLAY&&alive)drawPauseBtn();
   {let cx=L+54;const cy=pauseBtnC().y-12;
