@@ -1635,9 +1635,9 @@ function drawCoreBeacon(){
 // multiplies SCORE only — coins stay their own economy.
 const RES_MAX=30;
 // per-run counters the library reads (reset in startGame)
-let rc={movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
+let rc={roof:0,movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
   boltDodge:0,ruleDist:{lightning:0,dark:0,rush:0,wind:0},noShield:true};
-function rcReset(){rc={movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
+function rcReset(){rc={roof:0,movLand:0,movPerf:0,longLand:0,shOn:0,shSave:0,djSave:0,feverT:0,feverDist:0,
   boltDodge:0,ruleDist:{lightning:0,dark:0,rush:0,wind:0},noShield:true}}
 const D=v=>Math.floor(v);
 // Ukrainian plural: 1 стрибок · 2 стрибки · 5 стрибків
@@ -1648,7 +1648,7 @@ function pl(n,a,b,c){const t=n%100,u=n%10;return (t>10&&t<20)?c:u===1?a:(u>=2&&u
 const RES_LIB=[
   {k:'perf',   g:'perf', ico:'✨', m:'sum', t:[15,40,90],   txt:n=>`${n} PERFECT`,                       v:()=>runPerfects},
   {k:'perf1',  g:'perf', ico:'✨', m:'one', t:[10,20,35],   txt:n=>`${n} PERFECT за один забіг`,         v:()=>runPerfects},
-  {k:'combo',  g:'combo',ico:'🔥', m:'one', t:[6,12,25],    txt:n=>`Комбо ×${n}`,                         v:()=>runMaxCombo},
+  {k:'combo',  g:'combo',ico:'🔥', m:'one', t:[6,12,25],    txt:n=>`Комбо ×${n}`,                         v:()=>runMaxCombo, req:()=>false},   // retired: combo is no longer shown
   {k:'fever',  g:'fever',ico:'⚡', m:'sum', t:[2,5,12],     txt:n=>`Fever ${n} р.`,                       v:()=>runFever},
   {k:'fever1', g:'fever',ico:'⚡', m:'one', t:[1,2,3],      txt:n=>`Fever ${n} р. за один забіг`,         v:()=>runFever},
   {k:'feverT', g:'fever',ico:'⏱', m:'sum', t:[15,40,90],   txt:n=>`${n} с у Fever`,                      v:()=>D(rc.feverT)},
@@ -1930,7 +1930,7 @@ function claimWeek(i){
 // an achievement can pop mid-run.
 const ACH_RUN={coins:()=>runCoins, gems:()=>runDiamonds, fever:()=>runFever, feverT:()=>Math.floor(rc.feverT),
   air:()=>runAir, mov:()=>rc.movLand, long:()=>rc.longLand, shSave:()=>rc.shSave, djSave:()=>rc.djSave,
-  bolt:()=>rc.boltDodge, leap:()=>runLeaps};
+  bolt:()=>rc.boltDodge, leap:()=>runLeaps, roof:()=>rc.roof};
 function achData(){const d=Prog.d;if(!d.ach||typeof d.ach!=='object')d.ach={st:{},got:[],cl:[]};
   const a=d.ach;a.st=a.st||{};a.got=a.got||[];a.cl=a.cl||[];return a}
 function achLife(k){
@@ -1964,9 +1964,9 @@ const ACH=[
   {k:'p1', g:'ТОЧНІСТЬ',ico:'✨', name:'Влучно!',            txt:'100 PERFECT загалом',              n:100,   v:lifePerf,          rw:{coins:100}},
   {k:'p2', g:'ТОЧНІСТЬ',ico:'✨', name:'Снайпер',            txt:'1 000 PERFECT загалом',            n:1000,  v:lifePerf,          rw:{frag:1}},
   {k:'p3', g:'ТОЧНІСТЬ',ico:'🎯', name:'Бездоганний',        txt:'5 000 PERFECT загалом',            n:5000,  v:lifePerf,          rw:{shards:2}},
-  {k:'c1', g:'ТОЧНІСТЬ',ico:'🔥', name:'Серія',              txt:'Комбо ×10',                        n:10,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{coins:100}},
-  {k:'c2', g:'ТОЧНІСТЬ',ico:'🔥', name:'Ритм Ядра',          txt:'Комбо ×30',                        n:30,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{frag:1}},
-  {k:'c3', g:'ТОЧНІСТЬ',ico:'💥', name:'Резонатор',          txt:'Комбо ×75',                        n:75,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{chest:1}},
+  {k:'c1', g:'МАЙСТЕРНІСТЬ',ico:'🚀', name:'Перший політ',   txt:'Злети на дах',                     n:1,     v:()=>achLife('roof'),   rw:{coins:100}},
+  {k:'c2', g:'МАЙСТЕРНІСТЬ',ico:'🏙️', name:'Житель дахів',   txt:'Злети на дах 25 разів',            n:25,    v:()=>achLife('roof'),   rw:{frag:1}},
+  {k:'c3', g:'МАЙСТЕРНІСТЬ',ico:'🌆', name:'Король дахів',   txt:'Злети на дах 100 разів',           n:100,   v:()=>achLife('roof'),   rw:{chest:1}},
   {k:'f1', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перший розряд',      txt:'Увімкни Fever',                    n:1,     v:()=>achLife('fever'),  rw:{coins:100}},
   {k:'f2', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перевантаження',     txt:'Fever 50 разів',                   n:50,    v:()=>achLife('fever'),  rw:{frag:1}},
   {k:'f3', g:'ТОЧНІСТЬ',ico:'⏱', name:'Жива блискавка',     txt:'10 хвилин у Fever',                n:600,   v:()=>achLife('feverT'), rw:{shards:1}},
@@ -2872,6 +2872,7 @@ const PAD_TYPES={
   breakable: {dist:130,  color:['#A1887F','#8D6E63','#4E342E'], glow:'rgba(161,136,127,'},
   disappear: {dist:205,  color:['#B0BEC5','#78909C','#37474F'], glow:'rgba(176,190,197,'},
   slippery:  {dist:285, color:['#B3E5FC','#81D4FA','#0288D1'], glow:'rgba(129,212,250,'},
+  jet:       {dist:0,    color:['#FFE082','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
   boost_pad: {dist:170, color:['#FFF176','#FFEE58','#F9A825'], glow:'rgba(255,235,59,'},
   bonus:     {dist:90,  color:['#FFD54F','#FFC107','#FF8F00'], glow:'rgba(255,193,7,'},
   falling:   {dist:245, color:['#EF9A9A','#EF5350','#B71C1C'], glow:'rgba(239,83,80,'},
@@ -3147,6 +3148,22 @@ function buildRouteSection(diff){
         continue;
       }
     }
+    // Twins: two ground slabs side by side in one row, a clear gap between
+    // them — pick a side, and the road after works from either.
+    const twinChance=dist>150?lerp(0.05,0.22,diff):0;
+    if(elev===0&&i>0&&i<pts.length-1&&!out.some(o=>o.twin)&&Math.random()<twinChance){
+      const off=minSepX(1.0,1.0)+0.32+rand(0,0.12);
+      let dir=x<1.0?1:-1;
+      if(x+dir*off>X_MAX||x+dir*off<X_MIN)dir=-dir;
+      const rx=x+dir*off;
+      if(rx>=X_MIN&&rx<=X_MAX){
+        out.push({fork:true,twin:true,gap,
+          safe:step(x,0,'NORMAL',{loot,gap}),
+          risk:step(rx,0,'NORMAL',{loot:'coin',gap})});
+        routeLane=x;routeElev=0;
+        continue;
+      }
+    }
     // A moving platform: the one special pad that still matters in an
     // auto-runner, because its landing spot slides and you must track it. Only
     // on a middle, ground-level step, never two in a row, never on a precision
@@ -3188,7 +3205,24 @@ function validateSection(sec,fromLane,fromElev){
   return true;
 }
 
+// ROOFS: a jet pad on the ground launches you onto a run of high slabs
+// (the "second floor") full of coins, then a two-step way back down.
+let roofNext=5;     // road sections until the next roof run (reset each run); the generator runs far ahead, so distance can't pace it
+function roofSection(){
+  const L=[], x0=clamp(routeLane,0.5,1.5), H=4, n=9+(Math.random()*5|0);
+  L.push(step(x0,0,'WIDE',{type:'jet',gap:1.05}));
+  let lane=x0;
+  for(let i=0;i<n;i++){
+    lane=clamp(lane+rand(-0.5,0.5),0.45,1.55);
+    L.push(step(lane,H,'WIDE',{loot:i===(n>>1)?'gem':'coin',gap:i===0?1.35:0.95}));
+  }
+  L.push(step(clamp(lane,0.5,1.5),2,'NORMAL',{gap:1.15}));
+  L.push(step(1.0,0,'NORMAL',{loot:'coin',gap:1.15}));
+  routeLane=1.0;routeElev=0;routeCenter=1.0;routeLast='ROOF';
+  return L;
+}
 function nextSection(diff){
+  if(!runMode.lvl&&--roofNext<=0&&dist>120){roofNext=Math.round(lerp(24,16,diff)+rand(0,5));return roofSection()}
   const saveC=routeCenter,saveL=routeLane,saveE=routeElev,saveN=routeLast;
   for(let attempt=0;attempt<5;attempt++){
     const sec=buildRouteSection(diff);
@@ -3411,7 +3445,7 @@ function ensurePads(){
         if(li>=OPENING.length && li>=1){
           const lp=pads[li];
           const lone = padPositions[li]!==padPositions[li-1] && !lp.fork && !lp.moving
-                       && (lp.elev||0)<=1 && !lp.len && !lp.frag;   // a fragment sits on a plain plate
+                       && (lp.elev||0)<=1 && !lp.len && !lp.frag && lp.type!=='jet';   // a fragment sits on a plain plate
           if(lenPhrase.length){                 // continue a running phrase
             const seg=lenPhrase.shift();
             if(lone && seg.len>0){ lp.len=seg.len; prevLongLen=seg.len; }
@@ -3456,12 +3490,12 @@ function ensurePads(){
                      slabObstacles(nextY,st.safe.elev||0,swS),swS,prevY,nextY,prevHasBounce);
         rx=separateX(fitAmplitude(prevXs,prevY,rx,nextY,prevHasBounce),prevXs,
                      slabObstacles(nextY,st.risk.elev||0,swR).concat([{x:sx,w:swS}]),swR,prevY,nextY,prevHasBounce);
-        const split=Math.abs(sx-rx)>=minSepX(swS,swR)
+        const split=Math.abs(sx-rx)>=minSepX(swS,swR)+(st.twin?0.25:0)
           && reachableFromAll(prevXs,prevY,sx,nextY,prevHasBounce)
           && reachableFromAll(prevXs,prevY,rx,nextY,prevHasBounce);
         padPositions.push(nextY);pads.push(mk(st.safe,sx));
         if(split){
-          const rp=mk(st.risk,rx);rp.risky=true;
+          const rp=mk(st.risk,rx);rp.risky=!st.twin;
           padPositions.push(nextY);pads.push(rp);
         }
         prevBranchXs=split?[sx,rx]:[sx];
@@ -3954,7 +3988,7 @@ function startGame(){
   storyP.runs++;saveStory();
   windPhase=0;windForce=0;boltT=2;boltIdx=-1;boltWarn=0;boltStrike=0;boltTaught=false;
   finaleOn=false;finaleT=0;finaleWarnT=0;finaleClearT=0;
-  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;magnet=false;magnetT=0;boost=false;boostT=0;
+  newRec=false;newScoreRec=false;shield=false;shieldCharges=0;runStockSh=false;hsEnd=0;roofNext=Math.round(rand(12,16));magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
   msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
@@ -4102,6 +4136,15 @@ function onLand(idx){
 
   pad.landed=true;pad.dip=.5;
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
+  if(pad.type==='jet'&&!pad.jetUsed){
+    // up onto the roofs: a kick, a burst, and a moment of grace for the climb
+    pad.jetUsed=true;rc.roof++;
+    boost=true;boostT=Math.max(boostT,.8);graceT=Math.max(graceT,.6);
+    shake=Math.max(shake,.25);addPunch(.35);
+    try{sfxBoost()}catch(e){}
+    addFloat('🚀 НА ДАХ!',W/2,H*.3,'#FFE082',22,true);
+    for(let i=0;i<22;i++){const a=rand(Math.PI*.15,Math.PI*.85);addP(lp.x+rand(-10,10),lp.y,Math.cos(a)*rand(.02,.06),-Math.sin(a)*rand(.04,.1),i%2?'#FFD54F':'#FFFFFF',rand(2,3.5),.6,'s')}
+  }
   if(pad.len>0)rc.longLand++;
 
   // === TRAP LANE — 3 sections, 2 traps, 1 safe ===
@@ -4270,7 +4313,6 @@ function onLand(idx){
     if(perfectCombo>0&&perfectCombo%10===0){
       hypeT=HYPE_DUR;
       setEmo('🤩',1.6);
-      addFloat('⚡ COMBO x'+perfectCombo+' ⚡',W/2,H*0.165,'#FF00FF',20,true);
       if(navigator.vibrate)navigator.vibrate([30,50,30]);
       // Confetti burst of magenta+cyan particles from centre
       for(let i=0;i<28;i++){
@@ -4288,12 +4330,9 @@ function onLand(idx){
     if(perfectCombo>=3)tone(basePitch*1.5,.06,'sine',.05,.07);
     pfFlash=.2;
     // Feedback text — small at low combo, big at high
-    if(perfectCombo>=5){
-      perfectText=fever?'🔥 x'+comboMult:'⚡ x'+comboMult;
-      perfectShow=1;
-    } else if(perfectCombo>=2){
-      perfectText='PERFECT ×'+comboMult;
-      perfectShow=.8;
+    if(perfectCombo>=2){
+      perfectText=fever?'🔥 PERFECT':'PERFECT!';
+      perfectShow=perfectCombo>=5?1:.8;
     } else {
       perfectText='PERFECT';
       perfectShow=.6;
@@ -5526,6 +5565,25 @@ function padShadowSprite(){
   x.fillStyle=g;x.beginPath();x.arc(0,0,64,0,Math.PI*2);x.fill();
   return _padShadow=c;
 }
+function drawRoofBuilding(p,g0,pad,i,fog){
+  const k=p.s*WSC, bw=120*k*(pad.width||1)*.8, top=p.y+6*k, bot=g0.y+24*k;
+  if(bot<=top+4)return;
+  ctx.save();
+  const gr=ctx.createLinearGradient(0,top,0,bot);gr.addColorStop(0,'#34407e');gr.addColorStop(1,'#0e1336');
+  ctx.fillStyle=gr;ctx.fillRect(p.x-bw,top,bw*2,bot-top);
+  // lit windows in a fixed per-building pattern
+  const cols=4, rh=Math.max(10*k,6), rows=Math.max(1,Math.floor((bot-top-10*k)/rh)), cw=bw*2/cols;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(((i*7+r*3+c*5)%5)===0)continue;
+    ctx.fillStyle=((i+r+c)%3===0)?'rgba(255,224,130,.75)':'rgba(140,230,255,.45)';
+    ctx.fillRect(p.x-bw+c*cw+cw*.28,top+8*k+r*rh,cw*.44,rh*.45);
+  }
+  // shaded side + a rim at the roof line
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(p.x+bw*.5,top,bw*.5,bot-top);
+  ctx.fillStyle='rgba(150,220,255,.35)';ctx.fillRect(p.x-bw,top,bw*2,Math.max(1,2*k));
+  if(fog>0.02){ctx.fillStyle=`rgba(20,26,60,${Math.min(.7,fog)})`;ctx.fillRect(p.x-bw,top,bw*2,bot-top)}
+  ctx.restore();
+}
 function drawPad(x,y,s,type,dip,isCurrent,width,tilt,fog){
   s*=WSC;
   width=width||1;
@@ -6039,7 +6097,7 @@ const PAD_ART_ASPECT=640/206;
 // type -> art key (ring_pad reuses bonus, trap_lane reuses small, flower reuses moving_h)
 const PAD_ART={normal:"padA1",wide:"padA1",small:"padA1",moving_h:"padA2",
   bounce:"pad_bounce",breakable:"pad_breakable",disappear:"pad_disappear",slippery:"pad_slippery",
-  boost_pad:"pad_boost_pad",falling:"pad_falling",bonus:"padA3",ring_pad:"padA3",
+  boost_pad:"pad_boost_pad",jet:"padA3",falling:"pad_falling",bonus:"padA3",ring_pad:"padA3",
   lucky:"padA3",trap_lane:"pad_small",flower:"pad_moving_h"};
 // decorations already baked into the plate art, so the code must not redraw them
 const PAD_ART_BAKED={breakable:1,disappear:1,boost_pad:1,small:1};
@@ -6575,11 +6633,21 @@ function drawGame(){
     }
     // LONG platform: one single continuous slab stretching forward up the road,
     // not a stack of little pads.
+    // Roof slabs stand on a building, so the height reads as a second floor
+    // even though the camera rises with you
+    if((pad.elev||0)>=3&&!(pad.len>0))drawRoofBuilding(p,project(rz,pad.gameX,0),pad,i,fog);
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
     else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,Math.max(fog,sinkFog));
     // (No lock-on ring: the circle over the target platform was removed at the
     //  player's request. aimIdx still drives camera framing.)
     // Moving platform indicator — small arrows on sides
+    if(pad.type==='jet'&&!pad.jetUsed){
+      const cs=Math.max(7,30*p.s*WSC), cy=p.y-40*p.s*WSC-((gt*2.2)%1)*cs*.9;
+      ctx.save();ctx.globalAlpha=depthAlpha;ctx.strokeStyle='#FFD54F';ctx.lineWidth=Math.max(2.5,6*p.s*WSC);ctx.lineJoin='round';ctx.lineCap='round';
+      for(let k=0;k<3;k++){const yy=cy-k*cs*.8;ctx.globalAlpha=depthAlpha*(1-k*.28);
+        ctx.beginPath();ctx.moveTo(p.x-cs,yy+cs*.55);ctx.lineTo(p.x,yy);ctx.lineTo(p.x+cs,yy+cs*.55);ctx.stroke()}
+      ctx.restore();
+    }
     if(pad.moving){
       const arrowS=18*p.s;
       const hw=120*p.s*WSC*(pad.width||1);
@@ -7504,6 +7572,22 @@ function hexBadge(x,y,r,line,fillA){
   ctx.restore();
 }
 // COMBO ×N — the streak is the thing you are protecting, so it gets a real badge
+// Resonance multiplier for this run — what the score is being multiplied by
+function drawResBadge(x,y){
+  const m=runResMult||1, w=118,h=48;
+  ctx.save();
+  ctx.fillStyle='rgba(10,12,40,.86)';rr(x+18,y+6,w-18,h-12,12);ctx.fill();
+  ctx.strokeStyle='rgba(54,224,255,.7)';ctx.lineWidth=1.6;rr(x+18,y+6,w-18,h-12,12);ctx.stroke();
+  hexBadge(x+22,y+h/2,20,'#1B8FD1');
+  ctx.fillStyle='#E8FEFF';ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('◆',x+22,y+h/2+1);
+  ctx.textAlign='left';
+  ctx.fillStyle='rgba(191,251,255,.85)';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('РЕЗОНАНС',x+48,y+16);
+  const g=ctx.createLinearGradient(0,y+20,0,y+44);g.addColorStop(0,'#E8FEFF');g.addColorStop(1,'#36E0FF');
+  ctx.font='900 22px Exo2,sans-serif';ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='rgba(0,20,40,.8)';
+  ctx.strokeText('×'+m,x+48,y+32);ctx.fillStyle=g;ctx.fillText('×'+m,x+48,y+32);
+  ctx.restore();
+  return y+h+6;
+}
 function drawComboBadge(x,y){
   if(perfectCombo<2)return y;
   const pop=1+comboPop*0.16, hot=fever||perfectCombo>=feverNeed();
@@ -7653,7 +7737,7 @@ function drawHUD(){
     ctx.font=UI.fChip;
     const full=z.icon+' '+z.name;
     uiChipText(L,T,ctx.measureText(full).width+22<=sideMax?full:z.icon,0);
-    const cy=drawComboBadge(L,T+30);
+    const cy=drawResBadge(L,T+30);
     drawModuleColumn(L,Math.max(cy,T+86)+4);
   }
 
@@ -7664,7 +7748,7 @@ function drawHUD(){
    ctx.save();ctx.fillStyle='rgba(8,12,40,.62)';rr(px,py,pw,ph,14);ctx.fill();
    ctx.strokeStyle=fever?'rgba(255,61,219,.5)':'rgba(0,229,255,.42)';ctx.lineWidth=1.5;rr(px+.75,py+.75,pw-1.5,ph-1.5,14);ctx.stroke();ctx.restore();
    const rm=resMult();
-   if(rm>1){const t='×'+rm;ctx.save();ctx.font='900 11px Exo2,sans-serif';const tw=ctx.measureText(t).width+12;
+   if(false&&rm>1){const t='×'+rm;ctx.save();ctx.font='900 11px Exo2,sans-serif';const tw=ctx.measureText(t).width+12;
      const bx=px+pw-tw/2-4, by=py+2;ctx.fillStyle='#0b3a52';rr(bx-tw/2,by-8,tw,17,8.5);ctx.fill();
      ctx.strokeStyle='#36E0FF';ctx.lineWidth=1.2;rr(bx-tw/2,by-8,tw,17,8.5);ctx.stroke();
      ctx.fillStyle='#BFFBFF';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,bx,by+.5);ctx.restore()}}
@@ -8634,7 +8718,7 @@ function drawOver(){
         ['МОНЕТИ','+'+rc,'#FFE082'],
         ['ЯДРА','+'+(runShards|0),'#9CF4FF'],
         ['PERFECT',String(runPerfects),null],
-        ['КОМБО','×'+runMaxCombo,null],
+        ['РЕЗОНАНС','×'+(runResMult||1),'#8FF3FF'],
         ['FEVER',String(runFever),'#FFB0E8'],
       ];
       cells.forEach((c,i)=>drawOverStat(ix+(i%3)*cw,y+8+Math.floor(i/3)*rh,cw,c[0],c[1],c[2]));
