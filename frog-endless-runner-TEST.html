@@ -66,7 +66,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -1004,6 +1004,7 @@ const Prog={
     if(!this.d.migrated)this.migrate();
     this.syncUnlocks();
     try{resEnsure();weekSync();storyMigrate();huntSync();daysSinceFirst()}catch(e){}
+    try{achCheck(true)}catch(e){}
     this.save();
   },
   save(){if(this.readOnly)return;try{__LS.setItem(PROG_KEY,JSON.stringify(this.d))}catch(e){}},
@@ -1105,6 +1106,7 @@ function endRunRewards(){
   if(xp>0){paid.xp+=xp;runXP=paid.xp;
     const r=addXP(xp);runLevelUps=runLevelUps.concat(r.ups);
     runUnlocked=(runUnlocked||[]).concat(r.unlocked);}
+  achBank();achCheck();
   try{__LS.setItem('fCoins',''+coins)}catch(e){}
   Prog.save();
 }
@@ -1810,7 +1812,7 @@ function huntCollect(lp){
     addFloat(`🔷 ФРАГМЕНТ СИГНАЛУ ${h.got}/3`,W/2,H*.3,'#9CE8FF',18,true);
     huntNext=dist+rand(120,260);
   }else{
-    h.days++;addWeek(3);
+    h.days++;addWeek(3);achData().st.hunt=(achData().st.hunt|0)+1;
     addFloat('📡 СИГНАЛ ЯДРА ЗІБРАНО!',W/2,H*.3,'#BFFBFF',20,true);
     addFloat(HUNT_ORA[Math.min(HUNT_ORA.length-1,h.days-1)].replace('ОРА: ','ОРА: '),W/2,H*.3+26,'#9CFFE0',14,true);
     huntGrant({coins:60});
@@ -1891,6 +1893,102 @@ function claimWeek(i){
   const w=weekSync(), m=WEEK_MS[i];
   if(!m||w.n<m.n||w.claimed.includes(i))return false;
   w.claimed.push(i);huntGrant(m.rw);Prog.save();return true;
+}
+// ---- Spark Chronicle: lifetime achievements, each paid once on claim ----
+// Lifetime counters are banked at run end (idempotent across a revive, like
+// the rest of `paid`); while a run is on, the unbanked part is added live so
+// an achievement can pop mid-run.
+const ACH_RUN={coins:()=>runCoins, gems:()=>runDiamonds, fever:()=>runFever, feverT:()=>Math.floor(rc.feverT),
+  air:()=>runAir, mov:()=>rc.movLand, long:()=>rc.longLand, shSave:()=>rc.shSave, djSave:()=>rc.djSave,
+  bolt:()=>rc.boltDodge, leap:()=>runLeaps};
+function achData(){const d=Prog.d;if(!d.ach||typeof d.ach!=='object')d.ach={st:{},got:[],cl:[]};
+  const a=d.ach;a.st=a.st||{};a.got=a.got||[];a.cl=a.cl||[];return a}
+function achLife(k){
+  const a=achData(), pa=paid.ach||{};
+  return (a.st[k]|0)+Math.max(0,(ACH_RUN[k]()|0)-(pa[k]|0));
+}
+function achBank(){
+  const a=achData(), pa=paid.ach||(paid.ach={});
+  for(const k in ACH_RUN){const v=ACH_RUN[k]()|0, dv=v-(pa[k]|0);if(dv>0){a.st[k]=(a.st[k]|0)+dv;pa[k]=v}}
+  a.st.bestDist=Math.max(a.st.bestDist|0,Math.floor(dist));
+  a.st.bestCoins=Math.max(a.st.bestCoins|0,runCoins|0);
+}
+const lifeDist=()=>(Prog.d.stats.dist|0)+Math.max(0,Math.floor(dist)-paid.dist);
+const lifePerf=()=>(Prog.d.stats.perfects|0)+Math.max(0,runPerfects-paid.perf);
+const lifeRuns=()=>(Prog.d.stats.runs|0)+(state===ST.PLAY&&!paid.counted?1:0);
+const bestDist=()=>Math.max(achData().st.bestDist|0,state===ST.PLAY?Math.floor(dist):0);
+const worldDone=w=>levelDone(w,WORLD_LV-1)?1:0;
+const modSum=()=>MODULES.reduce((s,m)=>s+(m.id?modLv(m.id):0),0);
+const modTop=()=>MODULES.reduce((s,m)=>Math.max(s,m.id?modLv(m.id):0),0);
+// g: section · v(): current value · n: target · rw: reward on claim
+const ACH=[
+  {k:'d1', g:'БІГ',     ico:'🏃', name:'Перші кроки',        txt:'Пробіжи 1 000 м загалом',          n:1000,  v:lifeDist,          rw:{coins:100}},
+  {k:'d2', g:'БІГ',     ico:'🏃', name:'Марафонець',         txt:'Пробіжи 10 000 м загалом',         n:10000, v:lifeDist,          rw:{frag:1}},
+  {k:'d3', g:'БІГ',     ico:'🛣', name:'Дорога до Ядра',     txt:'Пробіжи 50 000 м загалом',         n:50000, v:lifeDist,          rw:{chest:1}},
+  {k:'b1', g:'БІГ',     ico:'🏁', name:'Розгін',             txt:'300 м за один забіг',              n:300,   v:bestDist,          rw:{coins:100}},
+  {k:'b2', g:'БІГ',     ico:'🏁', name:'Далекобійник',       txt:'800 м за один забіг',              n:800,   v:bestDist,          rw:{shards:1}},
+  {k:'b3', g:'БІГ',     ico:'🚀', name:'Нестримний',         txt:'1 500 м за один забіг',            n:1500,  v:bestDist,          rw:{chest:1}},
+  {k:'r1', g:'БІГ',     ico:'🎮', name:'Новачок',            txt:'Зіграй 10 забігів',                n:10,    v:lifeRuns,          rw:{coins:100}},
+  {k:'r2', g:'БІГ',     ico:'🎮', name:'Завсідник',          txt:'Зіграй 100 забігів',               n:100,   v:lifeRuns,          rw:{frag:2}},
+  {k:'r3', g:'БІГ',     ico:'👑', name:'Легенда траси',      txt:'Зіграй 500 забігів',               n:500,   v:lifeRuns,          rw:{chest:2}},
+  {k:'p1', g:'ТОЧНІСТЬ',ico:'✨', name:'Влучно!',            txt:'100 PERFECT загалом',              n:100,   v:lifePerf,          rw:{coins:100}},
+  {k:'p2', g:'ТОЧНІСТЬ',ico:'✨', name:'Снайпер',            txt:'1 000 PERFECT загалом',            n:1000,  v:lifePerf,          rw:{frag:1}},
+  {k:'p3', g:'ТОЧНІСТЬ',ico:'🎯', name:'Бездоганний',        txt:'5 000 PERFECT загалом',            n:5000,  v:lifePerf,          rw:{shards:2}},
+  {k:'c1', g:'ТОЧНІСТЬ',ico:'🔥', name:'Серія',              txt:'Комбо ×10',                        n:10,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{coins:100}},
+  {k:'c2', g:'ТОЧНІСТЬ',ico:'🔥', name:'Ритм Ядра',          txt:'Комбо ×30',                        n:30,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{frag:1}},
+  {k:'c3', g:'ТОЧНІСТЬ',ico:'💥', name:'Резонатор',          txt:'Комбо ×75',                        n:75,    v:()=>Math.max(Prog.d.stats.bestCombo|0,runMaxCombo), rw:{chest:1}},
+  {k:'f1', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перший розряд',      txt:'Увімкни Fever',                    n:1,     v:()=>achLife('fever'),  rw:{coins:100}},
+  {k:'f2', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перевантаження',     txt:'Fever 50 разів',                   n:50,    v:()=>achLife('fever'),  rw:{frag:1}},
+  {k:'f3', g:'ТОЧНІСТЬ',ico:'⏱', name:'Жива блискавка',     txt:'10 хвилин у Fever',                n:600,   v:()=>achLife('feverT'), rw:{shards:1}},
+  {k:'m1', g:'СКАРБИ',  ico:'🪙', name:'Скарбничка',         txt:'Збери 2 000 монет',                n:2000,  v:()=>achLife('coins'),  rw:{coins:150}},
+  {k:'m2', g:'СКАРБИ',  ico:'🪙', name:'Скарбник',           txt:'Збери 25 000 монет',               n:25000, v:()=>achLife('coins'),  rw:{frag:2}},
+  {k:'m3', g:'СКАРБИ',  ico:'💰', name:'Золотий дощ',        txt:'500 монет за один забіг',          n:500,   v:()=>Math.max(achData().st.bestCoins|0,state===ST.PLAY?runCoins:0), rw:{shards:1}},
+  {k:'a1', g:'СКАРБИ',  ico:'🌠', name:'Ловець зірок',       txt:'300 монет у повітрі',              n:300,   v:()=>achLife('air'),    rw:{coins:150}},
+  {k:'g1', g:'СКАРБИ',  ico:'💎', name:'Діамантовий блиск',  txt:'Збери 100 діамантів',              n:100,    v:()=>achLife('gems'),   rw:{frag:1}},
+  {k:'o1', g:'СКАРБИ',  ico:'🎁', name:'Шукач скарбів',      txt:'Відкрий 25 скринь',                n:25,    v:()=>achData().st.chest|0, rw:{shards:1}},
+  {k:'s1', g:'МАЙСТЕРНІСТЬ',ico:'↔️',name:'Серфер',          txt:'200 рухомих платформ',             n:200,   v:()=>achLife('mov'),    rw:{frag:1}},
+  {k:'s2', g:'МАЙСТЕРНІСТЬ',ico:'🛤', name:'Довга дорога',   txt:'300 довгих платформ',              n:300,   v:()=>achLife('long'),   rw:{coins:150}},
+  {k:'s3', g:'МАЙСТЕРНІСТЬ',ico:'🦘', name:'Кенгуру',        txt:'100 високих стрибків',             n:100,   v:()=>achLife('leap'),   rw:{coins:150}},
+  {k:'s4', g:'МАЙСТЕРНІСТЬ',ico:'🛡', name:'Ангел-охоронець',txt:'Щит рятує 10 разів',               n:10,    v:()=>achLife('shSave'), rw:{frag:1}},
+  {k:'s5', g:'МАЙСТЕРНІСТЬ',ico:'🌀', name:'Друге дихання',  txt:'Подвійний стрибок рятує 10 разів', n:10,    v:()=>achLife('djSave'), rw:{frag:1}},
+  {k:'s6', g:'МАЙСТЕРНІСТЬ',ico:'🌩', name:'Громовідвід',    txt:'Ухились від 100 блискавок',        n:100,   v:()=>achLife('bolt'),   rw:{shards:1}},
+  {k:'l1', g:'МАЙСТЕРНІСТЬ',ico:'🧪', name:'Інженер',        txt:'15 рівнів модулів сумарно',        n:15,    v:modSum,            rw:{frag:2}},
+  {k:'l2', g:'МАЙСТЕРНІСТЬ',ico:'⚙️', name:'Майстер модуля', txt:'Прокачай модуль до максимуму',     n:5,     v:modTop,            rw:{shards:2}},
+  {k:'w0', g:'ІСТОРІЯ', ico:'🌤️', name:'Вихід із Саду',      txt:'Пройди Хмарний Сад',               n:1,     v:()=>worldDone(0),  rw:{coins:150}},
+  {k:'w1', g:'ІСТОРІЯ', ico:'🏙️', name:'Неонові вогні',      txt:'Пройди Неонове Місто',             n:1,     v:()=>worldDone(1),  rw:{frag:1}},
+  {k:'w2', g:'ІСТОРІЯ', ico:'☢️', name:'Гаряче серце',       txt:'Пройди Реактор',                   n:1,     v:()=>worldDone(2),  rw:{shards:1}},
+  {k:'w3', g:'ІСТОРІЯ', ico:'☁️', name:'Над хмарами',        txt:'Пройди Небесний Район',            n:1,     v:()=>worldDone(3),  rw:{shards:1}},
+  {k:'w4', g:'ІСТОРІЯ', ico:'💠', name:'Правда Ядра',        txt:'Пройди всю історію',               n:1,     v:()=>worldDone(4),  rw:{chest:2}},
+  {k:'mm', g:'ІСТОРІЯ', ico:'📜', name:'Хранитель пам\'яті', txt:'Знайди всі спогади Ядра',          n:MEMORIES.length, v:()=>Prog.d.story.mem.length, rw:{shards:2}},
+  {k:'x1', g:'ЯДРО',    ico:'🔷', name:'Перший резонанс',    txt:'Досягни Резонансу ×5',             n:5,     v:()=>resMult(),     rw:{coins:150}},
+  {k:'x2', g:'ЯДРО',    ico:'🔷', name:'Глибокий резонанс',  txt:'Досягни Резонансу ×15',            n:15,    v:()=>resMult(),     rw:{frag:2}},
+  {k:'x3', g:'ЯДРО',    ico:'💠', name:'Серце Ядра',         txt:'Досягни Резонансу ×30',            n:30,    v:()=>resMult(),     rw:{chest:2}},
+  {k:'h1', g:'ЯДРО',    ico:'📡', name:'Мисливець за сигналом',txt:'Збери сигнал Ядра 7 разів',     n:7,     v:()=>achData().st.hunt|0, rw:{shards:1}},
+  {k:'k1', g:'ЯДРО',    ico:'🔥', name:'Вірність Іскрі',     txt:'Серія 7 днів поспіль',             n:7,     v:()=>(Prog.d.streak&&Prog.d.streak.best)|0, rw:{chest:1}},
+];
+function achVal(A){try{return Math.min(A.n,A.v()|0)}catch(e){return 0}}
+// mark newly reached ones; toast in a run, count for the results screen
+let achNewRun=0;
+function achCheck(quiet){
+  if(!Prog.d)return 0;
+  const a=achData();let n=0;
+  for(const A of ACH){
+    if(a.got.includes(A.k)||achVal(A)<A.n)continue;
+    a.got.push(A.k);n++;
+    if(quiet)continue;
+    achNewRun++;
+    if(state===ST.PLAY){
+      addFloat(`🏆 ЛІТОПИС: ${A.name}`,W/2,H*.24,'#FFE082',17,true);
+      try{sfxPU()}catch(e){}
+    }
+  }
+  return n;
+}
+function achClaimable(){if(!Prog.d)return 0;const a=achData();return a.got.filter(k=>!a.cl.includes(k)).length}
+function achClaim(k){
+  const a=achData(), A=ACH.find(x=>x.k===k);
+  if(!A||!a.got.includes(k)||a.cl.includes(k))return false;
+  a.cl.push(k);huntGrant(A.rw);Prog.save();return true;
 }
 function affordableUpgrade(){
   for(const m of MODULES)if(!upgradeBlock(m.id))return m;
@@ -3234,6 +3332,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.WORLDS)worldsTap(t.clientX,t.clientY);
     else if(state===ST.STORY)sceneTap();
     else if(state===ST.LOG)logTap(t.clientX,t.clientY);
+    else if(state===ST.ACH)achTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -3285,6 +3384,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.WORLDS)worldsTap(e.clientX,e.clientY);
     else if(state===ST.STORY)sceneTap();
     else if(state===ST.LOG)logTap(e.clientX,e.clientY);
+    else if(state===ST.ACH)achTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -3314,6 +3414,7 @@ document.addEventListener('keydown',e=>{
   else if((state===ST.LAB||state===ST.CHESTS||state===ST.WORLDS)&&e.key==='Escape')state=ST.MENU;
   else if(state===ST.STORY&&(e.key==='Enter'||e.key===' '))sceneTap();
   else if(state===ST.LOG&&e.key==='Escape')state=ST.WORLDS;
+  else if(state===ST.ACH&&e.key==='Escape'){state=ST.MISSIONS;achList=null}
 });
 
 // ========== PARTICLES ==========
@@ -3556,7 +3657,7 @@ function startGame(){
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
-  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;resRunStart();huntRunStart();Prog.save();
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;resRunStart();huntRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
   shieldCharges+=modLv('shield')>0?1:0;
   if(shieldCharges>0&&Prog.d.stats.runs<6)shieldHintT=3.2;
@@ -4441,7 +4542,7 @@ function updateGame(dt){
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
-  if(alive&&(goalTick-=dt)<=0){goalTick=.2;resTick();huntUpdate()}
+  if(alive&&(goalTick-=dt)<=0){goalTick=.2;resTick();huntUpdate();achCheck()}
   if(runMode.lvl&&!levelWin&&alive){updCollapse();if(dist>=runMode.goal)winLevel()}
 
   // Magnet
@@ -8089,6 +8190,9 @@ function drawOver(){
       }else if(runStreak&&weekOn()){
         ctx.fillStyle='#FFB86B';ctx.font='900 12px Exo2,sans-serif';
         ctx.fillText(`🔥 Серія ${runStreak.n} ${pl(runStreak.n,'день','дні','днів')}`+(runStreak.rw?' · '+resRewardTxt(runStreak.rw):''),cx,y+36);
+      }else if(achNewRun){
+        ctx.fillStyle='#FFE082';ctx.font='900 12px Exo2,sans-serif';
+        ctx.fillText(`🏆 Літопис Іскри: +${achNewRun} ${pl(achNewRun,'запис','записи','записів')}`,cx,y+36);
       }
     }else if(k==='score'){
       ctx.textAlign='center';ctx.textBaseline='middle';
@@ -8275,7 +8379,7 @@ function _untilTxt(ms){
 function _msToMidnight(){const n=new Date(),m=new Date(n);m.setHours(24,0,0,0);return m-n}
 function _msToMonday(){const n=new Date(),m=new Date(n);m.setHours(24,0,0,0);while(m.getDay()!==1)m.setDate(m.getDate()+1);return m-n}
 function missionLayout(){
-  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), top=112+SAFE.t;
+  const cw=Math.min(W-24-SAFE.l-SAFE.r,440), top=124+SAFE.t;
   return {cw,x:W/2-cw/2,top,rowH:62,gap:8,secH:40,weekH:112};
 }
 const RES_CARD=66;
@@ -8421,10 +8525,120 @@ function drawMissions(){
   drawBackChip();drawCurrencies(true);
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
   ctx.fillText('ЗАВДАННЯ',W/2,72+SAFE.t);
+  const ac=achChipRect(), ar=achClaimable();
+  uiPill(ac.x,ac.y,ac.w,ac.h,ar?2:0);
+  ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=ar?UI.textGold:UI.text;
+  ctx.fillText(`🏆 ЛІТОПИС ІСКРИ · ${achData().got.length}/${ACH.length}`,W/2,ac.y+ac.h/2+.5);
+  drawNavBadge(ac.x+ac.w-4,ac.y+2,ar);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
+// ---- Spark Chronicle screen ----
+function achLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440);return {cw,x:W/2-cw/2,top:124+SAFE.t,rh:74,gap:8}}
+const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+// ready to claim first, then the closest unfinished ones, claimed at the end
+function achOrder(){
+  const a=achData();
+  const rank=A=>a.cl.includes(A.k)?3:a.got.includes(A.k)?0:1;
+  return ACH.map((A,i)=>({A,i,r:rank(A),f:achVal(A)/A.n}))
+    .sort((p,q)=>p.r-q.r||(p.r===1?q.f-p.f:0)||p.i-q.i).map(o=>o.A);
+}
+let achList=null;
+function achClaimRect(L,y){const w=84;return {x:L.x+L.cw-w-12,y:y+14,w,h:28}}
+function drawAchRewardIco(x,y,rw){
+  if(rw.chest!=null)drawChestIco(x,y+5,24,rw.chest,0);
+  else if(rw.coins)drawCoinIco(x,y,8);
+  else if(rw.shards)drawShardIco(x,y,8);
+  else drawFragIco(x,y,8);
+}
+function drawAch(){
+  gt+=.016;drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.8)';ctx.fillRect(0,0,W,H);
+  const L=achLayout(), a=achData();
+  if(!achList||achList.length!==ACH.length)achList=achOrder();
+  uiScrollMax=Math.max(0,L.top+achList.length*(L.rh+L.gap)+8-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  achList.forEach((A,i)=>{
+    const y=L.top+i*(L.rh+L.gap)-uiScroll;
+    if(y>H||y+L.rh<0)return;
+    const got=a.got.includes(A.k), cl=a.cl.includes(A.k), ready=got&&!cl, v=achVal(A);
+    glassPanel(L.x,y,L.cw,L.rh,14);
+    if(ready){ctx.save();ctx.strokeStyle=UI.lineGold;ctx.lineWidth=2;rr(L.x+1,y+1,L.cw-2,L.rh-2,13);ctx.stroke();ctx.restore()}
+    // medal
+    const mx=L.x+32, my=y+L.rh/2;
+    ctx.save();
+    ctx.beginPath();ctx.arc(mx,my,21,0,Math.PI*2);
+    ctx.fillStyle=got?'rgba(255,196,77,.18)':'rgba(120,150,200,.10)';ctx.fill();
+    ctx.lineWidth=2;ctx.strokeStyle=got?'rgba(255,208,138,.9)':'rgba(150,180,230,.35)';ctx.stroke();
+    if(!got)ctx.globalAlpha=.45;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='20px Exo2,sans-serif';ctx.fillStyle='#fff';
+    ctx.fillText(A.ico,mx,my+1);
+    ctx.restore();
+    // text
+    const tx=L.x+62, rightW=ready?100:74, tw=L.cw-62-rightW;
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle=got?'#FFE9B8':'#fff';
+    ctx.fillText(fitText(A.name,tw),tx,y+17);
+    ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;
+    ctx.fillText(fitText(A.txt,tw),tx,y+35);
+    if(got){
+      ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=cl?'#9CFFC4':'#FFE082';
+      ctx.fillText(cl?'✓ Записано в Літопис':'🏆 Виконано!',tx,y+55);
+    }else{
+      drawBar(tx,y+52,tw-8,6,v/A.n,'#2A8FC0','#7FE8FF');
+      ctx.font='800 10px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.8)';ctx.textAlign='right';
+      ctx.fillText(`${fmtN(v)} / ${fmtN(A.n)}`,tx+tw-8,y+64);ctx.textAlign='left';
+    }
+    // reward / claim
+    if(ready){
+      const r=achClaimRect(L,y), bob=Math.sin(gt*5+i)*1.2;
+      ctx.save();
+      const g=ctx.createLinearGradient(0,r.y,0,r.y+r.h);g.addColorStop(0,'#FFD36B');g.addColorStop(1,'#E89A2C');
+      ctx.fillStyle=g;rr(r.x,r.y+bob,r.w,r.h,r.h/2);ctx.fill();
+      ctx.textAlign='center';ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle='#3A2000';
+      ctx.fillText('ЗАБРАТИ',r.x+r.w/2,r.y+r.h/2+bob+.5);
+      ctx.font='800 10px Exo2,sans-serif';ctx.fillStyle=UI.textGold;
+      ctx.fillText(fitText(A.rw.chest!=null?'скриня: '+CHESTS[A.rw.chest].name.toLowerCase():resRewardTxt(A.rw),r.w+24),r.x+r.w/2,y+56);
+      ctx.restore();
+    }else{
+      const rx=L.x+L.cw-40;
+      ctx.save();if(cl)ctx.globalAlpha=.45;
+      drawAchRewardIco(rx,y+26,A.rw);
+      ctx.textAlign='center';ctx.font='800 10px Exo2,sans-serif';ctx.fillStyle=UI.textGold;
+      const lab=A.rw.chest!=null?CHESTS[A.rw.chest].name.toLowerCase():A.rw.coins?'+'+A.rw.coins:'+'+(A.rw.shards||A.rw.frag);
+      ctx.fillText(fitText(lab,64),rx,y+54);
+      ctx.restore();
+    }
+  });
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ЛІТОПИС ІСКРИ',W/2,72+SAFE.t);
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#FFE082';
+  const rd=achClaimable();
+  ctx.fillText(`🏆 ${a.got.length}/${ACH.length}`+(rd?`  ·  ГОТОВО: ${rd}`:''),W/2,98+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function achTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();state=ST.MISSIONS;uiScroll=0;achList=null;return}
+  const L=achLayout();
+  if(y<L.top-6||!achList)return;
+  const i=Math.floor((y+uiScroll-L.top)/(L.rh+L.gap));
+  const A=achList[i];if(!A)return;
+  const r=achClaimRect(L,L.top+i*(L.rh+L.gap)-uiScroll);
+  if(x>=r.x-8&&x<=r.x+r.w+8&&y>=r.y-8&&y<=r.y+r.h+8&&achClaim(A.k)){
+    sfxPU();addTapRipple(x,y);
+    addFloat(`🏆 ${resRewardTxt(A.rw)}`,x-40,y-10,'#FFE082',16,true);
+  }
+}
+// entry chip on the missions screen
+function achChipRect(){const w=190;return {x:W/2-w/2,y:86+SAFE.t,w,h:24}}
 function missionsTap(x,y){
   if(hitBackChip(x,y)){sfxClick();state=ST.MENU;return}
+  const ac=achChipRect();
+  if(x>=ac.x&&x<=ac.x+ac.w&&y>=ac.y-6&&y<=ac.y+ac.h+6){openScreen(ST.ACH);achList=null;return}
   const L=missionLayout(), wy=weekCardY(L);
   if(y<L.top-6)return;
   for(let i=0;i<3;i++){
@@ -8502,7 +8716,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   ctx.save();
@@ -8602,7 +8816,7 @@ function drawMenuProgress(cx,sy){
 function chestCount(){const c=Prog.d.chests;return (c.wood|0)+(c.crystal|0)+(c.epic|0)}
 function navBadges(){
   return [affordableUpgrade()?'!':0,
-    (typeof claimableCount==='function'?claimableCount():0),
+    (typeof claimableCount==='function'?claimableCount()+achClaimable():0),
     chestCount()];
 }
 function drawNavBadge(x,y,v){
@@ -8819,7 +9033,7 @@ function fragTargets(n){
 function openChest(t){
   const d=Prog.d, key=CHESTS[t].id;
   if(!(d.chests[key]>0))return null;
-  d.chests[key]--;
+  d.chests[key]--;achData().st.chest=(achData().st.chest|0)+1;
   d.opened=(d.opened|0)+1;
   let tier=t;
   if(tier<2&&d.opened%EPIC_PITY===0)tier=2;       // pity: every 10th chest is Epic
@@ -9223,6 +9437,7 @@ function loop(ts){
       case ST.WORLDS:drawWorlds();break;
       case ST.STORY:drawScene();break;
       case ST.LOG:drawLog();break;
+      case ST.ACH:drawAch();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     if(transT>0){
