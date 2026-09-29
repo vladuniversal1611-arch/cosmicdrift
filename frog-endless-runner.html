@@ -8609,7 +8609,7 @@ function drawAch(){
   ctx.restore();
   const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
   ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
-  drawBackChip();
+  drawBackChip();drawCurrencies(true);
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
   ctx.fillText('ЛІТОПИС ІСКРИ',W/2,72+SAFE.t);
   ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle='#FFE082';
@@ -8625,8 +8625,7 @@ function achTap(x,y){
   const A=achList[i];if(!A)return;
   const r=achClaimRect(L,L.top+i*(L.rh+L.gap)-uiScroll);
   if(x>=r.x-8&&x<=r.x+r.w+8&&y>=r.y-8&&y<=r.y+r.h+8&&achClaim(A.k)){
-    sfxPU();addTapRipple(x,y);
-    addFloat(`🏆 ${resRewardTxt(A.rw)}`,x-40,y-10,'#FFE082',16,true);
+    sfxPU();addTapRipple(x,y);rewardFly(r.x+r.w/2,r.y+r.h/2,A.rw);
   }
 }
 // entry chip on the missions screen
@@ -8649,7 +8648,7 @@ function missionsTap(x,y){
   const n=WEEK_MS.length, bx=L.x+30, bw=L.cw-60;
   WEEK_MS.forEach((m,i)=>{
     const nx=bx+bw*i/(n-1);
-    if(Math.abs(x-nx)<30&&claimWeek(i)){sfxPU();addTapRipple(x,y)}
+    if(Math.abs(x-nx)<30&&claimWeek(i)){sfxPU();addTapRipple(x,y);rewardFly(nx,y,m.rw)}
   });
 }
 function drawShop(){
@@ -8741,8 +8740,59 @@ function drawCoinIco(x,y,r){
 // Coins and core shards, top-right, one chip each stacked vertically so the
 // logo / title in the middle never has to share its row.
 // row=true lays them side by side (sub-screens, where the title has its own row).
+// ---- Reward fly: claimed coins / cores burst out and fly into the counters.
+// The counters hold back the in-flight amount, so each arrival visibly ticks up.
+let flyFx=[], flyPend={coins:0,shards:0}, curPos={}, curBump={coins:0,shards:0};
+function rewardFly(x,y,rw){
+  const add=(k,amt,n)=>{
+    n=Math.max(1,Math.min(n,amt));flyPend[k]+=amt;let left=amt;
+    for(let i=0;i<n;i++){
+      const share=i===n-1?left:Math.floor(amt/n);left-=share;
+      const a=Math.random()*Math.PI*2, sp=rand(50,120);
+      flyFx.push({k,sx:x,sy:y,bx:Math.cos(a)*sp,by:Math.sin(a)*sp-40,t:-i*.06,d:.7+Math.random()*.2,share});
+    }
+  };
+  if(rw.coins)add('coins',rw.coins,Math.min(12,4+Math.floor(rw.coins/25)));
+  if(rw.shards)add('shards',rw.shards,rw.shards);
+  if(rw.frag||rw.chest!=null)flyFx.push({k:'pop',sx:x,sy:y,t:0,d:1.4,rw});
+}
+function drawFlyFx(dt){
+  for(const k in curBump)curBump[k]=Math.max(0,curBump[k]-dt*4);
+  if(!flyFx.length)return;
+  if(state===ST.PLAY){flyFx=[];flyPend={coins:0,shards:0};return}
+  ctx.save();
+  flyFx=flyFx.filter(f=>{
+    f.t+=dt;if(f.t<0)return true;
+    const u=clamp(f.t/f.d,0,1);
+    if(f.k==='pop'){
+      // fragment / chest: pops up, rises and fades where it was claimed
+      const e=1-Math.pow(1-Math.min(1,u*2.5),3), a=u<.7?1:1-(u-.7)/.3, py=f.sy-24-u*46;
+      ctx.globalAlpha=a;ctx.save();ctx.translate(f.sx,py);ctx.scale(.4+.6*e+.12*Math.sin(u*9)*(1-u),.4+.6*e+.12*Math.sin(u*9)*(1-u));
+      if(f.rw.chest!=null)drawChestIco(0,8,40,f.rw.chest,0);else drawFragIco(0,0,15);
+      ctx.restore();
+      ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#FFE082';
+      ctx.fillText(resRewardTxt(f.rw),f.sx,py+34);
+      ctx.globalAlpha=1;
+      return u<1;
+    }
+    const tp=curPos[f.k]||{x:W-40,y:30};
+    // quadratic path: burst outwards first, then curve into the counter
+    const cx=f.sx+f.bx*1.6, cy=f.sy+f.by*1.6, e=u*u*(3-2*u), m=1-e;
+    const x=m*m*f.sx+2*m*e*cx+e*e*tp.x, y=m*m*f.sy+2*m*e*cy+e*e*tp.y;
+    const r=(f.k==='coins'?8:9)*(1+.35*Math.sin(u*Math.PI));
+    ctx.globalAlpha=1;
+    if(f.k==='coins')drawCoinIco(x,y,r);else drawShardIco(x,y,r);
+    if(u>=1){
+      flyPend[f.k]=Math.max(0,flyPend[f.k]-f.share);curBump[f.k]=1;
+      try{f.k==='coins'?sfxCoin():sfxDiamond()}catch(e){}
+      return false;
+    }
+    return true;
+  });
+  ctx.restore();
+}
 function drawCurrencies(row){
-  const rows=[{v:coins,ico:drawCoinIco,col:'#FFE082'},{v:Prog.d.shards,ico:drawShardIco,col:'#9CF4FF'}];
+  const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
   let y=12+SAFE.t;
   ctx.font='900 15px Exo2,sans-serif';
   const tw=Math.max(...rows.map(r=>ctx.measureText(String(r.v)).width));
@@ -8751,9 +8801,13 @@ function drawCurrencies(row){
   if(row)rows.reverse();
   for(const r of rows){
     glassPanel(x,y,cw,ch,ch/2);
-    if(row){r.ico(x+17,y+ch/2,9);ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+    curPos[r.k]={x:x+17,y:y+ch/2};
+    const bs=1+.35*curBump[r.k];
+    if(bs>1){ctx.save();ctx.translate(x+17,y+ch/2);ctx.scale(bs,bs);r.ico(0,0,9);ctx.restore()}
+    else if(row){r.ico(x+17,y+ch/2,9)}
+    if(row){ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
       ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);x-=cw+6;continue}
-    r.ico(x+17,y+ch/2,9);
+    if(bs<=1)r.ico(x+17,y+ch/2,9);
     ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
     ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);
     y+=ch+6;
@@ -9436,6 +9490,7 @@ function loop(ts){
       case ST.ACH:drawAch();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
+    drawFlyFx(dt);
     if(transT>0){
       transT=Math.max(0,transT-dt);
       const u=transT/TRANS_DUR;               // 1 at switch -> 0
