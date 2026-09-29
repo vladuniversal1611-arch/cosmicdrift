@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11,WARD:12};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -1477,7 +1477,7 @@ function drawScene(){
   const bob=Math.sin(gt*2.4)*3;
   if(fh>=40&&_HERO_LOADED&&_HERO_IMG.naturalWidth>0){
     const fw=fh*_HERO_IMG.naturalWidth/_HERO_IMG.naturalHeight;
-    ctx.drawImage(_HERO_IMG,W/2-fw/2-40,fy-fh/2+bob,fw,fh);
+    ctx.drawImage(heroImg(),W/2-fw/2-40,fy-fh/2+bob,fw,fh);
   }
   const say=fh<40?'':S.intro&&t<1.4?'':S.say;
   if(say){
@@ -1974,6 +1974,7 @@ function achCheck(quiet){
     achNewRun++;
     if(state===ST.PLAY){
       addFloat(`🏆 ЛІТОПИС: ${A.name}`,W/2,H*.24,'#FFE082',17,true);
+      const sk=skinOf(A.k);if(sk)addFloat(`🐸 НОВИЙ СКІН: ${sk.n}`,W/2,H*.24+24,'#9CFFC4',15,true);
       try{sfxPU()}catch(e){}
     }
   }
@@ -1984,6 +1985,136 @@ function achClaim(k){
   const a=achData(), A=ACH.find(x=>x.k===k);
   if(!A||!a.got.includes(k)||a.cl.includes(k))return false;
   a.cl.push(k);huntGrant(A.rw);Prog.save();return true;
+}
+// ---- Wardrobe: hero recolours earned through the Chronicle ----
+// Each skin re-hues the painted hero once into a cached canvas (the greens
+// move, eyes / mouth / highlights stay). A skin with its own sprite can set
+// `img` to an _A key instead.
+const HERO_SKINS=[
+  {id:'classic',n:'Бульбік',    h:null},
+  {id:'ice',    n:'Крижаний',   h:198,              ach:'d2'},
+  {id:'neon',   n:'Неоновий',   h:318, s:1.1,       ach:'w1'},
+  {id:'lava',   n:'Реакторний', h:16,  s:1.05,      ach:'w2'},
+  {id:'gold',   n:'Золотий',    h:44,  s:1.1, l:1.08,ach:'m2'},
+  {id:'violet', n:'Резонатор',  h:272,              ach:'x2'},
+  {id:'shadow', n:'Тіньовий',   h:235, s:.35, l:.62,ach:'k1'},
+  {id:'core',   n:'Ядерний',    h:186, s:.7,  l:1.3,ach:'w4'},
+  {id:'rainbow',n:'Райдужний',  rainbow:true,       ach:'x3'},
+];
+const _skinCache={};
+function skinUnlocked(S){return !S.ach||achData().got.includes(S.ach)}
+function skinOf(k){return HERO_SKINS.find(S=>S.ach===k)}
+function curHeroSkin(){const id=Prog.d&&Prog.d.skin;const S=HERO_SKINS.find(s=>s.id===id);return S&&skinUnlocked(S)?S:HERO_SKINS[0]}
+function _rehue(h,sm,lm){
+  const im=_HERO_IMG, c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+  const g=c.getContext('2d');g.drawImage(im,0,0);
+  try{
+    const D=g.getImageData(0,0,c.width,c.height), p=D.data;
+    for(let i=0;i<p.length;i+=4){
+      if(!p[i+3])continue;
+      const r=p[i]/255,gg=p[i+1]/255,b=p[i+2]/255, mx=Math.max(r,gg,b), mn=Math.min(r,gg,b), d=mx-mn;
+      if(d<.12)continue;                                   // greys: eyes, teeth, outlines
+      let hu=mx===r?((gg-b)/d)%6:mx===gg?(b-r)/d+2:(r-gg)/d+4;hu*=60;if(hu<0)hu+=360;
+      if(hu<55||hu>185)continue;                           // only the greens / teal body
+      let l=(mx+mn)/2, s=d/(1-Math.abs(2*l-1));
+      const nh=(h+(hu-120)*.6+360)%360;
+      s=Math.min(1,s*sm);l=Math.min(1,l*lm);
+      const C=(1-Math.abs(2*l-1))*s, X=C*(1-Math.abs((nh/60)%2-1)), m=l-C/2;
+      const k=Math.floor(nh/60);
+      const [R,G,B]=k===0?[C,X,0]:k===1?[X,C,0]:k===2?[0,C,X]:k===3?[0,X,C]:k===4?[X,0,C]:[C,0,X];
+      p[i]=(R+m)*255;p[i+1]=(G+m)*255;p[i+2]=(B+m)*255;
+    }
+    g.putImageData(D,0,0);
+  }catch(e){return im}
+  return c;
+}
+function skinImg(S){
+  if(!S||S.h==null&&!S.rainbow)return _HERO_IMG;
+  if(S.img&&_ok(S.img))return _A[S.img];
+  if(!(_HERO_LOADED&&_HERO_IMG.naturalWidth>0))return _HERO_IMG;
+  const key=S.rainbow?'rb'+(Math.floor(gt*3)%12):S.id;
+  if(!_skinCache[key])_skinCache[key]=S.rainbow?_rehue((Math.floor(gt*3)%12)*30,1.1,1):_rehue(S.h,S.s||1,S.l||1);
+  return _skinCache[key];
+}
+function heroSil(){
+  if(_skinCache.sil)return _skinCache.sil;
+  const im=_HERO_IMG, c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+  const g=c.getContext('2d');g.drawImage(im,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#1a2548';g.fillRect(0,0,c.width,c.height);
+  return _skinCache.sil=c;
+}
+function heroImg(){return skinImg(curHeroSkin())}
+function skinsNew(){if(!Prog.d)return 0;const seen=Prog.d.skinSeen||[];return HERO_SKINS.filter(S=>S.ach&&skinUnlocked(S)&&!seen.includes(S.id)).length}
+
+function wardLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440), cols=W<340?2:3;
+  const gap=10, tw=(cw-gap*(cols-1))/cols;return {cw,x:W/2-cw/2,top:124+SAFE.t,cols,gap,tw,th:tw*1.28+34}}
+function wardCell(L,i){const c=i%L.cols,r=Math.floor(i/L.cols);return {x:L.x+c*(L.tw+L.gap),y:L.top+r*(L.th+L.gap)-uiScroll,w:L.tw,h:L.th}}
+function drawWard(){
+  gt+=.016;drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
+  const L=wardLayout(), cur=curHeroSkin(), seen=Prog.d.skinSeen||[];
+  const rows=Math.ceil(HERO_SKINS.length/L.cols);
+  uiScrollMax=Math.max(0,L.top+rows*(L.th+L.gap)+8-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
+  HERO_SKINS.forEach((S,i)=>{
+    const r=wardCell(L,i);if(r.y>H||r.y+r.h<0)return;
+    const own=skinUnlocked(S), on=S===cur, fresh=own&&S.ach&&!seen.includes(S.id);
+    glassPanel(r.x,r.y,r.w,r.h,14);
+    if(on||fresh){ctx.save();ctx.strokeStyle=on?'rgba(120,255,170,.9)':UI.lineGold;ctx.lineWidth=2;rr(r.x+1,r.y+1,r.w-2,r.h-2,13);ctx.stroke();ctx.restore()}
+    // hero preview (locked ones are shadows)
+    const img=skinImg(S), ih=r.w*1.0, iw=ih*(_HERO_IMG.naturalWidth||1)/(_HERO_IMG.naturalHeight||1);
+    const bob=on?Math.sin(gt*3)*2:0;
+    ctx.save();
+    if(!own)ctx.globalAlpha=.75;
+    if(_HERO_LOADED)ctx.drawImage(own?img:heroSil(),r.x+r.w/2-iw/2,r.y+10+bob,iw,ih);
+    ctx.restore();
+    if(!own){ctx.font='20px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🔒',r.x+r.w/2,r.y+10+ih*.55)}
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle=own?'#fff':'rgba(200,215,240,.7)';
+    ctx.fillText(fitText(S.n,r.w-8),r.x+r.w/2,r.y+r.h-38);
+    ctx.font='800 10px Exo2,sans-serif';
+    if(on){ctx.fillStyle='#9CFFC4';ctx.fillText('✓ ОБРАНО',r.x+r.w/2,r.y+r.h-18)}
+    else if(own){ctx.fillStyle=fresh?'#FFE082':UI.dim;ctx.fillText(fresh?'НОВИЙ!':'ОБРАТИ',r.x+r.w/2,r.y+r.h-18)}
+    else{const A=ACH.find(a=>a.k===S.ach);ctx.fillStyle=UI.textGold;ctx.fillText(fitText('🏆 '+(A?A.name:''),r.w-8),r.x+r.w/2,r.y+r.h-18)}
+  });
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,L.top-6);
+  drawBackChip();
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ГАРДЕРОБ',W/2,72+SAFE.t);
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=UI.dim;
+  ctx.fillText(`${HERO_SKINS.filter(skinUnlocked).length}/${HERO_SKINS.length} · відкривай у Літописі Іскри`,W/2,98+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  // a locked tile tapped: say which record opens it
+  if(wardMsgT>0){wardMsgT-=.016;ctx.save();ctx.globalAlpha=Math.min(1,wardMsgT*2);
+    const w=Math.min(W-40,340);glassPanel(W/2-w/2,H-80-SAFE.b,w,44,14);
+    ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=UI.textGold;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(fitText(wardMsg,w-20),W/2,H-58-SAFE.b);ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic'}
+}
+let wardMsg='', wardMsgT=0;
+function wardTap(x,y){
+  if(hitBackChip(x,y)){sfxClick();wardLeave();state=ST.MENU;return}
+  const L=wardLayout();if(y<L.top-6)return;
+  HERO_SKINS.forEach((S,i)=>{
+    const r=wardCell(L,i);if(x<r.x||x>r.x+r.w||y<r.y||y>r.y+r.h)return;
+    if(skinUnlocked(S)){Prog.d.skin=S.id;Prog.save();sfxPU();addTapRipple(x,y)}
+    else{const A=ACH.find(a=>a.k===S.ach);wardMsg=`🔒 Літопис: «${A.name}» — ${A.txt}`;wardMsgT=2.6;sfxLand()}
+  });
+}
+// leaving marks every unlocked skin as seen (clears the NEW badge)
+function wardLeave(){Prog.d.skinSeen=HERO_SKINS.filter(S=>S.ach&&skinUnlocked(S)).map(S=>S.id);Prog.save()}
+function skinChipRect(){return {x:12+SAFE.l,y:12+SAFE.t,w:96,h:36}}
+function drawSkinChip(){
+  const r=skinChipRect(), n=skinsNew();
+  glassPanel(r.x,r.y,r.w,r.h,r.h/2);
+  ctx.save();const img=heroImg();
+  if(_HERO_LOADED){const ih=28,iw=ih*_HERO_IMG.naturalWidth/_HERO_IMG.naturalHeight;ctx.drawImage(img,r.x+8,r.y+4,iw,ih)}
+  ctx.restore();
+  ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle=UI.text;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('СКІНИ',r.x+40,r.y+r.h/2+1);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  drawNavBadge(r.x+r.w-4,r.y+2,n);
 }
 function affordableUpgrade(){
   for(const m of MODULES)if(!upgradeBlock(m.id))return m;
@@ -3328,6 +3459,7 @@ canvas.addEventListener('touchend',e=>{
     else if(state===ST.STORY)sceneTap();
     else if(state===ST.LOG)logTap(t.clientX,t.clientY);
     else if(state===ST.ACH)achTap(t.clientX,t.clientY);
+    else if(state===ST.WARD)wardTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -3380,6 +3512,7 @@ canvas.addEventListener('mouseup',e=>{
     else if(state===ST.STORY)sceneTap();
     else if(state===ST.LOG)logTap(e.clientX,e.clientY);
     else if(state===ST.ACH)achTap(e.clientX,e.clientY);
+    else if(state===ST.WARD)wardTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -3410,6 +3543,7 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.STORY&&(e.key==='Enter'||e.key===' '))sceneTap();
   else if(state===ST.LOG&&e.key==='Escape')state=ST.WORLDS;
   else if(state===ST.ACH&&e.key==='Escape'){state=ST.MISSIONS;achList=null}
+  else if(state===ST.WARD&&e.key==='Escape'){wardLeave();state=ST.MENU}
 });
 
 // ========== PARTICLES ==========
@@ -5841,13 +5975,13 @@ function drawFrog(x,y,sc,rot,sqX,sqY,inAir,height,spriteHint){
     }
 
     // Draw hero sprite — bottom-center aligned to feet position
-    ctx.drawImage(_HERO_IMG,-drawW/2,-drawH+5,drawW,drawH);
+    ctx.drawImage(heroImg(),-drawW/2,-drawH+5,drawW,drawH);
 
     // Landing impact flash
     if(sqY<.85){
       ctx.globalAlpha=.15*(1-sqY)/.15;
       ctx.fillStyle='#fff';
-      ctx.drawImage(_HERO_IMG,-drawW/2,-drawH+5,drawW,drawH);
+      ctx.drawImage(heroImg(),-drawW/2,-drawH+5,drawW,drawH);
       ctx.globalAlpha=1;
     }
 
@@ -8054,7 +8188,7 @@ function drawMenu(){
   drawMenuLogo(cx,H*.08);
 
   // 4. Currencies (top right)
-  drawCurrencies();
+  drawCurrencies();drawSkinChip();
 
   // 5. PLAY button — biggest CTA
   const playY=ML.play;
@@ -8084,6 +8218,8 @@ function drawMenu(){
 }
 
 function menuTap(x,y){
+  {const r=skinChipRect();if(x>=r.x-4&&x<=r.x+r.w+4&&y>=r.y-4&&y<=r.y+r.h+4){openScreen(ST.WARD);return}}
+  if(Math.hypot(x-MENU_ANIM.x,y-(MENU_ANIM.y-30))<42){openScreen(ST.WARD);return}
   // PLAY button
   const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
@@ -8576,7 +8712,9 @@ function drawAch(){
     ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle=got?'#FFE9B8':'#fff';
     ctx.fillText(fitText(A.name,tw),tx,y+17);
     ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;
-    ctx.fillText(fitText(A.txt,tw),tx,y+35);
+    const sk=skinOf(A.k);
+    ctx.fillText(fitText(A.txt,tw-(sk?58:0)),tx,y+35);
+    if(sk){ctx.fillStyle='#9CFFC4';ctx.textAlign='right';ctx.fillText('+ 🐸 скін',tx+tw,y+35);ctx.textAlign='left'}
     if(got){
       ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=cl?'#9CFFC4':'#FFE082';
       ctx.fillText(cl?'✓ Записано в Літопис':'🏆 Виконано!',tx,y+55);
@@ -8711,7 +8849,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH||state===ST.WARD}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   ctx.save();
@@ -9488,6 +9626,7 @@ function loop(ts){
       case ST.STORY:drawScene();break;
       case ST.LOG:drawLog();break;
       case ST.ACH:drawAch();break;
+      case ST.WARD:drawWard();break;
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
