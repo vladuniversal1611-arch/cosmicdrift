@@ -22,6 +22,9 @@ const __LS={
   removeItem:k=>window.localStorage.removeItem('T_'+k)
 };
 (function(){
+  // later additions to the seed, applied to older test saves too
+  if(!__LS.getItem('seedKeys')){try{const d=JSON.parse(__LS.getItem('fProg')||'null');
+    if(d){d.keys=(d.keys|0)+10;__LS.setItem('fProg',JSON.stringify(d));__LS.setItem('seedKeys','1')}}catch(e){}}
   if(__LS.getItem('seeded'))return;
   const done={},seen={intro:true};
   for(let w=0;w<5;w++){for(let l=0;l<6;l++)done[w+'-'+l]=true;
@@ -31,11 +34,11 @@ const __LS={
     frag:{magnet:40,shield:40,dash:40,fever:40,djump:40,reward:40},
     chests:{wood:3,crystal:2,epic:1},meter:60,goals:[],goalsDone:0,
     week:{id:'',n:0,claimed:[]},world:{w:0,l:0,done},
-    stats:{runs:40,perfects:900,bestCombo:30,dist:20000},
+    stats:{runs:40,perfects:900,bestCombo:30,dist:20000},keys:10,
     story:{seen,mem:[0,1,2,3,4,5,6,7,8,9],v:1},endW:0,migrated:true}));
   __LS.setItem('fCoins','20000');__LS.setItem('fHS','1500');__LS.setItem('fBS','20000');
   __LS.setItem('fTut','1');__LS.setItem('fIntro','1');
-  __LS.setItem('seeded','1');
+  __LS.setItem('seeded','1');__LS.setItem('seedKeys','1');
 })();
 """
 

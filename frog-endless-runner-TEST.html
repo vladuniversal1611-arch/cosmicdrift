@@ -16,6 +16,9 @@ const __LS={
   removeItem:k=>window.localStorage.removeItem('T_'+k)
 };
 (function(){
+  // later additions to the seed, applied to older test saves too
+  if(!__LS.getItem('seedKeys')){try{const d=JSON.parse(__LS.getItem('fProg')||'null');
+    if(d){d.keys=(d.keys|0)+10;__LS.setItem('fProg',JSON.stringify(d));__LS.setItem('seedKeys','1')}}catch(e){}}
   if(__LS.getItem('seeded'))return;
   const done={},seen={intro:true};
   for(let w=0;w<5;w++){for(let l=0;l<6;l++)done[w+'-'+l]=true;
@@ -25,11 +28,11 @@ const __LS={
     frag:{magnet:40,shield:40,dash:40,fever:40,djump:40,reward:40},
     chests:{wood:3,crystal:2,epic:1},meter:60,goals:[],goalsDone:0,
     week:{id:'',n:0,claimed:[]},world:{w:0,l:0,done},
-    stats:{runs:40,perfects:900,bestCombo:30,dist:20000},
+    stats:{runs:40,perfects:900,bestCombo:30,dist:20000},keys:10,
     story:{seen,mem:[0,1,2,3,4,5,6,7,8,9],v:1},endW:0,migrated:true}));
   __LS.setItem('fCoins','20000');__LS.setItem('fHS','1500');__LS.setItem('fBS','20000');
   __LS.setItem('fTut','1');__LS.setItem('fIntro','1');
-  __LS.setItem('seeded','1');
+  __LS.setItem('seeded','1');__LS.setItem('seedKeys','1');
 })();
 
 'use strict';
@@ -1775,6 +1778,7 @@ function resReroll(i){
   Prog.save();return true;
 }
 function resRewardTxt(rw){
+  if(rw.keys)return '+'+rw.keys+' '+pl(rw.keys,'ключ','ключі','ключів');
   if(rw.chest!=null)return CHESTS[rw.chest].name.toLowerCase()+' скриня';
   if(rw.shards)return '+'+rw.shards+' ядр'+(rw.shards>1?'а':'о');
   if(rw.frag)return '+'+rw.frag+' фрагмент'+(rw.frag>1?'и':'');
@@ -1817,6 +1821,7 @@ function huntUpdate(){
 }
 function huntGrant(rw){
   if(rw.coins)coins+=rw.coins;
+  if(rw.keys)Prog.d.keys=(Prog.d.keys|0)+rw.keys;
   if(rw.shards)Prog.d.shards+=rw.shards;
   if(rw.frag){const t=fragTargets(1)[0];if(t)Prog.d.frag[t.id]=(Prog.d.frag[t.id]|0)+rw.frag;else Prog.d.shards+=rw.frag}
   if(rw.chest!=null)Prog.d.chests[CHESTS[rw.chest].id]++;
@@ -1880,13 +1885,13 @@ function _weekId(){
 // (up to 10 a week), a Resonance mission +1, a daily mission +2, a completed
 // Spark Hunt day +3.
 const WEEK_MS=[{n:3,rw:{coins:150}},{n:7,rw:{frag:1}},{n:12,rw:{coins:250}},{n:18,rw:{frag:2}},
-  {n:25,rw:{shards:1}},{n:33,rw:{chest:1}},{n:42,rw:{chest:2}}];
+  {n:25,rw:{shards:1}},{n:33,rw:{chest:1}},{n:42,rw:{keys:1}}];
 function weekOn(){return daysSinceFirst()>=2||Prog.d.stats.runs>=15}
 function weekRun(){const w=weekSync();if((w.runs|0)<10){w.runs=(w.runs|0)+1;w.n++}}
 // SPARK STREAK — finish at least one run a day. Missing a day restarts it,
 // but a streak reward already earned is never taken back.
-const STREAK_RW={1:{coins:100},2:{coins:100},3:{frag:1},4:{coins:150},5:{frag:1},6:{coins:200},7:{shards:1},
-  14:{chest:1},21:{shards:2},30:{chest:2}};
+const STREAK_RW={1:{coins:100},2:{coins:100},3:{frag:1},4:{coins:150},5:{frag:1},6:{coins:200},7:{keys:1},
+  14:{chest:1},21:{shards:2},30:{keys:2}};
 function streakRun(){
   const d=Prog.d;if(!d.streak)d.streak={last:'',n:0,best:0};
   const st=d.streak, today=_dayKey();
@@ -3777,7 +3782,7 @@ function startGame(){
   newRec=false;newScoreRec=false;shield=false;shieldCharges=0;magnet=false;magnetT=0;boost=false;boostT=0;
   shFlash=0;pfFlash=0;shake=0;shX=0;shY=0;lastBouncePhase=0;perfectCombo=0;perfectShow=0;
   fever=false;feverT=0;feverFlash=0;feverBreakT=0;feverPts=[];feverShield=false;
-  msShow=0;lastMilestone=0;closeCallShow=0;reviveUsed=false;reviveShow=0;
+  msShow=0;lastMilestone=0;closeCallShow=0;reviveN=0;adRun=null;Ads.ph=null;reviveShow=0;
   luckyActive=false;luckyT=0;luckyShow=0;
   spdMul=1;
   // (meteor removed)
@@ -8278,7 +8283,76 @@ function menuTap(x,y){
 }
 
 // ========== GAME OVER ==========
-function canRevive(){return !reviveUsed&&!levelWin&&coins>=50&&dist>20}
+// ---- Continue: rewarded ads or Core Keys ----
+// 1st continue: 1 ad or 1 key · 2nd: 2 / 2 · 3rd: 6 / 6 · after that keys
+// only, each 2.5× the last (15, 38, 95…). Keys are the premium currency.
+const REV_ADS=[1,2,6];
+function reviveKeyCost(n){let c=REV_ADS[Math.min(n,2)];for(let i=3;i<=n;i++)c=Math.ceil(c*2.5);return c}
+function reviveAdCost(n){return n<REV_ADS.length?REV_ADS[n]:0}
+function keysHave(){return Prog.d?Prog.d.keys|0:0}
+let reviveN=0, adRun=null, reviveMsg='', reviveMsgT=0;
+// Rewarded-ad adapter: uses whichever portal SDK the page is hosted with,
+// and a timed placeholder while there is none (local builds, tests).
+const Ads={
+  ph:null,
+  rewarded(cb){
+    const done=ok=>{try{startMus()}catch(e){};cb(ok)};
+    try{stopMus()}catch(e){}
+    try{
+      const CG=window.CrazyGames&&window.CrazyGames.SDK;
+      if(CG&&CG.ad){CG.ad.requestAd('rewarded',{adFinished:()=>done(true),adError:()=>done(false)});return}
+      if(window.PokiSDK&&window.PokiSDK.rewardedBreak){window.PokiSDK.rewardedBreak().then(ok=>done(!!ok),()=>done(false));return}
+      if(typeof window.adBreak==='function'){let ok=false;
+        window.adBreak({type:'reward',name:'continue',beforeReward:show=>show(),adViewed:()=>{ok=true},adDismissed:()=>{},adBreakDone:()=>done(ok)});return}
+    }catch(e){}
+    this.ph={t:0,dur:4,cb:done};
+  }
+};
+function drawAdPlaceholder(dt){
+  const P=Ads.ph;if(!P)return;
+  P.t+=dt;
+  ctx.save();
+  ctx.fillStyle='rgba(2,4,12,.94)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('📺 РЕКЛАМА'+(adRun?` ${adRun.done+1}/${adRun.need}`:''),W/2,H*.42);
+  ctx.fillStyle=UI.dim;ctx.font='700 12px Exo2,sans-serif';
+  ctx.fillText('тут буде справжня реклама',W/2,H*.42+28);
+  drawBar(W/2-110,H*.42+52,220,8,P.t/P.dur,'#36E0FF','#9CFFE0');
+  ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  if(P.t>=P.dur){Ads.ph=null;P.cb(true)}
+}
+function adBusy(){return !!(adRun||Ads.ph)}
+function canRevive(){return !levelWin&&dist>20&&(reviveN<REV_ADS.length||keysHave()>=reviveKeyCost(reviveN))}
+function reviveWithAds(){
+  if(adBusy()||!canRevive())return;
+  const need=reviveAdCost(reviveN);if(!need)return;
+  adRun={need,done:0};
+  const next=()=>Ads.rewarded(ok=>{
+    if(!adRun)return;
+    if(!ok){adRun=null;reviveMsg='Реклама не завантажилась — спробуй ще';reviveMsgT=2.5;return}
+    adRun.done++;
+    if(adRun.done>=adRun.need){adRun=null;doRevive()}else next();
+  });
+  next();
+}
+function reviveWithKeys(){
+  if(adBusy())return;
+  const c=reviveKeyCost(reviveN);
+  if(keysHave()<c){reviveMsg=`Потрібно ${c} ${pl(c,'ключ','ключі','ключів')} Ядра`;reviveMsgT=2.5;sfxLand();return}
+  Prog.d.keys=keysHave()-c;Prog.save();
+  doRevive();
+}
+function drawKeyIco(x,y,r){
+  ctx.save();ctx.translate(x,y);ctx.rotate(-Math.PI/4);
+  const g=ctx.createLinearGradient(-r,-r,r,r);g.addColorStop(0,'#FFF1B0');g.addColorStop(.5,'#FFC83D');g.addColorStop(1,'#C27A00');
+  ctx.fillStyle=g;ctx.strokeStyle='#7A4A00';ctx.lineWidth=Math.max(1,r*.14);
+  ctx.beginPath();ctx.arc(-r*.45,0,r*.55,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#3A2400';ctx.beginPath();ctx.arc(-r*.45,0,r*.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.rect(0,-r*.16,r*1.15,r*.32);ctx.rect(r*.7,r*.1,r*.18,r*.34);ctx.rect(r*.95,r*.1,r*.18,r*.26);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
 // ========== POST-RUN SCREEN ==========
 // One dark glass panel, read top to bottom: what happened, what it paid, what
 // it moved forward, and the next thing to do. The layout is built as a list of
@@ -8297,7 +8371,7 @@ function overBlocks(){
   b.push({k:'goals',h:Prog.d.res&&Prog.d.res.pend?24+70+3*22:26+3*24});
   const hint=overChestsEarned()>0||affordableUpgrade();
   if(hint)b.push({k:'hint',h:46});
-  if(canRevive())b.push({k:'revive',h:52});
+  if(canRevive())b.push({k:'revive',h:74});
   b.push({k:'play',h:66});
   b.push({k:'menu',h:40});
   return b;
@@ -8311,6 +8385,7 @@ function drawOverStat(x,y,w,label,val,col){
 function drawOver(){
   goT=Math.min(goT+.03,1);
   if(reviveShow>0) reviveShow-=.016;
+  if(reviveMsgT>0)reviveMsgT-=.016;
   ctx.fillStyle=`rgba(3,6,20,${.8*goT})`;ctx.fillRect(0,0,W,H);
   overBtns=[];
   const blocks=overBlocks(), pad=16, gap=8;
@@ -8439,12 +8514,29 @@ function drawOver(){
       ctx.fillText(fitText(toCh?`+${n} ${n===1?'скриня':n<5?'скрині':'скринь'} · ВІДКРИТИ ▶`:`Можна покращити: ${up.name} ▶`,iw-60),ix+50,y+23.5);
       overBtn(toCh?'chests':'lab',ix,y+4,iw,38);
     }else if(k==='revive'){
-      const bw=iw*.8, bx=cx-bw/2, bh=42;
-      const g=ctx.createLinearGradient(0,y,0,y+bh);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
-      ctx.fillStyle=g;rr(bx,y+4,bw,bh,bh/2);ctx.fill();
-      ctx.fillStyle='#3A1E00';ctx.font='900 14px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('ПРОДОВЖИТИ · 50 монет',cx,y+4+bh/2+1);
-      overBtn('revive',bx,y+4,bw,bh);
+      // continue: ads (first three times) or Core Keys
+      const na=reviveAdCost(reviveN), nk=reviveKeyCost(reviveN), have=keysHave(), okK=have>=nk;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle='#FFE082';
+      ctx.fillText(reviveMsgT>0?reviveMsg:`ПРОДОВЖИТИ ЗАБІГ?  ·  у тебе 🔑 ${have}`,cx,y+10);
+      const bh=44, by=y+24, gap2=10, two=na>0, bw=two?(iw-gap2)/2:iw*.8;
+      let bx=two?cx-iw/2:cx-bw/2;
+      if(two){
+        const g=ctx.createLinearGradient(0,by,0,by+bh);g.addColorStop(0,'#5CE1FF');g.addColorStop(1,'#1B7FD1');
+        ctx.fillStyle=g;rr(bx,by,bw,bh,bh/2);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='900 14px Exo2,sans-serif';
+        ctx.fillText(na>1?`📺 ${na} ${pl(na,'РЕКЛАМА','РЕКЛАМИ','РЕКЛАМ')}`:'📺 РЕКЛАМА',bx+bw/2,by+bh/2+1);
+        overBtn('reviveAd',bx,by,bw,bh);
+        bx+=bw+gap2;
+      }
+      ctx.save();if(!okK)ctx.globalAlpha=.55;
+      const g2=ctx.createLinearGradient(0,by,0,by+bh);g2.addColorStop(0,'#FFD54F');g2.addColorStop(1,'#E08A00');
+      ctx.fillStyle=g2;rr(bx,by,bw,bh,bh/2);ctx.fill();
+      ctx.font='900 14px Exo2,sans-serif';const lab=`${nk} ${pl(nk,'КЛЮЧ','КЛЮЧІ','КЛЮЧІВ')}`, lw=ctx.measureText(lab).width;
+      drawKeyIco(bx+bw/2-lw/2-6,by+bh/2,9);
+      ctx.fillStyle='#3A1E00';ctx.textAlign='left';ctx.fillText(lab,bx+bw/2-lw/2+8,by+bh/2+1);ctx.textAlign='center';
+      ctx.restore();
+      overBtn('reviveKey',bx,by,bw,bh);
     }else if(k==='play'){
       const nx=win?nextLevel():null;
       const label=win&&nx?'НАСТУПНИЙ РІВЕНЬ':'ГРАТИ ЩЕ';
@@ -8472,9 +8564,7 @@ function drawOver(){
   ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.globalAlpha=1;
 }
 function doRevive(){
-  if(!canRevive()) return;
-  coins-=50;__LS.setItem('fCoins',''+coins);
-  reviveUsed=true;reviveShow=1;
+  reviveN++;reviveShow=1;
   alive=true;falling=false;fallT=0;
   graceT=2.5; // a moment to find your feet after a revive
   // Place frog on next safe pad
@@ -8494,12 +8584,14 @@ function doRevive(){
   startMus();
 }
 function overTap(x,y){
+  if(adBusy())return;
   if(goT<0.5)return;                       // let the result land before it can be skipped
   // screen → panel space (inverse of the transform drawOver used)
   const lx=(x-overXf.x)/overXf.s+W/2, ly=(y-overXf.y)/overXf.s;
   for(const b of overBtns){
     if(lx>=b.x&&lx<=b.x+b.w&&ly>=b.y-4&&ly<=b.y+b.h+4){
-      if(b.id==='revive')doRevive();
+      if(b.id==='reviveAd')reviveWithAds();
+      else if(b.id==='reviveKey')reviveWithKeys();
       else if(b.id==='again')startGame();
       else if(b.id==='next'){const n=nextLevel();if(n)startLevel(n.w,n.l);else startGame()}
       else if(b.id==='chests')openScreen(ST.CHESTS);
@@ -8677,6 +8769,7 @@ function drawMissions(){
       if(rw.chest!=null)drawChestIco(nx,by+30+bob,26,rw.chest,got?1:0);
       else if(rw.coins)drawCoinIco(nx,by+26+bob,9);
       else if(rw.shards)drawShardIco(nx,by+26+bob,9);
+      else if(rw.keys)drawKeyIco(nx,by+26+bob,10);
       else drawFragIco(nx,by+26+bob,9);
       ctx.restore();
       ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 10px Exo2,sans-serif';
@@ -8914,7 +9007,7 @@ function drawCoinIco(x,y,r){
 // row=true lays them side by side (sub-screens, where the title has its own row).
 // ---- Reward fly: claimed coins / cores burst out and fly into the counters.
 // The counters hold back the in-flight amount, so each arrival visibly ticks up.
-let flyFx=[], flyPend={coins:0,shards:0}, curPos={}, curBump={coins:0,shards:0};
+let flyFx=[], flyPend={coins:0,shards:0}, curPos={}, curBump={coins:0,shards:0,keys:0};
 function rewardFly(x,y,rw){
   const add=(k,amt,n)=>{
     n=Math.max(1,Math.min(n,amt));flyPend[k]+=amt;let left=amt;
@@ -8926,7 +9019,7 @@ function rewardFly(x,y,rw){
   };
   if(rw.coins)add('coins',rw.coins,Math.min(12,4+Math.floor(rw.coins/25)));
   if(rw.shards)add('shards',rw.shards,rw.shards);
-  if(rw.frag||rw.chest!=null)flyFx.push({k:'pop',sx:x,sy:y,t:0,d:1.4,rw});
+  if(rw.frag||rw.keys||rw.chest!=null)flyFx.push({k:'pop',sx:x,sy:y,t:0,d:1.4,rw});
 }
 function drawFlyFx(dt){
   for(const k in curBump)curBump[k]=Math.max(0,curBump[k]-dt*4);
@@ -8940,7 +9033,7 @@ function drawFlyFx(dt){
       // fragment / chest: pops up, rises and fades where it was claimed
       const e=1-Math.pow(1-Math.min(1,u*2.5),3), a=u<.7?1:1-(u-.7)/.3, py=f.sy-24-u*46;
       ctx.globalAlpha=a;ctx.save();ctx.translate(f.sx,py);ctx.scale(.4+.6*e+.12*Math.sin(u*9)*(1-u),.4+.6*e+.12*Math.sin(u*9)*(1-u));
-      if(f.rw.chest!=null)drawChestIco(0,8,40,f.rw.chest,0);else drawFragIco(0,0,15);
+      if(f.rw.chest!=null)drawChestIco(0,8,40,f.rw.chest,0);else if(f.rw.keys)drawKeyIco(0,0,16);else drawFragIco(0,0,15);
       ctx.restore();
       ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#FFE082';
       ctx.fillText(resRewardTxt(f.rw),f.sx,py+34);
@@ -8965,6 +9058,7 @@ function drawFlyFx(dt){
 }
 function drawCurrencies(row){
   const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
+  if(keysHave()>0)rows.push({k:'keys',v:keysHave(),ico:drawKeyIco,col:'#FFD54F'});
   let y=12+SAFE.t;
   ctx.font='900 15px Exo2,sans-serif';
   const tw=Math.max(...rows.map(r=>ctx.measureText(String(r.v)).width));
@@ -9273,6 +9367,9 @@ function openChest(t){
     });
   }else sh+=Math.ceil(T.f/2);                      // everything maxed → shards
   d.shards+=sh;out.push({k:'shards',n:sh});
+  // Core Keys are rare: every epic chest, one crystal chest in five
+  const ky=tier===2?1:tier===1&&Math.random()<.2?1:0;
+  if(ky){d.keys=(d.keys|0)+ky;out.push({k:'keys',n:ky})}
   try{__LS.setItem('fCoins',''+coins)}catch(e){}
   Prog.save();
   return {tier,upgraded:tier!==t,items:out};
@@ -9299,6 +9396,7 @@ function chestLayout(){
 function drawRewardItem(x,y,it){
   ctx.textAlign='left';ctx.textBaseline='middle';
   if(it.k==='coins'){drawCoinIco(x+12,y,10);ctx.fillStyle='#FFE082';ctx.font='900 17px Exo2,sans-serif';ctx.fillText('+'+it.n+' монет',x+30,y+1)}
+  else if(it.k==='keys'){drawKeyIco(x+12,y,11);ctx.fillStyle='#FFD54F';ctx.font='900 17px Exo2,sans-serif';ctx.fillText('+'+it.n+' '+pl(it.n,'ключ','ключі','ключів')+' Ядра',x+30,y+1)}
   else if(it.k==='shards'){drawShardIco(x+12,y,10);ctx.fillStyle='#9CF4FF';ctx.font='900 17px Exo2,sans-serif';ctx.fillText('+'+it.n+' ядер',x+30,y+1)}
   else{
     const m=modDef(it.id), l=modLv(it.id), need=UP_COST[Math.min(MOD_MAX,l+1)];
@@ -9664,6 +9762,7 @@ function loop(ts){
     }
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
+    drawAdPlaceholder(dt);
     if(transT>0){
       transT=Math.max(0,transT-dt);
       const u=transT/TRANS_DUR;               // 1 at switch -> 0
