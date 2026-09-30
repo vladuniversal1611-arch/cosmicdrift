@@ -5736,11 +5736,184 @@ function roadsideItems(){
   }
   return out;
 }
+// ambient life for the roadside art: the painted sprites stay as drawn, effects ride on top of
+// their own lit pixels (water runs, lamps breathe, neon flickers, flags wave, smoke rises)
+// r = [x0,y0,x1,y1] of the sprite, m = which pixels the effect lives on
+const FX_MASK={
+  water:(r,g,b)=>b>r+40&&b>150&&g>120,
+  cyan:(r,g,b)=>b>190&&g>150&&b-r>80,
+  warm:(r,g,b)=>r>215&&g>140&&b<150&&r>b+80,
+  neon:(r,g,b)=>{const mx=Math.max(r,g,b);return mx>200&&mx-Math.min(r,g,b)>110},
+  all:()=>true
+};
+const SIDE_FX={
+  // Cloudy Garden
+  isC:[{t:'flow',m:'water',r:[.4,.3,.75,1],v:.9,a:.55}],
+  sgColumn:[{t:'flow',m:'water',r:[0,0,1,1],v:.8,a:.55}],
+  sgLamp:[{t:'pulse',m:'cyan',r:[.3,0,1,.4],f:2,a:.45}],
+  sgTree:[{t:'pulse',m:'warm',r:[0,0,1,1],f:2.4,a:.5}],
+  sgArch:[{t:'shine',m:'cyan',r:[0,0,1,1],p:3.5,a:.6}],
+  // Neon City
+  ncTower:[{t:'neon',m:'neon',r:[0,0,1,1],a:.3}],
+  ncTower2:[{t:'neon',m:'neon',r:[0,0,1,1],a:.3}],
+  ncKiosk:[{t:'neon',m:'neon',r:[0,0,1,1],a:.25}],
+  ncLamp:[{t:'pulse',m:'neon',r:[0,0,1,1],f:3,a:.35}],
+  ncArch:[{t:'pulse',m:'neon',r:[0,0,1,1],f:2.2,a:.35}],
+  ncIsB:[{t:'neon',m:'neon',r:[.6,0,1,.55],a:.4}],
+  // Reactor
+  rxTower:[{t:'smoke',x:.5,y:.14,w:.55}],
+  rxBeacon:[{t:'pulse',m:'warm',r:[0,0,1,.24],f:7,a:.45},{t:'shine',m:'warm',r:[0,0,1,.24],p:1.1,a:.7,dir:1}],
+  rxIsA:[{t:'pulse',m:'warm',r:[0,.35,1,1],f:3,a:.35}],
+  rxIsB:[{t:'pulse',m:'warm',r:[0,.35,1,1],f:3,a:.35}],
+  rxIsC:[{t:'pulse',m:'warm',r:[0,.35,1,1],f:3,a:.35}],
+  rxIsD:[{t:'flame',m:'warm',r:[0,.55,1,1],a:.14}],
+  rxTank:[{t:'flow',m:'cyan',r:[0,0,1,1],v:-.5,a:.5}],
+  rxArch:[{t:'pulse',m:'warm',r:[0,0,1,.3],f:6,a:.5}],
+  // Sky District
+  skVane:[{t:'wave',r:[.46,.24,1,.58],a:.022}],
+  skLight:[{t:'pulse',m:'cyan',r:[0,0,1,.3],f:2.5,a:.45},{t:'shine',m:'cyan',r:[0,0,1,.3],p:2.2,a:.6,dir:1}],
+  skArch:[{t:'shine',m:'cyan',r:[0,0,1,1],p:3.2,a:.6}],
+  skObs:[{t:'pulse',m:'warm',r:[0,0,1,1],f:1.6,a:.35}],
+  // Central Core
+  crSpire:[{t:'shine',m:'cyan',r:[0,0,1,1],p:3,a:.6},{t:'pulse',m:'cyan',r:[0,0,1,1],f:1.8,a:.25}],
+  crPylon:[{t:'flow',m:'cyan',r:[0,0,1,1],v:-.8,a:.55}],
+  crNode:[{t:'shine',m:'cyan',r:[0,0,1,1],p:2.6,a:.6}],
+  crBlock:[{t:'pulse',m:'cyan',r:[0,0,1,1],f:1.5,a:.35}],
+  crArch:[{t:'shine',m:'cyan',r:[0,0,1,1],p:2.8,a:.6,dir:1}],
+  crIsA:[{t:'flow',m:'cyan',r:[.3,.45,.7,1],v:.9,a:.6},{t:'pulse',m:'cyan',r:[0,0,1,.45],f:1.7,a:.25}],
+  crIsB:[{t:'pulse',m:'cyan',r:[0,0,1,1],f:1.7,a:.3}],
+  crIsC:[{t:'pulse',m:'cyan',r:[0,0,1,1],f:1.7,a:.3}],
+  crIsD:[{t:'shine',m:'cyan',r:[0,.3,1,1],p:3.2,a:.6},{t:'pulse',m:'cyan',r:[0,0,1,.3],f:1.7,a:.25}]
+};
+const _fxM={}, _fxCut={};
+let _fxC=null,_fxX=null,_fxPat=null;
+function fxT(){return performance.now()/1000}
+// the effect's pixels cut out of the sprite, kept at the sprite's own resolution
+function fxMask(k,e,i){
+  const id=k+i;if(id in _fxM)return _fxM[id];
+  const im=_A[k];if(!_ok(k))return null;
+  let out=null;
+  try{
+    const W0=im.naturalWidth,H0=im.naturalHeight,x0=Math.floor(e.r[0]*W0),y0=Math.floor(e.r[1]*H0),
+      w=Math.max(1,Math.ceil(e.r[2]*W0)-x0),h=Math.max(1,Math.ceil(e.r[3]*H0)-y0);
+    const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
+    g.drawImage(im,x0,y0,w,h,0,0,w,h);
+    const d=g.getImageData(0,0,w,h),p=d.data,f=FX_MASK[e.m||'all'];
+    for(let j=0;j<p.length;j+=4)if(p[j+3]<60||!f(p[j],p[j+1],p[j+2]))p[j+3]=0;
+    g.putImageData(d,0,0);out=c;
+  }catch(err){out=null}
+  return _fxM[id]=out;
+}
+// a sprite with its waving cloth removed (the cloth is drawn separately, in strips)
+function fxSprite(k){
+  const L=SIDE_FX[k];if(!L||!L.some(e=>e.t==='wave'))return _A[k];
+  if(_fxCut[k])return _fxCut[k];
+  const im=_A[k];if(!_ok(k))return im;
+  try{
+    const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const g=c.getContext('2d');
+    g.drawImage(im,0,0);
+    for(const e of L)if(e.t==='wave')g.clearRect(e.r[0]*c.width,e.r[1]*c.height,(e.r[2]-e.r[0])*c.width,(e.r[3]-e.r[1])*c.height);
+    for(const [i,e] of L.entries())if(e.t==='wave')fxMask(k,e,i);
+    _fxCut[k]=c;
+  }catch(err){_fxCut[k]=im}
+  return _fxCut[k];
+}
+function fxScratch(w,h){
+  if(!_fxC){_fxC=document.createElement('canvas');_fxX=_fxC.getContext('2d')}
+  if(_fxC.width<w||_fxC.height<h){_fxC.width=Math.max(_fxC.width,w);_fxC.height=Math.max(_fxC.height,h)}
+  _fxX.setTransform(1,0,0,1,0,0);_fxX.globalCompositeOperation='source-over';_fxX.globalAlpha=1;_fxX.clearRect(0,0,w,h);
+  return _fxX;
+}
+// falling threads of light: every column has its own streaks so it reads as running water/energy
+function fxPattern(){
+  if(_fxPat)return _fxPat;
+  const c=document.createElement('canvas');c.width=48;c.height=96;const g=c.getContext('2d');
+  for(let x=0;x<48;x+=2){
+    const ph=hash2(x,7)*96, len=18+hash2(x,11)*30;
+    for(const o of [ph-96,ph]){const gr=g.createLinearGradient(0,o,0,o+len);
+      gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');
+      g.fillStyle=gr;g.fillRect(x,o,2,len)}
+  }
+  return _fxPat=c;
+}
+const _fxF={};
+function fxFrames(k,e,i,M){
+  const id=k+i;if(_fxF[id])return _fxF[id];
+  const sc0=Math.min(1,170/Math.max(M.width,M.height)), sw=Math.max(2,Math.round(M.width*sc0)), sh=Math.max(2,Math.round(M.height*sc0));
+  const N=e.t==='flow'?16:24, out=[];
+  for(let j=0;j<N;j++){
+    const c=document.createElement('canvas');c.width=sw;c.height=sh;const g=c.getContext('2d');
+    if(e.t==='flow'){
+      const P=fxPattern(), sc=Math.max(.35,sh/200), per=P.height*sc, off=per*j/N;
+      for(let y=off-per;y<sh;y+=per)for(let x=0;x<sw;x+=P.width*sc)g.drawImage(P,x,y,P.width*sc,per);
+    }else{
+      const pos=-0.35+1.7*j/N;
+      const gr=e.dir?g.createLinearGradient(0,0,sw,0):g.createLinearGradient(0,sh,sw*.6,0);
+      const a=clamp(pos-.18,0,1),b=clamp(pos,0,1),cc=clamp(pos+.18,0,1);
+      gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(a,'rgba(255,255,255,0)');gr.addColorStop(b,'rgba(255,255,255,1)');
+      gr.addColorStop(cc,'rgba(255,255,255,0)');gr.addColorStop(1,'rgba(255,255,255,0)');
+      g.fillStyle=gr;g.fillRect(0,0,sw,sh);
+    }
+    g.globalCompositeOperation='destination-in';g.drawImage(M,0,0,sw,sh);out.push(c);
+  }
+  return _fxF[id]=out;
+}
+// draw a sprite's effects over it; (dx,dy,dw,dh) is where the sprite itself was just drawn
+function drawFx(k,dx,dy,dw,dh,ph){
+  const L=SIDE_FX[k];if(!L||dw<20)return;
+  const T=fxT()+ph*7;
+  for(let i=0;i<L.length;i++){
+    const e=L[i];
+    if(e.t==='smoke'){drawFxSmoke(e,dx,dy,dw,dh,T);continue}
+    const M=fxMask(k,e,i);if(!M)continue;
+    const rx=dx+e.r[0]*dw, ry=dy+e.r[1]*dh, rw=(e.r[2]-e.r[0])*dw, rh=(e.r[3]-e.r[1])*dh;
+    ctx.save();
+    if(e.t==='pulse'){
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha*=e.a*(.5+.5*Math.sin(T*e.f));
+      ctx.drawImage(M,rx,ry,rw,rh);
+    }else if(e.t==='neon'){
+      // a steady hum with the odd stutter, like a real sign
+      const tick=Math.floor(T*12), off=hash2(tick,Math.floor(ph*1000))<.035||(hash2(Math.floor(T*1.3),Math.floor(ph*997))<.12&&tick%3===0);
+      if(off){ctx.globalCompositeOperation='multiply';ctx.globalAlpha*=.55;
+        const g=fxScratch(M.width,M.height);g.drawImage(M,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#3a3050';g.fillRect(0,0,M.width,M.height);
+        ctx.drawImage(_fxC,0,0,M.width,M.height,rx,ry,rw,rh);
+      }else{ctx.globalCompositeOperation='lighter';ctx.globalAlpha*=e.a*(.6+.4*Math.sin(T*9));ctx.drawImage(M,rx,ry,rw,rh)}
+    }else if(e.t==='flow'||e.t==='shine'){
+      // pre-baked loops, so a frame costs one draw
+      const F=fxFrames(k,e,i,M);let j;
+      if(e.t==='flow')j=((Math.floor(T*Math.abs(e.v)*1.4*F.length)%F.length)+F.length)%F.length, j=e.v<0?F.length-1-j:j;
+      else{const pos=(T/e.p)%1*2.2;if(pos>1.7){ctx.restore();continue}j=Math.min(F.length-1,Math.floor(pos/1.7*F.length))}
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha*=e.a;
+      ctx.drawImage(F[j],rx,ry,rw,rh);
+    }else if(e.t==='flame'){
+      const s=1+e.a*(.55+.45*Math.sin(T*23)*Math.sin(T*37+1));   // only ever longer, so the painted flame stays hidden
+      ctx.drawImage(M,rx,ry,rw,rh*s);
+      ctx.globalCompositeOperation='lighter';ctx.globalAlpha*=.3*(.5+.5*Math.sin(T*17));ctx.drawImage(M,rx,ry,rw,rh*s);
+    }else if(e.t==='wave'){
+      // cloth in strips; the pole side stays put, the free end swings
+      const n=40, sw=M.width/n;
+      for(let j=0;j<n;j++){const u=j/n, dy2=Math.sin(T*4.2-u*5)*e.a*dh*u;
+        ctx.drawImage(M,j*sw,0,sw+1,M.height,rx+u*rw,ry+dy2,rw/n+1,rh)}
+    }
+    ctx.restore();
+  }
+}
+function drawFxSmoke(e,dx,dy,dw,dh,T){
+  ctx.save();
+  for(let i=0;i<5;i++){
+    const life=((T*.22+i/5)%1+1)%1, x=dx+dw*(e.x+Math.sin(life*3+i*1.7)*.08+life*.06), y=dy+dh*(e.y-life*.32),
+      r=dw*e.w*(.16+.22*life), a=Math.sin(life*Math.PI)*.55;
+    const gr=ctx.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(245,245,248,'+a+')');gr.addColorStop(.6,'rgba(225,228,235,'+a*.6+')');gr.addColorStop(1,'rgba(220,224,232,0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
 // a painted islet whose grass top is centred on (x,y), w wide; falls back to the drawn one
-function drawIsletArt(I,x,y,w,C){
+function drawIsletArt(I,x,y,w,C,ph){
   if(!I||!_ok(I.k)){drawIslet(x,y,w,C);return}
   const im=_A[I.k], h=w*im.naturalHeight/im.naturalWidth;
   ctx.drawImage(im,x-w*(I.cx||.5),y-h*I.t,w,h);   // the grass top's centre lands on (x,y)
+  drawFx(I.k,x-w*(I.cx||.5),y-h*I.t,w,h,ph||0);
 }
 // a little floating island of rock and grass under a prop
 function drawIslet(x,y,w,C,k){
@@ -5759,12 +5932,14 @@ function drawRoadsideItem(it){
   const near=clamp((it.rz-0.35)/0.6,0,1);
   if(far<=0.01||near<=0.01)return;
   ctx.save();ctx.globalAlpha=far*near;
-  const base=p.y+8*k;
+  // everything out here floats: a slow bob, each piece on its own beat
+  const ph=hash2(it.k,it.arch?0:it.sd*13), bob=Math.sin(fxT()*1.5+ph*6.28)*Math.max(2,120*k*0.03);
+  const base=p.y+8*k+bob;
   if(it.arch){
     const im=_A[it.S.arch], pl=project(it.rz,-1.05,0), pr=project(it.rz,3.05,0);
     const w=(pr.x-pl.x)*1.12, h=w*im.naturalHeight/im.naturalWidth, cx=(pl.x+pr.x)/2;
-    const lg=it.S.archLeg||.34, pw=it.S.pillarW||.46;drawIsletArt(it.S.pillar,cx-w*lg,base,w*pw,it.S.isle);drawIsletArt(it.S.pillar,cx+w*lg,base,w*pw,it.S.isle);
-    ctx.drawImage(im,cx-w/2,base-h,w,h);
+    const lg=it.S.archLeg||.34, pw=it.S.pillarW||.46;drawIsletArt(it.S.pillar,cx-w*lg,base,w*pw,it.S.isle,ph);drawIsletArt(it.S.pillar,cx+w*lg,base,w*pw,it.S.isle,ph+.37);
+    ctx.drawImage(im,cx-w/2,base-h,w,h);drawFx(it.S.arch,cx-w/2,base-h,w,h,ph);
   }else{
     const im=_A[it.P.k], h=it.P.h*k*0.78*(0.9+hash2(it.k,it.sd*3)*0.2), w=h*im.naturalWidth/im.naturalHeight;
     const flip=it.sd<0;                         // art is lit for the right-hand side
@@ -5773,9 +5948,10 @@ function drawRoadsideItem(it){
     const half=Math.max(iw,w)/2, edge=project(it.rz,it.sd<0?-0.3:2.3,0).x;
     const x=it.sd<0?Math.min(p.x,edge-half):Math.max(p.x,edge+half);
     {const L=it.S.islets, I=L&&L[Math.floor(hash2(it.k*3+1,it.sd*7)*L.length)];
-      drawIsletArt(I,x,base,iw,it.S.isle)}
+      drawIsletArt(I,x,base,iw,it.S.isle,ph)}
     ctx.translate(x,base);if(flip)ctx.scale(-1,1);
-    ctx.drawImage(im,-w*(it.P.bx||.5),-h+6*k,w,h);   // base centre on the islet's centre
+    ctx.drawImage(fxSprite(it.P.k),-w*(it.P.bx||.5),-h+6*k,w,h);   // base centre on the islet's centre
+    drawFx(it.P.k,-w*(it.P.bx||.5),-h+6*k,w,h,ph);
   }
   ctx.restore();
 }
