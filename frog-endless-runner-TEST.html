@@ -665,7 +665,7 @@ function updateActs(dt){
     windPhase+=dt*0.55;
     windForce=Math.sin(windPhase)*0.85+Math.sin(windPhase*2.3+1.1)*0.35;
     const gust=0.32+finaleIntensity()*0.75;   // the finale turns drift into a storm
-    if(alive)frogCont=clamp(frogCont+windForce*dt*gust,0,2);
+    if(alive&&jpT<=0)frogCont=clamp(frogCont+windForce*dt*gust,0,2);   // no wind up on the jetpack
   } else windForce=0;
 
   // --- LIGHTNING: telegraph a platform, then strike it ---
@@ -4986,6 +4986,7 @@ function updateGame(dt){
       steer=18*(1-(1-floorAuth)*clamp((b-0.25)/0.55,0,1));
     }
   }
+  if(jpT>0)steer=14;               // flying: full, even steering — no hop phases
   visLane=sd(visLane,frogCont,steer,dt);
   // --- Landing assist: in the final quarter of a normal hop, if your finger is
   // already on the pad you're about to land on, gently finish the centring so a
@@ -4994,7 +4995,7 @@ function updateGame(dt){
   // its hit band), and only near touchdown — so it sharpens intent into a
   // cleaner PERFECT without ever steering for you or catching a pad you missed.
   // Never during a leap (it lands itself) or wind (you're meant to counter it).
-  if(!leapActive() && !hasRule('wind')){
+  if(!leapActive() && !hasRule('wind') && jpT<=0 && jetLift<0.3){
     const ci4=getCurrentPadIdx();
     const a0=padPositions[ci4], a1=padPositions[ci4+1];
     if(a0!==undefined && a1!==undefined && a1>a0){
@@ -5019,7 +5020,7 @@ function updateGame(dt){
   // first stretch of the run, then hand steering back near the end — so you run
   // straight along it and the lane change happens on the JUMP off the far edge,
   // not by drifting off the side mid-slab.
-  if(!leapActive()){
+  if(!leapActive() && jpT<=0 && jetLift<0.3){
     const ci5=getCurrentPadIdx();
     const cpad=pads[ci5];
     if(cpad&&cpad.len>0){
@@ -7009,7 +7010,8 @@ function drawGame(){
        for(let j=nextIdx+1;j<pads.length&&padPositions[j]===nextPos;j++){const q=pads[j];if(q.broken||q.disappeared)continue;const d=Math.abs(visLane-q.gameX);if(d<bd){bd=d;bEl=q.elev||0}}}
       const k=bounce*bounce*(3-2*bounce);          // smoothstep
       const blend=a+(bEl-a)*k;
-      frogElev=(jf>0?Math.max(0,blend):blend)+jetLift;
+      // flying: the road's ups and downs (roofs, lifts) fade out under him
+      frogElev=blend*(1-jf)+jetLift;
     }
     const fp=project(frogZ,jumpLaneX,frogElev);
     let fx=fp.x,fy=fp.y,fs=fp.s*1.7*WSC;
