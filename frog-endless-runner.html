@@ -71,7 +71,7 @@ let newRec=false,newScoreRec=false;
 let shield=false,magnet=false,magnetT=0,boost=false,boostT=0;
 let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0;
 let pads=[],padPositions=[];
-let pts=[],floats=[],clouds=[],bflies=[];
+let pts=[],floats=[],clouds=[],bflies=[],shards=[];
 let spdLines=[];
 // X positions of every branch of the previous step (a fork leaves two)
 let prevBranchXs=[];
@@ -674,7 +674,7 @@ function updateActs(dt){
           // so the choice the telegraph offered is the one that decides the run.
           const bp=pads[boltIdx];
           if(bp&&!bp.broken){
-            bp.broken=true;bp.zapped=1;
+            bp.broken=true;bp.zapped=1;shatterPad(bp,boltIdx);
             const bz=(padPositions[boltIdx]||0)-seq+VIEW_Z;
             if(bz>0.2){const lp=project(bz,bp.gameX,bp.elev);
               for(let i=0;i<14;i++){const a=rand(0,Math.PI*2);
@@ -3903,6 +3903,27 @@ document.addEventListener('keydown',e=>{
 
 // ========== PARTICLES ==========
 const MAX_PTS=260;
+// A plate that gives way breaks into chunks of its own art, which tumble into the void
+function shatterPad(pad,idx){
+  const rz=(padPositions[idx]||0)-seq+VIEW_Z;if(rz<0.15||rz>VIEW_AHEAD)return;
+  const key=PAD_ART[pad.type];if(!key||!_ok(key))return;
+  const p=project(rz,pad.gameX,pad.elev), sc=p.s*WSC, wd=pad.width||1, hw=120*sc*wd, thick=28*sc*wd;
+  const im=_A[key], nw=im.naturalWidth, nh=im.naturalHeight, nu=key.startsWith('padA');
+  const aw=hw*2*(nu?1.25:1.2), ah=aw/(nu?nw/nh:PAD_ART_ASPECT), ay=nu?-ah*0.40:-(ah-thick), k=Math.max(.5,sc);
+  const C=4,Rw=2;
+  for(let c=0;c<C;c++)for(let r=0;r<Rw;r++)shards.push({im,sx:c*nw/C,sy:r*nh/Rw,sw:nw/C,sh:nh/Rw,
+    x:p.x-aw/2+(c+.5)*aw/C,y:p.y+ay+(r+.5)*ah/Rw,w:aw/C,h:ah/Rw,
+    vx:(c-(C-1)/2)*rand(40,90)*k,vy:rand(-150,-50)*k-r*30*k,g:1100*k,rot:0,vr:rand(-5,5),life:1.1});
+  if(shards.length>48)shards.splice(0,shards.length-48);
+}
+// Bits kicked up where he lands, in the stuff each world is made of
+const LAND_BITS=[['#7CC24A','#A5D86B','#FFC2DC','#5E9E3A'],['#FF4FD8','#4FE3FF','#B388FF','#FFFFFF'],
+  ['#FFB13B','#FF7A1A','#FFE08A','#8A8A8A'],['#FFFFFF','#DDEEFF','#BFD9FF','#FFFFFF'],['#9FF4FF','#FFFFFF','#5FD8FF','#C9FBFF']];
+function landBits(pad,lp){
+  const C=LAND_BITS[curWorld()]||LAND_BITS[0], sc=lp.s*WSC, hw=120*sc*(pad.width||1)*.75, star=curWorld()===1||curWorld()===4;
+  for(let i=0;i<10;i++){const a=rand(Math.PI*.12,Math.PI*.88), sp=rand(.6,1.3);
+    addP(lp.x+rand(-1,1)*hw,lp.y+rand(-6,4)*sc,Math.cos(a)*.035*sp,-Math.sin(a)*.05*sp,C[i%4],rand(1.6,3)*Math.max(.7,sc),rand(.35,.55),star&&i%2?'s':'c')}
+}
 function addP(x,y,vx,vy,col,sz,life,tp='c'){
   pts.push({x,y,vx,vy,col,sz,life,ml:life,tp,a:1});
   // Hard cap — a slow frame during a burst could otherwise pile these up and
@@ -4014,6 +4035,7 @@ function resolveFloats(){
   }
 }
 function updPts(dt){
+  for(let i=shards.length-1;i>=0;i--){const q=shards[i];q.vy+=q.g*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.rot+=q.vr*dt;q.life-=dt;if(q.life<=0||q.y>H+80)shards.splice(i,1)}
   for(let i=pts.length-1;i>=0;i--){const p=pts[i];p.x+=p.vx*dt*60;p.y+=p.vy*dt*60;p.vy+=.002*dt*60;p.life-=dt;p.a=Math.pow(Math.max(0,p.life/p.ml),.6);if(p.life<=0)pts.splice(i,1)}
   for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.age+=dt;if(f.age>=f.life)floats.splice(i,1)}
   resolveFloats();
@@ -4116,7 +4138,7 @@ function startGame(){
   sectionType='easy';sectionLen=0;sectionPos=0;
   lastTypes=[];breathPhase=0;
   pads=[];padPositions=[];prevBranchXs=[];laneHist=[];routeQueue=[];lenPhrase=[];routeCenter=1.00;routeLane=LANE_C;routeElev=0;routeLast='';
-  pts=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
+  pts=[];shards=[];floats=[];spdLines=[];ripples=[];touching=false;frogCont=1;
 
   // Seed straight from the authored OPENING so the very first platforms already
   // teach the zigzag. The old loop dropped six near-centre pads with random
@@ -4250,7 +4272,8 @@ function onLand(idx){
   // Skip broken/disappeared/fallen pads
   if(pad.broken||pad.disappeared) return;
 
-  pad.landed=true;pad.dip=.5;
+  pad.landed=true;pad.dip=.75;pad.dipV=0;
+  if(!(pad.len>0))landBits(pad,lp);
   lastLandElev=pad.elev||0;lastLandJet=pad.type==='jet';lastLandPad=pad;
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
   if(pad.jp&&!pad.jpTaken){pad.jpTaken=true;startJetpack(idx)}
@@ -4313,7 +4336,7 @@ function onLand(idx){
   if(pad.type==='bounce'){
     sfxBounce();
     pad.springBoost=true;
-    pad.dip=.8;
+    pad.dip=1.1;pad.dipV=0;
     addFloat('🔺 СТРИБОК!',lp.x,lp.y-40,'#69F0AE',20);
     for(let i=0;i<6;i++){
       const a=rand(0,Math.PI*2);
@@ -4815,9 +4838,12 @@ function updateGame(dt){
     if(p.type==='breakable' && p.breakTimer>0 && !p.broken){
       p.breakTimer-=dt;
       p.dip=rand(-.15,.15); // shake as it cracks
+      {const bi=pads.indexOf(p), bz=(padPositions[bi]||0)-seq+VIEW_Z;   // grit trickles off the underside
+        if(bz>0.15&&Math.random()<dt*28){const bp2=project(bz,p.gameX,p.elev), k=bp2.s*WSC;
+          addP(bp2.x+rand(-90,90)*k*(p.width||1),bp2.y+rand(10,24)*k,rand(-.004,.004),rand(.005,.02),Math.random()<.5?'#8D6E63':'#BCAAA4',rand(1.5,2.6)*Math.max(.7,k),.6,'c')}}
       if(p.breakTimer<=0){
         p.broken=true;
-        p.dip=0;
+        p.dip=0;shatterPad(p,pads.indexOf(p));
         const ci=getCurrentPadIdx();
         if(pads[ci]===p&&frogStandingOn(ci)){
           sfxBreak();shake=.4;
@@ -5046,7 +5072,12 @@ function updateGame(dt){
   if(perfectShow>0)perfectShow=sd(perfectShow,0,3,dt);
   // Tutorial fade
   if(tutorialShown&&tutorialAlpha>0)tutorialAlpha=Math.max(0,tutorialAlpha-dt*2);
-  for(const p of pads)if(p.dip>0)p.dip=sd(p.dip,0,10,dt);
+  // plates give under him and spring back, overshooting a touch, like they hang on something
+  for(const p of pads){
+    if(p.type==='breakable'&&p.breakTimer>0&&!p.broken)continue;
+    if(p.dip||p.dipV){p.dipV=(p.dipV||0)+(-160*p.dip-11*(p.dipV||0))*Math.min(dt,.05);p.dip+=p.dipV*Math.min(dt,.05);
+      if(Math.abs(p.dip)<.004&&Math.abs(p.dipV)<.05){p.dip=0;p.dipV=0}}
+  }
   if(shake>0){shake=sd(shake,0,7,dt);shX=Math.sin(gt*45)*shake*6;shY=Math.cos(gt*51)*shake*5}else{shX=shY=0}
   if(punch>0)punch=Math.max(0,punch-dt*4.5);
   updShocks(dt);updFlyCoins(dt);updAirCoins();
@@ -6794,7 +6825,14 @@ function drawCoin(x,y,s,bob){
     // the painted coin turns by squashing its width; never edge-on so it stays readable
     const im=_A.coinN,h=36,w=h*im.naturalWidth/im.naturalHeight, sx=0.35+0.65*Math.abs(Math.cos(gt*2.6+bob));
     ctx.fillStyle='rgba(255,196,77,.16)';ctx.beginPath();ctx.arc(0,0,h*0.62,0,Math.PI*2);ctx.fill();
-    ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h/2,w,h);ctx.restore();return;
+    ctx.save();ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h/2,w,h);ctx.restore();
+    // now and then a glint runs across the face
+    const gp=((gt*.55+bob*.37)%1+1)%1;
+    if(gp<.14){const a=Math.sin(gp/.14*Math.PI), gx=-w*.18, gy=-h*.2, r=9*a;
+      ctx.strokeStyle='rgba(255,255,255,'+(.95*a).toFixed(3)+')';ctx.lineWidth=1.6;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(gx-r,gy);ctx.lineTo(gx+r,gy);ctx.moveTo(gx,gy-r);ctx.lineTo(gx,gy+r);ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')';ctx.beginPath();ctx.arc(gx,gy,1.8*a,0,Math.PI*2);ctx.fill()}
+    ctx.restore();return;
   }
   const face=Math.abs(Math.cos(gt*3+bob));
   const key=face<.18?'coinC':face<.62?'coinB':'coinA';
@@ -6832,6 +6870,8 @@ function drawPUIcon(x,y,s,type,bob){
 }
 
 function drawPts(){
+  for(const q of shards){ctx.save();ctx.globalAlpha=Math.min(1,q.life*2.2);ctx.translate(q.x,q.y);ctx.rotate(q.rot);
+    ctx.drawImage(q.im,q.sx,q.sy,q.sw,q.sh,-q.w/2,-q.h/2,q.w,q.h);ctx.restore()}
   for(const p of pts){ctx.globalAlpha=p.a;ctx.fillStyle=p.col;
     if(p.tp==='s'){ctx.beginPath();for(let i=0;i<5;i++){const a=Math.PI*2*i/5-Math.PI/2,r=p.sz*p.a;ctx.lineTo(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r);const ia=a+Math.PI/5;ctx.lineTo(p.x+Math.cos(ia)*r*.4,p.y+Math.sin(ia)*r*.4)}ctx.closePath();ctx.fill()}
     else{ctx.beginPath();ctx.arc(p.x,p.y,p.sz*p.a,0,Math.PI*2);ctx.fill()}}
@@ -7372,6 +7412,7 @@ function drawGame(){
     }
     const fp=project(frogZ,jumpLaneX,frogElev);
     let fx=fp.x,fy=fp.y,fs=fp.s*1.7*WSC;
+    if(lastLandPad&&lastLandPad.dip&&airEff<.5)fy+=lastLandPad.dip*8*fp.s*WSC*(1-airEff*2);   // rides the plate's give
 
     if(falling){
       const ft=Math.min(fallT,1);
