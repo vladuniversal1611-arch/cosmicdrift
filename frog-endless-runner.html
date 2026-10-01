@@ -62,14 +62,14 @@ let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1,laneVel=0;
 // Vertical camera offset in screen px at p=1 — eases toward the frog's current
 // elevation so climbs and drops read as real height instead of teleporting.
 let camY=0, frogElev=0;
-let alive=true,falling=false,fallT=0;
+let alive=true,falling=false,fallT=0,fallPuff=false;
 let dist=0,score=0,runCoins=0;
 let hs=+localStorage.getItem('fHS')||0;
 let bestScore=+localStorage.getItem('fBS')||0;
 let coins=+localStorage.getItem('fCoins')||0;
 let newRec=false,newScoreRec=false;
 let shield=false,magnet=false,magnetT=0,boost=false,boostT=0;
-let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0;
+let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0,overT=0;
 let pads=[],padPositions=[];
 let pts=[],floats=[],clouds=[],bflies=[],shards=[];
 let spdLines=[];
@@ -884,6 +884,8 @@ function triggerMilestone(m){
     const col=['#FF6EC7','#FFD700','#00E5FF','#69F0AE','#FF4081'][i%5];
     addP(W/2,H*.4,Math.cos(a)*sp,Math.sin(a)*sp,col,rand(2,4),.8,'s');
   }
+  // and confetti rains down across the whole screen
+  for(let i=0;i<14*msTier;i++)addP(rand(0,W),rand(-40,H*.08),rand(-.01,.01),rand(.01,.05),['#FF6EC7','#FFD700','#00E5FF','#69F0AE','#FF4081','#FFFFFF'][i%6],rand(3,5.5),rand(1.1,1.7),'q');
 }
 // (time-scaling removed — the hype burst is now purely visual, no slowdown)
 // Fever mode
@@ -3763,7 +3765,7 @@ function xToLane(sx){
 
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();initAudio();
-  const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();
+  const t=e.touches[0];tSX=t.clientX;tSY=t.clientY;tST=Date.now();pressDown=true;
   swHist.length=0;swSample(t.clientX,t.clientY);
   if(state===ST.SKINS)scrollStartV=skinScroll;
   if(isListScreen())uiScrollStart=uiScroll;
@@ -3790,7 +3792,7 @@ canvas.addEventListener('touchmove',e=>{
   }
 },{passive:false});
 
-canvas.addEventListener('touchend',e=>{
+canvas.addEventListener('touchend',e=>{pressDown=false;
   e.preventDefault();
   const t=e.changedTouches[0];if(!t)return;
   btnTouch=false;
@@ -3825,9 +3827,9 @@ canvas.addEventListener('touchend',e=>{
   }
 },{passive:false});
 
-let mouseDown=false;
+let mouseDown=false,pressDown=false;
 canvas.addEventListener('mousedown',e=>{
-  initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;
+  initAudio();tSX=e.clientX;tSY=e.clientY;tST=Date.now();mouseDown=true;pressDown=true;
   swHist.length=0;swSample(e.clientX,e.clientY);
   if(state===ST.SKINS)scrollStartV=skinScroll;
   if(isListScreen())uiScrollStart=uiScroll;
@@ -3848,7 +3850,7 @@ canvas.addEventListener('mousemove',e=>{
     frogCont=xToLane(e.clientX);
   }
 });
-canvas.addEventListener('mouseup',e=>{
+canvas.addEventListener('mouseup',e=>{pressDown=false;
   mouseDown=false;btnTouch=false;
   if(state===ST.PLAY&&alive){touching=false}
   const d=Math.sqrt((e.clientX-tSX)**2+(e.clientY-tSY)**2);
@@ -3904,6 +3906,29 @@ document.addEventListener('keydown',e=>{
 // ========== PARTICLES ==========
 const MAX_PTS=260;
 // A plate that gives way breaks into chunks of its own art, which tumble into the void
+// Each kind of plate shows what it is about to do: a vanishing plate sheds pixels, a mover
+// puffs from its trailing side, a lift vents at the ends of its travel, ice glitters.
+function padLife(pad,p,i,rz){
+  if(paused||state!==ST.PLAY||!alive)return;
+  const k=p.s*WSC;if(k<0.13||rz<0.3)return;
+  const hw=120*k*(pad.width||1);
+  if(pad.type==='disappear'&&pad.disappearTimer>0&&!pad.disappeared){
+    if(Math.random()<.85)addP(p.x+rand(-1,1)*hw*.9,p.y+rand(-28,6)*k,rand(-.006,.006),rand(-.035,-.012),Math.random()<.5?'#CFE8FF':'#FFFFFF',rand(2,3.6)*Math.max(.6,k),rand(.35,.6),'q');
+  }else if(pad.type==='disappear'&&!pad.landed&&Math.random()<.08){
+    addP(p.x+rand(-1,1)*hw*.8,p.y+rand(-24,0)*k,0,rand(-.015,-.005),'#E3F2FD',rand(1.5,2.5)*Math.max(.6,k),.5,'q');
+  }
+  if(pad.moving){
+    const v=Math.cos(gt*pad.moving.spd+pad.moving.phase), dir=v>0?1:-1;
+    if(Math.random()<.55*Math.abs(v))addP(p.x-dir*hw*1.02,p.y-8*k+rand(-6,6)*k,-dir*rand(.02,.04),rand(-.004,.004),Math.random()<.5?'#9FE8FF':'#FFFFFF',rand(1.8,3.2)*Math.max(.6,k),rand(.2,.35),'c');
+  }
+  if(pad.lift){
+    const c=Math.cos(gt*pad.lift.spd+pad.lift.ph);
+    if(Math.abs(c)<.25&&Math.random()<.6)for(const sx of [-1,1])
+      addP(p.x+sx*hw*rand(.5,.9),p.y+18*k,sx*rand(.005,.02),rand(.005,.02),Math.random()<.5?'rgba(235,240,255,.9)':'rgba(200,215,240,.8)',rand(3,5.5)*Math.max(.6,k),rand(.35,.55),'c');
+  }
+  if(pad.type==='slippery'&&Math.random()<.22)
+    addP(p.x+rand(-1,1)*hw*.85,p.y+rand(-30,-2)*k,0,-.004,'#FFFFFF',rand(1.6,2.8)*Math.max(.6,k),rand(.3,.5),'s');
+}
 function shatterPad(pad,idx){
   const rz=(padPositions[idx]||0)-seq+VIEW_Z;if(rz<0.15||rz>VIEW_AHEAD)return;
   const key=PAD_ART[pad.type];if(!key||!_ok(key))return;
@@ -4208,7 +4233,7 @@ function die(){
     if(np) frogCont=np.gameX;
     return;
   }
-  alive=false;falling=true;fallT=0;deathT=0;sfxSplash();sfxDie();stopMus();
+  alive=false;falling=true;fallT=0;fallPuff=false;deathT=0;sfxSplash();sfxDie();stopMus();
   shake=Math.max(shake,.55);addPunch(1);
   setEmo('😱',2.0);
   const ci=getCurrentPadIdx();
@@ -4218,7 +4243,7 @@ function die(){
   addSplash(fp.x,fp.y,2.5);shake=.5;
   if(navigator.vibrate)navigator.vibrate(100);
   finishRun();
-  goT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER},900);
+  goT=0;overT=0;eaterGloat=1;setTimeout(()=>{state=ST.OVER;overT=0},900);
 }
 // Everything a run pays and records when it ends, by a fall or at a finish line
 function finishRun(){
@@ -4600,6 +4625,10 @@ function onLand(idx){
         mp.coin=false;runCoins+=coinMult;sfxCoin();runMagnet++;
         const mz=padPositions[k]-seq+VIEW_Z, mpp=project(Math.max(mz,.1),mp.gameX,mp.elev);
         addCoinFX(mpp.x,mpp.y-12);addFlyCoin(mpp.x,mpp.y-12);
+        // a golden arc shows where it was pulled from
+        for(let j=1;j<=9;j++){const u=j/10, mx=(mpp.x+lp.x)/2, my=Math.min(mpp.y,lp.y)-60;
+          const ax=(1-u)*(1-u)*mpp.x+2*u*(1-u)*mx+u*u*lp.x, ay=(1-u)*(1-u)*(mpp.y-12)+2*u*(1-u)*my+u*u*(lp.y-12);
+          addP(ax,ay,0,-.003,j%2?'#FFD54F':'#FFF3C4',2.2+u*1.5,.25+u*.3,'s')}
       }
     }
   }
@@ -4671,7 +4700,7 @@ function updateGame(dt){
   if(levelWin){
     winT+=dt;
     if(winT>1.7&&state===ST.PLAY){
-      const toOver=()=>{state=ST.OVER;goT=0};
+      const toOver=()=>{state=ST.OVER;goT=0;overT=0};
       if(storyQ){const q=storyQ;storyQ=null;playScene(q,toOver)}else toOver();
     }
     const k=Math.max(0,1-winT/0.9);
@@ -4858,6 +4887,9 @@ function updateGame(dt){
       if(p.disappearTimer<=0){
         p.disappeared=true;
         p.disappearAlpha=0;
+        {const di=pads.indexOf(p), dz=(padPositions[di]||0)-seq+VIEW_Z;   // the last of it scatters as pixels
+          if(dz>0.15){const dp=project(dz,p.gameX,p.elev), k=dp.s*WSC, hw=110*k*(p.width||1);
+            for(let j=0;j<18;j++)addP(dp.x+rand(-1,1)*hw,dp.y+rand(-30,10)*k,rand(-.02,.02),rand(-.05,-.01),j%3?'#CFE8FF':'#FFFFFF',rand(2.5,4.5)*Math.max(.6,k),rand(.4,.7),'q')}}
         const ci=getCurrentPadIdx();
         if(pads[ci]===p&&frogStandingOn(ci)){
           die();
@@ -7011,6 +7043,7 @@ function drawPts(){
     ctx.drawImage(q.im,q.sx,q.sy,q.sw,q.sh,-q.w/2,-q.h/2,q.w,q.h);ctx.restore()}
   for(const p of pts){ctx.globalAlpha=p.a;ctx.fillStyle=p.col;
     if(p.tp==='s'){ctx.beginPath();for(let i=0;i<5;i++){const a=Math.PI*2*i/5-Math.PI/2,r=p.sz*p.a;ctx.lineTo(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r);const ia=a+Math.PI/5;ctx.lineTo(p.x+Math.cos(ia)*r*.4,p.y+Math.sin(ia)*r*.4)}ctx.closePath();ctx.fill()}
+    else if(p.tp==='q'){const r=p.sz*(.4+.6*p.a);ctx.fillRect(p.x-r/2,p.y-r/2,r,r)}
     else{ctx.beginPath();ctx.arc(p.x,p.y,p.sz*p.a,0,Math.PI*2);ctx.fill()}}
   ctx.globalAlpha=1;
   // Floating callouts sit on top of painted art now, so a soft shadow no longer
@@ -7327,7 +7360,7 @@ function drawGame(){
     // even though the camera rises with you
     if((pad.elev||0)>=3&&!(pad.len>0))drawRoofBuilding(p,project(rz,pad.gameX,0),pad,i,fog);
     if(pad.len>0) drawLongPad(rz,pad.gameX,pad.elev,pad.len,pad.width,i===curIdx);
-    else drawPad(p.x,p.y,p.s,pad.type,pad.dip,i===curIdx,pad.width,tilt,Math.max(fog,sinkFog,pad.lift&&pad.elev<0?Math.min(.4,-pad.elev*.25):0));
+    else drawPad(p.x,p.y,p.s,pad.type,pad.dip+(pad.type==='bounce'&&!pad.landed?.18*Math.max(0,Math.sin(gt*5+i))**2:0),i===curIdx,pad.width,tilt,Math.max(fog,sinkFog,pad.lift&&pad.elev<0?Math.min(.4,-pad.elev*.25):0));
     // (No lock-on ring: the circle over the target platform was removed at the
     //  player's request. aimIdx still drives camera framing.)
     // Moving platform indicator — small arrows on sides
@@ -7341,6 +7374,7 @@ function drawGame(){
         ctx.stroke()}
       ctx.restore();
     }
+    padLife(pad,p,i,rz);
     if(pad.jp&&!pad.jpTaken){const k=p.s*WSC;drawJetpackIco(p.x,p.y-62*k+Math.sin(gt*3+i)*5*k,Math.max(.5,2.1*k))}
     if(pad.type==='jet'&&!pad.jetUsed){
       const cs=Math.max(7,30*p.s*WSC), cy=p.y-40*p.s*WSC-((gt*2.2)%1)*cs*.9;
@@ -7554,6 +7588,9 @@ function drawGame(){
     if(falling){
       const ft=Math.min(fallT,1);
       fy+=ft*70;fs*=(1-ft*.5);ctx.globalAlpha=1-ft*.9;
+      // where he drops through, the clouds close over him with a soft puff
+      if(ft>.55&&!fallPuff){fallPuff=true;
+        for(let j=0;j<14;j++){const a=rand(Math.PI*.05,Math.PI*.95);addP(fx+rand(-20,20)*fs,fy+10*fs,Math.cos(a)*rand(.01,.03),-Math.sin(a)*rand(.008,.025),j%2?'rgba(255,255,255,.85)':'rgba(220,232,255,.8)',rand(8,15)*fs,rand(.5,.8),'c')}}
     }
 
     drawAirCoins();
@@ -7596,6 +7633,7 @@ function drawGame(){
       const hy=fy-airEff*.85*180*fs;
       jpDraw={x:fx,y:hy,s:fs};
       for(let k2=0;k2<3;k2++)addP(fx+(k2%2?1:-1)*24*fs+rand(-4,4),hy-4*fs,rand(-.01,.01),rand(.03,.06),['#FFB74D','#FF7A1A','#FFE0B2'][Math.random()*3|0],rand(2,3.5),.35,'c');
+      if(Math.random()<.5)addP(fx+rand(-14,14)*fs,hy+18*fs,rand(-.01,.01),rand(.02,.04),Math.random()<.5?'rgba(225,228,236,.75)':'rgba(190,196,210,.65)',rand(5,8)*fs,rand(.5,.8),'c');   // a trail of smoke
     }
     if(fever&&airEff>.2&&Math.random()<.5){
       addP(fx+rand(-6,6),fy+8,rand(-.02,.02),rand(.01,.03),'#FFD700',rand(1.5,2.5),.3,'s');
@@ -8123,6 +8161,20 @@ function drawActCard(){
   if(actCardT<=0||state!==ST.PLAY||!alive)return;
   const z=curZone();
   const T=2.4, t=1-actCardT/T;                 // 0 → 1
+  // arriving in the world: a warp jump out of the horizon — streaks race past and a flash
+  // of the world's colour fades (lighter, never darker) before the title settles
+  if(t<0.42){
+    const w=t/0.42, vx=W/2, vy=H*0.30, R=Math.hypot(W,H);
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    ctx.globalAlpha=Math.pow(1-w,2)*.45;ctx.fillStyle=z.col;ctx.fillRect(-W,-H,W*3,H*3);
+    ctx.lineCap='round';
+    for(let j=0;j<46;j++){
+      const a=hash2(j,41)*Math.PI*2, sp=.6+hash2(j,43)*.8, r0=(Math.pow(w,1.5)*1.3*sp+hash2(j,47)*.15)*R, len=R*(.06+.22*w)*sp;
+      ctx.globalAlpha=(1-w)*.85;ctx.strokeStyle=j%3?'#ffffff':z.col;ctx.lineWidth=1+2.5*w*sp;
+      ctx.beginPath();ctx.moveTo(vx+Math.cos(a)*r0,vy+Math.sin(a)*r0);ctx.lineTo(vx+Math.cos(a)*(r0+len),vy+Math.sin(a)*(r0+len));ctx.stroke();
+    }
+    ctx.restore();
+  }
   // Slide in, hold, slide out
   let a=1, off=0;
   if(t<0.16){const u=t/0.16;a=u;off=(1-u)*70}
@@ -9021,15 +9073,29 @@ function drawMenuCharacter(cx,baseY){
   drawFrog(A.x,A.y,1.05,A.rot,A.sqX,A.sqY,isInAir,0);
 }
 
+// a big button gives under the finger, and a sheen runs across it now and then
+function pressK(x,y,w,h){
+  if(!pressDown||Date.now()-tST>600)return 1;
+  try{const m=ctx.getTransform().inverse(), q=m.transformPoint(new DOMPoint(tSX*DPR,tSY*DPR));
+    return (q.x>=x&&q.x<=x+w&&q.y>=y&&q.y<=y+h)?.94:1}catch(e){return 1}
+}
+function btnSheen(x,y,w,h,ph){
+  const u=((gt*.4+(ph||0))%1)*2.4-.7;if(u<-.3||u>1.3)return;
+  ctx.save();rr(x,y,w,h,h/2);ctx.clip();
+  const sx=x+u*w, g=ctx.createLinearGradient(sx-h,y,sx+h*.2,y+h);
+  g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.6)');g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.restore();
+}
 function drawMenuPlayBtn(cx,by){
   const bw=W*.68,bh=64,bx=cx-bw/2;
-  const pulse=1+Math.sin(gt*2.5)*.012;
+  const pulse=(1+Math.sin(gt*2.5)*.012)*pressK(bx,by,bw,bh);
 
   if(_ok('btn')){
     ctx.save();
     ctx.translate(cx,by+bh/2);ctx.scale(pulse,pulse);
     ctx.shadowColor='rgba(120,255,60,.45)';ctx.shadowBlur=26;
     drawImgW('btn',0,0,bw+18);
+    ctx.shadowBlur=0;btnSheen(-bw/2,-bh/2,bw,bh,0);
     ctx.restore();
   } else {
     ctx.fillStyle='rgba(20,80,20,.7)';rr(bx+2,by+5,bw,bh,bh/2);ctx.fill();
@@ -9375,8 +9441,10 @@ function drawOverStat(x,y,w,label,val,col){
   ctx.fillStyle=col||'#fff';ctx.font='900 18px Exo2,sans-serif';ctx.fillText(val,x+w/2,y+16);
   ctx.fillStyle='rgba(180,210,240,.75)';ctx.font='700 10px Exo2,sans-serif';ctx.fillText(label,x+w/2,y+36);
 }
+// the run's numbers count up into place, and a record goes off like a firework
+function overTally(v){const e=clamp((overT-.25)/1.1,0,1);return Math.round(v*(1-Math.pow(1-e,3)))}
 function drawOver(){
-  goT=Math.min(goT+.03,1);
+  goT=Math.min(goT+.03,1);overT+=.016;
   if(reviveShow>0) reviveShow-=.016;
   if(reviveMsgT>0)reviveMsgT-=.016;
   ctx.fillStyle=`rgba(3,6,20,${.8*goT})`;ctx.fillRect(0,0,W,H);
@@ -9430,7 +9498,16 @@ function drawOver(){
       }
     }else if(k==='score'){
       ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle='#fff';ctx.font='900 44px Exo2,sans-serif';ctx.fillText(String(finalScore()),cx,y+26);
+      const pt=overT-1.35, pop=pt>0?1+.2*Math.exp(-pt*7)*Math.cos(pt*14):1, rec=newScoreRec||newRec;
+      if(rec&&pt>0){
+        for(let j=0;j<16;j++){const ph=((pt*.7+hash2(j,3))%1), a=j/16*Math.PI*2+hash2(j,5), r=30+ph*95, sx=cx+Math.cos(a)*r*1.3, sy=y+26+Math.sin(a)*r*.6;
+          ctx.globalAlpha=(1-ph)*.9;ctx.fillStyle=j%2?'#FFD54F':'#FFFFFF';ctx.beginPath();
+          for(let q=0;q<4;q++){const qa=q*Math.PI/2, rr2=(3+2*(1-ph));ctx.lineTo(sx+Math.cos(qa)*rr2*1.8,sy+Math.sin(qa)*rr2*1.8);ctx.lineTo(sx+Math.cos(qa+Math.PI/4)*rr2*.5,sy+Math.sin(qa+Math.PI/4)*rr2*.5)}
+          ctx.closePath();ctx.fill()}
+        ctx.globalAlpha=1;
+      }
+      ctx.save();ctx.translate(cx,y+26);ctx.scale(pop,pop);
+      ctx.fillStyle=rec&&pt>0?'#FFE082':'#fff';ctx.font='900 44px Exo2,sans-serif';ctx.fillText(String(overTally(finalScore())),0,0);ctx.restore();
       ctx.fillStyle='rgba(180,210,240,.75)';ctx.font='800 11px Exo2,sans-serif';
       ctx.fillText(`ОЧКІВ  ·  РЕКОРД ${bestScore}`,cx,y+58);
     }else if(k==='grid'){
@@ -9438,10 +9515,10 @@ function drawOver(){
       const cw=iw/3, rh=B.h/2;
       const rc=runRewardCoins||runCoins, boost=rc-runCoins;
       const cells=[
-        ['ДИСТАНЦІЯ',Math.floor(dist)+' м',newRec?'#FFD54F':null],
-        ['МОНЕТИ','+'+rc,'#FFE082'],
-        ['ЯДРА','+'+(runShards|0),'#9CF4FF'],
-        ['PERFECT',String(runPerfects),null],
+        ['ДИСТАНЦІЯ',overTally(Math.floor(dist))+' м',newRec?'#FFD54F':null],
+        ['МОНЕТИ','+'+overTally(rc),'#FFE082'],
+        ['ЯДРА','+'+overTally(runShards|0),'#9CF4FF'],
+        ['PERFECT',String(overTally(runPerfects)),null],
         ['РЕЗОНАНС','×'+(runResMult||1),'#8FF3FF'],
         ['FEVER',String(runFever),'#FFB0E8'],
       ];
@@ -9533,12 +9610,12 @@ function drawOver(){
     }else if(k==='play'){
       const nx=win?nextLevel():null;
       const label=win&&nx?'НАСТУПНИЙ РІВЕНЬ':'ГРАТИ ЩЕ';
-      const bw=iw, bh=58, bx=cx-bw/2, pulse=1+Math.sin(gt*3.2)*.015;
+      const bw=iw, bh=58, bx=cx-bw/2, pulse=(1+Math.sin(gt*3.2)*.015)*pressK(bx,y+4,bw,bh);
       ctx.save();ctx.translate(cx,y+bh/2+4);ctx.scale(pulse,pulse);
       ctx.shadowColor='rgba(92,255,157,.55)';ctx.shadowBlur=18;
       const g=ctx.createLinearGradient(0,-bh/2,0,bh/2);g.addColorStop(0,'#7CFF6B');g.addColorStop(1,'#1E9E4A');
       ctx.fillStyle=g;rr(-bw/2,-bh/2,bw,bh,bh/2);ctx.fill();
-      ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.5;rr(-bw/2,-bh/2,bw,bh,bh/2);ctx.stroke();
+      ctx.shadowBlur=0;btnSheen(-bw/2,-bh/2,bw,bh,.5);ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.5;rr(-bw/2,-bh/2,bw,bh,bh/2);ctx.stroke();
       ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='rgba(20,70,30,.7)';
       ctx.strokeText('▶  '+label,0,1);ctx.fillText('▶  '+label,0,1);
@@ -10465,14 +10542,28 @@ function drawChestReveal(){
   const cx=W/2, cy=H*.34;
   const shake=chestAnimT<.7?Math.sin(chestAnimT*60)*(4*(1-chestAnimT/.7)):0;
   const open=clamp((chestAnimT-.7)/.25,0,1);
-  const tier=chestOpen.tier;
+  const tier=chestOpen.tier, tc=['255,198,109','127,232,255','229,155,255'][tier]||'255,240,200';
   if(open>0){
+    // slow rays fan out behind the open chest, in the chest's own colour
+    ctx.save();ctx.translate(cx,cy-20);ctx.rotate(gt*.35);
+    for(let r=0;r<12;r++){ctx.rotate(Math.PI*2/12);ctx.globalAlpha=.16*open;ctx.fillStyle=`rgb(${tc})`;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-16,-200);ctx.lineTo(16,-200);ctx.closePath();ctx.fill()}
+    ctx.restore();ctx.globalAlpha=1;
+    // the moment it opens, sparks burst out
+    const b=chestAnimT-.7;
+    if(b>0&&b<1.1){for(let j=0;j<26;j++){const ang=j/26*Math.PI*2+hash2(j,9)*.4, e=1-Math.pow(1-Math.min(1,b/1.1),3), d=(60+90*hash2(j,11))*e;
+      const sx=cx+Math.cos(ang)*d, sy=cy-20+Math.sin(ang)*d*.8+b*b*40, rr2=2+2.5*hash2(j,13);
+      ctx.globalAlpha=1-b/1.1;ctx.fillStyle=j%3?`rgb(${tc})`:'#ffffff';ctx.beginPath();ctx.arc(sx,sy,rr2,0,Math.PI*2);ctx.fill()}
+      ctx.globalAlpha=1}
     // burst of light behind the lid
     const g=ctx.createRadialGradient(cx,cy-20,4,cx,cy-20,140);
     g.addColorStop(0,`rgba(255,240,200,${.55*open})`);g.addColorStop(1,'rgba(255,240,200,0)');
     ctx.fillStyle=g;ctx.fillRect(cx-160,cy-180,320,320);
   }
-  drawChestIco(cx+shake,cy,120,tier,open);
+  // before it opens the chest hops and squashes, as if something inside wants out
+  const pre=chestAnimT<.7?1-chestAnimT/.7:0, hop=Math.abs(Math.sin(chestAnimT*11))*12*pre, sq=1+Math.sin(chestAnimT*22)*.06*pre;
+  ctx.save();ctx.translate(cx+shake,cy-hop+60);ctx.scale(1/sq,sq);ctx.translate(-(cx+shake),-(cy+60));
+  drawChestIco(cx+shake,cy,120,tier,open);ctx.restore();
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillStyle='#fff';ctx.font='900 20px Exo2,sans-serif';
   ctx.fillText(CHESTS[tier].name+' СКРИНЯ',cx,cy+70);
@@ -10483,7 +10574,8 @@ function drawChestReveal(){
   items.forEach((it,i)=>{
     const u=clamp((chestAnimT-1.0-i*.18)/.25,0,1);
     if(u<=0){y+=50;return}
-    ctx.save();ctx.globalAlpha=u;ctx.translate(0,(1-u)*14);
+    const bo=1+2.2*Math.pow(u-1,3)+1.2*Math.pow(u-1,2);   // a small overshoot as each one lands
+    ctx.save();ctx.globalAlpha=u;ctx.translate(cx,y+21);ctx.scale(bo,bo);ctx.translate(-cx,-(y+21));
     glassPanel(rx,y,rw,42,14);
     drawRewardItem(rx+12,y+21,it);
     ctx.restore();
