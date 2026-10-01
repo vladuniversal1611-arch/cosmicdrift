@@ -5345,7 +5345,110 @@ function drawPaintedWorld(w){
     const m=ctx.getTransform(), k=1/DPR;
     paintedCore.sx=(m.a*paintedCore.x+m.c*paintedCore.y+m.e)*k;paintedCore.sy=(m.b*paintedCore.x+m.d*paintedCore.y+m.f)*k;
   }
+  drawBgLife(w,px);
   drawGardenSea(px,P);
+}
+// ---- life in the sky behind the run: drifting cloud layers in every world, plus
+// what belongs to each place (birds, flying cars, lightning, shooting stars, core motes).
+// All of it lives above the horizon and is a pure function of game time.
+const BG_LIFE={0:{cl:'255,255,255',ca:.9,birds:'#3b4a6b'},1:{cl:'230,190,255',ca:.5,cars:1},
+  2:{cl:'255,190,150',ca:.45,bolt:1},3:{cl:'210,190,255',ca:.45,birds:'#1a1240',stars:1},4:{cl:'190,235,255',ca:.4,stars:1,motes:1}};
+const _wisp={};
+function wispSprite(col){
+  if(_wisp[col])return _wisp[col];
+  const c=document.createElement('canvas');c.width=256;c.height=80;const g=c.getContext('2d');
+  for(const [x,y,r] of [[70,48,40],[120,38,46],[175,46,40],[215,52,28],[40,54,26]]){
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(${col},.55)`);gr.addColorStop(.6,`rgba(${col},.25)`);gr.addColorStop(1,`rgba(${col},0)`);
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill()}
+  return _wisp[col]=c;
+}
+function drawBgLife(w,px){
+  const L=BG_LIFE[w];if(!L)return;
+  const T=gt, hor=H*0.30;
+  ctx.save();
+  // cloud wisps at three depths: the near ones are bigger, faster and slide more with the bend
+  const ws=wispSprite(L.cl);
+  for(let i=0;i<6;i++){
+    const h1=hash2(i,51),h2=hash2(i,73),d=.3+.7*h2, wd=W*(.28+.4*d), span=W+wd*2;
+    const x=((h1*span+T*(5+13*d))%span)-wd+px*d*.6, y=H*(.03+.2*hash2(i,91));
+    ctx.globalAlpha=(.16+.24*d)*L.ca;ctx.drawImage(ws,x,y,wd,wd*.31);
+  }
+  ctx.globalAlpha=1;
+  if(L.birds)drawBgBirds(L.birds,T,px);
+  if(L.cars)drawBgCars(T,px,hor);
+  if(L.bolt)drawBgBolt(T,hor);
+  if(L.stars)drawBgStar(T);
+  if(L.motes&&paintedCore.r>0)drawBgMotes(T);
+  ctx.restore();
+}
+function drawBgBirds(col,T,px){
+  const P=16, c=Math.floor(T/P), p=(T-c*P)/10;if(p>=1)return;   // a flock crosses, then a quiet spell
+  const dir=hash2(c,5)<.5?1:-1, x0=dir>0?-W*.12+p*W*1.24:W*1.12-p*W*1.24, y0=H*(.11+.1*hash2(c,9))+Math.sin(p*7)*6;
+  ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.lineCap='round';ctx.lineJoin='round';ctx.globalAlpha=.75;
+  const n=4+Math.floor(hash2(c,13)*3);
+  for(let i=0;i<n;i++){
+    const side=i%2?1:-1, k=Math.ceil(i/2), x=x0-dir*k*13+px*.2, y=y0+side*k*7+Math.sin(T*2+i)*2, s=5-k*.4, f=Math.sin(T*11+i*1.7)*s*.7;
+    ctx.beginPath();ctx.moveTo(x-s,y-f);ctx.quadraticCurveTo(x-s*.4,y-f*.2-1,x,y);ctx.quadraticCurveTo(x+s*.4,y-f*.2-1,x+s,y-f);ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
+function drawBgCars(T,px,hor){
+  // three sky lanes of hover traffic over the skyline, far ones slow and small
+  for(let l=0;l<3;l++){
+    const d=.45+l*.25, y=hor-H*(.035+.035*l)*(1+.1*Math.sin(T*.5+l)), dir=l%2?-1:1, sp=(28+30*d), sz=4+5*d;
+    for(let j=0;j<3;j++){
+      const span=W+120, x0=((hash2(l,j)*span+T*sp)%span)-60, x=(dir>0?x0:W-x0)+px*d*.4, yy=y+Math.sin(T*1.3+j*2+l)*1.5;
+      // light trail
+      ctx.globalAlpha=.35;ctx.strokeStyle=j%2?'#4FE3FF':'#FF4FD8';ctx.lineWidth=Math.max(1,sz*.25);
+      ctx.beginPath();ctx.moveTo(x-dir*sz*1.2,yy);ctx.lineTo(x-dir*sz*4.5,yy);ctx.stroke();
+      // body, headlight, tail light
+      ctx.globalAlpha=.95;ctx.fillStyle='#2a2060';ctx.beginPath();ctx.ellipse(x,yy,sz*1.2,sz*.42,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#8f7cff';ctx.beginPath();ctx.ellipse(x,yy-sz*.22,sz*.6,sz*.26,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff6c8';ctx.beginPath();ctx.arc(x+dir*sz*1.1,yy,Math.max(1,sz*.22),0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ff3d6e';ctx.beginPath();ctx.arc(x-dir*sz*1.1,yy,Math.max(1,sz*.2),0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+function drawBgBolt(T,hor){
+  const P=6.5, c=Math.floor(T/P), tt=T-c*P-hash2(c,3)*3.5;
+  if(tt<0||tt>.3)return;
+  const on=tt<.07||(tt>.12&&tt<.22);if(!on)return;
+  const a=tt<.07?1:.7;
+  // the sky lights up for a beat (lighter, never darker)
+  ctx.globalAlpha=.13*a;ctx.fillStyle='#ffe2c4';ctx.fillRect(-W,-H,W*3,hor+H);
+  const left=hash2(c,7)<.5, x0=W*(left?.08+.25*hash2(c,11):.67+.25*hash2(c,11));
+  const pts2=[[x0,-10]];let x=x0;
+  for(let i=1;i<=9;i++){x+=(hash2(c*13+i,17)-.5)*W*.07;pts2.push([x,-10+(hor*.92+10)*i/9])}
+  const path=()=>{ctx.beginPath();ctx.moveTo(pts2[0][0],pts2[0][1]);for(const q of pts2)ctx.lineTo(q[0],q[1]);
+    const b=pts2[4];ctx.moveTo(b[0],b[1]);ctx.lineTo(b[0]+(left?1:-1)*W*.06,b[1]+hor*.14);ctx.lineTo(b[0]+(left?1:-1)*W*.09,b[1]+hor*.24)};
+  ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.globalAlpha=.45*a;ctx.strokeStyle='#ffc58a';ctx.lineWidth=5;path();ctx.stroke();
+  ctx.globalAlpha=a;ctx.strokeStyle='#fffaf0';ctx.lineWidth=1.8;path();ctx.stroke();
+  ctx.globalAlpha=1;
+}
+function drawBgStar(T){
+  const P=7, c=Math.floor(T/P), tt=T-c*P-hash2(c,21)*4;
+  if(tt<0||tt>.7)return;
+  const u=tt/.7, x0=W*(.15+.7*hash2(c,23)), y0=H*(.03+.1*hash2(c,29)), dir=hash2(c,31)<.5?1:-1;
+  const hx=x0+dir*u*W*.35, hy=y0+u*H*.09, a=Math.sin(u*Math.PI);
+  ctx.lineCap='round';
+  for(let k=0;k<4;k++){const f=k/4, f2=(k+1)/4;
+    ctx.globalAlpha=a*(1-f)*.9;ctx.strokeStyle='#ffffff';ctx.lineWidth=2.2*(1-f*.7);
+    ctx.beginPath();ctx.moveTo(hx-dir*W*.09*f,hy-H*.023*f);ctx.lineTo(hx-dir*W*.09*f2,hy-H*.023*f2);ctx.stroke()}
+  ctx.globalAlpha=a;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(hx,hy,1.8,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
+}
+function drawBgMotes(T){
+  // slow sparks drifting round the Core and up off it
+  const C=paintedCore;
+  for(let i=0;i<10;i++){
+    const h1=hash2(i,61), life=((T*.12+h1)%1), ang=T*.25*(h1<.5?1:-1)+i*.63, r=C.r*(1.6+2.4*hash2(i,67));
+    const x=C.x+Math.cos(ang)*r, y=C.y+Math.sin(ang)*r*.45-life*C.r*2.5;
+    ctx.globalAlpha=Math.sin(life*Math.PI)*.8;ctx.fillStyle=i%2?'#bff6ff':'#ffffff';
+    ctx.beginPath();ctx.arc(x,y,1.2+hash2(i,71)*1.4,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
 }
 function drawGardenSea(px,P){
   P=P||PAINTED[0];
