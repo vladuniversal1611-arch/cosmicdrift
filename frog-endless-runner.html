@@ -332,7 +332,7 @@ function enterAct(i){
 // --- ХМАРОЖЕР: the thing you are chasing. He sits at the end of the road and
 // grows act by act — a smudge with eyes in the garden, the whole sky by the
 // star stream. He flinches when you light a castle and gloats when you fall.
-let eaterAngry=0, eaterGloat=0, castlesSaved=0;
+let eaterAngry=0, eaterGloat=0, castlesSaved=0, eaterIn=0;
 // How much you are CLOSING IN on Хмарожер this run — driven by sustained clean
 // play (perfect combos + fever). It looms him larger and reddens his eyes: the
 // chase, made legible. A stumble resets the combo and he slips away again.
@@ -355,7 +355,17 @@ function drawCloudEater(){
   const x=far.x, y=far.y-r*0.55+eaterAttack*H*0.05;   // he comes DOWN at you
   const z=ACTS[curAct];
   ctx.save();
-  ctx.translate(x,y);ctx.scale(breathe,breathe);
+  ctx.translate(x,y);
+  // when he comes for you he shoves the clouds aside and swells for a beat
+  if(eaterIn>0){
+    const o=1-eaterIn, ws=wispSprite('246,244,255',1);
+    for(const sd of [-1,1])for(let j=0;j<4;j++){
+      const cw=r*(2.8+j*.5), px=sd*(r*.7+o*W*.6+j*r*.45)-cw/2, py=-r*.7+j*r*.42-cw*.16;
+      ctx.globalAlpha=Math.min(1,eaterIn*1.3);ctx.drawImage(ws,px,py,cw,cw*.31);ctx.drawImage(ws,px+cw*.1,py+cw*.05,cw*.8,cw*.25)}
+    ctx.globalAlpha=1;
+  }
+  const swell=1+.3*Math.sin(Math.min(1,(1-eaterIn)*1.6)*Math.PI)*(eaterIn>0?1:0);
+  ctx.scale(breathe*swell,breathe*swell);
   // Body — a heap of dark lobes; alpha rises as he gets closer/bigger
   const bodyA=Math.min(0.85,0.52+curAct*0.08+eaterGloat*0.2)*(pw?0.62:1);
   ctx.globalAlpha=bodyA;
@@ -378,12 +388,14 @@ function drawCloudEater(){
   const eyeCol=prov>0.05?`rgba(255,${Math.round(210-prov*150)},60,1)`:'#FFD54F';
   ctx.shadowColor=eyeCol;ctx.shadowBlur=r*0.35;
   ctx.fillStyle=eyeCol;
-  for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex,ey,er,er*0.75,0,0,Math.PI*2);ctx.fill()}
+  // he blinks now and then — slow, deliberate
+  const bph=(gt*.23+.37)%1, blink=bph<.035?Math.max(.08,Math.abs(bph/.035*2-1)):1;
+  for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex,ey,er,er*0.75*blink,0,0,Math.PI*2);ctx.fill()}
   ctx.shadowBlur=0;
   // Slit pupils that track the frog's lane
   ctx.fillStyle='#1A1330';
   const look=clamp((visLane-1)*0.5,-0.5,0.5);
-  for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex+look*er*0.8,ey,er*0.28,er*0.62,0,0,Math.PI*2);ctx.fill()}
+  if(blink>.5)for(const sgn of [-1,1]){ctx.beginPath();ctx.ellipse(sgn*ex+look*er*0.8,ey,er*0.28,er*0.62*blink,0,0,Math.PI*2);ctx.fill()}
   // Gloat: a grin when the frog falls
   if(eaterGloat>0.05){
     ctx.strokeStyle='#FFD54F';ctx.lineWidth=Math.max(1.5,r*0.05);ctx.globalAlpha=eaterGloat;
@@ -394,6 +406,7 @@ function drawCloudEater(){
 function updateCloudEater(dt){
   if(eaterAngry>0)eaterAngry=Math.max(0,eaterAngry-dt*1.6);
   if(eaterGloat>0)eaterGloat=Math.max(0,eaterGloat-dt*0.5);
+  if(eaterIn>0)eaterIn=Math.max(0,eaterIn-dt*0.75);
   // You close in on him by stringing clean landings together; fever means you're
   // right on his tail. The bar eases so he looms in and slips away smoothly.
   if(state===ST.PLAY&&alive){
@@ -510,7 +523,7 @@ function updateChase(dt){
   if(!alive||state!==ST.PLAY)return;
   if(!chase){
     if(dist>=chaseNext&&chaseOK()){
-      chase={t:CHASE_T,got:0};eaterAngry=1;shake=Math.max(shake,.3);addPunch(.4);
+      chase={t:CHASE_T,got:0};eaterAngry=1;eaterIn=1;shake=Math.max(shake,.3);addPunch(.4);
       try{sfxRoar()}catch(e){}
       addFloat('👹 ХМАРОЖЕР НАЗДОГАНЯЄ!',W/2,H*.22,'#FF7043',20,true);
       setEmo('😨',1.2);if(navigator.vibrate)navigator.vibrate([40,40,40]);
@@ -536,6 +549,29 @@ function chaseLand(perfect){
     for(let k=0;k<22;k++){const a=rand(0,Math.PI*2),sp=rand(.05,.12);addP(W/2,H*0.3,Math.cos(a)*sp,Math.sin(a)*sp,'#69F0AE',rand(2,4),.7,'s')}
     chase=null;chaseNext=dist+rand(700,1000);
   }
+}
+// A new Chronicle record slides in from the side as a card, holds, and slides out
+let achCards=[];
+function drawAchCard(){
+  if(!achCards.length||state!==ST.PLAY)return;
+  const c=achCards[0];c.t+=.016;
+  const T=3.2;if(c.t>T){achCards.shift();return}
+  const inn=Math.min(1,c.t/.35), out=Math.max(0,(c.t-(T-.35))/.35), e=1-Math.pow(1-inn,3);
+  const w=Math.min(W-32,290), h=c.skin?62:48, x=W-16-w+(1-e)*(w+40)+out*out*(w+40), y=SAFE.t+150;
+  ctx.save();
+  glassPanel(x,y,w,h,16);
+  ctx.strokeStyle='rgba(255,224,130,.75)';ctx.lineWidth=1.5;rr(x,y,w,h,16);ctx.stroke();
+  // a sheen runs over it once it lands
+  const su=(c.t-.35)/.6;if(su>0&&su<1.4){ctx.save();rr(x,y,w,h,16);ctx.clip();const sx=x-60+su*(w+120);
+    const g=ctx.createLinearGradient(sx-40,y,sx+40,y+h);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,240,190,.35)');g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.restore()}
+  const ip=1+.25*Math.exp(-Math.max(0,c.t-.3)*6)*Math.cos(Math.max(0,c.t-.3)*14);
+  ctx.save();ctx.translate(x+28,y+h/2);ctx.scale(ip,ip);ctx.font='24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🏆',0,1);ctx.restore();
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='#FFE082';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('НОВИЙ ЗАПИС ЛІТОПИСУ',x+52,y+15);
+  ctx.fillStyle='#fff';ctx.font='900 14px Exo2,sans-serif';ctx.fillText(fitText(c.name,w-64),x+52,y+32);
+  if(c.skin){ctx.fillStyle='#9CFFC4';ctx.font='800 11px Exo2,sans-serif';ctx.fillText(fitText('🐸 Новий скін: '+c.skin,w-64),x+52,y+49)}
+  ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 function drawChaseBanner(){
   if(!chase)return;
@@ -2035,8 +2071,7 @@ function achCheck(quiet){
     if(quiet)continue;
     achNewRun++;
     if(state===ST.PLAY){
-      addFloat(`🏆 ЛІТОПИС: ${A.name}`,W/2,H*.24,'#FFE082',17,true);
-      const sk=skinOf(A.k);if(sk)addFloat(`🐸 НОВИЙ СКІН: ${sk.n}`,W/2,H*.24+24,'#9CFFC4',15,true);
+      const sk=skinOf(A.k);achCards.push({name:A.name,skin:sk?sk.n:null,t:0});
       try{sfxPU()}catch(e){}
     }
   }
@@ -4188,7 +4223,7 @@ function startGame(){
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
-  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;resRunStart();huntRunStart();boosterRunStart();Prog.save();
+  resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;achCards=[];resRunStart();huntRunStart();boosterRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
   shieldCharges+=modLv('shield')>0?1:0;
   if(shieldAvail()>0&&(Prog.d.stats.runs<6||shieldCharges===0))shieldHintT=3.2;
@@ -5386,13 +5421,13 @@ function drawPaintedWorld(w){
 const BG_LIFE={0:{cl:'255,255,255',ca:.9,birds:'#3b4a6b'},1:{cl:'230,190,255',ca:.5,cars:1},
   2:{cl:'255,190,150',ca:.45,bolt:1},3:{cl:'210,190,255',ca:.45,birds:'#1a1240',stars:1},4:{cl:'190,235,255',ca:.4,stars:1,motes:1}};
 const _wisp={};
-function wispSprite(col){
-  if(_wisp[col])return _wisp[col];
+function wispSprite(col,al){
+  al=al||.55;const id=col+al;if(_wisp[id])return _wisp[id];
   const c=document.createElement('canvas');c.width=256;c.height=80;const g=c.getContext('2d');
   for(const [x,y,r] of [[70,48,40],[120,38,46],[175,46,40],[215,52,28],[40,54,26]]){
-    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(${col},.55)`);gr.addColorStop(.6,`rgba(${col},.25)`);gr.addColorStop(1,`rgba(${col},0)`);
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(${col},${al})`);gr.addColorStop(.6,`rgba(${col},${al*.5})`);gr.addColorStop(1,`rgba(${col},0)`);
     g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill()}
-  return _wisp[col]=c;
+  return _wisp[id]=c;
 }
 function drawBgLife(w,px){
   const L=BG_LIFE[w];if(!L)return;
@@ -8600,7 +8635,7 @@ function drawHUD(){
     }
   }
 
-  drawChaseBanner();
+  drawChaseBanner();drawAchCard();
   // --- bottom left: pause ---
   if(state===ST.PLAY&&alive)drawPauseBtn();
   {let cx=L+54;const cy=pauseBtnC().y-12;
@@ -9411,6 +9446,11 @@ function drawKeyIco(x,y,r){
   ctx.fillStyle=g;
   ctx.beginPath();ctx.rect(0,-r*.16,r*1.15,r*.32);ctx.rect(r*.7,r*.1,r*.18,r*.34);ctx.rect(r*.95,r*.1,r*.18,r*.26);ctx.fill();ctx.stroke();
   ctx.restore();
+  // every few seconds a glint catches the key's bow
+  const gp=((gt*.32+x*.0137+y*.0091)%1+1)%1;
+  if(r>=8&&gp<.1){const a=Math.sin(gp/.1*Math.PI), gx=x-r*.32, gy=y-r*.32, l=r*.9*a;
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,'+a.toFixed(3)+')';ctx.lineWidth=Math.max(1,r*.12);ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(gx-l,gy);ctx.lineTo(gx+l,gy);ctx.moveTo(gx,gy-l);ctx.lineTo(gx,gy+l);ctx.stroke();ctx.restore()}
 }
 // ========== POST-RUN SCREEN ==========
 // One dark glass panel, read top to bottom: what happened, what it paid, what
@@ -9529,7 +9569,17 @@ function drawOver(){
     }else if(k==='xp'){
       const d=Prog.d;
       ctx.textAlign='left';ctx.textBaseline='middle';
-      ctx.fillStyle='#8FF3FF';ctx.font='900 13px Exo2,sans-serif';ctx.fillText('РІВЕНЬ '+d.lvl,ix,y+10);
+      if(runLevelUps.length){
+        // a level gained: the badge pops in gold and little stars float up off it
+        const lt=overT-1.0, lp=lt>0?1+.35*Math.exp(-lt*5)*Math.cos(lt*12):1;
+        ctx.save();ctx.translate(ix,y+10);ctx.scale(lp,lp);
+        ctx.fillStyle=lt>0?'#FFE082':'#8FF3FF';ctx.font='900 13px Exo2,sans-serif';ctx.fillText('РІВЕНЬ '+d.lvl,0,0);ctx.restore();
+        if(lt>0)for(let j=0;j<7;j++){const ph=(lt*.6+hash2(j,17))%1, sx=ix+8+hash2(j,19)*60, sy=y+10-ph*34, rr2=2.4*(1-ph)+1;
+          ctx.globalAlpha=Math.sin(ph*Math.PI);ctx.fillStyle=j%2?'#FFD54F':'#FFFFFF';ctx.beginPath();
+          for(let q=0;q<4;q++){const qa=q*Math.PI/2;ctx.lineTo(sx+Math.cos(qa)*rr2*1.8,sy+Math.sin(qa)*rr2*1.8);ctx.lineTo(sx+Math.cos(qa+Math.PI/4)*rr2*.5,sy+Math.sin(qa+Math.PI/4)*rr2*.5)}
+          ctx.closePath();ctx.fill()}
+        ctx.globalAlpha=1;
+      }else{ctx.fillStyle='#8FF3FF';ctx.font='900 13px Exo2,sans-serif';ctx.fillText('РІВЕНЬ '+d.lvl,ix,y+10);}
       ctx.textAlign='right';ctx.fillStyle='#fff';ctx.font='800 12px Exo2,sans-serif';
       ctx.fillText(`+${runXP|0} XP  ·  ${d.xp}/${xpNeed(d.lvl)}`,ix+iw,y+10);
       drawBar(ix,y+22,iw,9,d.xp/xpNeed(d.lvl)*Math.min(1,goT*1.4),'#1FA2FF','#36E0FF');
