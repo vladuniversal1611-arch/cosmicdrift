@@ -1078,7 +1078,7 @@ const FEVER_SHIELDS=[0,1,1,2,2,3], FEVER_COIN=[1,2,2,2,3,3];
 // Cost to REACH a level. Coins for the basics, fragments (from chests) so
 // progress follows play, core shards for the top two levels.
 // Calibrated against measured income: ~200 coins a casual run, ~650 a strong 550 m one.
-const UP_COST=[null,null,{c:350,f:4,s:0},{c:900,f:8,s:0},{c:2000,f:14,s:12},{c:4000,f:22,s:30}];
+const UP_COST=[null,null,{c:500,f:4,s:0},{c:1400,f:8,s:0},{c:3000,f:14,s:12},{c:6000,f:22,s:30}];
 
 function progDefaults(){
   return {v:PROG_V, xp:0, lvl:1, shards:0,
@@ -1885,16 +1885,16 @@ function resSettle(){
     try{__LS.setItem('fCoins',''+coins)}catch(e){}
   }
 }
-// swap a stuck mission: one free a day, then 50 / 100 / 200 coins
+// swap a stuck mission: 900 coins, doubling with each swap that day — or 2 rewarded ads
 function _dayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function rerollCost(){
   const rr=Prog.d.res.rr;if(rr.day!==_dayKey()){rr.day=_dayKey();rr.n=0}
-  return rr.n===0?0:[50,100,200][Math.min(2,rr.n-1)];
+  return 900*Math.pow(2,Math.min(6,rr.n));
 }
-function resReroll(i){
+function resReroll(i,free){
   const R=Prog.d.res, m=R.set[i];if(!m||m.done)return false;
-  const c=rerollCost();if(coins<c)return false;
-  coins-=c;R.rr.n++;
+  const c=rerollCost();if(!free&&coins<c)return false;
+  if(!free){coins-=c;R.rr.n++}
   const g=resLib(m.k).g;R.set.splice(i,1);
   const nm=resNew([g]);nm.tier=m.tier;nm.need=resTarget(resLib(nm.k),m.tier);R.set.splice(i,0,nm);
   try{__LS.setItem('fCoins',''+coins)}catch(e){}
@@ -2081,23 +2081,23 @@ const ACH=[
   {k:'p2', g:'ТОЧНІСТЬ',ico:'✨', name:'Снайпер',            txt:'1 000 PERFECT загалом',            n:1000,  v:lifePerf,          rw:{frag:1}},
   {k:'p3', g:'ТОЧНІСТЬ',ico:'🎯', name:'Бездоганний',        txt:'5 000 PERFECT загалом',            n:5000,  v:lifePerf,          rw:{shards:2}},
   {k:'c1', g:'МАЙСТЕРНІСТЬ',ico:'🚀', name:'Перший політ',   txt:'Злети на дах',                     n:1,     v:()=>achLife('roof'),   rw:{coins:100}},
-  {k:'c2', g:'МАЙСТЕРНІСТЬ',ico:'🏙️', name:'Житель дахів',   txt:'Злети на дах 25 разів',            n:25,    v:()=>achLife('roof'),   rw:{frag:1}},
-  {k:'c3', g:'МАЙСТЕРНІСТЬ',ico:'🌆', name:'Король дахів',   txt:'Злети на дах 100 разів',           n:100,   v:()=>achLife('roof'),   rw:{chest:1}},
+  {k:'c2', g:'МАЙСТЕРНІСТЬ',ico:'🏙️', name:'Житель дахів',   txt:'Злети на дах 25 разів загалом',            n:25,    v:()=>achLife('roof'),   rw:{frag:1}},
+  {k:'c3', g:'МАЙСТЕРНІСТЬ',ico:'🌆', name:'Король дахів',   txt:'Злети на дах 100 разів загалом',           n:100,   v:()=>achLife('roof'),   rw:{chest:1}},
   {k:'f1', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перший розряд',      txt:'Увімкни Fever',                    n:1,     v:()=>achLife('fever'),  rw:{coins:100}},
-  {k:'f2', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перевантаження',     txt:'Fever 50 разів',                   n:50,    v:()=>achLife('fever'),  rw:{frag:1}},
-  {k:'f3', g:'ТОЧНІСТЬ',ico:'⏱', name:'Жива блискавка',     txt:'10 хвилин у Fever',                n:600,   v:()=>achLife('feverT'), rw:{shards:1}},
-  {k:'m1', g:'СКАРБИ',  ico:'🪙', name:'Скарбничка',         txt:'Збери 2 000 монет',                n:2000,  v:()=>achLife('coins'),  rw:{coins:150}},
-  {k:'m2', g:'СКАРБИ',  ico:'🪙', name:'Скарбник',           txt:'Збери 25 000 монет',               n:25000, v:()=>achLife('coins'),  rw:{frag:2}},
+  {k:'f2', g:'ТОЧНІСТЬ',ico:'⚡', name:'Перевантаження',     txt:'Fever 50 разів загалом',                   n:50,    v:()=>achLife('fever'),  rw:{frag:1}},
+  {k:'f3', g:'ТОЧНІСТЬ',ico:'⏱', name:'Жива блискавка',     txt:'10 хвилин у Fever загалом',                n:600,   v:()=>achLife('feverT'), rw:{shards:1}},
+  {k:'m1', g:'СКАРБИ',  ico:'🪙', name:'Скарбничка',         txt:'Збери 2 000 монет загалом',                n:2000,  v:()=>achLife('coins'),  rw:{coins:150}},
+  {k:'m2', g:'СКАРБИ',  ico:'🪙', name:'Скарбник',           txt:'Збери 25 000 монет загалом',               n:25000, v:()=>achLife('coins'),  rw:{frag:2}},
   {k:'m3', g:'СКАРБИ',  ico:'💰', name:'Золотий дощ',        txt:'500 монет за один забіг',          n:500,   v:()=>Math.max(achData().st.bestCoins|0,state===ST.PLAY?runCoins:0), rw:{shards:1}},
-  {k:'a1', g:'СКАРБИ',  ico:'🌠', name:'Ловець зірок',       txt:'300 монет у повітрі',              n:300,   v:()=>achLife('air'),    rw:{coins:150}},
-  {k:'g1', g:'СКАРБИ',  ico:'💎', name:'Діамантовий блиск',  txt:'Збери 100 діамантів',              n:100,    v:()=>achLife('gems'),   rw:{frag:1}},
+  {k:'a1', g:'СКАРБИ',  ico:'🌠', name:'Ловець зірок',       txt:'300 монет у повітрі загалом',              n:300,   v:()=>achLife('air'),    rw:{coins:150}},
+  {k:'g1', g:'СКАРБИ',  ico:'💎', name:'Діамантовий блиск',  txt:'Збери 100 діамантів загалом',              n:100,    v:()=>achLife('gems'),   rw:{frag:1}},
   {k:'o1', g:'СКАРБИ',  ico:'🎁', name:'Шукач скарбів',      txt:'Відкрий 25 скринь',                n:25,    v:()=>achData().st.chest|0, rw:{shards:1}},
-  {k:'s1', g:'МАЙСТЕРНІСТЬ',ico:'↔️',name:'Серфер',          txt:'200 рухомих платформ',             n:200,   v:()=>achLife('mov'),    rw:{frag:1}},
-  {k:'s2', g:'МАЙСТЕРНІСТЬ',ico:'🛤', name:'Довга дорога',   txt:'300 довгих платформ',              n:300,   v:()=>achLife('long'),   rw:{coins:150}},
-  {k:'s3', g:'МАЙСТЕРНІСТЬ',ico:'🦘', name:'Кенгуру',        txt:'100 високих стрибків',             n:100,   v:()=>achLife('leap'),   rw:{coins:150}},
-  {k:'s4', g:'МАЙСТЕРНІСТЬ',ico:'🛡', name:'Ангел-охоронець',txt:'Щит рятує 10 разів',               n:10,    v:()=>achLife('shSave'), rw:{frag:1}},
-  {k:'s5', g:'МАЙСТЕРНІСТЬ',ico:'🌀', name:'Друге дихання',  txt:'Подвійний стрибок рятує 10 разів', n:10,    v:()=>achLife('djSave'), rw:{frag:1}},
-  {k:'s6', g:'МАЙСТЕРНІСТЬ',ico:'🌩', name:'Громовідвід',    txt:'Ухились від 100 блискавок',        n:100,   v:()=>achLife('bolt'),   rw:{shards:1}},
+  {k:'s1', g:'МАЙСТЕРНІСТЬ',ico:'↔️',name:'Серфер',          txt:'200 рухомих платформ загалом',             n:200,   v:()=>achLife('mov'),    rw:{frag:1}},
+  {k:'s2', g:'МАЙСТЕРНІСТЬ',ico:'🛤', name:'Довга дорога',   txt:'300 довгих платформ загалом',              n:300,   v:()=>achLife('long'),   rw:{coins:150}},
+  {k:'s3', g:'МАЙСТЕРНІСТЬ',ico:'🦘', name:'Кенгуру',        txt:'100 високих стрибків загалом',             n:100,   v:()=>achLife('leap'),   rw:{coins:150}},
+  {k:'s4', g:'МАЙСТЕРНІСТЬ',ico:'🛡', name:'Ангел-охоронець',txt:'Щит рятує 10 разів загалом',               n:10,    v:()=>achLife('shSave'), rw:{frag:1}},
+  {k:'s5', g:'МАЙСТЕРНІСТЬ',ico:'🌀', name:'Друге дихання',  txt:'Подвійний стрибок рятує 10 разів загалом', n:10,    v:()=>achLife('djSave'), rw:{frag:1}},
+  {k:'s6', g:'МАЙСТЕРНІСТЬ',ico:'🌩', name:'Громовідвід',    txt:'Ухились від 100 блискавок загалом',        n:100,   v:()=>achLife('bolt'),   rw:{shards:1}},
   {k:'l1', g:'МАЙСТЕРНІСТЬ',ico:'🧪', name:'Інженер',        txt:'15 рівнів модулів сумарно',        n:15,    v:modSum,            rw:{frag:2}},
   {k:'l2', g:'МАЙСТЕРНІСТЬ',ico:'⚙️', name:'Майстер модуля', txt:'Прокачай модуль до максимуму',     n:5,     v:modTop,            rw:{shards:2}},
   {k:'w0', g:'ІСТОРІЯ', ico:'🌤️', name:'Вихід із Саду',      txt:'Пройди Хмарний Сад',               n:1,     v:()=>worldDone(0),  rw:{coins:150}},
@@ -2237,11 +2237,13 @@ function drawWard(){
     if(!own){ctx.font='20px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';drawEmo('🔒',r.x+r.w/2,r.y+10+ih*.55,26)}
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle=own?'#fff':'rgba(200,215,240,.7)';
-    ctx.fillText(fitText(S.n,r.w-8),r.x+r.w/2,r.y+r.h-38);
+    ctx.fillText(fitText(S.n,r.w-8),r.x+r.w/2,r.y+r.h-(own?38:46));
     ctx.font='800 10px Exo2,sans-serif';
     if(on){ctx.fillStyle='#9CFFC4';ctx.fillText('✓ ОБРАНО',r.x+r.w/2,r.y+r.h-18)}
     else if(own){ctx.fillStyle=fresh?'#FFE082':UI.dim;ctx.fillText(fresh?'НОВИЙ!':'ОБРАТИ',r.x+r.w/2,r.y+r.h-18)}
-    else{const A=ACH.find(a=>a.k===S.ach);ctx.fillStyle=UI.textGold;ctx.fillText(fitText('🏆 '+(A?A.name:''),r.w-8),r.x+r.w/2,r.y+r.h-18)}
+    else{const A=ACH.find(a=>a.k===S.ach);ctx.fillStyle=UI.textGold;ctx.fillText(fitText('🏆 '+(A?A.name:''),r.w-8),r.x+r.w/2,r.y+r.h-30);
+      if(A){const v=Math.min(A.n,achVal(A)|0);drawBar(r.x+12,r.y+r.h-21,r.w-24,5,v/A.n,'#E89A2C','#FFD36B');
+        ctx.font='800 9px Exo2,sans-serif';ctx.fillStyle='#FFE082';ctx.fillText(`${fmtN(v)} / ${fmtN(A.n)}`,r.x+r.w/2,r.y+r.h-10)}}
   });
   ctx.restore();
   const hg=ctx.createLinearGradient(0,0,0,L.top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
@@ -2292,11 +2294,11 @@ let runStockSh=false, runBoost={hs:0,x2:false,res:false}, hsEnd=0;
 function stockShReady(){return !runStockSh&&invSh()>0}
 function shieldAvail(){return shieldCharges+(stockShReady()?1:0)}
 const TRAILS=[
-  {id:'spark',  n:'Іскри',      p:2000,  col:()=>Math.random()<.5?'#FFE082':'#FFFFFF', tp:'s', vy:[.01,.03]},
-  {id:'snow',   n:'Сніжинки',   p:5000,  col:()=>Math.random()<.5?'#E3F6FF':'#9FE3FF', tp:'c', vy:[.005,.015]},
-  {id:'fire',   n:'Полум’я',    p:8000,  col:()=>['#FFB300','#FF6D00','#FF3D00'][Math.random()*3|0], tp:'c', vy:[-.03,-.01]},
-  {id:'neon',   n:'Неон',       p:12000, col:()=>Math.random()<.5?'#FF3DDB':'#36E0FF', tp:'c', vy:[-.005,.01]},
-  {id:'rainbow',n:'Веселка',    p:25000, col:()=>`hsl(${(gt*240+Math.random()*60)%360},95%,62%)`, tp:'s', vy:[-.005,.015]},
+  {id:'spark',  n:'Іскри',      p:3000,  col:()=>Math.random()<.5?'#FFE082':'#FFFFFF', tp:'s', vy:[.01,.03]},
+  {id:'snow',   n:'Сніжинки',   p:7500,  col:()=>Math.random()<.5?'#E3F6FF':'#9FE3FF', tp:'c', vy:[.005,.015]},
+  {id:'fire',   n:'Полум’я',    p:12000,  col:()=>['#FFB300','#FF6D00','#FF3D00'][Math.random()*3|0], tp:'c', vy:[-.03,-.01]},
+  {id:'neon',   n:'Неон',       p:18000, col:()=>Math.random()<.5?'#FF3DDB':'#36E0FF', tp:'c', vy:[-.005,.01]},
+  {id:'rainbow',n:'Веселка',    p:37500, col:()=>`hsl(${(gt*240+Math.random()*60)%360},95%,62%)`, tp:'s', vy:[-.005,.015]},
 ];
 function curTrail(){const id=Prog.d&&Prog.d.trail;return TRAILS.find(t=>t.id===id&&Prog.d.trails.includes(id))||null}
 function emitTrail(x,y){
@@ -2305,19 +2307,19 @@ function emitTrail(x,y){
 }
 const SHOP=[
   {sec:'КЛЮЧІ ЯДРА',sub:'продовжити забіг'},
-  {id:'key1',ico:'key',  name:'Ключ Ядра',        txt:'Продовжити забіг після падіння', p:2500, buy:d=>{d.keys=(d.keys|0)+1}},
-  {id:'key3',ico:'key',  name:'3 ключі Ядра',     txt:'Вигідніше на 1 000 монет',      p:6500, buy:d=>{d.keys=(d.keys|0)+3}},
+  {id:'key1',ico:'key',  name:'Ключ Ядра',        txt:'Продовжити забіг після падіння', p:3750, ad:1, buy:d=>{d.keys=(d.keys|0)+1}},
+  {id:'key3',ico:'key',  name:'3 ключі Ядра',     txt:'Вигідніше на 1 500 монет',      p:9750, ad:2, buy:d=>{d.keys=(d.keys|0)+3}},
   {sec:'ЩИТИ В ЗАПАС',sub:'2× тап · один за забіг'},
   {id:'sh1', ico:'shield',name:'Щит',             txt:'Запасний заряд щита',           p:300,  buy:d=>{inv().sh++}},
   {id:'sh5', ico:'shield',name:'5 щитів',          txt:'Вигідніше на 300 монет',        p:1200, buy:d=>{inv().sh+=5}},
   {sec:'БУСТЕРИ',sub:'на наступний забіг'},
-  {id:'hs200',ico:'🚀',  name:'Ривок 200 м',      txt:'Автопольот на старті забігу',   p:500,  arm:'hs', v:200},
-  {id:'hs500',ico:'🚀',  name:'Ривок 500 м',      txt:'Далекий автопольот на старті',  p:1500, arm:'hs', v:500},
-  {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:400,  arm:'x2'},
-  {id:'res2',ico:'🔷',   name:'Резонанс +2',      txt:'Множник очок +2 на забіг',      p:600,  arm:'res'},
+  {id:'hs200',ico:'🚀',  name:'Ривок 200 м',      txt:'Автопольот на старті забігу',   p:1000,  arm:'hs', v:200},
+  {id:'hs500',ico:'🚀',  name:'Ривок 500 м',      txt:'Далекий автопольот на старті',  p:3000, arm:'hs', v:500},
+  {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:1100,  arm:'x2'},
+  {id:'res2',ico:'🔷',   name:'Резонанс +2',      txt:'Множник очок +2 на забіг',      p:5000, ad:1,  arm:'res'},
   {sec:'СКРИНІ',sub:'відкриваються в розділі СКРИНІ'},
-  {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:500,  buy:d=>{d.chests.wood++}},
-  {id:'chC', chest:1,    name:'Кришталева скриня',txt:'Більше фрагментів · шанс на ключ',p:2500,buy:d=>{d.chests.crystal++}},
+  {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:800,  buy:d=>{d.chests.wood++}},
+  {id:'chC', chest:1,    name:'Кришталева скриня',txt:'Більше фрагментів · шанс на ключ',p:3500,buy:d=>{d.chests.crystal++}},
   {sec:'СЛІДИ СТРИБКА',sub:'видно в кожному стрибку'},
   ...TRAILS.map(t=>({id:'tr_'+t.id,trail:t.id,name:t.n,txt:'Слід за Бульбіком у польоті',p:t.p})),
 ];
@@ -2342,6 +2344,28 @@ function shopBuy(it,x,y){
   try{__LS.setItem('fCoins',''+coins)}catch(e){}
   Prog.save();sfxPU();addTapRipple(x,y);
   shopMsg=it.chest!=null?'Скриня чекає в розділі СКРИНІ':it.arm?'Діятиме в наступному забігу':it.trail?'Слід обрано!':'Куплено!';shopMsgT=2;
+}
+// the same goods for rewarded ads: n ads in a row, nothing given if one fails
+function shopAdRect(L,y){const b=shopBtnRect(L,y),w=74;return {x:b.x-w-6,y:b.y,w,h:b.h}}
+function watchAds(n,ok,why){
+  if(adBusy())return;
+  adRun={need:n,done:0};
+  const next=()=>Ads.rewarded(r=>{
+    if(!adRun)return;
+    if(!r){adRun=null;shopMsg='Реклама не завантажилась — спробуй ще';shopMsgT=2.5;sfxLand();return}
+    adRun.done++;
+    if(adRun.done>=adRun.need){adRun=null;ok()}else next();
+  });
+  next();
+}
+function shopBuyAd(it,x,y){
+  const st=shopState(it), d=Prog.d;
+  if(st==='armed'||st==='busy'){shopMsg=st==='armed'?'Вже діє на наступний забіг':'Ривок уже куплено на наступний забіг';shopMsgT=2;sfxLand();return}
+  watchAds(it.ad,()=>{
+    if(it.arm){if(it.arm==='hs')d.arm.hs=it.v;else d.arm[it.arm]=true}else it.buy(d);
+    Prog.save();sfxPU();addTapRipple(x,y);
+    shopMsg=it.arm?'Діятиме в наступному забігу':'Отримано за рекламу!';shopMsgT=2;
+  });
 }
 // start of an endless run: arm what was bought
 function boosterRunStart(){
@@ -2392,7 +2416,7 @@ function drawStore(){
     glassPanel(L.x,y,L.cw,L.rh,14);
     if(st==='armed'||st==='on'){ctx.save();ctx.strokeStyle='rgba(120,255,170,.85)';ctx.lineWidth=2;rr(L.x+1,y+1,L.cw-2,L.rh-2,13);ctx.stroke();ctx.restore()}
     ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';drawShopIco(it,L.x+32,y+L.rh/2);ctx.restore();
-    const tx=L.x+62, tw=L.cw-62-112;
+    const tx=L.x+62, tw=L.cw-62-112-(it.ad&&!(st==='armed'||st==='on'||st==='own')?80:0);
     ctx.textAlign='left';ctx.textBaseline='middle';
     ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(fitText(it.name,tw),tx,y+22);
     ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;ctx.fillText(fitText(it.txt,tw),tx,y+42);
@@ -2404,6 +2428,9 @@ function drawStore(){
       if(st==='own'){uiPill(b.x,b.y,b.w,b.h,0);ctx.fillStyle=UI.text}
       ctx.fillText(st==='armed'?'✓ АКТИВНО':st==='on'?'✓ ОБРАНО':'ОБРАТИ',b.x+b.w/2,b.y+b.h/2+1);
     }else{
+      if(it.ad&&st!=='busy'){const a=shopAdRect(L,y),ga=ctx.createLinearGradient(0,a.y,0,a.y+a.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
+        pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.save();ctx.font='900 12px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+        ctx.fillText('📺 ×'+it.ad,a.x+a.w/2,a.y+a.h/2+1);ctx.restore()}
       ctx.save();if(st!=='buy')ctx.globalAlpha=.5;
       const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
       pillFill('btnO',g,b.x,b.y,b.w,b.h);
@@ -2432,7 +2459,8 @@ function storeTap(x,y){
     if(r.it.sec)continue;
     const ry=r.y-uiScroll;if(y<ry||y>ry+r.h)continue;
     const b=shopBtnRect(L,ry);
-    if(x>=b.x-10&&x<=b.x+b.w+10)shopBuy(r.it,x,y);
+    if(x>=b.x-4&&x<=b.x+b.w+10)shopBuy(r.it,x,y);
+    else if(r.it.ad){const a=shopAdRect(L,ry);if(x>=a.x-6&&x<=a.x+a.w+3)shopBuyAd(r.it,x,y)}
     return;
   }
 }
@@ -10034,6 +10062,8 @@ function huntH(L){return huntOn()?L.secH+HUNT_CARD:0}
 function weekCardY(L){return L.top+L.secH+RES_CARD+3*(L.rowH+L.gap)+huntH(L)+L.secH+3*(L.rowH+L.gap)+L.secH-uiScroll}
 function resRowY(L,i){return L.top+L.secH+RES_CARD+i*(L.rowH+L.gap)-uiScroll}
 function rerollRect(L,i){const y=resRowY(L,i);return {x:L.x+L.cw-96,y:y+8,w:84,h:26}}
+function rerollAdRect(L,i){const r=rerollRect(L,i);return {x:r.x,y:r.y+28,w:r.w,h:22}}
+let missionNarrow=false;
 function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
   const x=L.x;
   glassPanel(x,y,L.cw,L.rowH,14);
@@ -10042,7 +10072,7 @@ function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
   drawEmo(ico,x+28,y+L.rowH/2+1,22);
   ctx.textAlign='left';ctx.font='800 14px Exo2,sans-serif';ctx.fillStyle=done?'#9CFFC4':'#fff';
   ctx.fillText(fitText(text,L.cw-160),x+54,y+21);
-  const bw=L.cw-54-110;
+  const bw=L.cw-54-(missionNarrow&&!done?158:110);
   drawBar(x+54,y+36,bw,7,Math.min(1,prog/need),done?'#2EDB77':'#1FA2FF',done?'#9CFFC4':'#36E0FF');
   ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.8)';
   ctx.fillText(done?'✓ ВИКОНАНО':`${Math.min(prog,need)}/${need}`,x+54+bw+8,y+40);
@@ -10079,18 +10109,22 @@ function drawMissions(){
   ctx.fillText(fitText('Нагорода: '+resRewardTxt(resReward(rk+1))+' · множник очок',L.cw-100),L.x+86,y+46);
   y+=RES_CARD;
   const cost=rerollCost();
+  missionNarrow=true;
   R.set.forEach((m,i)=>{
     const Lb=resLib(m.k);
     drawMissionRow(L,y,Lb.ico,Lb.txt(m.need),m.done?m.need:m.p,m.need,m.done,(rx,ry)=>{
       if(m.done)return;
-      const r=rerollRect(L,i);
-      uiPill(r.x,r.y,r.w,r.h,cost?2:0);
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 11px Exo2,sans-serif';
-      ctx.fillStyle=cost?UI.textGold:UI.text;
-      ctx.fillText(cost?`⟳ ${cost} 🪙`:'⟳ ЗАМІНИТИ',r.x+r.w/2,r.y+r.h/2+.5);
+      const r=rerollRect(L,i), ok=coins>=cost;
+      ctx.save();if(!ok)ctx.globalAlpha=.55;
+      const g=ctx.createLinearGradient(0,r.y,0,r.y+r.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');pillFill('btnO',g,r.x,r.y,r.w,r.h);
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 11px Exo2,sans-serif';ctx.fillStyle='#3A1E00';
+      ctx.fillText(`⟳ ${fmtN(cost)}`,r.x+r.w/2+7,r.y+r.h/2+.5);drawCoinIco(r.x+r.w/2-ctx.measureText(`⟳ ${fmtN(cost)}`).width/2-1,r.y+r.h/2,6);ctx.restore();
+      const a=rerollAdRect(L,i),ga=ctx.createLinearGradient(0,a.y,0,a.y+a.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
+      pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.fillStyle='#fff';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('⟳ 📺 ×2',a.x+a.w/2,a.y+a.h/2+.5);
     });
     y+=L.rowH+L.gap;
   });
+  missionNarrow=false;
   if(huntOn()){
     const h=huntSync();
     drawSecHead(L,y,'ПОЛЮВАННЯ НА ІСКРИ','нові через '+_untilTxt(_msToMidnight()));y+=L.secH;
@@ -10291,10 +10325,12 @@ function missionsTap(x,y){
   if(y<L.top-6)return;
   for(let i=0;i<3;i++){
     const r=rerollRect(L,i), m=Prog.d.res.set[i];
-    if(m&&!m.done&&x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+6){
+    if(m&&!m.done&&x>=r.x-6&&x<=r.x+r.w+6&&y>=r.y-6&&y<=r.y+r.h+1){
       if(resReroll(i))sfxPU();else{sfxLand();addTapRipple(x,y)}
       return;
     }
+    const a=rerollAdRect(L,i);
+    if(m&&!m.done&&x>=a.x-6&&x<=a.x+a.w+6&&y>=a.y-1&&y<=a.y+a.h+6){watchAds(2,()=>{if(resReroll(i,true))sfxPU()});return}
   }
   if(y<wy||y>wy+L.weekH)return;
   if(!weekOn())return;
