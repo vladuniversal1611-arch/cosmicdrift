@@ -9484,8 +9484,10 @@ function btnSheen(x,y,w,h,ph){
   g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.6)');g.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.restore();
 }
+// PLAY pill size, shared by drawing, tapping and the menu layout
+function playBtnSize(){const bw=Math.min(W*.58,250);return {bw,bh:Math.round(bw*.23)}}
 function drawMenuPlayBtn(cx,by){
-  const bw=W*.68,bh=64,bx=cx-bw/2;
+  const {bw,bh}=playBtnSize(),bx=cx-bw/2;
   const pulse=(1+Math.sin(gt*2.5)*.012)*pressK(bx,by,bw,bh);
 
   if(_ok('btn')){
@@ -9505,14 +9507,14 @@ function drawMenuPlayBtn(cx,by){
 
   // play glyph + label, sized to sit inside the pill
   const label='ГРАТИ';
-  ctx.font='900 27px Exo2,sans-serif';
+  ctx.font=`900 ${Math.round(bh*.44)}px Exo2,sans-serif`;
   const tw=ctx.measureText(label).width;
-  const gap=13, gw=26;
+  const gap=Math.round(bh*.2), gw=Math.round(bh*.4);
   const groupW=gw+gap+tw;
   const gx=cx-groupW/2+gw/2, tx=cx-groupW/2+gw+gap;
   const my=by+bh/2;
 
-  if(!drawImgH('play',gx,my,30)){
+  if(!drawImgH('play',gx,my,Math.round(bh*.46))){
     ctx.fillStyle='#fff';ctx.beginPath();
     ctx.moveTo(gx-9,my-13);ctx.lineTo(gx+13,my);ctx.lineTo(gx-9,my+13);ctx.closePath();ctx.fill();
   }
@@ -9667,7 +9669,8 @@ function menuLayout(){
   const navTop=H-80-6-SAFE.b;
   const journey=_ok('logoArt')?navTop-14-46:Math.min(H*.57+78+62+12,navTop-12-46);   // the lower group sits on the dock
   const prog=journey-12-62;
-  return {play:_ok('logoArt')?prog-14-64:Math.min(H*.57,prog-14-64),prog,journey};
+  const pb=playBtnSize().bh;
+  return {play:_ok('logoArt')?prog-14-pb:Math.min(H*.57,prog-14-pb),prog,journey};
 }
 // Which world PLAY runs in. One world at first; the story adds the rest.
 function worldPickRect(){const art=_ok('uiWorldSel'),h=art?38:30,y=menuLayout().play-14-h, w=Math.min(W*.78,300);return {x:W/2-w/2,y,w,h}}
@@ -9748,7 +9751,7 @@ function menuTap(x,y){
   {const r=skinChipRect();if(x>=r.x-4&&x<=r.x+r.w+4&&y>=r.y-4&&y<=r.y+r.h+4){openScreen(ST.WARD);return}}
   if(Math.hypot(x-MENU_ANIM.x,y-(MENU_ANIM.y-30))<42){openScreen(ST.WARD);return}
   // PLAY button
-  const bw=W*.68,bh=64,bx=W/2-bw/2,by=menuLayout().play;
+  const {bw,bh}=playBtnSize(),bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
   {const ML2=menuLayout(), pw2=W*.78;
    if(y>=ML2.prog&&y<=ML2.prog+62&&Math.abs(x-W/2)<=pw2/2){openScreen(ST.MISSIONS);return}}
@@ -10584,13 +10587,15 @@ function drawFlyFx(dt){
   });
   ctx.restore();
 }
+// big wallets stay inside their chips: 125K, 2.00M
+function fmtCur(v){v=Math.floor(v);if(v<100000)return String(v);if(v<1e6)return Math.floor(v/1000)+'K';return (v/1e6).toFixed(v<1e7?2:1).replace(/\.?0+$/,'')+'M'}
 function drawCurrencies(row){
   const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
   if(keysHave()>0)rows.push({k:'keys',v:keysHave(),ico:drawKeyIco,col:'#FFD54F'});
   let y=12+SAFE.t;
   const tight=row&&rows.length>2, fnt=tight?'900 13px Exo2,sans-serif':'900 15px Exo2,sans-serif';
   ctx.font=fnt;
-  const tw=Math.max(...rows.map(r=>ctx.measureText(String(r.v)).width));
+  const tw=Math.max(...rows.map(r=>ctx.measureText(fmtCur(r.v)).width));
   const cw=tight?Math.max(52,30+tw+10):Math.max(row?62:74,34+tw+16), ch=row?34:30;
   let x=W-12-SAFE.r-cw;
   if(row)rows.reverse();
@@ -10601,10 +10606,10 @@ function drawCurrencies(row){
     if(bs>1){ctx.save();ctx.translate(x+17,y+ch/2);ctx.scale(bs,bs);r.ico(0,0,9);ctx.restore()}
     else if(row){r.ico(x+17,y+ch/2,9)}
     if(row){ctx.font=fnt;ctx.textAlign='right';ctx.textBaseline='middle';
-      ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-(tight?9:13),y+ch/2+1);x-=cw+(tight?4:6);continue}
+      ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),x+cw-(tight?9:13),y+ch/2+1);x-=cw+(tight?4:6);continue}
     if(bs<=1)r.ico(x+17,y+ch/2,9);
     ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
-    ctx.fillStyle=r.col;ctx.fillText(String(r.v),x+cw-13,y+ch/2+1);
+    ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),x+cw-13,y+ch/2+1);
     y+=ch+6;
   }
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
