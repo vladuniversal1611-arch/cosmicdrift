@@ -68,7 +68,7 @@ let hs=+localStorage.getItem('fHS')||0;
 let bestScore=+localStorage.getItem('fBS')||0;
 let coins=+localStorage.getItem('fCoins')||0;
 let newRec=false,newScoreRec=false;
-let shield=false,magnet=false,magnetT=0,boost=false,boostT=0;
+let shield=false,magnet=false,magnetT=0,magnetMax=6,boost=false,boostT=0;
 let shFlash=0,pfFlash=0,shake=0,shX=0,shY=0,goT=0,overT=0;
 let pads=[],padPositions=[];
 let pts=[],floats=[],clouds=[],bflies=[],shards=[];
@@ -781,7 +781,11 @@ let flyCoins=[];
 // frog passes the trail's depth within reach of it.
 let airCoins=[], acNext=0;
 const AIR_REACH=0.22;          // lanes, without any magnet
-function airReach(){return AIR_REACH+modStat('magnet')+(magnet?1.2:0)}
+// a magnet only pulls while it is running; the Lab makes it run longer
+const MAG_PULL=1.45;
+function magDur(){return modStat('magnet')||6}
+function startMagnet(t){magnet=true;magnetT=Math.max(magnetT,t);magnetMax=magnetT}
+function airReach(){return AIR_REACH+(magnet?MAG_PULL+1.2:0)}
 function spawnAirTrails(){
   let guard=0;
   while(guard++<40){
@@ -1025,16 +1029,17 @@ const PROG_KEY='fProg', PROG_V=1;
 // Every step is meant to be felt in play, not a +0.2% line on a card.
 const MODULES=[
   {id:'magnet', name:'МАГНІТ',            icon:'\u{1F9F2}', unlock:1,
-   stat:[0, 0.45, 0.75, 1.05, 1.45, 2.4],     // pull radius, in lanes
-   lv:['', 'Тягне монети з сусідньої смуги', 'Ширший радіус притягання', 'Тягне майже з пів дороги',
-       'Тягне з усього ряду', 'Весь ряд + наступний ряд']},
+   stat:[0, 6, 8, 10, 12, 15],                // seconds a magnet (pickup, lucky pad, Store) keeps pulling
+   lv:['', 'Магніт діє 6 с', 'Магніт діє 8 с', 'Магніт діє 10 с', 'Магніт діє 12 с',
+       'Магніт діє 15 с і тягне ще наступний ряд']},
   {id:'shield', name:'ЩИТ',               icon:'\u{1F6E1}', unlock:3,
    stat:[0, 0, 0, 0, 0, 0],                   // shields come only from the Store; the module makes them last
-   lv:['', 'Щит з магазину: 2× тап, діє 6 с', 'Щит діє 6 с, довша невразливість', 'Щит діє 7 с',
-       'Щит діє 8 с', 'Щит діє 9 с']},
+   lv:['', 'Щит з магазину: 2× тап, діє 5 с', 'Щит діє 6 с', 'Щит діє 7 с',
+       'Щит діє 8 с', 'Щит діє 10 с']},
   {id:'dash',   name:'РИВОК',             icon:'⚡',    unlock:5,
    stat:[0, 8, 6.5, 5, 4, 3],                 // cooldown, seconds
-   lv:['', 'Ривок уперед, кулдаун 8 с', 'Кулдаун 6.5 с', 'Кулдаун 5 с', 'Кулдаун 4 с', 'Кулдаун 3 с, довший ривок']},
+   lv:['', 'Ривок уперед, знову готовий через 8 с', 'Знову готовий через 6.5 с', 'Знову готовий через 5 с',
+       'Знову готовий через 4 с', 'Знову готовий через 3 с, довший ривок']},
   {id:'fever',  name:'ЯДРО FEVER',        icon:'\u{1F525}', unlock:6, adv:12,
    stat:[0, 5, 4, 4, 3, 3],                   // PERFECTs needed to ignite fever
    lv:['', 'Fever після 5 PERFECT', 'Fever після 4 PERFECT', '4 PERFECT · 2 промахи в Fever',
@@ -1116,7 +1121,7 @@ function dashCD(){return modLv('dash')?modStat('dash'):DASH_COOLDOWN}
 function comboCoinBonus(){return perfectCombo>=10?1:0}
 // Shield: a charge you spend on purpose (double tap), like a hoverboard —
 // it never saves you on its own.
-const SHIELD_DUR=[0,6,6,7,8,9];
+const SHIELD_DUR=[0,5,6,7,8,10];
 let shieldCharges=0, shieldT=0, graceT=0, lastTapT=0, lastTapX=0, lastTapY=0, shieldHintT=0;
 let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djCD=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
 function modStat(id){const m=MODULES.find(x=>x.id===id);return m?m.stat[modLv(id)]:0}
@@ -1859,11 +1864,11 @@ function resSettle(){
     try{localStorage.setItem('fCoins',''+coins)}catch(e){}
   }
 }
-// swap a stuck mission: 900 coins, doubling with each swap that day — or 2 rewarded ads
+// swap a stuck mission: 9000 coins, doubling with each swap that day — or 2 rewarded ads
 function _dayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function rerollCost(){
   const rr=Prog.d.res.rr;if(rr.day!==_dayKey()){rr.day=_dayKey();rr.n=0}
-  return 900*Math.pow(2,Math.min(6,rr.n));
+  return 9000*Math.pow(2,Math.min(6,rr.n));
 }
 function resReroll(i,free){
   const R=Prog.d.res, m=R.set[i];if(!m||m.done)return false;
@@ -4348,7 +4353,7 @@ function startGame(){
   // Apply any boosters bought in the shop, then clear them (one run only)
   runX2Coins=!!shopBoost.x2;
   if(shopBoost.shield)shieldCharges++;
-  if(shopBoost.magnet){magnet=true;magnetT=12;}
+  if(shopBoost.magnet){magnetT=0;startMagnet(magDur()*2);}
   // Modules that act from the first second of the run
   runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
@@ -4566,7 +4571,7 @@ function onLand(idx){
       shieldCharges++;
       addFloat('🎰 🛡️ +1 ЩИТ',lp.x,lp.y-50,'#4FC3F7',22);
     } else if(prize==='magnet'){
-      magnet=true;magnetT=8;
+      startMagnet(magDur());
       addFloat('🎰 🧲 МАГНІТ!',lp.x,lp.y-50,'#F44336',22);
     } else {
       const amt=20;runCoins+=amt;
@@ -4777,7 +4782,7 @@ function onLand(idx){
   // pulled in if they sit within the magnet's radius; at max level the next
   // row is swept too. The radius is in lanes, so it reads the same everywhere.
   {
-    const R=modStat('magnet');
+    const R=magnet?MAG_PULL:0;
     if(R>0){
       const y0=padPositions[idx];
       const rows=[y0]; if(modLv('magnet')>=5){const g=nextGroup(idx);if(padPositions[g]!==undefined)rows.push(padPositions[g]);}
@@ -4799,7 +4804,7 @@ function onLand(idx){
   if(pad.pu){
     const t=pad.pu;pad.pu=null;sfxPU();
     if(t==='shield'){shieldCharges++;addFloat('🛡️ +1 ЩИТ',lp.x,lp.y-40,'#4FC3F7',22)}
-    else if(t==='magnet'){magnet=true;magnetT=6;addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
+    else if(t==='magnet'){startMagnet(magDur());addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
   }
   // Mystery box — roll one of 5 rewards on land, apply immediately
@@ -8704,7 +8709,7 @@ function drawComboBadge(x,y){
 // the module icons are status lights, not buttons: a tap explains what each one does
 let modRects=[], modTip=null;
 function modTipText(id){
-  if(id==='magnet')return ['МАГНІТ · працює сам','Тягне монети з сусідніх смуг. Сильніше — в Лабораторії'];
+  if(id==='magnet')return ['МАГНІТ · працює сам',`Тягне монети з сусідніх смуг ще ${Math.ceil(magnetT)} с. Довше — в Лабораторії`];
   if(id==='shield'){const lv=modLv('shield'), cd=modStat('shield'), n=shieldAvail();
     return ['ЩИТ · подвійний тап по екрану',`Щити — тільки з магазину, один за забіг. У запасі: ${invSh()+(runStockSh&&!shield?0:0)}`]}
   if(id==='djump')return ['ПОДВІЙНИЙ СТРИБОК · сам',`Рятує, коли зриваєшся вниз. Перезарядка ${modStat('djump')} с`];
@@ -8721,7 +8726,7 @@ function drawModTip(){
 }
 function drawModuleColumn(x,y){
   const list=[];modRects=[];
-  if(modLv('magnet'))list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:1});   // the module always pulls
+  if(magnet)list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:magnetT/magnetMax});   // shown while a magnet runs
   if(shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
     prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail()});
   if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
@@ -9459,7 +9464,8 @@ function btnSheen(x,y,w,h,ph){
   ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.restore();
 }
 // PLAY pill size, shared by drawing, tapping and the menu layout
-function playBtnSize(){const bw=Math.min(W*.58,250);return {bw,bh:Math.round(bw*.23)}}
+// the painted pill fills its whole image (430×156), so the box is exactly what gets drawn
+function playBtnSize(){const bw=Math.round(Math.min(W*.5,210));return {bw,bh:Math.round(bw*156/430)}}
 function drawMenuPlayBtn(cx,by){
   const {bw,bh}=playBtnSize(),bx=cx-bw/2;
   const pulse=(1+Math.sin(gt*2.5)*.012)*pressK(bx,by,bw,bh);
@@ -9468,7 +9474,7 @@ function drawMenuPlayBtn(cx,by){
     ctx.save();
     ctx.translate(cx,by+bh/2);ctx.scale(pulse,pulse);
     ctx.shadowColor='rgba(120,255,60,.45)';ctx.shadowBlur=26;
-    drawImgW('btn',0,0,bw+18);
+    drawImgW('btn',0,0,bw);
     ctx.shadowBlur=0;btnSheen(-bw/2,-bh/2,bw,bh,0);
     ctx.restore();
   } else {
@@ -9481,14 +9487,14 @@ function drawMenuPlayBtn(cx,by){
 
   // play glyph + label, sized to sit inside the pill
   const label='ГРАТИ';
-  ctx.font=`900 ${Math.round(bh*.44)}px Exo2,sans-serif`;
+  ctx.font=`900 ${Math.round(bh*.33)}px Exo2,sans-serif`;
   const tw=ctx.measureText(label).width;
-  const gap=Math.round(bh*.2), gw=Math.round(bh*.4);
+  const gap=Math.round(bh*.15), gw=Math.round(bh*.3);
   const groupW=gw+gap+tw;
   const gx=cx-groupW/2+gw/2, tx=cx-groupW/2+gw+gap;
   const my=by+bh/2;
 
-  if(!drawImgH('play',gx,my,Math.round(bh*.46))){
+  if(!drawImgH('play',gx,my,Math.round(bh*.36))){
     ctx.fillStyle='#fff';ctx.beginPath();
     ctx.moveTo(gx-9,my-13);ctx.lineTo(gx+13,my);ctx.lineTo(gx-9,my+13);ctx.closePath();ctx.fill();
   }
@@ -10118,7 +10124,7 @@ function hitBackChip(x,y){const r=backChipRect();return x>=r.x&&x<=r.x+r.w&&y>=r
 // right before playing), applied and cleared in startGame.
 const BOOSTERS=[
   {id:'shield', emoji:'🛡', name:'Стартовий щит',   desc:'Починаєш забіг зі щитом',      price:40},
-  {id:'magnet', emoji:'🧲', name:'Магніт на старт', desc:'Притягує монети 12 секунд',    price:40},
+  {id:'magnet', emoji:'🧲', name:'Магніт на старт', desc:'Магніт на старті: подвійний час з Лабораторії',    price:40},
   {id:'x2',     emoji:'✨', name:'Подвійні монети',  desc:'×2 монети весь наступний забіг',price:60},
 ];
 let shopBoost={shield:false,magnet:false,x2:false};
