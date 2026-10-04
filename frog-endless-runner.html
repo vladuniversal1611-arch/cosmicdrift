@@ -1029,9 +1029,9 @@ const MODULES=[
    lv:['', 'Тягне монети з сусідньої смуги', 'Ширший радіус притягання', 'Тягне майже з пів дороги',
        'Тягне з усього ряду', 'Весь ряд + наступний ряд']},
   {id:'shield', name:'ЩИТ',               icon:'\u{1F6E1}', unlock:3,
-   stat:[0, 0, 80, 55, 38, 25],               // in-run recharge, seconds (0 = none)
-   lv:['', 'Подвійний тап — щит на 6 с, раз за забіг', 'Щит 6 с · заряд за 80 с', 'Щит 7 с · заряд за 55 с',
-       'Щит 8 с · заряд за 38 с', 'Щит 9 с · заряд за 25 с']},
+   stat:[0, 0, 0, 0, 0, 0],                   // shields come only from the Store; the module makes them last
+   lv:['', 'Щит з магазину: 2× тап, діє 6 с', 'Щит діє 6 с, довша невразливість', 'Щит діє 7 с',
+       'Щит діє 8 с', 'Щит діє 9 с']},
   {id:'dash',   name:'РИВОК',             icon:'⚡',    unlock:5,
    stat:[0, 8, 6.5, 5, 4, 3],                 // cooldown, seconds
    lv:['', 'Ривок уперед, кулдаун 8 с', 'Кулдаун 6.5 с', 'Кулдаун 5 с', 'Кулдаун 4 с', 'Кулдаун 3 с, довший ривок']},
@@ -3566,7 +3566,7 @@ function makePad(gameX, type, diff){
   let coin=Math.random()<(.15+diff*.08);
   let pu=null;
   if(Math.random()<.012&&dist>5)
-    pu=['shield','magnet','superjump'][Math.floor(Math.random()*3)];
+    pu=['magnet','superjump'][Math.floor(Math.random()*2)];   // shields come only from the Store
   if(type==='bonus'){coin=true;if(Math.random()<.3)pu='magnet';}
   // Mystery box — rare, drops on regular platforms after some warm-up. Rolls a
   // random reward when the frog lands on it. Not compatible with pu / traps.
@@ -4354,7 +4354,6 @@ function startGame(){
   if(Prog.d.res)Prog.d.res.pend=null;
   resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;achCards=[];resRunStart();huntRunStart();boosterRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
-  shieldCharges+=modLv('shield')>0?1:0;
   if(shieldAvail()>0&&(Prog.d.stats.runs<6||shieldCharges===0))shieldHintT=3.2;
   dashReady=true;dashCooldown=0;
   shopBoost={shield:false,magnet:false,x2:false};
@@ -4555,7 +4554,7 @@ function onLand(idx){
   // === LUCKY PLATFORM — random prize roulette ===
   if(pad.type==='lucky'){
     sfxPU();
-    const prizes=['coins','shield','magnet','jackpot'];
+    const prizes=['coins','coins','magnet','jackpot'];
     const weights=[40,25,20,15]; // percentage chances
     let roll=Math.random()*100, pick=0;
     for(let i=0;i<weights.length;i++){roll-=weights[i];if(roll<=0){pick=i;break}}
@@ -8698,7 +8697,7 @@ let modRects=[], modTip=null;
 function modTipText(id){
   if(id==='magnet')return ['МАГНІТ · працює сам','Тягне монети з сусідніх смуг. Сильніше — в Лабораторії'];
   if(id==='shield'){const lv=modLv('shield'), cd=modStat('shield'), n=shieldAvail();
-    return ['ЩИТ · подвійний тап по екрану',`Зараз зарядів: ${n}. `+(lv?`Лабораторія дає 1 на забіг`+(cd>0?`, новий — кожні ${cd} с`:''):'')+(invSh()?` · у запасі з магазину: ${invSh()}`:'')]}
+    return ['ЩИТ · подвійний тап по екрану',`Щити — тільки з магазину, один за забіг. У запасі: ${invSh()+(runStockSh&&!shield?0:0)}`]}
   if(id==='djump')return ['ПОДВІЙНИЙ СТРИБОК · сам',`Рятує, коли зриваєшся вниз. Перезарядка ${modStat('djump')} с`];
   return ['',''];
 }
@@ -8714,7 +8713,7 @@ function drawModTip(){
 function drawModuleColumn(x,y){
   const list=[];modRects=[];
   if(modLv('magnet'))list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:1});   // the module always pulls
-  if(modLv('shield')||shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
+  if(shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
     prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail()});
   if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
   const r=19;
