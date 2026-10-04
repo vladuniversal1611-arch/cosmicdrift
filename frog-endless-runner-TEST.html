@@ -3923,7 +3923,7 @@ canvas.addEventListener('touchstart',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(t.clientX-r0.left)*(W/r0.width), by=(t.clientY-r0.top)*(H/r0.height);
-    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by));
+    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by))||hitModIcon(bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(t.clientX)}
   }
 },{passive:false});
@@ -3987,7 +3987,7 @@ canvas.addEventListener('mousedown',e=>{
   if(state===ST.PLAY&&alive){
     const r0=canvas.getBoundingClientRect();
     const bx=(e.clientX-r0.left)*(W/r0.width), by=(e.clientY-r0.top)*(H/r0.height);
-    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by));
+    btnTouch=paused||hitPause(bx,by)||(modLv('dash')>0&&hitBtn(dashBtnC(),bx,by))||hitModIcon(bx,by);
     if(!btnTouch){touching=true;frogCont=xToLane(e.clientX)}
   }
 });
@@ -8719,15 +8719,33 @@ function drawComboBadge(x,y){
   return y+h+6;
 }
 // Left column: the run modules you own, each with its level and live state
+// the module icons are status lights, not buttons: a tap explains what each one does
+let modRects=[], modTip=null;
+function modTipText(id){
+  if(id==='magnet')return ['МАГНІТ · працює сам','Тягне монети з сусідніх смуг. Сильніше — в Лабораторії'];
+  if(id==='shield'){const lv=modLv('shield'), cd=modStat('shield'), n=shieldAvail();
+    return ['ЩИТ · подвійний тап по екрану',`Зараз зарядів: ${n}. `+(lv?`Лабораторія дає 1 на забіг`+(cd>0?`, новий — кожні ${cd} с`:''):'')+(invSh()?` · у запасі з магазину: ${invSh()}`:'')]}
+  if(id==='djump')return ['ПОДВІЙНИЙ СТРИБОК · сам',`Рятує, коли зриваєшся вниз. Перезарядка ${modStat('djump')} с`];
+  return ['',''];
+}
+function hitModIcon(x,y){for(const m of modRects)if(Math.hypot(x-m.x,y-m.y)<=m.r+8){modTip={id:m.id,t:2.8,x:m.x,y:m.y,r:m.r};sfxClick();return true}return false}
+function drawModTip(){
+  if(!modTip)return;modTip.t-=.016;if(modTip.t<=0){modTip=null;return}
+  const [a,b]=modTipText(modTip.id), x=modTip.x+modTip.r+10, w=Math.min(W-x-12,250), h=46, y=modTip.y-h/2;
+  ctx.save();ctx.globalAlpha=Math.min(1,modTip.t*3);glassPanel(x,y,w,h,12);
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#FFE082';ctx.font='900 11px Exo2,sans-serif';ctx.fillText(fitText(a,w-16),x+8,y+15);
+  ctx.fillStyle='#fff';ctx.font='700 10px Exo2,sans-serif';ctx.fillText(fitText(b,w-16),x+8,y+32);ctx.restore();
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
 function drawModuleColumn(x,y){
-  const list=[];
+  const list=[];modRects=[];
   if(modLv('magnet'))list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:1});   // the module always pulls
   if(modLv('shield')||shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
     prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail()});
   if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
   const r=19;
   for(const m of list){
-    const cy=y+r;
+    const cy=y+r;modRects.push({id:m.id,x:x+r,y:cy,r});
     ctx.save();
     ctx.globalAlpha=m.on?1:.62;
     if(_ok(m.img)){if(!m.on)ctx.filter='grayscale(0.7)';drawImgH(m.img,x+r,cy,r*2.25);ctx.filter='none'}
@@ -8847,7 +8865,7 @@ function drawHUD(){
     const full=z.icon+' '+z.name;
     uiChipText(L,T,ctx.measureText(full).width+22<=sideMax?full:z.icon,0);
     const cy=drawResBadge(L,T+30);
-    drawModuleColumn(L,Math.max(cy,T+86)+4);
+    drawModuleColumn(L,Math.max(cy,T+86)+4);drawModTip();
   }
 
   // --- centre: the score is the hero, everything under it is secondary ---
