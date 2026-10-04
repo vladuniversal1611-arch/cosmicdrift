@@ -2294,15 +2294,15 @@ function emitTrail(x,y){
 }
 const SHOP=[
   {sec:'КЛЮЧІ ЯДРА',sub:'продовжити забіг'},
-  {id:'key1',ico:'key',  name:'Ключ Ядра',        txt:'Продовжити забіг після падіння', p:3750, ad:1, buy:d=>{d.keys=(d.keys|0)+1}},
-  {id:'key3',ico:'key',  name:'3 ключі Ядра',     txt:'Вигідніше на 1 500 монет',      p:9750, ad:2, buy:d=>{d.keys=(d.keys|0)+3}},
+  {id:'key1',ico:'key',  name:'Ключ Ядра',        txt:'Продовжити забіг після падіння', p:3750, ad:1, adKey:1, buy:d=>{d.keys=(d.keys|0)+1}},
+  {id:'key3',ico:'key',  name:'3 ключі Ядра',     txt:'Вигідніше на 1 500 монет',      p:9750, ad:2, adKey:1, buy:d=>{d.keys=(d.keys|0)+3}},
   {sec:'ЩИТИ В ЗАПАС',sub:'2× тап · один за забіг'},
   {id:'sh1', ico:'shield',name:'Щит',             txt:'Запасний заряд щита',           p:300,  buy:d=>{inv().sh++}},
   {id:'sh5', ico:'shield',name:'5 щитів',          txt:'Вигідніше на 300 монет',        p:1200, buy:d=>{inv().sh+=5}},
   {sec:'БУСТЕРИ',sub:'на наступний забіг'},
   {id:'hs200',ico:'🚀',  name:'Ривок 200 м',      txt:'Автопольот на старті забігу',   p:1000,  arm:'hs', v:200},
   {id:'hs500',ico:'🚀',  name:'Ривок 500 м',      txt:'Далекий автопольот на старті',  p:3000, arm:'hs', v:500},
-  {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:1100,  arm:'x2'},
+  {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:3300,  arm:'x2'},
   {id:'res2',ico:'🔷',   name:'Резонанс +2',      txt:'Множник очок +2 на забіг',      p:5000, ad:1,  arm:'res'},
   {sec:'СКРИНІ',sub:'відкриваються в розділі СКРИНІ'},
   {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:800,  buy:d=>{d.chests.wood++}},
@@ -2345,11 +2345,16 @@ function watchAds(n,ok,why){
   });
   next();
 }
+// keys for ads: three times a day across both key offers
+const AD_KEY_DAY=3;
+function adKeysLeft(){const d=Prog.d;if(!d.adKeys||d.adKeys.day!==_dayKey())d.adKeys={day:_dayKey(),n:0};return Math.max(0,AD_KEY_DAY-d.adKeys.n)}
 function shopBuyAd(it,x,y){
+  if(it.adKey&&adKeysLeft()<=0){shopMsg='Ключі за рекламу — 3 рази на день. Повертайся завтра';shopMsgT=2.5;sfxLand();return}
   const st=shopState(it), d=Prog.d;
   if(st==='armed'||st==='busy'){shopMsg=st==='armed'?'Вже діє на наступний забіг':'Ривок уже куплено на наступний забіг';shopMsgT=2;sfxLand();return}
   watchAds(it.ad,()=>{
     if(it.arm){if(it.arm==='hs')d.arm.hs=it.v;else d.arm[it.arm]=true}else it.buy(d);
+    if(it.adKey){adKeysLeft();d.adKeys.n++}
     Prog.save();sfxPU();addTapRipple(x,y);
     shopMsg=it.arm?'Діятиме в наступному забігу':'Отримано за рекламу!';shopMsgT=2;
   });
@@ -2416,8 +2421,10 @@ function drawStore(){
       ctx.fillText(st==='armed'?'✓ АКТИВНО':st==='on'?'✓ ОБРАНО':'ОБРАТИ',b.x+b.w/2,b.y+b.h/2+1);
     }else{
       if(it.ad&&st!=='busy'){const a=shopAdRect(L,y),ga=ctx.createLinearGradient(0,a.y,0,a.y+a.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
-        pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.save();ctx.font='900 12px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
-        ctx.fillText('📺 ×'+it.ad,a.x+a.w/2,a.y+a.h/2+1);ctx.restore()}
+        const left=it.adKey?adKeysLeft():1;
+        ctx.save();if(!left)ctx.globalAlpha=.45;pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.font='900 12px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+        ctx.fillText('📺 ×'+it.ad,a.x+a.w/2,a.y+a.h/2+(it.adKey?-3:1));
+        if(it.adKey){ctx.font='800 8px Exo2,sans-serif';ctx.fillText(left?`${left}/${AD_KEY_DAY} сьогодні`:'завтра',a.x+a.w/2,a.y+a.h/2+9)}ctx.restore()}
       ctx.save();if(st!=='buy')ctx.globalAlpha=.5;
       const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
       pillFill('btnO',g,b.x,b.y,b.w,b.h);
