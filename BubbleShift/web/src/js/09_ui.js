@@ -730,7 +730,7 @@ const UI = (() => {
         if (tab === 'creatures') {
           const n = State.creaturesFound();
           inner.appendChild(el('div', 'h2', `${n}/${DATA.CREATURES.length}`));
-          const ms = inner.appendChild(el('div', 'row')); ms.style.justifyContent = 'space-around';
+          const ms = inner.appendChild(el('div', 'row colms'));
           State.COL_MILESTONES.forEach((m0, i) => {
             const got = State.s.colClaimed[i];
             const b = ms.appendChild(el('div', 'col center', `${ic('chest_' + m0.chest, 48)}<span class="muted">${m0.at}</span>`)); b.style.gap = '0';
@@ -846,7 +846,7 @@ const UI = (() => {
         if (!(await confirm(t('resetConfirm'), t('resetProgress'), t('cancel'), 'btn-red'))) return;
         State.reset(); location.reload();
       }));
-      p.appendChild(el('div', 'muted center', 'Bubble Bloom v1.0 · Nunito font (SIL OFL)'));
+      p.appendChild(el('div', 'center ver', 'Bubble Bloom v1.0 · Nunito font (SIL OFL)'));
     } });
   }
   function rebuild() { buildGameHud(); Screens.buildHomeHud(); Screens.syncHome(); Screens.rebuildMap(); }

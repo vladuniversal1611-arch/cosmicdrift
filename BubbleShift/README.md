@@ -97,13 +97,20 @@ Legend: `.` empty · `a`–`f` palette colour · `?` random · `S` stone ·
 * Mechanic & objective introduction levels: `DATA.MECHANIC_INTRO`,
   `DATA.OBJECTIVE_INTRO` in `02_data.js`.
 * Boss HP: `DATA.AREAS[n].boss.hp`.
-* **Move budgets are measured, not guessed:** run the bot, paste its table:
+* **Move budgets are measured, not guessed.** A "novice" bot (no swap, no
+  planning, ±3° aim error) plays every level 20× without a limit; the budget
+  is the smallest move count at which it wins the target share of runs:
+  L1–10 90 %, L11–30 70 %, L31–60 55 %, L61+ 45 % (hard levels −10 %).
+  Real players swap and plan, so they win more often than the bot.
   ```
-  node web/tools/validate.js      # structure check of all levels
-  node web/tools/balance.js       # plays every level 5×, prints MOVES={...}
+  node web/tools/validate.js                 # structure check of all levels
+  node web/tools/calibrate.js 1 160 20       # novice calibration → MOVES={...}
+  node web/tools/novice.js 1 20              # novice win-rate with current budgets
+  node web/tools/balance.js                  # expert bot (upper-skill reference)
   ```
   Paste the `MOVES={...}` line into `const MOVES = {...}` in `04_levels.js`.
-  Slack per level (how forgiving) is set in `tools/balance.js`.
+  Win-rate targets are in `target()` in `tools/calibrate.js`; a level with
+  `moves:` in `HAND` keeps its hand-set budget.
 
 ### Add a new area
 1. Append an entry to `DATA.AREAS` (name, sky/hill colours, `props` style,
@@ -163,7 +170,7 @@ web/
   src/js/10_screens.js  ← home, map, splash, intro
   src/js/11_main.js     ← boot + loop
   assets/               ← Nunito font (SIL OFL) embedded at build
-  tools/                ← build.py, validate.js, balance.js, e2e.js
+  tools/                ← build.py, validate.js, calibrate.js, novice.js, balance.js, e2e.js
 ```
 
 Font: Nunito © The Nunito Project Authors, SIL Open Font License 1.1 (`web/assets/OFL.txt`).

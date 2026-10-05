@@ -33,7 +33,7 @@ const Levels = (() => {
     2: { colors: [0, 1, 3], objective: { type: 'rescue', target: 1 }, moves: 12, hint: 'rescue', ammo: [0], critters: ['milo'],
       layout: ['aabbccaabbc', 'abbccaabbc', '...aaa.....', '...aM.....'] },
     3: { colors: [2, 3, 4], objective: { type: 'clear' }, hint: 'bank', ammo: [0, 1],
-      layout: ['aabcca.bcca', 'abbcaabbcc', 'bb.......cc', 'aa......bb', 'c.........b'] },
+      layout: ['aaaabbbcccc', 'aaabbbbccc', 'bb.......cc'] },
     4: { colors: [1, 3, 5, 2], objective: { type: 'clear' }, hint: 'hammer',
       layout: ['aabbccddaab', 'abbccddaab', 'aabbccddaab', 'abbccddaab'] },
     5: { colors: [0, 1, 3, 2], objective: { type: 'stars', target: 3 }, hint: 'stars',
