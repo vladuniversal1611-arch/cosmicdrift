@@ -1,133 +1,169 @@
-# BUBBLE SHIFT
+# Bubble Bloom
 
-A premium mobile puzzle game: Bubble Shooter + chain reactions + a **rotating
-board** (Up → Right → Down → Left) + fantasy kingdom progression.
+A premium casual bubble-shooter for Android (HTML5, one offline file).
+Shoot, match and drop bubbles to free Green Valley from the Bubble Storm,
+rescue creatures, rebuild the village and follow Lumi through 8 areas and
+160 levels to the Final Castle.
 
-Unity project (Unity 2022 LTS or newer, URP or Built-in 2D both fine).
-Target: Android, portrait 1080×1920.
+**Play / ship:** `web/index.html` — a single self-contained file (no CDN, no
+network, no build tools needed at runtime). Open it in Chrome, or wrap it in
+an APK (see *Android build* below).
 
----
-
-## Build Roadmap
-
-| Phase | Scope | Status |
-|-------|-------------------------------------------------|--------|
-| 1 | Core architecture + Grid + Bubbles + Shooter + Aiming | ✅ done |
-| 2 | Match detection + falling bubbles + chain reactions | ⏳ next |
-| 3 | Board rotation (the "Shift" mechanic) | ⏳ |
-| 4 | Special bubbles + obstacles | ⏳ |
-| 5 | Level system (ScriptableObjects, 500+ levels) | ⏳ |
-| 6 | UI / UX | ⏳ |
-| 7 | Kingdom progression | ⏳ |
-| 8 | Save system | ⏳ |
-| 9 | Audio + particles + polish | ⏳ |
-| 10 | Monetization hooks + Android optimization | ⏳ |
+> The `Assets/` folder holds an early Unity prototype (Phase 1) and is not
+> used by the HTML game.
 
 ---
 
-## Architecture (modular, event-driven)
-
-Systems never call each other through `FindObjectOfType` in the gameplay loop.
-They communicate through the static `GameEvents` hub and Inspector-assigned
-references. Each class has ONE responsibility.
+## The core loop
 
 ```
-Core/
-  GameEnums.cs        BubbleColor, BoardOrientation, GameState, RotationDirection
-  GameEvents.cs       Static event hub (fired/attached/matched/rotated...)
-  GameConfig.cs       ScriptableObject: cell size, speeds, palette, min match
-  GameManager.cs      Composition root + high-level state machine
-Grid/
-  GridCoord.cs        Immutable (row,col) struct
-  IGridOccupant.cs    Interface so the grid stays decoupled from MonoBehaviours
-  GridSystem.cs       Pure square grid: coords, neighbours, matches, connectivity
-Bubbles/
-  Bubble.cs           MonoBehaviour + IGridOccupant
-  BubblePool.cs       Zero-GC pool
-  BubbleManager.cs    Spawn / recycle / color selection
-Gameplay/
-  TrajectorySimulator.cs  Shared predictor (preview == real shot path)
-  BoardManager.cs     Owns grid + board pivot + attach logic
-  AimController.cs     Pointer input + dotted preview + landing marker
-  BubbleShooter.cs    Cannon: current/next bubble, fire, fly, attach, reload
+LEVEL → WIN → stars + coins + materials → story moment → RESTORE a building
+      → area restored → new area + new mechanic → NEXT LEVEL
+COME BACK tomorrow → daily reward → quests → chests → weekly adventure
 ```
 
-### Why a square grid?
-The signature mechanic rotates the board 90°. A square grid maps cell (r,c)
-cleanly under rotation; a hex grid does not. Matching uses 4-neighbour
-connectivity, which stays correct across every orientation.
+| Layer | What the player feels | Where it lives |
+|---|---|---|
+| Gameplay | "One more level" — combos, drops, praise, boss fights | `03_core.js`, `08_game.js` |
+| Restoration | "I want to rebuild that house" — 3 objects × 3 stages per area | `05_state.js` (`objectInfo/build`), `10_screens.js` (home) |
+| Story | "What happens to Murk?" — 1–3 line beats after key levels | `02_data.js` → `DATA.STORY` |
+| Map | "3 more levels to the next area" — 8 areas, gates | `10_screens.js` (map) |
+| Collection | 30 creatures, rescued in levels or found in chests | `DATA.CREATURES` |
+| Daily return | 7-day calendar, 3 daily quests + bonus chest, weekly track | `05_state.js` |
 
-### Board-local space
-All bubbles are parented to a single **Board Root** pivot and positioned in
-board-local coordinates centered on that pivot. Aiming and trajectory are
-computed in that same local space, so when the board rotates (Phase 3) the
-prediction and grid stay valid with no per-bubble fix-ups.
+### Progression gates (no hard locks)
+* Next **level** unlocks on a win.
+* Next **area** opens when the area boss is beaten **and** its 3 buildings are fully restored.
+* Restoration costs **stars** (2 per stage, ≤ 18 per area) and **materials**.
+  20 levels always give ≥ 20 stars, so even 1-star players can't get stuck.
+  Missing materials can be bought with coins.
 
----
-
-## Phase 1 — Unity Scene Setup
-
-Create the scene once; later phases only add systems.
-
-### 1. GameConfig asset
-`Assets > Create > BubbleShift > Game Config` → name it `GameConfig`.
-Set `cellSize` to match your bubble sprite's world diameter (default 0.64).
-Fill the 5 palette colors (Red, Blue, Green, Yellow, Purple).
-
-### 2. Camera
-- `Main Camera`, Projection **Orthographic**.
-- Add a Canvas later (Phase 6) with **Scale With Screen Size**, reference
-  resolution **1080×1920**, Match = 0.5.
-- Size the orthographic camera so the board (rows×cols × cellSize) fits with
-  headroom for the cannon at the bottom.
-
-### 3. Bubble prefab  → `Assets/Prefabs/Bubbles/Bubble.prefab`
-- Empty GameObject `Bubble`.
-- Add **SpriteRenderer** with a round glossy bubble sprite (white, tintable).
-- Add **Bubble** component (auto-links the SpriteRenderer via Reset/Awake).
-- Save as prefab, delete from scene.
-
-### 4. Dot + landing marker prefabs (aim preview)
-- `Dot`: SpriteRenderer with a small soft round sprite. Prefab it.
-- `LandingMarker`: SpriteRenderer with a ring/hollow-circle sprite. Put one in
-  the scene (the AimController toggles it).
-
-### 5. System GameObjects
-Create these empty GameObjects in the scene:
-
-| GameObject | Components | Inspector wiring |
-|------------|-----------|------------------|
-| `GameManager` | `GameManager`, `BubbleManager` | assign BubbleManager + BoardManager + BubbleShooter + AimController |
-| `BubbleManager` (can share GameManager object) | `BubbleManager` | Bubble Prefab = Bubble prefab; GameConfig = GameConfig; Prewarm ~96 |
-| `Board` | `BoardManager` | GameConfig, BubbleManager; **Board Root** = child transform below |
-| `Board/BoardRoot` | (empty Transform) | this is the pivot bubbles parent to |
-| `Cannon` | `BubbleShooter` | Board, BubbleManager, GameConfig; **Muzzle** child; **NextSocket** child |
-| `Cannon/Muzzle` | (empty) | tip of the cannon (spawn point) |
-| `Cannon/NextSocket` | (empty) | where the next-bubble preview sits |
-| `AimController` | `AimController` | Board, Shooter, GameConfig, Camera, Muzzle, Dot prefab, dotCount ~40, LandingMarker |
-
-Positioning:
-- Put `Board/BoardRoot` at world origin (0,0) or slightly above center.
-- Put `Cannon/Muzzle` below the board, centered on X.
-
-### 6. Play
-Press Play. You should see:
-- 5 pre-filled rows of random bubbles.
-- A loaded bubble on the cannon + a next-bubble preview.
-- Drag to aim → dotted line reflects off the side walls, landing marker snaps
-  to a cell, respecting the minimum aim angle.
-- Release → the bubble flies exactly along the previewed path and attaches to
-  the grid. The cannon reloads (next → current) automatically.
-
-Matching/clearing is intentionally **not** wired yet — that is Phase 2. At this
-point the grid, placement, pooling, aiming, and shooting are fully functional
-and testable.
+### First session (designed for the first 5 minutes)
+Splash → 4-panel story intro → Level 1 with a tutorial hand → reward →
+Level 2 rescues Milo → Level 3 introduces Nia and the first rebuild →
+Level 4 grants the first booster (Hammer) → Level 5 unlocks the Map and
+shows "Clear Green Valley to open the road". Menus appear one at a time:
+Restoration (3), Daily (4), Map + Star Chest (5), Shop (6), Quests +
+Collection (7), Weekly (10).
 
 ---
 
-## Notes for later phases
-- `GameEvents.OnBubbleAttached(coord)` is the hook Phase 2 subscribes to for
-  match resolution.
-- `GridSystem.FindMatches` and `GetDisconnected` already exist and are unit-
-  test friendly (pure C#), ready for Phase 2's clear + drop pass.
-- `BoardManager.BoardRoot` is the single transform Phase 3 rotates.
+## Systems
+
+* **Mechanics** (each introduced once with a "NEW" card): Stone (L11), Ice
+  (L21), Chains (L31), Bombs (L41), Rainbow (L51), Spinners (L61), Locks +
+  Key (L71), Shadow bubbles (L81). Bosses every 20 levels.
+* **Objectives:** clear all, clear top row, rescue creatures, collect stars,
+  free butterflies, break crystals, break chains, collect N of a colour, defeat boss.
+* **Boosters:** in-level Hammer, Bomb, Shuffle, Color Blast; pre-level
+  Rainbow Start, Fireball, +3 Moves. First copies are free when unlocked.
+* **Stars:** 3★ if finished within 70 % of the move budget, 2★ within 88 %.
+* **Combo:** consecutive matching shots multiply score; COMBO x5 gives a
+  free Rainbow bubble. Leftover moves become a "Bonus Blast".
+* **Lives:** 5, one regenerates every 20 min. Wins never cost a life
+  (taken at start, refunded on win — quitting the app counts as a loss).
+* **Chests:** Wooden → Legendary. Sources: boss wins, every 15 stars, daily
+  calendar, quest bonus, weekly milestones, collection milestones, area completion.
+* **Save:** everything in `localStorage` (`bubblebloom.save.v1` + backup copy),
+  versioned and migrated on load.
+* **Live events:** date-driven (`DATA.EVENTS`), e.g. Spring Festival gives
+  +50 % flowers. Test any event with `index.html?event=spring`.
+* **Languages:** English + Ukrainian (auto-detected, switchable in Settings).
+* **Accessibility:** optional colour-blind symbols on bubbles.
+
+---
+
+## Editing content
+
+All content is data. Edit, then rebuild with `python3 web/tools/build.py`.
+
+### Create / change levels — `web/src/js/04_levels.js`
+Levels are generated deterministically from the difficulty curve, so all
+160 exist without hand-authoring. To hand-author any level, add it to `HAND`:
+
+```js
+42: { colors: [0, 1, 2, 4], objective: { type: 'rescue' },
+      layout: ['aabbccddaab',   // even rows: 11 cells
+               'abbccddaab',    // odd rows: 10 cells
+               '??S??M??S??'] },
+```
+Legend: `.` empty · `a`–`f` palette colour · `?` random · `S` stone ·
+`I` ice · `C` chain · `B` bomb · `W` rainbow · `R` spinner · `L` locked ·
+`K` key · `D` shadow · `M` creature · `F` butterfly · `T` star · `X` crystal.
+
+### Balance difficulty
+* Curve: `difficulty()` in `04_levels.js` (anchor points per level).
+* Board size, colours, cluster size, obstacle counts: `build()` in the same file.
+* Mechanic & objective introduction levels: `DATA.MECHANIC_INTRO`,
+  `DATA.OBJECTIVE_INTRO` in `02_data.js`.
+* Boss HP: `DATA.AREAS[n].boss.hp`.
+* **Move budgets are measured, not guessed:** run the bot, paste its table:
+  ```
+  node web/tools/validate.js      # structure check of all levels
+  node web/tools/balance.js       # plays every level 5×, prints MOVES={...}
+  ```
+  Paste the `MOVES={...}` line into `const MOVES = {...}` in `04_levels.js`.
+  Slack per level (how forgiving) is set in `tools/balance.js`.
+
+### Add a new area
+1. Append an entry to `DATA.AREAS` (name, sky/hill colours, `props` style,
+   2 materials, boss, 3 restoration objects with `unlock` levels).
+2. Optionally add creatures with `area: <index>` and story beats
+   (`'win:N'`, `'boss:N'`, `'area:<index>'`).
+`DATA.MAX_LEVEL` grows automatically (20 levels per area).
+
+### Economy
+Prices, chest contents, daily calendar, quests and weekly milestones are in
+`02_data.js` (`DATA.BOOSTERS`, `DATA.CHESTS`, `DATA.DAILY`, `DATA.QUESTS`,
+`DATA.WEEKLY`, `DATA.LIVES`). Level rewards: `State.recordWin()`.
+
+---
+
+## Monetization hooks (off by default)
+No ad or purchase button is shown unless a provider is registered before the
+game script runs (e.g. from a Capacitor AdMob / Google Play Billing plugin):
+
+```js
+window.BubbleBloomMonetization = {
+  ads: true, iap: true,
+  showRewarded(placement) { /* 'continue'|'double'|'lives'|'freeCoins' */ return Promise.resolve(true); },
+  showInterstitial() {},
+  products: [{ sku: 'coins_small', title: '1,200 coins', price: '$0.99', reward: { coins: 1200 } }],
+  purchase(sku) { return Promise.resolve(true); },
+};
+```
+Rewarded ads are always optional (extra moves, double coins, extra life).
+Interstitials: never before level 12, never after a loss, max 1 per 4 wins.
+
+## Android build (Capacitor)
+```
+npm init -y && npm i @capacitor/core @capacitor/cli @capacitor/android
+npx cap init "Bubble Bloom" com.yourstudio.bubblebloom --web-dir=www
+mkdir www && cp web/index.html www/
+npx cap add android && npx cap sync && npx cap open android   # build AAB in Android Studio
+```
+Set the activity to portrait (`android:screenOrientation="portrait"`).
+
+## Project layout
+```
+web/
+  index.html            ← the shippable game (generated)
+  src/shell.html        ← HTML skeleton
+  src/styles.css        ← UI design system
+  src/js/00_util.js     ← RNG, easing, dates
+  src/js/01_i18n.js     ← EN/UK strings
+  src/js/02_data.js     ← ALL content & balance tables
+  src/js/03_core.js     ← pure hex-grid engine (no DOM)
+  src/js/04_levels.js   ← level generator + hand levels + measured budgets
+  src/js/05_state.js    ← save + every meta system + monetization hooks
+  src/js/06_audio.js    ← synthesized SFX + music + haptics
+  src/js/07_art.js      ← procedural art (bubbles, creatures, scenes…)
+  src/js/08_game.js     ← gameplay screen
+  src/js/09_ui.js       ← HUD, panels, flows
+  src/js/10_screens.js  ← home, map, splash, intro
+  src/js/11_main.js     ← boot + loop
+  assets/               ← Nunito font (SIL OFL) embedded at build
+  tools/                ← build.py, validate.js, balance.js, e2e.js
+```
+
+Font: Nunito © The Nunito Project Authors, SIL Open Font License 1.1 (`web/assets/OFL.txt`).

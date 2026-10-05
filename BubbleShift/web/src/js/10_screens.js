@@ -326,18 +326,20 @@ const Screens = (() => {
     const p = nodePos(State.currentLevel()), av = $('#mapAvatar');
     av.style.left = (p.x * 100) + '%'; av.style.top = p.y + 'px';
     $$('.gate, .fog', $('#mapInner')).forEach((e) => e.remove());
+    let gateShown = false;
     for (let a = 1; a < DATA.AREAS.length; a++) {
       if (State.areaOpen(a)) continue;
       const y = bandTop(a - 1);
       const fog = el('div', 'fog'); fog.style.top = (y - BAND) + 'px'; fog.style.height = BAND + 'px';
       $('#mapInner').appendChild(fog);
+      if (gateShown) continue;
+      gateShown = true;
       const prevBoss = State.areaBoss(a - 1), bossDone = s.best[prevBoss] > 0;
       const rest = DATA.AREAS[a - 1].objects.reduce((n, o) => n + State.stageOf(o.id), 0);
       const gate = el('div', 'gate', `${ic('lock', 48)}<div class="h3">${esc(L(DATA.AREAS[a].name))}</div><div class="muted">${esc(bossDone ? t('restoreToUnlock', { area: L(DATA.AREAS[a - 1].name) }) + ` (${rest}/9)` : t('beatBossToUnlock', { n: prevBoss }))}</div>`);
       if (bossDone) gate.appendChild(tap(el('button', 'btn btn-sm btn-green', esc(t('restore'))), () => { show('home'); pointAtRestore(true); }));
       gate.style.top = (y - 40) + 'px';
       $('#mapInner').appendChild(gate);
-      break;
     }
   }
   function openMap() {

@@ -813,6 +813,6 @@ const Game = (() => {
     get score() { return score; }, get shownGoal() { return shownGoal; }, get busy() { return busy; }, get over() { return over; },
     get active() { return active; }, set active(v) { active = v; }, get paused() { return paused; }, set paused(v) { paused = v; },
     get mode() { return mode; },
-    get geom() { return { shooterX, shooterY, su: shooterU(), R }; }, // read-only, used by tools/e2e.js
+    get geom() { return { shooterX, shooterY, su: shooterU(), R, ammo: ammo[0] && ammo[0].c != null ? ammo[0].c : 0 }; }, // read-only, used by tools/e2e.js
   };
 })();

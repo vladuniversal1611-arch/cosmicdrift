@@ -64,7 +64,7 @@ DATA.AREAS = [
     ] },
   { id: 'ruins', name: { en: 'Ancient Ruins', uk: 'Древні Руїни' }, mats: ['stone', 'crystal'],
     sky: ['#e6a45a', '#f2c98a', '#fbe8c6'], hills: ['#c9a56a', '#a88650', '#86683c'], props: 'ruins',
-    boss: { name: { en: 'Stone Golem', uk: 'Кам’яний Голем' }, hue: 35, hp: 90 },
+    boss: { name: { en: 'Stone Golem', uk: 'Кам’яний Голем' }, hue: 35, hp: 130 },
     objects: [
       { id: 'stower', type: 'tower', unlock: 83, name: { en: 'Sun Tower', uk: 'Сонячна вежа' }, x: 0.3, y: 0.5 },
       { id: 'tbridge', type: 'bridge', unlock: 89, name: { en: 'Temple Bridge', uk: 'Храмовий міст' }, x: 0.62, y: 0.72 },
@@ -72,7 +72,7 @@ DATA.AREAS = [
     ] },
   { id: 'clouds', name: { en: 'Cloud Gardens', uk: 'Хмарні Сади' }, mats: ['flower', 'crystal'],
     sky: ['#b58cff', '#d7c2ff', '#fbefff'], hills: ['#ffffff', '#f1e6ff', '#e0d0ff'], props: 'clouds',
-    boss: { name: { en: 'Thunder Puff', uk: 'Громовий Пух' }, hue: 250, hp: 90 },
+    boss: { name: { en: 'Thunder Puff', uk: 'Громовий Пух' }, hue: 250, hp: 115 },
     objects: [
       { id: 'skymill', type: 'windmill', unlock: 103, name: { en: 'Sky Mill', uk: 'Небесний млин' }, x: 0.3, y: 0.52 },
       { id: 'cgarden', type: 'garden', unlock: 109, name: { en: 'Floating Garden', uk: 'Летючий сад' }, x: 0.68, y: 0.6 },

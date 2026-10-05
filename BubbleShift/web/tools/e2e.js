@@ -31,7 +31,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         if (tr.land < 0) continue;
         const c = b.clone();
         const before = c.progress().cur;
-        const res = c.shoot({ t: 'color', c: b.nextColor() }, tr);
+        const res = c.shoot({ t: 'color', c: g.ammo }, tr);
         const s = (c.progress().done ? 1000 : 0) + (c.progress().cur - before) * 3 + res.removed + Math.random() * 0.1;
         if (!best || s > best.s) best = { s, rad };
       }
@@ -120,15 +120,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.evaluate(() => Screens.show('home')); await sleep(500);
   // Modals
   for (const [name, fn] of [['16_daily', 'UI.daily()'], ['17_quests', 'UI.quests("daily")'], ['18_weekly', 'UI.quests("weekly")'], ['19_collection', 'UI.collection()'], ['20_shop', 'UI.shop()'], ['21_settings', 'UI.settings()'], ['22_lives', 'UI.lives()']]) {
-    await page.evaluate(fn); await sleep(700); await shot(name);
+    await page.evaluate('void ' + fn); await sleep(700); await shot(name);
     await page.evaluate(() => { document.querySelectorAll('#modals > div').forEach((d) => d.remove()); });
   }
   // A boss level and a late mechanic-heavy level, entered directly for visuals.
   await page.evaluate(() => { State.s.level = 160; for (let i = 1; i < 160; i++) State.s.best[i] = 3; for (const a of DATA.AREAS) for (const o of a.objects) State.s.restore[o.id] = 3; State.persist(true); });
-  await page.evaluate(() => UI.startLevel(20, [], [])); await sleep(1200); await clearStory(); await sleep(400); await shot('23_boss20');
+  await page.evaluate(() => { UI.startLevel(20, [], []); }); await sleep(1200); await clearStory(); await sleep(400); await shot('23_boss20');
   await playShot(); await playShot(); await playShot(); await sleep(800); await shot('24_boss_fight');
   await page.evaluate(() => { Game.giveUp(); Screens.show('home'); });
-  await page.evaluate(() => UI.startLevel(87, ['fireball'], [])); await sleep(1200); await shot('25_level87');
+  await page.evaluate(() => { UI.startLevel(87, ['fireball'], []); }); await sleep(1200); await shot('25_level87');
   await page.evaluate(() => { Game.giveUp(); State.s.settings.lang = 'uk'; I18N.lang = 'uk'; UI.rebuild(); Screens.show('home'); }); await sleep(800); await shot('26_home_uk');
   console.log('ERRORS:', errors.length ? errors : 'none');
   await browser.close();
