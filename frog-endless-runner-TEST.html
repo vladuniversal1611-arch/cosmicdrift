@@ -606,7 +606,7 @@ function drawAchCard(){
   ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.fillStyle='#FFE082';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('НОВИЙ ЗАПИС ЛІТОПИСУ',x+52,y+15);
   ctx.fillStyle='#fff';ctx.font='900 14px Exo2,sans-serif';ctx.fillText(fitText(c.name,w-64),x+52,y+32);
-  if(c.skin){ctx.fillStyle='#9CFFC4';ctx.font='800 11px Exo2,sans-serif';ctx.fillText(fitText('🐸 Скін у продажу: '+c.skin,w-64),x+52,y+49)}
+  if(c.skin){ctx.fillStyle='#9CFFC4';ctx.font='800 11px Exo2,sans-serif';ctx.fillText(fitText('🐸 Новий скін: '+c.skin,w-64),x+52,y+49)}
   ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 function drawChaseBanner(){
@@ -2164,21 +2164,32 @@ function achClaim(k){
 // Each skin re-hues the painted hero once into a cached canvas (the greens
 // move, eyes / mouth / highlights stay). A skin with its own sprite can set
 // `img` to an _A key instead.
+// Three ways to get a skin: plain coins (kind 'coin'), a Chronicle record that
+// gives it for free (kind 'ach'), or the two showpieces: a big coin price that
+// five rewarded ads cut down (kind 'prem').
+const SKIN_ADS=5;
 const HERO_SKINS=[
   {id:'classic',n:'Бульбік',    h:null},
-  {img:'skIce', price:20000, jr:1.006, id:'ice',    n:'Крижаний',   h:198,              ach:'d2'},
-  {img:'skNeon', price:30000, jr:0.99, id:'neon',   n:'Неоновий',   h:318, s:1.1,       ach:'w1'},
-  {img:'skLava', price:40000, jr:0.96, id:'lava',   n:'Реакторний', h:16,  s:1.05,      ach:'w2'},
-  {img:'skGold', price:60000, jr:0.953, id:'gold',   n:'Золотий',    h:44,  s:1.1, l:1.08,ach:'m2'},
-  {img:'skViolet', price:60000, jr:0.95, id:'violet', n:'Резонатор',  h:272,              ach:'x2'},
-  {img:'skShadow', price:80000, jr:1.024, id:'shadow', n:'Тіньовий',   h:235, s:.35, l:.62,ach:'k1'},
-  {img:'skCore', price:100000, jr:0.999, id:'core',   n:'Ядерний',    h:186, s:.7,  l:1.3,ach:'w4'},
-  {img:'skRainbow', price:150000, jr:1.026, id:'rainbow',n:'Райдужний',  rainbow:true,       ach:'x3'},
+  {img:'skIce', kind:'coin', price:20000, jr:1.006, id:'ice',    n:'Крижаний',   h:198},
+  {img:'skNeon', kind:'coin', price:30000, jr:0.99, id:'neon',   n:'Неоновий',   h:318, s:1.1},
+  {img:'skGold', kind:'coin', price:60000, jr:0.953, id:'gold',   n:'Золотий',    h:44,  s:1.1, l:1.08},
+  {img:'skLava', kind:'ach', jr:0.96, id:'lava',   n:'Реакторний', h:16,  s:1.05,      ach:'w2'},
+  {img:'skViolet', kind:'ach', jr:0.95, id:'violet', n:'Резонатор',  h:272,              ach:'x2'},
+  {img:'skShadow', kind:'ach', jr:1.024, id:'shadow', n:'Тіньовий',   h:235, s:.35, l:.62,ach:'k1'},
+  {img:'skCore', kind:'prem', price:500000, adPrice:100000, jr:0.999, id:'core',   n:'Ядерний',    h:186, s:.7,  l:1.3},
+  {img:'skRainbow', kind:'prem', price:500000, adPrice:100000, jr:1.026, id:'rainbow',n:'Райдужний',  rainbow:true},
 ];
 const _skinCache={};
 // a Chronicle record makes a skin available; it is yours once you buy it
-function skinAvail(S){return !S.ach||achData().got.includes(S.ach)}
-function skinUnlocked(S){return !S.ach||!!(Prog.d&&(Prog.d.skinsOwned||[]).includes(S.id))}
+function skinAvail(S){return S.kind!=='ach'||achData().got.includes(S.ach)}
+function skinUnlocked(S){
+  if(!S.kind)return true;
+  if(S.kind==='ach'&&Prog.d&&achData().got.includes(S.ach))return true;   // the record itself is the reward
+  return !!(Prog.d&&(Prog.d.skinsOwned||[]).includes(S.id));
+}
+function skinAdsDone(S){return Math.min(SKIN_ADS,((Prog.d&&Prog.d.skinAds)||{})[S.id]|0)}
+function skinPrice(S){return S.kind==='prem'&&skinAdsDone(S)>=SKIN_ADS?S.adPrice:S.price}
+function wardBtns(r){return {ad:{x:r.x+8,y:r.y+r.h-58,w:r.w-16,h:22},buy:{x:r.x+8,y:r.y+r.h-32,w:r.w-16,h:24}}}
 function skinOf(k){return HERO_SKINS.find(S=>S.ach===k)}
 function curHeroSkin(){const id=Prog.d&&Prog.d.skin;const S=HERO_SKINS.find(s=>s.id===id);return S&&skinUnlocked(S)?S:HERO_SKINS[0]}
 function _rehue(h,sm,lm,src){
@@ -2235,7 +2246,7 @@ function heroFrames(){
   }
   return null;
 }
-function skinsNew(){if(!Prog.d)return 0;const seen=Prog.d.skinSeen||[];return HERO_SKINS.filter(S=>S.ach&&skinAvail(S)&&!skinUnlocked(S)&&!seen.includes(S.id)).length}
+function skinsNew(){if(!Prog.d)return 0;const seen=Prog.d.skinSeen||[];return HERO_SKINS.filter(S=>S.kind==='ach'&&skinUnlocked(S)&&!seen.includes(S.id)).length}
 
 function wardLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440), cols=W<340?2:3;
   const gap=10, tw=(cw-gap*(cols-1))/cols;return {cw,x:W/2-cw/2,top:124+SAFE.t,cols,gap,tw,th:tw*1.28+34}}
@@ -2250,28 +2261,37 @@ function drawWard(){
   ctx.save();ctx.beginPath();ctx.rect(0,L.top-6,W,H);ctx.clip();
   HERO_SKINS.forEach((S,i)=>{
     const r=wardCell(L,i);if(r.y>H||r.y+r.h<0)return;
-    const own=skinUnlocked(S), avail=!own&&skinAvail(S), on=S===cur, fresh=avail&&!seen.includes(S.id);
+    const own=skinUnlocked(S), avail=!own&&skinAvail(S), on=S===cur, fresh=own&&S.kind==='ach'&&!seen.includes(S.id), prem=S.kind==='prem'&&!own;
     glassPanel(r.x,r.y,r.w,r.h,14);
     if(on||fresh){ctx.save();ctx.strokeStyle=on?'rgba(120,255,170,.9)':UI.lineGold;ctx.lineWidth=2;rr(r.x+1,r.y+1,r.w-2,r.h-2,13);ctx.stroke();ctx.restore()}
     // hero preview (locked ones are shadows)
-    const img=own||avail?skinImg(S):heroSil(), hb=heroBox(img,r.w*.95), ih=hb.h, iw=hb.w;
+    const img=own||avail?skinImg(S):heroSil(), hb=heroBox(img,r.w*(prem?.78:.95)), ih=hb.h, iw=hb.w;
     const bob=on?Math.sin(gt*3)*2:0;
     ctx.save();
     if(!own)ctx.globalAlpha=.75;
-    if(_HERO_LOADED)ctx.drawImage(img,r.x+r.w/2-iw/2,r.y+10+r.w*.95-ih+bob,iw,ih);
+    if(_HERO_LOADED)ctx.drawImage(img,r.x+r.w/2-iw/2,r.y+10+r.w*(prem?.78:.95)-ih+bob,iw,ih);
     ctx.restore();
     if(!own&&!avail){ctx.font='20px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';drawEmo('🔒',r.x+r.w/2,r.y+10+ih*.55,26)}
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle=own?'#fff':'rgba(200,215,240,.7)';
-    ctx.fillText(fitText(S.n,r.w-8),r.x+r.w/2,r.y+r.h-(own?38:avail?44:46));
+    ctx.fillText(fitText(S.n,r.w-8),r.x+r.w/2,r.y+r.h-(own?38:prem?70:avail?44:46));
+    if(fresh){ctx.fillStyle='#FFE082';ctx.font='900 9px Exo2,sans-serif';ctx.fillText('НОВИЙ · ЛІТОПИС',r.x+r.w/2,r.y+14)}
+    if(prem&&!own){ctx.fillStyle='#FFE082';ctx.font='900 9px Exo2,sans-serif';ctx.fillText('★ ОСОБЛИВИЙ',r.x+r.w/2,r.y+14)}
     ctx.font='800 10px Exo2,sans-serif';
     if(on){ctx.fillStyle='#9CFFC4';ctx.fillText('✓ ОБРАНО',r.x+r.w/2,r.y+r.h-18)}
     else if(own){ctx.fillStyle=UI.dim;ctx.fillText('ОБРАТИ',r.x+r.w/2,r.y+r.h-18)}
+    else if(prem){const B=wardBtns(r), n=skinAdsDone(S), pr=skinPrice(S), ok=coins>=pr;
+      if(n<SKIN_ADS){const a=B.ad, ga=ctx.createLinearGradient(0,a.y,0,a.y+a.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
+        pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.fillStyle='#fff';ctx.font='900 10px Exo2,sans-serif';
+        ctx.fillText(fitText(`📺 ${n}/${SKIN_ADS} → ${fmtCur(S.adPrice)}`,a.w-6),a.x+a.w/2,a.y+a.h/2+1)}
+      else{ctx.fillStyle='#9CFFC4';ctx.font='900 9px Exo2,sans-serif';ctx.fillText('📺 5/5 · ЗНИЖКА!',r.x+r.w/2,B.ad.y+B.ad.h/2)}
+      const b=B.buy;ctx.save();if(!ok)ctx.globalAlpha=.55;const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');pillFill('btnO',g,b.x,b.y,b.w,b.h);
+      ctx.font='900 11px Exo2,sans-serif';const lab=fmtN(pr),lw=ctx.measureText(lab).width;drawCoinIco(b.x+b.w/2-lw/2-6,b.y+b.h/2,6);
+      ctx.fillStyle='#3A1E00';ctx.textAlign='left';ctx.fillText(lab,b.x+b.w/2-lw/2+3,b.y+b.h/2+1);ctx.restore();ctx.textAlign='center'}
     else if(avail){const b={x:r.x+8,y:r.y+r.h-32,w:r.w-16,h:24},ok=coins>=S.price;
       ctx.save();if(!ok)ctx.globalAlpha=.55;const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');pillFill('btnO',g,b.x,b.y,b.w,b.h);
       ctx.font='900 11px Exo2,sans-serif';const lab=fmtN(S.price),lw=ctx.measureText(lab).width;drawCoinIco(b.x+b.w/2-lw/2-6,b.y+b.h/2,6);
-      ctx.fillStyle='#3A1E00';ctx.textAlign='left';ctx.fillText(lab,b.x+b.w/2-lw/2+3,b.y+b.h/2+1);ctx.restore();ctx.textAlign='center';
-      if(fresh){ctx.fillStyle='#FFE082';ctx.font='900 9px Exo2,sans-serif';ctx.fillText('ДОСТУПНИЙ!',r.x+r.w/2,r.y+14)}}
+      ctx.fillStyle='#3A1E00';ctx.textAlign='left';ctx.fillText(lab,b.x+b.w/2-lw/2+3,b.y+b.h/2+1);ctx.restore();ctx.textAlign='center'}
     else{const A=ACH.find(a=>a.k===S.ach);ctx.fillStyle=UI.textGold;ctx.fillText(fitText('🏆 '+(A?A.name:''),r.w-8),r.x+r.w/2,r.y+r.h-30);
       if(A){const v=Math.min(A.n,achVal(A)|0);drawBar(r.x+12,r.y+r.h-21,r.w-24,5,v/A.n,'#E89A2C','#FFD36B');
         ctx.font='800 9px Exo2,sans-serif';ctx.fillStyle='#FFE082';ctx.fillText(`${fmtN(v)} / ${fmtN(A.n)}`,r.x+r.w/2,r.y+r.h-10)}}
@@ -2283,7 +2303,7 @@ function drawWard(){
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
   ctx.fillText('ГАРДЕРОБ',W/2,72+SAFE.t);
   ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=UI.dim;
-  ctx.fillText(`${HERO_SKINS.filter(skinUnlocked).length}/${HERO_SKINS.length} · Літопис відкриває, монети купують`,W/2,98+SAFE.t);
+  ctx.fillText(`${HERO_SKINS.filter(skinUnlocked).length}/${HERO_SKINS.length} · монети · Літопис · ★ монети+реклама`,W/2,98+SAFE.t);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
   // a locked tile tapped: say which record opens it
   if(wardMsgT>0){wardMsgT-=.016;ctx.save();ctx.globalAlpha=Math.min(1,wardMsgT*2);
@@ -2298,6 +2318,20 @@ function wardTap(x,y){
   HERO_SKINS.forEach((S,i)=>{
     const r=wardCell(L,i);if(x<r.x||x>r.x+r.w||y<r.y||y>r.y+r.h)return;
     if(skinUnlocked(S)){Prog.d.skin=S.id;Prog.save();sfxPU();addTapRipple(x,y)}
+    else if(S.kind==='prem'){
+      const B=wardBtns(r), a=B.ad;
+      if(skinAdsDone(S)<SKIN_ADS&&y>=a.y-3&&y<=a.y+a.h+3){
+        if(adBusy())return;
+        watchAds(1,()=>{const d=Prog.d;d.skinAds=d.skinAds||{};d.skinAds[S.id]=skinAdsDone(S)+1;Prog.save();sfxPU();
+          const n=skinAdsDone(S);wardMsg=n>=SKIN_ADS?`📺 Знижка! ${S.n} тепер за ${fmtN(S.adPrice)}`:`📺 ${n}/${SKIN_ADS} — ще ${SKIN_ADS-n} до ціни ${fmtN(S.adPrice)}`;wardMsgT=2.4});
+        return;
+      }
+      const pr=skinPrice(S);
+      if(coins<pr){wardMsg=`Не вистачає ${fmtN(pr-coins)} монет`+(skinAdsDone(S)<SKIN_ADS?' · або 📺 знижка':'');wardMsgT=2.4;sfxLand();return}
+      coins-=pr;try{__LS.setItem('fCoins',''+coins)}catch(e){}
+      (Prog.d.skinsOwned=Prog.d.skinsOwned||[]).push(S.id);Prog.d.skin=S.id;Prog.save();sfxPU();addTapRipple(x,y);
+      wardMsg=`🐸 ${S.n} — твій!`;wardMsgT=2.2;
+    }
     else if(skinAvail(S)){
       if(coins<S.price){wardMsg=`Не вистачає ${fmtN(S.price-coins)} монет`;wardMsgT=2.2;sfxLand();return}
       coins-=S.price;try{__LS.setItem('fCoins',''+coins)}catch(e){}
@@ -2308,7 +2342,7 @@ function wardTap(x,y){
   });
 }
 // leaving marks every unlocked skin as seen (clears the NEW badge)
-function wardLeave(){Prog.d.skinSeen=HERO_SKINS.filter(S=>S.ach&&skinAvail(S)).map(S=>S.id);Prog.save()}
+function wardLeave(){Prog.d.skinSeen=HERO_SKINS.filter(S=>S.kind==='ach'&&skinUnlocked(S)).map(S=>S.id);Prog.save()}
 function skinChipRect(){return {x:12+SAFE.l,y:12+SAFE.t,w:100,h:34}}
 function drawSkinChip(){
   const r=skinChipRect(), n=skinsNew();
@@ -10456,7 +10490,7 @@ function drawAch(){
     ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;
     const sk=skinOf(A.k);
     ctx.fillText(fitText(A.txt,tw-(sk?96:0)),tx,y+35);
-    if(sk){ctx.fillStyle='#9CFFC4';ctx.textAlign='right';ctx.fillText('🐸 скін у продаж',tx+tw,y+35);ctx.textAlign='left'}
+    if(sk){ctx.fillStyle='#9CFFC4';ctx.textAlign='right';ctx.fillText('🐸 скін у нагороду',tx+tw,y+35);ctx.textAlign='left'}
     if(got){
       ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=cl?'#9CFFC4':'#FFE082';
       ctx.fillText(cl?'✓ Записано в Літопис':'🏆 Виконано!',tx,y+55);
