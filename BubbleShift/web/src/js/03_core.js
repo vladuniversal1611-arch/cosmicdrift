@@ -64,7 +64,7 @@ const Core = (() => {
       this.stats = { popped: 0, dropped: 0, byColor: [0, 0, 0, 0, 0, 0], rescued: 0, butterflies: 0, stars: 0, crystals: 0, chains: 0, specials: 0, keys: 0 };
       this.initialCount = this.count();
       this.initialTop = this.rowCount(0);
-      this.darkCap = this.countType('d') + 6;
+      this.darkCap = this.countType('d') + 3;
       this.boss = level.boss ? { hp: level.boss.hp, max: level.boss.hp, turn: 0, pattern: 0 } : null;
     }
 

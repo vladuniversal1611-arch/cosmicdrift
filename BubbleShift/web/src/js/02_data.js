@@ -32,7 +32,7 @@ DATA.OBJECTIVE_INTRO = { clear: 1, rescue: 2, stars: 5, top: 6, color: 8, butter
 DATA.AREAS = [
   { id: 'valley', name: { en: 'Green Valley', uk: 'Зелена Долина' }, mats: ['wood', 'stone'],
     sky: ['#58b6ff', '#9ad8ff', '#dff6ff'], hills: ['#8ad65a', '#5cb842', '#3f9a33'], props: 'meadow',
-    boss: { name: { en: 'Bubble Beast', uk: 'Бульбозвір' }, hue: 280, hp: 170 },
+    boss: { name: { en: 'Bubble Beast', uk: 'Бульбозвір' }, hue: 280, hp: 100 },
     objects: [
       { id: 'cottage', type: 'house', unlock: 3, name: { en: "Nia's Cottage", uk: 'Хатинка Ніі' }, x: 0.27, y: 0.6 },
       { id: 'bridge', type: 'bridge', unlock: 12, name: { en: 'Old Bridge', uk: 'Старий міст' }, x: 0.72, y: 0.7 },
@@ -40,7 +40,7 @@ DATA.AREAS = [
     ] },
   { id: 'village', name: { en: 'Old Village', uk: 'Старе Село' }, mats: ['wood', 'flower'],
     sky: ['#ffb46b', '#ffd9a0', '#fff1d6'], hills: ['#b8d66a', '#8fbf4a', '#6fa338'], props: 'village',
-    boss: { name: { en: 'Grumble Blob', uk: 'Бурчун-Клякса' }, hue: 20, hp: 210 },
+    boss: { name: { en: 'Grumble Blob', uk: 'Бурчун-Клякса' }, hue: 20, hp: 95 },
     objects: [
       { id: 'windmill', type: 'windmill', unlock: 23, name: { en: 'Windmill', uk: 'Вітряк' }, x: 0.72, y: 0.5 },
       { id: 'workshop', type: 'workshop', unlock: 29, name: { en: "Nia's Workshop", uk: 'Майстерня Ніі' }, x: 0.28, y: 0.6 },
@@ -48,7 +48,7 @@ DATA.AREAS = [
     ] },
   { id: 'forest', name: { en: 'Mystic Forest', uk: 'Чарівний Ліс' }, mats: ['flower', 'crystal'],
     sky: ['#2f9e8f', '#6fd1b6', '#c9f5e2'], hills: ['#3f9a5a', '#2e7d48', '#1f6238'], props: 'forest',
-    boss: { name: { en: 'Moss Muncher', uk: 'Моховик' }, hue: 110, hp: 250 },
+    boss: { name: { en: 'Moss Muncher', uk: 'Моховик' }, hue: 110, hp: 95 },
     objects: [
       { id: 'treehouse', type: 'house', unlock: 43, name: { en: 'Treehouse', uk: 'Будиночок на дереві' }, x: 0.3, y: 0.55 },
       { id: 'mushgarden', type: 'garden', unlock: 49, name: { en: 'Mushroom Grove', uk: 'Грибний гай' }, x: 0.7, y: 0.62 },
@@ -56,7 +56,7 @@ DATA.AREAS = [
     ] },
   { id: 'lake', name: { en: 'Crystal Lake', uk: 'Кришталеве Озеро' }, mats: ['crystal', 'stone'],
     sky: ['#4f7dff', '#8fb6ff', '#dfe9ff'], hills: ['#7fc6d6', '#4fa3c0', '#2f7fa3'], props: 'lake',
-    boss: { name: { en: 'Frost Gulper', uk: 'Льодоглот' }, hue: 195, hp: 290 },
+    boss: { name: { en: 'Frost Gulper', uk: 'Льодоглот' }, hue: 195, hp: 100 },
     objects: [
       { id: 'lighthouse', type: 'lighthouse', unlock: 63, name: { en: 'Lighthouse', uk: 'Маяк' }, x: 0.74, y: 0.5 },
       { id: 'cfountain', type: 'fountain', unlock: 69, name: { en: 'Crystal Fountain', uk: 'Кришталевий фонтан' }, x: 0.3, y: 0.58 },
@@ -64,7 +64,7 @@ DATA.AREAS = [
     ] },
   { id: 'ruins', name: { en: 'Ancient Ruins', uk: 'Древні Руїни' }, mats: ['stone', 'crystal'],
     sky: ['#e6a45a', '#f2c98a', '#fbe8c6'], hills: ['#c9a56a', '#a88650', '#86683c'], props: 'ruins',
-    boss: { name: { en: 'Stone Golem', uk: 'Кам’яний Голем' }, hue: 35, hp: 330 },
+    boss: { name: { en: 'Stone Golem', uk: 'Кам’яний Голем' }, hue: 35, hp: 100 },
     objects: [
       { id: 'stower', type: 'tower', unlock: 83, name: { en: 'Sun Tower', uk: 'Сонячна вежа' }, x: 0.3, y: 0.5 },
       { id: 'tbridge', type: 'bridge', unlock: 89, name: { en: 'Temple Bridge', uk: 'Храмовий міст' }, x: 0.62, y: 0.72 },
@@ -72,7 +72,7 @@ DATA.AREAS = [
     ] },
   { id: 'clouds', name: { en: 'Cloud Gardens', uk: 'Хмарні Сади' }, mats: ['flower', 'crystal'],
     sky: ['#b58cff', '#d7c2ff', '#fbefff'], hills: ['#ffffff', '#f1e6ff', '#e0d0ff'], props: 'clouds',
-    boss: { name: { en: 'Thunder Puff', uk: 'Громовий Пух' }, hue: 250, hp: 370 },
+    boss: { name: { en: 'Thunder Puff', uk: 'Громовий Пух' }, hue: 250, hp: 105 },
     objects: [
       { id: 'skymill', type: 'windmill', unlock: 103, name: { en: 'Sky Mill', uk: 'Небесний млин' }, x: 0.3, y: 0.52 },
       { id: 'cgarden', type: 'garden', unlock: 109, name: { en: 'Floating Garden', uk: 'Летючий сад' }, x: 0.68, y: 0.6 },
@@ -80,7 +80,7 @@ DATA.AREAS = [
     ] },
   { id: 'shadow', name: { en: 'Shadow Valley', uk: 'Тіньова Долина' }, mats: ['crystal', 'wood'],
     sky: ['#3a2f7a', '#6a4fa8', '#b89ad6'], hills: ['#5a4a8a', '#46387a', '#322868'], props: 'shadow',
-    boss: { name: { en: 'Gloom Maw', uk: 'Похмура Паща' }, hue: 300, hp: 410 },
+    boss: { name: { en: 'Gloom Maw', uk: 'Похмура Паща' }, hue: 300, hp: 105 },
     objects: [
       { id: 'shouse', type: 'house', unlock: 123, name: { en: 'Lantern House', uk: 'Дім ліхтарів' }, x: 0.28, y: 0.58 },
       { id: 'shtower', type: 'tower', unlock: 129, name: { en: 'Moon Tower', uk: 'Місячна вежа' }, x: 0.7, y: 0.5 },
@@ -88,7 +88,7 @@ DATA.AREAS = [
     ] },
   { id: 'castle', name: { en: 'Final Castle', uk: 'Останній Замок' }, mats: ['stone', 'crystal'],
     sky: ['#ff8fb0', '#ffc3a6', '#fff0d6'], hills: ['#9a8ac8', '#7a6ab0', '#5a4a96'], props: 'castle',
-    boss: { name: { en: 'Murk', uk: 'Морок' }, hue: 265, hp: 480, final: true },
+    boss: { name: { en: 'Murk', uk: 'Морок' }, hue: 265, hp: 130, final: true },
     objects: [
       { id: 'gate', type: 'tower', unlock: 143, name: { en: 'Castle Gate', uk: 'Замкова брама' }, x: 0.5, y: 0.5 },
       { id: 'cbridge', type: 'bridge', unlock: 149, name: { en: 'Rainbow Bridge', uk: 'Райдужний міст' }, x: 0.3, y: 0.72 },

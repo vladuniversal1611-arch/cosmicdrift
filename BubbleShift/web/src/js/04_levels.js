@@ -161,12 +161,14 @@ const Levels = (() => {
     else {
       let type = OBJ_PATTERN[(local - 1 + areaIdx * 3) % OBJ_PATTERN.length];
       if (intro === 'chain') type = 'chains';
-      else if (intro) type = 'clear';
+      else if (intro) type = intro === 'dark' ? 'rescue' : 'clear';
       if (type === 'chains' && !available.includes('chain')) type = 'rescue';
       if ((DATA.OBJECTIVE_INTRO[type] || 1) > id) type = id >= 2 ? 'rescue' : 'clear';
       objective = { type };
     }
     if (objective.type === 'chains' && !mechanics.includes('chain')) mechanics.push('chain');
+    // Shadow bubbles keep spreading — on 'clear everything' boards that turns into a slog.
+    if (objective.type === 'clear') mechanics = mechanics.filter((m) => m !== 'dark');
 
     // shape
     const cellMap = new Map();
@@ -177,6 +179,7 @@ const Levels = (() => {
     } else {
       const tpl = hand.template || (isBoss ? rng.pick(['wall', 'split', 'arches']) : TEMPLATE_KEYS[rng.int(TEMPLATE_KEYS.length)]);
       let rows = hand.rows || Math.min(20, 8 + Math.round(d * 10) + (rng() < 0.3 ? 1 : 0));
+      rows = Math.min(rows, objective.type === 'clear' ? 12 : 16);
       if (isBoss) rows = Math.min(rows, 9);
       const f = TEMPLATES[tpl] || TEMPLATES.wall;
       for (let r = 0; r < rows; r++) {
