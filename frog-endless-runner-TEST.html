@@ -1099,7 +1099,7 @@ const FEVER_SHIELDS=[0,1,1,2,2,3], FEVER_COIN=[1,2,2,2,3,3];
 // Calibrated against measured income: ~200 coins a casual run, ~650 a strong 550 m one.
 // coins: 9000 for the first step, each next one ×2.5
 // fragments: 24 for the first step, ×3 each next — chests and the hunt are how a module grows
-const UP_COST=[null,null,{c:9000,f:24,s:0},{c:22500,f:72,s:0},{c:56250,f:216,s:12},{c:140625,f:648,s:30}];
+const UP_COST=[null,null,{c:9000,f:24,s:0},{c:22500,f:72,s:0},{c:56250,f:216,s:150},{c:140625,f:648,s:400}];
 
 function progDefaults(){
   return {v:PROG_V, xp:0, lvl:1, shards:0,
@@ -1925,12 +1925,13 @@ function resReroll(i,free){
   try{__LS.setItem('fCoins',''+coins)}catch(e){}
   Prog.save();return true;
 }
+const CHEST_LOW=['дерев’яна скриня','кришталева скриня','епічна скриня'];
 function resRewardTxt(rw){
   if(rw.keys)return '+'+rw.keys+' '+pl(rw.keys,'ключ','ключі','ключів');
-  if(rw.chest!=null)return CHESTS[rw.chest].name.toLowerCase()+' скриня';
-  if(rw.shards)return '+'+rw.shards+' ядр'+(rw.shards>1?'а':'о');
-  if(rw.frag)return '+'+rw.frag+' фрагмент'+(rw.frag>1?'и':'');
-  return '+'+rw.coins+' монет';
+  if(rw.chest!=null)return CHEST_LOW[rw.chest];
+  if(rw.shards)return '+'+rw.shards+' '+pl(rw.shards,'ядро','ядра','ядер');
+  if(rw.frag)return '+'+rw.frag+' '+pl(rw.frag,'фрагмент','фрагменти','фрагментів');
+  return '+'+fmtN(rw.coins)+' '+pl(rw.coins,'монета','монети','монет');
 }
 
 // =====================================================================
@@ -2347,6 +2348,45 @@ function wardLeave(){Prog.d.skinSeen=HERO_SKINS.filter(S=>S.kind==='ach'&&skinUn
 // ---- Profile: what this player has done so far ----
 // Lifetime coins / fragments / cores are counted as rises in the balances, so
 // every source (runs, chests, missions, ads) is covered without touching each.
+// ---- Currency guide: tap any currency chip to see what it is for and where it comes from ----
+let curGuide=null;
+const CUR_GUIDE=[
+  {k:'coins',ico:'coin',name:'МОНЕТИ',use:'Лабораторія, скіни, сліди і магазин',
+   from:['Монети на платформах і в повітрі','Бонуси за дистанцію і фінали актів','Щоденні місії, резонанс ядра, тиждень','Скрині']},
+  {k:'shards',ico:'shard',name:'ЯДРА',use:'Рівні 4–5 модулів · обмін 100 ядер → 1 ключ',
+   from:['💎 Діаманти на платформах: кожні 4 = 1 ядро','Скрині: дерев’яна 1, кришталева 4, епічна 12','Місії, резонанс ядра, тиждень']},
+  {k:'frag',ico:'frag',name:'ФРАГМЕНТИ',use:'Покращення модулів у Лабораторії',
+   from:['Скрині — найбільше в епічних','Полювання на іскри: 3 диски щодня','Щоденні місії та резонанс ядра']},
+  {k:'keys',ico:'key',name:'КЛЮЧІ ЯДРА',use:'Продовжити забіг після падіння',
+   from:['Магазин: за монети або рекламу (3 на день)','Обмін 100 ядер → 1 ключ','Епічні скрині, тиждень і серія днів']},
+];
+function hitCurChip(x,y){
+  for(const k in curRects){const r=curRects[k];if(x>=r.x-3&&x<=r.x+r.w+3&&y>=r.y-3&&y<=r.y+r.h+3){curGuide={k,t:0};sfxClick();return true}}
+  return false;
+}
+function curGuideLayout(){const w=Math.min(W-28,380),sh=96,h=58+CUR_GUIDE.length*sh+40;return {w,h,x:W/2-w/2,y:Math.max(SAFE.t+10,H/2-h/2),sh}}
+function drawCurGuide(){
+  curGuide.t=Math.min(1,curGuide.t+.08);
+  const L=curGuideLayout(), e=1-Math.pow(1-curGuide.t,3);
+  ctx.save();ctx.fillStyle=`rgba(2,6,20,${.72*e})`;ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=e;ctx.translate(0,(1-e)*24);
+  glassPanel(L.x,L.y,L.w,L.h,18);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 18px Exo2,sans-serif';
+  ctx.fillText('ЗВІДКИ БРАТИ ВАЛЮТИ',W/2,L.y+28);
+  CUR_GUIDE.forEach((g,i)=>{
+    const y=L.y+54+i*L.sh, on=g.k===curGuide.k;
+    if(on){ctx.save();ctx.fillStyle='rgba(54,224,255,.12)';rr(L.x+8,y-4,L.w-16,L.sh-6,12);ctx.fill();ctx.strokeStyle='rgba(54,224,255,.6)';ctx.lineWidth=1.5;rr(L.x+8,y-4,L.w-16,L.sh-6,12);ctx.stroke();ctx.restore()}
+    const ix=L.x+30, iy=y+14;
+    if(g.ico==='coin')drawCoinIco(ix,iy,10);else if(g.ico==='shard')drawShardIco(ix,iy,10);else if(g.ico==='frag')drawFragIco(ix,iy,10);else drawKeyIco(ix,iy,11);
+    ctx.textAlign='left';ctx.fillStyle=on?'#9CF4FF':'#FFE082';ctx.font='900 14px Exo2,sans-serif';ctx.fillText(g.name,L.x+50,y+9);
+    ctx.fillStyle='#fff';ctx.font='700 11px Exo2,sans-serif';ctx.fillText(fitText(g.use,L.w-66),L.x+50,y+26);
+    ctx.fillStyle=UI.dim;ctx.font='700 10.5px Exo2,sans-serif';
+    g.from.forEach((f,j)=>ctx.fillText(fitText('• '+f,L.w-66),L.x+50,y+43+j*14));
+  });
+  ctx.textAlign='center';ctx.fillStyle='rgba(200,222,255,.6)';ctx.font='800 11px Exo2,sans-serif';
+  ctx.fillText('торкнись, щоб закрити',W/2,L.y+L.h-18);
+  ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
 function trackEarned(){
   const d=Prog.d;if(!d)return;const st=d.stats;
   const fs=Object.values(d.frag||{}).reduce((a,b)=>a+(b|0),0);
@@ -4147,7 +4187,9 @@ canvas.addEventListener('touchend',e=>{pressDown=false;
   if(state===ST.PLAY&&alive){touching=false}
   if(d<30&&dt<300){
     if(state!==ST.PLAY)addTapRipple(t.clientX,t.clientY);
-    if(state===ST.MENU)menuTap(t.clientX,t.clientY);
+    if(curGuide){curGuide=null;sfxClick()}
+    else if(state!==ST.PLAY&&hitCurChip(t.clientX,t.clientY)){}
+    else if(state===ST.MENU)menuTap(t.clientX,t.clientY);
     else if(state===ST.OVER)overTap(t.clientX,t.clientY);
     else if(state===ST.SKINS)skinsTap(t.clientX,t.clientY);
     else if(state===ST.MISSIONS)missionsTap(t.clientX,t.clientY);
@@ -4202,7 +4244,9 @@ canvas.addEventListener('mouseup',e=>{pressDown=false;
   const d=Math.sqrt((e.clientX-tSX)**2+(e.clientY-tSY)**2);
   if(d<30&&Date.now()-tST<300){
     if(state!==ST.PLAY)addTapRipple(e.clientX,e.clientY);
-    if(state===ST.MENU)menuTap(e.clientX,e.clientY);
+    if(curGuide){curGuide=null;sfxClick()}
+    else if(state!==ST.PLAY&&hitCurChip(e.clientX,e.clientY)){}
+    else if(state===ST.MENU)menuTap(e.clientX,e.clientY);
     else if(state===ST.OVER)overTap(e.clientX,e.clientY);
     else if(state===ST.SKINS)skinsTap(e.clientX,e.clientY);
     else if(state===ST.MISSIONS)missionsTap(e.clientX,e.clientY);
@@ -10625,14 +10669,14 @@ function drawAch(){
       ctx.textAlign='center';ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle='#3A2000';
       ctx.fillText('ЗАБРАТИ',r.x+r.w/2,r.y+r.h/2+bob+.5);
       ctx.font='800 10px Exo2,sans-serif';ctx.fillStyle=UI.textGold;
-      ctx.fillText(fitText(A.rw.chest!=null?'скриня: '+CHESTS[A.rw.chest].name.toLowerCase():resRewardTxt(A.rw),r.w+24),r.x+r.w/2,y+56);
+      ctx.fillText(fitText(A.rw.chest!=null?CHEST_LOW[A.rw.chest]:resRewardTxt(A.rw),r.w+24),r.x+r.w/2,y+56);
       ctx.restore();
     }else{
       const rx=L.x+L.cw-40;
       ctx.save();if(cl)ctx.globalAlpha=.45;
       drawAchRewardIco(rx,y+26,A.rw);
       ctx.textAlign='center';ctx.font='800 10px Exo2,sans-serif';ctx.fillStyle=UI.textGold;
-      const lab=A.rw.chest!=null?CHESTS[A.rw.chest].name.toLowerCase():A.rw.coins?'+'+A.rw.coins:'+'+(A.rw.shards||A.rw.frag);
+      const lab=A.rw.chest!=null?CHEST_LOW[A.rw.chest]:A.rw.coins?'+'+A.rw.coins:'+'+(A.rw.shards||A.rw.frag);
       ctx.fillText(fitText(lab,64),rx,y+54);
       ctx.restore();
     }
@@ -10828,7 +10872,7 @@ function drawFlyFx(dt){
 }
 // big wallets stay inside their chips: 125K, 2.00M
 function fmtCur(v){v=Math.floor(v);if(v<100000)return String(v);if(v<1e6)return Math.floor(v/1000)+'K';const d=v<1e7?100:10;return String(Math.floor(v/(1e6/d))/d)+'M'}
-let curRowLeft=1e4;   // left edge of the currency row, so the PROFILE chip never runs into it
+let curRowLeft=1e4, curRects={};   // left edge of the currency row, so the PROFILE chip never runs into it
 function drawCurrencies(row,menu){
   const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
   if(keysHave()>0)rows.push({k:'keys',v:keysHave(),ico:drawKeyIco,col:'#FFD54F'});
@@ -10842,10 +10886,10 @@ function drawCurrencies(row,menu){
   let x=W-12-SAFE.r-cw;
   if(row)rows.reverse();
   for(const r of rows){
-    if(split&&r.k==='keys'){const kx=W-12-SAFE.r-cw, ky=y+ch+8;chipBg(kx,ky,cw,ch);curPos.keys={x:kx+17,y:ky+ch/2};r.ico(kx+17,ky+ch/2,9);
+    if(split&&r.k==='keys'){const kx=W-12-SAFE.r-cw, ky=y+ch+8;chipBg(kx,ky,cw,ch);curPos.keys={x:kx+17,y:ky+ch/2};curRects.keys={x:kx,y:ky,w:cw,h:ch};r.ico(kx+17,ky+ch/2,9);
       ctx.font=fnt;ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),kx+cw-13,ky+ch/2+1);continue}
     chipBg(x,y,cw,ch);
-    curPos[r.k]={x:x+17,y:y+ch/2};
+    curPos[r.k]={x:x+17,y:y+ch/2};curRects[r.k]={x,y,w:cw,h:ch};
     const bs=1+.35*curBump[r.k];
     if(bs>1){ctx.save();ctx.translate(x+17,y+ch/2);ctx.scale(bs,bs);r.ico(0,0,9);ctx.restore()}
     else if(row){r.ico(x+17,y+ch/2,9)}
@@ -11555,6 +11599,7 @@ function loop(ts){
   if(state!==prevDrawState){transT=TRANS_DUR;prevDrawState=state;}
   try{
     ctx.clearRect(0,0,W,H);
+    curRects={};
     switch(state){
       case ST.MENU:drawMenu();break;
       case ST.PLAY:{if(!paused){if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt)}drawGame();if(paused)drawPause();break}
@@ -11573,6 +11618,7 @@ function loop(ts){
       case ST.PROFILE:drawProfile();break;
     }
     trackEarned();
+    if(curGuide)drawCurGuide();
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
     drawAdPlaceholder(dt);
