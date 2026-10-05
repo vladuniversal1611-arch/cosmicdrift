@@ -11,7 +11,7 @@ import json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.join(HERE, '..', '..', 'frog-endless-runner.html')
-LANGS = ['en', 'es', 'pt', 'de', 'fr', 'it', 'pl', 'tr', 'id']
+LANGS = ['en', 'es', 'pt', 'de', 'fr', 'it', 'pl', 'tr', 'id', 'nl', 'vi', 'zh', 'ja', 'ko', 'hi', 'th', 'ar']
 
 keys = json.load(open(os.path.join(HERE, 'keys.json'), encoding='utf-8'))
 data, bad = {}, 0
