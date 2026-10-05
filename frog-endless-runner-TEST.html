@@ -1098,7 +1098,8 @@ const FEVER_SHIELDS=[0,1,1,2,2,3], FEVER_COIN=[1,2,2,2,3,3];
 // progress follows play, core shards for the top two levels.
 // Calibrated against measured income: ~200 coins a casual run, ~650 a strong 550 m one.
 // coins: 9000 for the first step, each next one ×2.5
-const UP_COST=[null,null,{c:9000,f:4,s:0},{c:22500,f:8,s:0},{c:56250,f:14,s:12},{c:140625,f:22,s:30}];
+// fragments: 24 for the first step, ×3 each next — chests and the hunt are how a module grows
+const UP_COST=[null,null,{c:9000,f:24,s:0},{c:22500,f:72,s:0},{c:56250,f:216,s:12},{c:140625,f:648,s:30}];
 
 function progDefaults(){
   return {v:PROG_V, xp:0, lvl:1, shards:0,
@@ -2389,8 +2390,9 @@ const SHOP=[
   {id:'x2',  ico:'💰',   name:'Подвійні монети',  txt:'Усі монети забігу ×2',          p:3300,  arm:'x2'},
   {id:'res2',ico:'🔷',   name:'Резонанс +2',      txt:'Множник очок +2 на забіг',      p:5000, ad:1,  arm:'res'},
   {sec:'СКРИНІ',sub:'відкриваються в розділі СКРИНІ'},
-  {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:800,  buy:d=>{d.chests.wood++}},
-  {id:'chC', chest:1,    name:'Кришталева скриня',txt:'Більше фрагментів · шанс на ключ',p:3500,buy:d=>{d.chests.crystal++}},
+  {id:'chW', chest:0,    name:'Дерев’яна скриня', txt:'Монети, ядра й фрагменти',      p:800,  ad:1, adDay:2, buy:d=>{d.chests.wood++}},
+  {id:'chC', chest:1,    name:'Кришталева скриня',txt:'Більше фрагментів · шанс на ключ',p:3500,ad:1, adDay:1, buy:d=>{d.chests.crystal++}},
+  {id:'chE', chest:2,    name:'Епічна скриня',    txt:'Купа фрагментів · раз на 72 год',  ad:1, adCool:72*3600e3, adOnly:1, buy:d=>{d.chests.epic++}},
   {sec:'СЛІДИ СТРИБКА',sub:'видно в кожному стрибку'},
   ...TRAILS.map(t=>({id:'tr_'+t.id,trail:t.id,name:t.n,txt:'Слід за Бульбіком у польоті',p:t.p})),
 ];
@@ -2399,6 +2401,7 @@ function shopState(it){
   inv();
   if(it.trail){const own=Prog.d.trails.includes(it.trail);return own?(Prog.d.trail===it.trail?'on':'own'):coins>=it.p?'buy':'poor'}
   if(it.arm){if(shopArmed(it))return 'armed';if(it.arm==='hs'&&Prog.d.arm.hs)return 'busy'}
+  if(it.adOnly)return 'buy';
   return coins>=it.p?'buy':'poor';
 }
 let shopMsg='', shopMsgT=0;
@@ -2432,13 +2435,27 @@ function watchAds(n,ok,why){
 // keys for ads: three times a day across both key offers
 const AD_KEY_DAY=3;
 function adKeysLeft(){const d=Prog.d;if(!d.adKeys||d.adKeys.day!==_dayKey())d.adKeys={day:_dayKey(),n:0};return Math.max(0,AD_KEY_DAY-d.adKeys.n)}
+// per-offer ad limits: chests N a day, the epic one on a 72-hour timer
+function adDayLeft(it){const d=Prog.d;d.adDay=d.adDay||{};const r=d.adDay[it.id];return it.adDay-(r&&r.day===_dayKey()?r.n:0)}
+function adCoolWait(it){const t=((Prog.d.adCool||{})[it.id])||0;return Math.max(0,t+it.adCool-Date.now())}
+function adLeft(it){return it.adKey?adKeysLeft():it.adDay?Math.max(0,adDayLeft(it)):it.adCool?(adCoolWait(it)>0?0:1):1}
+function adNote(it){
+  if(it.adKey){const l=adKeysLeft();return l?`${l}/${AD_KEY_DAY} сьогодні`:'завтра'}
+  if(it.adDay){const l=Math.max(0,adDayLeft(it));return l?`${l}/${it.adDay} сьогодні`:'завтра'}
+  if(it.adCool){const w=adCoolWait(it);if(!w)return 'доступно!';const h=Math.floor(w/3600e3),m=Math.floor(w/60e3)%60,sx=Math.floor(w/1e3)%60;
+    return `${h}:${String(m).padStart(2,'0')}:${String(sx).padStart(2,'0')}`}
+  return '';
+}
 function shopBuyAd(it,x,y){
   if(it.adKey&&adKeysLeft()<=0){shopMsg='Ключі за рекламу — 3 рази на день. Повертайся завтра';shopMsgT=2.5;sfxLand();return}
+  if(!adLeft(it)){shopMsg=it.adCool?`Епічна скриня за рекламу — через ${adNote(it)}`:`За рекламу — ${it.adDay} на день. Повертайся завтра`;shopMsgT=2.5;sfxLand();return}
   const st=shopState(it), d=Prog.d;
   if(st==='armed'||st==='busy'){shopMsg=st==='armed'?'Вже діє на наступний забіг':'Ривок уже куплено на наступний забіг';shopMsgT=2;sfxLand();return}
   watchAds(it.ad,()=>{
     if(it.arm){if(it.arm==='hs')d.arm.hs=it.v;else d.arm[it.arm]=true}else it.buy(d);
     if(it.adKey){adKeysLeft();d.adKeys.n++}
+    if(it.adDay){d.adDay=d.adDay||{};const r=d.adDay[it.id];d.adDay[it.id]={day:_dayKey(),n:(r&&r.day===_dayKey()?r.n:0)+1}}
+    if(it.adCool){d.adCool=d.adCool||{};d.adCool[it.id]=Date.now()}
     Prog.save();sfxPU();addTapRipple(x,y);
     shopMsg=it.arm?'Діятиме в наступному забігу':'Отримано за рекламу!';shopMsgT=2;
   });
@@ -2497,7 +2514,7 @@ function drawStore(){
     glassPanel(L.x,y,L.cw,L.rh,14);
     if(st==='armed'||st==='on'){ctx.save();ctx.strokeStyle='rgba(120,255,170,.85)';ctx.lineWidth=2;rr(L.x+1,y+1,L.cw-2,L.rh-2,13);ctx.stroke();ctx.restore()}
     ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';drawShopIco(it,L.x+32,y+L.rh/2);ctx.restore();
-    const tx=L.x+62, tw=L.cw-62-112-(it.ad&&!(st==='armed'||st==='on'||st==='own')?80:0);
+    const tx=L.x+62, tw=L.cw-62-112-(it.ad&&!it.adOnly&&!(st==='armed'||st==='on'||st==='own')?80:0);
     ctx.textAlign='left';ctx.textBaseline='middle';
     ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle='#fff';ctx.fillText(fitText(it.name,tw),tx,y+22);
     ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;ctx.fillText(fitText(it.txt,tw),tx,y+42);
@@ -2508,12 +2525,20 @@ function drawStore(){
       ctx.fillStyle=st==='own'?UI.text:'#9CFFC4';
       if(st==='own'){uiPill(b.x,b.y,b.w,b.h,0);ctx.fillStyle=UI.text}
       ctx.fillText(st==='armed'?'✓ АКТИВНО':st==='on'?'✓ ОБРАНО':'ОБРАТИ',b.x+b.w/2,b.y+b.h/2+1);
+    }else if(it.adOnly){
+      // ad-only offer: the blue button takes the price slot, with its countdown under it
+      const left=adLeft(it), ga=ctx.createLinearGradient(0,b.y,0,b.y+b.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
+      ctx.save();if(!left)ctx.globalAlpha=.5;pillFill('btnB',ga,b.x,b.y,b.w,b.h);ctx.restore();
+      ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+      ctx.font='900 12px Exo2,sans-serif';ctx.fillText(left?'📺 ×'+it.ad:'⏳ '+adNote(it),b.x+b.w/2,b.y+b.h/2+(left?-4:1));
+      if(left){ctx.font='800 8px Exo2,sans-serif';ctx.fillText('доступно!',b.x+b.w/2,b.y+b.h/2+9)}
+      ctx.restore();
     }else{
       if(it.ad&&st!=='busy'){const a=shopAdRect(L,y),ga=ctx.createLinearGradient(0,a.y,0,a.y+a.h);ga.addColorStop(0,'#5CE1FF');ga.addColorStop(1,'#1B7FD1');
-        const left=it.adKey?adKeysLeft():1;
+        const left=adLeft(it), note=adNote(it);
         ctx.save();if(!left)ctx.globalAlpha=.45;pillFill('btnB',ga,a.x,a.y,a.w,a.h);ctx.font='900 12px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
-        ctx.fillText('📺 ×'+it.ad,a.x+a.w/2,a.y+a.h/2+(it.adKey?-3:1));
-        if(it.adKey){ctx.font='800 8px Exo2,sans-serif';ctx.fillText(left?`${left}/${AD_KEY_DAY} сьогодні`:'завтра',a.x+a.w/2,a.y+a.h/2+9)}ctx.restore()}
+        ctx.fillText('📺 ×'+it.ad,a.x+a.w/2,a.y+a.h/2+(note?-3:1));
+        if(note){ctx.font='800 8px Exo2,sans-serif';ctx.fillText(note,a.x+a.w/2,a.y+a.h/2+9)}ctx.restore()}
       ctx.save();if(st!=='buy')ctx.globalAlpha=.5;
       const g=ctx.createLinearGradient(0,b.y,0,b.y+b.h);g.addColorStop(0,'#FFD54F');g.addColorStop(1,'#E08A00');
       pillFill('btnO',g,b.x,b.y,b.w,b.h);
@@ -2542,7 +2567,7 @@ function storeTap(x,y){
     if(r.it.sec)continue;
     const ry=r.y-uiScroll;if(y<ry||y>ry+r.h)continue;
     const b=shopBtnRect(L,ry);
-    if(x>=b.x-4&&x<=b.x+b.w+10)shopBuy(r.it,x,y);
+    if(x>=b.x-4&&x<=b.x+b.w+10){if(r.it.adOnly)shopBuyAd(r.it,x,y);else shopBuy(r.it,x,y)}
     else if(r.it.ad){const a=shopAdRect(L,ry);if(x>=a.x-6&&x<=a.x+a.w+3)shopBuyAd(r.it,x,y)}
     return;
   }
