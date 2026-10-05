@@ -2378,11 +2378,12 @@ function boosterRunStart(){
   if(t.length)addFloat(t.join('  ·  '),W/2,H*.3,'#FFE082',16,true);
 }
 // head start: autopilot onto the nearest next pad, twice the pace, untouchable
-function autoSteer(){
+function nextReachable(){
   const ci=getCurrentPadIdx(), ny=padPositions[ci+1], cx=pads[ci]?pads[ci].gameX:1;let best=-1,bd=1e9;
-  for(let i=ci+1;i<pads.length&&padPositions[i]===ny;i++){const pd=pads[i];if(pd.broken||pd.disappeared)continue;const dd=Math.abs(cx-pd.gameX);if(dd<bd){bd=dd;best=i}}
-  if(best>=0)frogCont=pads[best].gameX;
+  for(let i=ci+1;i<pads.length&&padPositions[i]===ny;i++){const pd=pads[i];if(pd.broken||pd.disappeared||roofBlocked(pd))continue;const dd=Math.abs(cx-pd.gameX);if(dd<bd){bd=dd;best=i}}
+  return best>=0?pads[best]:null;
 }
+function autoSteer(){const p=nextReachable();if(p)frogCont=p.gameX}
 function headStartTick(){
   if(dashActive&&!hsEnd)autoSteer();        // the Lab dash flies you too, for its seconds
   if(!hsEnd)return 1;
@@ -3303,7 +3304,7 @@ function buildRouteSection(diff){
       if(Math.abs(rx-x)>=minSepX(1.20,0.76)){
         out.push({fork:true,gap,
           safe:step(x,elev,'SAFE',{gap}),
-          risk:step(rx,elev+2,'RISK',{loot:'gem',gap})});
+          risk:step(rx,Math.min(elev,routeElev)+1,'RISK',{loot:'gem',gap})});
         routeLane=x;routeElev=elev;
         continue;
       }
@@ -3413,8 +3414,12 @@ let roofNext=5, lastLandElev=0, lastLandJet=false, lastLandPad=null;
 // jumping from the ground straight at a roof: you hit the building
 function padSunk(pad){return !!(pad.lift&&pad.elev<-0.6)}
 // flying over a jet pad or a roof counts as having been up there
-function flyOver(pad){if(!pad)return;if(pad.type==='jet')lastLandJet=true;if((pad.elev||0)>=3)lastLandElev=pad.elev}
-function roofBlocked(pad){return padSunk(pad)||!(jpT>0||lastLandJet||(pad.elev||0)-Math.max(0,lastLandElev)<4)}
+let flyRow=null;
+function flyOver(pad){if(!pad)return;if(pad.type==='jet')lastLandJet=true;
+  const e=pad.elev||0,y=padPositions[pads.indexOf(pad)];lastLandElev=y===flyRow?Math.max(lastLandElev,e):e;flyRow=y}
+// a hop climbs at most one level; higher (roofs) only from a jet pad or the jetpack
+const CLIMB_MAX=1.2;
+function roofBlocked(pad){return padSunk(pad)||!(jpT>0||lastLandJet||pad.lift||(pad.elev||0)-Math.max(0,lastLandElev)<=CLIMB_MAX)}
 function roofWall(pad){
   if(padSunk(pad)){addFloat('⬇ ЛІФТ ВНИЗУ!',W/2,H*.35,'#8FD8FF',20,true);return true}
   if(!roofBlocked(pad))return false;
@@ -4381,7 +4386,7 @@ function die(){
   if(jpT>0)return;                    // nothing reaches you up there
   // a dash or the moment after a revive carries you over a miss
   if(dashActive||graceT>0){
-    const np=pads[getCurrentPadIdx()+1];if(np)frogCont=np.gameX;
+    const np=nextReachable();if(np)frogCont=np.gameX;
     return;
   }
   if(shield){
@@ -4392,7 +4397,7 @@ function die(){
     setEmo('😅',1.2);
     addFloat('🛡️',W/2,H*.4,'#4FC3F7',28,true);
     const nextPadIdx=getCurrentPadIdx()+1;
-    const np=pads[nextPadIdx];
+    const np=nextReachable()||pads[nextPadIdx];
     if(np) frogCont=np.gameX;
     return;
   }
@@ -4402,7 +4407,7 @@ function die(){
     setEmo('😇',1.4);
     addFloat('💗 ЖИТТЯ!',W/2,H*.4,'#F48FB1',26,true);
     const nextPadIdx=getCurrentPadIdx()+1;
-    const np=pads[nextPadIdx];
+    const np=nextReachable()||pads[nextPadIdx];
     if(np) frogCont=np.gameX;
     return;
   }
@@ -5119,26 +5124,8 @@ function updateGame(dt){
         }
       }
       if(!landed){
-        // LEDGE-GRAB — the closest still-standing pad within the forgiveness
-        // band is caught instead of missed, unless we just grabbed one.
-        let grabIdx=-1, grabDist=1e9;
-        if(grabCool<=0){
-          for(const gi of group){
-            const pad=pads[gi];
-            if(pad.broken||pad.disappeared||(pad.fallOffset&&pad.fallOffset>3)) continue;
-            if(roofBlocked(pad)) continue;
-            const d=Math.abs(frogX-pad.gameX), hitR=getHitRadius(pad.width);
-            if(d<=hitR+GRAB_BAND && d<grabDist){grabDist=d;grabIdx=gi}
-          }
-        }
-        if(grabIdx>=0){
-          frogCont=pads[grabIdx].gameX;visLane=pads[grabIdx].gameX;
-          grabSave=true;grabCool=3;      // no grab-save for the next 3 landings
-          onLand(grabIdx);grabSave=false;
-          landed=true;
-          break;
-        }
-        if(grabCool>0)grabCool--;
+        // A miss is a miss: no hidden ledge-grab. Only a shield, the dash or
+        // the Lab's double jump may save it, and each says so on screen.
         // Near miss check on any pad in group
         let nearMiss=false;
         for(const gi of group){
@@ -5161,7 +5148,7 @@ function updateGame(dt){
             frogCont=pads[bi].gameX;visLane=pads[bi].gameX;
             djCD=modStat('djump');djSave=true;grabSave=true;rc.djSave++;
             onLand(bi);grabSave=false;djSave=false;
-            addPunch(.35);sfxWhoosh();
+            addPunch(.35);sfxWhoosh();addFloat('🌀 ПОДВІЙНИЙ СТРИБОК!',W/2,H*.36,'#B9A8FF',20,true);
             landed=true;break;
           }
         }
