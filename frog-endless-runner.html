@@ -43,7 +43,7 @@ function rand(a,b){return a+Math.random()*(b-a)}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
 
 // ========== CONSTANTS ==========
-const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11,WARD:12,STORE:13};
+const ST={MENU:0,PLAY:1,OVER:2,SKINS:3,MISSIONS:4,SHOP:5,LAB:6,CHESTS:7,WORLDS:8,STORY:9,LOG:10,ACH:11,WARD:12,STORE:13,PROFILE:14};
 const GAME_SPD=6.3;
 const GAME_SPD_MAX=11.5;     // max base speed (plateau at very high scores)
 const SPD_RAMP_START=70;      // score when speed starts increasing (stay at base speed longer early)
@@ -2318,6 +2318,80 @@ function wardTap(x,y){
 }
 // leaving marks every unlocked skin as seen (clears the NEW badge)
 function wardLeave(){Prog.d.skinSeen=HERO_SKINS.filter(S=>S.kind==='ach'&&skinUnlocked(S)).map(S=>S.id);Prog.save()}
+// ---- Profile: what this player has done so far ----
+// Lifetime coins / fragments / cores are counted as rises in the balances, so
+// every source (runs, chests, missions, ads) is covered without touching each.
+function trackEarned(){
+  const d=Prog.d;if(!d)return;const st=d.stats;
+  const fs=Object.values(d.frag||{}).reduce((a,b)=>a+(b|0),0);
+  if(st.coinSeen==null){st.coinsEarned=st.coinsEarned||coins;st.fragEarned=st.fragEarned||fs;st.shardsEarned=st.shardsEarned||d.shards;
+    st.coinSeen=coins;st.fragSeen=fs;st.shardSeen=d.shards;return}
+  if(coins>st.coinSeen)st.coinsEarned+=coins-st.coinSeen;st.coinSeen=coins;
+  if(fs>st.fragSeen)st.fragEarned+=fs-st.fragSeen;st.fragSeen=fs;
+  if(d.shards>st.shardSeen)st.shardsEarned+=d.shards-st.shardSeen;st.shardSeen=d.shards;
+}
+function profileStats(){
+  const d=Prog.d, st=d.stats, km=v=>v>=10000?(Math.floor(v/100)/10)+' км':fmtN(v)+' м';
+  return [
+    {ico:'🎮',lab:'Забігів',v:fmtN(st.runs|0)},
+    {ico:'coin',lab:'Монет зароблено',v:fmtCur(st.coinsEarned|0)},
+    {ico:'frag',lab:'Фрагментів зібрано',v:fmtN(st.fragEarned|0)},
+    {ico:'chest',lab:'Скринь відкрито',v:fmtN(d.opened|0)},
+    {ico:'shard',lab:'Ядер зібрано',v:fmtN(st.shardsEarned|0)},
+    {ico:'🏆',lab:'Рекорд очок',v:fmtCur(bestScore|0)},
+    {ico:'🛣',lab:'Найдальший забіг',v:fmtN(hs|0)+' м'},
+    {ico:'🗺',lab:'Всього пройдено',v:km(st.dist|0)},
+    {ico:'✨',lab:'PERFECT',v:fmtN(st.perfects|0)},
+    {ico:'🐸',lab:'Скінів',v:HERO_SKINS.filter(skinUnlocked).length+'/'+HERO_SKINS.length},
+  ];
+}
+function drawProfile(){
+  gt+=.016;drawMenuBg();
+  ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
+  const d=Prog.d, cw=Math.min(W-24-SAFE.l-SAFE.r,440), x0=W/2-cw/2, top=124+SAFE.t;
+  const list=profileStats(), gap=10, cols=2, tw=(cw-gap)/cols, th=64, heroH=132;
+  const rows=Math.ceil(list.length/cols);
+  uiScrollMax=Math.max(0,top+heroH+rows*(th+gap)+8-(H-SAFE.b));
+  uiScroll=clamp(uiScroll,0,uiScrollMax);
+  ctx.save();ctx.beginPath();ctx.rect(0,top-6,W,H);ctx.clip();
+  // hero card: current skin, level and XP
+  let y=top-uiScroll;
+  glassPanel(x0,y,cw,heroH-12,16);
+  const img=heroImg();if(_HERO_LOADED){const hb=heroBox(img,96);ctx.drawImage(img,x0+64-hb.w/2,y+(heroH-12)/2-hb.h/2+Math.sin(gt*2.4)*2,hb.w,hb.h)}
+  const S=curHeroSkin(), tx=x0+128, bw=cw-128-18;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';ctx.font='900 18px Exo2,sans-serif';ctx.fillText(fitText(S.n,bw),tx,y+28);
+  ctx.fillStyle=UI.textGold;ctx.font='900 13px Exo2,sans-serif';ctx.fillText('РІВЕНЬ '+d.lvl,tx,y+52);
+  ctx.textAlign='right';ctx.fillStyle='rgba(160,225,255,.9)';ctx.font='800 11px Exo2,sans-serif';ctx.fillText(`${d.xp}/${xpNeed(d.lvl)} XP`,tx+bw,y+52);
+  drawBar(tx,y+66,bw,8,d.xp/xpNeed(d.lvl),'#1FA2FF','#36E0FF');
+  ctx.textAlign='left';ctx.fillStyle=UI.dim;ctx.font='700 11px Exo2,sans-serif';
+  ctx.fillText(fitText(`Літопис: ${achData().got.length}/${ACH.length} · модулі: ${modSum()}/${MODULES.length*MOD_MAX}`,bw),tx,y+92);
+  y+=heroH;
+  list.forEach((c,i)=>{
+    const cx=x0+(i%cols)*(tw+gap), cy=y+Math.floor(i/cols)*(th+gap);
+    if(cy>H||cy+th<0)return;
+    glassPanel(cx,cy,tw,th,14);
+    const ix=cx+26, iy=cy+th/2;
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    if(c.ico==='coin')drawCoinIco(ix,iy,10);else if(c.ico==='frag')drawFragIco(ix,iy,10);
+    else if(c.ico==='shard')drawShardIco(ix,iy,10);else if(c.ico==='chest')drawChestIco(ix,iy+7,30,1,0);
+    else if(c.ico==='🐸'){const im=heroImg();if(_HERO_LOADED){const hb=heroBox(im,30);ctx.drawImage(im,ix-hb.w/2,iy-hb.h/2,hb.w,hb.h)}}
+    else drawEmo(c.ico,ix,iy+1,20);
+    ctx.restore();
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';ctx.font='900 18px Exo2,sans-serif';ctx.fillText(fitText(c.v,tw-62),cx+54,cy+25);
+    ctx.fillStyle=UI.dim;ctx.font='700 10px Exo2,sans-serif';ctx.fillText(fitText(c.lab,tw-60),cx+54,cy+45);
+  });
+  ctx.restore();
+  const hg=ctx.createLinearGradient(0,0,0,top);hg.addColorStop(0,'rgba(4,8,24,.97)');hg.addColorStop(1,'rgba(4,8,24,.85)');
+  ctx.fillStyle=hg;ctx.fillRect(0,0,W,top-6);
+  drawBackChip();
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
+  ctx.fillText('ПРОФІЛЬ',W/2,72+SAFE.t);
+  ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=UI.dim;ctx.fillText('усе, що ти зробив у грі',W/2,98+SAFE.t);
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+}
+function profileTap(x,y){if(hitBackChip(x,y)){sfxClick();state=ST.MENU}}
 function skinChipRect(){return {x:12+SAFE.l,y:12+SAFE.t,w:100,h:34}}
 function drawSkinChip(){
   const r=skinChipRect(), n=skinsNew();
@@ -4047,6 +4121,7 @@ canvas.addEventListener('touchend',e=>{pressDown=false;
     else if(state===ST.ACH)achTap(t.clientX,t.clientY);
     else if(state===ST.WARD)wardTap(t.clientX,t.clientY);
     else if(state===ST.STORE)storeTap(t.clientX,t.clientY);
+    else if(state===ST.PROFILE)profileTap(t.clientX,t.clientY);
     // In play the two verbs are on their own buttons — a bare tap does nothing
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
@@ -4101,6 +4176,7 @@ canvas.addEventListener('mouseup',e=>{pressDown=false;
     else if(state===ST.ACH)achTap(e.clientX,e.clientY);
     else if(state===ST.WARD)wardTap(e.clientX,e.clientY);
     else if(state===ST.STORE)storeTap(e.clientX,e.clientY);
+    else if(state===ST.PROFILE)profileTap(e.clientX,e.clientY);
     else if(state===ST.PLAY&&alive){
       const r=canvas.getBoundingClientRect();
       const tx=(e.clientX-r.left)*(W/r.width), ty2=(e.clientY-r.top)*(H/r.height);
@@ -4133,6 +4209,7 @@ document.addEventListener('keydown',e=>{
   else if(state===ST.ACH&&e.key==='Escape'){state=ST.MISSIONS;achList=null}
   else if(state===ST.WARD&&e.key==='Escape'){wardLeave();state=ST.MENU}
   else if(state===ST.STORE&&e.key==='Escape')state=ST.MENU;
+  else if(state===ST.PROFILE&&e.key==='Escape')state=ST.MENU;
 });
 
 // ========== PARTICLES ==========
@@ -9864,7 +9941,8 @@ function menuTap(x,y){
   // PLAY button
   const {bw,bh}=playBtnSize(),bx=W/2-bw/2,by=menuLayout().play;
   if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh){startEndless();return}
-  {const ML2=menuLayout(), pw2=W*.78;
+  {const ML2=menuLayout(), pw2=W*.78, bx2=W/2-pw2/2+62*.523;
+   if(Math.hypot(x-bx2,y-(ML2.prog+31))<30){openScreen(ST.PROFILE);return}
    if(y>=ML2.prog&&y<=ML2.prog+62&&Math.abs(x-W/2)<=pw2/2){openScreen(ST.MISSIONS);return}}
   const pr=worldPickRect();
   if(y>=pr.y-6&&y<=pr.y+pr.h+6&&x>=pr.x&&x<=pr.x+pr.w){
@@ -10626,7 +10704,7 @@ function shopTap(x,y){
 // Shared pieces for the screens around the run: the two currencies, level/XP,
 // and a scroll offset every list screen uses (reset whenever a screen opens).
 let uiScroll=0, uiScrollMax=0, uiScrollStart=0;
-function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH||state===ST.WARD||state===ST.STORE}
+function isListScreen(){return state===ST.LAB||state===ST.CHESTS||state===ST.MISSIONS||state===ST.WORLDS||state===ST.LOG||state===ST.ACH||state===ST.WARD||state===ST.STORE||state===ST.PROFILE}
 function openScreen(s){sfxClick();state=s;uiScroll=0;uiScrollMax=0}
 function drawShardIco(x,y,r){
   if(_ok('shardArt')){const im=_A.shardArt,h=r*2.2,w=h*im.naturalWidth/im.naturalHeight;ctx.drawImage(im,x-w/2,y-h/2,w,h);return}
@@ -11015,6 +11093,9 @@ function fragTargets(n){
   return list.slice(0,n);
 }
 // Opens one chest of tier t (0..2); returns the list of rewards for the reveal.
+// fragments in a chest: 90% of the listed amount, the fraction rolled so the average is exact
+const CHEST_FRAG=.9;
+function chestFrag(T){const v=T.f*CHEST_FRAG;return Math.floor(v+Math.random())}
 function openChest(t){
   const d=Prog.d, key=CHESTS[t].id;
   if(!(d.chests[key]>0))return null;
@@ -11026,15 +11107,15 @@ function openChest(t){
   const c=Math.round(T.c[0]+Math.random()*(T.c[1]-T.c[0]));
   coins+=c;out.push({k:'coins',n:c});
   let sh=T.s;
-  const tg=fragTargets(T.split);
+  const tg=fragTargets(T.split), F=chestFrag(T);
   if(tg.length){
     // split the fragments across the neediest modules, the first gets the rest
-    const per=Math.floor(T.f/tg.length);
+    const per=Math.floor(F/tg.length);
     tg.forEach((m,i)=>{
-      const n=i===0?T.f-per*(tg.length-1):per;
+      const n=i===0?F-per*(tg.length-1):per;
       d.frag[m.id]=(d.frag[m.id]|0)+n;out.push({k:'frag',id:m.id,n});
     });
-  }else sh+=Math.ceil(T.f/2);                      // everything maxed → shards
+  }else sh+=Math.ceil(F/2);                      // everything maxed → shards
   d.shards+=sh;out.push({k:'shards',n:sh});
   // Core Keys are rare: every epic chest, one crystal chest in five
   const ky=tier===2?1:tier===1&&Math.random()<.2?1:0;
@@ -11108,7 +11189,7 @@ function drawChests(){
     // contents as icon + amount, same language as the Lab costs
     let ix=x+100;
     ctx.font='800 12px Exo2,sans-serif';
-    for(const [ico,t] of [[drawCoinIco,T.c[0]+'–'+T.c[1]],[drawShardIco,String(T.s)],[drawFragIco,String(T.f)]]){
+    for(const [ico,t] of [[drawCoinIco,T.c[0]+'–'+T.c[1]],[drawShardIco,String(T.s)],[drawFragIco,'~'+String(Math.round(T.f*CHEST_FRAG))]]){
       ico(ix+7,y+78,6.5);ctx.fillStyle='rgba(220,230,255,.85)';ctx.fillText(t,ix+17,y+78.5);
       ix+=17+ctx.measureText(t).width+10;
     }
@@ -11444,7 +11525,9 @@ function loop(ts){
       case ST.ACH:drawAch();break;
       case ST.WARD:drawWard();break;
       case ST.STORE:drawStore();break;
+      case ST.PROFILE:drawProfile();break;
     }
+    trackEarned();
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
     drawAdPlaceholder(dt);
