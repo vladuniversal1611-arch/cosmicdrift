@@ -1070,8 +1070,8 @@ const MODULES=[
    lv:['', 'Fever після 5 PERFECT', 'Fever після 4 PERFECT', '4 PERFECT · 2 промахи в Fever',
        '3 PERFECT · монети ×3 у Fever', '3 PERFECT · 3 промахи · ×3']},
   {id:'djump',  name:'ПОДВІЙНИЙ СТРИБОК', icon:'\u{1F300}', unlock:8,
-   stat:[0, 30, 24, 18, 13, 9],               // recharge, seconds
-   lv:['', 'Рятує від падіння раз на 30 с', 'Раз на 24 с', 'Раз на 18 с', 'Раз на 13 с', 'Раз на 9 с']},
+   stat:[0, 5, 7, 9, 11, 13],                 // seconds of fall protection at the start of each run
+   lv:['', 'Захист на старті: 5 с рятує від падінь', 'Захист 7 с', 'Захист 9 с', 'Захист 11 с', 'Захист 13 с']},
   {id:'reward', name:'БОНУС НАГОРОД',     icon:'\u{1F4B0}', unlock:10,
    stat:[1, 1.15, 1.3, 1.5, 1.75, 2.0],       // coin & shard multiplier at run end
    lv:['', '+15% монет і ядер за забіг', '+30%', '+50%', '+75%', '×2 нагород']},
@@ -1149,8 +1149,8 @@ function comboCoinBonus(){return perfectCombo>=10?1:0}
 // Shield: a charge you spend on purpose (double tap), like a hoverboard —
 // it never saves you on its own.
 const SHIELD_DUR=[0,5,6,7,8,10];
-let shieldCharges=0, shieldT=0, graceT=0, lastTapT=0, lastTapX=0, lastTapY=0, shieldHintT=0;
-let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djCD=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
+let djAnn=false, shieldCharges=0, shieldT=0, graceT=0, lastTapT=0, lastTapX=0, lastTapY=0, shieldHintT=0;
+let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djT=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
 function modStat(id){const m=MODULES.find(x=>x.id===id);return m?m.stat[modLv(id)]:0}
 function modDef(id){return MODULES.find(x=>x.id===id)}
 function xpNeed(l){return 80+l*60}
@@ -4407,7 +4407,7 @@ function startGame(){
   if(shopBoost.shield)shieldCharges++;
   if(shopBoost.magnet){magnetT=0;startMagnet(magDur()*2);}
   // Modules that act from the first second of the run
-  runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djCD=0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
+  runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djT=modLv('djump')?modStat('djump'):0;djAnn=djT>0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
   resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;achCards=[];resRunStart();huntRunStart();boosterRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
@@ -5067,7 +5067,10 @@ function updateGame(dt){
   }
   if(graceT>0)graceT=Math.max(0,graceT-dt);
   if(shieldHintT>0)shieldHintT=Math.max(0,shieldHintT-dt);
-  if(djCD>0)djCD=Math.max(0,djCD-dt);
+  // double jump guards the opening seconds; a bought head start flies them for you, so it waits
+  if(djT>0&&!hsEnd&&introT<=0){
+    if(djAnn&&actCardT<=0){djAnn=false;addFloat(`🌀 ЗАХИСТ ЩЕ ${Math.ceil(djT)} с`,W/2,H*.36,'#B9A8FF',18,true)}
+    djT=Math.max(0,djT-dt);if(djT<=0)addFloat('🌀 ЗАХИСТ ЗАКІНЧИВСЯ',W/2,H*.36,'#B9A8FF',16,true)}
   // === DASH COOLDOWN ===
   if(!dashReady){
     dashCooldown-=dt;
@@ -5186,7 +5189,7 @@ function updateGame(dt){
         // DOUBLE JUMP module — a missed landing becomes a second hop onto the
         // nearest platform still standing in the row. It costs the combo like
         // any rescue, and recharges on its own timer.
-        if(modLv('djump')&&djCD<=0){
+        if(djT>0){
           let bi=-1,bd=1e9;
           for(const gi of group){const pd=pads[gi];
             if(pd.broken||pd.disappeared||(pd.fallOffset&&pd.fallOffset>3))continue;
@@ -5194,7 +5197,7 @@ function updateGame(dt){
             const d=Math.abs(frogX-pd.gameX);if(d<bd){bd=d;bi=gi}}
           if(bi>=0){
             frogCont=pads[bi].gameX;visLane=pads[bi].gameX;
-            djCD=modStat('djump');djSave=true;grabSave=true;rc.djSave++;
+            djSave=true;grabSave=true;rc.djSave++;
             onLand(bi);grabSave=false;djSave=false;
             addPunch(.35);sfxWhoosh();addFloat('🌀 ПОДВІЙНИЙ СТРИБОК!',W/2,H*.36,'#B9A8FF',20,true);
             landed=true;break;
@@ -8752,7 +8755,7 @@ function modTipText(id){
   if(id==='magnet')return ['МАГНІТ · працює сам',`Тягне монети з сусідніх смуг ще ${Math.ceil(magnetT)} с. Довше — в Лабораторії`];
   if(id==='shield'){const lv=modLv('shield'), cd=modStat('shield'), n=shieldAvail();
     return ['ЩИТ · подвійний тап по екрану',`Щити — тільки з магазину, один за забіг. У запасі: ${invSh()+(runStockSh&&!shield?0:0)}`]}
-  if(id==='djump')return ['ПОДВІЙНИЙ СТРИБОК · сам',`Рятує, коли зриваєшся вниз. Перезарядка ${modStat('djump')} с`];
+  if(id==='djump')return ['ПОДВІЙНИЙ СТРИБОК · захист',`На старті забігу рятує від падінь ще ${Math.ceil(djT)} с. Довше — в Лабораторії`];
   return ['',''];
 }
 function hitModIcon(x,y){for(const m of modRects)if(Math.hypot(x-m.x,y-m.y)<=m.r+8){modTip={id:m.id,t:2.8,x:m.x,y:m.y,r:m.r};sfxClick();return true}return false}
@@ -8766,10 +8769,10 @@ function drawModTip(){
 }
 function drawModuleColumn(x,y){
   const list=[];modRects=[];
-  if(magnet)list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,prog:magnetT/magnetMax});   // shown while a magnet runs
+  if(magnet)list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,active:true,prog:magnetT/magnetMax,sec:magnetT});   // shown while a magnet runs
   if(shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
-    prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail()});
-  if(modLv('djump')) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:djCD<=0,prog:djCD<=0?1:1-djCD/modStat('djump')});
+    prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail(),sec:shield?shieldT:null});
+  if(djT>0) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:true,active:true,prog:djT/modStat('djump'),sec:djT});   // only while it guards
   const r=19;
   for(const m of list){
     const cy=y+r;modRects.push({id:m.id,x:x+r,y:cy,r});
@@ -8796,6 +8799,9 @@ function drawModuleColumn(x,y){
     ctx.strokeStyle=m.col;ctx.lineWidth=1;rr(x+r-9,cy+r-6,18,13,6.5);ctx.stroke();
     ctx.fillStyle='#fff';ctx.font='900 9px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(String(modLv(m.id)),x+r,cy+r+.8);
+    // seconds left, beside the icon, for the ones that run on a timer
+    if(m.sec!=null){ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='left';ctx.lineJoin='round';ctx.lineWidth=4;
+      ctx.strokeStyle='rgba(4,7,26,.85)';const t=Math.ceil(m.sec)+' с';ctx.strokeText(t,x+r*2+8,cy+1);ctx.fillStyle='#fff';ctx.fillText(t,x+r*2+8,cy+1)}
     ctx.restore();
     y+=r*2+14;
   }
