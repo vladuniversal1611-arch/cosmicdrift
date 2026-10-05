@@ -346,7 +346,8 @@ const UI = (() => {
       p.appendChild(stars);
       const inner = el('div', 'inner col center');
       inner.appendChild(el('div', 'score-line', `${esc(t('score'))}<b id="winScore">0</b>`));
-      rowRef = rewardRow(res.items.concat(res.creature ? [{ type: 'creature', id: res.creature }] : []));
+      const shown = res.items.filter((x) => x.type !== 'wp' || State.featureOn('weekly'));
+      rowRef = rewardRow(shown.concat(res.creature ? [{ type: 'creature', id: res.creature }] : []));
       inner.appendChild(rowRef);
       p.appendChild(inner);
       const row = el('div', 'btn-row');

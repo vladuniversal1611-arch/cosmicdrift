@@ -179,7 +179,7 @@ const Levels = (() => {
     } else {
       const tpl = hand.template || (isBoss ? rng.pick(['wall', 'split', 'arches']) : TEMPLATE_KEYS[rng.int(TEMPLATE_KEYS.length)]);
       let rows = hand.rows || Math.min(20, 8 + Math.round(d * 10) + (rng() < 0.3 ? 1 : 0));
-      rows = Math.min(rows, objective.type === 'clear' ? 12 : 16);
+      rows = Math.min(rows, 12);
       if (isBoss) rows = Math.min(rows, 9);
       const f = TEMPLATES[tpl] || TEMPLATES.wall;
       for (let r = 0; r < rows; r++) {

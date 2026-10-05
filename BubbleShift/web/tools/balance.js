@@ -52,9 +52,11 @@ for (let id = from; id <= to; id++) {
   const res = [];
   for (let r = 0; r < RUNS; r++) res.push(play(Levels.get(id), 1000 + r * 77 + id, 150));
   res.sort((a, b) => a - b);
-  const med = res[Math.floor(res.length / 2)], p80 = res[Math.floor(res.length * 0.8)];
+  const med = res[Math.floor(res.length / 2)];
   let slack = U.lerp(1.9, 1.35, L.d); if (L.hard) slack -= 0.08;   // generous early, tighter later
-  out[id] = Math.max(12, Math.ceil(Math.max(med * slack, p80 * 1.12)));
+  const p60 = res[Math.floor(res.length * 0.6)];
+  // Median-driven; a single stuck run can't inflate the budget beyond 2.2× median.
+  out[id] = Math.max(12, Math.ceil(Math.min(Math.max(med * slack, p60 * 1.1), med * 2.2)));
   console.log(`L${id} ${L.objective.type.padEnd(11)} d=${L.d.toFixed(2)} bot=[${res.join(',')}] -> ${out[id]}`);
 }
 console.log('\nMOVES=' + JSON.stringify(out));
