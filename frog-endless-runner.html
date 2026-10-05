@@ -2393,13 +2393,15 @@ function drawProfile(){
 }
 function profileTap(x,y){if(hitBackChip(x,y)){sfxClick();state=ST.MENU}}
 // top-left of the menu: PROFILE first, SKINS right under it
-function profChipRect(){return {x:12+SAFE.l,y:12+SAFE.t,w:112,h:34}}
-function skinChipRect(){return {x:12+SAFE.l,y:12+SAFE.t+42,w:112,h:34}}
+function profChipRect(){const x=12+SAFE.l;return {x,y:12+SAFE.t,w:Math.max(104,Math.min(136,curRowLeft-8-x)),h:42}}
+function skinChipRect(){return {x:12+SAFE.l,y:12+SAFE.t+50,w:112,h:34}}
 function drawProfChip(){
   const r=profChipRect();chipBg(r.x,r.y,r.w,r.h);
   drawLevelBadge(r.x+r.h*.5,r.y+r.h/2,r.h*.4);
-  ctx.font='900 12px Exo2,sans-serif';ctx.fillStyle=UI.text;ctx.textAlign='left';ctx.textBaseline='middle';
-  ctx.fillText('ПРОФІЛЬ',r.x+40,r.y+r.h/2+1);
+  const room=r.w-r.h-14;let fs=14;ctx.font='900 14px Exo2,sans-serif';
+  while(fs>10&&ctx.measureText('ПРОФІЛЬ').width>room){fs--;ctx.font=`900 ${fs}px Exo2,sans-serif`}
+  ctx.fillStyle=UI.text;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('ПРОФІЛЬ',r.x+r.h+4,r.y+r.h/2+1);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 function drawSkinChip(){
@@ -9261,7 +9263,7 @@ function drawMenuBg(){
 
 // one vertical column: chip row, logo, ribbon, stage, world, PLAY, level, story, dock
 function menuTop(){
-  const lw=Math.min(W*.62,280,(H-SAFE.t)*.34), lh=lw*340/640, ly=Math.max(12+SAFE.t+34+10,12+SAFE.t+76+8-lh*.2);   // the letters start under the PROFILE / SKINS chips
+  const lw=Math.min(W*.62,280,(H-SAFE.t)*.34), lh=lw*340/640, ly=Math.max(12+SAFE.t+34+10,12+SAFE.t+84+8-lh*.2);   // the letters start under the PROFILE / SKINS chips
   const rw=Math.min(W*.74,310), rh=rw*112/640, ry=ly+lh-rh*.12;
   return {lw,lh,ly,rw,rh,ry,end:ry+rh+6};
 }
@@ -9915,7 +9917,7 @@ function drawMenu(){
   drawMenuLogo(cx,H*.08);
 
   // 4. Currencies (top right)
-  drawCurrencies(true);drawProfChip();drawSkinChip();
+  drawCurrencies(true,true);drawProfChip();drawSkinChip();
 
   // 5. PLAY button — biggest CTA
   const playY=ML.play;
@@ -10798,24 +10800,29 @@ function drawFlyFx(dt){
 }
 // big wallets stay inside their chips: 125K, 2.00M
 function fmtCur(v){v=Math.floor(v);if(v<100000)return String(v);if(v<1e6)return Math.floor(v/1000)+'K';const d=v<1e7?100:10;return String(Math.floor(v/(1e6/d))/d)+'M'}
-function drawCurrencies(row){
+let curRowLeft=1e4;   // left edge of the currency row, so the PROFILE chip never runs into it
+function drawCurrencies(row,menu){
   const rows=[{k:'coins',v:coins-flyPend.coins,ico:drawCoinIco,col:'#FFE082'},{k:'shards',v:Prog.d.shards-flyPend.shards,ico:drawShardIco,col:'#9CF4FF'}];
   if(keysHave()>0)rows.push({k:'keys',v:keysHave(),ico:drawKeyIco,col:'#FFD54F'});
   let y=12+SAFE.t;
-  const tight=row&&rows.length>2, fnt=tight?'900 13px Exo2,sans-serif':'900 15px Exo2,sans-serif';
+  // narrow menu: keys drop to a second row on the right so PROFILE keeps its size
+  const split=row&&menu&&rows.length>2&&W<390;
+  const tight=row&&rows.length>2&&!split, fnt=tight?'900 13px Exo2,sans-serif':'900 15px Exo2,sans-serif';
   ctx.font=fnt;
   const tw=Math.max(...rows.map(r=>ctx.measureText(fmtCur(r.v)).width));
   const cw=tight?Math.max(52,30+tw+10):Math.max(row?62:74,34+tw+16), ch=row?34:30;
   let x=W-12-SAFE.r-cw;
   if(row)rows.reverse();
   for(const r of rows){
+    if(split&&r.k==='keys'){const kx=W-12-SAFE.r-cw, ky=y+ch+8;chipBg(kx,ky,cw,ch);curPos.keys={x:kx+17,y:ky+ch/2};r.ico(kx+17,ky+ch/2,9);
+      ctx.font=fnt;ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),kx+cw-13,ky+ch/2+1);continue}
     chipBg(x,y,cw,ch);
     curPos[r.k]={x:x+17,y:y+ch/2};
     const bs=1+.35*curBump[r.k];
     if(bs>1){ctx.save();ctx.translate(x+17,y+ch/2);ctx.scale(bs,bs);r.ico(0,0,9);ctx.restore()}
     else if(row){r.ico(x+17,y+ch/2,9)}
     if(row){ctx.font=fnt;ctx.textAlign='right';ctx.textBaseline='middle';
-      ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),x+cw-(tight?9:13),y+ch/2+1);x-=cw+(tight?4:6);continue}
+      ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),x+cw-(tight?9:13),y+ch/2+1);curRowLeft=x;x-=cw+(tight?4:6);continue}
     if(bs<=1)r.ico(x+17,y+ch/2,9);
     ctx.font='900 15px Exo2,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
     ctx.fillStyle=r.col;ctx.fillText(fmtCur(r.v),x+cw-13,y+ch/2+1);
