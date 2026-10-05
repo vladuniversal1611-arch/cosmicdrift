@@ -3458,6 +3458,22 @@ function roofForkSection(){
   routeLane=1.0;routeElev=0;routeCenter=1.0;routeLast='ROOF';
   return L;
 }
+// Down from the roof is one way: once you land on the ground track, the roof
+// plates still ahead of you crumble one after another and the run goes on below.
+function crumbleRoofsAhead(idx){
+  let n=0,y=padPositions[idx];
+  for(let i=idx+1;i<pads.length;i++){
+    if(padPositions[i]!==y){
+      y=padPositions[i];
+      // only this fork: every row of it has a ground plate beside a roof one
+      let low=false,high=false;for(let j=i;j<pads.length&&padPositions[j]===y;j++){if((pads[j].elev||0)<3)low=true;else high=true}
+      if(!low||!high)break;
+    }
+    const q=pads[i];
+    if((q.elev||0)>=3&&!q.broken&&q.crumbleT==null){q.crumbleT=.12+n*.14;n++}
+  }
+  if(n)addFloat('⬇ ДАХ ОБВАЛИВСЯ',W/2,H*.3,'#FFB74D',18,true);
+}
 function nextSection(diff){
   if(!runMode.lvl&&--roofNext<=0&&dist>120){roofNext=Math.round(lerp(24,16,diff)+rand(0,5));return Math.random()<.5?roofForkSection():roofSection()}
   const saveC=routeCenter,saveL=routeLane,saveE=routeElev,saveN=routeLast;
@@ -4477,7 +4493,9 @@ function onLand(idx){
 
   pad.landed=true;pad.dip=.75;pad.dipV=0;
   if(!(pad.len>0))landBits(pad,lp);
+  const fromRoof=lastLandElev>=3&&!jpT;
   lastLandElev=pad.elev||0;lastLandJet=pad.type==='jet';lastLandPad=pad;
+  if(fromRoof&&(pad.elev||0)<3)crumbleRoofsAhead(idx);   // stepped down off the roof
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
   if(pad.jp&&!pad.jpTaken){pad.jpTaken=true;startJetpack(idx)}
   if(pad.hint){addFloat(pad.hint,W/2,H*.3,'#FFE082',18,true);pad.hint=null}
@@ -5042,6 +5060,10 @@ function updateGame(dt){
     }
     if(p.lift)p.elev=p.lift.base+Math.sin(gt*p.lift.spd+p.lift.ph)*p.lift.amp;
     // Breakable countdown — platform breaks after timer expires
+    if(p.crumbleT!=null&&!p.broken){
+      p.crumbleT-=dt;p.dip=rand(-.12,.12);
+      if(p.crumbleT<=0){p.broken=true;p.dip=0;shatterPad(p,pads.indexOf(p));sfxBreak()}
+    }
     if(p.type==='breakable' && p.breakTimer>0 && !p.broken){
       p.breakTimer-=dt;
       p.dip=rand(-.15,.15); // shake as it cracks
