@@ -670,7 +670,7 @@ function updateFinale(dt){
   if(!inside&&finaleOn){
     // Survived the gauntlet — pay it off
     finaleOn=false;finaleClearT=2.0;
-    const bonus=60+curAct*40;
+    const bonus=30+curAct*20;
     runCoins+=bonus;score+=bonus;
     addFloat('\u0412\u0418\u0421\u0422\u041E\u042F\u0412! +'+bonus,W/2,H*0.24,'#69F0AE',30,true);
     setEmo('\uD83D\uDE0E',1.6);
@@ -817,7 +817,7 @@ function spawnAirTrails(){
   while(guard++<40){
     const i=acNext, j=nextGroup(i);
     if(padPositions[j]===undefined||j>=pads.length)break;
-    if(i>=OPENING.length&&Math.random()<0.34&&!pads[i].len){
+    if(i>=OPENING.length&&Math.random()<0.2&&!pads[i].len){
       const yi=padPositions[i], yj=padPositions[j], gap=yj-yi;
       if(gap>1.1){
         const side=Math.random()<.5?-1:1;
@@ -945,7 +945,7 @@ function triggerMilestone(m){
   msLast=m;
   msTier = (m%1000===0)?3 : (m%500===0)?2 : 1;
   msT=MS_DUR;
-  const reward = msTier===3?100 : msTier===2?40 : 15;
+  const reward = msTier===3?40 : msTier===2?15 : 5;
   runCoins+=reward;score+=reward;
   const label = msTier===3?`🌟 ${m}M ЕПІЧНО! 🌟` : msTier===2?`⭐ ${m}M! ⭐` : `${m}M!`;
   const color = msTier===3?'#FFD700' : msTier===2?'#FF6EC7' : '#00E5FF';
@@ -1017,9 +1017,21 @@ function loadDaily(){
   }catch(e){}
   rollDaily();
 }
+// What a daily mission pays is rolled with the day: the harder the task, the
+// richer the pool — a road's worth of coins, a key, a chest, fragments or cores.
+const DAILY_RW=[
+  [{coins:500},{coins:650},{frag:1},{shards:2}],                 // easy
+  [{coins:900},{keys:1},{chest:0},{frag:2},{shards:3}],          // medium
+  [{coins:1400},{chest:1},{keys:2},{frag:3},{shards:5}]];        // hard
+function dailyTier(sp){return sp.reward<=50?0:sp.reward<=70?1:2}
+function dailyRw(m){
+  if(!m.rw){const sp=_missionSpec(m), pool=DAILY_RW[sp?dailyTier(sp):0];m.rw=Object.assign({},pool[Math.floor(Math.random()*pool.length)])}
+  return m.rw;
+}
 function rollDaily(){
   const pool=[...DAILY_POOL].sort(()=>Math.random()-0.5);
   dailyMissions=pool.slice(0,3).map(m=>({id:m.id,prog:0,done:false}));
+  dailyMissions.forEach(dailyRw);
   dailyDate=_todayStr();dailyPlays=0;
   saveDaily();
 }
@@ -1032,9 +1044,9 @@ function checkDaily(kind,value){
     const s=_missionSpec(m);if(!s||s.kind!==kind)continue;
     if(value>m.prog)m.prog=value;
     if(m.prog>=s.need){
-      m.done=true;coins+=s.reward;__LS.setItem('fCoins',''+coins);
-      if(Prog.d){Prog.d.shards+=DAILY_SHARDS;addWeek(2);Prog.save()}
-      if(typeof addFloat==='function')addFloat(`${s.emoji} МІСІЯ! +${s.reward}`,W/2,H*.28,'#4CAF50',22,true);
+      m.done=true;const rw=dailyRw(m);
+      if(Prog.d){huntGrant(rw);addWeek(2);Prog.save()}
+      if(typeof addFloat==='function')addFloat(`${s.emoji} МІСІЯ! ${resRewardTxt(rw)}`,W/2,H*.28,'#4CAF50',22,true);
       anyDone=true;
     }
   }
@@ -1145,7 +1157,7 @@ function dashCD(){return DASH_COOLDOWN}
 function dashDur(){return modStat('dash')||1}
 // Combo pays in coins too, not just score: a long clean streak doubles pickups
 // (+1 per pickup rather than ×2: multiplying on top of Fever inflated a run 2.5×)
-function comboCoinBonus(){return perfectCombo>=10?1:0}
+function comboCoinBonus(){return 0}   // the combo pays in score and its every-5th coin; road coins stay ×1
 // Shield: a charge you spend on purpose (double tap), like a hoverboard —
 // it never saves you on its own.
 const SHIELD_DUR=[0,5,6,7,8,10];
@@ -1811,7 +1823,7 @@ function resReward(r){
   if(r%5===0)return {chest:r<10?0:1};
   if(r%5===4)return {shards:r<20?1:2};
   if(r%5===2)return {frag:r<10?1:r<20?2:3};
-  return {coins:100+r*25};
+  return {coins:500+r*100};
 }
 function resLib(k){return RES_LIB.find(x=>x.k===k)}
 function resMult(){return Prog.d&&Prog.d.res?Math.min(RES_MAX,Prog.d.res.rank):1}
@@ -1920,7 +1932,7 @@ function resRewardTxt(rw){
 // A fragment sits on a platform somewhere in a run; land on it to take it.
 // Three a day complete that day's signal. The week pays out on a ladder by
 // how many days you completed, so coming back tomorrow is worth something.
-const HUNT_LADDER=[{d:1,rw:{coins:150}},{d:3,rw:{frag:1}},{d:5,rw:{shards:1}},{d:7,rw:{chest:1}}];
+const HUNT_LADDER=[{d:1,rw:{coins:600}},{d:3,rw:{frag:1}},{d:5,rw:{shards:1}},{d:7,rw:{chest:1}}];
 const HUNT_ORA=['ОРА: Я ловлю уламки старого сигналу Ядра.','ОРА: Ще один уламок. Сигнал… дивний.','ОРА: Цей сигнал старший за мене.','ОРА: Не зважай на нього, Іскро.'];
 let huntNext=1e9, huntPad=null;
 function daysSinceFirst(){const d=Prog.d;if(!d.first)d.first=Date.now();return Math.floor((Date.now()-d.first)/864e5)}
@@ -2013,13 +2025,13 @@ function _weekId(){
 // WEEKLY CORE REPAIR — seven milestones through the week. Points: a run +1
 // (up to 10 a week), a Resonance mission +1, a daily mission +2, a completed
 // Spark Hunt day +3.
-const WEEK_MS=[{n:3,rw:{coins:150}},{n:7,rw:{frag:1}},{n:12,rw:{coins:250}},{n:18,rw:{frag:2}},
+const WEEK_MS=[{n:3,rw:{coins:700}},{n:7,rw:{frag:1}},{n:12,rw:{coins:1200}},{n:18,rw:{frag:2}},
   {n:25,rw:{shards:1}},{n:33,rw:{chest:1}},{n:42,rw:{keys:1}}];
 function weekOn(){return daysSinceFirst()>=2||Prog.d.stats.runs>=15}
 function weekRun(){const w=weekSync();if((w.runs|0)<10){w.runs=(w.runs|0)+1;w.n++}}
 // SPARK STREAK — finish at least one run a day. Missing a day restarts it,
 // but a streak reward already earned is never taken back.
-const STREAK_RW={1:{coins:100},2:{coins:100},3:{frag:1},4:{coins:150},5:{frag:1},6:{coins:200},7:{keys:1},
+const STREAK_RW={1:{coins:400},2:{coins:400},3:{frag:1},4:{coins:600},5:{frag:1},6:{coins:800},7:{keys:1},
   14:{chest:1},21:{shards:2},30:{keys:2}};
 function streakRun(){
   const d=Prog.d;if(!d.streak)d.streak={last:'',n:0,best:0};
@@ -3320,7 +3332,7 @@ function buildRouteSection(diff){
     }
     let loot=null;
     if(i===far)loot='gem';
-    else if(i%2===1)loot='coin';
+    else if(i%3===1)loot='coin';   // every third step: coins on the road are earned, missions pay the big sums
     const gap=(pat.gap||1)*gapMul*gapV;
 
     // §11 — a risk line hung off the shape: same depth, further out, pays more
@@ -4525,7 +4537,7 @@ function onLand(idx){
   if(pad.type==='moving_h'||pad.moving)rc.movLand++;
   if(pad.jp&&!pad.jpTaken){pad.jpTaken=true;startJetpack(idx)}
   if(pad.hint){addFloat(pad.hint,W/2,H*.3,'#FFE082',18,true);pad.hint=null}
-  if((pad.elev||0)>=4&&!pad.roofPaid){pad.roofPaid=true;const b=fever?6:3;runCoins+=b;addFloat('+'+b+' 🏙️',lp.x+22,lp.y-30,'#FFE082',13)}   // the roof pays extra
+  if((pad.elev||0)>=4&&!pad.roofPaid){pad.roofPaid=true;const b=fever?4:2;runCoins+=b;addFloat('+'+b+' 🏙️',lp.x+22,lp.y-30,'#FFE082',13)}   // the roof pays extra
   if(pad.type==='jet'&&!pad.jetUsed){
     // up onto the roofs: a kick, a burst, and a moment of grace for the climb
     pad.jetUsed=true;rc.roof++;
@@ -4866,7 +4878,7 @@ function onLand(idx){
   if(pad.frag){pad.frag=false;huntCollect(lp)}
   if(pad.diamond){
     pad.diamond=false;runDiamonds++;
-    sfxDiamond();runCoins+=3;
+    sfxDiamond();runCoins+=1;
     // every fourth crystal condenses into a core shard; the rest stay coins
     if(runDiamonds%4===0)addFloat('\u{1F4A0} +1 ЯДРО',lp.x,lp.y-50,'#00BCD4',18);
     else addFloat('\u{1F48E} +3',lp.x,lp.y-50,'#00BCD4',16);
@@ -10222,6 +10234,18 @@ function resRowY(L,i){return L.top+L.secH+RES_CARD+i*(L.rowH+L.gap)-uiScroll}
 function rerollRect(L,i){const y=resRowY(L,i);return {x:L.x+L.cw-96,y:y+8,w:84,h:26}}
 function rerollAdRect(L,i){const r=rerollRect(L,i);return {x:r.x,y:r.y+28,w:r.w,h:22}}
 let missionNarrow=false;
+// a reward drawn right-aligned at (rx,ry): icon + amount
+function drawRwTag(rw,rx,ry){
+  ctx.save();ctx.textAlign='right';ctx.textBaseline='middle';ctx.font='900 13px Exo2,sans-serif';
+  let t,col,ico;
+  if(rw.coins){t=fmtN(rw.coins);col='#FFE082';ico=x=>drawCoinIco(x,ry,6.5)}
+  else if(rw.keys){t='×'+rw.keys;col='#FFD54F';ico=x=>drawKeyIco(x,ry,8)}
+  else if(rw.chest!=null){t=rw.chest?'кришт.':'скриня';col=rw.chest?'#B9A8FF':'#FFCC80';ico=x=>drawChestIco(x,ry+5,22,rw.chest,0)}
+  else if(rw.shards){t='×'+rw.shards;col='#9CF4FF';ico=x=>drawShardIco(x,ry,6.5)}
+  else {t='×'+rw.frag;col='#D7A8FF';ico=x=>drawFragIco(x,ry,6.5)}
+  ctx.fillStyle=col;ctx.fillText(t,rx,ry);ico(rx-ctx.measureText(t).width-(rw.chest!=null?14:10));
+  ctx.restore();
+}
 function drawMissionRow(L,y,ico,text,prog,need,done,rewardFn){
   const x=L.x;
   glassPanel(x,y,L.cw,L.rowH,14);
@@ -10318,9 +10342,7 @@ function drawMissions(){
     const sp=_missionSpec(m);if(!sp)continue;
     drawMissionRow(L,y,sp.emoji,sp.text,m.done?sp.need:m.prog,sp.need,m.done,(rx,ry)=>{
       ctx.textAlign='right';ctx.font='900 13px Exo2,sans-serif';
-      const a=String(sp.reward), b=String(DAILY_SHARDS);
-      ctx.fillStyle='#9CF4FF';ctx.fillText(b,rx,ry);let bx=rx-ctx.measureText(b).width-10;drawShardIco(bx,ry,6);
-      bx-=14;ctx.fillStyle='#FFE082';ctx.fillText(a,bx,ry);drawCoinIco(bx-ctx.measureText(a).width-9,ry,6.5);
+      drawRwTag(dailyRw(m),rx,ry);
     });
     y+=L.rowH+L.gap;
   }
