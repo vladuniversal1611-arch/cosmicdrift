@@ -1084,6 +1084,9 @@ const MODULES=[
   {id:'djump',  name:'ПОДВІЙНИЙ СТРИБОК', icon:'\u{1F300}', unlock:8,
    stat:[0, 5, 7, 9, 11, 13],                 // seconds of fall protection at the start of each run
    lv:['', 'Захист на старті: 5 с рятує від падінь', 'Захист 7 с', 'Захист 9 с', 'Захист 11 с', 'Захист 13 с']},
+  {id:'resx2',  name:'РЕЗОНАНС ×2',       icon:'\u{1F537}', unlock:4,
+   stat:[0, 6, 8, 10, 12, 15],                // seconds a ×2 Resonance pickup doubles the score
+   lv:['', 'Бустер ×2 на платформах діє 6 с', 'Бустер ×2 діє 8 с', 'Бустер ×2 діє 10 с', 'Бустер ×2 діє 12 с', 'Бустер ×2 діє 15 с']},
   {id:'reward', name:'БОНУС НАГОРОД',     icon:'\u{1F4B0}', unlock:10,
    stat:[1, 1.15, 1.3, 1.5, 1.75, 2.0],       // coin & shard multiplier at run end
    lv:['', '+15% монет і ядер за забіг', '+30%', '+50%', '+75%', '×2 нагород']},
@@ -1161,6 +1164,9 @@ function comboCoinBonus(){return 0}   // the combo pays in score and its every-5
 // Shield: a charge you spend on purpose (double tap), like a hoverboard —
 // it never saves you on its own.
 const SHIELD_DUR=[0,5,6,7,8,10];
+// Resonance ×2 pickup: every point scored while it runs counts twice
+let resX2T=0, resX2Max=6, scoreSeen=0;
+function resX2Dur(){return modStat('resx2')||6}
 let djAnn=false, shieldCharges=0, shieldT=0, graceT=0, lastTapT=0, lastTapX=0, lastTapY=0, shieldHintT=0;
 let runAir=0, runAirSpawned=0, runAirPassed=0, runMagnet=0, shieldCD=0, djT=0, runShards=0, runRewardCoins=0, runXP=0, runLevelUps=[], runShieldUsed=false, runLeaps=0;
 function modStat(id){const m=MODULES.find(x=>x.id===id);return m?m.stat[modLv(id)]:0}
@@ -3635,7 +3641,7 @@ function makePad(gameX, type, diff){
   let coin=Math.random()<(.15+diff*.08);
   let pu=null;
   if(Math.random()<.012&&dist>5)
-    pu=['magnet','superjump'][Math.floor(Math.random()*2)];   // shields come only from the Store
+    pu=['magnet','superjump','resx2'][Math.floor(Math.random()*3)];   // shields come only from the Store
   if(type==='bonus'){coin=true;if(Math.random()<.3)pu='magnet';}
   // Mystery box — rare, drops on regular platforms after some warm-up. Rolls a
   // random reward when the frog lands on it. Not compatible with pu / traps.
@@ -4419,7 +4425,7 @@ function startGame(){
   if(shopBoost.shield)shieldCharges++;
   if(shopBoost.magnet){magnetT=0;startMagnet(magDur()*2);}
   // Modules that act from the first second of the run
-  runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;djT=modLv('djump')?modStat('djump'):0;djAnn=djT>0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
+  runAir=0;runAirSpawned=0;runAirPassed=0;runMagnet=0;shieldCD=0;resX2T=0;scoreSeen=0;djT=modLv('djump')?modStat('djump'):0;djAnn=djT>0;runShards=0;airCoins=[];acNext=0;runRewardCoins=0;runXP=0;runLevelUps=[];runShieldUsed=false;runLeaps=0;runUnlocked=[];
   if(Prog.d.res)Prog.d.res.pend=null;
   resetRunPay();goalXP=0;runGoalsDone=0;runDashes=0;goalTick=0;runStreak=null;achNewRun=0;achCards=[];resRunStart();huntRunStart();boosterRunStart();Prog.save();
   shieldT=0;graceT=0;lastTapT=0;
@@ -4871,6 +4877,7 @@ function onLand(idx){
     const t=pad.pu;pad.pu=null;sfxPU();
     if(t==='shield'){shieldCharges++;addFloat('🛡️ +1 ЩИТ',lp.x,lp.y-40,'#4FC3F7',22)}
     else if(t==='magnet'){startMagnet(magDur());addFloat('🧲 МАГНІТ!',lp.x,lp.y-40,'#F44336',22)}
+    else if(t==='resx2'){resX2T=Math.max(resX2T,resX2Dur());resX2Max=resX2T;addFloat('🔷 РЕЗОНАНС ×2!',lp.x,lp.y-40,'#36E0FF',22)}
     else if(t==='superjump'){addFloat('🌟 СУПЕР!',lp.x,lp.y-40,'#AB47BC',22)}
   }
   // Mystery box — roll one of 5 rewards on land, apply immediately
@@ -5079,6 +5086,8 @@ function updateGame(dt){
   }
   if(graceT>0)graceT=Math.max(0,graceT-dt);
   if(shieldHintT>0)shieldHintT=Math.max(0,shieldHintT-dt);
+  {const ds=score-scoreSeen;if(resX2T>0&&ds>0)score+=ds;scoreSeen=score;
+   if(resX2T>0){resX2T=Math.max(0,resX2T-dt);if(resX2T<=0)addFloat('🔷 ×2 ЗАКІНЧИВСЯ',W/2,H*.36,'#9CF4FF',16,true)}}
   // double jump guards the opening seconds; a bought head start flies them for you, so it waits
   if(djT>0&&!hsEnd&&introT<=0){
     if(djAnn&&actCardT<=0){djAnn=false;addFloat(`🌀 ЗАХИСТ ЩЕ ${Math.ceil(djT)} с`,W/2,H*.36,'#B9A8FF',18,true)}
@@ -7379,10 +7388,12 @@ function drawGem(x,y,s,bob){
 function drawPUIcon(x,y,s,type,bob){
   const b=Math.sin(gt*3.5+bob)*5;ctx.save();ctx.translate(x,y-28*s+b);ctx.scale(s,s);
   let gc;
-  if(type==='shield')gc='79,195,247';else if(type==='magnet')gc='244,67,54';else if(type==='boost')gc='255,235,59';else gc='171,71,188';
+  if(type==='shield'||type==='resx2')gc=type==='resx2'?'54,224,255':'79,195,247';else if(type==='magnet')gc='244,67,54';else if(type==='boost')gc='255,235,59';else gc='171,71,188';
   const gg=ctx.createRadialGradient(0,0,5,0,0,22);gg.addColorStop(0,`rgba(${gc},.4)`);gg.addColorStop(1,`rgba(${gc},0)`);ctx.fillStyle=gg;ctx.beginPath();ctx.arc(0,0,22,0,Math.PI*2);ctx.fill();
-  const art={shield:'icoShield',magnet:'icoMag',boost:'icoDash',superjump:'starArt'}[type];
+  const art={shield:'icoShield',magnet:'icoMag',boost:'icoDash',superjump:'starArt',resx2:'icRes'}[type];
   if(art&&_ok(art)){const im=_A[art],h=34,w=h*im.naturalWidth/im.naturalHeight;ctx.drawImage(im,-w/2,-h/2,w,h)}
+  if(type==='resx2'){ctx.font='900 13px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=4;
+    ctx.strokeStyle='rgba(0,20,40,.9)';ctx.strokeText('×2',12,12);ctx.fillStyle='#FFE082';ctx.fillText('×2',12,12)}
   else{ctx.font='22px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText({shield:'🛡️',magnet:'🧲',boost:'⚡',superjump:'🌟'}[type]||'?',0,0);}
   ctx.restore();
@@ -8735,7 +8746,7 @@ function drawResBadge(x,y){
   ctx.fillStyle='rgba(191,251,255,.85)';ctx.font='900 10px Exo2,sans-serif';ctx.fillText('РЕЗОНАНС',x+48,y+16);
   const g=ctx.createLinearGradient(0,y+20,0,y+44);g.addColorStop(0,'#E8FEFF');g.addColorStop(1,'#36E0FF');
   ctx.font='900 22px Exo2,sans-serif';ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='rgba(0,20,40,.8)';
-  ctx.strokeText('×'+m,x+48,y+32);ctx.fillStyle=g;ctx.fillText('×'+m,x+48,y+32);
+  const mt='×'+(resX2T>0?m*2:m);ctx.strokeText(mt,x+48,y+32);ctx.fillStyle=resX2T>0?'#FFE082':g;ctx.fillText(mt,x+48,y+32);
   ctx.restore();
   return y+h+6;
 }
@@ -8764,6 +8775,7 @@ function drawComboBadge(x,y){
 // the module icons are status lights, not buttons: a tap explains what each one does
 let modRects=[], modTip=null;
 function modTipText(id){
+  if(id==='resx2')return ['РЕЗОНАНС ×2 · бустер',`Усі очки рахуються вдвічі ще ${Math.ceil(resX2T)} с. Довше — в Лабораторії`];
   if(id==='magnet')return ['МАГНІТ · працює сам',`Тягне монети з сусідніх смуг ще ${Math.ceil(magnetT)} с. Довше — в Лабораторії`];
   if(id==='shield'){const lv=modLv('shield'), cd=modStat('shield'), n=shieldAvail();
     return ['ЩИТ · подвійний тап по екрану',`Щити — тільки з магазину, один за забіг. У запасі: ${invSh()+(runStockSh&&!shield?0:0)}`]}
@@ -8784,6 +8796,7 @@ function drawModuleColumn(x,y){
   if(magnet)list.push({id:'magnet',img:'icoMag',ico:'🧲',col:'#FF5CC8',on:true,active:true,prog:magnetT/magnetMax,sec:magnetT});   // shown while a magnet runs
   if(shieldAvail()>0||shield)list.push({id:'shield',img:'icoShield',ico:'🛡',col:'#4FC3F7',on:shield||shieldAvail()>0,
     prog:shield?shieldT/(SHIELD_DUR[Math.max(1,modLv('shield'))]||6):shieldAvail()>0?1:(shieldCD>0&&modStat('shield')?1-shieldCD/modStat('shield'):0),active:shield,n:shieldAvail(),sec:shield?shieldT:null});
+  if(resX2T>0)list.push({id:'resx2',img:'icRes',ico:'🔷',col:'#36E0FF',on:true,active:true,prog:resX2T/resX2Max,sec:resX2T});
   if(djT>0) list.push({id:'djump',img:'icoDj', ico:'🌀',col:'#8C7CFF',on:true,active:true,prog:djT/modStat('djump'),sec:djT});   // only while it guards
   const r=19;
   for(const m of list){
@@ -10794,7 +10807,7 @@ function drawChestIco(x,y,s,tier,open){
 }
 
 // ---- CORE LAB: upgrade the run modules ----
-const MOD_TINT={magnet:'#FF5C8A',shield:'#4FC3F7',dash:'#FFD54F',fever:'#FF7A3D',djump:'#8C7CFF',reward:'#5CFF9D'};
+const MOD_TINT={resx2:'#36E0FF',magnet:'#FF5C8A',shield:'#4FC3F7',dash:'#FFD54F',fever:'#FF7A3D',djump:'#8C7CFF',reward:'#5CFF9D'};
 let labFlash={}, labMsg='', labMsgT=0;
 function labLayout(){
   const cw=Math.min(W-24-SAFE.l-SAFE.r,440), ch=138, gap=10;
