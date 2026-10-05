@@ -1063,9 +1063,8 @@ const MODULES=[
    lv:['', 'Щит з магазину: 2× тап, діє 5 с', 'Щит діє 6 с', 'Щит діє 7 с',
        'Щит діє 8 с', 'Щит діє 10 с']},
   {id:'dash',   name:'РИВОК',             icon:'⚡',    unlock:5,
-   stat:[0, 8, 6.5, 5, 4, 3],                 // cooldown, seconds
-   lv:['', 'Ривок уперед, знову готовий через 8 с', 'Знову готовий через 6.5 с', 'Знову готовий через 5 с',
-       'Знову готовий через 4 с', 'Знову готовий через 3 с, довший ривок']},
+   stat:[0, 1, 1.5, 2, 2.5, 3],               // seconds the dash flies you (autopilot, speed, untouchable)
+   lv:['', 'Ривок летить сам 1 с', 'Ривок діє 1.5 с', 'Ривок діє 2 с', 'Ривок діє 2.5 с', 'Ривок діє 3 с']},
   {id:'fever',  name:'ЯДРО FEVER',        icon:'\u{1F525}', unlock:6, adv:12,
    stat:[0, 5, 4, 4, 3, 3],                   // PERFECTs needed to ignite fever
    lv:['', 'Fever після 5 PERFECT', 'Fever після 4 PERFECT', '4 PERFECT · 2 промахи в Fever',
@@ -1083,7 +1082,8 @@ const FEVER_SHIELDS=[0,1,1,2,2,3], FEVER_COIN=[1,2,2,2,3,3];
 // Cost to REACH a level. Coins for the basics, fragments (from chests) so
 // progress follows play, core shards for the top two levels.
 // Calibrated against measured income: ~200 coins a casual run, ~650 a strong 550 m one.
-const UP_COST=[null,null,{c:3000,f:4,s:0},{c:8000,f:8,s:0},{c:18000,f:14,s:12},{c:36000,f:22,s:30}];
+// coins: 9000 for the first step, each next one ×2.5
+const UP_COST=[null,null,{c:9000,f:4,s:0},{c:22500,f:8,s:0},{c:56250,f:14,s:12},{c:140625,f:22,s:30}];
 
 function progDefaults(){
   return {v:PROG_V, xp:0, lvl:1, shards:0,
@@ -1141,7 +1141,8 @@ function modLv(id){return (Prog.d&&Prog.d.mods[id])|0}
 function feverNeed(){return modLv('fever')?modStat('fever'):5}
 function feverShieldCount(){return FEVER_SHIELDS[Math.max(1,modLv('fever'))]}
 function feverCoinMult(){return FEVER_COIN[Math.max(1,modLv('fever'))]}
-function dashCD(){return modLv('dash')?modStat('dash'):DASH_COOLDOWN}
+function dashCD(){return DASH_COOLDOWN}
+function dashDur(){return modStat('dash')||1}
 // Combo pays in coins too, not just score: a long clean streak doubles pickups
 // (+1 per pickup rather than ×2: multiplying on top of Fever inflated a run 2.5×)
 function comboCoinBonus(){return perfectCombo>=10?1:0}
@@ -2403,13 +2404,17 @@ function boosterRunStart(){
   if(t.length)addFloat(t.join('  ·  '),W/2,H*.3,'#FFE082',16,true);
 }
 // head start: autopilot onto the nearest next pad, twice the pace, untouchable
-function headStartTick(){
-  if(!hsEnd)return 1;
-  if(dist>=hsEnd){hsEnd=0;graceT=Math.max(graceT,1.5);addFloat('🚀 РИВОК ЗАВЕРШЕНО',W/2,H*.3,'#9CFFE0',16,true);return 1}
-  graceT=Math.max(graceT,.4);boost=true;boostT=Math.max(boostT,.2);
+function autoSteer(){
   const ci=getCurrentPadIdx(), ny=padPositions[ci+1], cx=pads[ci]?pads[ci].gameX:1;let best=-1,bd=1e9;
   for(let i=ci+1;i<pads.length&&padPositions[i]===ny;i++){const pd=pads[i];if(pd.broken||pd.disappeared)continue;const dd=Math.abs(cx-pd.gameX);if(dd<bd){bd=dd;best=i}}
   if(best>=0)frogCont=pads[best].gameX;
+}
+function headStartTick(){
+  if(dashActive&&!hsEnd)autoSteer();        // the Lab dash flies you too, for its seconds
+  if(!hsEnd)return 1;
+  if(dist>=hsEnd){hsEnd=0;graceT=Math.max(graceT,1.5);addFloat('🎮 КЕРУЄШ ТИ!',W/2,H*.3,'#9CFFE0',20,true);return 1}
+  graceT=Math.max(graceT,.4);boost=true;boostT=Math.max(boostT,.2);
+  autoSteer();
   return 2.2;
 }
 
@@ -2498,7 +2503,7 @@ function affordableUpgrade(){
 
 // Dash (dodge/skip mechanic)
 let dashReady=true,dashCooldown=0,dashActive=false,dashT=0,dashShow=0;
-const DASH_COOLDOWN=5,DASH_DURATION=.3;
+const DASH_COOLDOWN=10;   // recharge is fixed; the Lab makes the dash itself last longer
 // Biome progression
 // (biomes removed — a second progression that only duplicated the acts; its
 // colours were never actually applied, so this was mostly dead weight.)
@@ -4869,11 +4874,11 @@ function playTap(x,y){
 function doDash(){
   if(!dashReady||!alive||state!==ST.PLAY) return;
   if(!modLv('dash'))return;
-  dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=DASH_DURATION;dashShow=1;runDashes++;
+  dashReady=false;dashCooldown=dashCD();dashActive=true;dashT=dashDur();dashShow=1;runDashes++;
   sfxDash();shake=.15;
   // Dash = temporary speed burst + invincibility (no seq teleport)
   // invincible only while the dash lasts (checked in die())
-  boost=true;boostT=modLv('dash')>=5?1.1:.8; // speed burst
+  boost=true;boostT=dashT; // speed burst for the whole dash
   addFloat('⚡ DASH!',W/2,H*.4,'#448AFF',22,true);
   // Dash trail particles
   for(let i=0;i<12;i++){
@@ -5047,7 +5052,7 @@ function updateGame(dt){
   }
   if(dashActive){
     dashT-=dt;
-    if(dashT<=0){dashActive=false}
+    if(dashT<=0){dashActive=false;graceT=Math.max(graceT,.6)}
   }
   if(dashShow>0) dashShow-=dt*1.5;
 
@@ -8854,9 +8859,36 @@ function pauseTap(x,y){
 }
 addEventListener('visibilitychange',()=>{if(document.hidden&&state===ST.PLAY&&alive)paused=true});
 
+// While something else steers (a bought head start or the Lab dash), say so, and
+// count down the last metres so taking the controls back is never a surprise.
+const HS_COUNT=60;
+function drawAutoCountdown(){
+  if(state!==ST.PLAY||!alive)return;
+  let cap='',big='',col='#9CFFE0',k=0;
+  if(hsEnd){
+    const left=Math.max(0,Math.ceil(hsEnd-dist));
+    if(left>HS_COUNT){
+      const t=`🚀 АВТОПІЛОТ · ще ${left} м`;ctx.save();ctx.font='900 13px Exo2,sans-serif';
+      const w=ctx.measureText(t).width+28,y=H*.25;uiPill(W/2-w/2,y-15,w,30,0);
+      ctx.fillStyle='#9CFFE0';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,W/2,y+1);ctx.restore();return;
+    }
+    cap='КЕРУВАННЯ ЧЕРЕЗ';big=left+' м';col=left>30?'#9CFFE0':left>12?'#FFD54F':'#FF6B5A';
+    k=(Math.ceil(hsEnd-dist)%5)/5;              // a small throb every 5 m
+  }else if(dashActive){
+    cap='⚡ РИВОК';big=Math.max(0,dashT).toFixed(1)+' с';col=dashT>.8?'#9CFFE0':'#FFD54F';
+  }else return;
+  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+  const y=H*.27,sc=1+k*.12;
+  ctx.font='900 13px Exo2,sans-serif';ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='rgba(4,7,26,.85)';
+  ctx.strokeText(cap,W/2,y-30);ctx.fillStyle='#fff';ctx.fillText(cap,W/2,y-30);
+  ctx.translate(W/2,y);ctx.scale(sc,sc);
+  ctx.font='900 44px Exo2,sans-serif';ctx.lineWidth=8;ctx.strokeText(big,0,0);ctx.fillStyle=col;ctx.fillText(big,0,0);
+  ctx.restore();
+}
 function drawHUD(){
   ctx.textAlign='center';ctx.textBaseline='middle';
   drawFeverGauge();
+  drawAutoCountdown();
 
   const L=12+SAFE.l, R=W-12-SAFE.r, T=10+SAFE.t;
   // The score is sized to the screen and its box is reserved first; the side
