@@ -44,6 +44,13 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   await shot(p, '01-menu');
   await p.click('#btnGarage'); await wait(300); await shot(p, '02-garage');
   check('garage opens', await ev(p, () => document.getElementById('garageOvl').classList.contains('on')));
+  // Tapping a locked vehicle must only preview it, never spend coins
+  { const c0 = await ev(p, () => { sv.coins = 99999; refreshGarage(); return sv.coins; });
+    await p.locator('.vcard').nth(1).click(); await wait(150);
+    check('locked vehicle tap does not buy', (await ev(p, () => sv.coins)) === c0 && (await ev(p, () => sv.vs.pickup.locked)));
+    check('buy button shown for locked vehicle', await ev(p, () => getComputedStyle(document.getElementById('btnBuyV')).display !== 'none'));
+    await shot(p, '02b-garage-preview');
+    await ev(p, () => { sv.coins = 0; gView = 'jeep'; saveSv(); refreshGarage(); }); }
   await p.click('#btnGBack'); await wait(200);
   await p.click('#btnMapSel'); await wait(300); await shot(p, '03-map');
   check('map select opens', await ev(p, () => document.getElementById('mapOvl').classList.contains('on')));
