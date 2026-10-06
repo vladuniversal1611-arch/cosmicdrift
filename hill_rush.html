@@ -1445,7 +1445,7 @@ function drawFloatTxt(cx,cy){
 function renderFuelHint(){
   if(car.over||car.fuel/car.fuelMax>.5)return;
   let nx=null;for(const o of terrain.objs)if(o.t==='fuel'&&!o.col&&o.x>car.bx&&(nx===null||o.x<nx))nx=o.x;
-  if(nx===null||(nx-camX)*ZOOM<W-10)return;
+  if(nx===null||(nx-camX)*zoomNow<W-10)return;
   const m=Math.round((nx-car.bx)/PX_M),low=car.fuel/car.fuelMax<.2,y=150;
   ctx.globalAlpha=low?.75+Math.sin(performance.now()*.012)*.25:.85;
   ctx.fillStyle=low?'#e53935':'rgba(0,0,0,.55)';
@@ -1509,7 +1509,9 @@ function showOvl(id){
 
 // ── menu ─────────────────────────────────────────────────
 let STATE='menu',car=null,terrain=null,clouds=null,camX=0,camY=0;
-const ZOOM=.74,VW=W/ZOOM,VH=H/ZOOM;
+// World zoom eases between ZOOM (calm) and ZOOM_MIN (fast / airborne); culling uses the widest view
+const ZOOM=.74,ZOOM_MIN=.64,VW=W/ZOOM_MIN,VH=H/ZOOM_MIN;
+let zoomNow=ZOOM,camLead=0,camLift=0;
 let gas=false,brake=false,paused=false,sessionCoins=0,fT=0,lastT=0,raf=null;
 let camKick=0,nextMile=0,runBonus=[],runBanked=false,endTmr=null,physAcc=0,timeScale=1,deathT=-1;
 const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
@@ -1621,7 +1623,8 @@ function startGame(){
   clouds=makeClouds();
   const sy=terrain.getY(180)-vd.wr-70;
   car=new Car(vd,upg,env,180,sy);
-  camX=car.bx-VW*.3;camY=car.by-VH*.58;
+  zoomNow=ZOOM;camLead=0;camLift=0;
+  camX=car.bx-W/zoomNow*.3;camY=car.by-H/zoomNow*.58;
   stuntReset();camKick=0;FTXT.length=0;hintT=0;document.getElementById('stuntFeed').innerHTML='';
   showOvl(null);setLetterbox(env.sky[0],env.gDeep);
   document.getElementById('pauseOvl').classList.remove('on');
@@ -1681,8 +1684,17 @@ function loop(now){
     }
   }
   // Camera
-  camX+=(car.bx-VW*.3-camX)*.12;
-  camY+=(car.by-VH*.58-camY)*.1;
+  // Camera: look ahead with speed, look where the car is heading vertically,
+  // ease out a little when fast or airborne, soft dip on hard landings
+  const air=!car.fG&&!car.rG,sp=Math.hypot(car.bvx,car.bvy);
+  const tz=ZOOM-Math.min(ZOOM-ZOOM_MIN,Math.max(0,sp-6)*.012+(air&&ST.air>20?.04:0));
+  zoomNow+=(tz-zoomNow)*.03;
+  camLead+=(Math.max(-40,Math.min(120,car.bvx*11))-camLead)*.04;
+  camLift+=(Math.max(-50,Math.min(70,car.bvy*7))-camLift)*.05;
+  const vw=W/zoomNow,vh=H/zoomNow;
+  camX+=(car.bx-vw*.3+camLead-camX)*.12;
+  camY+=(car.by-vh*.58+camLift-camY)*.1;
+  camKick*=.85;
   terrain.ensure(camX+VW*2);
   // Milestone
   const d=car.dist|0;
@@ -1699,7 +1711,7 @@ function loop(now){
   // Draw
   ctx.clearRect(0,0,W,H);
   renderBG(car.env,camX,camY,clouds);
-  ctx.save();ctx.scale(ZOOM,ZOOM);
+  ctx.save();ctx.scale(zoomNow,zoomNow);if(camKick>.1)ctx.translate(0,-camKick*.5);
   renderTerrain(terrain,car.env,camX,camY);
   renderMarkers(camX,camY);
   renderObjs(terrain,camX,camY,now);
