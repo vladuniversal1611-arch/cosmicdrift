@@ -39,7 +39,7 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   check('daily reward popup on first launch', p.dailyShown);
   await shot(p, '00-daily');
   const c0 = await ev(p, () => sv.coins); await p.click('#btnDailyClaim'); await wait(200);
-  check('daily reward claimed once', (await ev(p, () => sv.coins)) - c0 === 40 && !(await ev(p, () => dailyState().can)));
+  check('daily reward claimed once', (await ev(p, () => sv.coins)) - c0 === (await ev(p, () => DAILY_RW[0])) && !(await ev(p, () => dailyState().can)));
   check('boot: menu visible', await ev(p, () => document.getElementById('menuOvl').classList.contains('on')));
   await shot(p, '01-menu');
   await p.click('#btnGarage'); await wait(300); await shot(p, '02-garage');
@@ -152,10 +152,11 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
     vs: { jeep: { locked: false, engine: 2, susp: 1 }, pickup: { locked: false, engine: 1 } }, envs: { country: true, mountain: true } });
   p = await newPage(browser, errors, { init: `if(!sessionStorage.getItem('seeded')){localStorage.clear();localStorage.setItem('hillrush3', ${JSON.stringify(oldSave)});sessionStorage.setItem('seeded','1');}`, keepDaily: true });
   const mig = await ev(p, () => ({ coins: sv.coins, best: sv.best, v: sv.selV, e: sv.selE, eng: sv.vs.jeep.engine, pick: sv.vs.pickup.locked, ver: sv.ver }));
-  check('old save: coins/best kept', mig.coins === 777 && mig.best === 420, JSON.stringify(mig));
+  // v5 economy: old coins x5 (coin values 1 -> 5), old best /2 (10 px -> 20 px per metre)
+  check('old save: coins/best migrated', mig.coins === 777 * 5 && mig.best === 210 && mig.ver === 5, JSON.stringify(mig));
   check('old save: vehicle/map/upgrades kept', mig.v === 'pickup' && mig.e === 'mountain' && mig.eng === 2 && mig.pick === false);
   await p.reload(); await wait(400);
-  check('migrated save survives reload', (await ev(p, () => sv.coins)) === 777);
+  check('migrated save survives reload (no double migration)', (await ev(p, () => sv.coins)) === 777 * 5);
   await p.close();
 
   // ── 5. Corrupted save does not crash and does not get wiped silently
