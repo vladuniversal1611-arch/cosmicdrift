@@ -139,6 +139,13 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 .gosval{font-size:26px;font-weight:900;color:#fff}
 .gosval.g{color:#ffe500}
 .gobest{font-size:10px;color:rgba(255,180,0,.7);letter-spacing:2px}
+.gobest.nb{font-size:15px;font-weight:900;color:#ffd600;letter-spacing:1px;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.go-icon{font-size:40px;line-height:1}
+.goearn{width:100%;display:flex;flex-direction:column;gap:4px}
+.goearn .row{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.7);letter-spacing:1px}
+.goearn .row b{color:#ffe500}
+.goearn .tot{border-top:1px solid rgba(255,255,255,.12);padding-top:5px;font-weight:900;font-size:13px;color:#fff}
 
 /* Notifications */
 #toast{position:absolute;top:88px;left:50%;transform:translateX(-50%);
@@ -225,13 +232,15 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 <!-- ── GAME OVER ── -->
 <div class="ovl" id="goOvl">
   <div class="gocard">
-    <div class="go-over">GAME OVER</div>
+    <div class="go-icon" id="goIcon">💥</div>
     <div class="go-rsn" id="goRsn">CRASHED!</div>
+    <div class="go-over">GAME OVER</div>
     <div class="gohr"></div>
     <div class="gostats">
       <div class="gostat"><div class="goslbl">DISTANCE</div><div class="gosval" id="goDist">0 m</div></div>
       <div class="gostat"><div class="goslbl">COINS</div><div class="gosval g" id="goCoins">0</div></div>
     </div>
+    <div class="goearn" id="goEarn"></div>
     <div class="gobest" id="goBest"></div>
     <div class="gohr"></div>
     <button class="gbtn btn-play" id="btnRetry" style="font-size:20px;padding:15px 0;margin-bottom:6px">▶ RETRY</button>
@@ -292,6 +301,8 @@ function stopEng(){try{if(eOsc){eOsc.stop();eOsc=null;}}catch(e){}}
 const sfxCoin=()=>beep(920,.09,.16);
 const sfxFuel=()=>{beep(440,.14,.2,'triangle');setTimeout(()=>beep(550,.14,.18,'triangle'),95);};
 const sfxCrash=()=>{beep(100,.5,.5,'sawtooth');setTimeout(()=>beep(65,.35,.3,'sawtooth'),55);};
+const sfxFuelOut=()=>{beep(330,.25,.2,'triangle');setTimeout(()=>beep(220,.4,.2,'triangle'),220);};
+function vibrate(p){try{if(sv.settings.vibe&&navigator.vibrate)navigator.vibrate(p);}catch(e){}}
 const sfxBtn=()=>beep(660,.07,.16,'triangle');
 const sfxBuy=()=>{beep(440,.08,.2);setTimeout(()=>beep(660,.08,.22),90);setTimeout(()=>beep(880,.14,.25),210);};
 const sfxMile=()=>{beep(660,.1,.28);setTimeout(()=>beep(880,.12,.3),110);setTimeout(()=>beep(1100,.18,.28),255);};
@@ -559,9 +570,9 @@ class Car{
     this.head.y-=cy0;
   }
   step(terrain,gas,brake){
-    if(this.dead)return;
+    // After a crash (this.over) the body keeps simulating so it can tumble
     this.et++;
-    if(this.fuel>0)this.fuel=Math.max(0,this.fuel-(gas?.03:.008));
+    if(this.fuel>0&&!this.over)this.fuel=Math.max(0,this.fuel-(gas?.03:.008));
     if(this.fuel<=0)this.noFuel=true;
     if(this.turboL>0){this.turboQ=gas&&this.fuel>0?Math.min(1,this.turboQ+.003*this.turboL):this.turboQ*.975;}
     const boost=this.turboQ>.7?1+this.turboL*.15:1;
@@ -596,7 +607,7 @@ class Car{
       this._gf=this._contact(terrain,'f',h);this._gr=this._contact(terrain,'r',h);
       if(this._gf)this.fG=true;if(this._gr)this.rG=true;
       this._bodyContacts(terrain);
-      if(this.crashed)return;
+      if(this.crashed&&!this.over)return;
       // Rolling resistance / drag
       this.rom*=.9998;this.fom*=.9998;this.bw*=inAir?.9996:.9985;
       if(this.bx<this.sx-140&&this.bvx<0){this.bvx*=.5;this.rvx*=.5;this.fvx*=.5;this.rom*=.5;this.fom*=.5;}
@@ -607,6 +618,7 @@ class Car{
       this.rx+=this.rvx*h;this.ry+=this.rvy*h;this.rang+=this.rom*h;
     }
     this.dist=Math.max(0,(this.bx-this.sx)/10);
+    if(this.over)return;
     // Flip: resting upside down
     const na=Math.atan2(Math.sin(this.bang),Math.cos(this.bang));
     if(Math.abs(na)>Math.PI*.62&&!this.fG&&!this.rG&&Math.hypot(this.bvx,this.bvy)<1.2){if(++this.flipT>70){this.crashed=true;this.rsn='FLIPPED!';}}
@@ -665,7 +677,7 @@ class Car{
     const c=Math.cos(this.bang),s=Math.sin(this.bang);
     // Head hitting the ground ends the run
     const hx=this.bx+this.head.x*c-this.head.y*s,hy=this.by+this.head.x*s+this.head.y*c;
-    if(hy>terrain.getY(hx)-2){this.crashed=true;this.rsn='DRIVER DOWN!';return;}
+    if(!this.over&&hy>terrain.getY(hx)-2){this.crashed=true;this.rsn='DRIVER DOWN!';return;}
     for(const p of this.probes){
       const rx=p.x*c-p.y*s,ry=p.x*s+p.y*c;
       const px=this.bx+rx,py=this.by+ry;
@@ -1200,7 +1212,7 @@ function showOvl(id){
 let STATE='menu',car=null,terrain=null,clouds=null,camX=0,camY=0;
 const ZOOM=.74,VW=W/ZOOM,VH=H/ZOOM;
 let gas=false,brake=false,paused=false,sessionCoins=0,fT=0,lastT=0,raf=null;
-let nextMile=0,runBanked=false,endTmr=null;
+let nextMile=0,runBonus=[],runBanked=false,endTmr=null,physAcc=0,timeScale=1,deathT=-1;
 const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
 
 function initMenu(){
@@ -1274,7 +1286,7 @@ function initMapSel(){
 function startGame(){
   if(raf){cancelAnimationFrame(raf);raf=null;}
   if(endTmr){clearTimeout(endTmr);endTmr=null;}
-  STATE='game';sessionCoins=0;fT=0;setG(false);setB(false);paused=false;nextMile=0;runBanked=false;hudCache={};
+  STATE='game';sessionCoins=0;runBonus=[];fT=0;physAcc=0;timeScale=1;deathT=-1;setG(false);setB(false);paused=false;nextMile=0;runBanked=false;hudCache={};
   PARTS.length=0;
   const env=ENVS.find(e=>e.id===sv.selE)||ENVS[0];
   const vd=VEHICLES.find(v=>v.id===sv.selV)||VEHICLES[0];
@@ -1301,8 +1313,14 @@ function loop(now){
   if(STATE!=='game'||paused)return;
   raf=requestAnimationFrame(loop);
   const dt=Math.min((now-lastT)/1e3,.05);lastT=now;fT+=dt;
-  const steps=Math.max(1,Math.round(dt*60));
-  for(let i=0;i<steps;i++){if(!car.dead)car.step(terrain,gas,brake);tickParts();}
+  physAcc+=dt*60*timeScale;
+  let guard=0;
+  while(physAcc>=1&&guard++<4){physAcc-=1;car.step(terrain,car.over?false:gas,car.over?false:brake);tickParts();}
+  if(deathT>=0){
+    // Short slow-motion beat after a crash before the results appear
+    deathT+=dt;timeScale=deathT<.9?.3:1;
+    if(deathT>1.25&&STATE==='game')endGame(car.rsn||'CRASHED!');
+  }
   if(car.noFuel&&!car.crashed&&!car.dead){car.noFuelT=(car.noFuelT||0)+1;car.stallT=Math.hypot(car.bvx,car.bvy)<.5?(car.stallT||0)+1:0;if(car.stallT>70||car.noFuelT>480){car.crashed=true;car.rsn='OUT OF FUEL!';}}
   // Exhaust
   if(!car.dead&&gas&&car.et%4===0){
@@ -1314,8 +1332,8 @@ function loop(now){
     emit(wx,wy+car.wr,2,{a:-Math.PI/2+(Math.random()-.5)*.9,s:.8+Math.random()*1.4,d:.055,r:2+Math.random()*3,c:car.env.gTop,g:-.01,up:1});
   }
   // Collect
-  const pts2=[{x:car.fx,y:car.fy},{x:car.rx,y:car.ry},{x:car.bx,y:car.by}];
-  for(const o of terrain.objs){
+  const pts2=[{x:car.fx,y:car.fy},{x:car.rx,y:car.ry},{x:car.vx(),y:car.vy()}];
+  if(!car.over)for(const o of terrain.objs){
     if(o.col)continue;
     for(const b of pts2){
       const d2=(b.x-o.x)**2+(b.y-o.y)**2,rad=o.t==='coin'?10+car.wr*.4:12+car.wr*.55;
@@ -1341,7 +1359,7 @@ function loop(now){
   terrain.ensure(camX+VW*2);
   // Milestone
   const d=car.dist|0;
-  if(nextMile<MILES.length&&d>=MILES[nextMile]){showMile(MILES[nextMile]);nextMile++;ENVS.forEach(e=>{if(d>=e.unlockM&&!sv.envs[e.id]){sv.envs[e.id]=true;saveSv();setTimeout(()=>toast('🗺 '+e.name+' UNLOCKED!'),1800);}});}
+  if(!car.over&&nextMile<MILES.length&&d>=MILES[nextMile]){showMile(MILES[nextMile]);nextMile++;ENVS.forEach(e=>{if(d>=e.unlockM&&!sv.envs[e.id]){sv.envs[e.id]=true;saveSv();setTimeout(()=>toast('🗺 '+e.name+' UNLOCKED!'),1800);}});}
   // Engine RPM
   setRPM(Math.min(1,Math.abs(car.bvx)/14+(gas?.26:0)));
   // HUD
@@ -1363,11 +1381,13 @@ function loop(now){
   renderVignette();
   // Crash
   if(car.crashed&&!car.dead){
-    car.dead=true;stopEng();sfxCrash();
+    car.dead=true;car.over=true;stopEng();
+    if(car.rsn==='OUT OF FUEL!'){sfxFuelOut();}else{sfxCrash();vibrate([60,40,90]);}
+    deathT=0;
     emit(car.vx(),car.vy(),18,{s:4.5,d:.022,r:6,c:'#ff3300',g:.1,up:3});
     emit(car.vx(),car.vy(),12,{s:3,d:.028,r:4,c:'#ff9800',g:.08,up:2});
     document.getElementById('pauseBtn').style.display='none';
-    endTmr=setTimeout(()=>endGame(car.rsn||'CRASHED!'),900);
+    setG(false);setB(false);
   }
 }
 
@@ -1376,22 +1396,32 @@ function bankRun(){
   if(runBanked||!car)return null;
   runBanked=true;
   const d=car.dist|0,nb=d>sv.best;
-  sv.coins+=sessionCoins;if(nb)sv.best=d;
+  const bonus=runBonus.reduce((a,b)=>a+b.coins,0),total=sessionCoins+bonus;
+  sv.coins+=total;if(nb)sv.best=d;
   const env=car.env.id;if(d>(sv.bestBy[env]||0))sv.bestBy[env]=d;
-  sv.stats.runs++;sv.stats.dist+=d;sv.stats.coins+=sessionCoins;
+  sv.stats.runs++;sv.stats.dist+=d;sv.stats.coins+=total;
   ENVS.forEach(e=>{if(sv.best>=e.unlockM)sv.envs[e.id]=true;});
   saveSv();
-  return{d,nb};
+  return{d,nb,total,bonus};
 }
 function endGame(rsn){
   if(STATE!=='game')return;
   STATE='gameover';endTmr=null;if(raf){cancelAnimationFrame(raf);raf=null;}
   setG(false);setB(false);
-  const r=bankRun()||{d:car.dist|0,nb:false},d=r.d,nb=r.nb;
+  const r=bankRun()||{d:car.dist|0,nb:false,total:sessionCoins,bonus:0},d=r.d,nb=r.nb;
   showOvl('goOvl');
+  const RS={'DRIVER DOWN!':['🤕','#ff5252'],'FLIPPED!':['🙃','#ff9800'],'OUT OF FUEL!':['⛽','#ffc107']};
+  const rs=RS[rsn]||['💥','#ff5252'];
+  document.getElementById('goIcon').textContent=rs[0];
+  document.getElementById('goRsn').style.color=rs[1];
+  let rows=`<div class="row"><span>🪙 Coins picked up</span><b>${sessionCoins}</b></div>`;
+  for(const b of runBonus)rows+=`<div class="row"><span>${b.label}</span><b>+${b.coins}</b></div>`;
+  rows+=`<div class="row tot"><span>TOTAL EARNED</span><b>🪙 ${r.total}</b></div>`;
+  document.getElementById('goEarn').innerHTML=rows;
+  document.getElementById('goBest').classList.toggle('nb',nb);
   document.getElementById('goRsn').textContent=rsn;
   document.getElementById('goDist').textContent=d+' m';
-  document.getElementById('goCoins').textContent=sessionCoins;
+  document.getElementById('goCoins').textContent=r.total;
   document.getElementById('goBest').textContent=nb?'🏆 NEW BEST: '+d+' m!':'BEST: '+sv.best+' m';
 }
 
