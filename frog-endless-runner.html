@@ -222,6 +222,7 @@ const JUMP_UNIT=3.0;
 
 // ========== STATE ==========
 let state=ST.MENU,gt=0;
+let FDT=1/60;   // this frame's time step in seconds (set by loop) - per-frame timers use it, so 60/90/120 Hz all run at the same speed
 let seq=0,spd=GAME_SPD,visLane=1,lastIdx=-1,laneVel=0;
 // Vertical camera offset in screen px at p=1 — eases toward the frog's current
 // elevation so climbs and drops read as real height instead of teleporting.
@@ -728,7 +729,7 @@ function chaseLand(perfect){
 let achCards=[];
 function drawAchCard(){
   if(!achCards.length||state!==ST.PLAY)return;
-  const c=achCards[0];c.t+=.016;
+  const c=achCards[0];c.t+=FDT;
   const T=3.2;if(c.t>T){achCards.shift();return}
   const inn=Math.min(1,c.t/.35), out=Math.max(0,(c.t-(T-.35))/.35), e=1-Math.pow(1-inn,3);
   const w=Math.min(W-32,290), h=c.skin?62:48, x=W-16-w+(1-e)*(w+40)+out*out*(w+40), y=SAFE.t+150;
@@ -1571,7 +1572,7 @@ function tutDue(){
 }
 let tutT=0, tutLast=0;
 function menuTutorial(){
-  const now=performance.now();if(now-tutLast>250)tutT=0;tutLast=now;tutT+=.016;
+  const now=performance.now();if(now-tutLast>250)tutT=0;tutLast=now;tutT+=FDT;
   if(tutT<0.9)return;
   const id=tutDue();if(id){tutT=0;playScene(id,()=>{state=ST.MENU})}
 }
@@ -1647,7 +1648,7 @@ function sceneLift(sc){
 let sceneDots=null;
 function drawScene(){
   const sc=scene;if(!sc){state=ST.MENU;return}
-  const S=sc.S;sc.t+=.016;gt+=.016;
+  const S=sc.S;sc.t+=FDT;gt+=FDT;
   const t=sc.t, col=S.world!=null?SW[S.world].col:S.intro?'#FF5470':'#36E0FF';
   // background: the intro starts in the living garden and the lights go out
   if(S.intro){
@@ -1827,7 +1828,7 @@ function sceneTap(){
 // ---- Core log: the memories found so far ----
 function logLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440);return {cw,x:W/2-cw/2,top:124+SAFE.t,rh:64,gap:8}}
 function drawLog(){
-  gt+=.016;drawMenuBg();
+  gt+=FDT;drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.8)';ctx.fillRect(0,0,W,H);
   const L=logLayout(), found=Prog.d.story.mem;
   uiScrollMax=Math.max(0,L.top+MEMORIES.length*(L.rh+L.gap)+8-(H-SAFE.b));
@@ -2395,7 +2396,7 @@ function wardLayout(){const cw=Math.min(W-24-SAFE.l-SAFE.r,440), cols=W<340?2:3;
   const gap=10, tw=(cw-gap*(cols-1))/cols;return {cw,x:W/2-cw/2,top:124+SAFE.t,cols,gap,tw,th:tw*1.28+34}}
 function wardCell(L,i){const c=i%L.cols,r=Math.floor(i/L.cols);return {x:L.x+c*(L.tw+L.gap),y:L.top+r*(L.th+L.gap)-uiScroll,w:L.tw,h:L.th}}
 function drawWard(){
-  gt+=.016;drawMenuBg();
+  gt+=FDT;drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
   const L=wardLayout(), cur=curHeroSkin(), seen=Prog.d.skinSeen||[];
   const rows=Math.ceil(HERO_SKINS.length/L.cols);
@@ -2449,7 +2450,7 @@ function drawWard(){
   ctx.fillText(`${HERO_SKINS.filter(skinUnlocked).length}/${HERO_SKINS.length} · монети · Літопис · ★ монети+реклама`,W/2,98+SAFE.t);
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
   // a locked tile tapped: say which record opens it
-  if(wardMsgT>0){wardMsgT-=.016;ctx.save();ctx.globalAlpha=Math.min(1,wardMsgT*2);
+  if(wardMsgT>0){wardMsgT-=FDT;ctx.save();ctx.globalAlpha=Math.min(1,wardMsgT*2);
     const w=Math.min(W-40,340);glassPanel(W/2-w/2,H-80-SAFE.b,w,44,14);
     ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=UI.textGold;ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(fitText(wardMsg,w-20),W/2,H-58-SAFE.b);ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic'}
@@ -2553,7 +2554,7 @@ function profileStats(){
   ];
 }
 function drawProfile(){
-  gt+=.016;drawMenuBg();
+  gt+=FDT;drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
   const d=Prog.d, cw=Math.min(W-24-SAFE.l-SAFE.r,440), x0=W/2-cw/2, top=124+SAFE.t;
   const list=profileStats(), gap=10, cols=2, tw=(cw-gap)/cols, th=64, heroH=132;
@@ -2844,7 +2845,7 @@ function drawShopIco(it,x,y){
   else{ctx.font='24px Exo2,sans-serif';drawEmo(it.ico,x,y+1,24)}
 }
 function drawStore(){
-  gt+=.016;drawMenuBg();
+  gt+=FDT;drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.78)';ctx.fillRect(0,0,W,H);
   const L=shopLayout(), rows=shopRows(L);
   const last=rows[rows.length-1];
@@ -2901,7 +2902,7 @@ function drawStore(){
   ctx.font='800 12px Exo2,sans-serif';ctx.fillStyle=shopMsgT>0?'#FFE082':UI.dim;
   const hs=[invSh()?`🛡 запас: ${invSh()}`:'',Prog.d.arm.hs||Prog.d.arm.x2||Prog.d.arm.res?'🚀 бустери чекають на забіг':''].filter(Boolean).join('  ·  ');
   ctx.fillText(shopMsgT>0?shopMsg:(hs||'монети → ключі, щити, бустери, скрині, сліди'),W/2,98+SAFE.t);
-  if(shopMsgT>0)shopMsgT-=.016;
+  if(shopMsgT>0)shopMsgT-=FDT;
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
 }
 function storeTap(x,y){
@@ -4764,7 +4765,7 @@ function drawFloatsLayer(screen){
 
 // ========== BUTTERFLIES ==========
 function initBflies(){bflies=[];for(let i=0;i<6;i++)bflies.push({x:rand(W*.05,W*.95),y:rand(H*.04,H*.25),vx:rand(-.3,.3),vy:rand(-.12,.12),ph:rand(0,6),col:['#F48FB1','#CE93D8','#FFB74D','#81D4FA','#A5D6A7','#FF8A65'][i%6]})}
-function updBflies(dt){for(const b of bflies){b.x+=b.vx*dt*30;b.y+=b.vy*dt*30+Math.sin(gt*2+b.ph)*.3;b.ph+=dt*5;if(b.x<-10)b.x=W+10;if(b.x>W+10)b.x=-10;if(b.y<H*.03)b.vy=Math.abs(b.vy);if(b.y>H*.3)b.vy=-Math.abs(b.vy)}}
+function updBflies(dt){for(const b of bflies){b.x+=b.vx*dt*30;b.y+=b.vy*dt*30+Math.sin(gt*2+b.ph)*.3*dt*60;b.ph+=dt*5;if(b.x<-10)b.x=W+10;if(b.x>W+10)b.x=-10;if(b.y<H*.03)b.vy=Math.abs(b.vy);if(b.y>H*.3)b.vy=-Math.abs(b.vy)}}
 
 // ========== CLOUDS ==========
 function initClouds(){clouds=[];for(let i=0;i<4;i++)clouds.push({x:rand(-50,W+50),y:rand(H*.04,H*.15),sz:rand(30,60),sp:rand(.1,.25),op:rand(.04,.08)})}
@@ -5402,7 +5403,7 @@ function updateGame(dt){
   // Fever shatter particles
   for(let i=feverPts.length-1;i>=0;i--){
     const fp=feverPts[i];
-    fp.x+=fp.vx*60*dt;fp.y+=fp.vy*60*dt;fp.vy+=.002;fp.life-=dt;
+    fp.x+=fp.vx*60*dt;fp.y+=fp.vy*60*dt;fp.vy+=.002*60*dt;fp.life-=dt;
     if(fp.life<=0) feverPts.splice(i,1);
   }
 
@@ -9202,7 +9203,7 @@ function modTipText(id){
 }
 function hitModIcon(x,y){for(const m of modRects)if(Math.hypot(x-m.x,y-m.y)<=m.r+8){modTip={id:m.id,t:2.8,x:m.x,y:m.y,r:m.r};sfxClick();return true}return false}
 function drawModTip(){
-  if(!modTip)return;modTip.t-=.016;if(modTip.t<=0){modTip=null;return}
+  if(!modTip)return;modTip.t-=FDT;if(modTip.t<=0){modTip=null;return}
   const [a,b]=modTipText(modTip.id), x=modTip.x+modTip.r+10, w=Math.min(W-x-12,250), h=46, y=modTip.y-h/2;
   ctx.save();ctx.globalAlpha=Math.min(1,modTip.t*3);glassPanel(x,y,w,h,12);
   ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#FFE082';ctx.font='900 11px Exo2,sans-serif';ctx.fillText(fitText(a,w-16),x+8,y+15);
@@ -10207,7 +10208,7 @@ function drawMenuWorldPick(cx,y){
 }
 let menuPickMsgT=0;
 function drawMenu(){
-  gt+=.016;
+  gt+=FDT;
   menuTutorial();
 
   // Full living world background
@@ -10239,7 +10240,7 @@ function drawMenu(){
   // 7. Bottom navigation dock
   drawMenuNav();
   if(menuPickMsgT>0){
-    menuPickMsgT-=.016;
+    menuPickMsgT-=FDT;
     const r=worldPickRect(), msg='Нові світи для забігу відкриваються в Історії';
     ctx.save();ctx.globalAlpha=Math.min(1,menuPickMsgT*2);ctx.font='800 12px Exo2,sans-serif';
     const w=ctx.measureText(msg).width+26;uiPill(W/2-w/2,r.y-36,w,28,2);
@@ -10509,9 +10510,9 @@ function drawOverStat(x,y,w,label,val,col){
 // the run's numbers count up into place, and a record goes off like a firework
 function overTally(v){const e=clamp((overT-.25)/1.1,0,1);return Math.round(v*(1-Math.pow(1-e,3)))}
 function drawOver(){
-  goT=Math.min(goT+.03,1);overT+=.016;
-  if(reviveShow>0) reviveShow-=.016;
-  if(reviveMsgT>0)reviveMsgT-=.016;
+  goT=Math.min(goT+FDT*1.875,1);overT+=FDT;
+  if(reviveShow>0) reviveShow-=FDT;
+  if(reviveMsgT>0)reviveMsgT-=FDT;
   ctx.fillStyle=`rgba(3,6,20,${.8*goT})`;ctx.fillRect(0,0,W,H);
   overBtns=[];
   const blocks=overBlocks(), pad=16, gap=8;
@@ -10825,7 +10826,7 @@ function drawSecHead(L,y,title,right){
   if(right){ctx.textAlign='right';ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle='rgba(200,222,255,.7)';ctx.fillText(right,L.x+L.cw-4,y+22)}
 }
 function drawMissions(){
-  gt+=.016;
+  gt+=FDT;
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=missionLayout(), d=Prog.d, w=weekSync();
@@ -10971,7 +10972,7 @@ function drawAchRewardIco(x,y,rw){
   else drawFragIco(x,y,8);
 }
 function drawAch(){
-  gt+=.016;drawMenuBg();
+  gt+=FDT;drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.8)';ctx.fillRect(0,0,W,H);
   const L=achLayout(), a=achData();
   if(!achList||achList.length!==ACH.length)achList=achOrder();
@@ -11080,7 +11081,7 @@ function missionsTap(x,y){
   });
 }
 function drawShop(){
-  gt+=.016;
+  gt+=FDT;
   drawMenuBg();
   ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H);
   const cx=W/2;
@@ -11389,7 +11390,7 @@ function fitText(s,w){
   return s+'…';
 }
 function drawLab(){
-  gt+=.016;
+  gt+=FDT;
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=labLayout(), d=Prog.d;
@@ -11479,7 +11480,7 @@ function drawLab(){
     ctx.fillStyle=fg;ctx.fillRect(0,H-50,W,50);
   }
   if(labMsgT>0){
-    labMsgT-=.016;
+    labMsgT-=FDT;
     ctx.save();ctx.globalAlpha=Math.min(1,labMsgT*2);
     ctx.font='800 13px Exo2,sans-serif';
     const w=ctx.measureText(labMsg).width+30, bx=W/2-w/2, byy=H-60-SAFE.b;
@@ -11599,7 +11600,7 @@ function drawRewardItem(x,y,it){
   }
 }
 function drawChests(){
-  gt+=.016;
+  gt+=FDT;
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=chestLayout(), d=Prog.d;
@@ -11655,7 +11656,7 @@ function drawChests(){
 }
 function chestBtnRect(L,t){const y=L.top+t*(L.ch+L.gap);return {x:L.x+L.cw-118,y:y+L.ch/2-18,w:106,h:36}}
 function drawChestReveal(){
-  chestAnimT+=.016;
+  chestAnimT+=FDT;
   const a=Math.min(1,chestAnimT*4);
   ctx.save();
   ctx.fillStyle=`rgba(2,4,16,${.82*a})`;ctx.fillRect(0,0,W,H);
@@ -11738,7 +11739,7 @@ function worldNodePos(L,w,l){
   return {x:nx,y:y+92,r:l===WORLD_LV-1?17:14};
 }
 function drawWorlds(){
-  gt+=.016;
+  gt+=FDT;
   drawMenuBg();
   ctx.fillStyle='rgba(4,8,24,.72)';ctx.fillRect(0,0,W,H);
   const L=worldLayout();
@@ -12063,20 +12064,10 @@ function perfTick(ms){
   if(perfAcc>=1500){const avg=perfAcc/perfN;perfAcc=perfN=0;fpsShow=Math.round(1000/avg);
     if(avg>24&&Q<Q_MAX){Q++;applyQ()}}
 }
-// 120/144 Hz phones: the game is tuned for 60, and drawing twice as often only
-// heats the phone up and drains the battery, so there every other refresh is
-// drawn. The refresh rate is followed all the time, not measured once: LTPO
-// screens (most flagships) drop from 120 to 60 Hz on their own, and halving
-// those 60 would leave the game at 30 fps. (90 Hz screens are left alone.)
-let hzPrev=0,hzEma=16.7,hzLast=0;
 function loop(ts){
-  if(document.hidden){lastT=0;hzPrev=0;requestAnimationFrame(loop);return}   // nothing runs in the background
-  {const d=hzPrev?ts-hzPrev:16.7;hzPrev=ts;if(d>0&&d<50)hzEma+=(d-hzEma)*.1;
-   // fast screen: skip a refresh unless ~a 60 Hz frame has passed since the last drawn one
-   if(hzEma<9.5&&ts-hzLast<13){requestAnimationFrame(loop);return}
-   hzLast=ts}
+  if(document.hidden){lastT=0;requestAnimationFrame(loop);return}   // nothing runs in the background
   const raw=lastT?ts-lastT:16.7;
-  const dt=Math.min(raw/1000,.035);lastT=ts;
+  const dt=Math.min(raw/1000,.035);lastT=ts;FDT=dt;
   perfTick(raw);
   // Any change of screen fades the new one in from a soft veil, so the app never
   // hard-cuts between menu / play / skins / shop. Detected here, so no state
