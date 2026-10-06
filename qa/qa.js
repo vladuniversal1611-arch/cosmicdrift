@@ -23,6 +23,8 @@ async function newPage(browser, errors, opts = {}) {
   if (opts.init) await p.addInitScript(opts.init);
   await p.goto(GAME);
   await wait(500);
+  p.dailyShown = await p.evaluate(() => { const d = document.getElementById('dailyOvl'); return !!(d && d.classList.contains('on')); });
+  if (p.dailyShown && !opts.keepDaily) { await p.click('#btnDailyClaim'); await wait(200); }
   return p;
 }
 const shot = (p, name) => p.screenshot({ path: path.join(OUT, name + '.png') });
@@ -33,7 +35,11 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   const errors = [];
 
   // ── 1. Boot + menus
-  let p = await newPage(browser, errors);
+  let p = await newPage(browser, errors, { keepDaily: true });
+  check('daily reward popup on first launch', p.dailyShown);
+  await shot(p, '00-daily');
+  const c0 = await ev(p, () => sv.coins); await p.click('#btnDailyClaim'); await wait(200);
+  check('daily reward claimed once', (await ev(p, () => sv.coins)) - c0 === 40 && !(await ev(p, () => dailyState().can)));
   check('boot: menu visible', await ev(p, () => document.getElementById('menuOvl').classList.contains('on')));
   await shot(p, '01-menu');
   await p.click('#btnGarage'); await wait(300); await shot(p, '02-garage');
@@ -47,8 +53,9 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
     check('settings opens', await ev(p, () => document.getElementById('setOvl').classList.contains('on')));
     await p.click('#btnSetBack'); await wait(200);
   }
-  // Daily reward popup (if any) may be on top; close it
-  if (await p.locator('#dailyOvl.on').count()) { await shot(p, '05-daily'); await p.click('#btnDailyClaim'); await wait(200); }
+  await p.click('#btnMissions'); await wait(250); await shot(p, '05-missions');
+  check('missions screen lists 3 missions', (await ev(p, () => document.querySelectorAll('#missList .mcard').length)) === 3);
+  await p.click('#btnMissBack'); await wait(200);
 
   // ── 2. Gameplay smoke test
   await p.click('#btnPlay'); await wait(1200);
@@ -143,7 +150,7 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   // ── 4. Old (v3, pre-migration) save migrates
   const oldSave = JSON.stringify({ coins: 777, best: 420, selV: 'pickup', selE: 'mountain',
     vs: { jeep: { locked: false, engine: 2, susp: 1 }, pickup: { locked: false, engine: 1 } }, envs: { country: true, mountain: true } });
-  p = await newPage(browser, errors, { init: `if(!sessionStorage.getItem('seeded')){localStorage.clear();localStorage.setItem('hillrush3', ${JSON.stringify(oldSave)});sessionStorage.setItem('seeded','1');}` });
+  p = await newPage(browser, errors, { init: `if(!sessionStorage.getItem('seeded')){localStorage.clear();localStorage.setItem('hillrush3', ${JSON.stringify(oldSave)});sessionStorage.setItem('seeded','1');}`, keepDaily: true });
   const mig = await ev(p, () => ({ coins: sv.coins, best: sv.best, v: sv.selV, e: sv.selE, eng: sv.vs.jeep.engine, pick: sv.vs.pickup.locked, ver: sv.ver }));
   check('old save: coins/best kept', mig.coins === 777 && mig.best === 420, JSON.stringify(mig));
   check('old save: vehicle/map/upgrades kept', mig.v === 'pickup' && mig.e === 'mountain' && mig.eng === 2 && mig.pick === false);
