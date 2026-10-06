@@ -116,7 +116,7 @@ function cachedGrad(key,build){let g=_gcache.get(key);if(!g){g=build();_gcache.s
 let DPR_CAP=2;
 // quality tier (see perfTick); declared here because resize and the ctx setup read it
 const Q_MAX=4;
-let Q=(()=>{try{const v=localStorage.getItem('fQ2');if(v!==null&&v!=='')return Math.max(0,Math.min(Q_MAX,v|0))}catch(e){}return isPhone()?1:0})();
+let Q=(()=>{try{const v=localStorage.getItem('fQ3');if(v!==null&&v!=='')return Math.max(0,Math.min(Q_MAX,v|0))}catch(e){}return isPhone()?1:0})();
 if(Q>=3)DPR_CAP=Q>=4?1:1.5;
 // The game is portrait only. Where the OS lock didn't take (no fullscreen, iOS
 // Safari), a phone turned sideways keeps the picture glued to the phone: the
@@ -12087,14 +12087,21 @@ function drawBoot(dt){
 //   0 full  ·  1 no bloom  ·  2 + no glow shadows / colour-grade passes
 //   3 + render scale 1.5  ·  4 + render scale 1
 // The tier reached is remembered, so the next launch starts smooth.
-let perfWarmT=0,perfAcc=0,perfN=0,fpsShow=0;
-function applyQ(){DPR_CAP=Q>=4?1:Q>=3?1.5:2;resize();try{localStorage.setItem('fQ2',''+Q)}catch(e){}}
+// Measured in 1.5 s windows. Down a tier only after two slow windows in a row
+// (one hitch - a first-time image decode, an ad loading - must not cost the
+// player quality for good); back up a tier after four smooth windows, but never
+// into a tier that was already too slow this session (no see-saw).
+let perfWarmT=0,perfAcc=0,perfN=0,fpsShow=0,perfSlowW=0,perfFastW=0,qBad=-1;
+const Q_FLOOR=isPhone()?1:0;   // phones never go back to the GPU read-back bloom
+function applyQ(){DPR_CAP=Q>=4?1:Q>=3?1.5:2;resize();try{localStorage.setItem('fQ3',''+Q)}catch(e){}}
 function perfTick(ms){
   if(state!==ST.PLAY||paused||ms>1000){perfWarmT=0;perfAcc=perfN=0;return}
   perfWarmT+=ms;if(perfWarmT<1200)return;    // let a run settle first
   perfAcc+=ms;perfN++;
   if(perfAcc>=1500){const avg=perfAcc/perfN;perfAcc=perfN=0;fpsShow=Math.round(1000/avg);
-    if(avg>24&&Q<Q_MAX){Q++;applyQ()}}
+    if(avg>24){perfFastW=0;if(++perfSlowW>=2&&Q<Q_MAX){qBad=Math.max(qBad,Q);Q++;perfSlowW=0;applyQ()}}
+    else{perfSlowW=0;
+      if(avg<18&&Q>Q_FLOOR&&Q-1>qBad){if(++perfFastW>=4){Q--;perfFastW=0;applyQ()}}else perfFastW=0}}
 }
 function loop(ts){
   if(document.hidden){lastT=0;requestAnimationFrame(loop);return}   // nothing runs in the background
