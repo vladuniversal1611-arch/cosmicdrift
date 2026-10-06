@@ -113,6 +113,24 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   const rsn = await ev(p, () => document.getElementById('goRsn').textContent);
   check('upside-down → DRIVER DOWN/FLIPPED', /DRIVER|FLIP/.test(rsn), rsn);
 
+  // Stunts: a launched backflip is paid only after a clean landing; crashes pay nothing
+  {
+    let flipOk = false, crashPaid = false;
+    for (const bw of [-0.12, -0.125, -0.115, -0.13, -0.11, -0.135]) {
+      await ev(p, () => startGame()); await wait(400);
+      await ev(p, (bw) => { for (const k of ['b', 'f', 'r']) { car[k + 'y'] -= 330; car[k + 'vx'] = 7; car[k + 'vy'] = -2; } car.bw = bw; }, bw);
+      for (let i = 0; i < 25; i++) { await wait(200); if (await ev(p, () => STATE !== 'game' || runBonus.some(b => /FLIP/.test(b.label)))) break; }
+      await wait(300);
+      const r = await ev(p, () => ({ state: STATE, flip: runBonus.some(b => /FLIP/.test(b.label)) }));
+      if (r.state === 'gameover' && r.flip) crashPaid = true;
+      if (r.state === 'game' && r.flip) { flipOk = true; await shot(p, '12-stunt'); break; }
+    }
+    check('stunt: backflip detected and paid after landing', flipOk);
+    check('stunt: no flip reward on crash', !crashPaid);
+    const st = await ev(p, () => sv.stats.flips);
+    check('stunt: flip counted in stats', !flipOk || st >= 1);
+  }
+
   // ── 3. Save / load persistence
   await ev(p, () => { sv.coins = 4321; saveSv(); });
   await p.reload(); await wait(500);
