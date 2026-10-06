@@ -142,7 +142,7 @@ function cachedGrad(key,build){let g=_gcache.get(key);if(!g){g=build();_gcache.s
 let DPR_CAP=2;
 // quality tier (see perfTick); declared here because resize and the ctx setup read it
 const Q_MAX=4;
-let Q=(()=>{try{const v=__LS.getItem('fQ');if(v!==null&&v!=='')return Math.max(0,Math.min(Q_MAX,v|0))}catch(e){}return isPhone()?1:0})();
+let Q=(()=>{try{const v=__LS.getItem('fQ2');if(v!==null&&v!=='')return Math.max(0,Math.min(Q_MAX,v|0))}catch(e){}return isPhone()?1:0})();
 if(Q>=3)DPR_CAP=Q>=4?1:1.5;
 // The game is portrait only. Where the OS lock didn't take (no fullscreen, iOS
 // Safari), a phone turned sideways keeps the picture glued to the phone: the
@@ -212,8 +212,11 @@ addEventListener('orientationchange',()=>setTimeout(()=>{resize();readSafe()},12
 // the clock slides away) and locks portrait. Browsers only allow both from a
 // user gesture; if the player swipes the bar back, the next tap hides it again.
 let _fsT=0;
+function isNativeApp(){try{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform())}catch(e){return false}}
 function goImmersive(){
-  if(!isPhone())return;
+  // the Android / iOS app is fullscreen natively; asking the WebView for HTML
+  // fullscreen there moves the page into its slow "fullscreen video" view
+  if(!isPhone()||isNativeApp())return;
   const now=Date.now();if(now-_fsT<1500)return;_fsT=now;
   const de=document.documentElement,lock=()=>{try{const o=screen.orientation;o&&o.lock&&o.lock('portrait-primary').catch(()=>{})}catch(e){}};
   try{if(!(document.fullscreenElement||document.webkitFullscreenElement)){
@@ -11968,7 +11971,7 @@ function drawUiRipples(dt){
 //   3 + render scale 1.5  ·  4 + render scale 1
 // The tier reached is remembered, so the next launch starts smooth.
 let perfWarmT=0,perfAcc=0,perfN=0,fpsShow=0;
-function applyQ(){DPR_CAP=Q>=4?1:Q>=3?1.5:2;resize();try{__LS.setItem('fQ',''+Q)}catch(e){}}
+function applyQ(){DPR_CAP=Q>=4?1:Q>=3?1.5:2;resize();try{__LS.setItem('fQ2',''+Q)}catch(e){}}
 function perfTick(ms){
   if(state!==ST.PLAY||paused||ms>1000){perfWarmT=0;perfAcc=perfN=0;return}
   perfWarmT+=ms;if(perfWarmT<1200)return;    // let a run settle first
