@@ -19,6 +19,7 @@ async function newPage(browser, errors, opts = {}) {
   const p = await ctx.newPage();
   p.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   p.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  await p.addInitScript(() => { window.QA_SEED = 4242; });
   if (opts.init) await p.addInitScript(opts.init);
   await p.goto(GAME);
   await wait(500);
@@ -73,8 +74,10 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   check('physics finite', st.fin);
   await p.keyboard.up('ArrowRight');
 
+  // Lifecycle tests run on a fresh car
+  await ev(p, () => startGame()); await wait(600);
   // Pause / resume
-  if (!st.dead) {
+  {
     await p.click('#pauseBtn'); await wait(200);
     check('pause shows overlay', await ev(p, () => paused && document.getElementById('pauseOvl').classList.contains('on')));
     await shot(p, '08-pause');
