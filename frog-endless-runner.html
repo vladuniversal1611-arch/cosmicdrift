@@ -103,6 +103,9 @@ function setLang(c){LANG=c;try{localStorage.setItem('fLang',c)}catch(e){}trBuild
   P.measureText=function(t){return ms.call(this,this.__raw?t:T(String(t)))};})();
 'use strict';
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+// quality tier 2+: glow shadows are skipped (each one is an extra blur pass on the GPU)
+{const d=Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype,'shadowBlur');
+ Object.defineProperty(ctx,'shadowBlur',{get(){return d.get.call(this)},set(v){d.set.call(this,Q>=2?0:v)}});}
 let W,H,DPR;
 // Cache paint objects that only depend on W/H (and a colour), so we stop
 // rebuilding a dozen gradients every single frame — pure GC-pressure win.
@@ -111,6 +114,10 @@ function cachedGrad(key,build){let g=_gcache.get(key);if(!g){g=build();_gcache.s
 // Render scale: capped at 2, and lowered on the fly if a phone can't hold the
 // frame rate (see perfTick) — fewer pixels is the cheapest fps there is.
 let DPR_CAP=2;
+// quality tier (see perfTick); declared here because resize and the ctx setup read it
+const Q_MAX=4;
+let Q=(()=>{try{const v=localStorage.getItem('fQ');if(v!==null&&v!=='')return Math.max(0,Math.min(Q_MAX,v|0))}catch(e){}return isPhone()?1:0})();
+if(Q>=3)DPR_CAP=Q>=4?1:1.5;
 // The game is portrait only. Where the OS lock didn't take (no fullscreen, iOS
 // Safari), a phone turned sideways keeps the picture glued to the phone: the
 // canvas is rotated back so nothing moves, and taps are mapped through it.
@@ -372,7 +379,7 @@ function updateWash(){
   washK=t<=CAP?1:CAP/t;
 }
 function drawFlowGrade(){
-  if(flow<=0.02||deathT>=0)return;
+  if(flow<=0.02||deathT>=0||Q>=2)return;
   const f=flow;
   // Saturation lift — the world gets richer the better you're doing
   ctx.save();
@@ -8737,9 +8744,10 @@ function drawGame(){
   // picture; this widens the gap between the lit things and the rest, so the
   // plates and the rims read as the light sources instead of the whole frame
   // sitting at one exposure.
-  {ctx.save();ctx.globalCompositeOperation='multiply';
-   ctx.fillStyle='rgb(186,188,205)';ctx.fillRect(0,0,W,H);ctx.restore();}
-  {const wash=Math.max(hypeT>0?hypeT/HYPE_DUR:0, actFlash, recFlash);
+  // (both together or neither: the dimming without the bloom would just darken the frame)
+  if(Q<1){ctx.save();ctx.globalCompositeOperation='multiply';
+   ctx.fillStyle='rgb(186,188,205)';ctx.fillRect(0,0,W,H);ctx.restore();
+   const wash=Math.max(hypeT>0?hypeT/HYPE_DUR:0, actFlash, recFlash);
    applyBloom((fever?0.29:0.21)*(1-wash*0.7), fever?9:7);}   // the world glows; HUD above stays crisp
   drawActCard();
   drawIntro();
@@ -9034,7 +9042,7 @@ function applyBloom(strength,blurPx){
   _blX2.clearRect(0,0,qw,qh);
   _blX2.drawImage(_blC,0,0,bw,bh,0,0,qw,qh);
   ctx.save();
-  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.setTransform(VS*DPR,0,0,VS*DPR,0,0);
   ctx.globalCompositeOperation='lighter';
   ctx.globalAlpha=strength;
   const over=(spread-1)*0.06*Math.min(W,H);
@@ -9291,6 +9299,9 @@ function drawPause(){
   ctx.fillStyle='#fff';ctx.font='900 19px Exo2,sans-serif';ctx.fillText('▶  ПРОДОВЖИТИ',W/2,R.go.y+R.go.h/2+1);
   uiPill(R.menu.x,R.menu.y,R.menu.w,R.menu.h,0);
   ctx.fillStyle=UI.text;ctx.font='800 14px Exo2,sans-serif';ctx.fillText('ВИЙТИ В МЕНЮ',W/2,R.menu.y+R.menu.h/2+1);
+  // small diagnostics line: frame rate of the run so far and the quality tier
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='700 10px Exo2,sans-serif';
+  ctx.fillText((fpsShow?fpsShow+' FPS · ':'')+'Q'+Q,W/2,H-SAFE.b-14);
   ctx.restore();
 }
 function pauseTap(x,y){
@@ -11924,16 +11935,20 @@ function drawUiRipples(dt){
     ctx.restore();
   }
 }
-// Adaptive quality: if frames keep coming slow during a run, drop the render
-// scale a notch (2 -> 1.5 -> 1.25 -> 1). Only ever downwards, so it never flickers.
-let perfAvg=16.7,perfSlow=0,perfWarm=0;
+// Adaptive quality tiers. Phones start at 1: the bloom pass reads the whole
+// frame back from the GPU every frame, which stalls mobile GPUs in a WebView
+// (a few fps). If a run still keeps missing frames, step down once per ~1.5 s:
+//   0 full  ·  1 no bloom  ·  2 + no glow shadows / colour-grade passes
+//   3 + render scale 1.5  ·  4 + render scale 1
+// The tier reached is remembered, so the next launch starts smooth.
+let perfWarmT=0,perfAcc=0,perfN=0,fpsShow=0;
+function applyQ(){DPR_CAP=Q>=4?1:Q>=3?1.5:2;resize();try{localStorage.setItem('fQ',''+Q)}catch(e){}}
 function perfTick(ms){
-  if(state!==ST.PLAY||paused||ms>250){perfWarm=0;return}
-  if(++perfWarm<90)return;                  // ignore the first ~1.5 s of a run
-  perfAvg+=(ms-perfAvg)*.05;
-  perfSlow=perfAvg>21?perfSlow+ms/1000:Math.max(0,perfSlow-ms/2000);
-  if(perfSlow>2.5&&DPR>1){perfSlow=0;perfAvg=16.7;
-    DPR_CAP=DPR>1.5?1.5:DPR>1.25?1.25:1;resize();}
+  if(state!==ST.PLAY||paused||ms>1000){perfWarmT=0;perfAcc=perfN=0;return}
+  perfWarmT+=ms;if(perfWarmT<1200)return;    // let a run settle first
+  perfAcc+=ms;perfN++;
+  if(perfAcc>=1500){const avg=perfAcc/perfN;perfAcc=perfN=0;fpsShow=Math.round(1000/avg);
+    if(avg>24&&Q<Q_MAX){Q++;applyQ()}}
 }
 // 120/144 Hz phones: the game is tuned for 60, and drawing twice as often only
 // heats the phone up and drains the battery. Measure the screen once, then draw
