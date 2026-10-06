@@ -174,6 +174,14 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 .dtile.got{opacity:.45}
 .dtile.now{border-color:#ffd600;background:rgba(255,214,0,.15);transform:scale(1.06)}
 
+/* Reward ad buttons + achievements */
+.btn-ad{display:block;background:linear-gradient(180deg,#7e57c2,#5e35b1);color:#fff;font-size:13px;padding:12px 0;border-radius:14px;width:240px;margin:2px auto 4px;box-shadow:0 5px 0 #3b1f80}
+.ach{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.08);border-radius:12px;padding:9px 12px}
+.ach.got{border-color:rgba(255,214,0,.6);background:rgba(255,214,0,.08)}
+.ach .ai{font-size:22px;filter:grayscale(1);opacity:.5}.ach.got .ai{filter:none;opacity:1}
+.ach .at{flex:1;font-size:12px;font-weight:900;color:#fff}.ach .ad{font-size:9px;color:rgba(255,255,255,.5);font-weight:400;margin-top:2px}
+.ach .ar{font-size:11px;font-weight:900;color:#ffe500;white-space:nowrap}
+
 /* Pause */
 #pauseOvl{background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
   justify-content:center;align-items:center}
@@ -269,6 +277,14 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
   <div class="mbest" id="bestTxt">BEST: 0 m</div>
 </div>
 
+<!-- ── TEST REWARD AD (browser mock; the Android wrapper shows a real ad) ── -->
+<div class="ovl" id="adOvl" style="background:rgba(0,0,0,.92);justify-content:center;align-items:center;z-index:60">
+  <div style="color:#fff;font-size:12px;letter-spacing:4px;opacity:.6">TEST AD</div>
+  <div style="color:#fff;font-size:44px;font-weight:900;margin:14px 0" id="adCount">3</div>
+  <div style="color:rgba(255,255,255,.5);font-size:11px;max-width:260px;text-align:center">Placeholder for a rewarded video. Real ads are provided by the Android build.</div>
+  <button class="gbtn btn-med" id="btnAdSkip" style="margin-top:22px">✕ CLOSE (no reward)</button>
+</div>
+
 <!-- ── SETTINGS ── -->
 <div class="ovl darkovl" id="setOvl">
   <div class="stitle">SETTINGS</div>
@@ -292,6 +308,8 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
   <div class="mlist" id="missList"></div>
   <div class="stitle" style="margin-top:18px">DAILY REWARD</div>
   <div class="drow" id="missDaily"></div>
+  <div class="stitle" style="margin-top:18px">ACHIEVEMENTS <span id="achCount"></span></div>
+  <div class="mlist" id="achList"></div>
   <button class="gbtn btn-med" id="btnMissBack" style="margin:16px auto 20px">← BACK</button>
 </div>
 
@@ -303,6 +321,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
     <div class="go-over" id="dailyDay">DAY 1</div>
     <div class="drow" id="dailyRow"></div>
     <button class="gbtn btn-play" id="btnDailyClaim" style="font-size:20px;padding:15px 0;margin-top:6px">CLAIM</button>
+    <button class="gbtn btn-ad" id="btnDailyAd" style="display:none">▶ WATCH AD · CLAIM x2</button>
   </div>
 </div>
 
@@ -347,6 +366,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
     </div>
     <div class="goearn" id="goEarn"></div>
     <div class="gobest" id="goBest"></div>
+    <button class="gbtn btn-ad" id="btnGoAd" style="display:none">▶ WATCH AD · x2 COINS</button>
     <div class="gohr"></div>
     <button class="gbtn btn-play" id="btnRetry" style="font-size:20px;padding:15px 0;margin-bottom:6px">▶ RETRY</button>
     <button class="gbtn btn-buy" id="btnGoGarage" style="display:none;width:200px;font-size:13px;margin-bottom:8px">🔧 UPGRADE</button>
@@ -547,10 +567,12 @@ function defaultSave(){
   return{ver:SAVE_VER,coins:0,best:0,selV:'jeep',selE:'country',vs,envs,
     bestBy:{},                                         // best distance per map
     settings:{sound:true,vibe:true},
-    stats:{runs:0,dist:0,coins:0,flips:0,perfect:0,airTime:0},
+    stats:{runs:0,dist:0,coins:0,flips:0,perfect:0,airTime:0,missions:0},
     daily:{day:'',streak:0,claimed:''},                // 7-day login cycle
     missions:{day:'',list:[]},
-    ach:{}};                                           // achievement id -> true
+    ach:{},                                            // achievement id -> true
+    ads:{day:'',n:0},                                  // reward ads watched today
+    iap:[]};                                           // processed purchase tokens
 }
 const num=(v,d,min=0,max=1e12)=>{v=+v;return isFinite(v)?Math.min(max,Math.max(min,v)):d;};
 function migrateSave(d){
@@ -578,6 +600,8 @@ function migrateSave(d){
   if(d.missions&&Array.isArray(d.missions.list)){s.missions.day=String(d.missions.day||'');
     s.missions.list=d.missions.list.filter(m=>m&&typeof m.id==='string').slice(0,3).map(m=>({id:m.id,goal:num(m.goal,1,1),reward:num(m.reward,0),prog:num(m.prog,0),done:!!m.done,claimed:!!m.claimed}));}
   if(d.ach&&typeof d.ach==='object')for(const k in d.ach)if(d.ach[k])s.ach[k]=true;
+  if(d.ads&&typeof d.ads==='object'){s.ads.day=String(d.ads.day||'');s.ads.n=Math.floor(num(d.ads.n,0,0,99));}
+  if(Array.isArray(d.iap))s.iap=d.iap.filter(t=>typeof t==='string').slice(-200);
   return s;
 }
 function loadSave(){
@@ -1513,7 +1537,7 @@ let STATE='menu',car=null,terrain=null,clouds=null,camX=0,camY=0;
 const ZOOM=.74,ZOOM_MIN=.64,VW=W/ZOOM_MIN,VH=H/ZOOM_MIN;
 let zoomNow=ZOOM,camLead=0,camLift=0;
 let gas=false,brake=false,paused=false,sessionCoins=0,fT=0,lastT=0,raf=null;
-let camKick=0,nextMile=0,runBonus=[],runBanked=false,endTmr=null,physAcc=0,timeScale=1,deathT=-1;
+let runDoubled=false,camKick=0,nextMile=0,runBonus=[],runBanked=false,endTmr=null,physAcc=0,timeScale=1,deathT=-1;
 const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
 
 function initMenu(){
@@ -1625,7 +1649,7 @@ function startGame(){
   car=new Car(vd,upg,env,180,sy);
   zoomNow=ZOOM;camLead=0;camLift=0;
   camX=car.bx-W/zoomNow*.3;camY=car.by-H/zoomNow*.58;
-  stuntReset();camKick=0;FTXT.length=0;hintT=0;document.getElementById('stuntFeed').innerHTML='';
+  stuntReset();camKick=0;FTXT.length=0;hintT=0;runPerfect=0;runDoubled=false;document.getElementById('stuntFeed').innerHTML='';
   showOvl(null);setLetterbox(env.sky[0],env.gDeep);
   document.getElementById('pauseOvl').classList.remove('on');
   document.getElementById('goOvl').classList.remove('on');
@@ -1646,7 +1670,7 @@ function loop(now){
   let guard=0;
   while(physAcc>=1&&guard++<4){physAcc-=1;car.step(terrain,car.over?false:gas,car.over?false:brake);tickParts();}
   stuntTick();animDriver();hintTick();
-  if(!car.over&&car.et%20===0)missionTick();
+  if(!car.over&&car.et%20===0){missionTick();achTick();}
   if(car.scrape){const sc=car.scrape;car.scrape=null;if(car.et%2===0)emit(sc.x,sc.y,3,{a:Math.PI+(car.bvx<0?-.3:.3),sp:1.2,s:2+sc.v*.3,d:.07,r:1.6,c:Math.random()<.5?'#ffd54f':'#fff3c4',g:.12,up:1});}
   if(deathT>=0){
     // Short slow-motion beat after a crash before the results appear
@@ -1743,6 +1767,7 @@ function bankRun(){
   sv.coins+=total;if(nb)sv.best=d;
   const env=car.env.id;if(d>(sv.bestBy[env]||0))sv.bestBy[env]=d;
   sv.stats.runs++;sv.stats.dist+=d;sv.stats.coins+=total;
+  if(sv.stats.coins>=100000&&!sv.ach.coins){sv.ach.coins=true;sv.coins+=ACH.find(a=>a.id==='coins').r;toast('🏆 Coin Collector');}
   ENVS.forEach(e=>{if(sv.best>=e.unlockM)sv.envs[e.id]=true;});
   saveSv();
   return{d,nb,total,bonus};
@@ -1766,6 +1791,13 @@ function endGame(rsn){
   const vs=sv.vs[sv.selV];let cheap=null;
   for(const u of UPGRADES){const l=vs[u.id]||0;if(l<u.max){const c=Math.round(u.base*Math.pow(u.mult,l));if(!cheap||c<cheap.c)cheap={u,c};}}
   const gb=document.getElementById('btnGoGarage');
+  const ab=document.getElementById('btnGoAd');
+  ab.style.display=!runDoubled&&r.total>=500&&adsAvailable('double')?'block':'none';
+  ab.onclick=()=>{ab.style.display='none';requestRewardAd('double',ok=>{
+    if(!ok){if(!runDoubled&&adsAvailable('double'))ab.style.display='block';return;}
+    if(runDoubled)return;runDoubled=true;
+    sv.coins+=r.total;saveSv();sfxBuy();toast('🪙 +'+fmt(r.total)+' (x2)');
+    document.getElementById('goCoins').textContent=fmt(r.total*2);});};
   if(cheap&&sv.coins>=cheap.c){gb.style.display='block';gb.textContent=`🔧 UPGRADE ${cheap.u.name}  🪙 ${fmt(cheap.c)}`;}else gb.style.display='none';
   document.getElementById('goRsn').textContent=rsn;
   document.getElementById('goDist').textContent=d+' m';
@@ -1929,12 +1961,13 @@ function showDailyPopup(){
   const st=dailyState();if(!st.can)return false;
   document.getElementById('dailyDay').textContent='DAY '+st.day+' OF 7';
   dailyTiles(document.getElementById('dailyRow'),st.day,true);
+  document.getElementById('btnDailyAd').style.display=adsAvailable('daily')?'block':'none';
   document.getElementById('dailyOvl').classList.add('on');
   return true;
 }
-function claimDaily(){
+function claimDaily(mult){
   const st=dailyState();if(!st.can)return;
-  const v=DAILY_RW[st.day-1];
+  const v=DAILY_RW[st.day-1]*(mult===2?2:1);
   sv.coins+=v;sv.daily={day:dayStr(),streak:st.day,claimed:dayStr()};saveSv();
   sfxBuy();toast('🎁 +'+v+' 🪙');
   document.getElementById('dailyOvl').classList.remove('on');refreshMenuBadges();
@@ -1954,6 +1987,93 @@ function initMissions(){
     <div class="mbar"><div style="width:${Math.min(100,m.prog/m.goal*100)}%"></div></div>
     <div class="mprog">${m.done?'COMPLETE':Math.floor(m.prog)+' / '+m.goal}</div></div>`).join('');
   const st=dailyState();dailyTiles(document.getElementById('missDaily'),st.day,st.can);
+  renderAch();
+}
+
+// ── reward ads (abstraction) ─────────────────────────────
+// The Android wrapper injects window.HillRushAds = {isReady(type), show(type, requestId)}
+// and later calls window.onRewardAdResult(requestId, granted). In the browser a test
+// mock is used when the page is opened with ?adtest=1; otherwise ad buttons stay hidden.
+const AD_DAILY_CAP=10;
+const ADS_MOCK=/[?&]adtest=1/.test(location.search);
+let adSeq=0;const adPending={};
+function adsToday(){if(sv.ads.day!==dayStr()){sv.ads={day:dayStr(),n:0};}return sv.ads.n;}
+function adsAvailable(type){
+  if(adsToday()>=AD_DAILY_CAP)return false;
+  if(window.HillRushAds){try{return!!window.HillRushAds.isReady(type);}catch(e){return false;}}
+  return ADS_MOCK;
+}
+window.onRewardAdResult=function(id,granted){
+  const cb=adPending[id];if(!cb)return;delete adPending[id];
+  if(granted){adsToday();sv.ads.n++;saveSv();}
+  try{AC&&AC.state==='suspended'&&AC.resume();}catch(e){}
+  cb(!!granted);
+};
+function requestRewardAd(type,cb){
+  if(!adsAvailable(type)){cb(false);return;}
+  const id='ad'+(++adSeq);adPending[id]=cb;
+  try{if(AC&&AC.state==='running')AC.suspend();}catch(e){}
+  if(window.HillRushAds){try{window.HillRushAds.show(type,id);}catch(e){window.onRewardAdResult(id,false);}return;}
+  // Browser test mock: 3 s countdown, closing early gives no reward
+  const ov=document.getElementById('adOvl'),cn=document.getElementById('adCount');let n=3;
+  ov.classList.add('on');cn.textContent=n;
+  const iv=setInterval(()=>{n--;cn.textContent=n;if(n<=0){clearInterval(iv);ov.classList.remove('on');window.onRewardAdResult(id,true);}},1000);
+  document.getElementById('btnAdSkip').onclick=()=>{clearInterval(iv);ov.classList.remove('on');window.onRewardAdResult(id,false);};
+}
+
+// ── in-app purchases (abstraction) ───────────────────────
+// Android wrapper: window.HillRushBilling = {available(), purchase(productId)} and it calls
+// window.onPurchaseResult(productId, ok, token). Coins are granted once per token.
+const IAP_PRODUCTS={coins_s:{coins:20000},coins_m:{coins:60000},coins_l:{coins:150000}};
+function iapAvailable(){try{return!!(window.HillRushBilling&&window.HillRushBilling.available());}catch(e){return false;}}
+function purchase(productId){
+  if(!IAP_PRODUCTS[productId]||!iapAvailable())return false;
+  try{window.HillRushBilling.purchase(productId);return true;}catch(e){return false;}
+}
+window.onPurchaseResult=function(productId,ok,token){
+  const pr=IAP_PRODUCTS[productId];
+  if(!ok||!pr||!token||sv.iap.includes(token))return false;
+  sv.iap.push(token);sv.coins+=pr.coins;saveSv();sfxBuy();toast('🪙 +'+fmt(pr.coins));
+  if(STATE==='menu')initMenu();else if(STATE==='garage')refreshGarage();
+  return true;
+};
+
+// ── achievements ─────────────────────────────────────────
+const ACH=[
+  {id:'d100',  i:'🚗',t:'First Steps',     d:'Reach 100 m',                 r:500},
+  {id:'d1000', i:'🛣',t:'Road Tripper',    d:'Reach 1,000 m in one run',     r:3000},
+  {id:'d3000', i:'🏔',t:'Long Haul',       d:'Reach 3,000 m in one run',     r:10000},
+  {id:'flip1', i:'🔄',t:'Head Over Wheels',d:'Do your first flip',           r:1000},
+  {id:'flip25',i:'🌀',t:'Acrobat',         d:'Do 25 flips in total',         r:6000},
+  {id:'air2',  i:'🪂',t:'Hang Time',       d:'Stay in the air for 2 s',      r:2000},
+  {id:'perf3', i:'🎯',t:'Smooth Operator', d:'3 perfect landings in one run',r:2500},
+  {id:'coins', i:'💰',t:'Coin Collector',  d:'Earn 100,000 coins in total',  r:5000},
+  {id:'car',   i:'🛻',t:'New Wheels',      d:'Buy a second vehicle',         r:2000},
+  {id:'map',   i:'🗺',t:'Explorer',        d:'Unlock a new map',             r:2000},
+  {id:'maxup', i:'⚙',t:'Fully Tuned',     d:'Max out any upgrade',          r:4000},
+  {id:'miss10',i:'📋',t:'Dedicated',       d:'Complete 10 daily missions',   r:5000},
+];
+let runPerfect=0;
+function unlockAch(id){
+  if(sv.ach[id])return;const a=ACH.find(x=>x.id===id);if(!a)return;
+  sv.ach[id]=true;
+  // during a run the reward joins the run ledger; otherwise it is paid now
+  if(STATE==='game'&&car&&!runBanked)runBonus.push({key:'A:'+id,base:'🏆 '+a.t,label:'🏆 '+a.t,coins:a.r,count:1});
+  else sv.coins+=a.r;
+  saveSv();toast('🏆 '+a.t+'  +'+fmt(a.r)+' 🪙');sfxStunt(3);
+}
+onEvt('flip',()=>{unlockAch('flip1');if(sv.stats.flips>=25)unlockAch('flip25');});
+onEvt('air',a=>{if(a>=2)unlockAch('air2');});
+onEvt('perfect',()=>{if(++runPerfect>=3)unlockAch('perf3');});
+onEvt('vehicle',()=>unlockAch('car'));
+onEvt('mapUnlock',()=>unlockAch('map'));
+onEvt('upgrade',()=>{for(const v in sv.vs)for(const u of UPGRADES)if(sv.vs[v][u.id]>=u.max)unlockAch('maxup');});
+onEvt('mission',()=>{sv.stats.missions=(sv.stats.missions||0)+1;if(sv.stats.missions>=10)unlockAch('miss10');});
+function achTick(){const d=car.dist;if(d>=100)unlockAch('d100');if(d>=1000)unlockAch('d1000');if(d>=3000)unlockAch('d3000');}
+function renderAch(){
+  const got=ACH.filter(a=>sv.ach[a.id]).length;
+  document.getElementById('achCount').textContent=`${got}/${ACH.length}`;
+  document.getElementById('achList').innerHTML=ACH.map(a=>`<div class="ach${sv.ach[a.id]?' got':''}"><div class="ai">${a.i}</div><div class="at">${a.t}<div class="ad">${a.d}</div></div><div class="ar">${sv.ach[a.id]?'✓':'🪙 '+fmt(a.r)}</div></div>`).join('');
 }
 
 // ── settings ─────────────────────────────────────────────
@@ -2018,7 +2138,8 @@ document.getElementById('btnPlay').onclick=()=>{sfxBtn();getAC();startGame();};
 document.getElementById('btnGarage').onclick=()=>{sfxBtn();initGarage();};
 document.getElementById('btnMissions').onclick=()=>{sfxBtn();initMissions();};
 document.getElementById('btnMissBack').onclick=()=>{sfxBtn();initMenu();};
-document.getElementById('btnDailyClaim').onclick=claimDaily;
+document.getElementById('btnDailyClaim').onclick=()=>claimDaily(1);
+document.getElementById('btnDailyAd').onclick=()=>requestRewardAd('daily',ok=>claimDaily(ok?2:1));
 document.getElementById('btnMapSel').onclick=()=>{sfxBtn();initMapSel();};
 document.getElementById('btnGBack').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('btnMapBack').onclick=()=>{sfxBtn();initMenu();};

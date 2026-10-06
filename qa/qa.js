@@ -148,6 +148,12 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
     check('stunt: flip counted in stats', !flipOk || st >= 1);
   }
 
+  // Monetisation stays out of the way without a provider; achievements pay once
+  check('no ad buttons without an ad provider', await ev(p, () => getComputedStyle(document.getElementById('btnGoAd')).display === 'none' && !adsAvailable('double')));
+  { const r = await ev(p, () => { const tot = () => sv.coins + runBonus.reduce((a, b) => a + b.coins, 0); const c = tot(); unlockAch('map'); const c1 = tot(); unlockAch('map'); return [c1 - c, tot() - c1, !!sv.ach.map]; });
+    check('achievement unlocks exactly once', r[0] > 0 && r[1] === 0 && r[2]); }
+  check('IAP ignored without billing bridge', await ev(p, () => purchase('coins_s') === false));
+
   // ── 3. Save / load persistence
   await ev(p, () => { sv.coins = 4321; saveSv(); });
   await p.reload(); await wait(500);
