@@ -14,7 +14,12 @@
   - повний екран: шторка з годинником і кнопки навігації сховані;
   - іконка Bulbik;
   - тестовий AdMob App ID.
-- Зараз скрізь стоять **тестові** id від Google. Реклама справжня, але з позначкою «Test Ad» і без оплати.
+- **Підключено твій AdMob** (Bulbik Run, `pub-5816871059908402`):
+  - App ID `~1675313741` — у `android/app/src/main/res/values/strings.xml`;
+  - Banner `/6997677209`, Interstitial `/4920424189`, Rewarded `/4371513860` — в `AD_CFG.android`.
+- **Тестова / справжня реклама перемикається сама** (`test:'auto'`):
+  - збірка з Android Studio кнопкою ▶ (debug) → тестова реклама Google з позначкою «Test Ad»; її можна натискати;
+  - підписаний реліз `.aab` для Google Play → справжня реклама з твоїх блоків.
 
 ## 1. Встановити (один раз)
 1. **Node.js LTS**: https://nodejs.org
@@ -33,20 +38,16 @@
 
 Після кожної зміни гри достатньо виконати `npm run sync` і знову натиснути ▶ Run.
 
-## 2. Своя реклама AdMob (щоб заробляти)
-1. Зареєструйся на https://admob.google.com → **Apps → Add app** → Android → «ще не опубліковано».
-2. Скопіюй **App ID** (`ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`) у файл
-   `android/app/src/main/res/values/strings.xml` → рядок `admob_app_id`.
-3. Створи 3 рекламні блоки (**Ad units**): **Banner**, **Interstitial**, **Rewarded**.
-   Їхні id (`ca-app-pub-…/…`) встав у `frog-endless-runner.html`, в `AD_CFG.android`:
-   `banner`, `inter` і `reward`.
-4. Там само постав `test:false`.
-   ⚠️ Поки тестуєш на своєму телефоні, не натискай на свою справжню рекламу, бо AdMob може заблокувати акаунт.
-   Для тестів краще додай свій телефон у AdMob → Settings → **Test devices**.
-5. AdMob → **Privacy & messaging** → створи повідомлення **GDPR** (European regulations). Гра покаже його сама.
-6. Коли буде сайт розробника (його вказуєш у Play Console), поклади на нього файл `app-ads.txt`.
-   Текст для нього AdMob дає в розділі Apps → app-ads.txt.
-7. Виконай `npm run sync`.
+## 2. AdMob — що лишилось зробити
+Id уже вбудовані. Залишилось:
+1. **Не натискай справжню рекламу на своєму телефоні** — за це AdMob блокує акаунт.
+   Debug-збірка показує тестову рекламу, тож при звичайному тестуванні з Android Studio все безпечно.
+   Якщо ставиш на свій телефон релізну збірку — додай телефон у AdMob → Settings → **Test devices**.
+2. AdMob → **Privacy & messaging** → створи повідомлення **GDPR** (European regulations). Гра покаже його сама.
+3. Після публікації в Google Play: в AdMob у налаштуваннях застосунку **App store details → Add** — привʼяжи гру з Play Market.
+   Статус «Requires review» зміниться після перевірки; до цього реклами показується мало або зовсім немає — це нормально.
+4. Коли буде сайт розробника (вказуєш у Play Console) — поклади на нього файл `app-ads.txt`
+   (рядок для нього AdMob дає в розділі Apps → app-ads.txt).
 
 ## 3. Збірка для Google Play
 Android Studio → **Build → Generate Signed App Bundle / APK → Android App Bundle**.

@@ -10277,10 +10277,13 @@ let reviveN=0, adRun=null, reviveMsg='', reviveMsgT=0;
 // Inside the Android / iOS app (Capacitor + @capacitor-community/admob) it is
 // real AdMob; on a web portal it uses that portal's SDK; with neither (local
 // file, tests) timed placeholders show where each ad would appear.
-// Before release: put your own ad unit ids below and set test:false.
+// Ad units are the Bulbik Run app in AdMob (publisher pub-5816871059908402).
 const AD_CFG={
-  test:true,                                    // Google test ads — keep true until the AdMob app is approved
-  android:{banner:'ca-app-pub-3940256099942544/9214589741',inter:'ca-app-pub-3940256099942544/1033173712',reward:'ca-app-pub-3940256099942544/5224354917'},
+  // 'auto': a debug build (Run from Android Studio) gets Google's test ads, so
+  // tapping them on your own phone is safe; the signed release build for
+  // Google Play gets the real ones. true / false force one or the other.
+  test:'auto',
+  android:{banner:'ca-app-pub-5816871059908402/6997677209',inter:'ca-app-pub-5816871059908402/4920424189',reward:'ca-app-pub-5816871059908402/4371513860'},
   ios:    {banner:'ca-app-pub-3940256099942544/2435281174',inter:'ca-app-pub-3940256099942544/4411468910',reward:'ca-app-pub-3940256099942544/1712485313'},
   inter:{firstRuns:3,everyRuns:3,minGapS:150,afterRewardS:90},   // new players see none; then at most every 3rd run, 2.5 min apart
   bannerOn:true,
@@ -10294,25 +10297,33 @@ const Ads={
   rwReady:false, inReady:false,
   banOn:false, banH:0, banWant:false, banLock:false,
   lastInter:0, lastReward:0, runsSince:0,
-  am(){try{const C=window.Capacitor;return C&&C.isNativePlatform&&C.isNativePlatform()&&C.Plugins&&C.Plugins.AdMob||null}catch(e){return null}},
+  // the native AdMob plugin (capacitor.js, added by app/scripts/copy-web.js, provides registerPlugin)
+  am(){if(this._am!==undefined)return this._am;let a=null;
+    try{const C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform())a=(C.Plugins&&C.Plugins.AdMob)||(C.registerPlugin?C.registerPlugin('AdMob'):null)}catch(e){}
+    return this._am=a},
+  ready:false, initP:null,
   unit(k){let ios=false;try{ios=window.Capacitor.getPlatform()==='ios'}catch(e){}return (ios?AD_CFG.ios:AD_CFG.android)[k]},
   // listeners that are dropped again once the ad is over
   on(A,evs,fn,bag){for(const ev of evs){try{const h=A.addListener(ev,fn);bag.push(h)}catch(e){}}},
   off(bag){for(const h of bag){Promise.resolve(h).then(x=>{try{x&&x.remove&&x.remove()}catch(e){}})}bag.length=0},
   async init(){
     const A=this.am();if(!A)return;
-    try{await A.initialize({initializeForTesting:AD_CFG.test,tagForChildDirectedTreatment:AD_CFG.childDirected,maxAdContentRating:AD_CFG.maxRating})}catch(e){}
+    if(AD_CFG.test==='auto'){let dbg=false;
+      try{const C=window.Capacitor,P=(C.Plugins&&C.Plugins.AppInfo)||C.registerPlugin('AppInfo');dbg=!!(await P.isDebug()).debug}catch(e){}
+      AD_CFG.test=dbg}
+    try{await A.initialize({initializeForTesting:AD_CFG.test===true,tagForChildDirectedTreatment:AD_CFG.childDirected,maxAdContentRating:AD_CFG.maxRating})}catch(e){}
     try{if(window.Capacitor.getPlatform()==='ios')await A.requestTrackingAuthorization()}catch(e){}   // iOS: the ATT prompt
     // EEA / UK consent form (Google UMP) — required there before personalised ads
     try{const c=await A.requestConsentInfo();if(c&&c.isConsentFormAvailable&&c.status==='REQUIRED')await A.showConsentForm()}catch(e){}
     try{A.addListener('bannerAdSizeChanged',sz=>{if(sz&&sz.height>0)this.banH=sz.height})}catch(e){}
+    this.ready=true;
     this.preload('reward');this.preload('inter');
   },
   async preload(k){
     const A=this.am();if(!A)return;
     try{
-      if(k==='reward'&&!this.rwReady){await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test});this.rwReady=true}
-      if(k==='inter'&&!this.inReady){await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test});this.inReady=true}
+      if(k==='reward'&&!this.rwReady){await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test===true});this.rwReady=true}
+      if(k==='inter'&&!this.inReady){await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test===true});this.inReady=true}
     }catch(e){}
   },
   // ---- rewarded: cb(true) only when the reward was earned
@@ -10325,7 +10336,7 @@ const Ads={
       this.on(A,['onRewardedVideoAdReward'],()=>{got=true},bag);
       this.on(A,['onRewardedVideoAdDismissed','onRewardedVideoAdClosed'],()=>end(got),bag);
       this.on(A,['onRewardedVideoAdFailedToShow','onRewardedVideoAdFailedToLoad'],()=>end(false),bag);
-      (async()=>{try{if(!this.rwReady)await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test});
+      (async()=>{try{await this.initP;if(!this.rwReady)await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test===true});
         this.rwReady=false;const r=await A.showRewardVideoAd();if(r&&(r.amount!=null||r.type))got=true}catch(e){end(false)}})();
       setTimeout(()=>end(got),180000);      // never leave the game locked behind a lost callback
       return}
@@ -10357,7 +10368,7 @@ const Ads={
     if(A){this.busy=true;const bag=[];let fin=false;
       const end=()=>{if(fin)return;fin=true;this.off(bag);this.inReady=false;this.preload('inter');done()};
       this.on(A,['interstitialAdDismissed','onInterstitialAdDismissed','onInterstitialAdClosed','interstitialAdFailedToShow','interstitialAdFailedToLoad'],end,bag);
-      (async()=>{try{if(!this.inReady)await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test});
+      (async()=>{try{await this.initP;if(!this.inReady)await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test===true});
         this.inReady=false;await A.showInterstitial()}catch(e){end()}})();
       setTimeout(end,120000);
       return}
@@ -10374,10 +10385,10 @@ const Ads={
     const want=AD_CFG.bannerOn&&BANNER_STATES.has(state)&&!this.ph&&!this.busy&&!langPick&&!(typeof curGuide!=='undefined'&&curGuide);
     const A=this.am();
     if(!A){this.banOn=want;if(want&&!this.banH)this.banH=50;return}
-    if(want===this.banWant||this.banLock)return;
+    if(!this.ready||want===this.banWant||this.banLock)return;
     this.banWant=want;this.banLock=true;
     (async()=>{try{
-      if(want){if(!this.banStarted){await A.showBanner({adId:this.unit('banner'),adSize:'ADAPTIVE_BANNER',position:'BOTTOM_CENTER',margin:0,isTesting:AD_CFG.test});this.banStarted=true;if(!this.banH)this.banH=56}
+      if(want){if(!this.banStarted){await A.showBanner({adId:this.unit('banner'),adSize:'ADAPTIVE_BANNER',position:'BOTTOM_CENTER',margin:0,isTesting:AD_CFG.test===true});this.banStarted=true;if(!this.banH)this.banH=56}
                else await A.resumeBanner();this.banOn=true}
       else{await A.hideBanner();this.banOn=false}
     }catch(e){this.banOn=false}this.banLock=false})();
@@ -11994,7 +12005,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 Prog.load();
 trBuild();
-Ads.init();
+Ads.initP=Ads.init();
 initClouds();initBflies();initSideObjects();initAtmo();requestAnimationFrame(loop);
 </script>
 </body>
