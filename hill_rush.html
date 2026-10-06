@@ -120,6 +120,27 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 .lname{font-size:14px;font-weight:900;color:#fff}
 .ldesc{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px}
 
+/* Missions + daily */
+.badge{display:none;margin-left:8px;background:#ff3d3d;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;letter-spacing:0}
+.badge.on{display:inline-block}
+.mreset{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.35);margin-bottom:10px}
+.mlist{width:100%;padding:0 14px;display:flex;flex-direction:column;gap:9px}
+.mcard{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.1);border-radius:13px;padding:11px 13px}
+.mcard.done{border-color:#56e04a;background:rgba(86,224,74,.1)}
+.mtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mtxt{font-size:13px;font-weight:900;color:#fff}
+.mrw{font-size:12px;font-weight:900;color:#ffe500;white-space:nowrap}
+.mbar{height:7px;border-radius:4px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden}
+.mbar>div{height:100%;background:linear-gradient(90deg,#66bb6a,#2e7d32);border-radius:4px}
+.mprog{font-size:9px;color:rgba(255,255,255,.45);margin-top:4px;letter-spacing:1px}
+.drow{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;width:100%;padding:0 14px}
+.gocard .drow{padding:0}
+.dtile{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.1);border-radius:9px;padding:6px 0;text-align:center}
+.dtile .dn{font-size:8px;color:rgba(255,255,255,.4);letter-spacing:1px}
+.dtile .dv{font-size:11px;font-weight:900;color:#ffe500}
+.dtile.got{opacity:.45}
+.dtile.now{border-color:#ffd600;background:rgba(255,214,0,.15);transform:scale(1.06)}
+
 /* Pause */
 #pauseOvl{background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
   justify-content:center;align-items:center}
@@ -209,7 +230,29 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
   <button class="gbtn btn-play" id="btnPlay">▶ PLAY</button>
   <button class="gbtn btn-med" id="btnGarage">🔧 GARAGE</button>
   <button class="gbtn btn-med" id="btnMapSel">🗺 SELECT MAP</button>
+  <button class="gbtn btn-med" id="btnMissions">📋 MISSIONS<span class="badge" id="missBadge"></span></button>
   <div class="mbest" id="bestTxt">BEST: 0 m</div>
+</div>
+
+<!-- ── MISSIONS ── -->
+<div class="ovl darkovl" id="missOvl">
+  <div class="stitle">DAILY MISSIONS</div>
+  <div class="mreset" id="missReset"></div>
+  <div class="mlist" id="missList"></div>
+  <div class="stitle" style="margin-top:18px">DAILY REWARD</div>
+  <div class="drow" id="missDaily"></div>
+  <button class="gbtn btn-med" id="btnMissBack" style="margin:16px auto 20px">← BACK</button>
+</div>
+
+<!-- ── DAILY REWARD POPUP ── -->
+<div class="ovl" id="dailyOvl">
+  <div class="gocard">
+    <div class="go-icon">🎁</div>
+    <div class="go-rsn" style="color:#ffd600">DAILY REWARD</div>
+    <div class="go-over" id="dailyDay">DAY 1</div>
+    <div class="drow" id="dailyRow"></div>
+    <button class="gbtn btn-play" id="btnDailyClaim" style="font-size:20px;padding:15px 0;margin-top:6px">CLAIM</button>
+  </div>
 </div>
 
 <!-- ── GARAGE ── -->
@@ -1410,6 +1453,7 @@ const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
 function initMenu(){
   STATE='menu';stopEng();if(raf){cancelAnimationFrame(raf);raf=null;}
   showOvl('menuOvl');setLetterbox('#56CCF2','#66bb6a');
+  refreshMenuBadges();showDailyPopup();
   document.getElementById('bestTxt').textContent='BEST: '+(sv.best|0)+' m';
   drawMenuCar(document.getElementById('menuCar'));
 }
@@ -1510,6 +1554,7 @@ function loop(now){
   let guard=0;
   while(physAcc>=1&&guard++<4){physAcc-=1;car.step(terrain,car.over?false:gas,car.over?false:brake);tickParts();}
   stuntTick();animDriver();
+  if(!car.over&&car.et%20===0)missionTick();
   if(car.scrape){const sc=car.scrape;car.scrape=null;if(car.et%2===0)emit(sc.x,sc.y,3,{a:Math.PI+(car.bvx<0?-.3:.3),sp:1.2,s:2+sc.v*.3,d:.07,r:1.6,c:Math.random()<.5?'#ffd54f':'#fff3c4',g:.12,up:1});}
   if(deathT>=0){
     // Short slow-motion beat after a crash before the results appear
@@ -1592,6 +1637,7 @@ function bankRun(){
   if(runBanked||!car)return null;
   runBanked=true;
   const d=car.dist|0,nb=d>sv.best;
+  missionTick();missionsRunEnd(d);
   const bonus=runBonus.reduce((a,b)=>a+b.coins,0),total=sessionCoins+bonus;
   sv.coins+=total;if(nb)sv.best=d;
   const env=car.env.id;if(d>(sv.bestBy[env]||0))sv.bestBy[env]=d;
@@ -1715,6 +1761,94 @@ function landFx(vy,air){
   sfxLand(hard);if(hard){setMood('ouch',40);vibrate(35);camKick=Math.min(10,vy*.9);}
 }
 
+// ── daily missions & login reward ─────────────────────────
+const MPOOL={
+  run:    {txt:g=>`Drive ${g} m in one run`,      goals:[300,500,800],  rw:[60,100,160]},
+  total:  {txt:g=>`Drive ${g} m in total`,         goals:[1500,3000],    rw:[80,150]},
+  coins:  {txt:g=>`Collect ${g} coins`,            goals:[150,300],      rw:[70,130]},
+  flip:   {txt:g=>`Do ${g} flip${g>1?'s':''}`,     goals:[1,2,4],        rw:[70,120,200]},
+  air:    {txt:g=>`Get ${g} air time bonuses`,     goals:[3,6],          rw:[60,110]},
+  perfect:{txt:g=>`Land ${g} perfect landings`,    goals:[2,4],          rw:[70,130]},
+  nofuel: {txt:g=>`Reach ${g} m without a fuel can`,goals:[300,450],     rw:[90,140]},
+};
+const DAILY_RW=[40,60,80,120,160,220,400];
+const dayStr=(d=new Date())=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+function hashStr(t){let h=2166136261;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function ensureMissions(){
+  const today=dayStr();
+  if(sv.missions.day===today&&sv.missions.list.length===3)return;
+  const r=mbrng(hashStr(today)),ids=Object.keys(MPOOL),pick=[];
+  while(pick.length<3){const id=ids[Math.floor(r()*ids.length)];if(!pick.includes(id))pick.push(id);}
+  const skill=Math.min(1,sv.best/1500);                   // harder goals for stronger players
+  sv.missions={day:today,list:pick.map(id=>{const m=MPOOL[id],k=Math.min(m.goals.length-1,Math.floor(r()*m.goals.length*(.5+skill*.7)));
+    return{id,goal:m.goals[k],reward:m.rw[k],prog:0,done:false,claimed:false};})};
+  saveSv();
+}
+function mText(m){return MPOOL[m.id]?MPOOL[m.id].txt(m.goal):m.id;}
+function missionProgress(id,val,mode){
+  // mode 'add' accumulates, 'max' keeps the best single-run value
+  if(!sv.missions)return;
+  for(const m of sv.missions.list){
+    if(m.id!==id||m.done)continue;
+    m.prog=mode==='max'?Math.max(m.prog,val):m.prog+val;
+    if(m.prog>=m.goal){
+      m.prog=m.goal;m.done=true;m.claimed=true;
+      runBonus.push({key:'M:'+m.id,base:'✅ '+mText(m),label:'✅ '+mText(m),coins:m.reward,count:1});
+      toast('✅ MISSION COMPLETE  +'+m.reward+' 🪙');sfxBuy();fireEvt('mission',m.id);
+    }
+  }
+}
+onEvt('coin',v=>missionProgress('coins',v,'add'));
+onEvt('flip',f=>missionProgress('flip',f.n,'add'));
+onEvt('air',()=>missionProgress('air',1,'add'));
+onEvt('perfect',()=>missionProgress('perfect',1,'add'));
+onEvt('fuel',()=>{if(car&&car.fuelPickD==null)car.fuelPickD=car.dist;});
+function missionTick(){
+  // single-run goals complete live so the player sees it happen
+  const d=car.dist|0;
+  missionProgress('run',d,'max');
+  if(car.fuelPickD==null)missionProgress('nofuel',d,'max');
+}
+function missionsRunEnd(d){missionProgress('total',d,'add');}
+function dailyState(){
+  const today=dayStr(),yest=dayStr(new Date(Date.now()-864e5));
+  const can=sv.daily.claimed!==today;
+  const next=can?(sv.daily.claimed===yest?sv.daily.streak%7+1:1):sv.daily.streak;
+  return{can,day:next};
+}
+function dailyTiles(el,day,can){
+  el.innerHTML=DAILY_RW.map((v,i)=>`<div class="dtile${i+1<day||(!can&&i+1===day)?' got':''}${can&&i+1===day?' now':''}"><div class="dn">DAY ${i+1}</div><div class="dv">${v}</div></div>`).join('');
+}
+function showDailyPopup(){
+  const st=dailyState();if(!st.can)return false;
+  document.getElementById('dailyDay').textContent='DAY '+st.day+' OF 7';
+  dailyTiles(document.getElementById('dailyRow'),st.day,true);
+  document.getElementById('dailyOvl').classList.add('on');
+  return true;
+}
+function claimDaily(){
+  const st=dailyState();if(!st.can)return;
+  const v=DAILY_RW[st.day-1];
+  sv.coins+=v;sv.daily={day:dayStr(),streak:st.day,claimed:dayStr()};saveSv();
+  sfxBuy();toast('🎁 +'+v+' 🪙');
+  document.getElementById('dailyOvl').classList.remove('on');refreshMenuBadges();
+}
+function refreshMenuBadges(){
+  ensureMissions();
+  const n=sv.missions.list.filter(m=>!m.done).length+(dailyState().can?1:0);
+  const b=document.getElementById('missBadge');b.textContent=n;b.classList.toggle('on',n>0);
+}
+function initMissions(){
+  STATE='missions';ensureMissions();showOvl('missOvl');setLetterbox('#1a1a2e','#16213e');
+  const now=new Date(),mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1),hrs=Math.ceil((mid-now)/36e5);
+  document.getElementById('missReset').textContent='NEW MISSIONS IN '+hrs+'H';
+  document.getElementById('missList').innerHTML=sv.missions.list.map(m=>`<div class="mcard${m.done?' done':''}">
+    <div class="mtop"><div class="mtxt">${m.done?'✅ ':''}${mText(m)}</div><div class="mrw">🪙 ${m.reward}</div></div>
+    <div class="mbar"><div style="width:${Math.min(100,m.prog/m.goal*100)}%"></div></div>
+    <div class="mprog">${m.done?'COMPLETE':Math.floor(m.prog)+' / '+m.goal}</div></div>`).join('');
+  const st=dailyState();dailyTiles(document.getElementById('missDaily'),st.day,st.can);
+}
+
 // ── pause ─────────────────────────────────────────────────
 function togglePause(){
   if(STATE!=='game'||(car&&car.dead))return;
@@ -1755,6 +1889,9 @@ window.addEventListener('keyup',e=>{if(e.key==='ArrowRight'||e.key==='d')setG(fa
 // ── buttons ───────────────────────────────────────────────
 document.getElementById('btnPlay').onclick=()=>{sfxBtn();getAC();startGame();};
 document.getElementById('btnGarage').onclick=()=>{sfxBtn();initGarage();};
+document.getElementById('btnMissions').onclick=()=>{sfxBtn();initMissions();};
+document.getElementById('btnMissBack').onclick=()=>{sfxBtn();initMenu();};
+document.getElementById('btnDailyClaim').onclick=claimDaily;
 document.getElementById('btnMapSel').onclick=()=>{sfxBtn();initMapSel();};
 document.getElementById('btnGBack').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('btnMapBack').onclick=()=>{sfxBtn();initMenu();};
