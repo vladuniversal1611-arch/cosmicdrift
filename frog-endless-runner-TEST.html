@@ -88,6 +88,7 @@ function _tr(s,dp){
   let m=s.match(/^([^0-9A-Za-zА-ЯҐЄІЇа-яґєії]+)([\s\S]+)$/);if(m){const r=_tr(m[2],dp+1);if(_trFull(r))return m[1]+r}
   m=s.match(/^([+\-]?[\d\s.,×x/]*\d[\d\s.,×x/]*\s)([\s\S]+)$/);if(m){const r=_tr(m[2],dp+1);if(_trFull(r))return m[1]+r}
   m=s.match(/^([\s\S]+?)([^0-9A-Za-zА-ЯҐЄІЇа-яґєії]+)$/);if(m){const r=_tr(m[1],dp+1);if(_trFull(r))return r+m[2]}
+  m=s.match(/^([\s\S]+?)(\s+[\d\s.,×x/:\-+%▶◀]+)$/);if(m){const r=_tr(m[1],dp+1);if(_trFull(r))return r+m[2]}
   // pieces joined by a separator: only when every piece is known
   for(const sep of ['  ·  ',' · ',' — ',' → ',' ◀   ▶ ',': ','  ',' / ']){if(s.includes(sep)){const b=s.split(sep).map(x=>_tr(x,dp+1));if(b.every(_trFull))return b.join(sep)}}
   if(dp>0)return s;
@@ -2715,7 +2716,7 @@ const AD_KEY_DAY=3;
 function adKeysLeft(){const d=Prog.d;if(!d.adKeys||d.adKeys.day!==_dayKey())d.adKeys={day:_dayKey(),n:0};return Math.max(0,AD_KEY_DAY-d.adKeys.n)}
 // per-offer ad limits: chests N a day, the epic one on a 72-hour timer
 function adDayLeft(it){const d=Prog.d;d.adDay=d.adDay||{};const r=d.adDay[it.id];return it.adDay-(r&&r.day===_dayKey()?r.n:0)}
-function adCoolWait(it){const t=((Prog.d.adCool||{})[it.id])||0;return Math.max(0,t+it.adCool-Date.now())}
+function adCoolWait(it){const t=((Prog.d.adCool||{})[it.id])||0;return Math.min(it.adCool,Math.max(0,t+it.adCool-Date.now()))}   // a clock set back can't stretch the wait
 function adLeft(it){return it.adKey?adKeysLeft():it.adDay?Math.max(0,adDayLeft(it)):it.adCool?(adCoolWait(it)>0?0:1):1}
 function adNote(it){
   if(it.adKey){const l=adKeysLeft();return l?`${l}/${AD_KEY_DAY} сьогодні`:'завтра'}
@@ -10802,9 +10803,9 @@ function drawAch(){
     ctx.font='900 14px Exo2,sans-serif';ctx.fillStyle=got?'#FFE9B8':'#fff';
     ctx.fillText(fitText(A.name,tw),tx,y+17);
     ctx.font='700 11px Exo2,sans-serif';ctx.fillStyle=UI.dim;
-    const sk=skinOf(A.k);
-    ctx.fillText(fitText(A.txt,tw-(sk?96:0)),tx,y+35);
-    if(sk){ctx.fillStyle='#9CFFC4';ctx.textAlign='right';ctx.fillText('🐸 скін у нагороду',tx+tw,y+35);ctx.textAlign='left'}
+    const sk=skinOf(A.k), skT=sk?fitText('🐸 скін у нагороду',tw*.5):'', skW=sk?ctx.measureText(skT).width+10:0;
+    ctx.fillText(fitText(A.txt,tw-skW),tx,y+35);
+    if(sk){ctx.fillStyle='#9CFFC4';ctx.textAlign='right';ctx.fillText(skT,tx+tw,y+35);ctx.textAlign='left'}
     if(got){
       ctx.font='800 11px Exo2,sans-serif';ctx.fillStyle=cl?'#9CFFC4':'#FFE082';
       ctx.fillText(cl?'✓ Записано в Літопис':'🏆 Виконано!',tx,y+55);
@@ -11432,7 +11433,7 @@ function drawChests(){
     // contents as icon + amount, same language as the Lab costs
     let ix=x+100;
     ctx.font='800 12px Exo2,sans-serif';
-    for(const [ico,t] of [[drawCoinIco,T.c[0]+'–'+T.c[1]],[drawShardIco,String(T.s)],[drawFragIco,'~'+String(Math.round(T.f*CHEST_FRAG))]]){
+    for(const [ico,t] of [[drawCoinIco,T.c[0]+'–'+T.c[1]],[drawShardIco,String(T.s)],[drawFragIco,String(Math.round(T.f*CHEST_FRAG))]]){
       ico(ix+7,y+78,6.5);ctx.fillStyle='rgba(220,230,255,.85)';ctx.fillText(t,ix+17,y+78.5);
       ix+=17+ctx.measureText(t).width+10;
     }
