@@ -11980,14 +11980,17 @@ function perfTick(ms){
     if(avg>24&&Q<Q_MAX){Q++;applyQ()}}
 }
 // 120/144 Hz phones: the game is tuned for 60, and drawing twice as often only
-// heats the phone up and drains the battery. Measure the screen once, then draw
-// every other refresh there. (90 Hz screens are left alone — halving would be 45.)
-let hzPrev=0,hzS=[],hzSkip=false,hzN=0;
+// heats the phone up and drains the battery, so there every other refresh is
+// drawn. The refresh rate is followed all the time, not measured once: LTPO
+// screens (most flagships) drop from 120 to 60 Hz on their own, and halving
+// those 60 would leave the game at 30 fps. (90 Hz screens are left alone.)
+let hzPrev=0,hzEma=16.7,hzLast=0;
 function loop(ts){
   if(document.hidden){lastT=0;hzPrev=0;requestAnimationFrame(loop);return}   // nothing runs in the background
-  if(hzPrev&&hzS.length<90){hzS.push(ts-hzPrev);if(hzS.length===90){const q=hzS.slice().sort((a,b)=>a-b);hzSkip=q[45]<9.5}}
-  hzPrev=ts;
-  if(hzSkip&&(++hzN&1)){requestAnimationFrame(loop);return}
+  {const d=hzPrev?ts-hzPrev:16.7;hzPrev=ts;if(d>0&&d<50)hzEma+=(d-hzEma)*.1;
+   // fast screen: skip a refresh unless ~a 60 Hz frame has passed since the last drawn one
+   if(hzEma<9.5&&ts-hzLast<13){requestAnimationFrame(loop);return}
+   hzLast=ts}
   const raw=lastT?ts-lastT:16.7;
   const dt=Math.min(raw/1000,.035);lastT=ts;
   perfTick(raw);
