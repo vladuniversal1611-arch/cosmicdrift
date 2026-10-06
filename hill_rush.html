@@ -298,25 +298,89 @@ resize();
 // ── seeded rng ───────────────────────────────────────────
 function mbrng(seed){return()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};}
 
-// ── audio ────────────────────────────────────────────────
-let AC=null;
-function getAC(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC;}
-let eOsc=null,eGain=null;
-function beep(f,d,v=.28,tp='sine'){try{const c=getAC(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=tp;o.frequency.value=f;g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}catch(e){}}
-function startEng(){try{const c=getAC();if(eOsc){eOsc.stop();eOsc=null;}eOsc=c.createOscillator();eGain=c.createGain();const ws=c.createWaveShaper(),cu=new Float32Array(256);for(let i=0;i<256;i++){const x=i*2/256-1;cu[i]=x<0?-Math.pow(-x,.55):Math.pow(x,.55);}ws.curve=cu;eOsc.type='sawtooth';eOsc.frequency.value=82;eGain.gain.value=.045;eOsc.connect(ws);ws.connect(eGain);eGain.connect(c.destination);eOsc.start();}catch(e){}}
-function setRPM(r){if(!eOsc)return;try{const c=getAC();eOsc.frequency.setTargetAtTime(60+r*230,c.currentTime,.08);eGain.gain.setTargetAtTime(.04+r*.05,c.currentTime,.08);}catch(e){}}
-function stopEng(){try{if(eOsc){eOsc.stop();eOsc=null;}}catch(e){}}
-const sfxCoin=(v=1)=>{beep(v>=25?1180:920,.09,.16);if(v>=25)setTimeout(()=>beep(1560,.12,.14),70);};
-const sfxFuel=()=>{beep(440,.14,.2,'triangle');setTimeout(()=>beep(550,.14,.18,'triangle'),95);};
-const sfxCrash=()=>{beep(100,.5,.5,'sawtooth');setTimeout(()=>beep(65,.35,.3,'sawtooth'),55);};
-const sfxFuelOut=()=>{beep(330,.25,.2,'triangle');setTimeout(()=>beep(220,.4,.2,'triangle'),220);};
-function vibrate(p){try{if(sv.settings.vibe&&navigator.vibrate)navigator.vibrate(p);}catch(e){}}
-const sfxStunt=(lvl)=>{const b=520+lvl*80;beep(b,.09,.2,'square');setTimeout(()=>beep(b*1.26,.09,.2,'square'),80);setTimeout(()=>beep(b*1.5,.16,.22,'square'),160);};
-const sfxLand=(hard)=>beep(hard?70:110,hard?.22:.1,hard?.35:.15,'triangle');
-const sfxBtn=()=>beep(660,.07,.16,'triangle');
-const sfxBuy=()=>{beep(440,.08,.2);setTimeout(()=>beep(660,.08,.22),90);setTimeout(()=>beep(880,.14,.25),210);};
-const sfxMile=()=>{beep(660,.1,.28);setTimeout(()=>beep(880,.12,.3),110);setTimeout(()=>beep(1100,.18,.28),255);};
+// ── audio (all synthesised with Web Audio, no files) ─────
+let AC=null,MASTER=null,NOISE=null;
+function getAC(){
+  if(!AC){
+    AC=new(window.AudioContext||window.webkitAudioContext)();
+    MASTER=AC.createGain();MASTER.connect(AC.destination);
+    const comp=AC.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;
+    MASTER.disconnect();MASTER.connect(comp);comp.connect(AC.destination);
+    // 1 s of white noise reused by every noise-based effect
+    NOISE=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=NOISE.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    applySound();
+  }
+  if(AC.state==='suspended'&&!document.hidden)AC.resume();
+  return AC;
+}
+function applySound(){if(MASTER)MASTER.gain.value=(typeof sv!=='undefined'&&sv.settings&&sv.settings.sound===false)?0:.9;}
+function soundOn(){return!(typeof sv!=='undefined'&&sv.settings&&sv.settings.sound===false);}
+// One enveloped oscillator
+function tone(f,d,v=.2,tp='sine',at=0,f2=null){
+  if(!soundOn())return;
+  try{const c=getAC(),t=c.currentTime+at,o=c.createOscillator(),g=c.createGain();
+    o.type=tp;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g);g.connect(MASTER);o.start(t);o.stop(t+d+.02);}catch(e){}
+}
+// Filtered noise burst
+function noise(d,v=.3,type='lowpass',fr=800,at=0,q=1,fr2=null){
+  if(!soundOn())return;
+  try{const c=getAC(),t=c.currentTime+at,src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+    src.buffer=NOISE;f.type=type;f.frequency.setValueAtTime(fr,t);if(fr2)f.frequency.exponentialRampToValueAtTime(fr2,t+d);f.Q.value=q;
+    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    src.connect(f);f.connect(g);g.connect(MASTER);src.start(t,Math.random()*.5);src.stop(t+d+.02);}catch(e){}
+}
+const beep=(f,d,v=.28,tp='sine')=>tone(f,d,v*.8,tp);
 
+// Engine: sub + body + harmonic through a throttle-controlled low-pass,
+// amplitude-modulated at the firing rate. Plus tyre skid and wind beds.
+let ENG=null;
+function startEng(){
+  stopEng();if(!soundOn())return;
+  try{
+    const c=getAC(),out=c.createGain();out.gain.value=0;out.connect(MASTER);
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=500;lp.Q.value=3;lp.connect(out);
+    const am=c.createGain();am.gain.value=.65;am.connect(lp);
+    const mk=(tp,mul,vol,det=0)=>{const o=c.createOscillator(),g=c.createGain();o.type=tp;o.detune.value=det;g.gain.value=vol;o.connect(g);g.connect(am);o.start();return{o,mul};};
+    const oscs=[mk('sawtooth',1,.5),mk('square',.5,.35),mk('sawtooth',2,.14,8)];
+    const lfo=c.createOscillator(),lg=c.createGain();lfo.type='square';lg.gain.value=.3;lfo.connect(lg);lg.connect(am.gain);lfo.start();
+    const bed=(fr,q)=>{const s=c.createBufferSource();s.buffer=NOISE;s.loop=true;const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=fr;f.Q.value=q;const g=c.createGain();g.gain.value=0;s.connect(f);f.connect(g);g.connect(MASTER);s.start();return{s,f,g};};
+    ENG={c,out,lp,oscs,lfo,skid:bed(1900,6),wind:bed(500,.7),rpm:0};
+  }catch(e){ENG=null;}
+}
+function setEngine(speed,throttle,braking,air,slip){
+  if(!ENG)return;
+  const c=ENG.c,t=c.currentTime;
+  // fake 4-speed gearbox: revs climb within a gear and drop on each shift
+  const sp=Math.abs(speed),gear=Math.min(3,Math.floor(sp/3.4)),inGear=(sp-gear*3.4)/3.4;
+  let rpm=throttle?.35+inGear*.55+(air?.25:0):.12+sp*.03;
+  rpm=Math.min(1,rpm);ENG.rpm+=(rpm-ENG.rpm)*.15;
+  const f=38+ENG.rpm*95;
+  for(const o of ENG.oscs)o.o.frequency.setTargetAtTime(f*o.mul,t,.03);
+  ENG.lfo.frequency.setTargetAtTime(f*.5,t,.03);
+  ENG.lp.frequency.setTargetAtTime(throttle?700+ENG.rpm*1800:380+ENG.rpm*500,t,.06);
+  ENG.out.gain.setTargetAtTime(throttle?.2+ENG.rpm*.1:.11,t,.08);
+  ENG.skid.g.gain.setTargetAtTime(Math.min(.16,Math.max(0,slip-1.2)*.05),t,.05);
+  ENG.wind.g.gain.setTargetAtTime(air?Math.min(.12,sp*.012):0,t,.15);
+  ENG.wind.f.frequency.setTargetAtTime(300+sp*60,t,.2);
+}
+function stopEng(){
+  if(!ENG)return;const E=ENG;ENG=null;
+  try{const t=E.c.currentTime;E.out.gain.setTargetAtTime(0,t,.05);E.skid.g.gain.setTargetAtTime(0,t,.05);E.wind.g.gain.setTargetAtTime(0,t,.05);
+    setTimeout(()=>{try{E.oscs.forEach(o=>o.o.stop());E.lfo.stop();E.skid.s.stop();E.wind.s.stop();}catch(e){}},250);}catch(e){}
+}
+const sfxCoin=(v=1)=>{tone(v>=25?1320:988,.12,.12,'sine');tone(v>=25?1975:1480,.18,.09,'triangle',.05);if(v>=25)tone(2637,.22,.06,'sine',.1);};
+const sfxFuel=()=>{for(let i=0;i<4;i++)tone(240+i*90,.09,.14,'sine',i*.06,340+i*90);noise(.25,.08,'bandpass',900,0,4,2400);};
+const sfxCrash=()=>{noise(.6,.55,'lowpass',2200,0,1,180);tone(90,.5,.35,'triangle',0,40);tone(523,.35,.08,'square',.02,470);tone(587,.3,.06,'square',.06,520);};
+const sfxFuelOut=()=>{tone(260,.3,.16,'triangle',0,200);tone(180,.5,.14,'triangle',.25,120);};
+function vibrate(p){try{if(sv.settings.vibe&&navigator.vibrate)navigator.vibrate(p);}catch(e){}}
+const sfxStunt=(lvl)=>{const b=523*Math.pow(1.06,lvl);[0,4,7,12].forEach((n,i)=>tone(b*Math.pow(2,n/12),.16+(i===3?.2:0),.13,'square',i*.07));tone(b*2,.4,.06,'sine',.28);};
+const sfxLand=(hard)=>{noise(hard?.28:.12,hard?.45:.18,'lowpass',hard?500:900);tone(hard?60:90,hard?.25:.12,hard?.3:.14,'sine',0,hard?35:60);};
+const sfxBtn=()=>{noise(.03,.12,'highpass',3000);tone(880,.06,.08,'sine');};
+const sfxBuy=()=>{[0,4,7,12].forEach((n,i)=>tone(660*Math.pow(2,n/12),.14,.14,'triangle',i*.08));noise(.3,.05,'highpass',6000,.3);};
+const sfxMile=()=>{[0,7,12].forEach((n,i)=>tone(587*Math.pow(2,n/12),.22,.15,'triangle',i*.11));};
+const sfxDeny=()=>{tone(220,.12,.14,'square');tone(185,.18,.12,'square',.1);};
 // ── environments ─────────────────────────────────────────
 const ENVS=[
   {id:'country',name:'COUNTRYSIDE',emoji:'🌄',locked:false,unlockM:0,
@@ -595,7 +659,7 @@ class Car{
     const N=8,h=1/N,g=this.env.gravity;
     const maxOm=(7.2+this.engP*6)*boost/this.wr;
     const T=this.engP*this.vd.mass*this.wr*6.4*boost;
-    this.fG=this.rG=false;
+    this.fG=this.rG=false;this._slip=0;
     for(let k=0;k<N;k++){
       // Gravity
       this.bvy+=g*h;this.fvy+=g*h;this.rvy+=g*h;
@@ -632,6 +696,7 @@ class Car{
       this.fx+=this.fvx*h;this.fy+=this.fvy*h;this.fang+=this.fom*h;
       this.rx+=this.rvx*h;this.ry+=this.rvy*h;this.rang+=this.rom*h;
     }
+    this.slip=this._slip;
     this.dist=Math.max(0,(this.bx-this.sx)/10);
     if(this.over)return;
     // Flip: resting upside down
@@ -679,6 +744,7 @@ class Car{
     const tx=-nm.ny,ty2=nm.nx;
     const om=sw==='f'?this.fom:this.rom;
     const slip=(vx*tx+vy*ty2)-om*r;
+    if(Math.abs(slip)>this._slip)this._slip=Math.abs(slip);
     const meff=1/(1/this.mw+r*r/this.Iw);
     let jt=-slip*meff;
     const lim=this.mu*jn*2.2;
@@ -1374,7 +1440,7 @@ function refreshGarage(){
     card.addEventListener('click',()=>{
       if(vs2.locked){
         if(sv.coins>=vd.price){sv.coins-=vd.price;sv.vs[vd.id].locked=false;sv.selV=vd.id;saveSv();sfxBuy();toast(vd.name+' unlocked!');refreshGarage();}
-        else{toast('Need 🪙'+vd.price);beep(220,.2,.3,'sawtooth');}
+        else{toast('Need 🪙'+vd.price);sfxDeny();}
       }else{sv.selV=vd.id;saveSv();sfxBtn();refreshGarage();}
     });
     vr.appendChild(card);
@@ -1389,7 +1455,7 @@ function refreshGarage(){
     const cd=document.createElement('div');cd.className='ucard';
     let dots='';for(let i=0;i<up.max;i++)dots+=`<div class="udot${i<lv?' on':''}"></div>`;
     cd.innerHTML=`<div class="uicon">${up.icon}</div><div class="uname">${up.name}</div><div class="udots">${dots}</div>${mx?'<div class="ucost" style="font-size:9px;color:rgba(255,200,0,.4)">MAX</div>':`<div class="ucost" style="opacity:${sv.coins>=cost&&!vs2.locked?.9:.35}">${vs2.locked?'🔒':'🪙'+cost}</div>`}`;
-    if(!mx&&!vs2.locked)cd.addEventListener('click',()=>{const c2=Math.round(up.base*Math.pow(up.mult,sv.vs[sv.selV][up.id]||0));if(sv.coins>=c2){sv.coins-=c2;sv.vs[sv.selV][up.id]=(sv.vs[sv.selV][up.id]||0)+1;saveSv();sfxBuy();refreshGarage();}else{toast('Need 🪙'+c2);beep(220,.2,.3,'sawtooth');}});
+    if(!mx&&!vs2.locked)cd.addEventListener('click',()=>{const c2=Math.round(up.base*Math.pow(up.mult,sv.vs[sv.selV][up.id]||0));if(sv.coins>=c2){sv.coins-=c2;sv.vs[sv.selV][up.id]=(sv.vs[sv.selV][up.id]||0)+1;saveSv();sfxBuy();refreshGarage();}else{toast('Need 🪙'+c2);sfxDeny();}});
     ug.appendChild(cd);
   }
 }
@@ -1488,7 +1554,7 @@ function loop(now){
   const d=car.dist|0;
   if(!car.over&&nextMile<MILES.length&&d>=MILES[nextMile]){showMile(MILES[nextMile]);nextMile++;ENVS.forEach(e=>{if(d>=e.unlockM&&!sv.envs[e.id]){sv.envs[e.id]=true;saveSv();setTimeout(()=>toast('🗺 '+e.name+' UNLOCKED!'),1800);}});}
   // Engine RPM
-  setRPM(Math.min(1,Math.abs(car.bvx)/14+(gas?.26:0)));
+  if(!car.over)setEngine(car.bvx,gas&&car.fuel>0,brake,!car.fG&&!car.rG,car.slip||0);
   // HUD
   hudSet('hDist','textContent',d+' m');
   hudSet('hCoins','textContent',sessionCoins+runBonus.reduce((a,b)=>a+b.coins,0));
