@@ -261,16 +261,22 @@ const wrap=document.getElementById('wrap');
 const gc=document.getElementById('gc');
 const ctx=gc.getContext('2d');
 
+const safeProbe=document.createElement('div');
+safeProbe.style.cssText='position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0';
+document.body.appendChild(safeProbe);
 function resize(){
-  const s=Math.min(innerWidth/W,innerHeight/H);
+  const cs=getComputedStyle(safeProbe),st=parseFloat(cs.paddingTop)||0,sb=parseFloat(cs.paddingBottom)||0;
+  const ah=Math.max(100,innerHeight-st-sb);
+  const s=Math.min(innerWidth/W,ah/H);
   wrap.style.transform=`scale(${s})`;
   wrap.style.transformOrigin='center center';
-  // Center the wrap
   wrap.style.position='absolute';
   wrap.style.left=((innerWidth-W)/2)+'px';
-  wrap.style.top=((innerHeight-H)/2)+'px';
+  wrap.style.top=(st+(ah-H)/2)+'px';
 }
-window.addEventListener('resize',resize); resize();
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,250));
+resize();
 
 // ── seeded rng ───────────────────────────────────────────
 function mbrng(seed){return()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};}
@@ -349,20 +355,64 @@ const UPGRADES=[
 ];
 
 // ── save ─────────────────────────────────────────────────
-const SK='hillrush3';
-let sv={coins:0,best:0,selV:'jeep',selE:'country',
-  vs:{jeep:{locked:false,engine:0,susp:0,fuel:0,tires:0,fwd:0,turbo:0},
-      pickup:{locked:true,engine:0,susp:0,fuel:0,tires:0,fwd:0,turbo:0},
-      monster:{locked:true,engine:0,susp:0,fuel:0,tires:0,fwd:0,turbo:0},
-      bike:{locked:true,engine:0,susp:0,fuel:0,tires:0,fwd:0,turbo:0}},
-  envs:{country:true,mountain:false,arctic:false,desert:false,moon:false}};
-try{const d=JSON.parse(localStorage.getItem(SK)||'{}');
-  ['coins','best','selV','selE'].forEach(k=>{if(d[k]!==undefined)sv[k]=d[k];});
-  if(d.vs)for(const k in sv.vs)if(d.vs[k])Object.assign(sv.vs[k],d.vs[k]);
-  if(d.envs)Object.assign(sv.envs,d.envs);
-}catch(e){}
-ENVS.forEach(e=>{if(sv.best>=e.unlockM)sv.envs[e.id]=true;});
-function saveSv(){try{localStorage.setItem(SK,JSON.stringify(sv));}catch(e){}}
+// Key stays "hillrush3" so existing players keep their progress; the payload
+// now carries a version number and is migrated/validated on every load.
+const SK='hillrush3',SK_BAK='hillrush3_bak',SAVE_VER=4;
+function defaultSave(){
+  const vs={};VEHICLES.forEach(v=>{vs[v.id]={locked:v.price>0};UPGRADES.forEach(u=>vs[v.id][u.id]=0);});
+  const envs={};ENVS.forEach(e=>envs[e.id]=!e.locked);
+  return{ver:SAVE_VER,coins:0,best:0,selV:'jeep',selE:'country',vs,envs,
+    bestBy:{},                                         // best distance per map
+    settings:{sound:true,vibe:true},
+    stats:{runs:0,dist:0,coins:0,flips:0,perfect:0,airTime:0},
+    daily:{day:'',streak:0,claimed:''},                // 7-day login cycle
+    missions:{day:'',list:[]},
+    ach:{}};                                           // achievement id -> true
+}
+const num=(v,d,min=0,max=1e12)=>{v=+v;return isFinite(v)?Math.min(max,Math.max(min,v)):d;};
+function migrateSave(d){
+  const s=defaultSave();
+  if(!d||typeof d!=='object')return s;
+  // v3 and earlier had no "ver" field; the shape is a subset of v4 so the
+  // field-by-field copy below upgrades it.
+  s.coins=Math.floor(num(d.coins,0));s.best=Math.floor(num(d.best,0));
+  if(d.vs&&typeof d.vs==='object')for(const v of VEHICLES){
+    const o=d.vs[v.id];if(!o||typeof o!=='object')continue;
+    s.vs[v.id].locked=v.price>0?o.locked!==false:false;
+    for(const u of UPGRADES)s.vs[v.id][u.id]=Math.floor(num(o[u.id],0,0,u.max));
+  }
+  if(d.envs&&typeof d.envs==='object')for(const e of ENVS)s.envs[e.id]=!!d.envs[e.id]||!e.locked;
+  ENVS.forEach(e=>{if(s.best>=e.unlockM)s.envs[e.id]=true;});
+  s.selV=VEHICLES.some(v=>v.id===d.selV)&&!s.vs[d.selV].locked?d.selV:'jeep';
+  s.selE=ENVS.some(e=>e.id===d.selE)&&s.envs[d.selE]?d.selE:'country';
+  if(d.bestBy&&typeof d.bestBy==='object')for(const e of ENVS)if(d.bestBy[e.id])s.bestBy[e.id]=Math.floor(num(d.bestBy[e.id],0));
+  if(d.settings&&typeof d.settings==='object'){s.settings.sound=d.settings.sound!==false;s.settings.vibe=d.settings.vibe!==false;}
+  if(d.stats&&typeof d.stats==='object')for(const k in s.stats)s.stats[k]=num(d.stats[k],0);
+  if(d.daily&&typeof d.daily==='object'){s.daily.day=String(d.daily.day||'');s.daily.streak=Math.floor(num(d.daily.streak,0,0,7));s.daily.claimed=String(d.daily.claimed||'');}
+  if(d.missions&&Array.isArray(d.missions.list)){s.missions.day=String(d.missions.day||'');
+    s.missions.list=d.missions.list.filter(m=>m&&typeof m.id==='string').slice(0,3).map(m=>({id:m.id,goal:num(m.goal,1,1),reward:num(m.reward,0),prog:num(m.prog,0),done:!!m.done,claimed:!!m.claimed}));}
+  if(d.ach&&typeof d.ach==='object')for(const k in d.ach)if(d.ach[k])s.ach[k]=true;
+  return s;
+}
+function loadSave(){
+  for(const key of [SK,SK_BAK]){
+    let raw=null;try{raw=localStorage.getItem(key);}catch(e){return defaultSave();}
+    if(raw==null)continue;
+    try{const s=migrateSave(JSON.parse(raw));
+      if(key===SK_BAK)console.warn('Main save unreadable, restored from backup');
+      return s;}
+    catch(e){
+      // Keep the unreadable payload instead of silently overwriting it
+      try{localStorage.setItem(key+'_corrupt',raw);}catch(_){}
+    }
+  }
+  return defaultSave();
+}
+let sv=loadSave();
+function saveSv(){
+  try{const js=JSON.stringify(sv);localStorage.setItem(SK,js);localStorage.setItem(SK_BAK,js);}catch(e){}
+}
+saveSv();
 
 // ── particles ─────────────────────────────────────────────
 const PARTS=[];
@@ -410,6 +460,20 @@ class Terrain{
   }
   getNorm(wx){const m=(this.getY(wx+3)-this.getY(wx-3))/6,l=Math.hypot(1,m);return{nx:m/l,ny:-1/l};}
   ensure(to){if(to>this.gx-W)this._gen(to+W*4);}
+  firstVisible(cx){
+    // Points only ever move left on screen, so scan forward from last frame's index
+    let i=Math.min(this.si||0,this.pts.length-1);
+    while(i>0&&this.pts[i].x-cx>-SEG*2)i--;
+    while(i<this.pts.length-2&&this.pts[i+1].x-cx<=-SEG*2)i++;
+    this.si=i;return Math.max(0,i-2);
+  }
+  prune(behind){
+    // Keep memory flat on long runs: forget geometry/pickups well behind the car
+    let n=0;while(n<this.pts.length-50&&this.pts[n].x<behind)n++;
+    if(n>200){this.pts.splice(0,n);this.si=0;}
+    if(this.objs.length>60)this.objs=this.objs.filter(o=>o.x>=behind);
+    if(this.decs.length>60)this.decs=this.decs.filter(d=>d.x>=behind);
+  }
 }
 
 // ── vehicle physics ───────────────────────────────────────
@@ -968,7 +1032,7 @@ function _drawTerrainCurve(ctx,pts,si,cx,cy){
 }
 function renderTerrain(terrain,env,cx,cy){
   const pts=terrain.pts;
-  let si=0;for(let i=0;i<pts.length-1;i++){if(pts[i].x-cx>-SEG*2){si=Math.max(0,i-2);break;}}
+  const si=terrain.firstVisible(cx);
   const p=i=>pts[Math.max(0,Math.min(pts.length-1,i))];
   const sx0=p(si).x-cx,sy0=p(si).y-cy;
   const dg=ctx.createLinearGradient(0,sy0,0,sy0+VH*.7);dg.addColorStop(0,env.gMid);dg.addColorStop(1,env.gDeep);
@@ -1081,7 +1145,7 @@ function showOvl(id){
 let STATE='menu',car=null,terrain=null,clouds=null,camX=0,camY=0;
 const ZOOM=.74,VW=W/ZOOM,VH=H/ZOOM;
 let gas=false,brake=false,paused=false,sessionCoins=0,fT=0,lastT=0,raf=null;
-let nextMile=0;
+let nextMile=0,runBanked=false,endTmr=null;
 const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
 
 function initMenu(){
@@ -1154,7 +1218,8 @@ function initMapSel(){
 // ── game ─────────────────────────────────────────────────
 function startGame(){
   if(raf){cancelAnimationFrame(raf);raf=null;}
-  STATE='game';sessionCoins=0;fT=0;gas=false;brake=false;paused=false;nextMile=0;
+  if(endTmr){clearTimeout(endTmr);endTmr=null;}
+  STATE='game';sessionCoins=0;fT=0;setG(false);setB(false);paused=false;nextMile=0;runBanked=false;hudCache={};
   PARTS.length=0;
   const env=ENVS.find(e=>e.id===sv.selE)||ENVS[0];
   const vd=VEHICLES.find(v=>v.id===sv.selV)||VEHICLES[0];
@@ -1172,6 +1237,11 @@ function startGame(){
   raf=requestAnimationFrame(loop);
 }
 
+let hudCache={};
+function hudSet(id,prop,val){
+  const k=id+prop;if(hudCache[k]===val)return;hudCache[k]=val;
+  const el=document.getElementById(id);if(prop==='textContent')el.textContent=val;else el.style[prop]=val;
+}
 function loop(now){
   if(STATE!=='game'||paused)return;
   raf=requestAnimationFrame(loop);
@@ -1220,12 +1290,12 @@ function loop(now){
   // Engine RPM
   setRPM(Math.min(1,Math.abs(car.bvx)/14+(gas?.26:0)));
   // HUD
-  document.getElementById('hDist').textContent=d+' m';
-  document.getElementById('hCoins').textContent=sessionCoins;
+  hudSet('hDist','textContent',d+' m');
+  hudSet('hCoins','textContent',sessionCoins);
   const fp=(car.fuel/car.fuelMax)*100;
-  const fb=document.getElementById('fuelBar');
-  fb.style.width=fp+'%';
-  fb.style.background=fp<20?'linear-gradient(90deg,#f44336,#b71c1c)':fp<40?'linear-gradient(90deg,#ff9800,#e65100)':'linear-gradient(90deg,#66bb6a,#2e7d32)';
+  hudSet('fuelBar','width',fp.toFixed(1)+'%');
+  hudSet('fuelBar','background',fp<20?'linear-gradient(90deg,#f44336,#b71c1c)':fp<40?'linear-gradient(90deg,#ff9800,#e65100)':'linear-gradient(90deg,#66bb6a,#2e7d32)');
+  if(car.et%120===0)terrain.prune(car.bx-VW*1.5);
   // Draw
   ctx.clearRect(0,0,W,H);
   renderBG(car.env,camX,camY,clouds);
@@ -1241,15 +1311,29 @@ function loop(now){
     car.dead=true;stopEng();sfxCrash();
     emit(car.bx,car.by,18,{s:4.5,d:.022,r:6,c:'#ff3300',g:.1,up:3});
     emit(car.bx,car.by,12,{s:3,d:.028,r:4,c:'#ff9800',g:.08,up:2});
-    setTimeout(()=>endGame(car.rsn||'CRASHED!'),900);
+    document.getElementById('pauseBtn').style.display='none';
+    endTmr=setTimeout(()=>endGame(car.rsn||'CRASHED!'),900);
   }
 }
 
+function bankRun(){
+  // Pays out the current run exactly once (game over, or quitting from pause)
+  if(runBanked||!car)return null;
+  runBanked=true;
+  const d=car.dist|0,nb=d>sv.best;
+  sv.coins+=sessionCoins;if(nb)sv.best=d;
+  const env=car.env.id;if(d>(sv.bestBy[env]||0))sv.bestBy[env]=d;
+  sv.stats.runs++;sv.stats.dist+=d;sv.stats.coins+=sessionCoins;
+  ENVS.forEach(e=>{if(sv.best>=e.unlockM)sv.envs[e.id]=true;});
+  saveSv();
+  return{d,nb};
+}
 function endGame(rsn){
-  STATE='gameover';if(raf){cancelAnimationFrame(raf);raf=null;}
-  const d=car.dist|0;sv.coins+=sessionCoins;const nb=d>sv.best;if(nb)sv.best=d;
-  ENVS.forEach(e=>{if(sv.best>=e.unlockM)sv.envs[e.id]=true;});saveSv();
-  document.getElementById('goOvl').classList.add('on');
+  if(STATE!=='game')return;
+  STATE='gameover';endTmr=null;if(raf){cancelAnimationFrame(raf);raf=null;}
+  setG(false);setB(false);
+  const r=bankRun()||{d:car.dist|0,nb:false},d=r.d,nb=r.nb;
+  showOvl('goOvl');
   document.getElementById('goRsn').textContent=rsn;
   document.getElementById('goDist').textContent=d+' m';
   document.getElementById('goCoins').textContent=sessionCoins;
@@ -1258,7 +1342,8 @@ function endGame(rsn){
 
 // ── pause ─────────────────────────────────────────────────
 function togglePause(){
-  if(STATE!=='game')return;
+  if(STATE!=='game'||(car&&car.dead))return;
+  setG(false);setB(false);
   paused=!paused;
   document.getElementById('pauseOvl').classList.toggle('on',paused);
   if(!paused){stopEng();startEng();lastT=performance.now();raf=requestAnimationFrame(loop);}
@@ -1275,15 +1360,21 @@ function showMile(m){sfxMile();document.getElementById('mileN').textContent=m+'m
 const cG=document.getElementById('cGas'),cB=document.getElementById('cBrake');
 function setG(v){gas=v;cG.classList.toggle('act',v);}
 function setB(v){brake=v;cB.classList.toggle('act',v);}
-cG.addEventListener('touchstart',e=>{e.preventDefault();setG(true);getAC();},{passive:false});
-cG.addEventListener('touchend',  e=>{e.preventDefault();setG(false);},{passive:false});
-cG.addEventListener('touchcancel',e=>{e.preventDefault();setG(false);},{passive:false});
-cB.addEventListener('touchstart',e=>{e.preventDefault();setB(true);getAC();},{passive:false});
-cB.addEventListener('touchend',  e=>{e.preventDefault();setB(false);},{passive:false});
-cB.addEventListener('touchcancel',e=>{e.preventDefault();setB(false);},{passive:false});
+window.addEventListener('blur',()=>{setG(false);setB(false);});
+for(const [el,set] of [[cG,v=>setG(v)],[cB,v=>setB(v)]]){
+  // A button stays held while any finger that started on it is still down
+  const upd=e=>{e.preventDefault();set(e.targetTouches.length>0);};
+  el.addEventListener('touchstart',e=>{upd(e);getAC();},{passive:false});
+  el.addEventListener('touchend',upd,{passive:false});
+  el.addEventListener('touchcancel',upd,{passive:false});
+}
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault());
+document.addEventListener('pointerdown',()=>getAC(),{once:true});
 cG.addEventListener('mousedown',()=>setG(true));cG.addEventListener('mouseup',()=>setG(false));cG.addEventListener('mouseleave',()=>setG(false));
 cB.addEventListener('mousedown',()=>setB(true));cB.addEventListener('mouseup',()=>setB(false));cB.addEventListener('mouseleave',()=>setB(false));
-window.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='d'){setG(true);getAC();}if(e.key==='ArrowLeft'||e.key==='a'){setB(true);getAC();}if(e.key==='Escape'||e.key==='p')togglePause();});
+window.addEventListener('keydown',e=>{if(e.repeat)return;if(e.key==='ArrowRight'||e.key==='d'){setG(true);getAC();}if(e.key==='ArrowLeft'||e.key==='a'){setB(true);getAC();}if(e.key==='Escape'||e.key==='p')togglePause();});
 window.addEventListener('keyup',e=>{if(e.key==='ArrowRight'||e.key==='d')setG(false);if(e.key==='ArrowLeft'||e.key==='a')setB(false);});
 
 // ── buttons ───────────────────────────────────────────────
@@ -1293,10 +1384,24 @@ document.getElementById('btnMapSel').onclick=()=>{sfxBtn();initMapSel();};
 document.getElementById('btnGBack').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('btnMapBack').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('btnResume').onclick=togglePause;
-document.getElementById('btnPMenu').onclick=()=>{paused=false;stopEng();if(raf){cancelAnimationFrame(raf);raf=null;}initMenu();};
+document.getElementById('btnPMenu').onclick=()=>{sfxBtn();paused=false;stopEng();if(raf){cancelAnimationFrame(raf);raf=null;}bankRun();initMenu();};
 document.getElementById('btnRetry').onclick=()=>{sfxBtn();startGame();};
 document.getElementById('btnGoMenu').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('pauseBtn').onclick=togglePause;
+
+// ── app lifecycle (backgrounding on Android) ─────────────
+function onHidden(){
+  if(STATE==='game'&&!paused&&car&&!car.dead)togglePause();
+  setG(false);setB(false);
+  try{if(AC&&AC.state==='running')AC.suspend();}catch(e){}
+}
+function onVisible(){
+  try{if(AC&&AC.state==='suspended')AC.resume();}catch(e){}
+  lastT=performance.now();resize();
+}
+document.addEventListener('visibilitychange',()=>document.hidden?onHidden():onVisible());
+window.addEventListener('pagehide',onHidden);
+window.addEventListener('pageshow',onVisible);
 
 // ── service worker ────────────────────────────────────────
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
