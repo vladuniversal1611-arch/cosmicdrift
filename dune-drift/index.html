@@ -167,6 +167,63 @@
   #jreset{ margin-top:34px; width:100%; padding:11px; border-radius:22px; cursor:pointer; background:none;
            border:1px solid rgba(255,255,255,.18); color:var(--ink-soft); font:inherit; font-size:11px;
            letter-spacing:.24em; text-transform:uppercase; }
+  /* --- пауза й налаштування --- */
+  #pauseBtn{
+    position:absolute; left:50%; top:calc(env(safe-area-inset-top, 0px) + 20px); transform:translateX(-50%);
+    width:36px; height:36px; border-radius:50%; border:1px solid rgba(255,255,255,.28);
+    background:rgba(10,12,24,.18); display:none; align-items:center; justify-content:center; gap:4px;
+    pointer-events:auto; cursor:pointer; padding:0;
+  }
+  #pauseBtn.on{ display:flex; }
+  #pauseBtn i{ width:3px; height:12px; border-radius:2px; background:rgba(255,255,255,.85); }
+  #pauseMenu{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(6,8,18,.32); pointer-events:none; opacity:0; transition:opacity .3s ease;
+  }
+  #pauseMenu.on{ opacity:1; pointer-events:auto; }
+  .pm-inner{
+    width:min(300px, calc(100vw - 48px)); padding:20px 18px 16px; border-radius:18px;
+    background:rgba(14,16,30,.55); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.12);
+    display:flex; flex-direction:column; gap:6px; max-height:calc(100vh - 40px); overflow-y:auto;
+  }
+  .pm-title{ text-align:center; font-size:11px; letter-spacing:.42em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .pm-inner button{ font:inherit; cursor:pointer; color:var(--ink); }
+  .pm-main{ padding:12px; border-radius:22px; border:0; background:rgba(255,255,255,.88); color:#1a1d2e !important;
+            font-size:12px; letter-spacing:.26em; text-transform:uppercase; }
+  .pm-btn{ padding:10px; border-radius:22px; border:1px solid rgba(255,255,255,.2); background:none;
+           font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+  .pm-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 4px; border:0; background:none;
+           font-size:12px; letter-spacing:.08em; text-align:left; }
+  .pm-row b{ font-weight:400; font-size:11px; letter-spacing:.12em; color:#ffe3a3; }
+  .pm-row.off b{ color:var(--ink-soft); }
+  .pm-row:disabled{ opacity:.45; cursor:default; }
+  .pm-range{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 4px 8px;
+             font-size:12px; letter-spacing:.08em; color:var(--ink-soft); }
+  .pm-range input{ flex:1; max-width:150px; accent-color:#ffd58f; }
+  .pm-sep{ height:1px; margin:6px 0; background:rgba(255,255,255,.12); }
+  .pm-danger{ color:rgba(255,255,255,.6) !important; }
+  .pm-danger.armed{ border-color:#ffb38a; color:#ffd2b8 !important; }
+  .btnrow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .btnrow .jbtn{ padding:9px 13px; letter-spacing:.14em; }
+
+  /* --- підказки онбордингу: дрібні, напівпрозорі, не блокують --- */
+  #coach{
+    position:absolute; left:50%; bottom:31%; transform:translate(-50%, 6px);
+    padding:7px 15px; border-radius:18px; background:rgba(10,12,24,.22); backdrop-filter:blur(4px);
+    font-size:12px; letter-spacing:.12em; white-space:nowrap; color:rgba(255,255,255,.9); text-shadow:var(--shadow);
+    opacity:0; transition:opacity .5s ease, transform .5s ease;
+  }
+  #coach.on{ opacity:1; transform:translate(-50%, 0); }
+
+  /* --- прогрес маяка --- */
+  .grow b small{ margin-right:8px; font-size:10px; color:#ffe3a3; }
+  .grow.done span, .grow.done b{ color:#ffe9be; }
+  .rsum{ margin-bottom:10px; font-size:11px; letter-spacing:.14em; color:var(--ink); }
+  .cnext{ margin-top:12px; font-size:12px; line-height:1.5; letter-spacing:.06em; color:#ffe3a3; }
+  #goalLine.awake{ color:#ffe3a3; animation:awake 2.4s ease-in-out infinite; }
+  @keyframes awake{ 0%,100%{ text-shadow:var(--shadow); } 50%{ text-shadow:0 0 14px rgba(255,214,140,.8); } }
+  @media (prefers-reduced-motion: reduce){ #goalLine.awake{ animation:none; } .hint{ animation:none; opacity:.9; } }
+
   @media (max-height:560px){ .legend{ display:none; } #chapterCard, #overGoals{ margin-top:10px; } .screen{ gap:4px; } }
 
   #loading{
@@ -194,6 +251,9 @@
     </div>
   </div>
 
+  <!-- пауза: з'являється лише під час заїзду -->
+  <button id="pauseBtn" aria-label="Пауза"><i></i><i></i></button>
+
   <!-- спливаючі підписи трюків -->
   <div id="trick"><div class="t-main"></div><div class="t-sub"></div></div>
 
@@ -201,6 +261,7 @@
   <div id="storyCard"><div class="eyebrow"></div><div class="stitle"></div><div class="slines"></div></div>
   <div id="toast"></div>
   <div id="echo"></div>
+  <div id="coach"></div>
   <div id="goalLine"></div>
 
   <!-- Підказка зон керування: ліва половина — стрибок, права — стрибок з обертом -->
@@ -222,7 +283,7 @@
       <span>hold</span> keep spinning<br>
       land clean to gain speed · perfect for a rush
     </div>
-    <button class="jbtn" data-journal>журнал хранителя</button>
+    <div class="btnrow"><button class="jbtn" data-journal>журнал хранителя</button><button class="jbtn" data-settings>налаштування</button></div>
   </div>
 
   <!-- Екран Game Over -->
@@ -237,7 +298,7 @@
     </div>
     <div id="overGoals"></div>
     <div class="hint">Tap to retry</div>
-    <button class="jbtn" data-journal>журнал хранителя</button>
+    <div class="btnrow"><button class="jbtn" data-journal>журнал хранителя</button><button class="jbtn" data-settings>налаштування</button></div>
   </div>
 
   <!-- Журнал: уся історія, пройдені маяки й поточна глава -->
@@ -246,6 +307,24 @@
       <div class="jhead"><span>Журнал хранителя</span><button id="jclose" aria-label="Закрити">✕</button></div>
       <div id="jbody"></div>
       <button id="jreset">почати історію знову</button>
+    </div>
+  </div>
+
+  <!-- Пауза / налаштування: компактна панель, гра видна позаду -->
+  <div id="pauseMenu" role="dialog" aria-label="Пауза">
+    <div class="pm-inner">
+      <div class="pm-title">пауза</div>
+      <button class="pm-main" data-act="resume">продовжити</button>
+      <button class="pm-btn" data-act="restart">почати заново</button>
+      <div class="pm-sep"></div>
+      <button class="pm-row" data-set="sound">звук <b></b></button>
+      <label class="pm-range">гучність <input type="range" min="0" max="1" step="0.05" data-range="volume"></label>
+      <button class="pm-row" data-set="ambience">музика й атмосфера <b></b></button>
+      <button class="pm-row" data-set="haptics">вібрація <b></b></button>
+      <button class="pm-row" data-set="reduceMotion">менше руху <b></b></button>
+      <button class="pm-row" data-set="grain">зерно плівки <b></b></button>
+      <div class="pm-sep"></div>
+      <button class="pm-btn pm-danger" data-act="reset">скинути прогрес</button>
     </div>
   </div>
 </div>
@@ -286,6 +365,8 @@ if (!window.THREE) {
     11. Пост-обробка: bloom + вінʼєтка
     12. Сюжет «Сім маяків»: глави, маяки, дарунки світу, журнал
     13. Ігровий цикл, введення, рахунок, UI
+    14. Поліровка: звук (Web Audio), пауза й налаштування, адаптивна якість,
+        відгук трюків, прогрес маяків, онбординг (стоїть перед головним циклом)
    ================================================================== */
 
 /* ------------------------------------------------------------------
@@ -1088,7 +1169,7 @@ function placeObstacle(x, type) {
    ------------------------------------------------------------------- */
 
 /** Спокійні пологі дюни — пауза для дихання між гострими моментами. */
-function pieceCruise(short = false) {
+function pieceCruise(short = false, allowObstacle = true) {
   const n = short ? 1 : ri(1, 2);
   const L = short ? [16, 22] : [24, 36];
   for (let i = 0; i < n; i++) {
@@ -1099,7 +1180,7 @@ function pieceCruise(short = false) {
     pushSeg(downLen, clamp(up - rr(2.5, 5), -12, 15));
     if (rnd() < 0.6) placeCoinLine(cx - 6, ri(3, 5), 2.0);
     // зрідка — одинока перешкода посеред спуску, щоб спокій не присипляв
-    if (!short && rnd() < 0.3 + terrain.diff * 0.3) {
+    if (!short && allowObstacle && rnd() < 0.3 + terrain.diff * 0.3) {
       const v = baseSpeedAt(cx) * 0.9;
       placeObstacleWithHint(cx + downLen * 0.62, rnd() < 0.5 ? 'rock' : 'block', v);
     }
@@ -1135,7 +1216,7 @@ function pieceRollers(rising = false) {
 
 /** Трамплін: розгін униз → крутий край → політ → довгий схил для приземлення.
     Стрибок точно на краю дає «Perfect jump» і час на подвійне сальто. */
-function pieceKicker(withGap) {
+function pieceKicker(withGap, easy = false) {
   const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;    // обережна оцінка швидкості
   pushSeg(rr(16, 24), terrain.y - rr(3, 5));             // розгін
   const kLen = rr(7, 10), kH = rr(2.6, 4.2);
@@ -1148,7 +1229,7 @@ function pieceKicker(withGap) {
     // прірву можна перелетіти навіть без стрибка — сам трамплін підкидає
     const farDrop = rr(2.5, 5);
     const t = (vyLip + Math.sqrt(vyLip * vyLip + 2 * CFG.GRAVITY * farDrop)) / CFG.GRAVITY;
-    const span = clamp(v * t * rr(0.5, 0.6), 5, 20);
+    const span = clamp(v * t * (easy ? rr(0.38, 0.44) : rr(0.5, 0.6)), 5, 20);
     const n = Math.ceil(span / CFG.DX);
     for (let i = 0; i < n; i++) pushSample(lipY - 0.7, false);
     terrain.y = lipY - farDrop;
@@ -1186,14 +1267,14 @@ function placeObstacleWithHint(x, type, v) {
 }
 
 /** Ділянка з перешкодами на легкому спуску. Дуга кристалів підказує момент стрибка. */
-function pieceObstacles() {
+function pieceObstacles(easy = false) {
   const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;
   const jd = jumpDistance(v);
-  const n = ri(1, 2 + Math.round(terrain.diff * 2));
+  const n = easy ? 1 : ri(1, 2 + Math.round(terrain.diff * 2));
   const spacing = jd * rr(1.35, 1.7) + 3;              // завжди є де приземлитись між ними
   const x0 = terrain.idx * CFG.DX;
   pushSeg(12 + n * spacing + 8, terrain.y - rr(0.5, 1.8));
-  const types = terrain.diff < 0.25 ? ['block', 'rock'] : ['block', 'rock', 'pillar'];
+  const types = easy ? ['block'] : terrain.diff < 0.25 ? ['block', 'rock'] : ['block', 'rock', 'pillar'];
   for (let i = 0; i < n; i++) placeObstacleWithHint(x0 + 12 + i * spacing + rr(-1, 1), pick(types), v);
 }
 
@@ -1211,7 +1292,8 @@ function nextPiece() {
   const x = terrain.idx * CFG.DX;
   terrain.diff = clamp((x - startX) / 2600, 0, 1);
   if (story.pending && !terrain.beaconPlaced && x - startX > 60) { pieceBeacon(); return; }
-  if (terrain.intro < INTRO.length) { INTRO[terrain.intro++](); return; }
+  const intro = terrain.introList || INTRO;
+  if (terrain.intro < intro.length) { intro[terrain.intro++](); return; }
   if (terrain.y < -9) { pieceClimb(); return; }            // запобіжник
 
   const intenseLimit = 2 + Math.round(terrain.diff * 2);
@@ -1264,6 +1346,7 @@ function trimTerrain(minX) {
   trimList(terrain.coins, 'coinCursor', minX);
   trimList(terrain.rocks, 'rockCursor', minX);
   trimList(terrain.lips, 'lipCursor', minX);
+  if (terrain.teach && terrain.teach.length > 12) terrain.teach = terrain.teach.filter(t => t.x > minX);
 }
 
 /* --- Меш піску ---------------------------------------------------- */
@@ -1793,17 +1876,18 @@ const compMat = new THREE.ShaderMaterial({
     tDiffuse: { value: null }, tBloomA: { value: null }, tBloomB: { value: null },
     uBloom: { value: 0.8 }, uTime: { value: 0 }, uVignette: { value: 0.22 },
     uFade: { value: 0 }, uFadeColor: { value: new THREE.Color() },
+    uGrain: { value: 1 }, uBloomBW: { value: 1 },
   },
   vertexShader: QUAD_VERT,
   fragmentShader: `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D tDiffuse, tBloomA, tBloomB;
-    uniform float uBloom, uTime, uVignette, uFade;
+    uniform float uBloom, uTime, uVignette, uFade, uGrain, uBloomBW;
     uniform vec3 uFadeColor;
     void main(){
       vec3 base = texture2D(tDiffuse, vUv).rgb;
-      vec3 b = texture2D(tBloomA, vUv).rgb * 0.62 + texture2D(tBloomB, vUv).rgb * 0.95;
+      vec3 b = texture2D(tBloomA, vUv).rgb * (0.62 + 0.45 * (1.0 - uBloomBW)) + texture2D(tBloomB, vUv).rgb * 0.95 * uBloomBW;
       vec3 col = base + b * uBloom;
 
       /* вінʼєтка — м'яко притемнює кути, погляд тримається на центрі */
@@ -1813,7 +1897,7 @@ const compMat = new THREE.ShaderMaterial({
 
       /* мікрозерно, щоб градієнти неба не смугували */
       float g = fract(sin(dot(vUv * vec2(1024.0, 768.0) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
-      col += (g - 0.5) * 0.008;
+      col += (g - 0.5) * 0.008 * uGrain;
 
       col = mix(col, uFadeColor, uFade);
       gl_FragColor = vec4(col, 1.0);
@@ -1856,15 +1940,19 @@ function renderFrame(time) {
   blurMat.uniforms.uDir.value.set(0, 1);
   blit(blurMat, rtHalfA);
 
-  const qw = rtQuadA.width, qh = rtQuadA.height;
-  blurMat.uniforms.tDiffuse.value = rtHalfA.texture;
-  blurMat.uniforms.uDir.value.set(1, 0);
-  blurMat.uniforms.uTexel.value.set(1 / qw, 1 / qh);
-  blit(blurMat, rtQuadA);
+  // другий, широкий рівень блюру — першим жертвуємо ним, коли бракує продуктивності
+  if (quality.bloomB) {
+    const qw = rtQuadA.width, qh = rtQuadA.height;
+    blurMat.uniforms.tDiffuse.value = rtHalfA.texture;
+    blurMat.uniforms.uDir.value.set(1, 0);
+    blurMat.uniforms.uTexel.value.set(1 / qw, 1 / qh);
+    blit(blurMat, rtQuadA);
 
-  blurMat.uniforms.tDiffuse.value = rtQuadA.texture;
-  blurMat.uniforms.uDir.value.set(0, 1);
-  blit(blurMat, rtQuadB);
+    blurMat.uniforms.tDiffuse.value = rtQuadA.texture;
+    blurMat.uniforms.uDir.value.set(0, 1);
+    blit(blurMat, rtQuadB);
+  }
+  compMat.uniforms.uBloomBW.value = quality.bloomB ? 1 : 0;
 
   compMat.uniforms.tDiffuse.value = rtScene.texture;
   compMat.uniforms.tBloomA.value = rtHalfA.texture;
@@ -2013,8 +2101,10 @@ function storyEvent(type, value = 1) {
     story.pending = true;
     saveStory();
     toast('Маяк прокинувся — він попереду');
+    onBeaconAwake();
   } else {
     toast('Мету виконано · ' + GOAL_LABEL[goal.type](goal));
+    onGoalDone();
   }
 }
 
@@ -2116,9 +2206,12 @@ function lightBeacon() {
   beacon.lit = true;
   beacon.litT = time;
   beacon.beam.visible = true;
-  flashV = 0.55;
-  slowT = 1.1;
-  shake = 0.22;
+  fx.flash(0.55);
+  slowT = settings.reduceMotion ? 0.6 : 1.1;
+  fx.shake(0.22);
+  sound.play('beacon');
+  fx.haptic([20, 80, 40]);
+  SUI.goal.classList.remove('awake');
   sparkBurst(beacon.x, beacon.y + TOWER_TOP - 0.7, sky.coin, 44);
   player.score += 500;
 
@@ -2182,13 +2275,15 @@ class WindStreaks {
   }
   update(dt, camX, camY) {
     const W = view.visW * 0.8;
+    const on = gifts.wind || (state === GS.PLAY && player.combo >= 3);
+    const k = gifts.wind ? 1 : 0.6;
     for (const it of this.items) {
-      it.mesh.visible = gifts.wind;
-      if (!gifts.wind) { it.ready = false; continue; }
+      it.mesh.visible = on;
+      if (!on) { it.ready = false; continue; }
       if (!it.ready) this.reset(it, camX, camY, true);
       it.mesh.position.x -= it.v * dt;
       if (it.mesh.position.x < camX - W - 10) this.reset(it, camX, camY, false);
-      it.mesh.material.opacity = it.a;
+      it.mesh.material.opacity = it.a * k;
       it.mesh.material.color.copy(sky.light).lerp(sky.sunColor, 0.5);
     }
   }
@@ -2360,7 +2455,7 @@ function updateStoryWorld(dt, t, camX, camY) {
   if (gifts.sun) scarfMat.color.lerp(sky.coin, 0.8).multiplyScalar(1.5);
 
   // спалах і сповільнення під час запалення маяка
-  if (slowT > 0) { slowT -= dt; timeScale += (0.32 - timeScale) * (1 - Math.exp(-dt / 0.08)); }
+  if (slowT > 0) { slowT -= dt; timeScale += ((settings.reduceMotion ? 0.75 : 0.32) - timeScale) * (1 - Math.exp(-dt / 0.08)); }
   else timeScale += (1 - timeScale) * (1 - Math.exp(-dt / 0.35));
   flashV *= Math.exp(-dt * 2.2);
   compMat.uniforms.uFade.value = flashV;
@@ -2425,7 +2520,7 @@ function nextToast() {
 let echoTimer = 30, echoHide = null;
 function updateEcho(dt) {
   echoTimer -= dt;
-  if (echoTimer > 0 || storyActive()) return;
+  if (echoTimer > 0 || storyActive() || coach.kind) return;
   echoTimer = rr(40, 70);
   const ch = currentChapter();
   SUI.echo.textContent = pick(ch ? ch.echoes : FREE_ECHOES);
@@ -2440,7 +2535,7 @@ function goalSummary() {
   if (story.pending) return `${ch.title} · маяк попереду`;
   return `${ch.title} · ` + ch.goals.map(goalCompact).join('  ·  ');
 }
-function renderHudGoal() { SUI.goal.textContent = goalSummary(); }
+function renderHudGoal() { setText(SUI.goal, goalSummary()); }
 
 function goalRowsHTML(ch) {
   return ch.goals.map(g => {
@@ -2517,7 +2612,7 @@ SUI.jreset.addEventListener('click', () => {
   renderChapterCard();
   renderOverGoals();
 });
-window.addEventListener('keydown', e => { if (e.code === 'Escape' && journalOpen) closeJournal(); });
+// Esc для журналу обробляється разом із паузою в розділі 14
 
 /* ------------------------------------------------------------------
    13. ІГРОВИЙ ЦИКЛ, ВВЕДЕННЯ, РАХУНОК, UI
@@ -2572,7 +2667,7 @@ const tmpColor = new THREE.Color();
 function sandColor(mul = 0.55) { return tmpColor.copy(sky.sand).lerp(sky.glowColor, 0.25).multiplyScalar(mul); }
 
 function sandSpray(dt) {
-  sandAcc += player.speed * dt * 2.6;
+  sandAcc += player.speed * dt * 2.6 * quality.particles;
   while (sandAcc > 1) {
     sandAcc -= 1;
     dust.spawn(
@@ -2583,13 +2678,14 @@ function sandSpray(dt) {
   }
 }
 function landingBurst(k = 1) {
-  const n = Math.round(22 * k);
+  const n = fx.burst(22 * k);
   for (let i = 0; i < n; i++) {
     dust.spawn(player.x + rr(-1.1, 1.1), player.y - 0.1, ENT_Z - rr(0, 1.4),
       rr(-7, 3), rr(2, 10), rr(0.35, 1.0), rr(0.5, 1.1), sandColor(0.85), 9);
   }
 }
 function sparkBurst(x, y, color, n = 14) {
+  n = fx.burst(n);
   for (let i = 0; i < n; i++) {
     const a = rr(0, TAU), v = rr(2, 9);
     dust.spawn(x, y, ENT_Z + rr(-0.4, 0.6), Math.cos(a) * v, Math.sin(a) * v,
@@ -2612,6 +2708,8 @@ function resetWorld(seed) {
   terrain.diff = 0; terrain.intense = 0; terrain.intro = 0;
   terrain.beaconPlaced = false;
   removeBeacon();
+  terrain.teach = [];
+  terrain.introList = onboardDone() ? INTRO : INTRO_LEARN;   // новачкам — довший вступ
 
   player.speed = CFG.SPEED_START * view.scale;
   pushSample(terrain.y, true);
@@ -2629,11 +2727,19 @@ function resetWorld(seed) {
   camY = player.y + view.visH * 0.1;
   sandAcc = 0; shake = 0; playTime = 0;
   input.bufferT = -1;
+  wobble = 0; trailT = 0; camImpact = 0;
+  player.airCoins = 0;
 }
 
 function startGame() {
   resetWorld((Math.random() * 1e9) | 0);
   state = GS.PLAY;
+  sound.unlock();
+  sound.play('start');
+  snapshotRun();
+  hideCoach();
+  PM.btn.classList.add('on');
+  SUI.goal.classList.remove('awake');
   input.down = false;                      // тап, що стартував гру, не рахуємо утриманням
   EL.start.classList.remove('on');
   EL.over.classList.remove('on');
@@ -2669,6 +2775,8 @@ function gameOver() {
   setTimeout(() => { if (state === GS.OVER) EL.over.classList.add('on'); }, 850);
   EL.hud.classList.remove('on');
   EL.zones.classList.remove('on');
+  PM.btn.classList.remove('on');
+  hideCoach();
 }
 
 function die(reason) {
@@ -2676,7 +2784,8 @@ function die(reason) {
   player.deathReason = reason;
   player.combo = 0;
   landingBurst();
-  shake = 0.55;
+  fx.shake(0.55);
+  feedback.fall();
   gameOver();
 }
 
@@ -2702,11 +2811,14 @@ function doJump() {
     player.score += 50;
     showTrick('Perfect jump', '+50', 'gold');
     sparkBurst(player.x, player.y + 0.4, sky.coin, 16);
-  }
+    feedback.perfectJump();
+    learn('perfectJump');
+  } else feedback.jump();
   player.vy = Math.min(vy, CFG.JUMP_VY_MAX);
   if (player.grounded) player.airTime = 0;
   player.grounded = false;
   player.jumped = true;
+  player.airCoins = 0;
   landingBurst(0.5);
 }
 
@@ -2724,7 +2836,8 @@ function queueFlip() {
                           оберт сам докручується до цілого.
    Клавіатура: пробіл/↑/← — стрибок, →/D/Shift — стрибок з обертом. */
 function onPress(side) {
-  if (journalOpen) return;
+  if (journalOpen || paused || menuOpen()) return;
+  sound.unlock();                          // перший жест розблоковує Web Audio
   input.down = true;
   input.side = side;
   input.pressT = time;
@@ -2735,9 +2848,11 @@ function onPress(side) {
   const coyote = !player.grounded && !player.jumped && time - player.leftGroundT < CFG.COYOTE;
   if (player.grounded || coyote) {
     doJump();
-    if (side === 'R') queueFlip();
+    learn('jump');
+    if (side === 'R') { queueFlip(); learn('flip'); }
   } else if (side === 'R') {
     queueFlip();
+    learn('flip');
   } else {
     input.bufferT = time;                    // стрибнемо, щойно торкнемось піску
   }
@@ -2810,8 +2925,13 @@ function land(h) {
 
   if (air > 0.18) {
     landingBurst(perfect ? 1.3 : 1);
-    shake = Math.min(0.25, 0.04 + air * 0.1);
+    if (air > 0.9) fx.shake(Math.min(0.18, 0.02 + air * 0.08));   // лише великі польоти, без зайвої тряски
   }
+  // впізнаваний «підпис» кожної оцінки: форма пилу, рух дошки, звук, вібрація
+  if (flips >= 1 || air > 0.5) feedback.land(perfect ? 'perfect' : sketchy ? 'sketchy' : 'clean', air);
+  else if (air > 0.18) feedback.land('clean', air);
+  const comboBefore = player.combo;
+  player.airCoins = 0;
 
   if (flips >= 1) {
     player.combo = sketchy ? 1 : Math.min(player.combo + 1, 9);
@@ -2832,8 +2952,7 @@ function land(h) {
       showTrick('Perfect', name + '  +' + pts, 'gold');
       sparkBurst(player.x, player.y + 1.0, sky.coin, 30);
     } else if (sketchy) {
-      player.momentum *= 0.6;
-      showTrick('Sketchy', name + '  +' + pts, 'dim');
+      player.momentum *= 0.6;            // без попапу: про невдачу кажуть пил, похитування й звук
     } else {
       gainSpeed(1.8 * flips);
       showTrick('Clean', name + '  +' + pts);
@@ -2849,13 +2968,14 @@ function land(h) {
     } else if (sketchy) {
       player.momentum *= 0.6;
       player.combo = 0;
-      showTrick('Sketchy', 'speed lost', 'dim');
     } else if (air > 0.9) {
       const pts = Math.floor(air * 45);
       player.score += pts;
       showTrick('Air', '+' + pts);
     }
   }
+
+  if (player.combo > comboBefore) feedback.combo(player.combo);
 
   player.flip = 0;
   player.flipTarget = 0;
@@ -2912,6 +3032,7 @@ function updatePhysics(dt) {
       player.airTime = 0;
       player.jumped = false;
       player.leftGroundT = time;
+      player.airCoins = 0;
     } else {
       player.y = yGround;
       player.vy = slopeAt(player.x) * vx;
@@ -2920,6 +3041,7 @@ function updatePhysics(dt) {
     // утримання крутить; після відпускання оберт докручується до цілого
     const spinHeld = input.down && time - input.pressT > CFG.HOLD_DELAY;
     if (spinHeld) {
+      learn('hold');
       player.flip += CFG.FLIP_SPEED * dt;
       player.flipTarget = Math.max(player.flipTarget, Math.ceil(player.flip / TAU - 1e-4) * TAU);
     } else if (player.flip < player.flipTarget) {
@@ -2965,6 +3087,8 @@ function updatePhysics(dt) {
       player.coins++;
       player.score += 25;
       storyEvent('shards');
+      feedback.crystal();
+      if (!player.grounded && ++player.airCoins >= 2) learn('arc');
       sparkBurst(c.x, c.y, sky.coin, 12);
     }
   }
@@ -2990,7 +3114,10 @@ function updatePhysics(dt) {
 
   if (player.grounded) sandSpray(dt);
   // світний шлейф під час прискорення
-  if ((player.boost > 0 && rnd() < 0.8) || (gifts.sun && rnd() < 0.45)) {
+  if (trailT > 0) trailT -= dt;
+  // шлейф: ривок, Perfect jump, фінальне сонце, а з комбо — тим густіший, чим довша серія
+  const comboTrail = player.combo >= 2 ? Math.min(0.5, 0.1 * player.combo) : 0;
+  if ((player.boost > 0 && rnd() < 0.8) || (trailT > 0 && rnd() < 0.85) || (gifts.sun && rnd() < 0.45) || rnd() < comboTrail * quality.particles) {
     dust.spawn(player.x - 0.6, player.y + rr(0.4, 1.4), ENT_Z - 0.2,
       -rr(1, 3), rr(-0.5, 0.5), rr(0.18, 0.4), rr(0.4, 0.8), tmpColor.copy(sky.coin).multiplyScalar(0.6), 0);
   }
@@ -3027,7 +3154,7 @@ function updatePlayerVisual(dt) {
   riderMat.color.copy(sky.rider);
   player.obj.visible = state !== GS.START;
   player.obj.position.set(player.x, player.y + ENT_SURF, ENT_Z);
-  player.obj.rotation.z = player.angle + player.flip;
+  player.obj.rotation.z = player.angle + player.flip + Math.sin(time * 26) * wobble * 0.22;
 
   // шарф розвівається тим сильніше, чим швидше летимо
   const sc = player.obj.userData.scarf;
@@ -3067,15 +3194,653 @@ function updateUI(dt) {
   uiAcc += dt;
   if (uiAcc < 0.08) return;
   uiAcc = 0;
-  EL.score.textContent = Math.floor(player.score).toLocaleString('en-US');
-  EL.coins.textContent = '✦ ' + player.coins;
-  EL.speed.textContent = Math.round(player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1) / view.scale * 3.2) + ' km/h';
-  EL.speed.classList.toggle('hot', player.momentum > 2 * view.scale || player.boost > 0);
-  EL.phase.textContent = sky.name;
-  EL.multi.textContent = player.combo > 1 ? 'combo ×' + player.combo : 'score';
-  renderHudGoal();
-  SUI.goal.classList.toggle('on', state === GS.PLAY && playTime > 6.5);
+  // пишемо в DOM лише змінене — менше перерахунків верстки на мобільних
+  setText(EL.score, Math.floor(player.score).toLocaleString('en-US'));
+  setText(EL.coins, '✦ ' + player.coins);
+  setText(EL.speed, Math.round(player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1) / view.scale * 3.2) + ' km/h');
+  setClass(EL.speed, 'hot', player.momentum > 2 * view.scale || player.boost > 0);
+  setText(EL.phase, sky.name);
+  setText(EL.multi, player.combo > 1 ? 'combo ×' + player.combo : 'score');
+  setText(SUI.goal, goalSummary());
+  setClass(SUI.goal, 'on', state === GS.PLAY && playTime > 6.5);
 }
+
+/* ==================================================================
+   14. ПОЛІРУВАННЯ: налаштування, комфорт, звук, пауза, якість,
+       відгук трюків, прогрес маяків, онбординг.
+   Модуль стоїть перед головним циклом, тож уся гра вже ініціалізована.
+   ================================================================== */
+
+/* --- 14.1 Налаштування (окремий ключ, прогрес не зачіпається) ------- */
+const SETTINGS_KEY = 'duneDrift.settings';
+const SETTINGS_DEFAULT = {
+  sound: true, ambience: true, volume: 0.8, sfxVolume: 0.9, ambienceVolume: 0.7,
+  haptics: true, reduceMotion: false, grain: true,
+};
+const settings = Object.assign({}, SETTINGS_DEFAULT);
+(function loadSettings() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); } catch (e) { raw = null; }
+  if (raw && typeof raw === 'object') {
+    for (const k in SETTINGS_DEFAULT) if (typeof raw[k] === typeof SETTINGS_DEFAULT[k]) settings[k] = raw[k];
+  } else {
+    // перший запуск: поважаємо системне «зменшити рух»
+    try { settings.reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+  }
+})();
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+
+/* --- 14.2 Якість рендеру: адаптація під реальний FPS ---------------- */
+const BASE_PR = renderer.getPixelRatio();
+const quality = { level: 0, motes: 1, particles: 1, bloomB: true, scale: 1, locked: false };
+const perf = { ema: 16.7, bad: 0, good: 0 };
+
+/** Рівні деградації в порядку: далекі частинки → дрібні частинки → bloom → роздільність. */
+function setQuality(level) {
+  quality.level = clamp(level, 0, 4);
+  quality.motes = quality.level >= 1 ? 0.45 : 1;
+  quality.particles = quality.level >= 2 ? 0.55 : 1;
+  quality.bloomB = quality.level < 3;
+  const scale = quality.level >= 4 ? 0.75 : 1;
+  motes.points.geometry.setDrawRange(0, Math.ceil(motes.max * quality.motes));
+  lanterns.points.geometry.setDrawRange(0, Math.ceil(lanterns.n * quality.motes));
+  if (scale !== quality.scale) {
+    quality.scale = scale;
+    renderer.setPixelRatio(BASE_PR * scale);
+    onResize();
+  }
+}
+/** Внутрішній монітор кадру (гравцю не показується). */
+function perfSample(rawDt) {
+  if (quality.locked || paused || document.hidden || rawDt > 0.25 || rawDt <= 0) return;
+  perf.ema += (rawDt * 1000 - perf.ema) * 0.05;
+  if (perf.ema > 21) { perf.bad += rawDt; perf.good = 0; }
+  else if (perf.ema < 15.5) { perf.good += rawDt; perf.bad = 0; }
+  else { perf.bad = Math.max(0, perf.bad - rawDt); perf.good = Math.max(0, perf.good - rawDt); }
+  if (perf.bad > 2.5 && quality.level < 4) { setQuality(quality.level + 1); perf.bad = 0; perf.ema = 17; }
+  else if (perf.good > 9 && quality.level > 0) { setQuality(quality.level - 1); perf.good = 0; }
+}
+
+/* --- 14.3 Комфорт: один вхід для всіх відчутних ефектів ------------ */
+let camImpact = 0;           // короткий «присід» камери при ідеальному приземленні
+let wobble = 0;              // похитування дошки після невдалої посадки
+let trailT = 0;              // короткий світний шлейф після Perfect jump
+const fx = {
+  shake(v) { if (!settings.reduceMotion) shake = Math.max(shake, v); },
+  flash(v) { flashV = Math.max(flashV, v * (settings.reduceMotion ? 0.25 : 1)); },
+  impact(v) { if (!settings.reduceMotion) camImpact = Math.min(0.6, camImpact + v); },
+  burst(n) { return Math.max(1, Math.round(n * quality.particles * (settings.reduceMotion ? 0.5 : 1))); },
+  haptic(pattern) {
+    if (!settings.haptics || !canVibrate) return;
+    try { navigator.vibrate(pattern); } catch (e) {}
+  },
+};
+
+/* --- 14.4 Звук: лише Web Audio API, усе синтезується --------------- */
+class SoundSystem {
+  constructor() {
+    this.Ctor = window.AudioContext || window.webkitAudioContext;
+    this.ok = !!this.Ctor;
+    this.ctx = null;
+    this.dim = 1;                // приглушення під час паузи
+    this.crystalStep = 0; this.crystalT = -9;
+    this.chirpT = 3;
+  }
+  /** Створюємо або будимо контекст — тільки з обробника жесту користувача. */
+  unlock() {
+    if (!this.ok || !settings.sound) return;
+    if (!this.ctx) this.build();
+    if (this.ctx && this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume().catch(() => {});
+  }
+  build() {
+    try { this.ctx = new this.Ctor(); } catch (e) { this.ok = false; this.ctx = null; return; }
+    const c = this.ctx;
+    this.master = c.createGain(); this.master.gain.value = 0; this.master.connect(c.destination);
+    this.sfx = c.createGain(); this.sfx.connect(this.master);
+    this.amb = c.createGain(); this.amb.gain.value = 0; this.amb.connect(this.master);
+
+    // м'яке відлуння для дзвіночків: простір пустелі
+    this.send = c.createGain(); this.send.gain.value = 1;
+    const delay = c.createDelay(1.0); delay.delayTime.value = 0.27;
+    const fb = c.createGain(); fb.gain.value = 0.34;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+    this.send.connect(delay); delay.connect(lp); lp.connect(fb); fb.connect(delay); lp.connect(this.sfx);
+
+    // спільний буфер «рожевого» шуму
+    const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0527;
+      d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2;
+    }
+    this.noise = buf;
+
+    // атмосфера: вітер, шурхіт піску, тихий гул пустелі
+    const loop = () => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; s.start(0, Math.random() * 2); return s; };
+    this.windF = c.createBiquadFilter(); this.windF.type = 'bandpass'; this.windF.frequency.value = 500; this.windF.Q.value = 0.8;
+    this.windG = c.createGain(); this.windG.gain.value = 0;
+    loop().connect(this.windF); this.windF.connect(this.windG); this.windG.connect(this.amb);
+
+    this.sandF = c.createBiquadFilter(); this.sandF.type = 'highpass'; this.sandF.frequency.value = 2600;
+    this.sandG = c.createGain(); this.sandG.gain.value = 0;
+    loop().connect(this.sandF); this.sandF.connect(this.sandG); this.sandG.connect(this.amb);
+
+    this.padF = c.createBiquadFilter(); this.padF.type = 'lowpass'; this.padF.frequency.value = 700;
+    this.padG = c.createGain(); this.padG.gain.value = 0;
+    this.padF.connect(this.padG); this.padG.connect(this.amb);
+    this.pad = [110, 164.81, 246.94].map((f, i) => {
+      const o = c.createOscillator(); o.type = i === 2 ? 'triangle' : 'sine'; o.frequency.value = f;
+      o.detune.value = (i - 1) * 4;
+      const g = c.createGain(); g.gain.value = i === 2 ? 0.25 : 0.5;
+      o.connect(g); g.connect(this.padF); o.start();
+      return o;
+    });
+    this.applyVolumes(0.05);
+  }
+  /** Застосовує гучності; вимкнений звук повністю зупиняє обробку (suspend). */
+  applyVolumes(ramp = 0.25) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.setTargetAtTime(settings.sound ? settings.volume * 0.9 : 0, t, ramp);
+    this.sfx.gain.setTargetAtTime(settings.sfxVolume, t, ramp);
+    this.amb.gain.setTargetAtTime(settings.ambience ? settings.ambienceVolume * this.dim : 0, t, ramp);
+    if (!settings.sound) { clearTimeout(this._susp); this._susp = setTimeout(() => { if (!settings.sound && this.ctx) this.ctx.suspend().catch(() => {}); }, 400); }
+    else if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume().catch(() => {});
+  }
+  setPaused(p) { this.dim = p ? 0.3 : 1; this.applyVolumes(0.3); }
+  background(hidden) {
+    if (!this.ctx) return;
+    if (hidden) this.ctx.suspend().catch(() => {});
+    else if (settings.sound) this.ctx.resume().catch(() => {});
+  }
+  get live() { return this.ctx && settings.sound && this.ctx.state === 'running'; }
+
+  /** Атмосфера стежить за грою: швидкість, політ, день/ніч. */
+  update(dt) {
+    if (!this.live) return;
+    const c = this.ctx, t = c.currentTime;
+    const playing = state === GS.PLAY && !paused && !player.dead;
+    const sp = clamp(player.speed / (24 * view.scale), 0, 1.4);
+    const air = playing && !player.grounded ? 1 : 0;
+    const wind = paused ? 0.02 : 0.05 + (playing ? 0.09 * sp : 0.02) + air * 0.07 + (gifts.wind ? 0.04 : 0);
+    this.windG.gain.setTargetAtTime(wind, t, 0.4);
+    this.windF.frequency.setTargetAtTime(380 + 700 * sp + air * 450 + 120 * Math.sin(time * 0.37), t, 0.5);
+    this.sandG.gain.setTargetAtTime(playing && player.grounded ? 0.025 + 0.06 * sp : 0, t, 0.08);
+    this.sandF.frequency.setTargetAtTime(2200 + 1800 * sp, t, 0.2);
+    const night = clamp(sky.starI, 0, 1);
+    this.padG.gain.setTargetAtTime(0.05, t, 1.5);
+    this.padF.frequency.setTargetAtTime(lerp(820, 360, night), t, 2);
+    this.pad[2].detune.setTargetAtTime(night > 0.5 ? -500 : 0, t, 3);        // уночі акорд м'якшає
+    // нічні цвіркуни/світлячки: рідкісні тихі сюрчання
+    if (!paused && night > 0.45 && settings.ambience) {
+      this.chirpT -= dt;
+      if (this.chirpT <= 0) { this.chirpT = rr(1.5, 5); this.chirp(); }
+    }
+  }
+
+  /* --- синтез-примітиви --- */
+  tone(f, t0, dur, { type = 'sine', gain = 0.1, attack = 0.006, glide = 0, echo = 0 } = {}) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t0);
+    if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(20, glide), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(this.sfx);
+    if (echo) { const s = c.createGain(); s.gain.value = echo; g.connect(s); s.connect(this.send); }
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  bell(f, t0, gain = 0.05, dur = 1.2) {
+    this.tone(f, t0, dur, { gain, attack: 0.004, echo: 0.55 });
+    this.tone(f * 2.01, t0, dur * 0.5, { gain: gain * 0.3, attack: 0.003, echo: 0.3 });
+  }
+  hush(t0, dur, { type = 'bandpass', f0 = 800, f1 = 0, q = 0.9, gain = 0.08 } = {}) {
+    const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = this.noise;
+    fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0);
+    if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.03, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(fl); fl.connect(g); g.connect(this.sfx);
+    s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
+  }
+  chirp() {
+    const t = this.ctx.currentTime, f = rr(3800, 5200);
+    for (let i = 0; i < 3; i++) this.tone(f, t + i * 0.07, 0.05, { gain: 0.006, attack: 0.004 });
+  }
+
+  /** Ігрові звуки: тихі, теплі, без аркадної різкості. */
+  play(name, arg = 0) {
+    if (!this.live) return;
+    const t = this.ctx.currentTime + 0.005;
+    const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+    const note = (base, step) => base * Math.pow(2, PENTA[Math.min(step, PENTA.length - 1)] / 12);
+    switch (name) {
+      case 'jump':
+        this.hush(t, 0.2, { f0: 520, f1: 1700, gain: 0.07 });
+        this.tone(150, t, 0.14, { gain: 0.04, glide: 95 });
+        break;
+      case 'perfectJump':
+        this.play('jump');
+        this.bell(1046.5, t + 0.02, 0.045);
+        this.bell(1568, t + 0.09, 0.035);
+        break;
+      case 'landClean':
+        this.tone(95, t, 0.2, { gain: 0.07, glide: 55 });
+        this.hush(t, 0.26, { type: 'lowpass', f0: 900, f1: 300, gain: 0.06 });
+        break;
+      case 'landPerfect':
+        this.play('landClean');
+        [784, 987.8, 1174.7].forEach((f, i) => this.bell(f, t + 0.04 + i * 0.06, 0.04));
+        break;
+      case 'sketchy':
+        this.tone(72, t, 0.24, { type: 'triangle', gain: 0.06, glide: 44 });
+        this.hush(t, 0.34, { type: 'lowpass', f0: 650, f1: 180, q: 1.4, gain: 0.09 });
+        break;
+      case 'crystal': {
+        if (time - this.crystalT > 1.1) this.crystalStep = 0;
+        this.crystalT = time;
+        this.bell(note(659.3, this.crystalStep++), t, 0.032, 0.9);
+        break;
+      }
+      case 'combo':
+        this.bell(note(523.25, Math.min(arg, 8)), t, 0.03, 0.8);
+        this.bell(note(523.25, Math.min(arg + 2, 10)), t + 0.08, 0.025, 0.8);
+        break;
+      case 'goal':
+        this.bell(880, t, 0.035); this.bell(1318.5, t + 0.12, 0.03);
+        break;
+      case 'awake':
+        [659.3, 880, 1108.7, 1318.5].forEach((f, i) => this.bell(f, t + i * 0.14, 0.035, 1.6));
+        break;
+      case 'beacon':
+        [220, 329.6, 440, 554.4, 659.3].forEach((f, i) => {
+          this.tone(f, t + i * 0.05, 4.2, { gain: 0.035, attack: 1.1, echo: 0.4 });
+        });
+        [1318.5, 1760, 2217.5].forEach((f, i) => this.bell(f, t + 0.6 + i * 0.22, 0.025, 2));
+        break;
+      case 'fall':
+        this.tone(230, t, 0.9, { gain: 0.05, glide: 70 });
+        this.hush(t, 0.8, { type: 'lowpass', f0: 1400, f1: 180, gain: 0.07 });
+        break;
+      case 'start':
+        this.bell(523.25, t, 0.03); this.bell(783.99, t + 0.1, 0.025);
+        break;
+      case 'ui':
+        this.tone(880, t, 0.05, { gain: 0.025, attack: 0.002 });
+        break;
+      case 'pause':
+        this.tone(659.3, t, 0.12, { gain: 0.03 }); this.tone(440, t + 0.09, 0.16, { gain: 0.03 });
+        break;
+      case 'resume':
+        this.tone(440, t, 0.12, { gain: 0.03 }); this.tone(659.3, t + 0.09, 0.16, { gain: 0.03 });
+        break;
+    }
+  }
+}
+const sound = new SoundSystem();
+
+/* --- 14.5 Пауза й налаштування ---------------------------------------- */
+let paused = false;
+let menuMode = 'pause';            // 'pause' — під час гри, 'settings' — зі стартового екрана
+const PM = {
+  btn: document.getElementById('pauseBtn'),
+  menu: document.getElementById('pauseMenu'),
+  title: document.querySelector('#pauseMenu .pm-title'),
+  resume: document.querySelector('#pauseMenu [data-act="resume"]'),
+  restart: document.querySelector('#pauseMenu [data-act="restart"]'),
+  reset: document.querySelector('#pauseMenu [data-act="reset"]'),
+  volume: document.querySelector('#pauseMenu [data-range="volume"]'),
+};
+const menuOpen = () => PM.menu.classList.contains('on');
+const canPause = () => state === GS.PLAY && !player.dead;
+
+function setPaused(p, silent = false) {
+  if (p === paused) return;
+  if (p && !canPause()) return;
+  paused = p;
+  if (p) { menuMode = 'pause'; openMenu(); }
+  else closeMenu();
+  sound.setPaused(p);
+  if (!silent) sound.play(p ? 'pause' : 'resume');
+  // після паузи — жодних «застряглих» утримань і жодного стрибка delta-time
+  pointers.clear(); keysHeld.clear(); refreshDown();
+  lastT = performance.now();
+}
+function renderMenu() {
+  PM.title.textContent = menuMode === 'pause' ? 'пауза' : 'налаштування';
+  PM.resume.textContent = menuMode === 'pause' ? 'продовжити' : 'закрити';
+  PM.restart.style.display = menuMode === 'pause' ? '' : 'none';
+  PM.menu.querySelectorAll('[data-set]').forEach(b => {
+    const k = b.dataset.set;
+    const unsupported = k === 'haptics' && !canVibrate;
+    b.querySelector('b').textContent = unsupported ? 'н/д' : (settings[k] ? 'увімк.' : 'вимк.');
+    b.classList.toggle('off', !settings[k] || unsupported);
+    b.disabled = unsupported;
+  });
+  PM.volume.value = settings.volume;
+  disarmReset();
+}
+function openMenu() { renderMenu(); PM.menu.classList.add('on'); }
+function closeMenu() { PM.menu.classList.remove('on'); }
+
+function applySettings() {
+  compMat.uniforms.uGrain.value = settings.grain ? 1 : 0;
+  sound.applyVolumes();
+  saveSettings();
+}
+
+/* Захист від випадкового скидання: два натискання з паузою між ними. */
+let resetArmedAt = 0, resetTimer = null;
+function disarmReset() {
+  resetArmedAt = 0; clearTimeout(resetTimer);
+  PM.reset.textContent = 'скинути прогрес';
+  PM.reset.classList.remove('armed');
+}
+function resetAllProgress() {
+  story = { chapter: 0, pending: false, complete: false, seenPrologue: true, prog: freshProgress() };
+  saveStory();
+  best = 0;
+  try { localStorage.setItem('duneDriftBest', '0'); } catch (e) {}
+  for (const k in onboard) onboard[k] = false;
+  saveOnboard();
+  applyGifts();
+  renderChapterCard();
+  renderOverGoals();
+  toast('Прогрес скинуто');
+}
+
+/** UI-кнопки: власний обробник, щоб тап по меню не став ігровим стрибком. */
+function uiButton(el, fn) {
+  el.addEventListener('pointerdown', e => { e.stopPropagation(); });
+  el.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    sound.unlock();
+    sound.play('ui');
+    fn(e);
+  });
+}
+uiButton(PM.btn, () => setPaused(true));
+uiButton(PM.resume, () => { if (menuMode === 'pause') setPaused(false); else closeMenu(); });
+uiButton(PM.restart, () => { setPaused(false, true); startGame(); });
+PM.menu.querySelectorAll('[data-set]').forEach(b => uiButton(b, () => {
+  const k = b.dataset.set;
+  settings[k] = !settings[k];
+  if (k === 'sound' && settings.sound) sound.unlock();
+  if (k === 'haptics' && settings.haptics) fx.haptic(15);
+  applySettings();
+  renderMenu();
+}));
+PM.volume.addEventListener('pointerdown', e => e.stopPropagation());
+PM.volume.addEventListener('input', () => { settings.volume = parseFloat(PM.volume.value) || 0; applySettings(); });
+uiButton(PM.reset, () => {
+  const now = performance.now();
+  if (!resetArmedAt) {
+    resetArmedAt = now;
+    PM.reset.textContent = 'точно? торкнись ще раз';
+    PM.reset.classList.add('armed');
+    resetTimer = setTimeout(disarmReset, 3500);
+    return;
+  }
+  if (now - resetArmedAt < 450) return;      // подвійний тап не рахується підтвердженням
+  disarmReset();
+  resetAllProgress();
+});
+document.querySelectorAll('[data-settings]').forEach(b => uiButton(b, () => { menuMode = 'settings'; openMenu(); }));
+
+/* Клавіатура: Esc / P — пауза; Esc також закриває журнал і меню. */
+window.addEventListener('keydown', e => {
+  if (e.code !== 'Escape' && e.code !== 'KeyP') return;
+  if (journalOpen) { if (e.code === 'Escape') closeJournal(); return; }
+  if (menuOpen() && menuMode === 'settings') { closeMenu(); return; }
+  if (state === GS.PLAY) setPaused(!paused);
+});
+
+/* Життєвий цикл сторінки: згорнули вкладку — пауза, повернулись — без ривка. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (canPause()) setPaused(true, true);
+    sound.background(true);
+  } else {
+    lastT = performance.now();
+    sound.background(false);
+  }
+});
+
+/* Додатковий захист жестів браузера на мобільних. */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+/* --- 14.6 Відгук трюків ---------------------------------------------- */
+/** Кільце пилу, що розбігається по піску в обидва боки — «підпис» ідеального приземлення. */
+function dustRing() {
+  const n = fx.burst(26);
+  for (let i = 0; i < n; i++) {
+    const dir = i % 2 ? 1 : -1;
+    dust.spawn(player.x + dir * rr(0.2, 0.8), player.y - 0.05, ENT_Z - rr(0, 1.2),
+      dir * rr(5, 13), rr(0.4, 2.4), rr(0.35, 0.75), rr(0.55, 0.95), sandColor(0.9), 2);
+  }
+}
+/** Важкий пил убік і назад — «підпис» невдалої посадки. */
+function sideDust() {
+  const n = fx.burst(14);
+  for (let i = 0; i < n; i++) {
+    dust.spawn(player.x - rr(0, 1), player.y, ENT_Z - rr(0, 1),
+      -rr(2, 7), rr(1, 4), rr(0.4, 0.9), rr(0.4, 0.8), sandColor(0.5), 10);
+  }
+}
+const feedback = {
+  jump()        { sound.play('jump'); },
+  perfectJump() {
+    fx.flash(0.1); trailT = settings.reduceMotion ? 0.3 : 0.7;
+    sound.play('perfectJump'); fx.haptic(12);
+  },
+  land(kind, air) {
+    if (kind === 'perfect') {
+      dustRing(); fx.impact(0.32); fx.flash(0.07);
+      sound.play('landPerfect'); fx.haptic([8, 40, 12]);
+    } else if (kind === 'sketchy') {
+      sideDust(); wobble = settings.reduceMotion ? 0.25 : 0.6;
+      sound.play('sketchy'); fx.haptic(28);
+    } else if (air > 0.18) {
+      sound.play('landClean');
+    }
+  },
+  combo(level) { if (level >= 2) sound.play('combo', level); },
+  crystal()     { sound.play('crystal'); },
+  fall()        { sound.play('fall'); fx.haptic([30, 60, 30]); },
+};
+
+/* --- 14.7 Прогрес маяків між заїздами -------------------------------- */
+let runStart = { chapter: 0, prog: freshProgress() };
+function snapshotRun() { runStart = { chapter: story.chapter, prog: Object.assign({}, story.prog) }; }
+
+function onGoalDone() { sound.play('goal'); fx.haptic(10); }
+function onBeaconAwake() {
+  sound.play('awake'); fx.flash(0.06); fx.haptic([10, 50, 10]);
+  SUI.goal.classList.add('awake');
+}
+
+const GOAL_NEXT = {
+  shards:  r => `ще ${r} ${plural(r, 'уламок', 'уламки', 'уламків')} світла`,
+  flips:   r => `ще ${r} ${plural(r, 'бекфліп', 'бекфліпи', 'бекфліпів')}`,
+  perfect: r => `ще ${r} ${plural(r, 'ідеальне приземлення', 'ідеальні приземлення', 'ідеальних приземлень')}`,
+  double:  r => `подвійне сальто — тримай праворуч або тапни двічі`,
+  combo:   (r, g) => `комбо ×${g.n} в одному заїзді`,
+  dist:    (r, g) => `проїдь ${g.n} м за один заїзд`,
+};
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+/** «Що робити далі»: найменш виконана мета глави. */
+function nextStepText() {
+  const ch = currentChapter();
+  if (!ch) return 'Сім маяків горять. Їдь заради радості.';
+  if (story.pending) return 'Маяк прокинувся — він з\'явиться на трасі вже в наступному заїзді.';
+  let pickG = null, pickR = 2;
+  for (const g of ch.goals) {
+    if (goalDone(g)) continue;
+    const r = Math.min(story.prog[g.type] || 0, g.n) / g.n;
+    if (r < pickR) { pickR = r; pickG = g; }
+  }
+  if (!pickG) return '';
+  const left = Math.max(0, Math.ceil(pickG.n - (story.prog[pickG.type] || 0)));
+  return 'Далі: ' + GOAL_NEXT[pickG.type](left, pickG);
+}
+function goalRowsRich(ch, withDelta) {
+  return ch.goals.map(g => {
+    const v = Math.min(story.prog[g.type] || 0, g.n), done = goalDone(g);
+    const cumulative = g.type !== 'dist' && g.type !== 'combo';
+    const delta = withDelta && runStart.chapter === story.chapter && cumulative
+      ? Math.floor((story.prog[g.type] || 0) - (runStart.prog[g.type] || 0)) : 0;
+    const pct = Math.round(v / g.n * 100);
+    return `<div class="grow${done ? ' done' : ''}"><span>${done ? '✓ ' : ''}${GOAL_LABEL[g.type](g)}</span>` +
+           `<b>${delta > 0 ? `<small>+${delta}</small> ` : ''}${Math.floor(v)} / ${g.n}</b>` +
+           `<i><em style="width:${pct}%"></em></i></div>`;
+  }).join('');
+}
+/** Підсумок заїзду: що вдалося, який маяк, що далі. */
+function runSummaryLine() {
+  const parts = [];
+  if (story.chapter > runStart.chapter) parts.push('маяк запалено');
+  if (player.coins) parts.push(`+${player.coins} ✦`);
+  if (player.tricks) parts.push(`${player.tricks} ${plural(player.tricks, 'оберт', 'оберти', 'обертів')}`);
+  if (player.perfects) parts.push(`${player.perfects} perfect`);
+  return parts.length ? 'За заїзд: ' + parts.join(' · ') : '';
+}
+/* Перевизначаємо картки прогресу з розділу 12 — дані ті самі, подача ясніша. */
+renderOverGoals = function () {
+  const ch = currentChapter();
+  const summary = runSummaryLine();
+  let html = summary ? `<div class="rsum">${summary}</div>` : '';
+  if (!ch) html += '<div class="cnote">сім маяків горять ✦</div>';
+  else {
+    html += `<div class="eyebrow">Маяк ${ROMAN[story.chapter]} з VII · ${ch.title}</div>` +
+            (story.pending ? '' : goalRowsRich(ch, true));
+  }
+  const next = nextStepText();
+  if (next) html += `<div class="cnext">${next}</div>`;
+  SUI.overGoals.innerHTML = html;
+};
+renderChapterCard = function () {
+  const first = !story.seenPrologue;
+  SUI.prologue.style.display = first ? '' : 'none';
+  SUI.chapterCard.style.display = first ? 'none' : '';
+  if (first) { SUI.prologue.innerHTML = PROLOGUE.map(l => `<p>${l}</p>`).join(''); return; }
+  const ch = currentChapter();
+  if (!ch) {
+    SUI.chapterCard.innerHTML = '<div class="eyebrow">Історію завершено</div><div class="ctitle">Вільна дорога</div>' +
+      '<div class="cnote">сім маяків горять ✦</div>';
+    return;
+  }
+  SUI.chapterCard.innerHTML =
+    `<div class="eyebrow">Глава ${ROMAN[story.chapter]} з VII</div><div class="ctitle">${ch.title}</div>` +
+    (story.pending ? '' : goalRowsRich(ch, false)) + `<div class="cnext">${nextStepText()}</div>`;
+};
+
+/* --- 14.8 Онбординг без туторіалу ------------------------------------ */
+const ONBOARD_KEY = 'duneDrift.onboarding';
+const onboard = { jump: false, flip: false, hold: false, perfectJump: false, arc: false };
+try {
+  const raw = JSON.parse(localStorage.getItem(ONBOARD_KEY) || 'null');
+  if (raw && typeof raw === 'object') for (const k in onboard) onboard[k] = !!raw[k];
+} catch (e) {}
+// той, хто вже запалював маяки, гру знає — не повчаємо
+if (story.chapter > 0) for (const k in onboard) onboard[k] = true;
+function saveOnboard() { try { localStorage.setItem(ONBOARD_KEY, JSON.stringify(onboard)); } catch (e) {} }
+const onboardDone = () => onboard.jump && onboard.flip && onboard.hold && onboard.perfectJump && onboard.arc;
+function learn(k) {
+  if (onboard[k]) return;
+  onboard[k] = true;
+  saveOnboard();
+  if (coach.kind && coach.kind.startsWith(k)) hideCoach();
+}
+
+/** Перший стрибок: дуга кристалів над рівним піском — небезпеки нема, є привід стрибнути. */
+function pieceJumpArc() {
+  const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;
+  pushSeg(rr(14, 18), terrain.y + rr(-0.4, 0.4));
+  const x0 = terrain.idx * CFG.DX;
+  pushSeg(32, terrain.y - 1);
+  const xs = x0 + 6, tUp = CFG.JUMP / CFG.GRAVITY;
+  placeCoinArc(xs, heightAt(xs) + CFG.RIDE_OFFSET, v, CFG.JUMP, 5, tUp * 0.4);
+  terrain.teach.push({ x: xs, kind: 'jump' });
+}
+const teachLip = kind => { const l = terrain.lips[terrain.lips.length - 1]; if (l) terrain.teach.push({ x: l.x, kind }); };
+const teachRock = kind => { const r = terrain.rocks[terrain.rocks.length - 1]; if (r) terrain.teach.push({ x: r.x - r.w, kind }); };
+
+/** Перші ~2 хвилини для новачка: кожен елемент з'являється тоді, коли його можна спробувати. */
+const INTRO_LEARN = [
+  () => pieceCruise(true),
+  () => pieceJumpArc(),                                  // 0–20 с: перший стрибок
+  () => pieceRollers(true),
+  () => pieceCruise(true),
+  () => { pieceKicker(false); teachLip('perfectJump'); },  // 20–45 с: очевидний трамплін
+  () => pieceRollers(false),
+  () => pieceCruise(false, false),
+  () => pieceRollers(true),
+  () => { pieceKicker(true, true); teachLip('arc'); },     // 45–75 с: проста прірва з дугою
+  () => pieceCruise(true),
+  () => pieceCruise(false, false),
+  () => { pieceObstacles(true); teachRock('flip'); },      // 75–120 с: перша перешкода й сальто
+  () => pieceRollers(true),
+];
+
+const COACH_TEXT = {
+  jump: 'Торкнись ліворуч — стрибок',
+  perfectJump: 'Стрибни на самому краю трампліна',
+  arc: 'Лети за кристалами',
+  flip: 'Торкнись праворуч — стрибок із сальто',
+  flipAir: 'Торкнись праворуч — сальто в повітрі',
+  hold: 'Утримуй, щоб крутитися',
+};
+const COACH_KEY = { flipAir: 'flip' };
+const coach = { el: document.getElementById('coach'), kind: null, since: 0, shown: {} };
+function showCoach(kind) {
+  if (coach.kind === kind) return;
+  coach.kind = kind; coach.since = time;
+  coach.shown[kind] = (coach.shown[kind] || 0) + 1;
+  coach.el.textContent = COACH_TEXT[kind];
+  coach.el.classList.add('on');
+}
+function hideCoach() { coach.kind = null; coach.el.classList.remove('on'); }
+
+function updateOnboarding() {
+  if (state !== GS.PLAY || onboardDone()) { if (coach.kind) hideCoach(); return; }
+  let want = null;
+  if (playTime > 6.5 && !player.dead) {
+    // підказки в польоті — лише коли ще є час щось зробити
+    if (!player.grounded && player.airTime > 0.06 && player.vy > 3 && player.flipTarget === 0) {
+      if (!onboard.flip) want = 'flipAir';
+      else if (!onboard.hold) want = 'hold';
+    }
+    if (!want) {
+      for (const t of terrain.teach) {
+        const d = t.x - player.x;
+        if (d > 0 && d < player.speed * 1.7 && !onboard[t.kind]) { want = t.kind; break; }
+      }
+    }
+    if (want && (coach.shown[want] || 0) >= 3 && coach.kind !== want) want = null;   // не набридаємо
+  }
+  if (want) showCoach(want);
+  else if (coach.kind && time - coach.since > 1.4) hideCoach();
+}
+
+/* --- 14.9 Дрібні оптимізації DOM ------------------------------------- */
+/** Пише в DOM лише тоді, коли значення справді змінилося. */
+function setText(el, v) { if (el._v !== v) { el._v = v; el.textContent = v; } }
+function setClass(el, cls, on) { const k = '_c_' + cls; if (el[k] !== on) { el[k] = on; el.classList.toggle(cls, on); } }
+
+applySettings();
+
+
+RESIZE_HOOKS.push(() => { if (paused) renderFrame(time); });   // меню паузи поверх живого кадру
 
 /* --- головний цикл ----------------------------------------------- */
 let lastT = performance.now();
@@ -3086,8 +3851,10 @@ function tick(now) {
   requestAnimationFrame(tick);
   let dt = (now - lastT) / 1000;
   lastT = now;
+  perfSample(dt);                      // внутрішній монітор кадру → адаптивна якість
   if (dt > 0.05) dt = 0.05;            // після згортання вкладки не «телепортуємось»
   if (dt <= 0) return;
+  if (paused) return;                  // пауза: світ завмирає, останній кадр лишається на екрані
   time += dt;
 
   updateDayCycle(dt);
@@ -3106,10 +3873,12 @@ function tick(now) {
   const camTargetY = player.y + view.visH * 0.12 + fallBias;
   camY += (camTargetY - camY) * (1 - Math.exp(-dt / CFG.CAM_LAG));
   if (shake > 0) shake = Math.max(0, shake - dt * 1.6);
-  const sh = shake * shake;
+  camImpact *= Math.exp(-dt * 7);
+  wobble *= Math.exp(-dt * 4);
+  const sh = shake * shake;            // тряска — візуальна, тож не чіпає ГПВЧ генерації траси
   camera.position.set(
-    player.x + camLead + rr(-sh, sh) * 0.6,
-    camY + rr(-sh, sh) * 0.9,
+    player.x + camLead + (Math.random() * 2 - 1) * sh * 0.6,
+    camY - camImpact + (Math.random() * 2 - 1) * sh * 0.9,
     CFG.CAM_Z,
   );
 
@@ -3128,6 +3897,8 @@ function tick(now) {
   motes.update(time, camera.position.x, camY, dt);
   meteors.update(dt, camera.position.x, camY);
   updateUI(dt);
+  updateOnboarding();
+  sound.update(dt);
 
   renderFrame(time);
 
