@@ -153,7 +153,8 @@ const DESIGN_W=390, MIN_ASPECT=1.77;   // 16:9 — the shortest phone shape (iPh
 let VS=1, OFFX=0, PW=0, PH=0;      // scale, side-bar width, portrait screen size (css px)
 function resize(){
   const vw=innerWidth,vh=innerHeight;
-  ROT=(vw>vh&&isPhone())?(scrAngle()===270?90:-90):0;
+  // phones only: a tablet held sideways keeps a portrait column in the middle instead
+  ROT=(vw>vh&&isPhone()&&Math.min(vw,vh)<600)?(scrAngle()===270?90:-90):0;
   DPR=Math.min(devicePixelRatio||1,DPR_CAP);
   PW=ROT?vh:vw; PH=ROT?vw:vh;
   const gw=Math.min(PW,PH/MIN_ASPECT);
@@ -177,6 +178,7 @@ function GY(e){return _py(e)/VS}
 const _amb=document.getElementById('amb'),_ambX=_amb&&_amb.getContext('2d');let _ambN=0;
 function drawAmbient(){if(!_ambX||OFFX<=0||(_ambN++%10))return;try{_ambX.drawImage(canvas,0,0,_amb.width,_amb.height)}catch(e){}}
 const SAFE={t:0,r:0,b:0,l:0};
+let SAFE_B0=0;   // the device's own bottom inset; SAFE.b adds the banner on top of it
 let _safeProbe=null;
 function readSafe(){
   try{
@@ -193,7 +195,7 @@ function readSafe(){
     if(ROT){const t=SAFE.t,r=SAFE.r,b=SAFE.b,l=SAFE.l;
       if(ROT===-90){SAFE.t=l;SAFE.b=r;SAFE.l=b;SAFE.r=t}else{SAFE.t=r;SAFE.b=l;SAFE.l=t;SAFE.r=b}}
     // insets are css px; the game counts in design units
-    SAFE.t/=VS;SAFE.b/=VS;SAFE.l=Math.max(0,SAFE.l-OFFX)/VS;SAFE.r=Math.max(0,SAFE.r-OFFX)/VS;
+    SAFE.t/=VS;SAFE.b/=VS;SAFE_B0=SAFE.b;SAFE.l=Math.max(0,SAFE.l-OFFX)/VS;SAFE.r=Math.max(0,SAFE.r-OFFX)/VS;
   }catch(e){}
 }
 addEventListener('resize',()=>{resize();readSafe()});resize();readSafe();
@@ -4798,6 +4800,7 @@ function updSpdLines(dt){
 // ========== GAME LOGIC ==========
 function startGame(){
   sfxClick();state=ST.PLAY;paused=false;
+  Ads.runStarted();   // counts runs for the between-runs ad
   seq=0;spd=GAME_SPD;visLane=1;lastIdx=-1;laneVel=0;camY=0;frogElev=0;
   alive=true;falling=false;fallT=0;dist=0;score=0;runCoins=0;levelWin=false;winT=0;runClear=null;
   runPerfects=0;runMaxCombo=0;runDiamonds=0;runFever=0;
@@ -10294,13 +10297,64 @@ function reviveKeyCost(n){let c=REV_ADS[Math.min(n,2)];for(let i=3;i<=n;i++)c=Ma
 function reviveAdCost(n){return n<REV_ADS.length?REV_ADS[n]:0}
 function keysHave(){return Prog.d?Prog.d.keys|0:0}
 let reviveN=0, adRun=null, reviveMsg='', reviveMsgT=0;
-// Rewarded-ad adapter: uses whichever portal SDK the page is hosted with,
-// and a timed placeholder while there is none (local builds, tests).
+// ========== ADS ==========
+// Three formats: rewarded (player chooses it for a reward), interstitial
+// (between runs, rare) and a bottom banner (menus only, never in a run).
+// Inside the Android / iOS app (Capacitor + @capacitor-community/admob) it is
+// real AdMob; on a web portal it uses that portal's SDK; with neither (local
+// file, tests) timed placeholders show where each ad would appear.
+// Before release: put your own ad unit ids below and set test:false.
+const AD_CFG={
+  test:true,                                    // Google test ads — keep true until the AdMob app is approved
+  android:{banner:'ca-app-pub-3940256099942544/9214589741',inter:'ca-app-pub-3940256099942544/1033173712',reward:'ca-app-pub-3940256099942544/5224354917'},
+  ios:    {banner:'ca-app-pub-3940256099942544/2435281174',inter:'ca-app-pub-3940256099942544/4411468910',reward:'ca-app-pub-3940256099942544/1712485313'},
+  inter:{firstRuns:3,everyRuns:3,minGapS:150,afterRewardS:90},   // new players see none; then at most every 3rd run, 2.5 min apart
+  bannerOn:true,
+  childDirected:false,                          // true if Play Console target audience includes children under 13
+  maxRating:'ParentalGuidance',                 // no mature ads in a cute game
+};
+const BANNER_STATES=new Set([ST.MENU,ST.LAB,ST.CHESTS,ST.MISSIONS,ST.WORLDS,ST.LOG,ST.ACH,ST.WARD,ST.STORE,ST.PROFILE,ST.SHOP,ST.SKINS]);
 const Ads={
-  ph:null,
+  ph:null,                 // placeholder ad on screen {t,dur,cb,kind}
+  busy:false,              // a real full-screen ad is up
+  rwReady:false, inReady:false,
+  banOn:false, banH:0, banWant:false, banLock:false,
+  lastInter:0, lastReward:0, runsSince:0,
+  am(){try{const C=window.Capacitor;return C&&C.isNativePlatform&&C.isNativePlatform()&&C.Plugins&&C.Plugins.AdMob||null}catch(e){return null}},
+  unit(k){let ios=false;try{ios=window.Capacitor.getPlatform()==='ios'}catch(e){}return (ios?AD_CFG.ios:AD_CFG.android)[k]},
+  // listeners that are dropped again once the ad is over
+  on(A,evs,fn,bag){for(const ev of evs){try{const h=A.addListener(ev,fn);bag.push(h)}catch(e){}}},
+  off(bag){for(const h of bag){Promise.resolve(h).then(x=>{try{x&&x.remove&&x.remove()}catch(e){}})}bag.length=0},
+  async init(){
+    const A=this.am();if(!A)return;
+    try{await A.initialize({initializeForTesting:AD_CFG.test,tagForChildDirectedTreatment:AD_CFG.childDirected,maxAdContentRating:AD_CFG.maxRating})}catch(e){}
+    try{if(window.Capacitor.getPlatform()==='ios')await A.requestTrackingAuthorization()}catch(e){}   // iOS: the ATT prompt
+    // EEA / UK consent form (Google UMP) — required there before personalised ads
+    try{const c=await A.requestConsentInfo();if(c&&c.isConsentFormAvailable&&c.status==='REQUIRED')await A.showConsentForm()}catch(e){}
+    try{A.addListener('bannerAdSizeChanged',sz=>{if(sz&&sz.height>0)this.banH=sz.height})}catch(e){}
+    this.preload('reward');this.preload('inter');
+  },
+  async preload(k){
+    const A=this.am();if(!A)return;
+    try{
+      if(k==='reward'&&!this.rwReady){await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test});this.rwReady=true}
+      if(k==='inter'&&!this.inReady){await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test});this.inReady=true}
+    }catch(e){}
+  },
+  // ---- rewarded: cb(true) only when the reward was earned
   rewarded(cb){
-    const done=ok=>{try{startMus()}catch(e){};cb(ok)};
+    const done=ok=>{this.busy=false;if(ok)this.lastReward=Date.now();try{startMus()}catch(e){};cb(ok)};
     try{stopMus()}catch(e){}
+    const A=this.am();
+    if(A){this.busy=true;const bag=[];let got=false,fin=false;
+      const end=ok=>{if(fin)return;fin=true;this.off(bag);this.rwReady=false;this.preload('reward');done(ok)};
+      this.on(A,['onRewardedVideoAdReward'],()=>{got=true},bag);
+      this.on(A,['onRewardedVideoAdDismissed','onRewardedVideoAdClosed'],()=>end(got),bag);
+      this.on(A,['onRewardedVideoAdFailedToShow','onRewardedVideoAdFailedToLoad'],()=>end(false),bag);
+      (async()=>{try{if(!this.rwReady)await A.prepareRewardVideoAd({adId:this.unit('reward'),isTesting:AD_CFG.test});
+        this.rwReady=false;const r=await A.showRewardVideoAd();if(r&&(r.amount!=null||r.type))got=true}catch(e){end(false)}})();
+      setTimeout(()=>end(got),180000);      // never leave the game locked behind a lost callback
+      return}
     try{
       const CG=window.CrazyGames&&window.CrazyGames.SDK;
       if(CG&&CG.ad){CG.ad.requestAd('rewarded',{adFinished:()=>done(true),adError:()=>done(false)});return}
@@ -10308,9 +10362,64 @@ const Ads={
       if(typeof window.adBreak==='function'){let ok=false;
         window.adBreak({type:'reward',name:'continue',beforeReward:show=>show(),adViewed:()=>{ok=true},adDismissed:()=>{},adBreakDone:()=>done(ok)});return}
     }catch(e){}
-    this.ph={t:0,dur:4,cb:done};
-  }
+    this.ph={t:0,dur:4,cb:done,kind:'reward'};
+  },
+  // ---- interstitial between runs: then() always runs, ad or not
+  interDue(){
+    const C=AD_CFG.inter,now=Date.now(),runs=(Prog.d&&Prog.d.stats&&Prog.d.stats.runs)|0;
+    if(runs<=C.firstRuns)return false;
+    if(this.runsSince<C.everyRuns)return false;
+    if(now-this.lastInter<C.minGapS*1000)return false;
+    if(now-this.lastReward<C.afterRewardS*1000)return false;   // they just watched one by choice
+    return true;
+  },
+  runStarted(){this.runsSince++},
+  maybeInter(then){
+    if(!this.interDue()){then();return}
+    this.runsSince=0;this.lastInter=Date.now();
+    const done=()=>{this.busy=false;try{startMus()}catch(e){};then()};
+    try{stopMus()}catch(e){}
+    const A=this.am();
+    if(A){this.busy=true;const bag=[];let fin=false;
+      const end=()=>{if(fin)return;fin=true;this.off(bag);this.inReady=false;this.preload('inter');done()};
+      this.on(A,['interstitialAdDismissed','onInterstitialAdDismissed','onInterstitialAdClosed','interstitialAdFailedToShow','interstitialAdFailedToLoad'],end,bag);
+      (async()=>{try{if(!this.inReady)await A.prepareInterstitial({adId:this.unit('inter'),isTesting:AD_CFG.test});
+        this.inReady=false;await A.showInterstitial()}catch(e){end()}})();
+      setTimeout(end,120000);
+      return}
+    try{
+      const CG=window.CrazyGames&&window.CrazyGames.SDK;
+      if(CG&&CG.ad){CG.ad.requestAd('midgame',{adFinished:done,adError:done});return}
+      if(window.PokiSDK&&window.PokiSDK.commercialBreak){window.PokiSDK.commercialBreak().then(done,done);return}
+      if(typeof window.adBreak==='function'){window.adBreak({type:'next',name:'run-over',adBreakDone:done});return}
+    }catch(e){}
+    this.ph={t:0,dur:2.5,cb:()=>done(),kind:'inter'};
+  },
+  // ---- banner: follows the screen, hidden in a run and under full-screen ads
+  bannerTick(){
+    const want=AD_CFG.bannerOn&&BANNER_STATES.has(state)&&!this.ph&&!this.busy&&!langPick&&!(typeof curGuide!=='undefined'&&curGuide);
+    const A=this.am();
+    if(!A){this.banOn=want;if(want&&!this.banH)this.banH=50;return}
+    if(want===this.banWant||this.banLock)return;
+    this.banWant=want;this.banLock=true;
+    (async()=>{try{
+      if(want){if(!this.banStarted){await A.showBanner({adId:this.unit('banner'),adSize:'ADAPTIVE_BANNER',position:'BOTTOM_CENTER',margin:0,isTesting:AD_CFG.test});this.banStarted=true;if(!this.banH)this.banH=56}
+               else await A.resumeBanner();this.banOn=true}
+      else{await A.hideBanner();this.banOn=false}
+    }catch(e){this.banOn=false}this.banLock=false})();
+  },
+  // design units the banner takes off the bottom of the screen
+  banUnits(){return this.banOn&&this.banH?this.banH/VS+6:0},
 };
+// placeholder banner strip where the real one will sit (no ad SDK present)
+function drawBannerPh(){
+  if(Ads.am()||!Ads.banOn)return;
+  const h=Ads.banH/VS, y=H-SAFE_B0-h;
+  ctx.save();ctx.fillStyle='rgba(8,12,28,.92)';ctx.fillRect(0,y,W,h+SAFE_B0);
+  ctx.strokeStyle='rgba(120,200,255,.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,y+.5);ctx.lineTo(W,y+.5);ctx.stroke();
+  ctx.fillStyle='rgba(200,225,255,.55)';ctx.font='800 11px Exo2,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('РЕКЛАМА',W/2,y+h/2);ctx.restore();ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
 function drawAdPlaceholder(dt){
   const P=Ads.ph;if(!P)return;
   P.t+=dt;
@@ -10318,14 +10427,14 @@ function drawAdPlaceholder(dt){
   ctx.fillStyle='rgba(2,4,12,.94)';ctx.fillRect(0,0,W,H);
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillStyle='#fff';ctx.font='900 22px Exo2,sans-serif';
-  ctx.fillText('📺 РЕКЛАМА'+(adRun?` ${adRun.done+1}/${adRun.need}`:''),W/2,H*.42);
+  ctx.fillText('📺 РЕКЛАМА'+(adRun&&P.kind!=='inter'?` ${adRun.done+1}/${adRun.need}`:''),W/2,H*.42);
   ctx.fillStyle=UI.dim;ctx.font='700 12px Exo2,sans-serif';
   ctx.fillText('тут буде справжня реклама',W/2,H*.42+28);
   drawBar(W/2-110,H*.42+52,220,8,P.t/P.dur,'#36E0FF','#9CFFE0');
   ctx.restore();ctx.textAlign='center';ctx.textBaseline='alphabetic';
   if(P.t>=P.dur){Ads.ph=null;P.cb(true)}
 }
-function adBusy(){return !!(adRun||Ads.ph)}
+function adBusy(){return !!(adRun||Ads.ph||Ads.busy)}
 function canRevive(){return !levelWin&&dist>20&&(reviveN<REV_ADS.length||keysHave()>=reviveKeyCost(reviveN))}
 function reviveWithAds(){
   if(adBusy()||!canRevive())return;
@@ -10624,12 +10733,12 @@ function overTap(x,y){
     if(lx>=b.x&&lx<=b.x+b.w&&ly>=b.y-4&&ly<=b.y+b.h+4){
       if(b.id==='reviveAd')reviveWithAds();
       else if(b.id==='reviveKey')reviveWithKeys();
-      else if(b.id==='again')startGame();
-      else if(b.id==='next'){const n=nextLevel();if(n)startLevel(n.w,n.l);else startGame()}
+      else if(b.id==='again')Ads.maybeInter(()=>startGame());
+      else if(b.id==='next'){const n=nextLevel();Ads.maybeInter(()=>{if(n)startLevel(n.w,n.l);else startGame()})}
       else if(b.id==='chests')openScreen(ST.CHESTS);
       else if(b.id==='lab')openScreen(ST.LAB);
       else if(b.id==='worlds')openScreen(ST.WORLDS);
-      else if(b.id==='menu'){sfxClick();state=ST.MENU}
+      else if(b.id==='menu'){sfxClick();Ads.maybeInter(()=>{state=ST.MENU})}
       return;
     }
   }
@@ -11860,6 +11969,7 @@ function loop(ts){
   try{
     ctx.clearRect(0,0,W,H);
     curRects={};
+    Ads.bannerTick();SAFE.b=SAFE_B0+Ads.banUnits();
     switch(state){
       case ST.MENU:drawMenu();break;
       case ST.PLAY:{if(!paused){if(hypeT>0)hypeT=Math.max(0,hypeT-dt);updateGame(dt)}drawGame();if(paused)drawPause();break}
@@ -11882,6 +11992,7 @@ function loop(ts){
     if(langPick)drawLangPick();
     if(uiRipples.length&&state!==ST.PLAY)drawUiRipples(dt);
     drawFlyFx(dt);
+    drawBannerPh();
     drawAdPlaceholder(dt);
     drawAmbient();
     if(transT>0){
@@ -11909,6 +12020,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 Prog.load();
 trBuild();
+Ads.init();
 initClouds();initBflies();initSideObjects();initAtmo();requestAnimationFrame(loop);
 </script>
 </body>
