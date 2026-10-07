@@ -36,11 +36,14 @@ Total sink is roughly 700k coins, about 5–6 hours for an average player.
 
 | Milestone | Novice | Average |
 |---|---|---|
-| First upgrade | after run 1 (~2 min) | after run 1 (~2 min) |
-| Pickup | ~11 min | ~41 min |
-| Moto | ~35 min | ~81 min |
-| Monster | ~82 min | ~167 min |
-| First vehicle fully upgraded | ~2.5 h | ~3.9 h |
+| First upgrade | after run 1 (~1–2 min) | after run 1 (~1–2 min) |
+| Pickup | ~8 min | ~16 min |
+| Moto | ~41 min | ~81 min |
+| Monster | ~72 min | ~2 h |
+| First vehicle fully upgraded | ~2 h | ~3 h |
+
+(After the arcade-gravity retune: cars are faster, so coins per minute rose a
+little; pacing is still inside the targets.)
 
 ## Checks
 

@@ -33,7 +33,7 @@ const EXE = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/c
           if (air && a > 0.35) { g = true; br = false; }
           // skilled players lean into jumps for flips
           const hgt = terrain.getY(car.bx) - car.by;
-          if (air && skill.flip && ST.air > 8 && hgt > 150 && Math.abs(ST.rot) < Math.PI * 1.7) { g = true; br = false; }
+          if (air && skill.flip && ST.air > 8 && hgt > 260 && Math.abs(ST.rot) < Math.PI * 1.7) { g = true; br = false; }
           if (air && skill.flip && Math.abs(ST.rot) >= Math.PI * 1.7) { g = false; br = a < -.3; }
         }
         car.step(terrain, g && car.fuel > 0, br); terrain.ensure(car.bx + 1500);

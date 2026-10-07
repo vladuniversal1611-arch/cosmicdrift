@@ -207,6 +207,8 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 .gobest.nb{font-size:15px;font-weight:900;color:#ffd600;letter-spacing:1px;animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{50%{transform:scale(1.08)}}
 .go-icon{font-size:40px;line-height:1}
+.gotip{font-size:11px;line-height:1.45;color:#bfe9ff;background:rgba(86,204,242,.1);border:1px solid rgba(86,204,242,.25);border-radius:10px;padding:8px 10px;text-align:center;width:100%}
+.gotip:empty{display:none}
 .goearn{width:100%;display:flex;flex-direction:column;gap:4px}
 .goearn .row{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.7);letter-spacing:1px}
 .goearn .row b{color:#ffe500}
@@ -368,6 +370,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
       <div class="gostat"><div class="goslbl">COINS</div><div class="gosval g" id="goCoins">0</div></div>
     </div>
     <div class="goearn" id="goEarn"></div>
+    <div class="gotip" id="goTip"></div>
     <div class="gobest" id="goBest"></div>
     <button class="gbtn btn-ad" id="btnGoAd" style="display:none">▶ WATCH AD · x2 COINS</button>
     <div class="gohr"></div>
@@ -516,27 +519,27 @@ const ENVS=[
   {id:'country',name:'COUNTRYSIDE',emoji:'🌄',locked:false,unlockM:0,
    sky:['#56CCF2','#a8e063'],gTop:'#4caf50',gMid:'#8b6914',gDeep:'#3d1f00',gLine:'#66bb6a',
    bg:['rgba(144,238,144,.5)','rgba(100,180,80,.4)','rgba(60,140,50,.35)'],
-   cloud:'rgba(255,255,255,.85)',gravity:.34,friction:.82,hillAmp:90,hillFreq:.0055,rough:.45,
+   cloud:'rgba(255,255,255,.85)',gravity:.14,friction:.82,hillAmp:90,hillFreq:.0055,rough:.45,
    treeFn:'treeGreen',mtn:'rgba(110,160,190,.38)',snow:true},
   {id:'mountain',name:'MOUNTAINS',emoji:'⛰',locked:true,unlockM:700,price:12000,
    sky:['#7EB8D4','#9DC4B0'],gTop:'#8d9b6a',gMid:'#5d6349',gDeep:'#2a2a2a',gLine:'#a3b472',
    bg:['rgba(160,160,180,.4)','rgba(120,130,150,.35)','rgba(80,100,120,.3)'],
-   cloud:'rgba(230,240,255,.7)',gravity:.34,friction:.76,hillAmp:150,hillFreq:.0042,rough:1.0,
+   cloud:'rgba(230,240,255,.7)',gravity:.14,friction:.76,hillAmp:150,hillFreq:.0042,rough:1.0,
    treeFn:'treePine',mtn:'rgba(90,100,130,.45)',snow:true},
   {id:'arctic',name:'ARCTIC',emoji:'❄',locked:true,unlockM:1400,price:30000,
    sky:['#BDD9F2','#E8F5FF'],gTop:'#e0f0ff',gMid:'#90c4e8',gDeep:'#3a6080',gLine:'#ffffff',
    bg:['rgba(200,230,255,.5)','rgba(160,200,240,.4)','rgba(120,170,220,.35)'],
-   cloud:'rgba(220,240,255,.9)',gravity:.34,friction:.58,hillAmp:120,hillFreq:.0048,rough:.75,
+   cloud:'rgba(220,240,255,.9)',gravity:.14,friction:.58,hillAmp:120,hillFreq:.0048,rough:.75,
    treeFn:'treeSnow',mtn:'rgba(150,185,220,.5)',snow:true},
   {id:'desert',name:'DESERT',emoji:'🏜',locked:true,unlockM:2200,price:55000,
    sky:['#FDB97D','#F9D976'],gTop:'#e2a84b',gMid:'#c47c1c',gDeep:'#7a3e00',gLine:'#f0c060',
    bg:['rgba(240,180,80,.4)','rgba(210,150,50,.35)','rgba(180,120,30,.3)'],
-   cloud:'rgba(255,220,150,.6)',gravity:.34,friction:.7,hillAmp:135,hillFreq:.006,rough:.65,
+   cloud:'rgba(255,220,150,.6)',gravity:.14,friction:.7,hillAmp:135,hillFreq:.006,rough:.65,
    treeFn:'cactus',mtn:'rgba(200,120,60,.32)'},
   {id:'moon',name:'MOON',emoji:'🌕',locked:true,unlockM:3200,price:90000,
    sky:['#000005','#0a0a18'],gTop:'#6b6b6b',gMid:'#3a3a3a',gDeep:'#111',gLine:'#888',
    bg:['rgba(100,100,130,.15)','rgba(70,70,100,.1)','rgba(40,40,70,.08)'],
-   cloud:'rgba(0,0,0,0)',gravity:.13,friction:.65,hillAmp:210,hillFreq:.0032,rough:1.3,
+   cloud:'rgba(0,0,0,0)',gravity:.06,friction:.65,hillAmp:210,hillFreq:.0032,rough:1.3,
    treeFn:'crater'},
 ];
 
@@ -557,7 +560,7 @@ const VEHICLES=[
   {id:'bike',  name:'MOTO',desc:'Fast, light and flips easily. For skilled riders.',   emoji:'🏍',price:25000,locked:true,
    bc:'#B71C1C',bc2:'#7F0000',rc:'#C62828',wc:'rgba(200,230,255,.6)',
    hub:'#bbb',tyr:'#111',rim:'#e0e0e0',
-   eng:.95,susp:.7,fuelMax:60,mass:.55,pitchK:.62,airK:1.25,comY:22,fuelUse:.75,wr:22,axF:30,axR:-28,cw:60,ch:18},
+   eng:.95,susp:.7,fuelMax:60,mass:.55,pitchK:.62,airK:1.5,comY:22,fuelUse:.75,wr:22,axF:30,axR:-28,cw:60,ch:18},
 ];
 
 const UPGRADES=[
@@ -657,15 +660,15 @@ class Terrain{
     if(x===0){for(let i=0;i<=8;i++)this.pts.push({x:i*SEG,y});x=8*SEG;}
     while(x<to){
       const prog=Math.min(1,x/15000);
-      const diff=Math.min(1.25,.55+x/9000);
+      const diff=Math.min(1.25,.28+x/8000);   // gentle first ~100 m, full difficulty by ~400 m
       const cap=.44+.24*prog;                        // max slope (tan): gentle early, steeper later
       const kind=r();
       const x0=x,y0=y;
-      if(x>900&&kind<.16+.08*prog&&y>base-200){
+      if(x>3000&&kind<.16+.08*prog&&y>base-200){
         // ── Kicker ramp with a long downhill landing (the jump in "hill climb" games)
-        const hR=50+r()*55*diff,sR=Math.min(.36+.18*prog+r()*.06,cap+.08),lenR=hR/sR;
-        const sL=.42+r()*.16,ease=170;
-        let lenL=240+r()*170;
+        const hR=70+r()*80*diff,sR=Math.min(.36+.18*prog+r()*.06,cap+.08),lenR=hR/sR;
+        const sL=.45+r()*.2,ease=200;
+        let lenL=380+r()*260;
         const topY=y-hR,maxEnd=base+220;
         lenL=Math.max(140,Math.min(lenL,(maxEnd-topY-sL*ease/2)/sL));
         const lipX=x+70+lenR;
@@ -678,7 +681,7 @@ class Terrain{
         const big=r()<.18;
         for(let j=0;j<6;j++){const dx=60+j*42;this.objs.push({t:'coin',x:lipX+dx,y:topY-40-dx*sR+dx*dx*.0024,col:false,v:big&&j===3?100:this._cv(r,x)});}
         this._fuel(x0,lipX+lenL*.6,topY+sL*lenL*.6-40);
-      }else if(x>500&&kind<.5){
+      }else if(x>1200&&kind<.5){
         // ── Bump: convex crest that launches the car at speed
         const L=220+r()*200;
         const A=Math.min((32+r()*(40+50*diff))*(.6+e.rough*.5),cap*L/Math.PI*.95);
@@ -693,7 +696,7 @@ class Terrain{
       }else{
         // ── Hill: smooth climb or descent
         const seg=SEG*(2+r()*2.4);
-        let dy=e.hillAmp*(.4+r()*.9)*(.55+e.rough*.6)*diff;
+        let dy=e.hillAmp*(.4+r()*.9)*(.55+e.rough*.6)*diff*Math.min(1,.35+x/3000);   // flat-ish first ~100 m
         dy=Math.min(dy,seg*cap/1.5);
         const drift=(y-base)/220;                   // pull back toward the baseline
         const dir=r()<.5+drift*.35?-1:1;
@@ -768,7 +771,9 @@ class Car{
     this.M=10*vd.mass;this.mw=1.1*vd.mass;this.Iw=.6*this.mw*this.wr*this.wr;
     const bw=vd.cw*1.1,bh=vd.ch*2.6;this.I=this.M*(bw*bw+bh*bh)/12*this.IK;
     // Suspension (loaded height = wr+10 below the body centre)
-    this.ks=.028*this.M*sM*vd.susp;
+    // Arcade gravity: grip and engine reaction are scaled so low gravity feels floaty, not slippery
+    this.gk=env.gravity/.34;
+    this.ks=.028*this.M*sM*vd.susp*Math.pow(this.gk,.35);   // a little softer and bouncier than "real"
     this.cs=2*(.55+upg.susp*.05)*Math.sqrt(this.ks*this.M*.5);   // suspension upgrades also add damping (calmer landings)
     const sag=(this.M*.5*env.gravity)/this.ks;
     this.srest=this.wr+10+sag;this.smin=this.wr*.55;this.smax=this.srest+10;
@@ -799,8 +804,8 @@ class Car{
     const tq=this.turboQ*this.turboQ*(3-2*this.turboQ),boost=1+this.turboL*.07*tq;
     const ok=this.fuel>0;
     const N=8,h=1/N,g=this.env.gravity;
-    const maxOm=(7.2+this.vd.eng*6)*this.spdUp*boost/this.wr;
-    const T=this.engP*this.vd.mass*this.wr*6.4*(1+(boost-1)*.25);
+    const maxOm=(8.6+this.vd.eng*7)*this.spdUp*boost/this.wr;
+    const T=this.engP*this.vd.mass*this.wr*6.4*(1+(boost-1)*.25)*Math.sqrt(this.gk);   // torque follows gravity so the car does not stand on its tail
     this.fG=this.rG=false;this._slip=0;
     for(let k=0;k<N;k++){
       // Gravity
@@ -821,9 +826,12 @@ class Car{
       // Engine reaction tilts the chassis only while a wheel is on the ground; in the
       // air the rotation comes from player input alone so flips stay predictable.
       const inAir=!this._gf&&!this._gr;
-      if(!inAir)this.bw-=(tr+tf)*this.vd.pitchK/this.I*h;
+      if(!inAir)this.bw-=(tr+tf)*this.vd.pitchK*this.gk/this.I*h;
       // Air control (gas tilts back, brake tilts forward)
-      if(inAir){const ac=.0042*this.vd.airK*h;if(gas&&ok)this.bw-=ac;if(brake)this.bw+=ac;}
+      // Air control accelerates the spin up to a capped rate, like the original's steady flips
+      if(inAir){const ac=.0026*this.vd.airK*h,cap=.062*this.vd.airK;
+        if(gas&&ok&&this.bw>-cap)this.bw=Math.max(-cap,this.bw-ac);
+        if(brake&&this.bw<cap)this.bw=Math.min(cap,this.bw+ac);}
       // Ground contacts
       this._gf=this._contact(terrain,'f',h);this._gr=this._contact(terrain,'r',h);
       if(this._gf)this.fG=true;if(this._gr)this.rG=true;
@@ -889,7 +897,7 @@ class Car{
     if(Math.abs(slip)>this._slip)this._slip=Math.abs(slip);
     const meff=1/(1/this.mw+r*r/this.Iw);
     let jt=-slip*meff;
-    const lim=this.mu*jn*2.2;
+    const lim=this.mu*jn*2.2/this.gk;
     if(jt>lim)jt=lim;else if(jt<-lim)jt=-lim;
     vx+=jt/this.mw*tx;vy+=jt/this.mw*ty2;
     if(sw==='f')this.fom-=jt*r/this.Iw;else this.rom-=jt*r/this.Iw;
@@ -1568,7 +1576,7 @@ function showOvl(id){
 // ── menu ─────────────────────────────────────────────────
 let STATE='menu',car=null,terrain=null,clouds=null,camX=0,camY=0;
 // World zoom eases between ZOOM (calm) and ZOOM_MIN (fast / airborne); culling uses the widest view
-const ZOOM=.74,ZOOM_MIN=.64,VW=W/ZOOM_MIN,VH=H/ZOOM_MIN;
+const ZOOM=.7,ZOOM_MIN=.58,VW=W/ZOOM_MIN,VH=H/ZOOM_MIN;
 let zoomNow=ZOOM,camLead=0,camLift=0;
 let gas=false,brake=false,paused=false,sessionCoins=0,fT=0,lastT=0,raf=null;
 let runDoubled=false,camKick=0,nextMile=0,runBonus=[],runBanked=false,endTmr=null,physAcc=0,timeScale=1,deathT=-1;
@@ -1832,6 +1840,11 @@ function endGame(rsn){
   rows+=`<div class="row tot"><span>TOTAL EARNED</span><b>🪙 ${r.total}</b></div>`;
   document.getElementById('goEarn').innerHTML=rows;
   document.getElementById('goBest').classList.toggle('nb',nb);
+  // a short, situation-specific tip helps new players learn the controls
+  const tips={'DRIVER DOWN!':['💡 Release GAS in the air — holding it flips you backwards.','💡 Tap BRAKE in the air to bring the nose down before landing.','💡 Land on both wheels for a PERFECT LANDING bonus.'],
+    'FLIPPED!':['💡 Upside down? Tilt with GAS / BRAKE while still in the air.'],
+    'OUT OF FUEL!':['💡 Upgrade the FUEL TANK to reach the next ⛽ can.','💡 Watch the ⛽ arrow on the right — it shows the next fuel can.']};
+  const tl=tips[rsn]||[];document.getElementById('goTip').textContent=sv.stats.runs<=12&&tl.length?tl[(sv.stats.runs)%tl.length]:'';
   // Shortcut to the garage when an upgrade is affordable
   const vs=sv.vs[sv.selV];let cheap=null;
   for(const u of UPGRADES){const l=vs[u.id]||0;if(l<u.max){const c=Math.round(u.base*Math.pow(u.mult,l));if(!cheap||c<cheap.c)cheap={u,c};}}
