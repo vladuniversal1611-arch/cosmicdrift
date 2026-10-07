@@ -14,7 +14,7 @@ const check = (name, ok, info = '') => { results.push({ name, ok: !!ok, info });
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 async function newPage(browser, errors, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.viewport || { width: 412, height: 915 }, deviceScaleFactor: 2,
+  const ctx = await browser.newContext({ viewport: opts.viewport || { width: 915, height: 412 }, deviceScaleFactor: 2,
     hasTouch: true, isMobile: true });
   const p = await ctx.newPage();
   p.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -177,8 +177,13 @@ const ev = (p, fn, arg) => p.evaluate(fn, arg);
   check('corrupted save: menu still loads', await ev(p, () => document.getElementById('menuOvl').classList.contains('on')));
   await p.close();
 
+  // Portrait phone: rotate prompt
+  { const pp = await newPage(browser, errors, { viewport: { width: 412, height: 915 }, keepDaily: true });
+    check('portrait phone shows rotate prompt', await pp.evaluate(() => getComputedStyle(document.getElementById('rotOvl')).display === 'flex'));
+    await pp.close(); }
+
   // ── 6. Viewports
-  for (const vp of [{ width: 360, height: 640 }, { width: 412, height: 915 }, { width: 800, height: 600 }]) {
+  for (const vp of [{ width: 640, height: 360 }, { width: 915, height: 412 }, { width: 1280, height: 720 }]) {
     p = await newPage(browser, errors, { viewport: vp });
     const r = await ev(p, () => { const b = document.getElementById('wrap').getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: innerWidth, h: innerHeight }; });
     check(`viewport ${vp.width}x${vp.height}: game fits`, r.l >= -1 && r.t >= -1 && r.r <= r.w + 1 && r.b <= r.h + 1, JSON.stringify(r));

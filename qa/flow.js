@@ -13,7 +13,7 @@ const res = []; const check = (n, ok, info = '') => res.push({ n, ok: !!ok, info
 (async () => {
   const b = await chromium.launch({ executablePath: EXE });
   const errors = [];
-  const ctx = await b.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const ctx = await b.newContext({ viewport: { width: 915, height: 412 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(e.message)); p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await p.addInitScript(() => { window.QA_SEED = 777; });

@@ -85,12 +85,14 @@ const EXE = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/c
       let deaths = 0, dist = 0, reasons = {};
       for (let s = 1; s <= 10; s++) {
         const tr = new Terrain(env, s * 7919); const sx = 180;
-        c = new Car(vd, upg, env, sx, tr.getY(sx) - vd.wr - 40); c.fuel = 1e9; c.fuelMax = 1e9;
+        c = new Car(vd, upg, env, sx, tr.getY(sx) - vd.wr - 12); c.fuel = 1e9; c.fuelMax = 1e9;
         for (i = 0; i < 90 * 60 && !c.crashed; i++) {
           const air = !c.fG && !c.rG, a = c.bang;
           let g = true, br = false;
-          if (a < -0.55) { g = false; if (air || a < -0.9) br = true; }
-          if (air && a > 0.35) { g = true; br = false; }
+          // controls: right (gas) turns clockwise in the air, left (brake) counter-clockwise
+          if (air) { const sl = Math.atan2(tr.getY(c.bx + 60) - tr.getY(c.bx), 60), rel = a - sl;
+            g = rel < -0.25; br = rel > 0.3; }
+          else if (a < -0.55) { g = false; if (a < -0.9) br = true; }
           c.step(tr, g, br); tr.ensure(c.bx + 1200);
         }
         if (c.crashed) { deaths++; reasons[c.rsn] = (reasons[c.rsn] || 0) + 1; }
