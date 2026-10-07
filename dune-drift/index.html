@@ -269,6 +269,43 @@
   #journal, #shop, #pauseMenu{ transition:opacity .35s ease, visibility 0s linear .35s; }
   #toast, #coach{ transition:opacity .45s ease, transform .45s ease, visibility 0s linear .45s; }
   #journal.on, #shop.on, #pauseMenu.on, #toast.on, #coach.on{ visibility:visible; transition-delay:0s; }
+  /* --- банк комбо --- */
+  #pot{ position:absolute; left:0; top:0; pointer-events:none; will-change:transform; opacity:0; }
+  #pot.live, #pot.bank, #pot.lost{ opacity:1; }
+  #pot .pin{ transform:translate(-50%, -100%); text-align:center; white-space:nowrap; }
+  #pot b{ display:block; font-size:22px; font-weight:300; letter-spacing:.06em; color:#fff3d6;
+          text-shadow:0 1px 3px rgba(40,20,30,.55), 0 0 14px rgba(255,210,140,.55), var(--shadow); font-variant-numeric:tabular-nums; }
+  #pot i{ display:block; margin-top:2px; font-style:normal; font-size:11px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:#ffe3a3;
+          text-shadow:0 1px 3px rgba(40,20,30,.7), 0 0 8px rgba(40,20,30,.35); }
+  #pot.bump .pin{ animation:potBump .22s ease; }
+  @keyframes potBump{ 0%{ transform:translate(-50%,-100%) scale(1.18); } 100%{ transform:translate(-50%,-100%) scale(1); } }
+  #pot.bank .pin{ animation:potBank 1.25s ease forwards; }
+  #pot.bank b{ color:#fff; font-size:26px; }
+  @keyframes potBank{ 0%{ transform:translate(-50%,-100%) scale(1.25); opacity:1; } 70%{ opacity:1; } 100%{ transform:translate(-50%,-190%) scale(1); opacity:0; } }
+  #pot.lost .pin{ animation:potLost 1.25s ease forwards; }
+  #pot.lost b{ color:rgba(255,255,255,.55); text-decoration:line-through; }
+  #pot.lost i{ color:#ffb38a; }
+  @keyframes potLost{ 0%{ transform:translate(-50%,-100%); } 8%{ transform:translate(-54%,-100%); } 16%{ transform:translate(-46%,-100%); }
+                      24%{ transform:translate(-50%,-100%); opacity:1; } 100%{ transform:translate(-50%,-40%); opacity:0; } }
+  #coins{ transform-origin:right center; }
+  #coins.bump{ animation:coinBump .25s ease; }
+  @keyframes coinBump{ 0%{ transform:scale(1.25); color:#fff3d6; } 100%{ transform:scale(1); } }
+  /* --- місії --- */
+  #missionsCard, #overMissions{ margin-top:16px; min-width:230px; max-width:340px; }
+  .mrow{ display:flex; justify-content:space-between; gap:10px; margin-top:7px; font-size:11.5px; letter-spacing:.04em; text-align:left; color:var(--ink); }
+  .mrow b{ font-weight:400; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mrow.done span{ color:#ffe3a3; }
+  #missionsCard .eyebrow, #overMissions .eyebrow{ letter-spacing:.24em; white-space:nowrap; }
+  @media (max-height:740px){
+    #prologue{ margin-top:12px; } #prologue p{ margin-top:5px; font-size:12px; line-height:1.42; }
+    #missionsCard, #overMissions{ margin-top:10px; } .mrow{ margin-top:4px; }
+    .legend{ margin-top:12px; line-height:1.75; }
+    .screen{ padding:20px 24px; gap:8px; }
+  }
+  .lvlup{ margin-bottom:8px; font-size:15px; letter-spacing:.12em; color:#fff3d6; text-shadow:0 0 18px rgba(255,210,140,.6); }
+  .lvlup small{ display:block; margin-top:3px; font-size:11px; letter-spacing:.16em; color:#ffe3a3; }
+  @media (prefers-reduced-motion: reduce){ #pot .pin, #coins.bump{ animation:none !important; } }
+
   /* --- Мла --- */
   #stormGap{
     position:absolute; left:50%; top:calc(env(safe-area-inset-top, 0px) + 64px); transform:translateX(-50%);
@@ -318,6 +355,9 @@
     </div>
   </div>
 
+  <!-- Банк комбо над райдером -->
+  <div id="pot"><div class="pin"><b></b><i></i></div></div>
+
   <!-- Мла: відрив від бурі та репліки Іскри -->
   <div id="stormGap"><span></span><i></i></div>
   <div id="bark"><b>✦ Іскра</b><span></span></div>
@@ -347,6 +387,7 @@
     <div class="tag">an endless sand odyssey</div>
     <div id="prologue"></div>
     <div id="chapterCard"></div>
+    <div id="missionsCard"></div>
     <div class="hint">Tap to play</div>
     <div class="legend">
       <span>left side</span> jump<br>
@@ -370,6 +411,7 @@
     </div>
     <div id="overExtra"></div>
     <div id="overGoals"></div>
+    <div id="overMissions"></div>
     <div class="hint">Tap to retry</div>
     <div class="btnrow"><button class="jbtn jprime" data-daily>щоденна траса</button><button class="jbtn" data-shop>крамниця <span class="wl"></span></button></div>
     <div class="btnrow"><button class="jbtn" data-journal>журнал</button><button class="jbtn" data-settings>налаштування</button></div>
@@ -453,6 +495,7 @@ if (!window.THREE) {
         відгук трюків, прогрес маяків, онбординг (стоїть перед головним циклом)
     15. Глибина: мотузки, згасаюче комбо, крамниця, привид, щоденна траса
     16. Мла: жива буря-антагоніст, погоні, блискавки, супутниця Іскра
+    17. Азарт і сенс: банк комбо, «впритул», золото, місії й рівень, ASMR-звук
    ================================================================== */
 
 /* ------------------------------------------------------------------
@@ -466,7 +509,7 @@ const CFG = {
   JUMP:           22.0,    // імпульс стрибка
   SPEED_START:    15,      // початкова швидкість
   SPEED_MAX:      31,      // максимальна «природна» швидкість
-  SPEED_RAMP:     3200,    // через скільки метрів досягається максимум
+  SPEED_RAMP:     2300,    // через скільки метрів досягається максимум
   SLOPE_ACCEL:    24,      // як сильно схил розганяє/гальмує
   UPHILL:         0.45,    // підйом гальмує слабше, ніж спуск розганяє
   FLIP_SPEED:     10.2,    // рад/с під час оберту (повний оберт ≈ 0.62 с)
@@ -1161,6 +1204,7 @@ const terrain = {
   y: 0,               // поточна висота генератора
   coins: [], rocks: [], lips: [], ropes: [],
   coinCursor: 0, rockCursor: 0, lipCursor: 0, ropeCursor: 0,
+  safeAfter: 0,       // до цієї x може долетіти стрибок з останнього трампліна
   diff: 0,            // складність 0..1 (росте з дистанцією)
   intro: 0,           // крок вступного сценарію
   intense: 0,         // скільки «гострих» шматків поспіль
@@ -1232,8 +1276,10 @@ function jumpDistance(v = player.speed) {
 
 /* --- Кристали --------------------------------------------------------- */
 function addCoin(x, y) {
-  if (y < heightAt(x) + 1.0) return;              // не ховаємо кристал у пісок
-  terrain.coins.push({ x, y, taken: false, mesh: null });
+  if (y < heightAt(x) + 1.0) return null;         // не ховаємо кристал у пісок
+  const c = { x, y, taken: false, mesh: null, gold: false };
+  terrain.coins.push(c);
+  return c;
 }
 /** Лінія кристалів над поверхнею. */
 function placeCoinLine(x0, n, spacing, lift = 1.7) {
@@ -1241,10 +1287,13 @@ function placeCoinLine(x0, n, spacing, lift = 1.7) {
 }
 /** Кристали вздовж балістичної дуги — показують ідеальну траєкторію стрибка. */
 function placeCoinArc(x0, y0, vx, vy, n, step) {
+  const out = [];
   for (let i = 1; i <= n; i++) {
     const t = i * step;
-    addCoin(x0 + vx * t, y0 + vy * t - 0.5 * CFG.GRAVITY * t * t + 0.85);
+    const c = addCoin(x0 + vx * t, y0 + vy * t - 0.5 * CFG.GRAVITY * t * t + 0.85);
+    if (c) out.push(c);
   }
+  return out;
 }
 
 /* --- Перешкоди, які треба перестрибнути ----------------------------- */
@@ -1340,7 +1389,16 @@ function pieceKicker(withGap, easy = false) {
   pushSeg(gr(10, 16), terrain.y - gr(0, 1));             // вихід на рівне
 
   const vyPerfect = Math.min(CFG.JUMP_VY_MAX, (Math.min(vyLip, 18) + CFG.JUMP) * CFG.PERFECT_JUMP_MULT);
-  placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, vyPerfect, 6, 0.14);
+  markFlight(lipX, vyPerfect, lipY - terrain.y);
+  const arc = placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, vyPerfect, 6, 0.14);
+  if (arc.length >= 4 && grnd() < 0.6) arc[Math.floor(arc.length / 2)].gold = true;   // золото на вершині ідеального стрибка
+}
+
+/** Найдальша точка, куди може долетіти ідеальний стрибок з краю (повний імпульс, оберт). */
+function markFlight(lipX, vy0, drop) {
+  const g = CFG.GRAVITY * 0.84, vHi = baseSpeedAt(lipX) * 1.55;
+  const t = (vy0 + Math.sqrt(vy0 * vy0 + 2 * g * Math.max(0, drop))) / g;
+  terrain.safeAfter = Math.max(terrain.safeAfter, lipX + vHi * t);
 }
 
 /** Скеля: підйом на плато → обрив → крутий схил. Велика висота для кількох обертів. */
@@ -1353,7 +1411,9 @@ function pieceDrop() {
   pushCliff(gr(5, 8));
   pushEase(gr(28, 38), -gr(4, 7), 'out');
   pushSeg(gr(10, 14), terrain.y - 0.5);
-  placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, CFG.JUMP * CFG.PERFECT_JUMP_MULT, 6, 0.15);
+  markFlight(lipX, CFG.JUMP * CFG.PERFECT_JUMP_MULT, lipY - terrain.y);
+  const arc = placeCoinArc(lipX, lipY + CFG.RIDE_OFFSET, v, CFG.JUMP * CFG.PERFECT_JUMP_MULT, 6, 0.15);
+  if (arc.length >= 4 && grnd() < 0.45) arc[Math.floor(arc.length / 2)].gold = true;
 }
 
 /** Перешкода з дугою кристалів: вона підказує, звідки стрибати. */
@@ -1369,11 +1429,14 @@ function pieceObstacles(easy = false) {
   const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9;
   const jd = jumpDistance(v);
   const n = easy ? 1 : gi(1, 2 + Math.round(terrain.diff * 2));
-  const spacing = jd * gr(1.35, 1.7) + 3;              // завжди є де приземлитись між ними
+  // завжди є де приземлитись між ними — навіть на повному імпульсі й з обертом
+  const spacing = jumpDistance(v * 1.72) / 0.84 * gr(1.15, 1.35) + 4;
   const x0 = terrain.idx * CFG.DX;
-  pushSeg(12 + n * spacing + 8, terrain.y - gr(0.5, 1.8));
+  // перший камінь — не там, куди може впасти далекий політ з попереднього трампліна
+  const pre = Math.max(12, terrain.safeAfter - x0 + 8);
+  pushSeg(pre + n * spacing + 8, terrain.y - gr(0.5, 1.8));
   const types = easy ? ['block'] : terrain.diff < 0.25 ? ['block', 'rock'] : ['block', 'rock', 'pillar'];
-  for (let i = 0; i < n; i++) placeObstacleWithHint(x0 + 12 + i * spacing + gr(-1, 1), gpick(types), v);
+  for (let i = 0; i < n; i++) placeObstacleWithHint(x0 + pre + i * spacing + gr(-1, 1), gpick(types), v);
 }
 
 /** Сценарій перших хвилин: гравець одразу знайомиться з кожним елементом. */
@@ -1389,7 +1452,7 @@ const INTRO = [
 /** Режисер траси: чергує напругу й спокій, стежить за висотою та складністю. */
 function nextPiece() {
   const x = terrain.idx * CFG.DX;
-  terrain.diff = clamp((x - startX) / 2600, 0, 1);
+  terrain.diff = clamp((x - startX) / 1800, 0, 1);
   if (stormDirector(x)) return;            // погоні Мли та маяк, до якого вона женеться
   const intro = terrain.introList || INTRO;
   if (terrain.intro < intro.length) { intro[terrain.intro++](); return; }
@@ -1405,6 +1468,8 @@ function nextPiece() {
   const r = grnd();
   // трамплін і скеля спускають униз — якщо ми низько, спершу набираємо висоту ритмом
   const descend = fn => { if (terrain.y < 2) pieceRollers(true); fn(); };
+  // з дистанцією — комбіновані випробування
+  if (terrain.diff > 0.3 && grnd() < 0.18 + 0.22 * terrain.diff) { descend(grnd() < 0.5 ? pieceGauntlet : pieceDoubleGap); return; }
   if (r < 0.20)      descend(() => pieceKicker(false));
   else if (r < 0.32) descend(() => pieceKicker(true));
   else if (r < 0.40) descend(pieceDrop);
@@ -1626,6 +1691,9 @@ function updateEntities(camX, dt) {
     if (c.taken || c.x < xL) continue;
     c.mesh = takeCoinMesh();
     c.mesh.position.set(c.x, c.y + ENT_SURF, ENT_Z + 0.1);
+    c.mesh.userData.diamond.material = c.gold ? goldMat : coinMat;
+    c.mesh.userData.glow.material = c.gold ? goldGlowMat : coinGlowMat;
+    c.mesh.scale.setScalar(c.gold ? 1.5 : 1);
     c.phase = rr(0, TAU);
     active.coins.push(c);
   }
@@ -1709,7 +1777,7 @@ const player = {
   grounded: true, angle: 0, flip: 0, flipTarget: 0, flipDoneT: -1,
   boost: 0, momentum: 0, combo: 0, airTime: 0, jumped: false, leftGroundT: -1,
   dead: false, deadTime: 0, deathReason: '',
-  coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0,
+  coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0, pot: 0, airOverGap: false,
   obj: buildRider(),
   shadow: new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.15), new THREE.MeshBasicMaterial({
     map: TEX.shadow, transparent: true, color: 0x000000, depthWrite: false, fog: false, opacity: 0.3,
@@ -2828,7 +2896,7 @@ function resetWorld(seed) {
   terrain.coins.length = 0; terrain.rocks.length = 0; terrain.lips.length = 0;
   terrain.i0 = 0; terrain.idx = 0; terrain.y = 5;
   terrain.coinCursor = 0; terrain.rockCursor = 0; terrain.lipCursor = 0;
-  terrain.diff = 0; terrain.intense = 0; terrain.intro = 0;
+  terrain.diff = 0; terrain.intense = 0; terrain.intro = 0; terrain.safeAfter = 0;
   terrain.beaconPlaced = false;
   removeBeacon();
   terrain.storms = []; terrain.stormEnd = -1; terrain.nextStormX = 0;
@@ -2847,7 +2915,7 @@ function resetWorld(seed) {
     grounded: true, angle: 0, flip: 0, flipTarget: 0, flipDoneT: -1,
     boost: 0, momentum: 0, combo: 0, airTime: 0, jumped: false, leftGroundT: -1,
     dead: false, deadTime: 0, deathReason: '', grind: null, grindT: 0, comboT: 0,
-    coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0,
+    coins: 0, score: 0, dist: 0, tricks: 0, perfects: 0, maxSpeed: 0, pot: 0, airOverGap: false,
   });
   player.obj.rotation.z = 0;
   camY = player.y + view.visH * 0.1;
@@ -2866,6 +2934,7 @@ function startGame(isDaily = false) {
   sound.unlock();
   sound.play('start');
   snapshotRun();
+  runStats = freshRunStats(); displayScore = 0; setPotState(''); measureCoinTarget();
   hideCoach();
   PM.btn.classList.add('on');
   SUI.goal.classList.remove('awake');
@@ -2891,7 +2960,9 @@ function startGame(isDaily = false) {
 }
 
 function gameOver() {
+  checkMissions();                         // останній шанс зарахувати місію
   state = GS.OVER;
+  toastQueue.length = 0; SUI.toast.classList.remove('on');   // підсумок сам покаже місії — тост не перекриває заголовок
   player.dead = true;
   player.deadTime = 0;
   if (player.score > best) {
@@ -2905,7 +2976,9 @@ function gameOver() {
   EL.bestScore.textContent = best.toLocaleString('en-US');
   saveStory();
   renderOverGoals();
+  resolveLevelUp();
   onRunEnd();
+  renderOverMissions();
   // картка глави з початку заїзду не має накладатися на підсумок
   storyTimers.forEach(clearTimeout); storyTimers = []; storyUntil = 0;
   SUI.card.classList.remove('on');
@@ -2920,6 +2993,7 @@ function gameOver() {
 
 function die(reason) {
   if (player.dead) return;
+  potLose();                                // падіння спалює незбережений банк
   if (tryFeather(reason)) return;           // перо з крамниці рятує раз за заїзд
   player.deathReason = reason;
   player.combo = 0;
@@ -2948,7 +3022,7 @@ function doJump() {
   if (perfect) {
     lip.used = true;
     vy *= CFG.PERFECT_JUMP_MULT;
-    player.score += 50;
+    potAdd(50, true);
     showTrick('Perfect jump', '+50', 'gold');
     sparkBurst(player.x, player.y + 0.4, sky.coin, 16);
     feedback.perfectJump();
@@ -2961,6 +3035,7 @@ function doJump() {
   player.grounded = false;
   player.jumped = true;
   player.airCoins = 0;
+  player.airOverGap = false;
   landingBurst(0.5);
 }
 
@@ -3076,17 +3151,19 @@ function land(h, slopeOverride) {
   player.airCoins = 0;
 
   if (flips >= 1) {
+    if (sketchy) { potLose(); runStats.lastSketchyX = player.x; }   // невдала посадка спалює банк
     player.combo = sketchy ? 1 : Math.min(player.combo + 1, 9);
     player.comboT = COMBO_WINDOW;
     player.tricks += flips;
+    if (!sketchy && flips >= 2) runStats.doubles++;
+    if (!sketchy && player.airOverGap) runStats.flipOverGap = 1;
     storyEvent('flips', flips);
     storyEvent('combo', player.combo);
     if (flips >= 2 && !sketchy) storyEvent('double');
     if (perfect) storyEvent('perfect');
-    let pts = 150 * flips * player.combo;
+    let pts = 150 * flips;                         // база; множник комбо — при збереженні банку
     if (perfect) pts = Math.round(pts * 1.5);
-    if (sketchy) pts = Math.round(pts * 0.5);
-    player.score += pts;
+    if (!sketchy) potAdd(pts, false);
     const name = (TRICK_NAMES[Math.min(flips, 4)] || flips + '× flip') + (player.combo > 1 ? '  ×' + player.combo : '');
     if (perfect) {
       player.perfects++;
@@ -3109,11 +3186,12 @@ function land(h, slopeOverride) {
       player.combo = Math.min(player.combo + 1, 9);  // ідеальна посадка теж тримає серію
       player.comboT = COMBO_WINDOW;
       storyEvent('combo', player.combo);
-      player.score += 40;
+      potAdd(40, false);
       gainSpeed(1.4);
       showTrick('Perfect landing', '+40', 'gold');
     } else if (sketchy) {
       player.momentum *= 0.6;
+      potLose(); runStats.lastSketchyX = player.x;
       player.combo = 0;
     } else if (air > 0.9) {
       const pts = Math.floor(air * 45);
@@ -3122,6 +3200,9 @@ function land(h, slopeOverride) {
     }
   }
 
+  // приземлився на самий край після прірви — «на межі»
+  if (player.airOverGap && !player.dead && !sketchy && !solidAt(player.x - 1.3)) nearMiss('edge');
+  player.airOverGap = false;
   if (player.combo > comboBefore) feedback.combo(player.combo);
 
   player.flip = 0;
@@ -3182,6 +3263,7 @@ function updatePhysics(dt) {
       player.jumped = false;
       player.leftGroundT = time;
       player.airCoins = 0;
+      player.airOverGap = false;
     } else {
       player.y = yGround;
       player.vy = slopeAt(player.x) * vx;
@@ -3203,6 +3285,7 @@ function updatePhysics(dt) {
     player.vy -= G * (rotating ? 0.84 : 1) * dt;
     player.y += player.vy * dt;
     player.airTime += dt;
+    if (!solid) player.airOverGap = true;           // пролітаємо над прірвою
     if (rotating && rnd() < 0.6) {
       dust.spawn(player.x + rr(-0.8, 0.8), player.y + rr(0.2, 1.4), ENT_Z - 0.4,
         rr(-2, 0), rr(-1, 1), rr(0.15, 0.4), rr(0.3, 0.6), sandColor(0.45), 1);
@@ -3240,23 +3323,30 @@ function updatePhysics(dt) {
     const dx = c.x - player.x, dy = c.y - (player.y + 0.85);
     if (dx * dx + dy * dy < 3.4) {
       c.taken = true;
-      player.coins++;
-      player.score += 25;
-      storyEvent('shards');
-      feedback.crystal();
-      stormPush(0.25);
+      const worth = c.gold ? 10 : 1;
+      player.coins += worth;
+      player.score += c.gold ? 250 : 25;
+      storyEvent('shards', worth);
+      if (c.gold) { runStats.golds++; sound.play('gold'); fx.haptic([8, 30, 8]); showTrick('Золотий кристал', '+10 ✦', 'gold'); }
+      else feedback.crystal();
+      stormPush(c.gold ? 2 : 0.25);
       if (!player.grounded && ++player.airCoins >= 2) learn('arc');
-      sparkBurst(c.x, c.y, sky.coin, 12);
+      sparkBurst(c.x, c.y, sky.coin, c.gold ? 20 : 8);
+      shardsToCounter(c.x, c.y, c.gold ? 14 : 5, c.gold ? goldMat.color : sky.coin);   // скалки летять у лічильник
     }
   }
   // перешкоди: удар — кінець заїзду, перестрибнув — бонус
   for (const r of active.rocks) {
     if (r.hit || r.cleared) continue;
     const left = r.x - r.w * 0.5, right = r.x + r.w * 0.5;
+    if (!player.grounded && player.x + 0.55 > left && player.x - 0.45 < right) {
+      r.minClear = Math.min(r.minClear === undefined ? 9 : r.minClear, (player.y - CFG.RIDE_OFFSET) - (r.y + r.h));
+    }
     if (player.x - 0.5 > right) {
       r.cleared = true;
       if (!player.grounded || player.airTime > 0) {
-        player.score += 30;
+        if (r.minClear !== undefined && r.minClear < 0.75) nearMiss('rock');   // пролетів на волосинку
+        else potAdd(30, false);
         sparkBurst(r.x, r.y + r.h + 0.3, sky.coin, 8);
       }
       continue;
@@ -3273,6 +3363,7 @@ function updatePhysics(dt) {
   updateComboTimer(dt);
   recordGhost(dt);
   updateStorm(dt);                                 // Мла: погоня, блискавки
+  updateRunStats(dt);
   // світний шлейф під час прискорення
   if (trailT > 0) trailT -= dt;
   // шлейф: ривок, Perfect jump, фінальне сонце, а з комбо — тим густіший, чим довша серія
@@ -3346,16 +3437,19 @@ scene.add(sunLight.target);
 
 /* --- UI ---------------------------------------------------------- */
 let uiAcc = 0;
+let displayScore = 0;
 function updateUI(dt) {
   if (trickTimer > 0) {
     trickTimer -= dt;
     if (trickTimer <= 0) EL.trick.classList.remove('show');
   }
+  displayScore += (player.score - displayScore) * (1 - Math.exp(-dt * 5));   // рахунок плавно «нараховується»
+  if (Math.abs(player.score - displayScore) < 1) displayScore = player.score;
   uiAcc += dt;
   if (uiAcc < 0.08) return;
   uiAcc = 0;
   // пишемо в DOM лише змінене — менше перерахунків верстки на мобільних
-  setText(EL.score, Math.floor(player.score).toLocaleString('en-US'));
+  setText(EL.score, Math.floor(displayScore).toLocaleString('en-US'));
   setText(EL.coins, '✦ ' + player.coins);
   setText(EL.speed, Math.round(player.speed * (player.boost > 0 ? CFG.BOOST_MULT : 1) / view.scale * 3.2) + ' km/h');
   setClass(EL.speed, 'hot', player.momentum > 2 * view.scale || player.boost > 0);
@@ -3551,17 +3645,19 @@ class SoundSystem {
       this.chirpT -= dt;
       if (this.chirpT <= 0) { this.chirpT = rr(1.5, 5); this.chirp(); }
     }
+    this.musicTick();      // генеративна калімба
+    this.grainTick(dt);    // хрускіт піщинок
   }
 
   /* --- синтез-примітиви --- */
-  tone(f, t0, dur, { type = 'sine', gain = 0.1, attack = 0.006, glide = 0, echo = 0 } = {}) {
+  tone(f, t0, dur, { type = 'sine', gain = 0.1, attack = 0.006, glide = 0, echo = 0, bus = null } = {}) {
     const c = this.ctx, o = c.createOscillator(), g = c.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t0);
     if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(20, glide), t0 + dur);
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g); g.connect(this.sfx);
+    o.connect(g); g.connect(bus || this.sfx);
     if (echo) { const s = c.createGain(); s.gain.value = echo; g.connect(s); s.connect(this.send); }
     o.start(t0); o.stop(t0 + dur + 0.05);
   }
@@ -3569,7 +3665,7 @@ class SoundSystem {
     this.tone(f, t0, dur, { gain, attack: 0.004, echo: 0.55 });
     this.tone(f * 2.01, t0, dur * 0.5, { gain: gain * 0.3, attack: 0.003, echo: 0.3 });
   }
-  hush(t0, dur, { type = 'bandpass', f0 = 800, f1 = 0, q = 0.9, gain = 0.08 } = {}) {
+  hush(t0, dur, { type = 'bandpass', f0 = 800, f1 = 0, q = 0.9, gain = 0.08, pan = 0, bus = null } = {}) {
     const c = this.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
     s.buffer = this.noise;
     fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t0);
@@ -3577,7 +3673,10 @@ class SoundSystem {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.03, dur * 0.3));
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    s.connect(fl); fl.connect(g); g.connect(this.sfx);
+    s.connect(fl); fl.connect(g);
+    let out = g;
+    if (pan && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = pan; g.connect(pn); out = pn; }
+    out.connect(bus || this.sfx);
     s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
   }
   chirp() {
@@ -3641,6 +3740,34 @@ class SoundSystem {
         break;
       case 'start':
         this.bell(523.25, t, 0.03); this.bell(783.99, t + 0.1, 0.025);
+        break;
+      case 'bank': {
+        const n = clamp(arg + 2, 3, 9);
+        for (let i = 0; i < n; i++) this.bell(note(523.25, i), t + i * 0.055, 0.026, 0.9);
+        [1046.5, 1318.5, 1568].forEach(f => this.bell(f, t + n * 0.055 + 0.04, 0.02, 1.6));
+        for (let i = 0; i < 8; i++) this.tone(2600 + i * 90, t + i * 0.035, 0.012, { gain: 0.008, attack: 0.001 });
+        break;
+      }
+      case 'potLost':
+        [392, 311.1, 233.1].forEach((f, i) => this.tone(f, t + i * 0.09, 0.28, { type: 'triangle', gain: 0.03 }));
+        this.hush(t, 0.5, { type: 'lowpass', f0: 900, f1: 160, gain: 0.06 });
+        break;
+      case 'nearMiss':
+        this.hush(t, 0.24, { f0: 480, f1: 2600, q: 1.1, gain: 0.07, pan: -0.3 });
+        this.bell(1568, t + 0.08, 0.03, 0.8);
+        break;
+      case 'gold':
+        [1046.5, 1318.5, 1568, 2093].forEach((f, i) => this.bell(f, t + i * 0.035, 0.03, 1.4));
+        this.hush(t, 0.45, { type: 'highpass', f0: 6000, gain: 0.02 });
+        break;
+      case 'mission':
+        [880, 1108.7, 1318.5].forEach((f, i) => this.bell(f, t + i * 0.09, 0.03, 1.2));
+        break;
+      case 'levelUp':
+        [523.25, 659.3, 784, 1046.5, 1318.5, 1568].forEach((f, i) => this.bell(f, t + i * 0.08, 0.03, 1.6));
+        break;
+      case 'ropeString':
+        this.string(arg || 220, t, 0.14);
         break;
       case 'stormStart':
         this.tone(58, t, 2.6, { gain: 0.09, attack: 0.6, glide: 44 });
@@ -3747,6 +3874,7 @@ function resetAllProgress() {
   try { localStorage.setItem('duneDriftBest', '0'); } catch (e) {}
   for (const k in onboard) onboard[k] = false;
   saveOnboard();
+  missions = { level: 1, active: [], levelUpPending: false }; pickMissions(); saveMissions();
   wallet = WALLET_DEFAULT(); saveWallet(); applyBoardVisual(); refreshWalletLabels();
   bestDist = 0; daily = { date: '', best: 0, dist: 0, ghost: null };
   try { localStorage.removeItem(BESTDIST_KEY); localStorage.removeItem(DAILY_KEY); } catch (e) {}
@@ -4244,7 +4372,9 @@ function pieceRope(kind = 'free') {
     const xs = xA - v * 0.5;
     placeCoinArc(xs, heightAt(xs) + CFG.RIDE_OFFSET, v, CFG.JUMP, 3, 0.13);
   }
-  for (let x = xA + 2; x < xB - 1; x += 2.6) addCoin(x, ropeY(r, x) + 1.15);
+  let lastC = null;
+  for (let x = xA + 2; x < xB - 1; x += 2.6) lastC = addCoin(x, ropeY(r, x) + 1.15) || lastC;
+  if (lastC && grnd() < 0.5) lastC.gold = true;                 // золото в кінці мотузки — дотримай до кінця
 }
 
 const ropeMat = new THREE.MeshBasicMaterial({ color: 0x000000, fog: true });
@@ -4311,7 +4441,9 @@ function startGrind(r) {
   player.grind = r;
   player.grindT = 0;
   addCombo();
+  runStats.grinds++;
   sound.play('grindStart');
+  sound.play('ropeString', 150 + 3000 / (r.x1 - r.x0));   // мотузка дзвенить, як струна
   learn('grind');
 }
 function endGrind() {
@@ -4319,8 +4451,8 @@ function endGrind() {
   if (!r) return;
   player.grind = null;
   if (player.grindT > 0.25) {
-    const pts = Math.round(player.grindT * 90) * Math.max(1, player.combo);
-    player.score += pts;
+    const pts = Math.round(player.grindT * 90);
+    potAdd(pts, false);
     showTrick('Grind', '+' + pts);
   }
 }
@@ -4375,7 +4507,8 @@ function updateComboTimer(dt) {
   if (player.combo <= 0) return;
   if (player.grounded && !player.grind) player.comboT -= dt;
   if (player.comboT <= 0) {
-    if (player.combo >= 2) sound.play('comboEnd');
+    if (player.pot > 0) potBank();                  // серія скінчилась чисто — банк зараховано
+    else if (player.combo >= 2) sound.play('comboEnd');
     player.combo = 0;
     player.comboT = 0;
   }
@@ -4628,6 +4761,7 @@ function stormPush(units) {
 function startStorm(s) {
   s.started = true;
   storm.active = true; storm.src = s; storm.kind = s.kind;
+  storm.minGap = 99;
   storm.x = player.x - 9; storm.t = 0; storm.boltT = rr(4.5, 6);    // піднімається просто за спиною — її видно
   const ch = Math.min(story.chapter, 6);
   // Калібрування: райдер без трюків наприкінці погоні ледь тримає відрив (на пізніх главах — не втримує);
@@ -4646,6 +4780,7 @@ function endStorm(survived, how = 'escape') {
   if (storm.src) storm.src.done = true;
   if (!survived) return;
   player.score += 600;
+  if (storm.minGap < 3) { player.score += 500; setTimeout(() => toast('На волосинку від Мли · +500'), 2800); }
   run.storms = (run.storms || 0) + 1;
   storyEvent('storms');
   learn('storm');
@@ -4670,6 +4805,7 @@ function updateStorm(dt) {
   storm.x += baseSpeedAt(player.x) * lerp(storm.r0, storm.r1, p) * dt;   // тиск росте до кінця відрізка
   if (player.grind) stormPush(2.5 * dt);
   storm.gap = player.x - storm.x;
+  storm.minGap = Math.min(storm.minGap, storm.gap);
 
   if (storm.gap < 8 && time - storm.lastNear > 7) { storm.lastNear = time; bark('near', true); sound.play('zap'); }
   if (storm.gap <= 0) { die('storm'); return; }
@@ -4789,12 +4925,13 @@ class Lightning {
     sparkBurst(this.x, h + 0.3, sky.light, 18);
     // удар по райдеру: лише коли він на землі чи низько над нею
     if (state === GS.PLAY && !player.dead && Math.abs(player.x - this.x) < 1.8 && player.y - heightAt(player.x) < 1.6) {
+      potLose(); runStats.lastSketchyX = player.x;
       player.speed *= 0.8; player.momentum *= 0.3; player.combo = 0; player.comboT = 0;
       wobble = settings.reduceMotion ? 0.3 : 0.8;
       stormPush(-3);
       sound.play('sketchy'); fx.haptic([40, 30, 40]);
       bark('hit', true);
-    }
+    } else if (state === GS.PLAY && !player.dead && Math.abs(player.x - this.x) < 3.5) nearMiss('bolt');   // повз блискавку
   }
   update(dt) {
     if (this.state === 'warn') {
@@ -4924,13 +5061,13 @@ function stormDirector(x) {
   }
   if (terrain.introList && terrain.intro < terrain.introList.length) return false;
   // випадкові бурі після вступу
-  if (!terrain.nextStormX) terrain.nextStormX = startX + gr(950, 1300);
+  if (!terrain.nextStormX) terrain.nextStormX = startX + gr(700, 1000);
   if (x >= terrain.nextStormX && x >= terrain.stormEnd + 150) {
     const len = gr(520, 680);
     terrain.storms.push({ x0: x + 10, x1: x + len, kind: 'event', started: false, done: false });
     terrain.stormEnd = x + len;
     terrain.stormRewardAt = x + len;
-    terrain.nextStormX = x + len + gr(1100, 1600);
+    terrain.nextStormX = x + len + gr(850, 1250);
   }
   if (terrain.stormRewardAt && x >= terrain.stormRewardAt) { terrain.stormRewardAt = 0; pieceLightTrail(); return true; }
   if (x < terrain.stormEnd) { pieceStormAction(); return true; }
@@ -4961,6 +5098,326 @@ function updateStormVisual(dt, t) {
 }
 const stormGapEl = document.getElementById('stormGap');
 
+
+/* ==================================================================
+   17. АЗАРТ І СЕНС
+   • Банк комбо: очки за трюки накопичуються над райдером і множаться на
+     комбо. Серія скінчилась чисто — банк зараховано; невдала посадка,
+     блискавка чи падіння — банк згорає. Ризикуєш — виграєш більше.
+   • «Впритул»: проліт над каменем на волосинку, блискавка поруч, посадка
+     на самий край прірви, втеча від Мли з мізерним відривом.
+   • Золоті кристали в ризикованих місцях (вершина дуги, кінець мотузки).
+   • Місії на заїзд і рівень хранителя — конкретна мета кожної спроби.
+   • ASMR: генеративна калімба, хрускіт піщинок, струна мотузки,
+     скалки кристалів, що летять у лічильник, рахунок, що «нараховується».
+   ================================================================== */
+
+/* --- 17.1 Статистика заїзду (для місій) --------------------------------- */
+const freshRunStats = () => ({ grinds: 0, maxCombo: 0, bestBank: 0, nearMisses: 0, golds: 0, doubles: 0,
+                               cleanDist: 0, lastSketchyX: startX, boltMisses: 0, flipOverGap: 0 });
+let runStats = freshRunStats();
+let missionAcc = 0;
+function updateRunStats(dt) {
+  runStats.maxCombo = Math.max(runStats.maxCombo, player.combo);
+  runStats.cleanDist = Math.max(runStats.cleanDist, player.x - runStats.lastSketchyX);
+  missionAcc += dt;
+  if (missionAcc > 0.5) { missionAcc = 0; checkMissions(); }
+}
+
+/* --- 17.2 Банк комбо --------------------------------------------------- */
+const potEl = document.getElementById('pot');
+const potVal = potEl.querySelector('b'), potMul = potEl.querySelector('i');
+let potAnimT = 0, potState = '';
+const _potV = new THREE.Vector3();
+function setPotState(s) { if (potState !== s) { potState = s; potEl.className = s; } }
+
+/** Додає базові очки в банк. isTrick — окрема дія, що сама нарощує комбо. */
+function potAdd(base, isTrick) {
+  if (isTrick) addCombo();
+  else if (player.combo === 0) { player.combo = 1; player.comboT = COMBO_WINDOW; }
+  player.pot += base;
+  setPotState('live');
+  potEl.classList.remove('bump'); void potEl.offsetWidth; potEl.classList.add('bump');
+}
+const potTotal = () => Math.round(player.pot * Math.max(1, player.combo));
+function potBank() {
+  if (player.pot <= 0) return;
+  const total = potTotal(), mult = Math.max(1, player.combo);
+  player.score += total;
+  runStats.bestBank = Math.max(runStats.bestBank, total);
+  player.pot = 0;
+  setPotState('bank');
+  potVal.textContent = '+' + total.toLocaleString('en-US');
+  potMul.textContent = mult > 1 ? 'банк ×' + mult : 'банк';
+  potAnimT = 1.25;
+  sound.play('bank', mult);
+  fx.haptic(mult >= 4 ? [10, 30, 10, 30, 20] : 12);
+  checkMissions();
+}
+function potLose() {
+  if (player.pot <= 0) return;
+  const total = potTotal();
+  player.pot = 0;
+  setPotState('lost');
+  potVal.textContent = '−' + total.toLocaleString('en-US');
+  potMul.textContent = 'згоріло';
+  potAnimT = 1.25;
+  sound.play('potLost');
+}
+/** Мітка банку висить над райдером (проєкція світової точки на екран). */
+function updatePotLabel(dt) {
+  if (potAnimT > 0) potAnimT -= dt;
+  const live = state === GS.PLAY && player.pot > 0;
+  if (potAnimT <= 0) setPotState(live ? 'live' : '');
+  if (potState === 'live') {
+    setText(potVal, Math.round(player.pot).toLocaleString('en-US'));
+    setText(potMul, '× ' + Math.max(1, player.combo));
+  }
+  if (potState) {
+    _potV.set(player.x, player.y + 3.7, ENT_Z).project(camera);
+    potEl.style.transform = `translate(${((_potV.x * 0.5 + 0.5) * view.w).toFixed(1)}px, ${((-_potV.y * 0.5 + 0.5) * view.h).toFixed(1)}px)`;
+  }
+}
+
+/* --- 17.3 Ризик: «впритул» і золото ------------------------------------- */
+function nearMiss(kind) {
+  const pts = kind === 'bolt' ? 150 : kind === 'edge' ? 100 : 120;
+  potAdd(pts, true);
+  runStats.nearMisses++;
+  if (kind === 'bolt') runStats.boltMisses++;
+  showTrick(kind === 'bolt' ? 'Повз блискавку' : kind === 'edge' ? 'На межі' : 'Впритул', '+' + pts, 'gold');
+  sound.play('nearMiss');
+  fx.haptic(8);
+  checkMissions();
+}
+const goldMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+const goldGlowMat = new THREE.MeshBasicMaterial({
+  map: TEX.glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+});
+function updateGoldMats() {
+  goldMat.color.copy(sky.sunColor).lerp(sky.coin, 0.25).multiplyScalar(2.3);
+  goldGlowMat.color.copy(sky.glowColor).lerp(sky.coin, 0.5).multiplyScalar(0.75);
+}
+
+/* --- 17.4 ASMR-скалки: кристал розсипається й летить у лічильник ------- */
+let coinTarget = { x: 0, y: 0 };
+function measureCoinTarget() {
+  const r = EL.coins.getBoundingClientRect();
+  coinTarget = { x: r.left + r.width * 0.5, y: r.top + r.height * 0.5 };
+}
+RESIZE_HOOKS.push(() => setTimeout(measureCoinTarget, 50));
+const _ray = new THREE.Vector3();
+function shardsToCounter(x, y, n, color) {
+  _ray.set(coinTarget.x / view.w * 2 - 1, -(coinTarget.y / view.h * 2 - 1), 0.5).unproject(camera).sub(camera.position).normalize();
+  const k = (ENT_Z - camera.position.z) / _ray.z;
+  const tx = camera.position.x + _ray.x * k + player.speed * 0.5, ty = camera.position.y + _ray.y * k;
+  n = fx.burst(n);
+  for (let i = 0; i < n; i++) {
+    dust.spawn(x, y, ENT_Z + 0.3, (tx - x) / 0.5 + rr(-3, 3), (ty - y) / 0.5 + rr(-3, 3),
+      rr(0.14, 0.3), rr(0.42, 0.52), tmpColor.copy(color).multiplyScalar(1.1), 0);
+  }
+  setTimeout(() => { EL.coins.classList.remove('bump'); void EL.coins.offsetWidth; EL.coins.classList.add('bump'); }, 430);
+}
+
+/* --- 17.5 Місії та рівень хранителя ------------------------------------ */
+const MISSIONS_KEY = 'duneDrift.missions';
+const times = n => plural(n, 'раз', 'рази', 'разів');
+const MISSION_POOL = {
+  flipGap: { t: () => 'Бекфліп над прірвою', n: [1, 1, 1], v: () => runStats.flipOverGap },
+  grinds:  { t: n => `Проковзай ${n} ${plural(n, 'мотузку', 'мотузки', 'мотузок')} за заїзд`, n: [2, 3, 5], v: () => runStats.grinds },
+  coins:   { t: n => `Збери ${n} уламків за заїзд`, n: [40, 70, 110], v: () => player.coins },
+  perfects:{ t: n => `${n} ідеальних приземлень за заїзд`, n: [3, 6, 10], v: () => player.perfects },
+  combo:   { t: n => `Розкрути комбо до ×${n}`, n: [3, 5, 7], v: () => runStats.maxCombo },
+  bank:    { t: n => `Збережи банк комбо на ${n.toLocaleString('en-US')}`, n: [1500, 4000, 9000], v: () => runStats.bestBank },
+  dist:    { t: n => `Проїдь ${n} м за заїзд`, n: [800, 1500, 2600], v: () => player.dist },
+  storm:   { t: n => n > 1 ? `Втечи від Мли ${n} ${times(n)} за заїзд` : 'Втечи від Мли', n: [1, 1, 2], v: () => run.storms || 0, minLevel: 2 },
+  near:    { t: n => `Пролети впритул ${n} ${times(n)}`, n: [2, 4, 7], v: () => runStats.nearMisses },
+  gold:    { t: n => `Збери ${n} ${plural(n, 'золотий кристал', 'золоті кристали', 'золотих кристалів')}`, n: [1, 2, 4], v: () => runStats.golds },
+  double:  { t: n => n > 1 ? `${n} подвійних сальто за заїзд` : 'Подвійне сальто', n: [1, 2, 3], v: () => runStats.doubles },
+  clean:   { t: n => `${n} м без жодної sketchy`, n: [500, 900, 1500], v: () => runStats.cleanDist },
+  bolt:    { t: n => `Прослизни повз ${n} ${plural(n, 'блискавку', 'блискавки', 'блискавок')}`, n: [1, 2, 3], v: () => runStats.boltMisses, minLevel: 2 },
+};
+const TITLES = [[16, 'Легенда Аш-Сору'], [12, 'Майстер дюн'], [8, 'Хранитель'], [5, 'Вітрогон'], [3, 'Слідопит'], [1, 'Мандрівник']];
+const keeperTitle = lv => TITLES.find(([l]) => lv >= l)[1];
+
+let missions = { level: 1, active: [], levelUpPending: false };
+function pickMissions() {
+  const tier = Math.min(2, Math.floor((missions.level - 1) / 3));
+  const ids = Object.keys(MISSION_POOL).filter(id => (MISSION_POOL[id].minLevel || 1) <= missions.level);
+  const out = [];
+  while (out.length < 3 && ids.length) {
+    const id = ids.splice(Math.floor(Math.random() * ids.length), 1)[0];
+    out.push({ id, n: MISSION_POOL[id].n[tier], done: false });
+  }
+  missions.active = out;
+}
+function saveMissions() { try { localStorage.setItem(MISSIONS_KEY, JSON.stringify(missions)); } catch (e) {} }
+try {
+  const raw = JSON.parse(localStorage.getItem(MISSIONS_KEY) || 'null');
+  if (raw && Array.isArray(raw.active) && raw.active.every(m => MISSION_POOL[m.id])) {
+    missions = { level: Math.max(1, raw.level | 0), active: raw.active, levelUpPending: !!raw.levelUpPending };
+  }
+} catch (e) {}
+if (!missions.active.length) { pickMissions(); saveMissions(); }
+
+const missionText = m => MISSION_POOL[m.id].t(m.n);
+/** Перевірка місій: викликається з подій гри й двічі на секунду. */
+function checkMissions() {
+  if (state !== GS.PLAY || missions.levelUpPending) return;
+  let changed = false;
+  for (const m of missions.active) {
+    if (m.done) continue;
+    if (MISSION_POOL[m.id].v() >= m.n) {
+      m.done = true; changed = true;
+      toast('✓ ' + missionText(m));
+      sound.play('mission');
+      fx.haptic([10, 40, 10]);
+    }
+  }
+  if (changed) {
+    if (missions.active.every(m => m.done)) {
+      missions.levelUpPending = true;
+      setTimeout(() => toast('Усі місії виконано · новий рівень після заїзду'), 2900);
+    }
+    saveMissions();
+  }
+}
+/** Підвищення рівня — на екрані підсумку, щоб нові місії не «зараховувались» посеред заїзду. */
+function resolveLevelUp() {
+  run.levelUp = null;
+  if (!missions.levelUpPending) return;
+  missions.level++;
+  missions.levelUpPending = false;
+  const reward = 40 + 20 * missions.level;
+  wallet.crystals += reward;
+  let feather = false;
+  if (missions.level % 3 === 0 && wallet.feathers < FEATHER.max) { wallet.feathers++; feather = true; }
+  saveWallet(); refreshWalletLabels();
+  pickMissions();
+  saveMissions();
+  run.levelUp = { level: missions.level, reward, feather, title: keeperTitle(missions.level) };
+  sound.play('levelUp');
+  fx.haptic([15, 50, 15, 50, 30]);
+}
+function missionRowsHTML(withRun) {
+  return missions.active.map(m => {
+    const v = Math.floor(Math.min(MISSION_POOL[m.id].v(), m.n));
+    const prog = withRun && !m.done && m.n > 1 ? `<b>${v} / ${m.n}</b>` : '';
+    return `<div class="mrow${m.done ? ' done' : ''}"><span>${m.done ? '✓' : '○'} ${missionText(m)}</span>${prog}</div>`;
+  }).join('');
+}
+function renderMissionsCard() {
+  const el = document.getElementById('missionsCard');
+  el.innerHTML = `<div class="eyebrow">Рівень хранителя ${missions.level} · ${keeperTitle(missions.level)}</div>` +
+                 missionRowsHTML(false);
+}
+function renderOverMissions() {
+  const el = document.getElementById('overMissions');
+  let h = '';
+  if (run.levelUp) {
+    const L = run.levelUp;
+    h += `<div class="lvlup">Новий рівень ${L.level} · ${L.title}<small>+${L.reward} ✦${L.feather ? ' · +1 перо' : ''}</small></div>` +
+         '<div class="eyebrow">Нові місії</div>' + missionRowsHTML(false);
+  } else {
+    h += `<div class="eyebrow">Місії · рівень ${missions.level}</div>` + missionRowsHTML(true);
+  }
+  el.innerHTML = h;
+}
+
+/* --- 17.6 Нові випробування траси -------------------------------------- */
+/** Трамплін, а на виїзді — камінь: приземлись і одразу стрибай. */
+function pieceGauntlet() {
+  pieceKicker(grnd() < 0.5);
+  pieceObstacles(false);
+}
+/** Подвійна прірва з коротким острівцем між ними — тут допомагає буфер стрибка. */
+function pieceDoubleGap() {
+  const v = baseSpeedAt(terrain.idx * CFG.DX) * 0.9, jd = jumpDistance(v);
+  pushSeg(gr(12, 18), terrain.y - gr(2, 4));
+  for (let k = 0; k < 2; k++) {
+    const lip = terrain.y + 0.3;
+    pushSeg(gr(5.5, 8), lip);
+    const x0 = terrain.idx * CFG.DX, span = jd * gr(0.38, 0.48);
+    for (let i = 0, n = Math.ceil(span / CFG.DX); i < n; i++) pushSample(lip - 0.7, false);
+    const arc = placeCoinArc(x0 - v * 0.08, lip + CFG.RIDE_OFFSET, v, CFG.JUMP, 4, 0.14);
+    if (k === 1 && arc.length > 2 && grnd() < 0.5) arc[1].gold = true;
+    terrain.y = lip - gr(0, 1);
+    pushSample(terrain.y, true);
+  }
+  pushSeg(gr(14, 22), terrain.y - gr(1, 3));
+}
+
+/* --- 17.7 ASMR-звук: калімба, піщинки, струна, банк ---------------------- */
+SoundSystem.prototype.kalimba = function (f, t, gain) {
+  this.tone(f, t, 1.4, { gain, attack: 0.004, echo: 0.5, bus: this.amb });
+  this.tone(f * 2.0, t, 0.35, { gain: gain * 0.35, attack: 0.002, bus: this.amb });
+  this.tone(f * 3.01, t, 0.16, { gain: gain * 0.14, attack: 0.002, bus: this.amb });
+};
+/** Генеративна музика: пентатоніка, що слухає день/ніч, бурю й комбо. */
+SoundSystem.prototype.musicTick = function () {
+  if (!settings.ambience || paused) return;
+  const now = this.ctx.currentTime;
+  const m = this.mus || (this.mus = { next: now + 0.6, step: 0, note: 4 });
+  if (m.next < now) m.next = now + 0.05;
+  const eighth = 60 / 74 / 2;
+  while (m.next < now + 0.25) { this.musicStep(m.next, m); m.next += eighth; }
+};
+SoundSystem.prototype.musicStep = function (t, m) {
+  m.step++;
+  const stormy = storm.k > 0.35, night = sky.starI > 0.5;
+  const scale = stormy || night ? [0, 3, 5, 7, 10, 12, 15, 17, 19, 22] : [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+  const root = stormy ? 207.65 : night ? 220 : 261.63;
+  if (m.step % 16 === 1) {                                   // м'який бас раз на такт
+    this.tone(root / 2 * (m.step % 32 === 1 ? 1 : 1.498), t, 2.8, { gain: 0.026, attack: 0.09, bus: this.amb });
+  }
+  const p = clamp(0.14 + 0.05 * player.combo + (stormy ? 0.12 : 0) + (state === GS.PLAY && !player.grounded ? 0.06 : 0), 0, 0.55);
+  if (Math.random() > p) return;
+  m.note = clamp(m.note + pick([-2, -1, -1, 0, 1, 1, 2]), 0, scale.length - 1);
+  const f = root * Math.pow(2, scale[m.note] / 12);
+  this.kalimba(f, t, 0.02);
+  if (Math.random() < 0.14) this.kalimba(root * Math.pow(2, scale[Math.max(0, m.note - 2)] / 12), t + 0.2, 0.012);   // тиха друга нота
+};
+/** Хрускіт піску: дрібні «піщинки» в стерео, частота — від швидкості. */
+SoundSystem.prototype.grainTick = function (dt) {
+  if (paused || state !== GS.PLAY || !player.grounded || player.grind || !settings.ambience) return;
+  const sp = clamp(player.speed / (24 * view.scale), 0, 1.4);
+  this.grainAcc = (this.grainAcc || 0) + dt * (6 + 16 * sp);
+  while (this.grainAcc > 1) {
+    this.grainAcc -= 1;
+    const t = this.ctx.currentTime + Math.random() * 0.05;
+    this.hush(t, rr(0.006, 0.014), { type: 'highpass', f0: rr(2500, 6500), gain: rr(0.006, 0.015), pan: rr(-0.6, 0.6), bus: this.amb });
+  }
+};
+/** Струна (Карплус–Стронг): мотузка дзвенить, коли на неї приземляєшся. */
+SoundSystem.prototype.string = function (freq, t, gain) {
+  const c = this.ctx;
+  const d = c.createDelay(0.05); d.delayTime.value = 1 / clamp(freq, 120, 320);
+  const fb = c.createGain(); fb.gain.value = 0.965;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
+  d.connect(lp); lp.connect(fb); fb.connect(d);
+  const out = c.createGain();
+  out.gain.setValueAtTime(gain, t); out.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+  lp.connect(out); out.connect(this.sfx);
+  const send = c.createGain(); send.gain.value = 0.3; out.connect(send); send.connect(this.send);
+  const src = c.createBufferSource(), eg = c.createGain();
+  src.buffer = this.noise;
+  eg.gain.setValueAtTime(0.8, t); eg.gain.setValueAtTime(0, t + 0.012);
+  src.connect(eg); eg.connect(d);
+  src.start(t, Math.random()); src.stop(t + 0.03);
+  setTimeout(() => { try { fb.disconnect(); d.disconnect(); lp.disconnect(); out.disconnect(); send.disconnect(); } catch (e) {} }, 2600);
+};
+
+/* Кадрове оновлення всього з цього розділу (реальний час). */
+function updateThrill(dt) {
+  updatePotLabel(dt);
+  updateGoldMats();
+}
+
+{ const base = renderChapterCard;      // картка старту: ще й місії; підказка керування — лише новачкам
+  renderChapterCard = function () {
+    base(); renderMissionsCard();
+    const lg = document.querySelector('#start .legend'); if (lg) lg.style.display = onboardDone() ? 'none' : '';
+  }; }
 
 RESIZE_HOOKS.push(() => { if (paused) renderFrame(time); });   // меню паузи поверх живого кадру
 
@@ -5040,6 +5497,7 @@ function tick(now) {
   dust.update(sdt);
   updateStoryWorld(dt, time, camera.position.x, camY);
   updateStormVisual(dt, time);
+  updateThrill(dt);
   motes.update(time, camera.position.x, camY, dt);
   meteors.update(dt, camera.position.x, camY);
   updateUI(dt);
