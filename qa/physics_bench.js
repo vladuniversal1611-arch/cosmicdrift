@@ -89,9 +89,9 @@ const EXE = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/c
         for (i = 0; i < 90 * 60 && !c.crashed; i++) {
           const air = !c.fG && !c.rG, a = c.bang;
           let g = true, br = false;
-          // controls: right (gas) turns clockwise in the air, left (brake) counter-clockwise
+          // controls: right (gas) lifts the nose in the air, left (brake) drops it
           if (air) { const sl = Math.atan2(tr.getY(c.bx + 60) - tr.getY(c.bx), 60), rel = a - sl;
-            g = rel < -0.25; br = rel > 0.3; }
+            g = rel > 0.3; br = rel < -0.25; }
           else if (a < -0.55) { g = false; if (a < -0.9) br = true; }
           c.step(tr, g, br); tr.ensure(c.bx + 1200);
         }

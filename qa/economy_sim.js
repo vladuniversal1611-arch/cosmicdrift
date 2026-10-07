@@ -29,13 +29,13 @@ const EXE = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/c
         // careful driving with occasional mistakes (holding gas too long)
         if (mistake > 0) mistake--; else if (r() < skill.err) mistake = skill.len;
         if (!mistake) {
-          // controls: right (gas) turns clockwise in the air, left (brake) counter-clockwise
+          // controls: right (gas) lifts the nose in the air, left (brake) drops it
           if (air) { const sl = Math.atan2(terrain.getY(car.bx + 60) - terrain.getY(car.bx), 60), rel = a - sl;
-            g = rel < -0.25; br = rel > 0.3; }
+            g = rel > 0.3; br = rel < -0.25; }
           else if (a < -skill.nose) { g = false; if (a < -0.9) br = true; }
           // skilled players lean into jumps for flips
           const hgt = terrain.getY(car.bx) - car.by;
-          if (air && skill.flip && ST.air > 8 && hgt > 260 && Math.abs(ST.rot) < Math.PI * 1.7) { g = false; br = true; }
+          if (air && skill.flip && ST.air > 8 && hgt > 260 && Math.abs(ST.rot) < Math.PI * 1.7) { g = true; br = false; }
         }
         car.step(terrain, g && car.fuel > 0, br); terrain.ensure(car.bx + 1500);
         stuntTick();

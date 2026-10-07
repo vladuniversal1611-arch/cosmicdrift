@@ -35,7 +35,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 #fuelBar{height:100%;border-radius:5px;background:linear-gradient(90deg,#66bb6a,#2e7d32);
   transition:width .12s,background .25s}
 
-/* ── CONTROLS: left half = brake / tilt back, right half = gas / tilt right ── */
+/* ── CONTROLS: left half = brake / tilt forward, right half = gas / tilt back ── */
 #controls{position:absolute;top:58px;bottom:0;left:0;right:0;display:none;z-index:20;pointer-events:all}
 .cbtn{position:absolute;top:0;bottom:0;width:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #cBrake{left:0}
@@ -268,12 +268,12 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
 <div id="toast"></div>
 <div id="mile"><div class="mile-n" id="mileN"></div><div class="mile-s">MILESTONE!</div></div>
 <div id="stuntFeed"></div>
-<div id="hint"><div>Touch the LEFT half<br>brake · reverse · in air: tilt back ↺</div><div>Touch the RIGHT half<br>gas · in air: tilt right ↻</div></div>
+<div id="hint"><div>Touch the LEFT half<br>brake · reverse · in air: nose down ↻</div><div>Touch the RIGHT half<br>gas · in air: nose up ↺</div></div>
 
 <!-- CONTROLS -->
 <div id="controls">
-  <div class="cbtn" id="cBrake"><div class="pedal"><div class="cicon">↺</div><div class="clbl">Brake</div><div class="csub">reverse · tilt back</div></div></div>
-  <div class="cbtn" id="cGas"><div class="pedal"><div class="cicon">↻</div><div class="clbl">Gas</div><div class="csub">drive · tilt right</div></div></div>
+  <div class="cbtn" id="cBrake"><div class="pedal"><div class="cicon">↻</div><div class="clbl">Brake</div><div class="csub">reverse · tilt forward</div></div></div>
+  <div class="cbtn" id="cGas"><div class="pedal"><div class="cicon">↺</div><div class="clbl">Gas</div><div class="csub">drive · tilt back</div></div></div>
 </div>
 
 <!-- ── MENU ── -->
@@ -315,8 +315,8 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
   <div class="srow">📳 VIBRATION<button class="tgl" id="tglVibe" aria-label="Vibration"></button></div>
   <div class="stitle" style="margin-top:14px">HOW TO PLAY</div>
   <div class="howto">
-    <b>RIGHT half of the screen — GAS</b>: drive forward. In the air it turns the car <b>to the right ↻</b> (nose down).<br>
-    <b>LEFT half — BRAKE</b>: slow down and reverse. In the air it turns the car <b>back ↺</b> (nose up).<br>
+    <b>RIGHT half of the screen — GAS</b>: drive forward. In the air it turns the car <b>back ↺</b> (nose up).<br>
+    <b>LEFT half — BRAKE</b>: slow down and reverse. In the air it turns the car <b>forward ↻</b> (nose down).<br>
     Don't land on your head! Grab <b>⛽ fuel</b> before the tank runs dry and collect coins to upgrade your car.<br>
     Flips, long jumps and perfect landings pay bonus coins.
   </div>
@@ -915,12 +915,12 @@ class Car{
       const inAir=!this._gf&&!this._gr;
       this.airT=inAir?this.airT+h:0;
       if(!inAir)this.bw-=(tr+tf)*this.vd.pitchK*this.gk/this.I*h;
-      // Air control (gas tilts right/clockwise, brake tilts back/counter-clockwise)
+      // Air control (gas tilts back/nose up, brake tilts forward/nose down)
       // Air control accelerates the spin up to a capped rate, like the original's steady flips
       if(inAir&&this.airT>6){const ac=.0018*this.vd.airK*h,cap=.052*this.vd.airK;
-        // RIGHT side (gas) turns the car clockwise, LEFT side (brake) counter-clockwise
-        if(gas&&ok&&this.bw<cap)this.bw=Math.min(cap,this.bw+ac);
-        if(brake&&this.bw>-cap)this.bw=Math.max(-cap,this.bw-ac);}
+        // RIGHT side (gas) lifts the nose (counter-clockwise), LEFT side (brake) drops it (clockwise)
+        if(gas&&ok&&this.bw>-cap)this.bw=Math.max(-cap,this.bw-ac);
+        if(brake&&this.bw<cap)this.bw=Math.min(cap,this.bw+ac);}
       // Ground contacts
       this._gf=this._contact(terrain,'f',h);this._gr=this._contact(terrain,'r',h);
       if(this.env.roll&&(this._gf||this._gr)){const k=Math.pow(this.env.roll,1);this.rom*=k;this.fom*=k;this.bvx*=.9999;}
@@ -2089,8 +2089,8 @@ function endGame(rsn){
   document.getElementById('goEarn').innerHTML=rows;
   document.getElementById('goBest').classList.toggle('nb',nb);
   // a short, situation-specific tip helps new players learn the controls
-  const tips={'DRIVER DOWN!':['💡 In the air: RIGHT side turns the car ↻, LEFT side turns it ↺. Level out before landing!','💡 Nose too high? Hold the RIGHT side in the air to bring it down.','💡 Land on both wheels for a PERFECT LANDING bonus.'],
-    'BURNED!':['💡 Build speed on the ramp and jump over the lava pit.','💡 A little LEFT in the air keeps the nose up for a longer jump.'],
+  const tips={'DRIVER DOWN!':['💡 In the air: RIGHT side (gas) lifts the nose ↺, LEFT side (brake) drops it ↻. Level out before landing!','💡 Nose too high? Hold the LEFT side (brake) in the air to bring it down.','💡 Land on both wheels for a PERFECT LANDING bonus.'],
+    'BURNED!':['💡 Build speed on the ramp and jump over the lava pit.','💡 A little GAS in the air keeps the nose up for a longer jump.'],
     'FLIPPED!':['💡 Upside down? Turn with the LEFT / RIGHT side while still in the air.'],
     'OUT OF FUEL!':['💡 Upgrade the FUEL TANK to reach the next ⛽ can.','💡 Watch the ⛽ arrow on the right — it shows the next fuel can.']};
   const tl=tips[rsn]||[];document.getElementById('goTip').textContent=sv.stats.runs<=12&&tl.length?tl[(sv.stats.runs)%tl.length]:'';

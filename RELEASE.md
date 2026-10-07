@@ -191,5 +191,5 @@ Content: 9 maps (Countryside, Beach: soft sand; Mountains; Night Forest:
 darkness and headlights; Arctic: ice; Desert: big kickers; Volcano: lava pits;
 Mars: 3.7 m/s²; Moon: 1.6 m/s²) and 7 vehicles (Jeep, Pickup, Monster, Moto,
 Buggy: light and airy; Rally: fast with high grip; Tank: heavy, grippy and hard to flip).
-Landscape only. The left half of the screen is brake/reverse and tilts back;
-the right half is gas and tilts forward.
+Landscape only. The left half of the screen is brake/reverse;
+the right half is gas and lifts the nose (backflip); the left half also drops the nose (frontflip).
