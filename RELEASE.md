@@ -178,3 +178,18 @@ node qa/flow.js                 # full player journey, edge cases, throttled per
 node qa/physics_bench.js        # physics feel metrics
 node qa/economy_sim.js          # economy pacing (slow; run after balance changes)
 ```
+
+## Test build (everything unlocked)
+
+`node tools/make_test_build.js` regenerates `hill_rush_test.html` from
+`hill_rush.html`. It has every vehicle and map unlocked and 9,999,999 coins,
+shows a red TEST BUILD badge, and saves under its own key (`hillrush_test`), so
+it never touches real progress (`hillrush3`). It does not register the service
+worker. It is for playtesting only: never ship it or list it in `sw.js`.
+
+Content: 9 maps (Countryside, Beach: soft sand; Mountains; Night Forest:
+darkness and headlights; Arctic: ice; Desert: big kickers; Volcano: lava pits;
+Mars: 3.7 m/s²; Moon: 1.6 m/s²) and 7 vehicles (Jeep, Pickup, Monster, Moto,
+Buggy: light and airy; Rally: fast with high grip; Tank: heavy, grippy and hard to flip).
+Landscape only. The left half of the screen is brake/reverse and tilts back;
+the right half is gas and tilts forward.

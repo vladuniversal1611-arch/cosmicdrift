@@ -1,5 +1,5 @@
 // Offline cache for the web/PWA build. Bump CACHE whenever any listed file changes.
-const CACHE = 'hillrush-v5';
+const CACHE = 'hillrush-v6';
 const ASSETS = ['./hill_rush.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
