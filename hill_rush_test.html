@@ -598,15 +598,15 @@ const ENVS=[
    bg:['rgba(80,20,10,.6)','rgba(60,15,10,.65)','rgba(35,10,8,.7)'],
    cloud:'rgba(70,40,40,.55)',gravity:.0544,friction:.74,hillAmp:120,hillFreq:.005,rough:.8,
    lava:true,volcanoBg:true,amb:'embers',treeFn:'deadTree',mtn:'rgba(40,12,8,.75)'},
-  {id:'mars',name:'MARS',emoji:'🔴',locked:true,unlockM:3000,price:80000,feat:'Low gravity (3.7 m/s²), dust storms',
+  {id:'mars',name:'MARS',emoji:'🔴',locked:true,unlockM:3000,price:80000,feat:'Low gravity, dust storms',
    sky:['#c47a4a','#f0c39a'],gTop:'#c0603a',gMid:'#8a3f22',gDeep:'#3d170b',gLine:'#e08458',
    bg:['rgba(200,110,70,.45)','rgba(170,85,55,.45)','rgba(130,60,40,.45)'],
-   cloud:'rgba(240,190,150,.5)',gravity:.0206,friction:.68,hillAmp:180,hillFreq:.0038,rough:1.1,
+   cloud:'rgba(240,190,150,.5)',gravity:.03,friction:.68,hillAmp:150,hillFreq:.0038,rough:1.1,
    marsMoons:true,amb:'dust',treeFn:'marsRock',mtn:'rgba(150,70,45,.5)'},
-  {id:'moon',name:'MOON',emoji:'🌕',locked:true,unlockM:3200,price:90000,feat:'Moon gravity (1.6 m/s²): huge jumps',
+  {id:'moon',name:'MOON',emoji:'🌕',locked:true,unlockM:3200,price:90000,feat:'Very low gravity: huge jumps',
    sky:['#000005','#0a0a18'],gTop:'#6b6b6b',gMid:'#3a3a3a',gDeep:'#111',gLine:'#888',
    bg:['rgba(100,100,130,.15)','rgba(70,70,100,.1)','rgba(40,40,70,.08)'],
-   cloud:'rgba(0,0,0,0)',gravity:.009,friction:.65,hillAmp:210,hillFreq:.0032,rough:1.3,
+   cloud:'rgba(0,0,0,0)',gravity:.02,friction:.65,hillAmp:165,hillFreq:.0032,rough:1.3,
    stars:true,earth:true,noClouds:true,treeFn:'crater'},
 ];
 
@@ -745,14 +745,19 @@ class Terrain{
       const x0=x,y0=y;
       if(e.lava&&x>2400&&kind<.2+.06*prog&&y>base-220){
         // ── Lava pit: small ramp, then a pit with lava at the bottom; jump it or burn
-        const hR=26+r()*20,sR=.3,lenR=hR/sR,pitW=150+r()*80*diff,dep=110;
-        const lipX=x+60+lenR,topY=y-hR;
-        this._line(x,y,x+60,y);this._line(x+60,y,lipX,topY);
+        // The far bank sits lower than the lip and the lava fills the pit almost to
+        // its edge, so a jump that falls a little short rolls up a small step
+        // instead of hitting a tall wall.
+        const hR=34+r()*20,sR=.34,lenR=hR/sR,pitW=120+r()*60*diff,dep=110,bank=40;
+        const lipX=x+140+lenR,topY=y-hR,lavaY=topY+bank+14;
+        this._line(x,y,x+140,y);this._line(x+140,y,lipX,topY);
         this._line(lipX,topY,lipX+14,topY+dep);this._line(lipX+14,topY+dep,lipX+pitW-14,topY+dep);
-        this._line(lipX+pitW-14,topY+dep,lipX+pitW,topY+6);this._line(lipX+pitW,topY+6,lipX+pitW+120,topY+6);
-        this.lavas.push({x0:lipX+8,x1:lipX+pitW-8,y:topY+dep-34});
+        this._line(lipX+pitW-14,topY+dep,lipX+pitW-6,lavaY);this._line(lipX+pitW-6,lavaY,lipX+pitW+14,topY+bank);
+        // downhill landing after the bank, then flat
+        this._line(lipX+pitW+14,topY+bank,lipX+pitW+200,topY+bank+50);this._line(lipX+pitW+200,topY+bank+50,lipX+pitW+300,topY+bank+50);
+        this.lavas.push({x0:lipX+7,x1:lipX+pitW-6,y:lavaY});
         for(let j=0;j<5;j++){const dx=30+j*(pitW-20)/4;this.objs.push({t:'coin',x:lipX+dx,y:topY-46-Math.sin(j/4*Math.PI)*40,col:false,v:25});}
-        x=lipX+pitW+120;y=topY+6;
+        x=lipX+pitW+300;y=topY+bank+50;
       }else if(x>3000&&kind<(.16+.08*prog)*(e.kick||1)&&y>base-200){
         // ── Kicker ramp with a long downhill landing (the jump in "hill climb" games)
         const hR=40+r()*45*diff,sR=Math.min(.36+.18*prog+r()*.06,cap+.08),lenR=hR/sR;
@@ -896,7 +901,7 @@ class Car{
     const ok=this.fuel>0;
     const N=8,h=1/N,g=this.env.gravity;
     const maxOm=(8.6+this.vd.eng*7)*this.spdUp*boost/this.wr;
-    const T=this.engP*this.vd.mass*this.wr*6.4*(1+(boost-1)*.25)*Math.sqrt(this.gk);   // torque follows gravity so the car does not stand on its tail
+    const T=this.engP*this.vd.mass*this.wr*6.4*(1+(boost-1)*.25)*Math.sqrt(Math.max(this.gk,.115));   // torque follows gravity (floored so low-g maps stay quick) so the car does not stand on its tail
     this.fG=this.rG=false;this._slip=0;
     for(let k=0;k<N;k++){
       // Gravity
@@ -976,8 +981,16 @@ class Car{
   }
   _contact(terrain,sw,h){
     const w=this._w(sw),r=this.wr;
-    const ty=terrain.getY(w.x),nm=terrain.getNorm(w.x);
-    const dist=(ty-w.y)*(-nm.ny);
+    const ty=terrain.getY(w.x);let nm=terrain.getNorm(w.x);
+    let dist=(ty-w.y)*(-nm.ny);
+    // Projecting onto the local normal underestimates the gap next to a cliff (a wheel
+    // high above a pit wall looked "in contact": the invisible wall). Check the
+    // real nearest ground point around the wheel and use it when it is farther.
+    if(dist<r&&ty>w.y){
+      let best=1e9,qx=0,qy=0;
+      for(let k=-4;k<=4;k++){const sx=w.x+k*r*.25,sy=terrain.getY(sx),d=Math.hypot(sx-w.x,sy-w.y);if(d<best){best=d;qx=sx;qy=sy;}}
+      if(best>dist+2){dist=best;if(best<r){const l=best||1;nm={nx:(w.x-qx)/l,ny:(w.y-qy)/l};}}
+    }
     const pen=r-dist;
     if(pen<=0)return false;
     // Push out
@@ -994,7 +1007,7 @@ class Car{
     if(Math.abs(slip)>this._slip)this._slip=Math.abs(slip);
     const meff=1/(1/this.mw+r*r/this.Iw);
     let jt=-slip*meff;
-    const lim=this.mu*jn*2.2/Math.max(this.gk,.16);   // below Earth gravity the wheels slip instead of lifting the car
+    const lim=this.mu*jn*2.2/Math.max(this.gk,.05);   // grip is mostly kept in low gravity so the car still accelerates
     if(jt>lim)jt=lim;else if(jt<-lim)jt=-lim;
     vx+=jt/this.mw*tx;vy+=jt/this.mw*ty2;
     if(sw==='f')this.fom-=jt*r/this.Iw;else this.rom-=jt*r/this.Iw;
