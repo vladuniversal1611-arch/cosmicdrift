@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing comes from android/keystore.properties (never committed).
+def ksFile = rootProject.file('keystore.properties')
+def ks = new Properties()
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+android {
+    namespace 'com.hillrush.game'
+    compileSdk 36
+
+    defaultConfig {
+        // The application ID is permanent once published - change it before the first upload.
+        applicationId 'com.hillrush.game'
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (ksFile.exists()) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // The game itself lives in the repository root; it is copied into the APK
+    // assets at build time so there is a single source of truth.
+    sourceSets {
+        main.assets.srcDirs += ["$buildDir/generated/webAssets"]
+    }
+}
+
+def copyWebAssets = tasks.register('copyWebAssets', Copy) {
+    from(rootProject.file('..')) {
+        include 'hill_rush.html', 'manifest.json', 'icons/**'
+    }
+    into "$buildDir/generated/webAssets"
+}
+tasks.named('preBuild') { dependsOn copyWebAssets }

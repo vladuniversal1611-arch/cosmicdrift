@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#5cb85c">
+<meta name="theme-color" content="#56CCF2">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Hill Rush</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1543,7 +1546,9 @@ const MILES=[100,250,500,1000,2000,3500,5000,7500,10000];
 function initMenu(){
   STATE='menu';stopEng();if(raf){cancelAnimationFrame(raf);raf=null;}
   showOvl('menuOvl');setLetterbox('#56CCF2','#66bb6a');
-  refreshMenuBadges();showDailyPopup();
+  refreshMenuBadges();
+  // pop the daily reward once per session; afterwards it waits on the missions screen
+  if(!dailyAutoShown)dailyAutoShown=showDailyPopup();
   document.getElementById('bestTxt').textContent='🏁 BEST '+(sv.best|0)+' m';
   document.getElementById('menuCoins').textContent='🪙 '+fmt(sv.coins);
   drawMenuCar(document.getElementById('menuCar'));
@@ -1909,6 +1914,7 @@ const MPOOL={
   perfect:{txt:g=>`Land ${g} perfect landings`,    goals:[2,4],          rw:[1600,3000]},
   nofuel: {txt:g=>`Reach ${g} m without a fuel can`,goals:[250,400],     rw:[2000,3200]},
 };
+let dailyAutoShown=false;
 const DAILY_RW=[500,750,1000,1500,2000,3000,6000];
 const dayStr=(d=new Date())=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
 function hashStr(t){let h=2166136261;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
@@ -1987,6 +1993,7 @@ function initMissions(){
     <div class="mbar"><div style="width:${Math.min(100,m.prog/m.goal*100)}%"></div></div>
     <div class="mprog">${m.done?'COMPLETE':Math.floor(m.prog)+' / '+m.goal}</div></div>`).join('');
   const st=dailyState();dailyTiles(document.getElementById('missDaily'),st.day,st.can);
+  document.getElementById('missDaily').onclick=()=>{if(dailyState().can){showDailyPopup();}};
   renderAch();
 }
 
@@ -2151,6 +2158,14 @@ document.getElementById('btnGoMenu').onclick=()=>{sfxBtn();initMenu();};
 document.getElementById('pauseBtn').onclick=togglePause;
 
 // ── app lifecycle (backgrounding on Android) ─────────────
+// Android back button (called by the wrapper). Returns 'exit' when the app should close.
+window.androidBack=function(){
+  if(document.getElementById('adOvl').classList.contains('on'))return 'handled';
+  if(document.getElementById('dailyOvl').classList.contains('on')){document.getElementById('dailyOvl').classList.remove('on');return 'handled';}
+  if(STATE==='game'){if(car&&!car.over)togglePause();return 'handled';}
+  if(STATE!=='menu'){sfxBtn();if(STATE==='gameover')document.getElementById('goOvl').classList.remove('on');initMenu();return 'handled';}
+  return 'exit';
+};
 function onHidden(){
   if(STATE==='game'&&!paused&&car&&!car.dead)togglePause();
   setG(false);setB(false);
