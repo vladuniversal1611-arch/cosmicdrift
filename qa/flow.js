@@ -85,9 +85,10 @@ const res = []; const check = (n, ok, info = '') => res.push({ n, ok: !!ok, info
 
   // MAP UNLOCK (locked refused when poor, bought when funded)
   await ev(() => { sv.coins = 100; saveSv(); }); await p.click('#btnMapSel'); await wait(250);
-  await p.locator('.lcard').nth(1).click(); await wait(150);
+  const mi = await ev(() => ENVS.findIndex(e => e.id === 'mountain'));
+  await p.locator('.lcard').nth(mi).click(); await wait(150);
   check('locked map refused without coins', await ev(() => !sv.envs.mountain));
-  await ev(() => { sv.coins = 20000; saveSv(); initMapSel(); }); await p.locator('.lcard').nth(1).click(); await wait(200);
+  await ev(() => { sv.coins = 20000; saveSv(); initMapSel(); }); await p.locator('.lcard').nth(mi).click(); await wait(200);
   check('map bought and selected (+Explorer achievement)', await ev(() => sv.envs.mountain && sv.selE === 'mountain' && sv.coins === 8000 + ACH.find(a => a.id === 'map').r));
   await shot('07-map');
   await p.click('#btnMapBack'); await wait(200);
