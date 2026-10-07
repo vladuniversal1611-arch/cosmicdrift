@@ -141,6 +141,19 @@ resources. Nothing large is bundled. The other files in the repository
 (`cosmic_drift_v5 (2).html`, `qa/`, `tools/`, `store/`) are **not** copied
 into the app.
 
+## Performance (measured in headless Chromium, no GPU)
+
+| Condition | Result |
+|---|---|
+| Normal CPU, 2× render resolution | 60 fps |
+| 4× CPU throttle (≈ low-end phone), after the resolution governor | 2× → 1× in ~3 s, 60 fps, p95 frame 16.8 ms |
+| JS heap during a run | ≈ 9.5 MB; track memory stays flat on long runs (old geometry pruned) |
+
+The canvas renders at up to 2× for sharpness. If frames average more than
+22 ms, it steps down to 1×, then switches to a low-quality tier without the
+vignette or dirt pebbles. Real devices rasterise on the GPU, so they should
+do better than these software-rendered numbers; confirm on a low-end phone.
+
 ## External asset tasks (need a designer)
 
 These cannot be made well in code, so they are placeholders for now:
@@ -161,6 +174,7 @@ These cannot be made well in code, so they are placeholders for now:
 ```
 npm i --no-save playwright      # dev only
 node qa/qa.js                   # UI, lifecycle, saves, stunts, monetisation guards
+node qa/flow.js                 # full player journey, edge cases, throttled performance
 node qa/physics_bench.js        # physics feel metrics
 node qa/economy_sim.js          # economy pacing (slow; run after balance changes)
 ```

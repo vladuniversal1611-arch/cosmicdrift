@@ -372,7 +372,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;user-select:n
     <button class="gbtn btn-ad" id="btnGoAd" style="display:none">▶ WATCH AD · x2 COINS</button>
     <div class="gohr"></div>
     <button class="gbtn btn-play" id="btnRetry" style="font-size:20px;padding:15px 0;margin-bottom:6px">▶ RETRY</button>
-    <button class="gbtn btn-buy" id="btnGoGarage" style="display:none;width:200px;font-size:13px;margin-bottom:8px">🔧 UPGRADE</button>
+    <button class="gbtn btn-buy" id="btnGoGarage" style="display:none;width:220px;font-size:13px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔧 UPGRADE</button>
     <button class="gbtn btn-med" id="btnGoMenu">🏠 MENU</button>
   </div>
 </div>
@@ -402,6 +402,14 @@ const ctx=gc.getContext('2d');
 const safeProbe=document.createElement('div');
 safeProbe.style.cssText='position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0';
 document.body.appendChild(safeProbe);
+// Canvas backing resolution: sharp on high-DPI screens (up to 2x), lowered
+// automatically if frames get slow. Drawing code always works in 400x700 units.
+let RES=1,resCapped=false,skyCache={},vigCache=null;
+function lowQ(){return resCapped&&RES<=1;}
+function setRes(k){
+  k=Math.max(1,Math.min(2,Math.round(k*4)/4));if(k===RES)return;
+  RES=k;gc.width=Math.round(W*k);gc.height=Math.round(H*k);skyCache={};vigCache=null;
+}
 function resize(){
   const cs=getComputedStyle(safeProbe),st=parseFloat(cs.paddingTop)||0,sb=parseFloat(cs.paddingBottom)||0;
   const ah=Math.max(100,innerHeight-st-sb);
@@ -411,6 +419,7 @@ function resize(){
   wrap.style.position='absolute';
   wrap.style.left=((innerWidth-W)/2)+'px';
   wrap.style.top=(st+(ah-H)/2)+'px';
+  if(!resCapped)setRes(s*(window.devicePixelRatio||1));
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',()=>setTimeout(resize,250));
@@ -916,10 +925,22 @@ class Car{
 }
 
 // ── drawing helpers ───────────────────────────────────────
+// In-game wheels are pre-rendered once per vehicle/resolution and drawn rotated
+const wheelCache={};
 function drawWheel(c,x,y,r,ang,vd){
   // Ground shadow
   c.save();c.globalAlpha=.22;c.fillStyle='#000';
   c.beginPath();c.ellipse(x+3,y+r*.8,r*.88,r*.24,0,0,Math.PI*2);c.fill();c.restore();
+  if(c===ctx){
+    const zq=Math.round(zoomNow*20)/20,key=vd.id+'@'+RES+'@'+zq;let sp=wheelCache[key];
+    if(!sp){const px=Math.ceil((r+2)*2*RES*zq);sp=document.createElement('canvas');sp.width=sp.height=px;
+      const sc=sp.getContext('2d');sc.scale(px/((r+2)*2),px/((r+2)*2));_wheelArt(sc,r+2,r+2,r,0,vd);wheelCache[key]=sp;}
+    c.save();c.translate(x,y);c.rotate(ang);c.drawImage(sp,-(r+2),-(r+2),(r+2)*2,(r+2)*2);c.restore();
+    return;
+  }
+  _wheelArt(c,x,y,r,ang,vd);
+}
+function _wheelArt(c,x,y,r,ang,vd){
   // Thick black tyre
   c.fillStyle=vd.tyr;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();
   // Tread notches around the outer edge
@@ -1292,20 +1313,30 @@ function makeClouds(){
 }
 
 // ── background render ─────────────────────────────────────
-function renderBG(env,cx,cy,clouds){
-  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,env.sky[0]);g.addColorStop(1,env.sky[1]);
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+// Static sky layers are rendered once per map/resolution into an offscreen canvas
+function offscreen(){const cv=document.createElement('canvas');cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);const c=cv.getContext('2d');c.scale(RES,RES);return[cv,c];}
+function getSky(env){
+  const k=env.id;if(skyCache[k])return skyCache[k];
+  const [cv,c]=offscreen();
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,env.sky[0]);g.addColorStop(1,env.sky[1]);
+  c.fillStyle=g;c.fillRect(0,0,W,H);
   if(env.id==='moon'){
-    ctx.fillStyle='rgba(255,255,255,.8)';const sr=mbrng(77);
-    for(let i=0;i<90;i++){ctx.beginPath();ctx.arc(sr()*W,sr()*H*.75,sr()*1.2+.3,0,Math.PI*2);ctx.fill();}
-    const eg=ctx.createRadialGradient(W*.78,H*.1,0,W*.78,H*.1,28);
+    c.fillStyle='rgba(255,255,255,.8)';const sr=mbrng(77);
+    for(let i=0;i<90;i++){c.beginPath();c.arc(sr()*W,sr()*H*.75,sr()*1.2+.3,0,Math.PI*2);c.fill();}
+    const eg=c.createRadialGradient(W*.78,H*.1,0,W*.78,H*.1,28);
     eg.addColorStop(0,'#4488cc');eg.addColorStop(.7,'#2255aa');eg.addColorStop(1,'#112244');
-    ctx.fillStyle=eg;ctx.beginPath();ctx.arc(W*.78,H*.1,28,0,Math.PI*2);ctx.fill();
-  } else {
+    c.fillStyle=eg;c.beginPath();c.arc(W*.78,H*.1,28,0,Math.PI*2);c.fill();
+  }else{
     // Sun
-    const sg=ctx.createRadialGradient(W*.82,H*.08,2,W*.82,H*.08,54);
+    const sg=c.createRadialGradient(W*.82,H*.08,2,W*.82,H*.08,54);
     sg.addColorStop(0,'rgba(255,252,200,1)');sg.addColorStop(.38,'rgba(255,228,80,.92)');sg.addColorStop(.7,'rgba(255,180,40,.35)');sg.addColorStop(1,'rgba(255,150,0,0)');
-    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(W*.82,H*.08,54,0,Math.PI*2);ctx.fill();
+    c.fillStyle=sg;c.beginPath();c.arc(W*.82,H*.08,54,0,Math.PI*2);c.fill();
+  }
+  return skyCache[k]=cv;
+}
+function renderBG(env,cx,cy,clouds){
+  ctx.drawImage(getSky(env),0,0,W,H);
+  if(env.id!=='moon'){
     // Clouds – merged blobs look fluffy
     if(clouds){
       for(const cl of clouds){
@@ -1368,9 +1399,9 @@ function renderTerrain(terrain,env,cx,cy){
   ctx.moveTo(Math.min(sx0,-50),VH+60);ctx.lineTo(Math.min(sx0,-50),sy0);ctx.lineTo(sx0,sy0);
   _drawTerrainCurve(ctx,pts,si,cx,cy);
   ctx.lineTo(VW+100,VH+60);ctx.closePath();ctx.fillStyle=dg;ctx.fill();
-  // Dirt texture: deterministic pebbles and darker clods below the surface
+  // Dirt texture: deterministic pebbles and darker clods below the surface (skipped in low-quality mode)
   ctx.save();ctx.clip();
-  for(let i=si;i<pts.length&&pts[i].x-cx<VW+SEG;i++){
+  if(!lowQ())for(let i=si;i<pts.length&&pts[i].x-cx<VW+SEG;i++){
     const q=pts[i];let hsh=Math.sin(q.x*12.9898)*43758.5453;hsh-=Math.floor(hsh);
     for(let k=0;k<2;k++){
       const hh=(hsh*(k+3)*7.13)%1,d=26+hh*(VH*.45),rx=3+hh*6;
@@ -1495,9 +1526,9 @@ function renderCar(car,cx,cy){
 }
 
 function renderVignette(){
-  const vg=ctx.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.82);
-  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.38)');
-  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  if(!vigCache){const [cv,c]=offscreen();const vg=c.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.82);
+    vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.38)');c.fillStyle=vg;c.fillRect(0,0,W,H);vigCache=cv;}
+  ctx.drawImage(vigCache,0,0,W,H);
 }
 
 // ── menu car preview ─────────────────────────────────────
@@ -1667,10 +1698,19 @@ function hudSet(id,prop,val){
   const k=id+prop;if(hudCache[k]===val)return;hudCache[k]=val;
   const el=document.getElementById(id);if(prop==='textContent')el.textContent=val;else el.style[prop]=val;
 }
+let perfAcc=0,perfN=0,perfLastDrop=0;
+function perfGovernor(rawDt,now){
+  // average real frame time over ~1.5 s; drop resolution a step when it is too slow
+  if(rawDt>.2)return;                      // ignore tab switches / stalls
+  perfAcc+=rawDt;perfN++;
+  if(perfAcc>=1.5&&perfN>=20){const avg=perfAcc/perfN;perfAcc=0;perfN=0;
+    if(avg>.022&&RES>1&&now-perfLastDrop>1500){setRes(RES-.5);resCapped=true;perfLastDrop=now;}}
+}
 function loop(now){
   if(STATE!=='game'||paused)return;
   raf=requestAnimationFrame(loop);
-  const dt=Math.min((now-lastT)/1e3,.05);lastT=now;fT+=dt;
+  const rawDt=(now-lastT)/1e3;perfGovernor(rawDt,now);
+  const dt=Math.min(rawDt,.05);lastT=now;fT+=dt;
   physAcc+=dt*60*timeScale;
   let guard=0;
   while(physAcc>=1&&guard++<4){physAcc-=1;car.step(terrain,car.over?false:gas,car.over?false:brake);tickParts();}
@@ -1738,7 +1778,7 @@ function loop(now){
   hudSet('fuelBar','background',fp<20?'linear-gradient(90deg,#f44336,#b71c1c)':fp<40?'linear-gradient(90deg,#ff9800,#e65100)':'linear-gradient(90deg,#66bb6a,#2e7d32)');
   if(car.et%120===0)terrain.prune(car.bx-VW*1.5);
   // Draw
-  ctx.clearRect(0,0,W,H);
+  ctx.setTransform(RES,0,0,RES,0,0);ctx.clearRect(0,0,W,H);
   renderBG(car.env,camX,camY,clouds);
   ctx.save();ctx.scale(zoomNow,zoomNow);if(camKick>.1)ctx.translate(0,-camKick*.5);
   renderTerrain(terrain,car.env,camX,camY);
@@ -1749,7 +1789,7 @@ function loop(now){
   drawFloatTxt(camX,camY);
   ctx.restore();
   renderFuelHint();
-  renderVignette();
+  if(!lowQ())renderVignette();
   // Crash
   if(car.crashed&&!car.dead){
     car.dead=true;car.over=true;stopEng();
@@ -1803,7 +1843,7 @@ function endGame(rsn){
     if(runDoubled)return;runDoubled=true;
     sv.coins+=r.total;saveSv();sfxBuy();toast('🪙 +'+fmt(r.total)+' (x2)');
     document.getElementById('goCoins').textContent=fmt(r.total*2);});};
-  if(cheap&&sv.coins>=cheap.c){gb.style.display='block';gb.textContent=`🔧 UPGRADE ${cheap.u.name}  🪙 ${fmt(cheap.c)}`;}else gb.style.display='none';
+  if(cheap&&sv.coins>=cheap.c){gb.style.display='block';gb.textContent=`🔧 ${cheap.u.name} · 🪙 ${fmt(cheap.c)}`;}else gb.style.display='none';
   document.getElementById('goRsn').textContent=rsn;
   document.getElementById('goDist').textContent=d+' m';
   document.getElementById('goCoins').textContent=r.total;
