@@ -269,6 +269,26 @@
   #journal, #shop, #pauseMenu{ transition:opacity .35s ease, visibility 0s linear .35s; }
   #toast, #coach{ transition:opacity .45s ease, transform .45s ease, visibility 0s linear .45s; }
   #journal.on, #shop.on, #pauseMenu.on, #toast.on, #coach.on{ visibility:visible; transition-delay:0s; }
+  /* --- Мла --- */
+  #stormGap{
+    position:absolute; left:50%; top:calc(env(safe-area-inset-top, 0px) + 64px); transform:translateX(-50%);
+    text-align:center; opacity:0; visibility:hidden; transition:opacity .4s ease, visibility 0s linear .4s;
+  }
+  #stormGap.on{ opacity:1; visibility:visible; transition-delay:0s; }
+  #stormGap span{ display:block; font-size:10px; letter-spacing:.32em; text-transform:uppercase; color:rgba(255,255,255,.8);
+                  text-shadow:var(--shadow); font-variant-numeric:tabular-nums; }
+  #stormGap i{ display:block; margin:5px auto 0; width:84px; height:2px; border-radius:2px; transform-origin:left center;
+               background:linear-gradient(90deg,#ffb38a,#ffe3c8); transition:transform .15s linear; }
+  #stormGap.close span{ color:#ffb38a; }
+  #bark{
+    position:absolute; left:50%; top:calc(env(safe-area-inset-top, 0px) + 132px); transform:translate(-50%, -4px);
+    max-width:calc(100vw - 48px); text-align:center; opacity:0; visibility:hidden;
+    transition:opacity .4s ease, transform .4s ease, visibility 0s linear .4s;
+  }
+  #bark.on{ opacity:1; visibility:visible; transform:translate(-50%, 0); transition-delay:0s; }
+  #bark b{ display:block; font-size:9px; font-weight:400; letter-spacing:.36em; text-transform:uppercase; color:#ffe3a3; }
+  #bark span{ display:block; margin-top:4px; font-size:14px; font-style:italic; font-weight:300; letter-spacing:.03em; text-shadow:var(--shadow); }
+
   @media (max-height:560px){ .legend{ display:none; } #chapterCard, #overGoals{ margin-top:10px; } .screen{ gap:4px; } }
 
   #loading{
@@ -297,6 +317,10 @@
       <div id="ghostGap"></div>
     </div>
   </div>
+
+  <!-- Мла: відрив від бурі та репліки Іскри -->
+  <div id="stormGap"><span></span><i></i></div>
+  <div id="bark"><b>✦ Іскра</b><span></span></div>
 
   <!-- пауза: з'являється лише під час заїзду -->
   <button id="pauseBtn" aria-label="Пауза"><i></i><i></i></button>
@@ -336,7 +360,7 @@
 
   <!-- Екран Game Over -->
   <div class="screen" id="over">
-    <div class="tag">the dunes rest</div>
+    <div class="tag" id="overTag">the dunes rest</div>
     <div class="big" id="finalScore">0</div>
     <div class="row">
       <div>best<b id="bestScore">0</b></div>
@@ -428,6 +452,7 @@ if (!window.THREE) {
     14. Поліровка: звук (Web Audio), пауза й налаштування, адаптивна якість,
         відгук трюків, прогрес маяків, онбординг (стоїть перед головним циклом)
     15. Глибина: мотузки, згасаюче комбо, крамниця, привид, щоденна траса
+    16. Мла: жива буря-антагоніст, погоні, блискавки, супутниця Іскра
    ================================================================== */
 
 /* ------------------------------------------------------------------
@@ -1365,7 +1390,7 @@ const INTRO = [
 function nextPiece() {
   const x = terrain.idx * CFG.DX;
   terrain.diff = clamp((x - startX) / 2600, 0, 1);
-  if (story.pending && !terrain.beaconPlaced && !run.daily && x - startX > 60) { pieceBeacon(); return; }
+  if (stormDirector(x)) return;            // погоні Мли та маяк, до якого вона женеться
   const intro = terrain.introList || INTRO;
   if (terrain.intro < intro.length) { intro[terrain.intro++](); return; }
   if (terrain.y < -9) { pieceClimb(); return; }            // запобіжник
@@ -1957,14 +1982,14 @@ const compMat = new THREE.ShaderMaterial({
     tDiffuse: { value: null }, tBloomA: { value: null }, tBloomB: { value: null },
     uBloom: { value: 0.8 }, uTime: { value: 0 }, uVignette: { value: 0.22 },
     uFade: { value: 0 }, uFadeColor: { value: new THREE.Color() },
-    uGrain: { value: 1 }, uBloomBW: { value: 1 },
+    uGrain: { value: 1 }, uBloomBW: { value: 1 }, uDanger: { value: 0 },
   },
   vertexShader: QUAD_VERT,
   fragmentShader: `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D tDiffuse, tBloomA, tBloomB;
-    uniform float uBloom, uTime, uVignette, uFade, uGrain, uBloomBW;
+    uniform float uBloom, uTime, uVignette, uFade, uGrain, uBloomBW, uDanger;
     uniform vec3 uFadeColor;
     void main(){
       vec3 base = texture2D(tDiffuse, vUv).rgb;
@@ -1975,6 +2000,11 @@ const compMat = new THREE.ShaderMaterial({
       vec2 q = vUv - 0.5;
       float vig = 1.0 - uVignette * dot(q, q) * 3.2;
       col *= clamp(vig, 0.0, 1.0);
+
+      /* Мла близько: лівий край кадру тоне в темряві */
+      float dz = uDanger * smoothstep(0.72, 0.0, vUv.x);
+      col *= 1.0 - dz * 0.85;
+      col += vec3(0.05, 0.02, 0.0) * dz;
 
       /* мікрозерно, щоб градієнти неба не смугували */
       float g = fract(sin(dot(vUv * vec2(1024.0, 768.0) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
@@ -2058,9 +2088,9 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 const PROLOGUE = [
   'Колись над пустелею горів Сонячний Ліхтар — серце міста Аш-Сор.',
-  'Коли він розбився, світло розсипалося по дюнах уламками, а сім маяків, що тримали небо, згасли.',
+  'Його розбила Мла — жива буря, що полює на світло. Уламки розлетілися дюнами, а сім маяків, що тримали небо, згасли.',
   'Відтоді світ вицвітає: стихає вітер, відлітають птахи, гаснуть зорі.',
-  'Варта світла тепер на тобі. Збери уламки. Запали маяки.',
+  'Остання іскра Ліхтаря обрала тебе. Збери уламки, запали маяки — і не дай Млі наздогнати.',
 ];
 
 const CHAPTERS = [
@@ -2081,7 +2111,7 @@ const CHAPTERS = [
              'Хто перевертається в небі, той бачить світ очима птахів.',
              'Високий стрибок — це просто розмова з вітром.'] },
   { title: 'Маяк Ліхтарів', gift: 'lanterns', giftText: 'Ожили ліхтарі',
-    goals: [{ type: 'shards', n: 50 }, { type: 'perfect', n: 2 }],
+    goals: [{ type: 'shards', n: 50 }, { type: 'perfect', n: 2 }, { type: 'storms', n: 1 }],
     lines: ['У руїнах займаються вогники.',
             'Колись тут чекали мандрівників — і досі чекають.',
             'Щоночі ліхтарі злітатимуть у небо, щоб показати дорогу.'],
@@ -2105,7 +2135,7 @@ const CHAPTERS = [
              'Старі хранителі рахували дні не сонцями, а зорепадами.',
              'Найкращі бажання загадують на льоту.'] },
   { title: 'Маяк Сяйва', gift: 'aurora', giftText: 'Засяяло небо',
-    goals: [{ type: 'combo', n: 4 }, { type: 'shards', n: 80 }],
+    goals: [{ type: 'combo', n: 4 }, { type: 'shards', n: 80 }, { type: 'storms', n: 2 }],
     lines: ['Над дюнами розгортається сяйво — зелене, як забута ріка.',
             'Воно тече небом туди, де спить Сонячний Ліхтар.',
             'Залишився один вогонь.'],
@@ -2115,6 +2145,7 @@ const CHAPTERS = [
   { title: 'Сонячний Ліхтар', gift: 'sun', giftText: 'Сонце повернулося',
     goals: [{ type: 'shards', n: 120 }, { type: 'perfect', n: 5 }],
     lines: ['Сім вогнів знову тримають небо.',
+            'Мла розсипається на тисячу тіней і зникає за обрієм.',
             'Сонячний Ліхтар оживає, і світло повертається в кожну піщинку.',
             'Пустеля більше не мовчить.',
             'А дорога триває — бо світло, як і дорога, не має кінця.'],
@@ -2135,12 +2166,13 @@ const GOAL_LABEL = {
   double:  () => 'подвійне сальто',
   combo:   g => `комбо ×${g.n} за заїзд`,
   dist:    g => `${g.n} м за один заїзд`,
+  storms:  () => 'втечі від Мли',
 };
-const GOAL_ICON = { shards: '✦', flips: '↺', perfect: '◆', double: '↺↺' };
+const GOAL_ICON = { shards: '✦', flips: '↺', perfect: '◆', double: '↺↺', storms: '⚡' };
 
 /* --- збереження прогресу ----------------------------------------- */
 const STORY_KEY = 'duneDriftStory';
-const freshProgress = () => ({ shards: 0, flips: 0, perfect: 0, double: 0, combo: 0, dist: 0 });
+const freshProgress = () => ({ shards: 0, flips: 0, perfect: 0, double: 0, combo: 0, dist: 0, storms: 0 });
 let story = { chapter: 0, pending: false, complete: false, seenPrologue: false, prog: freshProgress() };
 try {
   const raw = JSON.parse(localStorage.getItem(STORY_KEY) || 'null');
@@ -2292,6 +2324,7 @@ function lightBeacon() {
   fx.shake(0.22);
   sound.play('beacon');
   fx.haptic([20, 80, 40]);
+  endStorm(true, 'beacon');                // вогонь маяка розвіює Млу
   SUI.goal.classList.remove('awake');
   sparkBurst(beacon.x, beacon.y + TOWER_TOP - 0.7, sky.coin, 44);
   player.score += 500;
@@ -2798,6 +2831,9 @@ function resetWorld(seed) {
   terrain.diff = 0; terrain.intense = 0; terrain.intro = 0;
   terrain.beaconPlaced = false;
   removeBeacon();
+  terrain.storms = []; terrain.stormEnd = -1; terrain.nextStormX = 0;
+  terrain.stormRewardAt = 0; terrain.beaconChaseAt = null;
+  resetStorm();
   terrain.teach = [];
   terrain.introList = run.daily || onboardDone() ? INTRO : INTRO_LEARN;   // новачкам — довший вступ; щоденна траса однакова для всіх спроб
 
@@ -2843,10 +2879,14 @@ function startGame(isDaily = false) {
   if (!story.seenPrologue) { story.seenPrologue = true; saveStory(); }
   echoTimer = rr(26, 40);
   const ch = currentChapter();
-  if (ch) {
+  if (!story.mlaSeen) {                    // одноразова картка про антагоніста
+    story.mlaSeen = true; saveStory();
+    showStory({ eyebrow: 'Нова загроза', title: 'Мла', lines: MLA_INTRO, hold: 3 });
+  } else if (ch) {
     showStory({ eyebrow: `Глава ${ROMAN[story.chapter]} з VII`, title: ch.title,
-                lines: story.pending ? ['Маяк прокинувся. Він зовсім близько.'] : [], hold: 2.4 });
+                lines: story.pending ? ['Маяк прокинувся. Мла вже чекає — доведеться тікати.'] : [], hold: 2.4 });
   }
+  if (rnd() < 0.5) setTimeout(() => bark('start'), 3200);
   renderHudGoal();
 }
 
@@ -2874,6 +2914,8 @@ function gameOver() {
   EL.zones.classList.remove('on');
   PM.btn.classList.remove('on');
   hideCoach();
+  hideBark();
+  document.getElementById('overTag').textContent = player.deathReason === 'storm' ? 'мла наздогнала' : 'the dunes rest';
 }
 
 function die(reason) {
@@ -3056,6 +3098,7 @@ function land(h, slopeOverride) {
       player.momentum *= 0.6;            // без попапу: про невдачу кажуть пил, похитування й звук
     } else {
       gainSpeed(1.8 * flips);
+      stormPush(3 * flips);
       showTrick('Clean', name + '  +' + pts);
       sparkBurst(player.x, player.y + 1.0, sky.coin, 16);
     }
@@ -3201,6 +3244,7 @@ function updatePhysics(dt) {
       player.score += 25;
       storyEvent('shards');
       feedback.crystal();
+      stormPush(0.25);
       if (!player.grounded && ++player.airCoins >= 2) learn('arc');
       sparkBurst(c.x, c.y, sky.coin, 12);
     }
@@ -3228,6 +3272,7 @@ function updatePhysics(dt) {
   if (player.grounded && !player.grind) sandSpray(dt);
   updateComboTimer(dt);
   recordGhost(dt);
+  updateStorm(dt);                                 // Мла: погоня, блискавки
   // світний шлейф під час прискорення
   if (trailT > 0) trailT -= dt;
   // шлейф: ривок, Perfect jump, фінальне сонце, а з комбо — тим густіший, чим довша серія
@@ -3448,6 +3493,11 @@ class SoundSystem {
     this.sandG = c.createGain(); this.sandG.gain.value = 0;
     loop().connect(this.sandF); this.sandF.connect(this.sandG); this.sandG.connect(this.amb);
 
+    // гул бурі
+    this.rumF = c.createBiquadFilter(); this.rumF.type = 'lowpass'; this.rumF.frequency.value = 180;
+    this.rumG = c.createGain(); this.rumG.gain.value = 0;
+    loop().connect(this.rumF); this.rumF.connect(this.rumG); this.rumG.connect(this.amb);
+
     this.padF = c.createBiquadFilter(); this.padF.type = 'lowpass'; this.padF.frequency.value = 700;
     this.padG = c.createGain(); this.padG.gain.value = 0;
     this.padF.connect(this.padG); this.padG.connect(this.amb);
@@ -3491,6 +3541,7 @@ class SoundSystem {
     const grinding = playing && !!player.grind;     // на мотузці — тонше, «металевіше» шипіння
     this.sandG.gain.setTargetAtTime(grinding ? 0.05 : (playing && player.grounded ? 0.025 + 0.06 * sp : 0), t, 0.08);
     this.sandF.frequency.setTargetAtTime(grinding ? 5200 : 2200 + 1800 * sp, t, 0.15);
+    this.rumG.gain.setTargetAtTime(paused ? 0.02 : 0.16 * storm.k + 0.08 * storm.danger, t, 0.4);
     const night = clamp(sky.starI, 0, 1);
     this.padG.gain.setTargetAtTime(0.05, t, 1.5);
     this.padF.frequency.setTargetAtTime(lerp(820, 360, night), t, 2);
@@ -3590,6 +3641,20 @@ class SoundSystem {
         break;
       case 'start':
         this.bell(523.25, t, 0.03); this.bell(783.99, t + 0.1, 0.025);
+        break;
+      case 'stormStart':
+        this.tone(58, t, 2.6, { gain: 0.09, attack: 0.6, glide: 44 });
+        this.hush(t, 2.2, { type: 'lowpass', f0: 260, f1: 900, gain: 0.08 });
+        break;
+      case 'thunder':
+        this.hush(t, 1.8, { type: 'lowpass', f0: 1400, f1: 110, q: 0.7, gain: 0.2 });
+        this.tone(46, t, 1.2, { gain: 0.08, glide: 32 });
+        break;
+      case 'zap':
+        this.hush(t, 0.35, { type: 'highpass', f0: 3200, gain: 0.025 });
+        break;
+      case 'escape':
+        [523.25, 659.3, 784, 1046.5, 1318.5].forEach((f, i) => this.bell(f, t + i * 0.08, 0.03, 1.3));
         break;
       case 'grindStart':
         this.tone(1320, t, 0.08, { gain: 0.03, attack: 0.002 });
@@ -3774,15 +3839,19 @@ function sideDust() {
 const feedback = {
   jump()        { sound.play('jump'); },
   perfectJump() {
+    stormPush(3);
     fx.flash(0.1); trailT = settings.reduceMotion ? 0.3 : 0.7;
     sound.play('perfectJump'); fx.haptic(12);
   },
   land(kind, air) {
     if (kind === 'perfect') {
+      stormPush(6);                                   // ідеальна посадка відкидає Млу
+      if (rnd() < 0.2) bark('perfect');
       dustRing(); fx.impact(0.32); fx.flash(0.07);
       if (!settings.reduceMotion) zoomKick = Math.min(zoomKick, -0.07);   // камера на мить «вдихає» ближче
       sound.play('landPerfect'); fx.haptic([8, 40, 12]);
     } else if (kind === 'sketchy') {
+      stormPush(-4);                                  // помилка — Мла підступає
       sideDust(); wobble = settings.reduceMotion ? 0.25 : 0.6;
       sound.play('sketchy'); fx.haptic(28);
     } else if (air > 0.18) {
@@ -3812,6 +3881,7 @@ const GOAL_NEXT = {
   double:  r => `подвійне сальто — тримай праворуч або тапни двічі`,
   combo:   (r, g) => `комбо ×${g.n} в одному заїзді`,
   dist:    (r, g) => `проїдь ${g.n} м за один заїзд`,
+  storms:  r => `ще ${r} ${plural(r, 'втеча', 'втечі', 'втеч')} від Мли — вона приходить після першого кілометра`,
 };
 function plural(n, one, few, many) {
   const m10 = n % 10, m100 = n % 100;
@@ -3852,6 +3922,7 @@ function runSummaryLine() {
   if (story.chapter > runStart.chapter) parts.push('маяк запалено');
   if (player.coins) parts.push(`+${player.coins} ✦`);
   if (player.tricks) parts.push(`${player.tricks} ${plural(player.tricks, 'оберт', 'оберти', 'обертів')}`);
+  if (run.storms) parts.push(`${run.storms} ${plural(run.storms, 'втеча', 'втечі', 'втеч')} від Мли`);
   if (player.perfects) parts.push(`${player.perfects} perfect`);
   return parts.length ? 'За заїзд: ' + parts.join(' · ') : '';
 }
@@ -3887,7 +3958,7 @@ renderChapterCard = function () {
 
 /* --- 14.8 Онбординг без туторіалу ------------------------------------ */
 const ONBOARD_KEY = 'duneDrift.onboarding';
-const onboard = { jump: false, flip: false, hold: false, perfectJump: false, arc: false, grind: false };
+const onboard = { jump: false, flip: false, hold: false, perfectJump: false, arc: false, grind: false, storm: false };
 try {
   const raw = JSON.parse(localStorage.getItem(ONBOARD_KEY) || 'null');
   if (raw && typeof raw === 'object') for (const k in onboard) onboard[k] = !!raw[k];
@@ -3942,6 +4013,7 @@ const COACH_TEXT = {
   flipAir: 'Торкнись праворуч — сальто в повітрі',
   hold: 'Утримуй, щоб крутитися',
   grind: 'Стрибни на мотузку — і ковзай',
+  storm: 'Не зупиняйся — трюки й швидкість відганяють Млу',
 };
 const COACH_KEY = { flipAir: 'flip' };
 const coach = { el: document.getElementById('coach'), kind: null, since: 0, shown: {} };
@@ -4422,6 +4494,7 @@ function updateGhostAndMarker(t) {
 function tryFeather(reason) {
   if (state !== GS.PLAY || run.featherUsed || wallet.feathers <= 0 || reason === 'test') return false;
   run.featherUsed = true;
+  if (reason === 'storm') storm.x = player.x - 18;   // перо відкидає Млу назад
   wallet.feathers--;
   saveWallet();
   if (player.grind) endGrind();
@@ -4482,6 +4555,7 @@ function renderOverExtra() {
          `<div class="dline">${run.newDaily ? 'Новий найкращий результат дня' : 'Найкраще сьогодні: ' + (daily.best || 0).toLocaleString('en-US')}</div>` +
          '<button class="jbtn" data-share>поділитися</button>';
   }
+  if (player.deathReason === 'storm') h += '<div class="dline">Іскра: «Нічого. Наступного разу ми будемо швидші.»</div>';
   h += `<div class="wline">+${run.deposit} ✦ у гаманець · разом ${wallet.crystals}</div>`;
   el.innerHTML = h;
   const sb = el.querySelector('[data-share]');
@@ -4504,6 +4578,390 @@ refreshWalletLabels();
 
 applyBoardVisual();
 
+/* ==================================================================
+   16. МЛА — антагоніст і екшн.
+   Жива буря, що полює на світло. Вона розбила Сонячний Ліхтар і тепер
+   чує кожен уламок, який ти несеш. Час від часу піднімається позаду
+   й женеться: швидкість і трюки відганяють її, повільна їзда — підпускає.
+   Перед кожним маяком Мла женеться до самої вежі, а вогонь маяка розвіює її.
+   Поруч летить Іскра — остання частинка Ліхтаря, що підказує й підбадьорює.
+   ================================================================== */
+
+/* --- 16.1 Палітра бурі: неба, туман і дюни темніють разом ------------ */
+const STORM_PAL = {
+  skyBottom: 0x8a7466, skyLower: 0x5e5060, skyUpper: 0x3a3446, skyTop: 0x1e1b28,
+  sunColor: 0x9a8a80, glowColor: 0x6e5a58, cloud: 0x2a2430, fog: 0x6a5a58,
+  light: 0x9a8c84, hemiSky: 0x5a5060, hemiGround: 0x3a3036, sand: 0x9a8068,
+  L0: 0x6a5c62, L1: 0x564a54, L2: 0x3e3640, L3: 0x2a2430,
+};
+for (const k in STORM_PAL) STORM_PAL[k] = new THREE.Color(STORM_PAL[k]);
+
+/** Змішує поточну палітру доби з бурею — викликається між циклом доби й небом. */
+function applyStormPalette() {
+  const a = storm.k * 0.72;
+  if (a < 0.002) return;
+  for (const k in STORM_PAL) sky[k].lerp(STORM_PAL[k], a);
+  sky.cloudI = lerp(sky.cloudI, 0.62, a);
+  sky.glowStrength *= 1 - 0.6 * a;
+  sky.discAlpha *= 1 - 0.75 * a;
+  sky.starI *= 1 - a;
+  sky.lightI *= 1 - 0.4 * a;
+}
+
+/* --- 16.2 Стан погоні ------------------------------------------------- */
+const storm = {
+  active: false, src: null, kind: '', x: 0, gap: 99, t: 0, r0: 0.9, r1: 1.05,
+  k: 0, danger: 0, boltT: 4, lastNear: -99,
+};
+function resetStorm() {
+  Object.assign(storm, { active: false, src: null, kind: '', x: 0, gap: 99, t: 0, k: 0, danger: 0, boltT: 4 });
+  lightning.reset();
+  stormWall.g.visible = false;
+}
+/** Трюки відганяють Млу, помилки підпускають. */
+function stormPush(units) {
+  if (!storm.active) return;
+  storm.x -= units;
+  storm.x = Math.max(storm.x, player.x - 44);
+}
+
+function startStorm(s) {
+  s.started = true;
+  storm.active = true; storm.src = s; storm.kind = s.kind;
+  storm.x = player.x - 9; storm.t = 0; storm.boltT = rr(4.5, 6);    // піднімається просто за спиною — її видно
+  const ch = Math.min(story.chapter, 6);
+  // Калібрування: райдер без трюків наприкінці погоні ледь тримає відрив (на пізніх главах — не втримує);
+  // трюки, ковзання й накопичена швидкість впевнено відганяють Млу.
+  storm.r0 = 0.95;
+  storm.r1 = 1.07 + 0.022 * ch + (s.kind === 'beacon' ? 0.02 : 0);   // з кожною главою Мла злиться дужче
+  sound.play('stormStart');
+  fx.haptic([20, 60, 20]);
+  toast(s.kind === 'beacon' ? 'Мла женеться за тобою до маяка' : 'Мла наближається');
+  bark(s.kind === 'beacon' ? 'beaconChase' : 'chase', true);
+  if (!onboard.storm) showCoach('storm');
+}
+function endStorm(survived, how = 'escape') {
+  if (!storm.active) return;
+  storm.active = false;
+  if (storm.src) storm.src.done = true;
+  if (!survived) return;
+  player.score += 600;
+  run.storms = (run.storms || 0) + 1;
+  storyEvent('storms');
+  learn('storm');
+  sound.play('escape');
+  fx.haptic([10, 40, 10, 40, 10]);
+  if (how === 'beacon') bark('beaconLit', true);
+  else { toast('Мла відступила · +600'); bark('escape', true); }
+}
+
+/** Щокрокова логіка погоні (ігровий час, частина фізики). */
+function updateStorm(dt) {
+  if (!storm.active) {
+    for (const s of terrain.storms) {
+      if (!s.started && player.x >= s.x0) { startStorm(s); break; }
+    }
+  }
+  lightning.update(dt);
+  if (!storm.active) return;
+  storm.t += dt;
+  const s = storm.src;
+  const p = clamp((player.x - s.x0) / Math.max(1, s.x1 - s.x0), 0, 1);
+  storm.x += baseSpeedAt(player.x) * lerp(storm.r0, storm.r1, p) * dt;   // тиск росте до кінця відрізка
+  if (player.grind) stormPush(2.5 * dt);
+  storm.gap = player.x - storm.x;
+
+  if (storm.gap < 8 && time - storm.lastNear > 7) { storm.lastNear = time; bark('near', true); sound.play('zap'); }
+  if (storm.gap <= 0) { die('storm'); return; }
+  if (s.kind === 'event' && player.x >= s.x1) { endStorm(true); return; }
+
+  // блискавки: попередження світлом на піску, потім удар туди, де ти будеш
+  storm.boltT -= dt;
+  if (storm.t > 3 && storm.boltT <= 0 && lightning.state === 'idle') {
+    const d = player.speed * rr(1.0, 1.4);
+    lightning.schedule(player.x + d, clamp(d / Math.max(player.speed, 1), 0.8, 1.6));
+    storm.boltT = rr(3.5, 6) - Math.min(story.chapter, 6) * 0.2;
+  }
+}
+
+/* --- 16.3 Стіна бурі: клуби темряви з внутрішніми спалахами ----------- */
+class StormWall {
+  constructor() {
+    this.g = new THREE.Group();
+    this.g.visible = false;
+    scene.add(this.g);
+    this.mats = [0.95, 0.8, 0.6].map(o => new THREE.MeshBasicMaterial({
+      map: TEX.soft, color: 0x000000, transparent: true, opacity: o, depthWrite: false, fog: false,
+    }));
+    this.coreMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.92, depthWrite: false, fog: false });
+    const core = new THREE.Mesh(new THREE.PlaneGeometry(80, 160), this.coreMat);
+    core.position.set(-48, 40, -0.2);
+    this.g.add(core);
+    this.billows = [];
+    for (let i = 0; i < 20; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.mats[i % 3]);
+      m.userData = { x: -rr(0, 24) + (i % 4 === 0 ? rr(3, 7) : 2), y: rr(-4, 30), s: rr(9, 22), ph: rr(0, TAU), sp: rr(0.25, 0.7) };   // частина клубів тягнеться вперед
+      this.g.add(m);
+      this.billows.push(m);
+    }
+    this.flashMat = new THREE.MeshBasicMaterial({
+      map: TEX.glow, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0,
+    });
+    this.flash = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), this.flashMat);
+    this.flash.position.z = 0.1;
+    this.g.add(this.flash);
+    this.flashT = 0;
+  }
+  update(dt, t) {
+    const k = storm.k;
+    this.g.visible = k > 0.01 && (state === GS.PLAY || state === GS.OVER);
+    if (!this.g.visible) return;
+    // фронт бурі; після втечі він відкочується назад
+    const frontX = storm.active ? storm.x : storm.x - (1 - k) * 40;
+    this.g.position.set(frontX, heightAt(frontX) - 6, ENT_Z + 5);
+    const c = tmpColor.copy(sky.rider).lerp(STORM_PAL.L3, 0.35);
+    for (const m of this.mats) m.color.copy(c);
+    this.coreMat.color.copy(c);
+    this.coreMat.opacity = 0.92 * k;
+    this.mats.forEach((m, i) => { m.opacity = [0.95, 0.8, 0.6][i] * k; });
+    for (const m of this.billows) {
+      const u = m.userData;
+      m.position.set(u.x + Math.sin(t * u.sp + u.ph) * 1.6, u.y + Math.cos(t * u.sp * 0.8 + u.ph) * 1.3, 0);
+      m.scale.setScalar(u.s * (1 + 0.08 * Math.sin(t * u.sp * 2 + u.ph)));
+      m.rotation.z += dt * u.sp * 0.25;
+    }
+    // блискавки всередині хмари
+    this.flashT -= dt;
+    if (this.flashT <= 0 && storm.active && rnd() < dt * 0.8) {
+      this.flashT = 0.12;
+      this.flash.position.set(-rr(4, 16), rr(6, 24), 0.1);
+    }
+    this.flashMat.opacity = this.flashT > 0 ? 0.7 * k : 0;
+    this.flashMat.color.copy(sky.light).lerp(sky.sunColor, 0.5).multiplyScalar(1.6);
+    // пісок, що його жене буря
+    if (storm.active && storm.gap < 22 && rnd() < 0.5 * quality.particles) {
+      dust.spawn(storm.x + rr(-2, 2), heightAt(storm.x) + rr(0, 4), ENT_Z + rr(0, 2),
+        baseSpeedAt(player.x) * rr(1.1, 1.6), rr(-0.5, 1.5), rr(0.4, 1.0), rr(0.5, 1.0), sandColor(0.35), 0);
+    }
+  }
+}
+
+/* --- 16.4 Блискавки: попередження → удар; потрапив — втрачаєш швидкість */
+class Lightning {
+  constructor() {
+    this.N = 12;
+    this.pos = new Float32Array(this.N * 2 * 3);
+    const idx = [];
+    for (let i = 0; i < this.N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+    const g = new THREE.BufferGeometry();
+    this.attr = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.attr); g.setIndex(idx);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
+    this.boltMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.bolt = new THREE.Mesh(g, this.boltMat);
+    this.bolt.frustumCulled = false; this.bolt.visible = false;
+    scene.add(this.bolt);
+    this.glowMat = new THREE.MeshBasicMaterial({ map: TEX.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.glow = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.2), this.glowMat);
+    this.glow.visible = false; scene.add(this.glow);
+    this.beamMat = new THREE.MeshBasicMaterial({ map: TEX_BEAM, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.beam = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 40), this.beamMat);
+    this.beam.visible = false; scene.add(this.beam);
+    this.reset();
+  }
+  reset() { this.state = 'idle'; this.t = 0; this.bolt.visible = this.glow.visible = this.beam.visible = false; }
+  schedule(x, delay) { this.state = 'warn'; this.x = x; this.t = delay; this.total = delay; sound.play('zap'); }
+  strike() {
+    const h = heightAt(this.x), top = h + 40;
+    let x = this.x + rr(-3, 3);
+    for (let i = 0; i < this.N; i++) {
+      const s = i / (this.N - 1), y = lerp(top, h, s);
+      x = i === this.N - 1 ? this.x : lerp(x, this.x, 0.35) + rr(-1.2, 1.2) * (1 - s);
+      const w = 0.32 * (1 - s * 0.6), o = i * 6;
+      this.pos[o] = x - w; this.pos[o + 1] = y; this.pos[o + 2] = ENT_Z + 0.6;
+      this.pos[o + 3] = x + w; this.pos[o + 4] = y; this.pos[o + 5] = ENT_Z + 0.6;
+    }
+    this.attr.needsUpdate = true;
+    this.state = 'strike'; this.t = 0.22;
+    this.bolt.visible = true;
+    fx.flash(0.22); fx.shake(0.18);
+    sound.play('thunder');
+    sparkBurst(this.x, h + 0.3, sky.light, 18);
+    // удар по райдеру: лише коли він на землі чи низько над нею
+    if (state === GS.PLAY && !player.dead && Math.abs(player.x - this.x) < 1.8 && player.y - heightAt(player.x) < 1.6) {
+      player.speed *= 0.8; player.momentum *= 0.3; player.combo = 0; player.comboT = 0;
+      wobble = settings.reduceMotion ? 0.3 : 0.8;
+      stormPush(-3);
+      sound.play('sketchy'); fx.haptic([40, 30, 40]);
+      bark('hit', true);
+    }
+  }
+  update(dt) {
+    if (this.state === 'warn') {
+      this.t -= dt;
+      const h = heightAt(this.x), k = 1 - this.t / this.total;
+      const pulse = 0.5 + 0.5 * Math.sin(time * (10 + k * 30));
+      this.glow.visible = this.beam.visible = true;
+      this.glow.position.set(this.x, h + 0.15, ENT_Z + 0.4);
+      this.glowMat.opacity = (0.35 + 0.65 * k) * (0.6 + 0.4 * pulse);
+      this.glowMat.color.copy(sky.light).lerp(sky.sunColor, 0.4).multiplyScalar(1.4);
+      this.beam.position.set(this.x, h + 20, ENT_Z + 0.3);
+      this.beamMat.opacity = 0.25 * k * pulse;
+      this.beamMat.color.copy(this.glowMat.color);
+      if (this.t <= 0) { this.glow.visible = this.beam.visible = false; this.strike(); }
+    } else if (this.state === 'strike') {
+      this.t -= dt;
+      this.boltMat.color.copy(sky.light).lerp(sky.sunColor, 0.3).multiplyScalar(2.2 * clamp(this.t / 0.22, 0, 1));
+      if (this.t <= 0) { this.bolt.visible = false; this.state = 'idle'; }
+    }
+  }
+}
+
+/* --- 16.5 Іскра — супутниця, що летить поруч ------------------------- */
+class SparkCompanion {
+  constructor() {
+    this.g = new THREE.Group();
+    this.haloMat = new THREE.MeshBasicMaterial({ map: TEX.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.coreMat = new THREE.MeshBasicMaterial({ map: TEX.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.halo = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), this.haloMat);
+    this.core = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), this.coreMat);
+    this.core.position.z = 0.01;
+    this.g.add(this.halo, this.core);
+    this.g.position.set(0, 0, ENT_Z + 0.5);
+    scene.add(this.g);
+    this.vx = 0; this.vy = 0;
+  }
+  update(dt, t) {
+    this.g.visible = state !== GS.START;
+    if (!this.g.visible) return;
+    // пружина до точки над плечем райдера; у небезпеці підлітає ближче
+    const tx = player.x - 1.5 + storm.danger * 0.8, ty = player.y + 2.6 + Math.sin(t * 2.1) * 0.35;
+    const k = 18, damp = 7;
+    this.vx += ((tx - this.g.position.x) * k - this.vx * damp) * dt;
+    this.vy += ((ty - this.g.position.y) * k - this.vy * damp) * dt;
+    this.g.position.x += this.vx * dt;
+    this.g.position.y += this.vy * dt;
+    if (Math.abs(this.g.position.x - tx) > 30) { this.g.position.set(tx, ty, ENT_Z + 0.5); this.vx = this.vy = 0; }
+    const flick = 0.85 + 0.15 * Math.sin(t * 9) + 0.08 * Math.sin(t * 23);
+    this.haloMat.color.copy(sky.coin).multiplyScalar(0.9 * flick);
+    this.coreMat.color.copy(sky.coin).lerp(sky.sunColor, 0.5).multiplyScalar(2.2);
+    this.halo.scale.setScalar(1 + 0.12 * Math.sin(t * 3));
+    if (rnd() < 0.35 * quality.particles) {
+      dust.spawn(this.g.position.x, this.g.position.y, ENT_Z + 0.45, -rr(0.5, 2), rr(-0.4, 0.4),
+        rr(0.12, 0.28), rr(0.3, 0.6), tmpColor.copy(sky.coin).multiplyScalar(0.7), 0);
+    }
+  }
+}
+
+/* --- 16.6 Репліки Іскри ------------------------------------------------ */
+const MLA_INTRO = [
+  'Ліхтар розбила не випадковість, а Мла — жива буря, що полює на світло.',
+  'Кожен уламок, який ти збираєш, вона чує здалеку.',
+  'Коли вона підніметься позаду — не зупиняйся: швидкість і трюки відганяють її.',
+  'А поруч завжди буде Іскра — остання частинка Ліхтаря.',
+];
+const BARKS = {
+  start:       ['Я з тобою. Поїхали.', 'Дюни сьогодні неспокійні. Тримайся світла.', 'Слухай вітер — він підкаже дорогу.'],
+  chase:       ['Мла позаду! Не зупиняйся!', 'Вона відчула наше світло. Швидше!', 'Тільки вперед — трюки відганяють її!'],
+  near:        ['Вона зовсім близько!', 'Ще трохи — і вона нас накриє!', 'Швидше! Стрибай!'],
+  escape:      ['Ми вирвались! Збирай світло, поки воно тут.', 'Мла відступає. Дихай.', 'Вона відстала. Добре їдемо.'],
+  beaconChase: ['Маяк попереду, а Мла — позаду. Доїдь до нього!', 'Запали маяк — і вона розвіється!'],
+  beaconLit:   ['Бачиш? Світло сильніше за Млу.', 'Ще один вогонь. Вона слабшає.'],
+  perfect:     ['Красиво!', 'Отак!', 'Ти летиш, як світло.'],
+  hit:         ['Обережно, блискавки!', 'Стрибай над спалахами!'],
+};
+const barkEl = document.getElementById('bark');
+let barkUntil = 0, barkLast = -99, barkHide = null;
+/** Коротка репліка вгорі екрана. Пріоритетні перебивають попередню. */
+function bark(key, priority = false) {
+  if (state !== GS.PLAY) return;
+  if (storyActive()) {                                 // спершу дочитаємо картку історії
+    if (priority) setTimeout(() => bark(key, true), (storyUntil - nowSec()) * 1000 + 300);
+    return;
+  }
+  if (!priority && time - barkLast < 9) return;
+  barkLast = time;
+  barkEl.querySelector('span').textContent = pick(BARKS[key]);
+  barkEl.classList.add('on');
+  clearTimeout(barkHide);
+  barkHide = setTimeout(() => barkEl.classList.remove('on'), 3400);
+}
+function hideBark() { clearTimeout(barkHide); barkEl.classList.remove('on'); }
+
+/* --- 16.7 Шматки траси для погоні ----------------------------------- */
+/** Усередині погоні — більше трамплінів, мотузок і обривів: це екшн. */
+function pieceStormAction() {
+  if (terrain.y < 2) pieceRollers(true);
+  const r = grnd();
+  if (r < 0.22) pieceKicker(false);
+  else if (r < 0.36) pieceKicker(true);
+  else if (r < 0.52) pieceRope(gpick(['kick', 'gap']));
+  else if (r < 0.64) pieceDrop();
+  else if (r < 0.90) pieceRollers(terrain.y < 3);   // загроза — сама Мла й блискавки, тож каміння менше
+  else pieceObstacles();
+  if (terrain.y < -9) pieceClimb();
+}
+/** Після втечі: тихий спуск із доріжкою світла — нагорода. */
+function pieceLightTrail() {
+  pushSeg(gr(10, 14), terrain.y + gr(0, 1.5));
+  const x0 = terrain.idx * CFG.DX;
+  pushSeg(gr(55, 70), terrain.y - gr(4, 7));
+  placeCoinLine(x0 + 4, 16, 2.8, 1.6);
+  pushSeg(gr(16, 22), terrain.y - gr(0, 1));
+}
+/** Режисер погонь: розклад випадкових бур і погоня-передмова перед маяком. Повертає true, якщо шматок уже згенеровано. */
+function stormDirector(x) {
+  // маяк: спершу погоня, потім вежа
+  if (story.pending && !terrain.beaconPlaced && !run.daily && x - startX > 60) {
+    if (terrain.beaconChaseAt == null) {
+      terrain.beaconChaseAt = x + gr(380, 460);
+      terrain.storms.push({ x0: x + 10, x1: terrain.beaconChaseAt, kind: 'beacon', started: false, done: false });
+      terrain.stormEnd = terrain.beaconChaseAt;
+    }
+    if (x >= terrain.beaconChaseAt) { terrain.beaconChaseAt = null; pieceBeacon(); return true; }
+    pieceStormAction();
+    return true;
+  }
+  if (terrain.introList && terrain.intro < terrain.introList.length) return false;
+  // випадкові бурі після вступу
+  if (!terrain.nextStormX) terrain.nextStormX = startX + gr(950, 1300);
+  if (x >= terrain.nextStormX && x >= terrain.stormEnd + 150) {
+    const len = gr(520, 680);
+    terrain.storms.push({ x0: x + 10, x1: x + len, kind: 'event', started: false, done: false });
+    terrain.stormEnd = x + len;
+    terrain.stormRewardAt = x + len;
+    terrain.nextStormX = x + len + gr(1100, 1600);
+  }
+  if (terrain.stormRewardAt && x >= terrain.stormRewardAt) { terrain.stormRewardAt = 0; pieceLightTrail(); return true; }
+  if (x < terrain.stormEnd) { pieceStormAction(); return true; }
+  return false;
+}
+
+const stormWall = new StormWall();
+const lightning = new Lightning();
+const spark = new SparkCompanion();
+
+/** Візуальна частина Мли й Іскри — щокадру (реальний час). */
+function updateStormVisual(dt, t) {
+  const target = storm.active ? clamp(0.45 + (1 - storm.gap / 30) * 0.55, 0.45, 1) : 0;
+  storm.k += (target - storm.k) * (1 - Math.exp(-dt / 1.2));
+  if (storm.k < 0.001) storm.k = 0;
+  const dTarget = storm.active ? clamp(1 - storm.gap / 16, 0, 1) : 0;
+  storm.danger += (dTarget - storm.danger) * (1 - Math.exp(-dt / 0.25));
+  compMat.uniforms.uDanger.value = storm.danger * (settings.reduceMotion ? 0.6 : 1);
+  stormWall.update(dt, t);
+  spark.update(dt, t);
+  const showGap = state === GS.PLAY && storm.active;
+  setClass(stormGapEl, 'on', showGap);
+  if (showGap) {
+    setText(stormGapEl.querySelector('span'), `мла · ${Math.max(0, Math.round(storm.gap))} м`);
+    setClass(stormGapEl, 'close', storm.gap < 10);
+    stormGapEl.querySelector('i').style.transform = `scaleX(${clamp(storm.gap / 40, 0, 1).toFixed(3)})`;
+  }
+}
+const stormGapEl = document.getElementById('stormGap');
+
+
 RESIZE_HOOKS.push(() => { if (paused) renderFrame(time); });   // меню паузи поверх живого кадру
 
 /* --- головний цикл ----------------------------------------------- */
@@ -4523,6 +4981,7 @@ function tick(now) {
   time += dt;
 
   updateDayCycle(dt);
+  applyStormPalette();                 // буря темнить небо, туман і дюни
   applySkyPalette(time);
 
   const sdt = dt * timeScale;          // «ігровий» час: сповільнюється, коли спалахує маяк
@@ -4533,14 +4992,15 @@ function tick(now) {
   // камера: тримає гравця лівіше центру; на швидкості дивиться далі вперед,
   // а в падінні трохи опускається, щоб було видно місце приземлення
   const momRatio = clamp(player.momentum / (CFG.MOM_MAX * view.scale), 0, 1);
-  camLead += (view.lead * (1 + 0.35 * momRatio) - camLead) * (1 - Math.exp(-dt / 0.6));
+  // коли Мла близько, камера зсувається назад — видно, що женеться позаду
+  camLead += (view.lead * (1 + 0.35 * momRatio) * (1 - 0.85 * storm.danger) - camLead) * (1 - Math.exp(-dt / 0.6));
   /* Динамічна камера: високо в повітрі — відлітає назад і показує і райдера, і пісок
      під ним; біля землі — підходить ближче; на швидкості трохи ширшає. */
   const groundBelow = heightAt(player.x + player.speed * 0.2);
   const alt = !player.grounded && state !== GS.START ? Math.max(0, player.y - groundBelow) : 0;
   const spd = clamp(player.speed / (30 * view.scale), 0, 1.3);
   const near = player.grounded && !player.grind ? 0.88 : 0.96;
-  let zT = Math.max(1 + alt * 0.045, near + 0.16 * spd + (player.boost > 0 ? 0.05 : 0));
+  let zT = Math.max(1 + alt * 0.045, near + 0.16 * spd + (player.boost > 0 ? 0.05 : 0)) + 0.22 * storm.danger;
   zT = settings.reduceMotion ? clamp(1 + (zT - 1) * 0.5, 0.95, 1.35) : clamp(zT, 0.86, 1.85);
   camZoom += (zT - camZoom) * (1 - Math.exp(-dt / (zT > camZoom ? 0.45 : 0.9)));  // відлітає швидше, ніж повертається
   zoomKick *= Math.exp(-dt * 6);
@@ -4579,6 +5039,7 @@ function tick(now) {
   updatePlayerVisual(dt);
   dust.update(sdt);
   updateStoryWorld(dt, time, camera.position.x, camY);
+  updateStormVisual(dt, time);
   motes.update(time, camera.position.x, camY, dt);
   meteors.update(dt, camera.position.x, camY);
   updateUI(dt);
