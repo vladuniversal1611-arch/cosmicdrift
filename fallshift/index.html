@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#03061a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>FALLSHIFT</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <button id="btn-pause" class="glass icon-btn" aria-label="Pause"><span data-icon="pause"></span></button>
+      <div class="hud-center">
+        <div id="hud-floor" class="hud-floor">FLOOR 1</div>
+        <div class="combo-bar glass">
+          <div id="combo-fill" class="combo-fill"></div>
+          <div id="combo-text" class="combo-text">COMBO x1</div>
+          <div id="fever-tag" class="fever-tag"><span data-icon="flame"></span>FEVER</div>
+        </div>
+        <div id="shield-pips" class="shield-pips"></div>
+      </div>
+      <div class="hud-currency glass">
+        <div class="cur"><span class="cur-ic coin" data-icon="coin"></span><span id="hud-coins">0</span></div>
+        <div class="cur"><span class="cur-ic crystal" data-icon="crystal"></span><span id="hud-crystals">0</span></div>
+      </div>
+    </div>
+
+    <div id="power-slots" class="power-slots"></div>
+
+    <div class="energy-wrap">
+      <div class="energy-label">ENERGY</div>
+      <div class="energy-cap glass"><span data-icon="bolt"></span></div>
+      <div class="energy-bar glass"><div id="energy-fill" class="energy-fill"></div><div class="energy-ticks"></div></div>
+    </div>
+
+    <div id="boss-bar" class="boss-bar hidden">
+      <div class="boss-name" id="boss-name">REACTOR CORE</div>
+      <div class="boss-hp glass"><div id="boss-fill" class="boss-fill"></div></div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="hud-stats">
+        <div class="stat"><div class="stat-label">SCORE</div><div id="hud-score" class="stat-val">0</div></div>
+        <div class="stat right"><div class="stat-label">DEPTH</div><div id="hud-depth" class="stat-val">-0<small>m</small></div></div>
+      </div>
+      <div class="abilities">
+        <button class="ability" data-ab="dash" id="ab-dash">
+          <svg viewBox="0 0 100 100"><circle class="ab-track" cx="50" cy="50" r="44"/><circle class="ab-ring" cx="50" cy="50" r="44"/></svg>
+          <span class="ab-icon" data-icon="dash"></span>
+          <span class="ab-cd"></span>
+          <span class="ab-cost"></span>
+          <span class="ab-name">DASH</span>
+        </button>
+        <button class="ability gravity" data-ab="gravity" id="ab-gravity">
+          <svg viewBox="0 0 100 100"><circle class="ab-track" cx="50" cy="50" r="44"/><circle class="ab-ring" cx="50" cy="50" r="44"/></svg>
+          <span class="ab-icon" data-icon="gravity"></span>
+          <span class="ab-cd"></span>
+          <span class="ab-cost"></span>
+          <span class="ab-name">GRAVITY</span>
+        </button>
+        <button class="ability break" data-ab="break" id="ab-break">
+          <svg viewBox="0 0 100 100"><circle class="ab-track" cx="50" cy="50" r="44"/><circle class="ab-ring" cx="50" cy="50" r="44"/></svg>
+          <span class="ab-icon" data-icon="burst"></span>
+          <span class="ab-cd"></span>
+          <span class="ab-cost"></span>
+          <span class="ab-name">BREAK</span>
+        </button>
+      </div>
+      <div id="floor-track" class="floor-track"></div>
+    </div>
+  </div>
+
+  <div id="banner" class="banner"><div class="banner-title"></div><div class="banner-sub"></div></div>
+
+  <!-- ================= MAIN MENU ================= -->
+  <div id="screen-menu" class="screen">
+    <button class="glass icon-btn corner-tr" id="menu-mute" aria-label="Sound"><span data-icon="sound"></span></button>
+    <div class="menu-top">
+      <div class="logo"><span class="logo-fall">FALL</span><span class="logo-shift">SHIFT</span></div>
+      <div class="tagline">DESCEND · SHIFT · SURVIVE</div>
+    </div>
+    <div class="menu-bottom">
+      <div class="menu-stats glass">
+        <div class="ms"><div class="ms-label">BEST DEPTH</div><div class="ms-val" id="menu-best">0m</div></div>
+        <div class="ms"><div class="ms-label">COINS</div><div class="ms-val gold"><span class="cur-ic coin" data-icon="coin"></span><span id="menu-coins">0</span></div></div>
+        <div class="ms"><div class="ms-label">CRYSTALS</div><div class="ms-val violet"><span class="cur-ic crystal" data-icon="crystal"></span><span id="menu-crystals">0</span></div></div>
+      </div>
+      <button id="btn-play" class="btn-play"><span>PLAY</span></button>
+      <div class="menu-grid">
+        <button class="menu-btn glass" data-go="upgrades"><span data-icon="up"></span>UPGRADES</button>
+        <button class="menu-btn glass" data-go="skins"><span data-icon="core"></span>SKINS</button>
+        <button class="menu-btn glass" data-go="missions"><span data-icon="target"></span>MISSIONS<i class="badge hidden" id="missions-badge"></i></button>
+        <button class="menu-btn glass" data-go="settings"><span data-icon="gear"></span>SETTINGS</button>
+      </div>
+      <div class="menu-foot" id="menu-foot">WORLDS UNLOCKED 1/5</div>
+    </div>
+  </div>
+
+  <!-- ================= SUB SCREENS ================= -->
+  <div id="screen-upgrades" class="screen panel-screen hidden">
+    <div class="sub-head"><button class="glass icon-btn" data-back><span data-icon="back"></span></button><div class="sub-title">UPGRADES</div><div class="sub-cur glass"><span class="cur-ic coin" data-icon="coin"></span><span class="v-coins">0</span><span class="cur-ic crystal" data-icon="crystal"></span><span class="v-crystals">0</span></div></div>
+    <div class="sub-body" id="upgrades-list"></div>
+  </div>
+
+  <div id="screen-skins" class="screen panel-screen hidden">
+    <div class="sub-head"><button class="glass icon-btn" data-back><span data-icon="back"></span></button><div class="sub-title">SKINS</div><div class="sub-cur glass"><span class="cur-ic coin" data-icon="coin"></span><span class="v-coins">0</span><span class="cur-ic crystal" data-icon="crystal"></span><span class="v-crystals">0</span></div></div>
+    <div class="sub-body skins-grid" id="skins-list"></div>
+  </div>
+
+  <div id="screen-missions" class="screen panel-screen hidden">
+    <div class="sub-head"><button class="glass icon-btn" data-back><span data-icon="back"></span></button><div class="sub-title">MISSIONS</div><div class="sub-cur glass"><span class="cur-ic coin" data-icon="coin"></span><span class="v-coins">0</span><span class="cur-ic crystal" data-icon="crystal"></span><span class="v-crystals">0</span></div></div>
+    <div class="sub-body" id="missions-list"></div>
+  </div>
+
+  <div id="screen-settings" class="screen panel-screen hidden">
+    <div class="sub-head"><button class="glass icon-btn" data-back><span data-icon="back"></span></button><div class="sub-title">SETTINGS</div><div></div></div>
+    <div class="sub-body" id="settings-list">
+      <div class="set-row glass"><span>SOUND FX</span><button class="toggle" data-set="sound"></button></div>
+      <div class="set-row glass"><span>MUSIC</span><button class="toggle" data-set="music"></button></div>
+      <div class="set-row glass"><span>SCREEN SHAKE</span><button class="toggle" data-set="shake"></button></div>
+      <div class="set-row glass"><span>HIGH QUALITY FX</span><button class="toggle" data-set="hq"></button></div>
+      <div class="set-row glass col"><span>SWIPE SENSITIVITY <b id="sens-val">1.0</b></span><input type="range" id="sens" min="0.5" max="2" step="0.1" value="1"></div>
+      <div class="set-row glass col help">
+        <span>CONTROLS</span>
+        <p>Swipe left / right — rotate the tower<br>DASH — plunge through weak blocks<br>GRAVITY — flip upward, ride the ceiling<br>BREAK — shatter a shaft (needs charge)<br><br>Desktop: A/D or ←/→ rotate · Space dash · W/↑ gravity · E break · Esc pause</p>
+      </div>
+      <button class="btn-danger glass" id="btn-reset">RESET PROGRESS</button>
+    </div>
+  </div>
+
+  <!-- ================= OVERLAYS ================= -->
+  <div id="screen-pause" class="screen overlay hidden">
+    <div class="modal glass">
+      <div class="modal-title">PAUSED</div>
+      <div class="pause-info" id="pause-info"></div>
+      <button class="btn-primary" id="btn-resume">RESUME</button>
+      <button class="btn-secondary glass" id="btn-restart-p">RESTART</button>
+      <button class="btn-secondary glass" id="btn-menu-p">MENU</button>
+      <div class="pause-toggles">
+        <button class="glass icon-btn" id="pause-sound"><span data-icon="sound"></span></button>
+        <button class="glass icon-btn" id="pause-music"><span data-icon="music"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-powerup" class="screen overlay hidden">
+    <div class="pu-head">
+      <div class="pu-kicker">FLOOR CLEARED</div>
+      <div class="modal-title">CHOOSE A POWER</div>
+    </div>
+    <div class="pu-cards" id="pu-cards"></div>
+  </div>
+
+  <div id="screen-death" class="screen overlay hidden">
+    <div class="modal glass death">
+      <div class="death-title">RUN OVER</div>
+      <div class="new-best hidden" id="new-best">NEW BEST!</div>
+      <div class="death-grid">
+        <div class="dg"><div class="dg-label">DEPTH</div><div class="dg-val big" id="d-depth">0m</div></div>
+        <div class="dg"><div class="dg-label">SCORE</div><div class="dg-val big" id="d-score">0</div></div>
+        <div class="dg"><div class="dg-label">BEST</div><div class="dg-val" id="d-best">0m</div></div>
+        <div class="dg"><div class="dg-label">COINS</div><div class="dg-val gold" id="d-coins">+0</div></div>
+      </div>
+      <div class="death-extra" id="d-extra"></div>
+      <button class="btn-revive" id="btn-revive"><span data-icon="play"></span>REVIVE <small>WATCH AD</small></button>
+      <button class="btn-primary" id="btn-restart">RESTART</button>
+      <button class="btn-secondary glass" id="btn-menu">MENU</button>
+    </div>
+  </div>
+
+  <div id="screen-ad" class="screen overlay hidden">
+    <div class="modal glass ad">
+      <div class="pu-kicker">REWARDED AD</div>
+      <div class="ad-box">AD PLACEHOLDER<br><small>integration point: FS.Ads.showRewarded()</small></div>
+      <div class="ad-count" id="ad-count">3</div>
+    </div>
+  </div>
+
+  <div id="confirm" class="screen overlay hidden">
+    <div class="modal glass">
+      <div class="modal-title small" id="confirm-text">ARE YOU SURE?</div>
+      <button class="btn-danger glass" id="confirm-yes">YES, RESET</button>
+      <button class="btn-secondary glass" id="confirm-no">CANCEL</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="rotate-hint" class="rotate-hint">Rotate your device to portrait</div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/input.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/levelGenerator.js"></script>
+<script src="js/tower.js"></script>
+<script src="js/player.js"></script>
+<script src="js/abilities.js"></script>
+<script src="js/boss.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
