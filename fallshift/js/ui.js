@@ -371,6 +371,11 @@
       const p = g.player;
       const c = this.cache;
       this.set('hud-floor', 'FLOOR ' + g.floor);
+      const longF = g.floor >= 100;
+      if (c.longF !== longF) {
+        c.longF = longF;
+        $('hud-floor').classList.toggle('long', longF);
+      }
       this.set('combo-text', 'COMBO x' + g.combo);
       this.set('hud-coins', U.fmt(FS.Storage.data.coins + g.runCoins));
       this.set('hud-crystals', U.fmt(FS.Storage.data.crystals + g.runCrystals));

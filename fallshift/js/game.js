@@ -1182,7 +1182,7 @@
         ctx.globalAlpha = 1;
       }
       if (this.player.gDir < 0 && playing) {
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = 0.12;
         ctx.fillStyle = '#5a1fc8';
         ctx.fillRect(0, 0, W, H);
         ctx.globalAlpha = 1;
