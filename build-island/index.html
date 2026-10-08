@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1f4a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Build Island</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-base="MAIN_MENU" data-top="MAIN_MENU">
+<div id="app">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="ui">
+
+    <!-- ============ MAIN MENU ============ -->
+    <section class="screen menu" id="screen-menu" data-state="MAIN_MENU">
+      <div class="menu-top">
+        <button class="icon-btn" data-action="settings" aria-label="Settings">⚙</button>
+        <div class="menu-res">
+          <div class="pill"><i class="ico" data-ico="coins"></i><span class="val" data-res="coins">0</span></div>
+          <div class="pill"><i class="ico" data-ico="crystal"></i><span class="val" data-res="crystal">0</span></div>
+        </div>
+      </div>
+      <div class="menu-title">
+        <div class="logo">
+          <span class="logo-1">BUILD</span>
+          <span class="logo-2">ISLAND</span>
+        </div>
+        <div class="menu-sub" id="menu-sub">Lv. 1 · Green Island</div>
+      </div>
+      <div class="menu-bottom">
+        <button class="btn btn-green btn-play" data-action="play"><span class="play-tri">▶</span> PLAY</button>
+        <div class="menu-grid">
+          <button class="menu-tile" data-action="shop"><span class="mt-ico">🛒</span><span>SHOP</span></button>
+          <button class="menu-tile" data-action="blueprints"><span class="mt-ico">📐</span><span>BLUEPRINTS</span></button>
+          <button class="menu-tile" data-action="islands"><span class="mt-ico">🏝️</span><span>ISLAND</span></button>
+          <button class="menu-tile" data-action="settings"><span class="mt-ico">⚙️</span><span>SETTINGS</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ GAME HUD ============ -->
+    <section class="screen hud passthrough" id="hud" data-state="GAMEPLAY BUILD_MODE">
+      <div class="hud-top">
+        <div class="hud-left pe">
+          <button class="icon-btn small gp-only" data-action="home" aria-label="Menu">☰</button>
+          <div class="level-box">
+            <div class="lvl-badge"><small>Lv.</small><span data-bind="level">1</span></div>
+            <div class="xp-wrap">
+              <div class="xp-label"><span data-bind="xptext">0 / 50 XP</span></div>
+              <div class="bar"><div class="bar-fill" id="hud-xp"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="hud-res pe">
+          <div class="pill" id="pill-coins"><i class="ico" data-ico="coins"></i><span class="val" data-res="coins">0</span><button class="plus" data-action="shop">+</button></div>
+          <div class="pill" id="pill-crystal"><i class="ico" data-ico="crystal"></i><span class="val" data-res="crystal">0</span><button class="plus" data-action="shop">+</button></div>
+          <div class="pill" id="pill-wood"><i class="ico" data-ico="wood"></i><span class="val" data-res="wood">0</span></div>
+          <div class="pill" id="pill-stone"><i class="ico" data-ico="stone"></i><span class="val" data-res="stone">0</span></div>
+        </div>
+      </div>
+
+      <div class="quest-panel pe gp-only" id="quest-panel">
+        <button class="qp-head" data-action="quests-toggle"><span>QUESTS</span><span class="qp-arrow">▾</span></button>
+        <div class="qp-list" id="quest-list"></div>
+      </div>
+
+      <div class="hud-side pe gp-only">
+        <button class="side-btn" data-action="island-progress" aria-label="Island progress">
+          <span class="ring" id="island-ring"><span id="island-pct">0%</span></span>
+          <span class="side-lbl">ISLAND</span>
+        </button>
+        <button class="side-btn" data-action="expand" aria-label="Expand island">
+          <span class="side-ico">⤢</span>
+          <span class="side-lbl" id="expand-lbl">EXPAND</span>
+        </button>
+        <button class="side-btn" data-action="shop" aria-label="Shop">
+          <span class="side-ico">🛒</span>
+          <span class="side-lbl">SHOP</span>
+        </button>
+      </div>
+
+      <div id="joystick" class="gp-only"><div id="joy-knob"></div></div>
+
+      <button class="btn btn-collect pe gp-only" id="btn-collect" data-action="collect">
+        <span class="collect-ico" id="collect-ico"></span><span>COLLECT</span><small id="collect-amt">+5</small>
+      </button>
+
+      <button class="btn btn-build pe gp-only" data-action="build-menu">
+        <span class="bb-ico">🔨</span><span>BUILD</span>
+      </button>
+    </section>
+
+    <!-- ============ BUILD MODE BAR ============ -->
+    <section class="screen buildbar passthrough" id="screen-buildmode" data-state="BUILD_MODE">
+      <div class="bm-top pe">
+        <div class="bm-prev"><img id="bm-img" alt=""></div>
+        <div class="bm-info">
+          <div class="bm-name" id="bm-name">Wooden House</div>
+          <div class="bm-cost" id="bm-cost"></div>
+        </div>
+      </div>
+      <div class="bm-hint" id="bm-hint">Drag the building · tap it again to build</div>
+      <div class="bm-actions pe">
+        <button class="round-btn red" data-action="build-cancel" aria-label="Cancel">✕</button>
+        <button class="round-btn blue" data-action="build-rotate" aria-label="Rotate">↻</button>
+        <button class="round-btn green" id="btn-build-ok" data-action="build-confirm" aria-label="Build">✓</button>
+      </div>
+    </section>
+
+    <!-- ============ BUILD MENU (bottom sheet) ============ -->
+    <section class="screen sheet" id="screen-buildmenu" data-state="BUILD_MENU">
+      <div class="backdrop" data-action="back"></div>
+      <div class="sheet-panel">
+        <div class="sheet-grip"></div>
+        <div class="sheet-head">
+          <h2>🔨 BUILD</h2>
+          <button class="icon-btn small" data-action="back" aria-label="Close">✕</button>
+        </div>
+        <div class="tabs" id="build-tabs">
+          <button class="tab active" data-action="build-tab" data-cat="all">ALL</button>
+          <button class="tab" data-action="build-tab" data-cat="house">HOUSES</button>
+          <button class="tab" data-action="build-tab" data-cat="decor">DECORATION</button>
+          <button class="tab" data-action="build-tab" data-cat="func">FUNCTIONAL</button>
+        </div>
+        <div class="card-grid scroll" id="build-cards"></div>
+      </div>
+    </section>
+
+    <!-- ============ BLUEPRINTS ============ -->
+    <section class="screen full" id="screen-blueprints" data-state="BLUEPRINTS">
+      <div class="screen-head">
+        <button class="icon-btn" data-action="back" aria-label="Back">←</button>
+        <h1>BLUEPRINTS</h1>
+        <span class="head-spacer"></span>
+      </div>
+      <div class="tabs" id="bp-tabs">
+        <button class="tab active" data-action="bp-tab" data-cat="house">HOUSES</button>
+        <button class="tab" data-action="bp-tab" data-cat="decor">DECORATION</button>
+        <button class="tab" data-action="bp-tab" data-cat="func">OTHER</button>
+      </div>
+      <div class="card-grid scroll" id="bp-cards"></div>
+    </section>
+
+    <!-- ============ ISLAND SELECT ============ -->
+    <section class="screen full" id="screen-islands" data-state="ISLAND_SELECT">
+      <div class="screen-head">
+        <button class="icon-btn" data-action="back" aria-label="Back">←</button>
+        <h1>ISLANDS</h1>
+        <span class="head-spacer"></span>
+      </div>
+      <div class="island-list scroll" id="island-list"></div>
+    </section>
+
+    <!-- ============ ISLAND PROGRESS (sheet) ============ -->
+    <section class="screen sheet" id="screen-progress" data-state="ISLAND_PROGRESS">
+      <div class="backdrop" data-action="back"></div>
+      <div class="sheet-panel">
+        <div class="sheet-grip"></div>
+        <div class="sheet-head">
+          <h2 id="prog-title">🌿 GREEN ISLAND</h2>
+          <button class="icon-btn small" data-action="back" aria-label="Close">✕</button>
+        </div>
+        <div class="scroll prog-body" id="prog-body"></div>
+      </div>
+    </section>
+
+    <!-- ============ SHOP ============ -->
+    <section class="screen full" id="screen-shop" data-state="SHOP">
+      <div class="screen-head">
+        <button class="icon-btn" data-action="back" aria-label="Back">←</button>
+        <h1>SHOP</h1>
+        <span class="head-spacer"></span>
+      </div>
+      <div class="scroll shop-body" id="shop-body"></div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="screen full" id="screen-settings" data-state="SETTINGS">
+      <div class="screen-head">
+        <button class="icon-btn" data-action="back" aria-label="Back">←</button>
+        <h1>SETTINGS</h1>
+        <span class="head-spacer"></span>
+      </div>
+      <div class="scroll settings-body">
+        <div class="panel set-row">
+          <span class="set-ico">🎵</span><span class="set-name">Music</span>
+          <button class="toggle" id="tg-music" data-action="toggle-music"><span></span></button>
+        </div>
+        <div class="panel set-row">
+          <span class="set-ico">🔊</span><span class="set-name">Sound effects</span>
+          <button class="toggle" id="tg-sfx" data-action="toggle-sfx"><span></span></button>
+        </div>
+        <button class="btn btn-blue btn-wide" data-action="save-now">💾 SAVE GAME</button>
+        <button class="btn btn-red btn-wide" data-action="reset">⟲ RESET PROGRESS</button>
+        <p class="set-note">Progress saves automatically on this device.<br>Build Island · prototype v1.0</p>
+      </div>
+    </section>
+
+    <!-- ============ REWARD POPUPS ============ -->
+    <section class="screen popup-screen" id="screen-popup" data-state="QUEST_COMPLETE ISLAND_COMPLETE REWARD">
+      <div class="backdrop dark"></div>
+      <div class="popup" id="popup">
+        <div class="popup-rays"></div>
+        <div class="popup-icon" id="popup-icon">✓</div>
+        <h2 class="popup-title" id="popup-title">QUEST COMPLETE!</h2>
+        <p class="popup-text" id="popup-text"></p>
+        <div class="popup-rewards" id="popup-rewards"></div>
+        <button class="btn btn-green btn-wide" id="popup-btn" data-action="popup-ok">CLAIM</button>
+      </div>
+    </section>
+
+    <!-- ============ CONFIRM DIALOG ============ -->
+    <div class="confirm" id="confirm">
+      <div class="backdrop dark"></div>
+      <div class="popup small">
+        <h2 class="popup-title" id="confirm-title">Are you sure?</h2>
+        <p class="popup-text" id="confirm-text"></p>
+        <div class="confirm-btns">
+          <button class="btn btn-gray" id="confirm-no">CANCEL</button>
+          <button class="btn btn-green" id="confirm-yes">YES</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SIMULATED AD ============ -->
+    <div class="ad-overlay" id="ad-overlay">
+      <div class="ad-box">
+        <div class="ad-tag">AD · SIMULATED</div>
+        <div class="ad-art"><div class="ad-logo">🏝️</div><div class="ad-copy">Your ad could be here!<br><small>Replace AdManager with a real SDK</small></div></div>
+        <div class="bar ad-bar"><div class="bar-fill" id="ad-fill"></div></div>
+        <div class="ad-count" id="ad-count">3</div>
+        <button class="btn btn-gray btn-sm" id="ad-close">✕ CLOSE</button>
+      </div>
+    </div>
+
+    <div id="toasts"></div>
+    <div id="fly-layer"></div>
+  </div>
+</div>
+
+<!-- Plain scripts (not ES modules) so the game runs from file:// with no server. -->
+<script src="js/audio.js"></script>
+<script src="js/ads.js"></script>
+<script src="js/save.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/island.js"></script>
+<script src="js/resources.js"></script>
+<script src="js/buildings.js"></script>
+<script src="js/player.js"></script>
+<script src="js/progression.js"></script>
+<script src="js/quests.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
