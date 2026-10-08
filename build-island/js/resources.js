@@ -6,9 +6,12 @@
   const D = BI.Draw;
 
   const TYPES = {
-    tree: { res: 'wood', amount: 5, respawn: 20, xp: 2, label: 'WOOD', h: 62, w: 24, color: ['#7ac943', '#b06a32', '#ffe08a'] },
-    rock: { res: 'stone', amount: 3, respawn: 25, xp: 3, label: 'STONE', h: 30, w: 22, color: ['#c9d0dd', '#8d96aa', '#ffffff'] },
-    crystal: { res: 'crystal', amount: 1, respawn: 45, xp: 6, label: 'CRYSTAL', h: 50, w: 20, color: ['#8ff6ff', '#2aa8ff', '#ffffff'] },
+    tree: { res: 'wood', amount: 4, respawn: 20, xp: 2, h: 62, w: 24, color: ['#7ac943', '#b06a32', '#ffe08a'] },
+    rock: { res: 'stone', amount: 3, respawn: 25, xp: 2, h: 30, w: 22, color: ['#c9d0dd', '#8d96aa', '#ffffff'] },
+    crystal: { res: 'crystal', amount: 1, respawn: 45, xp: 5, h: 50, w: 20, color: ['#8ff6ff', '#2aa8ff', '#ffffff'] },
+    sand: { res: 'sand', amount: 3, respawn: 22, xp: 2, h: 22, w: 24, color: ['#f2cd85', '#d9a85a', '#fff3d0'] },
+    iron: { res: 'iron', amount: 2, respawn: 30, xp: 3, h: 32, w: 22, color: ['#e8783a', '#8a7c74', '#ffd0a8'] },
+    coal: { res: 'coal', amount: 2, respawn: 30, xp: 3, h: 30, w: 22, color: ['#2b2b33', '#5a5a68', '#9a9aaa'] },
   };
 
   function blob(g, x, y, r, c0, c1) {
@@ -184,6 +187,58 @@
       D.shard(g, 0, 2, 11, 32, D.shade(c[0], 0.2), c[1]);
     });
   }
+  function oreSprite(type, vi) {
+    return D.sprite('ore|' + type + '|' + vi, 60, 46, 30, 32, (g) => {
+      D.shadow(g, 0, 2, 17, 7, 0.24);
+      const c = type === 'iron' ? ['#a8988f', '#5e524d'] : ['#5a5a68', '#1d1d24'];
+      rockShape(g, 2, 0, 1.15 + vi * 0.08, c[0], c[1], vi * 2);
+      if (vi !== 1) rockShape(g, -12, 5, 0.55, c[0], c[1], 0);
+      if (type === 'iron') {
+        [[-4, -6, 2.6], [5, -3, 2.1], [0, -12, 1.8], [8, -10, 1.6]].forEach((p) => {
+          D.circle(g, p[0], p[1], p[2], '#e8783a');
+          D.circle(g, p[0] - 0.6, p[1] - 0.6, p[2] * 0.45, '#ffc08a');
+        });
+      } else {
+        [[-5, -7], [4, -4], [1, -12]].forEach((p) => {
+          D.poly(g, [[p[0] - 3, p[1]], [p[0], p[1] - 3], [p[0] + 3, p[1] + 1], [p[0], p[1] + 2.5]], '#0c0c10');
+          D.poly(g, [[p[0] - 2, p[1] - 0.5], [p[0], p[1] - 2.4], [p[0] + 0.8, p[1] - 0.6]], 'rgba(255,255,255,0.45)');
+        });
+      }
+    });
+  }
+  function sandSprite(vi) {
+    return D.sprite('sand|' + vi, 64, 40, 32, 28, (g) => {
+      D.shadow(g, 0, 2, 20, 7, 0.16);
+      const w = 19 + vi * 2;
+      g.beginPath();
+      g.moveTo(-w, 3);
+      g.quadraticCurveTo(-w * 0.5, -16 - vi * 2, 2, -17 - vi * 2);
+      g.quadraticCurveTo(w * 0.6, -15, w, 3);
+      g.quadraticCurveTo(0, 8, -w, 3);
+      const gr = g.createLinearGradient(-w, -18, w, 4);
+      gr.addColorStop(0, '#fbe2a8');
+      gr.addColorStop(0.5, '#efc77d');
+      gr.addColorStop(1, '#c99a50');
+      g.fillStyle = gr;
+      g.fill();
+      g.strokeStyle = 'rgba(255,250,230,0.8)';
+      g.lineWidth = 1.3;
+      g.lineCap = 'round';
+      [[-9, -6, 6], [0, -11, 5], [6, -3, 6]].forEach((p) => {
+        g.beginPath();
+        g.arc(p[0], p[1] + 6, p[2], Math.PI * 1.2, Math.PI * 1.8);
+        g.stroke();
+      });
+      D.circle(g, -6, -2, 1, '#b8873f');
+      D.circle(g, 8, -6, 1, '#b8873f');
+      // little shovel stuck in the pile
+      g.strokeStyle = '#8a5527';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(10, -10); g.lineTo(15, -24); g.stroke();
+      D.poly(g, [[7, -6], [12, -12], [10, -3], [6, -2]], '#9aa3b5');
+    });
+  }
+
   function depletedSprite(type, themeId, th) {
     return D.sprite('dep|' + type + '|' + themeId, 50, 30, 25, 18, (g) => {
       if (type === 'tree') {
@@ -194,9 +249,13 @@
         g.beginPath();
         g.ellipse(0, -5, 3, 1.5, 0, 0, Math.PI * 2);
         g.stroke();
-      } else if (type === 'rock') {
-        rockShape(g, -5, 2, 0.35, th.rockCol[0], th.rockCol[1], 0);
-        rockShape(g, 6, 4, 0.3, th.rockCol[0], th.rockCol[1], 0);
+      } else if (type === 'rock' || type === 'iron' || type === 'coal') {
+        const c = type === 'iron' ? ['#a8988f', '#5e524d'] : type === 'coal' ? ['#5a5a68', '#1d1d24'] : th.rockCol;
+        rockShape(g, -5, 2, 0.35, c[0], c[1], 0);
+        rockShape(g, 6, 4, 0.3, c[0], c[1], 0);
+      } else if (type === 'sand') {
+        D.ellipse(g, 0, 0, 13, 5, '#d9a85a');
+        D.ellipse(g, -1, -1, 9, 3, '#efc77d');
       } else {
         rockShape(g, 0, 4, 0.55, th.rockCol[0], th.rockCol[1], 0);
         D.ellipse(g, 0, -1, 4, 2, 'rgba(0,0,0,0.35)');
@@ -224,6 +283,10 @@
       D.drawSprite(ctx, treeSprite(themeId, th, vi), 0, 0);
     } else if (node.type === 'rock') {
       D.drawSprite(ctx, rockSprite(themeId, th, vi), 0, 0);
+    } else if (node.type === 'iron' || node.type === 'coal') {
+      D.drawSprite(ctx, oreSprite(node.type, vi), 0, 0);
+    } else if (node.type === 'sand') {
+      D.drawSprite(ctx, sandSprite(vi), 0, 0);
     } else {
       const bob = Math.sin(t * 2.2 + node.v * 10) * 2.5;
       ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 3 + node.v * 7);

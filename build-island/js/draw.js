@@ -221,31 +221,13 @@
     });
   }
 
-  /** Small resource icon for bubbles (canvas). */
+  /** Item icon on the canvas (uses the SVG icons from items.js). */
   function resIcon(ctx, res, x, y, r) {
-    if (res === 'coins') {
-      circle(ctx, x, y, r, '#e59a00');
-      circle(ctx, x, y - r * 0.08, r * 0.86, '#ffcf2e');
-      circle(ctx, x, y - r * 0.08, r * 0.58, '#ffe98a');
-      ctx.fillStyle = '#d68a00';
-      ctx.font = '900 ' + Math.round(r * 1.1) + 'px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('★', x, y);
-    } else if (res === 'crystal') {
-      shard(ctx, x, y + r * 0.9, r * 1.3, r * 1.9, '#9ff4ff', '#1aa7e0');
-    } else if (res === 'stone') {
-      poly(ctx, [[x - r, y + r * 0.5], [x - r * 0.6, y - r * 0.6], [x + r * 0.3, y - r * 0.9], [x + r, y - r * 0.1], [x + r * 0.6, y + r * 0.7]], '#8d96aa');
-      poly(ctx, [[x - r * 0.6, y - r * 0.6], [x + r * 0.3, y - r * 0.9], [x + r * 0.1, y - r * 0.1], [x - r * 0.5, y]], '#c9d0dd');
+    const im = BI.Items && BI.Items.iconImg(res);
+    if (im && im.complete && im.naturalWidth) {
+      ctx.drawImage(im, x - r * 1.3, y - r * 1.3, r * 2.6, r * 2.6);
     } else {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(-0.4);
-      roundRect(ctx, -r, -r * 0.45, r * 1.8, r * 0.9, r * 0.35);
-      ctx.fillStyle = '#b06a32';
-      ctx.fill();
-      ellipse(ctx, r * 0.8, 0, r * 0.3, r * 0.45, '#e8b27a');
-      ctx.restore();
+      circle(ctx, x, y, r, '#ffcf2e');
     }
   }
 

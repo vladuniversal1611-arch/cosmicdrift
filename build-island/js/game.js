@@ -4,14 +4,15 @@
   const BI = (window.BI = window.BI || {});
 
   const COLLECT_RANGE = 1.5;
-  const TEXT_COLORS = { wood: '#ffd28a', stone: '#eef2fa', crystal: '#8ff6ff', coins: '#ffd34d' };
+  const color = (k) => (k === 'coins' ? '#ffd34d' : (BI.Items.ITEMS[k] && BI.Items.ITEMS[k].color) || '#ffffff');
   const TRADES = {
-    wood: { give: 'wood', amount: 20, price: 30 },
-    stone: { give: 'stone', amount: 15, price: 30 },
-    crystal: { give: 'crystal', amount: 3, price: 80 },
+    wood: { give: 'wood', amount: 20, price: 40 },
+    stone: { give: 'stone', amount: 15, price: 40 },
+    sand: { give: 'sand', amount: 15, price: 60 },
+    crystal: { give: 'crystal', amount: 3, price: 90 },
   };
   // Base states replace the stack; overlay states are pushed on top.
-  const STATES = ['MAIN_MENU', 'GAMEPLAY', 'BUILD_MODE', 'BUILD_MENU', 'BLUEPRINTS', 'ISLAND_SELECT', 'ISLAND_PROGRESS', 'SHOP', 'SETTINGS', 'QUEST_COMPLETE', 'ISLAND_COMPLETE', 'REWARD'];
+  const STATES = ['MAIN_MENU', 'GAMEPLAY', 'BUILD_MODE', 'BUILD_MENU', 'BLUEPRINTS', 'ISLAND_SELECT', 'ISLAND_PROGRESS', 'STATION', 'INVENTORY', 'SHOP', 'SETTINGS', 'QUEST_COMPLETE', 'ISLAND_COMPLETE', 'REWARD'];
 
   const Game = {
     STATES, TRADES,
@@ -27,6 +28,8 @@
     pendingNode: null,
     expandT: 1,
     zoomMul: 1,
+    station: null,
+    uiT: 0,
     smokeT: 0,
     buildAnims: new Map(),
     popAnims: new Map(),
@@ -130,6 +133,8 @@
         y = f.y + 0.5;
       }
       this.player = BI.Player.create(x, y);
+      this.station = null;
+      if (BI.UI.setHudResources) BI.UI.setHudResources(this.def.finds.filter((k) => k !== 'crystal').slice(0, 2));
     },
 
     rebuildOcc() {
@@ -236,13 +241,25 @@
         if (st !== 'BUILD_MODE') this.nearNode = null;
       }
 
+      // crafting stations run in real time
+      for (let i = 0; i < isl.buildings.length; i++) {
+        const b = isl.buildings[i];
+        if (!b.jobs || !b.jobs.length) continue;
+        const done = BI.Crafting.update(b, this.now);
+        if (done) this.onCrafted(b, done);
+      }
+      if (st === 'STATION') {
+        this.uiT -= dt;
+        if (this.uiT <= 0) { this.uiT = 0.2; BI.UI.refreshStation(); }
+      }
+
       // chimney smoke
       this.smokeT -= dt;
       if (this.smokeT <= 0) {
         this.smokeT = 0.45;
         isl.buildings.forEach((b) => {
           const def = BI.Buildings.DEFS[b.type];
-          if (!def.smoke) return;
+          if (!def.smoke || (def.station && !BI.Crafting.active(b, this.now))) return;
           const c = I.iso(b.gx + 0.5, b.gy + 0.5);
           const o = BI.Draw.P(def.smoke[0], def.smoke[1], def.smoke[2]);
           BI.FX.smoke(c.x + o[0], c.y + o[1]);
@@ -328,7 +345,7 @@
       const c = I.iso(n.gx + 0.5, n.gy + 0.5);
       BI.FX.burst(c.x, c.y - T.h * 0.45, { n: 16, colors: T.color, speed: 95, size: 4.5, up: 80 });
       BI.FX.burst(c.x, c.y, { n: 6, colors: ['#ffffff'], speed: 40, size: 2.5, up: 30 });
-      BI.FX.text(c.x, c.y - T.h - 6, '+' + T.amount + ' ' + T.label, TEXT_COLORS[T.res]);
+      BI.FX.text(c.x, c.y - T.h - 6, '+' + T.amount + ' ' + BI.Items.name(T.res).toUpperCase(), color(T.res));
       const sp = BI.Renderer.w2s(c.x, c.y - T.h * 0.5);
       BI.UI.fly(T.res, sp.x, sp.y, 3);
       const pp = I.iso(this.player.x, this.player.y);
@@ -343,29 +360,141 @@
 
     isReady(b) {
       const def = BI.Buildings.DEFS[b.type];
+      if (def.station) return BI.Crafting.hasOutput(b);
       return !!def.produce && this.now - b.last >= def.produce.every * 1000;
     },
 
-    collectProduction(b) {
-      const def = BI.Buildings.DEFS[b.type], pr = def.produce;
-      if (!pr || !this.isReady(b)) return;
+    /** Icon for a building's "ready" bubble. */
+    readyIcon(b) {
+      const def = BI.Buildings.DEFS[b.type];
+      if (def.station) return Object.keys(b.out).find((k) => b.out[k] > 0);
+      return def.produce.res;
+    },
+
+    /** Add items to the bag with stats, floating text and fly-to-HUD. */
+    gain(items, wx, wy) {
       const s = BI.state;
-      s.res[pr.res] += pr.amount;
-      if (pr.res !== 'coins') {
-        s.stats[pr.res] += pr.amount;
-        this.island.stats[pr.res] += pr.amount;
-      }
-      b.last = this.now;
+      let i = 0;
+      Object.keys(items).forEach((k) => {
+        const n = items[k];
+        if (!n) return;
+        s.res[k] = (s.res[k] || 0) + n;
+        BI.FX.text(wx, wy - i * 18, '+' + n + ' ' + (k === 'coins' ? 'COINS' : BI.Items.name(k).toUpperCase()), color(k));
+        const sp = BI.Renderer.w2s(wx, wy);
+        BI.UI.fly(k, sp.x, sp.y, Math.min(5, 2 + (n >> 2)));
+        i++;
+      });
+    },
+
+    collectProduction(b) {
+      const def = BI.Buildings.DEFS[b.type];
+      if (!this.isReady(b)) return;
+      const s = BI.state;
       const fp = BI.Buildings.footprint(def, b.rot);
       const c = BI.Island.iso(b.gx + fp[0] / 2, b.gy + fp[1] / 2);
-      BI.FX.burst(c.x, c.y - def.h - 12, { n: 12, colors: pr.res === 'coins' ? ['#ffd34d', '#fff1a0', '#ffffff'] : ['#8ff6ff', '#ffffff'], speed: 80, size: 3.5 });
-      BI.FX.text(c.x, c.y - def.h - 20, '+' + pr.amount + ' ' + (pr.res === 'coins' ? 'COINS' : pr.res.toUpperCase()), TEXT_COLORS[pr.res]);
-      const sp = BI.Renderer.w2s(c.x, c.y - def.h - 12);
-      BI.UI.fly(pr.res, sp.x, sp.y, 3);
+      let items;
+      if (def.station) {
+        items = BI.Crafting.takeOutput(b);
+      } else {
+        const pr = def.produce;
+        items = { [pr.res]: pr.amount };
+        if (pr.res !== 'coins') {
+          s.stats[pr.res] = (s.stats[pr.res] || 0) + pr.amount;
+          this.island.stats[pr.res] = (this.island.stats[pr.res] || 0) + pr.amount;
+        }
+        b.last = this.now;
+      }
+      const k0 = Object.keys(items)[0];
+      BI.FX.burst(c.x, c.y - def.h - 12, { n: 12, colors: [color(k0), '#ffffff'], speed: 80, size: 3.5 });
+      this.gain(items, c.x, c.y - def.h - 20);
       BI.Audio.playCoin();
       BI.Progression.addXP(1);
       this.afterProgress();
+      if (this.station === b && this.state === 'STATION') BI.UI.renderStation();
       BI.Save.scheduleSave();
+    },
+
+    /** Stats + effects when a station finishes jobs. */
+    onCrafted(b, done) {
+      const s = BI.state, isl = this.island;
+      let xp = 0;
+      done.forEach((d) => {
+        Object.keys(d.recipe.out).forEach((k) => {
+          const n = d.recipe.out[k] * d.n;
+          s.stats.crafted[k] = (s.stats.crafted[k] || 0) + n;
+          isl.stats.crafted = isl.stats.crafted || {};
+          isl.stats.crafted[k] = (isl.stats.crafted[k] || 0) + n;
+        });
+        xp += Math.max(1, Math.round((d.recipe.time * d.n) / 4));
+      });
+      const def = BI.Buildings.DEFS[b.type];
+      const fp = BI.Buildings.footprint(def, b.rot);
+      const c = BI.Island.iso(b.gx + fp[0] / 2, b.gy + fp[1] / 2);
+      BI.FX.burst(c.x, c.y - def.h * 0.6, { n: 10, colors: ['#ffffff', '#ffd34d'], speed: 70, size: 3 });
+      BI.Progression.addXP(xp);
+      this.afterProgress();
+      if (this.station === b && this.state === 'STATION') BI.UI.renderStation();
+      BI.Save.scheduleSave();
+    },
+
+    // ---------------- stations ----------------
+    openStation(b) {
+      this.station = b;
+      if (BI.Crafting.hasOutput(b)) this.collectProduction(b);
+      BI.UI.renderStation();
+      this.push('STATION');
+    },
+
+    craft(r, n) {
+      const b = this.station;
+      if (!b) return;
+      const err = BI.Crafting.start(b, r, n, Date.now());
+      if (err) {
+        BI.UI.toast(err === 'Queue is full' ? 'Queue is full — wait for a job to finish' : 'Not enough resources for ×' + n, 'bad');
+        BI.Audio.playError();
+        return;
+      }
+      BI.Audio.playBuild();
+      BI.UI.updateRes();
+      BI.UI.renderStation();
+      BI.Save.scheduleSave();
+    },
+
+    collectStation() {
+      if (this.station) this.collectProduction(this.station);
+    },
+
+    sell(key, n) {
+      const s = BI.state, it = BI.Items.ITEMS[key];
+      if (!it || !it.sell) return;
+      n = Math.min(n, s.res[key] || 0);
+      if (n <= 0) { BI.Audio.playError(); return; }
+      s.res[key] -= n;
+      s.res.coins += it.sell * n;
+      s.stats.sold += n;
+      BI.Audio.playCoin();
+      BI.UI.toast('Sold ' + n + ' ' + BI.UI.ico(key) + ' for ' + BI.UI.ico('coins') + (it.sell * n), 'good');
+      BI.UI.updateRes();
+      BI.UI.renderInventory();
+      BI.Quests.check();
+      BI.Save.scheduleSave();
+    },
+
+    unlockIsland(id) {
+      const def = BI.Progression.BY_ID[id];
+      const block = BI.Progression.unlockBlocker(def);
+      if (block) {
+        BI.UI.toast('🔒 ' + block, 'bad');
+        BI.Audio.playError();
+        return;
+      }
+      BI.UI.confirm('Unlock ' + def.name + '?', def.unlock.text + ' for ' + BI.UI.costHtml(def.unlock.cost), 'UNLOCK', () => {
+        if (BI.Progression.unlockIsland(id)) {
+          BI.UI.updateRes();
+          BI.UI.renderIslands();
+          this.setBase('GAMEPLAY');
+        }
+      });
     },
 
     /** Re-evaluate quests, island completion, unlocks and the HUD after any gain. */
@@ -419,7 +548,8 @@
       const hit = this.hitTest(w.x, w.y);
       if (hit && hit.kind === 'building') {
         const b = hit.o, def = BI.Buildings.DEFS[b.type];
-        if (this.isReady(b)) this.collectProduction(b);
+        if (def.station) this.openStation(b);
+        else if (this.isReady(b)) this.collectProduction(b);
         else if (def.produce) {
           const left = Math.ceil((def.produce.every * 1000 - (this.now - b.last)) / 1000);
           BI.UI.toast(def.emoji + ' ' + def.name + ' · next ' + BI.UI.ico(def.produce.res) + ' in ' + left + 's');

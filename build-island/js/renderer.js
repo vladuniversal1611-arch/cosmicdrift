@@ -531,9 +531,10 @@
         ctx.globalAlpha = Math.min(1, 0.4 + k);
         if (k >= 1) game.buildAnims.delete(b);
       }
-      BI.Buildings.draw(ctx, b.type, b.rot, t);
+      BI.Buildings.draw(ctx, b.type, b.rot, !def.station || BI.Crafting.active(b, now) ? t : 0.6);
       ctx.restore();
-      if (def.produce && now - b.last >= def.produce.every * 1000 && game.state !== 'BUILD_MODE') {
+      if (game.state === 'BUILD_MODE') return;
+      if (game.isReady(b)) {
         const y = c.y - def.h - 12 + Math.sin(t * 3 + b.gx) * 3;
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.25)';
@@ -545,7 +546,30 @@
         ctx.moveTo(c.x - 5, y + 9); ctx.lineTo(c.x + 5, y + 9); ctx.lineTo(c.x, y + 16); ctx.closePath();
         ctx.fillStyle = '#ffffff';
         ctx.fill();
-        D.resIcon(ctx, def.produce.res, c.x, y, 7);
+        D.resIcon(ctx, game.readyIcon(b), c.x, y, 7.5);
+      } else if (def.station) {
+        const a = BI.Crafting.active(b, now);
+        const y = c.y - def.h - 10;
+        if (a) {
+          D.circle(ctx, c.x, y, 11, 'rgba(10,30,70,0.75)');
+          ctx.beginPath();
+          ctx.arc(c.x, y, 9.5, -Math.PI / 2, -Math.PI / 2 + a.p * Math.PI * 2);
+          ctx.strokeStyle = '#4cd964';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          D.resIcon(ctx, Object.keys(a.recipe.out)[0], c.x, y, 5.5);
+        } else {
+          // idle station: little "tap me" hint
+          const k = 0.6 + 0.4 * Math.sin(t * 3 + b.gx);
+          ctx.globalAlpha = k;
+          D.circle(ctx, c.x, y, 9, 'rgba(10,30,70,0.7)');
+          ctx.fillStyle = '#ffd34d';
+          ctx.font = '900 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Zz', c.x, y + 0.5);
+          ctx.globalAlpha = 1;
+        }
       }
     },
 

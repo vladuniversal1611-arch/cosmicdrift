@@ -6,21 +6,39 @@
   const D = BI.Draw;
   const P = D.P;
 
-  // cat: house | decor | func   ·   size: [w, d] in tiles   ·   produce: passive income
+  // cat: house (homes & income) | prod (stations & gatherers) | decor
+  // station: crafting building with recipes (see crafting.js) · produce: passive output
   const DEFS = {
-    wooden_house: { name: 'Wooden House', emoji: '🏠', cat: 'house', size: [1, 1], cost: { wood: 20, stone: 10 }, level: 1, xp: 25, house: true, produce: { res: 'coins', amount: 5, every: 25 }, h: 52, desc: 'Cozy home. Makes coins.' },
-    stone_house: { name: 'Stone House', emoji: '🏡', cat: 'house', size: [1, 1], cost: { wood: 40, stone: 20 }, level: 3, xp: 45, house: true, produce: { res: 'coins', amount: 12, every: 35 }, h: 62, desc: 'Sturdy home. More coins.', smoke: [0.2, -0.2, 70] },
-    farm: { name: 'Farm', emoji: '🌾', cat: 'func', size: [2, 1], cost: { wood: 15, stone: 10 }, level: 1, xp: 20, produce: { res: 'coins', amount: 6, every: 20 }, h: 22, desc: 'Grows crops to sell.' },
-    windmill: { name: 'Windmill', emoji: '🌬️', cat: 'func', size: [1, 1], cost: { wood: 30, stone: 15 }, level: 2, xp: 35, produce: { res: 'coins', amount: 10, every: 30 }, h: 92, desc: 'Grinds flour for coins.' },
-    bridge: { name: 'Bridge', emoji: '🌉', cat: 'decor', size: [2, 1], cost: { wood: 25, stone: 10 }, level: 1, xp: 20, h: 30, desc: 'A charming arched bridge.' },
-    tower: { name: 'Tower', emoji: '🗼', cat: 'decor', size: [1, 1], cost: { wood: 50, stone: 30 }, level: 5, xp: 70, produce: { res: 'coins', amount: 20, every: 45 }, h: 140, desc: 'Lookout tower. Tourists pay!' },
-    workshop: { name: 'Workshop', emoji: '🛠️', cat: 'func', size: [1, 1], cost: { wood: 35, stone: 25 }, level: 3, xp: 50, produce: { res: 'stone', amount: 4, every: 30 }, h: 64, desc: 'Cuts stone for you.', smoke: [0.24, -0.18, 66] },
-    crystal_gen: { name: 'Crystal Generator', emoji: '💎', cat: 'func', size: [1, 1], cost: { wood: 50, stone: 40, crystal: 10 }, level: 6, xp: 90, produce: { res: 'crystal', amount: 1, every: 40 }, h: 80, desc: 'Grows crystals over time.' },
-    flower_bed: { name: 'Flower Bed', emoji: '🌷', cat: 'decor', size: [1, 1], cost: { wood: 8, stone: 2 }, level: 1, xp: 8, h: 20, desc: 'Colourful flowers.' },
-    lamp: { name: 'Lamp Post', emoji: '🏮', cat: 'decor', size: [1, 1], cost: { wood: 5, stone: 8 }, level: 2, xp: 8, h: 64, desc: 'Lights up the night.' },
-    fountain: { name: 'Fountain', emoji: '⛲', cat: 'decor', size: [1, 1], cost: { wood: 10, stone: 30, crystal: 2 }, level: 4, xp: 40, h: 44, desc: 'Splashy centrepiece.' },
+    wooden_house: { name: 'Wooden House', emoji: '🏠', cat: 'house', size: [1, 1], cost: { plank: 8, stone: 6 }, level: 1, xp: 25, house: true, produce: { res: 'coins', amount: 6, every: 25 }, h: 52, desc: 'Villagers pay rent in coins.' },
+    farm: { name: 'Farm', emoji: '🌾', cat: 'house', size: [2, 1], cost: { plank: 6, wood: 6 }, level: 1, xp: 20, produce: { res: 'coins', amount: 8, every: 25 }, h: 22, desc: 'Grows crops to sell.' },
+    sawmill: { name: 'Sawmill', emoji: '🪚', cat: 'prod', size: [1, 1], cost: { wood: 15, stone: 8 }, level: 1, xp: 20, station: true, slots: 2, h: 46, desc: 'Cuts logs into planks.',
+      recipes: [{ in: { wood: 3 }, out: { plank: 2 }, time: 6 }] },
+    stonecutter: { name: 'Stone Workbench', emoji: '🧱', cat: 'prod', size: [1, 1], cost: { wood: 12, stone: 15 }, level: 1, xp: 20, station: true, slots: 2, h: 44, desc: 'Shapes stone into bricks.',
+      recipes: [{ in: { stone: 3 }, out: { brick: 2 }, time: 8 }] },
+    flower_bed: { name: 'Flower Bed', emoji: '🌷', cat: 'decor', size: [1, 1], cost: { plank: 2, wood: 4 }, level: 1, xp: 6, h: 20, desc: 'Colourful flowers.' },
+    lumber_camp: { name: 'Lumber Camp', emoji: '🪓', cat: 'prod', size: [1, 1], cost: { plank: 10, brick: 4 }, level: 2, xp: 30, produce: { res: 'wood', amount: 5, every: 30 }, h: 40, desc: 'Woodcutters gather logs for you.' },
+    quarry: { name: 'Quarry', emoji: '⛏️', cat: 'prod', size: [1, 1], cost: { plank: 10, brick: 8 }, level: 2, xp: 30, produce: { res: 'stone', amount: 4, every: 30 }, h: 56, desc: 'Digs stone automatically.' },
+    lamp: { name: 'Lamp Post', emoji: '🏮', cat: 'decor', size: [1, 1], cost: { plank: 2, brick: 2 }, level: 2, xp: 6, h: 64, desc: 'Lights up the night.' },
+    bridge: { name: 'Bridge', emoji: '🌉', cat: 'decor', size: [2, 1], cost: { plank: 12, brick: 4 }, level: 2, xp: 20, h: 30, desc: 'A charming arched bridge.' },
+    windmill: { name: 'Windmill', emoji: '🌬️', cat: 'house', size: [1, 1], cost: { plank: 15, brick: 10 }, level: 3, xp: 40, produce: { res: 'coins', amount: 14, every: 30 }, h: 92, desc: 'Grinds flour for coins.' },
+    furnace: { name: 'Furnace', emoji: '🔥', cat: 'prod', size: [1, 1], cost: { brick: 12, stone: 10 }, level: 3, xp: 40, station: true, slots: 2, h: 60, desc: 'Melts sand into glass, ore into iron.', smoke: [-0.18, -0.2, 60],
+      recipes: [
+        { in: { sand: 3 }, out: { glass: 2 }, time: 10 },
+        { in: { iron: 2, coal: 1 }, out: { ingot: 2 }, time: 12 },
+        { in: { iron: 3, wood: 4 }, out: { ingot: 1 }, time: 15 },
+      ] },
+    stone_house: { name: 'Stone House', emoji: '🏡', cat: 'house', size: [1, 1], cost: { plank: 12, brick: 15, glass: 4 }, level: 4, xp: 55, house: true, produce: { res: 'coins', amount: 18, every: 35 }, h: 62, desc: 'Sturdy home. Big rent.', smoke: [0.2, -0.2, 70] },
+    fountain: { name: 'Fountain', emoji: '⛲', cat: 'decor', size: [1, 1], cost: { brick: 10, glass: 4, crystal: 2 }, level: 4, xp: 35, h: 44, desc: 'Splashy centrepiece.' },
+    workshop: { name: 'Workshop', emoji: '🛠️', cat: 'prod', size: [1, 1], cost: { plank: 15, brick: 10, ingot: 4 }, level: 5, xp: 60, station: true, slots: 2, h: 64, desc: 'Forges tools from planks & iron.', smoke: [0.24, -0.18, 66],
+      recipes: [{ in: { plank: 2, ingot: 1 }, out: { tools: 1 }, time: 15 }] },
+    mine: { name: 'Mine', emoji: '🚇', cat: 'prod', size: [1, 1], cost: { plank: 15, brick: 12, tools: 2 }, level: 6, xp: 70, produce: { res: 'iron', amount: 3, every: 40 }, h: 50, desc: 'Digs iron ore automatically.' },
+    tower: { name: 'Tower', emoji: '🗼', cat: 'house', size: [1, 1], cost: { brick: 25, glass: 8, ingot: 6 }, level: 7, xp: 90, produce: { res: 'coins', amount: 35, every: 45 }, h: 140, desc: 'Lookout tower. Tourists pay!' },
+    crystal_lab: { name: 'Crystal Lab', emoji: '🔬', cat: 'prod', size: [1, 1], cost: { brick: 15, glass: 10, ingot: 4 }, level: 7, xp: 90, station: true, slots: 2, h: 56, desc: 'Fuses crystals into energy cores.',
+      recipes: [{ in: { crystal: 3, glass: 1 }, out: { core: 1 }, time: 20 }] },
+    crystal_gen: { name: 'Crystal Generator', emoji: '💎', cat: 'prod', size: [1, 1], cost: { brick: 20, ingot: 6, core: 2 }, level: 8, xp: 120, produce: { res: 'crystal', amount: 2, every: 40 }, h: 80, desc: 'Grows crystals over time.' },
   };
-  const ORDER = ['wooden_house', 'stone_house', 'farm', 'windmill', 'bridge', 'tower', 'workshop', 'crystal_gen', 'flower_bed', 'lamp', 'fountain'];
+  const ORDER = ['sawmill', 'stonecutter', 'wooden_house', 'farm', 'flower_bed', 'lumber_camp', 'quarry', 'lamp', 'bridge', 'windmill', 'furnace',
+    'stone_house', 'fountain', 'workshop', 'mine', 'tower', 'crystal_lab', 'crystal_gen'];
 
   function footprint(def, rot) {
     return rot % 2 ? [def.size[1], def.size[0]] : [def.size[0], def.size[1]];
@@ -344,6 +362,221 @@
       D.ellipse(g, 0, -25, 10, 5, '#d5d9e4');
       D.ellipse(g, 0, -25.5, 7.5, 3.6, '#7fd6ff');
     },
+    sawmill(g) {
+      D.shadow(g, 0, 3, 34, 15, 0.2);
+      D.box(g, 0.88, 0.88, 3, 0, '#d9a46a', '#c08a52', '#9a6a38', false);
+      const post = (dx, dy) => {
+        g.save();
+        const c = P(dx, dy, 0);
+        g.translate(c[0], c[1]);
+        D.box(g, 0.07, 0.07, 36, 3, '#a8703a', '#8a5527', '#6b3e1e', false);
+        g.restore();
+      };
+      post(-0.36, -0.36);
+      post(0.36, -0.36);
+      post(-0.36, 0.36);
+      // log pile at the back
+      [[-0.18, -0.22, 3], [0.06, -0.22, 3], [-0.06, -0.22, 9]].forEach((l) => {
+        const c = P(l[0], l[1], l[2]);
+        D.roundRect(g, c[0] - 11, c[1] - 6, 22, 7, 3.5);
+        g.fillStyle = '#9a5b2c';
+        g.fill();
+        D.ellipse(g, c[0] + 10, c[1] - 2.5, 2.6, 3.4, '#e2b07a');
+      });
+      // saw table
+      g.save();
+      const t = P(0.05, 0.1, 0);
+      g.translate(t[0], t[1]);
+      D.box(g, 0.56, 0.3, 13, 3, '#c79a62', '#a8763f', '#7f5428');
+      D.box(g, 0.4, 0.12, 4, 16, '#b06a32', '#9a5b2c', '#7a4520', false);
+      g.restore();
+      // plank stack in front
+      g.save();
+      const k = P(0.26, 0.3, 0);
+      g.translate(k[0], k[1]);
+      ['#e2a862', '#cc8a44', '#e2a862'].forEach((c, i) => D.box(g, 0.32, 0.13, 2.5, 3 + i * 2.5, D.shade(c, 0.12), c, D.shade(c, -0.22), false));
+      g.restore();
+      post(0.36, 0.36);
+      // shed roof
+      const hw = 0.48, hd = 0.48;
+      D.poly(g, [P(-hw, hd, 36), P(hw, hd, 36), P(hw, hd, 39), P(-hw, hd, 39)], '#7a3326');
+      D.poly(g, [P(-hw, -hd, 46), P(hw, -hd, 46), P(hw, hd, 39), P(-hw, hd, 39)], '#c0583f');
+      for (let f = 0.25; f < 1; f += 0.25) D.line(g, D.lerpPt(P(-hw, -hd, 46), P(-hw, hd, 39), f), D.lerpPt(P(hw, -hd, 46), P(hw, hd, 39), f), 'rgba(0,0,0,0.15)', 1);
+    },
+    stonecutter(g) {
+      D.shadow(g, 0, 3, 32, 14, 0.2);
+      D.box(g, 0.86, 0.86, 4, 0, '#c9ccd8', '#a9acba', '#83879a', false);
+      // brick stack (back right)
+      g.save();
+      const bs = P(0.22, -0.24, 0);
+      g.translate(bs[0], bs[1]);
+      for (let i = 0; i < 3; i++) D.box(g, 0.26, 0.16, 4, 4 + i * 4, '#ec8060', '#c4553a', '#9a3a22', false);
+      g.restore();
+      // workbench legs + top
+      g.save();
+      const t = P(-0.04, 0.06, 0);
+      g.translate(t[0], t[1]);
+      [[-0.26, -0.14], [0.26, -0.14], [-0.26, 0.14], [0.26, 0.14]].forEach((l) => {
+        g.save();
+        const c = P(l[0], l[1], 0);
+        g.translate(c[0], c[1]);
+        D.box(g, 0.05, 0.05, 12, 4, '#8a5527', '#7a4520', '#5c3214', false);
+        g.restore();
+      });
+      D.box(g, 0.64, 0.38, 3, 16, '#d9a46a', '#b47334', '#8a5527');
+      D.box(g, 0.2, 0.18, 9, 19, '#d3d9e4', '#a3abbd', '#7c859a');
+      g.restore();
+      // sign post
+      D.line(g, P(-0.38, 0.3, 4), P(-0.38, 0.3, 40), '#7a4520', 2.4);
+      const sp = P(-0.38, 0.3, 40);
+      D.roundRect(g, sp[0] - 9, sp[1] - 2, 18, 11, 3);
+      g.fillStyle = '#e8b479';
+      g.fill();
+      g.save();
+      g.translate(sp[0], sp[1] + 3.5);
+      D.poly(g, [[-5, 0], [0, -2.5], [5, 0], [5, 3], [0, 5.5], [-5, 3]], '#c4553a');
+      D.poly(g, [[-5, 0], [0, -2.5], [5, 0], [0, 2.5]], '#ec8060');
+      g.restore();
+    },
+    furnace(g) {
+      D.shadow(g, 0, 3, 34, 15, 0.24);
+      D.box(g, 0.86, 0.86, 6, 0, '#8e93a6', '#6f7487', '#53586a');
+      g.save();
+      const ch = P(-0.18, -0.2, 0);
+      g.translate(ch[0], ch[1]);
+      D.cylinder(g, 5, 20, 36, '#c4553a', '#7a2a18', '#3a1a12');
+      g.restore();
+      D.cylinder(g, 22, 6, 14, '#d86a4a', '#8e3520', null);
+      g.beginPath();
+      g.ellipse(0, -20, 22, 20, 0, Math.PI, 0);
+      g.ellipse(0, -20, 22, 11, 0, 0, Math.PI);
+      const dg = g.createLinearGradient(-22, 0, 22, 0);
+      dg.addColorStop(0, '#ec8060');
+      dg.addColorStop(0.4, '#d86a4a');
+      dg.addColorStop(1, '#8e3520');
+      g.fillStyle = dg;
+      g.fill();
+      g.strokeStyle = 'rgba(80,20,10,0.35)';
+      g.lineWidth = 1;
+      [12, 18, 26, 33].forEach((z) => {
+        g.beginPath();
+        const rr = z > 20 ? Math.sqrt(Math.max(0, 1 - Math.pow((z - 20) / 20, 2))) * 22 : 22;
+        g.ellipse(0, -z, rr, rr * 0.5, 0, 0, Math.PI);
+        g.stroke();
+      });
+      // mouth
+      g.beginPath();
+      g.moveTo(-8, -6);
+      g.lineTo(-8, -14);
+      g.arc(0, -14, 8, Math.PI, 0);
+      g.lineTo(8, -6);
+      g.closePath();
+      g.fillStyle = '#2a1410';
+      g.fill();
+      g.strokeStyle = '#5a5f72';
+      g.lineWidth = 2;
+      g.stroke();
+    },
+    lumber_camp(g) {
+      D.shadow(g, 0, 3, 32, 14, 0.2);
+      // canvas hut
+      g.save();
+      const h = P(-0.12, -0.12, 0);
+      g.translate(h[0], h[1]);
+      D.box(g, 0.56, 0.56, 6, 0, '#a8703a', '#8a5527', '#6b3e1e');
+      gableRoof(g, 0.56, 0.56, 6, 24, '#5fae4a', { left: '#4d8a3c', right: '#3f7432' }, false);
+      D.faceQuad(g, 'left', 0.56, 0.56, 0.38, 0.62, 0, 12, '#2a3a20');
+      g.restore();
+      // log pile front-right
+      const lp = P(0.24, 0.22, 0);
+      [[-9, 0], [3, 0], [-3, -7]].forEach((o) => {
+        D.roundRect(g, lp[0] + o[0] - 8, lp[1] + o[1] - 7, 18, 7, 3.5);
+        g.fillStyle = '#9a5b2c';
+        g.fill();
+        D.ellipse(g, lp[0] + o[0] + 9, lp[1] + o[1] - 3.5, 2.6, 3.5, '#e2b07a');
+        D.ellipse(g, lp[0] + o[0] + 9, lp[1] + o[1] - 3.5, 1, 1.4, '#b07a42');
+      });
+      // stump with axe
+      const st = P(-0.3, 0.3, 0);
+      g.save();
+      g.translate(st[0], st[1]);
+      D.cylinder(g, 6, 0, 6, '#a5652f', '#6e3d1a', '#e2b07a');
+      D.line(g, [0, -6], [6, -20], '#8a5527', 2);
+      D.poly(g, [[3, -18], [9, -24], [11, -19], [7, -16]], '#c9d0dd');
+      g.restore();
+    },
+    quarry(g) {
+      D.shadow(g, 0, 3, 32, 14, 0.18);
+      D.poly(g, [P(-0.4, -0.4, 0), P(0.4, -0.4, 0), P(0.4, 0.4, 0), P(-0.4, 0.4, 0)], '#8d93a6');
+      D.poly(g, [P(-0.3, -0.3, -2), P(0.3, -0.3, -2), P(0.3, 0.3, -2), P(-0.3, 0.3, -2)], '#5e6375');
+      D.poly(g, [P(-0.3, -0.3, -2), P(0.3, -0.3, -2), P(0.2, -0.2, -8), P(-0.2, -0.2, -8)], '#6f7487');
+      D.poly(g, [P(-0.3, -0.3, -2), P(-0.2, -0.2, -8), P(-0.2, 0.2, -8), P(-0.3, 0.3, -2)], '#7c8195');
+      D.poly(g, [P(-0.2, -0.2, -8), P(0.2, -0.2, -8), P(0.2, 0.2, -8), P(-0.2, 0.2, -8)], '#474b5a');
+      // stacked blocks
+      [[0.26, 0.28, 0], [0.26, 0.28, 8], [0.1, 0.3, 0]].forEach((b) => {
+        g.save();
+        const c = P(b[0], b[1], 0);
+        g.translate(c[0], c[1]);
+        D.box(g, 0.18, 0.18, 8, b[2], '#dfe2ea', '#b6bac8', '#8e93a6');
+        g.restore();
+      });
+      // crane
+      const base = P(-0.32, 0.3, 0), top = P(-0.32, 0.3, 50), tip = P(0.12, -0.12, 50);
+      D.line(g, base, top, '#8a5527', 3);
+      D.line(g, P(-0.32, 0.3, 30), P(-0.1, 0.1, 50), '#a8703a', 1.6);
+      D.line(g, top, tip, '#a8703a', 2.6);
+      D.line(g, tip, [tip[0], tip[1] + 26], 'rgba(60,40,20,0.8)', 1);
+      D.roundRect(g, tip[0] - 5, tip[1] + 25, 10, 8, 2);
+      g.fillStyle = '#c9ccd8';
+      g.fill();
+    },
+    mine(g) {
+      D.shadow(g, 0, 3, 34, 15, 0.22);
+      g.beginPath();
+      g.moveTo(-32, 6);
+      g.quadraticCurveTo(-30, -24, -10, -38);
+      g.quadraticCurveTo(4, -46, 16, -34);
+      g.quadraticCurveTo(32, -18, 32, 6);
+      g.quadraticCurveTo(0, 18, -32, 6);
+      const mg = g.createLinearGradient(-30, -40, 30, 10);
+      mg.addColorStop(0, '#b1a39a');
+      mg.addColorStop(0.5, '#857770');
+      mg.addColorStop(1, '#5a4e48');
+      g.fillStyle = mg;
+      g.fill();
+      [[-14, -26, 2.4], [12, -22, 2], [18, -8, 1.8], [-22, -6, 1.6]].forEach((p) => D.circle(g, p[0], p[1], p[2], '#e8783a'));
+      D.ellipse(g, -2, -40, 10, 4, '#7ac943');
+      // entrance
+      g.beginPath();
+      g.moveTo(-14, 6);
+      g.lineTo(-14, -10);
+      g.quadraticCurveTo(-4, -22, 6, -10);
+      g.lineTo(6, 8);
+      g.closePath();
+      g.fillStyle = '#17110e';
+      g.fill();
+      g.strokeStyle = '#8a5527';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(-14, 7); g.lineTo(-14, -12); g.lineTo(6, -12); g.lineTo(6, 8);
+      g.stroke();
+      // rails + cart
+      D.line(g, [-10, 8], [-22, 16], '#6b6f80', 1.4);
+      D.line(g, [2, 9], [-10, 18], '#6b6f80', 1.4);
+      D.poly(g, [[-20, 6], [-6, 6], [-8, 13], [-18, 13]], '#5a6680');
+      D.circle(g, -16, 14, 2, '#2a2e3a');
+      D.circle(g, -10, 14, 2, '#2a2e3a');
+      [[-16, 5], [-12, 4], [-9, 5.5]].forEach((p) => D.circle(g, p[0], p[1], 2.2, '#e8783a'));
+    },
+    crystal_lab(g) {
+      D.shadow(g, 0, 3, 32, 14, 0.22);
+      D.box(g, 0.8, 0.8, 9, 0, '#eef1f8', '#c9cfdf', '#9aa3bd');
+      D.faceLine(g, 'left', 0.8, 0.8, 0.1, 0.9, 5, '#3ff2ff', 1.6);
+      D.faceLine(g, 'right', 0.8, 0.8, 0.1, 0.9, 5, '#3ff2ff', 1.6);
+      D.ellipse(g, 0, -9, 21, 10.5, '#8a91b8');
+      D.line(g, [16, -26], [16, -52], '#9aa3bd', 2);
+      D.circle(g, 16, -53, 2.6, '#ff5a8a');
+    },
   };
 
   // ---------------- live animation layer ----------------
@@ -427,6 +660,81 @@
       ctx.beginPath();
       ctx.ellipse(0, -10, 6 + rp * 14, (6 + rp * 14) * 0.5, 0, 0, Math.PI * 2);
       ctx.stroke();
+    },
+    sawmill(ctx, t) {
+      const c = P(0.05, 0.1, 22);
+      ctx.save();
+      ctx.translate(c[0], c[1]);
+      ctx.scale(0.55, 1);
+      ctx.rotate(t * 8);
+      D.circle(ctx, 0, 0, 8, '#dfe5ee');
+      ctx.fillStyle = '#9aa3b5';
+      for (let i = 0; i < 10; i++) {
+        ctx.rotate(Math.PI / 5);
+        ctx.fillRect(-1.3, -10, 2.6, 3);
+      }
+      D.circle(ctx, 0, 0, 2.2, '#5a6680');
+      ctx.restore();
+    },
+    stonecutter(ctx, t) {
+      const c = P(-0.04, 0.06, 28);
+      const sw = Math.max(0, Math.sin(t * 6));
+      ctx.save();
+      ctx.translate(c[0] + 8, c[1] - 10);
+      ctx.rotate(-0.4 - sw * 0.9);
+      ctx.fillStyle = '#8a5527';
+      ctx.fillRect(-1.2, 0, 2.4, 13);
+      ctx.fillStyle = '#7c859a';
+      ctx.fillRect(-4, -2, 8, 4.5);
+      ctx.restore();
+      if (sw < 0.15) {
+        for (let i = 0; i < 3; i++) D.circle(ctx, c[0] + (i - 1) * 4, c[1] - 2 - i * 2, 1.2, '#ffe08a');
+      }
+    },
+    furnace(ctx, t) {
+      const f = 0.75 + 0.25 * Math.sin(t * 9) * Math.sin(t * 5.3);
+      ctx.globalAlpha = 0.55 * f;
+      D.drawSprite(ctx, D.glow('#ff8a1f', 22), 0, -12);
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(-6, -6);
+      ctx.quadraticCurveTo(-5, -12 - f * 4, 0, -16 - f * 3);
+      ctx.quadraticCurveTo(5, -12 - f * 4, 6, -6);
+      ctx.closePath();
+      ctx.fillStyle = '#ff8a1f';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-3, -6);
+      ctx.quadraticCurveTo(0, -10 - f * 3, 3, -6);
+      ctx.closePath();
+      ctx.fillStyle = '#ffe08a';
+      ctx.fill();
+    },
+    crystal_lab(ctx, t) {
+      const bob = Math.sin(t * 2) * 2;
+      ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3);
+      D.drawSprite(ctx, D.glow('#7ff6ff', 26), 0, -26);
+      ctx.globalAlpha = 1;
+      D.shard(ctx, 0, -12 + bob, 10, 22, '#c9fbff', '#3a8cff');
+      // glass dome
+      ctx.beginPath();
+      ctx.ellipse(0, -9, 21, 30, 0, Math.PI, 0);
+      ctx.ellipse(0, -9, 21, 10.5, 0, 0, Math.PI);
+      ctx.fillStyle = 'rgba(170,235,255,0.28)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(0, -9, 21, 30, 0, Math.PI, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(-8, -26, 4, 9, 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.6 + i / 3) % 1;
+        D.circle(ctx, (i - 1) * 7, -10 - k * 22, 1.3 * (1 - k) + 0.3, 'rgba(220,255,255,0.9)');
+      }
     },
   };
 

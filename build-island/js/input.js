@@ -137,7 +137,10 @@
     const p = ptrs.get(e.pointerId);
     if (!p) return;
     ptrs.delete(e.pointerId);
-    if (!p.moved && performance.now() - p.t < 500) BI.Game.onTap(e.clientX, e.clientY);
+    if (!p.moved && performance.now() - p.t < 500) {
+      Input.lastTap = performance.now();
+      BI.Game.onTap(e.clientX, e.clientY);
+    }
   }
 
   function updateJoy(x, y) {

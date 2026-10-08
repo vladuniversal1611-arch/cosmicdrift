@@ -47,36 +47,43 @@
   // ---------------- themes ----------------
   const THEMES = {
     green: {
+      nodes: { tree: 12, rock: 8, crystal: 3 },
       top: ['#86dc5c', '#78d050'], lip: '#4fae37', dirt: ['#b9783f', '#8f5a2c'], rock: ['#7d7f95', '#3f4058'],
       bg: ['#1667c9', '#4cc4f0'], bgStyle: 'ocean', water: '#7fdcff', tree: 'oak', leaf: ['#5fcf4a', '#2f9e3a'],
       rockCol: ['#b8c0cf', '#7b8499'], crystal: ['#8ff6ff', '#2aa8ff'], flowers: ['#ff6b8a', '#ffd93d', '#ffffff', '#b28dff'], decor: 'grass',
     },
     desert: {
+      nodes: { tree: 5, sand: 10, rock: 5, crystal: 2 },
       top: ['#f6d98f', '#eecb79'], lip: '#d9ad5a', dirt: ['#dda061', '#b87a3f'], rock: ['#b88457', '#6f4a30'],
       bg: ['#0790b3', '#5fe0e0'], bgStyle: 'ocean', water: '#7ff0ff', tree: 'palm', leaf: ['#6fd04f', '#3c9d33'],
       rockCol: ['#e8bb83', '#b07c48'], crystal: ['#ffe08a', '#ff8a3d'], flowers: ['#ff9e5e', '#e85d75'], decor: 'sand',
     },
     ice: {
+      nodes: { tree: 6, iron: 9, rock: 5, crystal: 3 },
       top: ['#f3faff', '#e2f1fc'], lip: '#bfe1f7', dirt: ['#a8d2ef', '#79abd2'], rock: ['#6f93bd', '#3d6290'],
       bg: ['#0b47a0', '#47b9e6'], bgStyle: 'ocean', water: '#c8f4ff', tree: 'pine', leaf: ['#3f9e7a', '#24705a'],
       rockCol: ['#d8ecfa', '#8db6d8'], crystal: ['#d6f9ff', '#62c9ff'], flowers: ['#ffffff', '#bfe9ff'], decor: 'snow',
     },
     volcano: {
+      nodes: { coal: 10, iron: 5, rock: 5, crystal: 3 },
       top: ['#5d4d50', '#504245'], lip: '#3a2e31', dirt: ['#4a3434', '#2f2122'], rock: ['#2b1e1f', '#120a0b'],
       bg: ['#4a1006', '#e0531c'], bgStyle: 'lava', water: '#ff8a1f', tree: 'burnt', leaf: ['#4a3a3a', '#2a1f1f'],
       rockCol: ['#5a4e52', '#2a2326'], crystal: ['#ffb07a', '#ff3b1f'], flowers: ['#ff6a1f', '#ffc23d'], decor: 'lava',
     },
     neon: {
+      nodes: { crystal: 10, tree: 5, coal: 3, rock: 3 },
       top: ['#2e2367', '#271d59'], lip: '#3fe6ff', dirt: ['#1f1554', '#140c3a'], rock: ['#0f0a2e', '#05021a'],
       bg: ['#07011f', '#3a1584'], bgStyle: 'grid', water: '#ff4fd8', tree: 'neon', leaf: ['#3ff2ff', '#ff4fd8'],
       rockCol: ['#5a4ab0', '#2a2070'], crystal: ['#ff8cf2', '#7a5cff'], flowers: ['#3ff2ff', '#ff4fd8', '#c6ff3f'], decor: 'neon',
     },
     sky: {
+      nodes: { tree: 8, sand: 5, crystal: 6, rock: 3 },
       top: ['#cdf7c8', '#bdeeb8'], lip: '#93d98e', dirt: ['#f7fbff', '#dbe6f6'], rock: ['#eef3fb', '#b9c6de'],
       bg: ['#6fb9ff', '#e6f4ff'], bgStyle: 'sky', water: '#ffffff', tree: 'cotton', leaf: ['#ffc4e1', '#ff8fc4'],
       rockCol: ['#ffffff', '#cdd7ea'], crystal: ['#fff6b0', '#ffc53d'], flowers: ['#ff9ecb', '#b4a7ff', '#fff27a'], decor: 'grass',
     },
     space: {
+      nodes: { iron: 7, crystal: 8, coal: 5, rock: 3 },
       top: ['#a09cb8', '#918ca9'], lip: '#6f6b8d', dirt: ['#5b5778', '#3d3a57'], rock: ['#2e2b45', '#13111f'],
       bg: ['#03020c', '#1b1245'], bgStyle: 'stars', water: '#b39bff', tree: 'alien', leaf: ['#7dffb3', '#28c97f'],
       rockCol: ['#c4c0da', '#6d6990'], crystal: ['#c9b6ff', '#6a3dff'], flowers: ['#7dffb3', '#b9a3ff'], decor: 'crater',
@@ -84,7 +91,7 @@
   };
 
   // ---------------- island state ----------------
-  function blankStats() { return { wood: 0, stone: 0, crystal: 0, built: 0, houses: 0, byType: {} }; }
+  function blankStats() { return { wood: 0, stone: 0, crystal: 0, sand: 0, iron: 0, coal: 0, built: 0, houses: 0, byType: {}, crafted: {} }; }
 
   function createIslandState(id) {
     const seed = hashStr(id);
@@ -98,13 +105,13 @@
       }
     }
     shuffle(cells, r);
-    placeNodes(st, cells, { tree: 12, rock: 7, crystal: 4 }, r);
+    placeNodes(st, cells, (THEMES[id] || THEMES.green).nodes, r);
     return st;
   }
 
   function placeNodes(st, cells, counts, r) {
     let i = 0;
-    ['tree', 'rock', 'crystal'].forEach((type) => {
+    Object.keys(counts).forEach((type) => {
       for (let n = 0; n < counts[type] && i < cells.length; n++, i++) {
         st.nodes.push({ type, gx: cells[i][0], gy: cells[i][1], respawnAt: 0, v: Math.round(r() * 1000) / 1000 });
       }
@@ -126,7 +133,9 @@
       }
     }
     shuffle(ring, r);
-    placeNodes(st, ring, { tree: 5 + st.expansions, rock: 3 + (st.expansions >> 1), crystal: 1 + (st.expansions >= 2 ? 1 : 0) }, r);
+    const base = (THEMES[st.id] || THEMES.green).nodes, counts = {};
+    Object.keys(base).forEach((k) => { counts[k] = Math.max(1, Math.round(base[k] * (0.35 + st.expansions * 0.05))); });
+    placeNodes(st, ring, counts, r);
   }
 
   // ---------------- terrain cache ----------------

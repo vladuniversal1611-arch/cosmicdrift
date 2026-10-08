@@ -7,73 +7,81 @@
   function xpToNext(level) { return Math.round(50 * Math.pow(level, 1.35)); }
   function levelReward(level) { return 100 + (level - 2) * 25; }
 
+  // unlock: level + materials paid once (building the boat / airship to get there)
   const ISLANDS = [
-    { id: 'green', name: 'Green Island', emoji: '🌿', theme: 'green', unlock: null,
+    { id: 'green', name: 'Green Island', emoji: '🌿', theme: 'green', unlock: null, finds: ['wood', 'stone', 'crystal'],
       tasks: [
+        { text: 'Build a Sawmill', stat: 'type:sawmill', target: 1 },
+        { text: 'Build a Stone Workbench', stat: 'type:stonecutter', target: 1 },
+        { text: 'Craft 30 planks', stat: 'craft:plank', target: 30 },
         { text: 'Build 3 houses', stat: 'houses', target: 3 },
-        { text: 'Build a windmill', stat: 'type:windmill', target: 1 },
         { text: 'Expand the island', stat: 'expansions', target: 1 },
-        { text: 'Collect 15 crystals', stat: 'crystal', target: 15 },
-        { text: 'Build a tower', stat: 'type:tower', target: 1 },
       ] },
-    { id: 'desert', name: 'Desert Island', emoji: '🏜️', theme: 'desert', unlock: { type: 'island', value: 'green', text: 'Complete Green Island' },
+    { id: 'desert', name: 'Desert Island', emoji: '🏜️', theme: 'desert', finds: ['sand', 'wood', 'stone'],
+      unlock: { level: 2, cost: { plank: 20, brick: 10, coins: 150 }, text: 'Build a boat' },
       tasks: [
-        { text: 'Build 4 houses', stat: 'houses', target: 4 },
-        { text: 'Build 2 farms', stat: 'type:farm', target: 2 },
-        { text: 'Expand the island twice', stat: 'expansions', target: 2 },
-        { text: 'Collect 20 crystals', stat: 'crystal', target: 20 },
-        { text: 'Build 12 structures', stat: 'built', target: 12 },
+        { text: 'Collect 40 sand', stat: 'sand', target: 40 },
+        { text: 'Build a Furnace', stat: 'type:furnace', target: 1 },
+        { text: 'Craft 20 glass', stat: 'craft:glass', target: 20 },
+        { text: 'Build a Quarry', stat: 'type:quarry', target: 1 },
+        { text: 'Build 2 stone houses', stat: 'type:stone_house', target: 2 },
       ] },
-    { id: 'ice', name: 'Ice Island', emoji: '❄️', theme: 'ice', unlock: { type: 'built', value: 10, text: 'Build 10 structures' },
+    { id: 'ice', name: 'Ice Island', emoji: '❄️', theme: 'ice', finds: ['iron', 'wood', 'stone'],
+      unlock: { level: 4, cost: { plank: 30, brick: 20, glass: 10, coins: 300 }, text: 'Build an icebreaker' },
+      tasks: [
+        { text: 'Collect 40 iron ore', stat: 'iron', target: 40 },
+        { text: 'Craft 20 iron bars', stat: 'craft:ingot', target: 20 },
+        { text: 'Build a Workshop', stat: 'type:workshop', target: 1 },
+        { text: 'Craft 10 tools', stat: 'craft:tools', target: 10 },
+        { text: 'Build a Windmill', stat: 'type:windmill', target: 1 },
+      ] },
+    { id: 'volcano', name: 'Volcano Island', emoji: '🌋', theme: 'volcano', finds: ['coal', 'iron', 'stone'],
+      unlock: { level: 5, cost: { brick: 30, glass: 15, ingot: 6, coins: 500 }, text: 'Build a heat-proof ship' },
+      tasks: [
+        { text: 'Collect 50 coal', stat: 'coal', target: 50 },
+        { text: 'Build a Mine', stat: 'type:mine', target: 1 },
+        { text: 'Craft 30 iron bars', stat: 'craft:ingot', target: 30 },
+        { text: 'Build a Tower', stat: 'type:tower', target: 1 },
+        { text: 'Expand the island twice', stat: 'expansions', target: 2 },
+      ] },
+    { id: 'neon', name: 'Neon Island', emoji: '🌃', theme: 'neon', finds: ['crystal', 'coal', 'wood'],
+      unlock: { level: 7, cost: { glass: 30, ingot: 15, crystal: 20, coins: 800 }, text: 'Build a neon glider' },
+      tasks: [
+        { text: 'Collect 40 crystals', stat: 'crystal', target: 40 },
+        { text: 'Build a Crystal Lab', stat: 'type:crystal_lab', target: 1 },
+        { text: 'Craft 5 energy cores', stat: 'craft:core', target: 5 },
+        { text: 'Build 3 lamp posts', stat: 'type:lamp', target: 3 },
+        { text: 'Build a fountain', stat: 'type:fountain', target: 1 },
+      ] },
+    { id: 'sky', name: 'Sky Island', emoji: '☁️', theme: 'sky', finds: ['wood', 'sand', 'crystal'],
+      unlock: { level: 9, cost: { ingot: 20, tools: 8, core: 2, coins: 1200 }, text: 'Build an airship' },
       tasks: [
         { text: 'Build 5 houses', stat: 'houses', target: 5 },
-        { text: 'Build a workshop', stat: 'type:workshop', target: 1 },
+        { text: 'Craft 60 planks', stat: 'craft:plank', target: 60 },
         { text: 'Build 2 towers', stat: 'type:tower', target: 2 },
-        { text: 'Expand the island twice', stat: 'expansions', target: 2 },
-        { text: 'Collect 25 crystals', stat: 'crystal', target: 25 },
+        { text: 'Build a Crystal Generator', stat: 'type:crystal_gen', target: 1 },
+        { text: 'Expand the island 3 times', stat: 'expansions', target: 3 },
       ] },
-    { id: 'volcano', name: 'Volcano Island', emoji: '🌋', theme: 'volcano', unlock: { type: 'level', value: 10, text: 'Reach level 10' },
+    { id: 'space', name: 'Space Island', emoji: '🪐', theme: 'space', finds: ['iron', 'crystal', 'coal'],
+      unlock: { level: 11, cost: { core: 6, tools: 12, ingot: 30, coins: 2000 }, text: 'Build a rocket' },
       tasks: [
-        { text: 'Build 6 houses', stat: 'houses', target: 6 },
+        { text: 'Craft 10 energy cores', stat: 'craft:core', target: 10 },
         { text: 'Build 2 crystal generators', stat: 'type:crystal_gen', target: 2 },
-        { text: 'Expand the island 3 times', stat: 'expansions', target: 3 },
-        { text: 'Collect 30 crystals', stat: 'crystal', target: 30 },
-        { text: 'Build 15 structures', stat: 'built', target: 15 },
-      ] },
-    { id: 'neon', name: 'Neon Island', emoji: '🌃', theme: 'neon', unlock: { type: 'crystal', value: 100, text: 'Collect 100 crystals' },
-      tasks: [
-        { text: 'Build 6 houses', stat: 'houses', target: 6 },
-        { text: 'Build 5 lamp posts', stat: 'type:lamp', target: 5 },
-        { text: 'Build 2 fountains', stat: 'type:fountain', target: 2 },
-        { text: 'Expand the island 3 times', stat: 'expansions', target: 3 },
-        { text: 'Collect 40 crystals', stat: 'crystal', target: 40 },
-      ] },
-    { id: 'sky', name: 'Sky Island', emoji: '☁️', theme: 'sky', unlock: { type: 'built', value: 25, text: 'Build 25 structures' },
-      tasks: [
-        { text: 'Build 8 houses', stat: 'houses', target: 8 },
-        { text: 'Build 3 windmills', stat: 'type:windmill', target: 3 },
+        { text: 'Collect 60 iron ore', stat: 'iron', target: 60 },
+        { text: 'Build 2 towers', stat: 'type:tower', target: 2 },
         { text: 'Expand the island 4 times', stat: 'expansions', target: 4 },
-        { text: 'Build 20 structures', stat: 'built', target: 20 },
-        { text: 'Collect 40 crystals', stat: 'crystal', target: 40 },
-      ] },
-    { id: 'space', name: 'Space Island', emoji: '🪐', theme: 'space', unlock: { type: 'level', value: 20, text: 'Reach level 20' },
-      tasks: [
-        { text: 'Build 8 houses', stat: 'houses', target: 8 },
-        { text: 'Build 3 crystal generators', stat: 'type:crystal_gen', target: 3 },
-        { text: 'Build 3 towers', stat: 'type:tower', target: 3 },
-        { text: 'Expand the island 4 times', stat: 'expansions', target: 4 },
-        { text: 'Collect 50 crystals', stat: 'crystal', target: 50 },
       ] },
   ];
   const BY_ID = {};
   ISLANDS.forEach((i) => { BY_ID[i.id] = i; });
 
-  const ISLAND_REWARD = { coins: 200, wood: 50, stone: 30, crystal: 10 };
+  const ISLAND_REWARD = { coins: 300, plank: 20, brick: 20, crystal: 10 };
 
   function S() { return BI.state; }
 
   function statOf(stats, stat) {
     if (stat.indexOf('type:') === 0) return (stats.byType && stats.byType[stat.slice(5)]) || 0;
+    if (stat.indexOf('craft:') === 0) return (stats.crafted && stats.crafted[stat.slice(6)]) || 0;
     return stats[stat] || 0;
   }
   function islandStat(isl, stat) {
@@ -94,35 +102,32 @@
     return { pct: sum / tasks.length, tasks };
   }
 
-  function unlockProgress(def) {
-    const s = S();
-    const u = def.unlock;
-    if (!u) return { cur: 1, target: 1 };
-    if (u.type === 'island') {
-      const isl = s.islands[u.value];
-      return { cur: isl && isl.completed ? 1 : islandProgress(u.value).pct, target: 1 };
-    }
-    if (u.type === 'level') return { cur: Math.min(s.level, u.value), target: u.value };
-    if (u.type === 'built') return { cur: Math.min(s.stats.built, u.value), target: u.value };
-    if (u.type === 'crystal') return { cur: Math.min(s.stats.crystal, u.value), target: u.value };
-    return { cur: 0, target: 1 };
-  }
-
   function isUnlocked(id) { return S().unlockedIslands.indexOf(id) >= 0; }
 
-  /** Unlock any islands whose requirement is now met. */
-  function checkUnlocks() {
-    const s = S();
-    ISLANDS.forEach((def) => {
-      if (isUnlocked(def.id) || !def.unlock) return;
-      const p = unlockProgress(def);
-      if (p.cur >= p.target) {
-        s.unlockedIslands.push(def.id);
-        BI.UI.queuePopup({ kind: 'island_unlock', island: def });
-        BI.Save.scheduleSave();
-      }
-    });
+  /** null when the island can be unlocked now, otherwise the reason. */
+  function unlockBlocker(def) {
+    const u = def.unlock;
+    if (!u) return null;
+    if (S().level < u.level) return 'Reach level ' + u.level;
+    if (!BI.Game.canAfford(u.cost)) return 'Not enough materials';
+    return null;
   }
+
+  function unlockIsland(id) {
+    const def = BY_ID[id];
+    if (!def || isUnlocked(id) || unlockBlocker(def)) return false;
+    BI.Game.pay(def.unlock.cost);
+    const s = S();
+    s.unlockedIslands.push(id);
+    s.stats.islands = s.unlockedIslands.length;
+    BI.UI.queuePopup({ kind: 'island_unlock', island: def });
+    addXP(100);
+    if (BI.Quests) BI.Quests.check();
+    BI.Save.saveGame();
+    return true;
+  }
+
+  function checkUnlocks() { /* islands are unlocked by paying materials — see unlockIsland() */ }
 
   /** Check completion of the current island. */
   function checkIslandCompletion() {
@@ -176,7 +181,7 @@
   }
 
   BI.Progression = {
-    ISLANDS, BY_ID, ISLAND_REWARD, xpToNext, levelReward, addXP, islandProgress, unlockProgress,
+    ISLANDS, BY_ID, ISLAND_REWARD, xpToNext, levelReward, addXP, islandProgress, unlockBlocker, unlockIsland,
     isUnlocked, checkUnlocks, checkIslandCompletion, syncBlueprints, isBlueprintUnlocked, statOf,
   };
 })();

@@ -2,17 +2,17 @@
 (function () {
   'use strict';
   const BI = (window.BI = window.BI || {});
-  const KEY = 'buildIsland.save.v1';
-  const VERSION = 1;
+  const KEY = 'buildIsland.save.v2';
+  const VERSION = 2;
 
   function defaultState() {
     return {
       version: VERSION,
-      res: { wood: 50, stone: 30, crystal: 5, coins: 100 },
+      res: { coins: 150, crystal: 5, wood: 30, stone: 20, sand: 0, iron: 0, coal: 0, plank: 0, brick: 0, glass: 0, ingot: 0, tools: 0, core: 0 },
       xp: 0,
       level: 1,
       // lifetime stats (quests + island unlocks read these)
-      stats: { wood: 0, stone: 0, crystal: 0, built: 0, houses: 0, expansions: 0, quests: 0, ads: 0, byType: {} },
+      stats: { wood: 0, stone: 0, crystal: 0, sand: 0, iron: 0, coal: 0, built: 0, houses: 0, expansions: 0, quests: 0, ads: 0, sold: 0, islands: 1, byType: {}, crafted: {} },
       currentIsland: 'green',
       unlockedIslands: ['green'],
       islands: {},            // per-island state, created on first visit

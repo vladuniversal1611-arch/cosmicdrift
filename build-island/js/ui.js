@@ -1,28 +1,24 @@
-/* UI: DOM screens, HUD, menus, popups, toasts and fly-to-HUD reward effects. */
+/* UI: DOM screens, HUD, menus, crafting panel, bag, popups, toasts and fly-to-HUD effects. */
 (function () {
   'use strict';
   const BI = (window.BI = window.BI || {});
   const $ = (id) => document.getElementById(id);
+  const Items = BI.Items;
 
-  const ICONS = {
-    coins: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12.6" r="10" fill="#d98a00"/><circle cx="12" cy="11.4" r="10" fill="#ffcb2f"/><circle cx="12" cy="11.4" r="7.2" fill="#ffe27a"/><path d="M12 6.6l1.5 3.1 3.4.4-2.5 2.3.7 3.4-3.1-1.7-3.1 1.7.7-3.4-2.5-2.3 3.4-.4z" fill="#e59a00"/></svg>',
-    crystal: '<svg viewBox="0 0 24 24"><path d="M12 1.5l7.5 7L12 22.5 4.5 8.5z" fill="#1aa7e0"/><path d="M12 1.5l7.5 7H12z" fill="#7fe9ff"/><path d="M12 1.5L4.5 8.5H12z" fill="#c4f6ff"/><path d="M4.5 8.5h7.5v14z" fill="#3fd0ff"/><path d="M19.5 8.5H12v14z" fill="#0b7fc0"/></svg>',
-    wood: '<svg viewBox="0 0 24 24"><rect x="1.5" y="7" width="18" height="10.5" rx="4" fill="#a8622b"/><rect x="1.5" y="7" width="18" height="4" rx="2" fill="#c47a3c"/><ellipse cx="19" cy="12.25" rx="3.6" ry="5.25" fill="#f0c38e"/><ellipse cx="19" cy="12.25" rx="2" ry="3" fill="#d39a5c"/><ellipse cx="19" cy="12.25" rx=".8" ry="1.2" fill="#a8622b"/></svg>',
-    stone: '<svg viewBox="0 0 24 24"><path d="M2.5 16.5l2.8-8 6.4-3.6 7.3 2.8 2.5 8.2-5 4.6H7.6z" fill="#7c859a"/><path d="M5.3 8.5l6.4-3.6 7.3 2.8-5.6 3.4z" fill="#d3d9e4"/><path d="M13.4 11.1l5.6-3.4 2.5 8.2-5 4.6z" fill="#5f6779"/><path d="M5.3 8.5l8.1 2.6-2.1 9.9H7.6l-5.1-4.5z" fill="#a3abbd"/></svg>',
-    xp: '<svg viewBox="0 0 24 24"><path d="M12 1.8l3.1 6.4 7 .9-5.1 4.9 1.3 7-6.3-3.4-6.3 3.4 1.3-7L1.9 9.1l7-.9z" fill="#ffcb2f" stroke="#e08a00" stroke-width="1.3" stroke-linejoin="round"/></svg>',
-    house: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8z" fill="#ef5a4a"/><rect x="5" y="11" width="14" height="10" rx="1.5" fill="#e8b479"/><rect x="10" y="14" width="4" height="7" fill="#7a4520"/></svg>',
-    build: '<svg viewBox="0 0 24 24"><rect x="10" y="9" width="3.4" height="13" rx="1.4" transform="rotate(-40 12 15)" fill="#a8622b"/><path d="M5 5.5l7-3.5 6 3-1.8 3.6-4.2-1.6-4.8 2.4z" fill="#a3abbd"/></svg>',
-    expand: '<svg viewBox="0 0 24 24"><path d="M12 2l10 5.5v9L12 22 2 16.5v-9z" fill="#4cd964"/><path d="M12 2l10 5.5L12 13 2 7.5z" fill="#8af07a"/><path d="M12 6v12M6 12h12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
-  };
-  const RES_NAMES = { coins: 'Coins', crystal: 'Crystals', wood: 'Wood', stone: 'Stone' };
+  const ICONS = Items.ICONS;
   const ico = (name) => '<i class="ico">' + (ICONS[name] || '') + '</i>';
   const fmt = (n) => (n >= 100000 ? Math.floor(n / 1000) + 'k' : n >= 10000 ? (n / 1000).toFixed(1) + 'k' : String(Math.floor(n)));
+  const secs = (ms) => {
+    const s = Math.ceil(ms / 1000);
+    return s >= 60 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' : s + 's';
+  };
 
+  /** Cost list; coins last. check: colour what the player can't afford. */
   function costHtml(cost, check) {
     const s = BI.state;
-    return ['wood', 'stone', 'crystal', 'coins'].filter((k) => cost[k]).map((k) => {
+    return Object.keys(cost).sort((a, b) => (a === 'coins') - (b === 'coins')).map((k) => {
       const short = check && s.res[k] < cost[k];
-      return '<span class="cost' + (short ? ' short' : '') + '">' + ico(k) + cost[k] + '</span>';
+      return '<span class="cost' + (short ? ' short' : '') + '">' + ico(k) + fmt(cost[k]) + '</span>';
     }).join('');
   }
 
@@ -30,16 +26,19 @@
   let popupOpen = null;
   let buildCat = 'all', bpCat = 'house';
   let collectShown = null;
+  let hudKeys = [];
   const thumbs = {};
 
   const UI = {
-    ICONS, ico, fmt,
+    ICONS, ico, fmt, costHtml,
 
     init() {
       document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ICONS[el.dataset.ico] || ''; });
       $('ui').addEventListener('click', (e) => {
         const el = e.target.closest('[data-action]');
         if (!el || el.closest('.confirm')) return;
+        // a tap on the canvas can open a panel; ignore the browser's follow-up "ghost" click on it
+        if (performance.now() - (BI.Input.lastTap || 0) < 450) return;
         BI.Audio.playClick();
         this.handle(el.dataset.action, el);
       });
@@ -61,6 +60,7 @@
         case 'back': G.pop(); break;
         case 'settings': this.renderSettings(); G.push('SETTINGS'); break;
         case 'shop': this.renderShop(); G.push('SHOP'); break;
+        case 'inventory': this.renderInventory(); G.push('INVENTORY'); break;
         case 'blueprints': this.renderBlueprints(bpCat); G.push('BLUEPRINTS'); break;
         case 'islands':
           if (G.state === 'ISLAND_PROGRESS') G.pop();
@@ -75,18 +75,22 @@
         case 'build-rotate': G.rotateBuild(); break;
         case 'build-confirm': G.confirmBuild(); break;
         case 'collect': G.collectNearest(); break;
+        case 'craft': G.craft(+el.dataset.r, +el.dataset.n); break;
+        case 'station-collect': G.collectStation(); break;
+        case 'sell': G.sell(el.dataset.key, +el.dataset.n); break;
         case 'expand': G.askExpand(); break;
         case 'island-progress': this.renderProgress(); G.push('ISLAND_PROGRESS'); break;
         case 'island-go': G.travelTo(el.dataset.id); break;
+        case 'island-unlock': G.unlockIsland(el.dataset.id); break;
         case 'island-locked': {
           const def = BI.Progression.BY_ID[el.dataset.id];
-          this.toast('🔒 ' + def.unlock.text + ' to unlock', 'bad');
+          this.toast('🔒 ' + BI.Progression.unlockBlocker(def), 'bad');
           BI.Audio.playError();
           break;
         }
         case 'quests-toggle': $('quest-panel').classList.toggle('collapsed'); break;
-        case 'watch-ad': G.watchAd(el.dataset.reward, el); break;
-        case 'trade': G.trade(el.dataset.id, el); break;
+        case 'watch-ad': G.watchAd(el.dataset.reward); break;
+        case 'trade': G.trade(el.dataset.id); break;
         case 'buy-pack': this.toast('💳 Purchases are disabled in this prototype'); break;
         case 'toggle-music': G.setSetting('music', !BI.state.settings.music); this.renderSettings(); break;
         case 'toggle-sfx': G.setSetting('sfx', !BI.state.settings.sfx); this.renderSettings(); break;
@@ -117,10 +121,17 @@
       this.updateMenu();
     },
 
+    /** The two raw resources of the current island get their own HUD counters. */
+    setHudResources(keys) {
+      hudKeys = keys;
+      $('hud-dyn').innerHTML = keys.map((k) => '<div class="pill" id="pill-' + k + '">' + ico(k) + '<span class="val" data-res="' + k + '">0</span></div>').join('');
+      this.updateRes();
+    },
+
     updateRes() {
       const r = BI.state.res;
       document.querySelectorAll('[data-res]').forEach((el) => {
-        const v = fmt(r[el.dataset.res]);
+        const v = fmt(r[el.dataset.res] || 0);
         if (el.textContent !== v) el.textContent = v;
       });
     },
@@ -182,10 +193,11 @@
       setTimeout(() => el.remove(), 2600);
     },
 
-    /** Animate resource icons from a screen point to the HUD counter. */
+    /** Animate item icons from a screen point to its HUD counter (or the bag). */
     fly(res, sx, sy, count) {
-      const target = $('pill-' + res);
-      if (!target || ['GAMEPLAY', 'BUILD_MODE'].indexOf(BI.Game.state) < 0) return;
+      if (['GAMEPLAY', 'BUILD_MODE'].indexOf(BI.Game.state) < 0) return;
+      const target = $('pill-' + res) || $('btn-bag');
+      if (!target) return;
       const tr = target.getBoundingClientRect();
       if (!tr.width) return;
       const tx = tr.left + tr.height * 0.6, ty = tr.top + tr.height / 2;
@@ -199,7 +211,6 @@
         el.style.transform = 'translate(' + ox + 'px,' + oy + 'px) scale(0.4)';
         el.style.opacity = '0';
         layer.appendChild(el);
-        const delay = i * 55;
         setTimeout(() => {
           el.style.transition = 'transform .18s ease-out, opacity .18s';
           el.style.transform = 'translate(' + ox + 'px,' + (oy - 20) + 'px) scale(1.15)';
@@ -215,7 +226,7 @@
               if (i === n - 1 && res === 'coins') BI.Audio.playCoin();
             }, 480);
           }, 200);
-        }, delay);
+        }, i * 55);
       }
     },
 
@@ -259,9 +270,9 @@
         icon.className = 'popup-icon gold';
         icon.textContent = p.island.emoji;
         title = 'NEW ISLAND!';
-        text = p.island.name + ' is now unlocked.<br>Visit it from the Island screen.';
+        text = p.island.name + ' is unlocked.<br>New resources there: ' + p.island.finds.map((k) => ico(k)).join(' ');
         btn = 'OK';
-        BI.Audio.playReward();
+        BI.Audio.playLevelUp();
       } else if (p.kind === 'expand') {
         icon.innerHTML = ico('expand');
         title = 'ISLAND EXPANDED!';
@@ -308,8 +319,11 @@
       const def = BI.Buildings.DEFS[id];
       const unlocked = BI.Progression.isBlueprintUnlocked(id);
       const afford = BI.Game.canAfford(def.cost);
+      let badge = '';
+      if (def.produce) badge = '+' + def.produce.amount + ' ' + Items.name(def.produce.res).toLowerCase();
+      else if (def.station) badge = 'makes ' + Object.keys(def.recipes.reduce((o, r) => Object.assign(o, r.out), {})).map((k) => Items.name(k).toLowerCase()).join(', ');
       let out = '<div class="card' + (unlocked ? '' : ' locked') + '" style="animation-delay:' + (opts.i * 0.03) + 's">';
-      if (def.produce) out += '<span class="card-badge">+' + def.produce.amount + ' ' + RES_NAMES[def.produce.res].toLowerCase() + '</span>';
+      if (badge) out += '<span class="card-badge">' + badge + '</span>';
       out += '<div class="card-prev"><img src="' + BI.Buildings.preview(id) + '" alt=""></div>';
       out += '<div class="card-name">' + def.emoji + ' ' + def.name + '</div>';
       if (opts.desc) out += '<div class="card-desc">' + def.desc + '</div>';
@@ -346,6 +360,77 @@
       hint.textContent = b.error ? '⚠ ' + b.error : 'Drag the building · tap it again to build';
       hint.classList.toggle('bad', !!b.error);
       $('btn-build-ok').classList.toggle('disabled', !!b.error);
+    },
+
+    // ---------------- crafting station ----------------
+    renderStation() {
+      const G = BI.Game, b = G.station;
+      if (!b) return;
+      const def = BI.Buildings.DEFS[b.type], C = BI.Crafting, now = Date.now();
+      $('st-img').src = BI.Buildings.preview(b.type);
+      $('st-name').textContent = def.emoji + ' ' + def.name;
+      $('st-desc').textContent = def.desc;
+      let html = '';
+      if (C.hasOutput(b)) {
+        html += '<div class="ready-box"><div class="ready-items">READY: ' + Object.keys(b.out).filter((k) => b.out[k] > 0).map((k) => ico(k) + '×' + b.out[k]).join(' ') +
+          '</div><button class="btn btn-green btn-sm" data-action="station-collect">COLLECT</button></div>';
+      }
+      html += '<div class="sec-title">QUEUE (' + (b.jobs || []).length + ' / ' + C.slots(b) + ')</div>';
+      const q = b.jobs || [];
+      for (let i = 0; i < C.slots(b); i++) {
+        const j = q[i];
+        if (!j) { html += '<div class="slot empty">Empty slot — pick a recipe below</div>'; continue; }
+        const r = C.recipe(b, j.r);
+        const outKey = Object.keys(r.out)[0];
+        const running = j.start <= now;
+        html += '<div class="slot' + (running ? '' : ' waiting') + '">' + ico(outKey) + '<div class="s-main"><div class="s-title">' + Items.name(outKey) + ' ×' + r.out[outKey] * j.n + '</div>' +
+          '<div class="bar"><div class="bar-fill green" id="st-bar-' + i + '" style="width:0%"></div></div></div><div class="s-time" id="st-time-' + i + '">' + (running ? '' : 'waiting') + '</div></div>';
+      }
+      html += '<div class="sec-title">RECIPES</div>';
+      const full = C.queueFull(b);
+      def.recipes.forEach((r, i) => {
+        const max = C.maxCraftable(b, i, 5);
+        const io = (obj, check) => Object.keys(obj).map((k) => {
+          const short = check && BI.state.res[k] < obj[k];
+          return '<span class="rc-io' + (short ? ' short' : '') + '">' + ico(k) + obj[k] + (check ? '<small>(' + fmt(BI.state.res[k]) + ')</small>' : '') + '</span>';
+        }).join('');
+        html += '<div class="panel recipe"><div class="rc-row">' + io(r.in, true) + '<span class="rc-arrow">➜</span>' + io(r.out, false) + '<span class="rc-time">⏱ ' + r.time + 's</span></div>' +
+          '<div class="rc-btns"><button class="btn btn-sm' + (!full && max >= 1 ? '' : ' disabled') + '" data-action="craft" data-r="' + i + '" data-n="1">CRAFT ×1</button>' +
+          '<button class="btn btn-green btn-sm' + (!full && max >= 5 ? '' : ' disabled') + '" data-action="craft" data-r="' + i + '" data-n="5">CRAFT ×5</button></div></div>';
+      });
+      $('station-body').innerHTML = html;
+      this.refreshStation();
+    },
+
+    /** Cheap per-frame update of progress bars & timers. */
+    refreshStation() {
+      const b = BI.Game.station;
+      if (!b || !b.jobs) return;
+      const now = Date.now();
+      b.jobs.forEach((j, i) => {
+        const bar = $('st-bar-' + i), tm = $('st-time-' + i);
+        if (!bar) return;
+        const p = j.start > now ? 0 : Math.min(1, (now - j.start) / (j.end - j.start));
+        bar.style.width = (p * 100).toFixed(1) + '%';
+        if (j.start <= now) tm.textContent = secs(j.end - now);
+      });
+    },
+
+    // ---------------- bag / inventory ----------------
+    renderInventory() {
+      const res = BI.state.res;
+      const tile = (k) => {
+        const it = Items.ITEMS[k], n = res[k] || 0;
+        return '<div class="panel item' + (n ? '' : ' zero') + '">' + ico(k) + '<div class="it-amt">' + fmt(n) + '</div><div class="it-name">' + it.name + '</div>' +
+          '<div class="it-price">' + ico('coins') + it.sell + ' each</div>' +
+          '<div class="it-sell"><button class="btn btn-sm' + (n >= 1 ? '' : ' disabled') + '" data-action="sell" data-key="' + k + '" data-n="1">SELL 1</button>' +
+          '<button class="btn btn-gold btn-sm' + (n >= 10 ? '' : ' disabled') + '" data-action="sell" data-key="' + k + '" data-n="10">×10</button></div></div>';
+      };
+      const raw = Items.ORDER.filter((k) => Items.ITEMS[k].kind === 'raw');
+      const mat = Items.ORDER.filter((k) => Items.ITEMS[k].kind === 'mat');
+      $('inv-body').innerHTML = '<div class="sec-title">RAW RESOURCES</div><div class="inv-grid">' + raw.map(tile).join('') + '</div>' +
+        '<div class="sec-title">CRAFTED MATERIALS</div><div class="inv-grid">' + mat.map(tile).join('') + '</div>' +
+        '<p class="inv-hint">Gather raw resources on islands, refine them at stations (Sawmill, Stone Workbench, Furnace…).<br>Crafted goods sell for much more!</p>';
     },
 
     // ---------------- islands ----------------
@@ -386,22 +471,24 @@
         const current = s.currentIsland === def.id;
         const isl = s.islands[def.id];
         const theme = BI.Island.THEMES[def.theme];
-        let sub, pct, barCls = 'green';
+        const finds = '<span class="finds">' + def.finds.map((k) => ico(k)).join('') + '</span>';
+        let body;
         if (!unlocked) {
-          const up = PR.unlockProgress(def);
-          sub = '🔒 ' + def.unlock.text;
-          pct = up.cur / up.target;
-          barCls = 'gold';
+          const block = PR.unlockBlocker(def);
+          const lvlOk = s.level >= def.unlock.level;
+          body = '<span class="icard-sub">' + (lvlOk ? '✓' : '🔒') + ' Level ' + def.unlock.level + ' · ' + def.unlock.text + ':</span>' +
+            '<span class="icard-cost">' + costHtml(def.unlock.cost, true) + '</span>' +
+            (block ? '' : '<button class="btn btn-gold btn-sm" data-action="island-unlock" data-id="' + def.id + '">🔓 UNLOCK</button>');
         } else {
-          pct = PR.islandProgress(def.id).pct;
-          sub = current ? '✓ You are here' : isl && isl.completed ? '★ Completed' : isl ? 'Tap to travel' : 'New! Tap to explore';
+          const pct = Math.round(PR.islandProgress(def.id).pct * 100);
+          body = '<span class="icard-sub">' + (current ? '✓ You are here' : isl && isl.completed ? '★ Completed' : isl ? 'Tap to travel' : 'New! Tap to explore') + ' · ' + pct + '%</span>' +
+            '<span class="bar"><span class="bar-fill green" style="width:' + pct + '%"></span></span>';
         }
-        return '<button class="icard' + (unlocked ? '' : ' locked') + (current ? ' current' : '') + '" style="animation-delay:' + i * 0.05 + 's;background:linear-gradient(135deg,' + theme.bg[0] + ',' + theme.bg[1] + ')" data-action="' + (unlocked ? 'island-go' : 'island-locked') + '" data-id="' + def.id + '">' +
+        return '<div class="icard' + (unlocked ? '' : ' locked') + (current ? ' current' : '') + '" style="animation-delay:' + i * 0.05 + 's;background:linear-gradient(135deg,' + theme.bg[0] + ',' + theme.bg[1] + ')"' +
+          (unlocked ? ' data-action="island-go" data-id="' + def.id + '"' : '') + '>' +
           '<span class="icard-art"><img src="' + this.islandThumb(def.id) + '" alt=""></span>' +
-          '<span class="icard-body"><span class="icard-name">' + def.emoji + ' ' + def.name + '</span>' +
-          '<span class="icard-sub">' + sub + '</span>' +
-          '<span class="bar"><span class="bar-fill ' + barCls + '" style="width:' + Math.round(pct * 100) + '%"></span></span></span>' +
-          '<span class="icard-status">' + (!unlocked ? '🔒' : current ? '✓' : isl && isl.completed ? '★' : '▶') + '</span></button>';
+          '<span class="icard-body"><span class="icard-name">' + def.emoji + ' ' + def.name + finds + '</span>' + body + '</span>' +
+          '<span class="icard-status">' + (!unlocked ? '🔒' : current ? '✓' : isl && isl.completed ? '★' : '▶') + '</span></div>';
       }).join('');
     },
 
@@ -417,7 +504,8 @@
         '<div class="bar big"><div class="bar-fill green" style="width:' + pct + '%"></div></div></div>';
       html += pr.tasks.map((t) => '<div class="task' + (t.done ? ' done' : '') + '"><span class="chk">' + (t.done ? '✓' : '') + '</span><span>' + t.text + '</span><span class="tnum">' + t.cur + ' / ' + t.target + '</span></div>').join('');
       if (G.island.completed) html += '<div class="task done"><span class="chk">★</span><span>Island completed!</span></div>';
-      html += '<div class="panel exp-box"><div class="exp-row"><span>Island size</span><b>' + G.island.size + ' × ' + G.island.size + '</b></div>' +
+      html += '<div class="panel exp-box"><div class="exp-row"><span>Resources here</span><b>' + def.finds.map((k) => ico(k)).join(' ') + '</b></div>' +
+        '<div class="exp-row"><span>Island size</span><b>' + G.island.size + ' × ' + G.island.size + '</b></div>' +
         '<div class="exp-row"><span>Expansions</span><b>' + n + ' / ' + BI.Island.MAX_EXPANSIONS + '</b></div>' +
         (maxed ? '<div class="exp-row"><span>Fully expanded!</span><b>✓</b></div>'
           : '<button class="btn btn-gold btn-wide" data-action="expand">⤢ EXPAND +2 · ' + ico('coins') + fmt(BI.Island.EXPANSION_COSTS[n]) + '</button>') + '</div>';
@@ -433,12 +521,13 @@
         '<button class="btn btn-green btn-sm" data-action="watch-ad" data-reward="coins">▶ WATCH AD</button></div>' +
         '<div class="panel shop-card"><div class="sc-ico">' + ico('crystal') + '</div><div class="sc-info"><div class="sc-title">FREE CRYSTALS</div><div class="sc-sub">Watch an ad · +5 crystals</div></div>' +
         '<button class="btn btn-green btn-sm" data-action="watch-ad" data-reward="crystal">▶ WATCH AD</button></div>';
-      html += '<div class="shop-sec">MARKET</div>';
+      html += '<div class="shop-sec">MARKET · BUY</div>';
       html += Object.keys(trades).map((id) => {
         const t = trades[id];
-        return '<div class="panel shop-card"><div class="sc-ico">' + ico(t.give) + '</div><div class="sc-info"><div class="sc-title">' + t.amount + ' ' + RES_NAMES[t.give] + '</div><div class="sc-sub">Trade coins for materials</div></div>' +
+        return '<div class="panel shop-card"><div class="sc-ico">' + ico(t.give) + '</div><div class="sc-info"><div class="sc-title">' + t.amount + ' ' + Items.name(t.give) + '</div><div class="sc-sub">Short on materials? Buy them here</div></div>' +
           '<button class="btn btn-sm' + (BI.state.res.coins >= t.price ? '' : ' disabled') + '" data-action="trade" data-id="' + id + '">' + ico('coins') + t.price + '</button></div>';
       }).join('');
+      html += '<p class="set-note">Sell your goods from the 🎒 Bag.</p>';
       html += '<div class="shop-sec">COIN PACKS</div><div class="pack-grid">' +
         [[500, '$0.99', ''], [1000, '$1.99', 'POPULAR'], [2500, '$3.99', 'BEST VALUE']].map((p) =>
           '<div class="panel pack">' + (p[2] ? '<span class="ribbon">' + p[2] + '</span>' : '<span class="ribbon" style="visibility:hidden">-</span>') +
