@@ -85,8 +85,8 @@ body{font-family:var(--font);color:#fff}
 .lock{width:22px;height:22px;color:#9ab}
 .wcard.next{border-color:rgba(43,245,154,.85);box-shadow:0 0 20px rgba(43,245,154,.35),inset 0 0 20px rgba(43,245,154,.12)}
 /* ---------- preview ---------- */
-.pv{width:356px;margin-top:6px;padding:14px;display:flex;flex-direction:column;align-items:center}
-.pv-art{position:relative;width:326px;height:250px;border-radius:16px;overflow:hidden;border:1.5px solid rgba(120,220,255,.55)}
+.pv{width:356px;margin-top:2px;padding:12px 14px;display:flex;flex-direction:column;align-items:center}
+.pv-art{position:relative;width:326px;height:200px;border-radius:16px;overflow:hidden;border:1.5px solid rgba(120,220,255,.55)}
 .pv-art canvas{width:100%;height:100%;display:block}
 .pv-title{position:absolute;right:14px;top:12px;text-align:right}
 .pv-title small{display:block;font-size:12px;font-weight:900;letter-spacing:.14em;color:#dff;text-shadow:0 1px 4px #000}
@@ -95,7 +95,21 @@ body{font-family:var(--font);color:#fff}
 .chip{display:flex;align-items:center;gap:6px;height:30px;padding:0 11px 0 7px;border-radius:15px;background:rgba(8,18,52,.9);border:1.5px solid rgba(96,200,255,.5);font-size:11.5px;font-weight:900;letter-spacing:.06em}
 .chip .ic{width:18px;height:18px}
 .pv-desc{font-size:12.5px;color:#a9c8ee;font-weight:700;text-align:center;margin:6px 6px 10px;line-height:1.4}
-.pv-stats{display:flex;width:100%;gap:8px;margin-bottom:14px}
+.pv-stats{display:flex;width:100%;gap:8px;margin-bottom:12px}
+.lvrow{display:flex;gap:6px;width:100%;margin:0 0 10px}
+.lvb{flex:1;height:52px;border-radius:12px;background:rgba(6,14,44,.9);border:2px solid rgba(96,200,255,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-weight:900;font-size:18px;cursor:pointer;color:#cfe8ff}
+.lvb .ic{width:18px;height:18px;color:#8aa0c8}
+.lvb.sel{border-color:#7ff0ff;box-shadow:0 0 14px rgba(56,232,255,.6),inset 0 0 10px rgba(56,232,255,.25);color:#fff}
+.lvb.done{color:#5dffa0}
+.lvb.lock{opacity:.5}
+.lvb .ms{display:flex;gap:2px}
+.lvb .ms i{width:6px;height:6px;border-radius:50%;background:#26346a}
+.lvb .ms i.on{background:#ffd23a;box-shadow:0 0 4px #ffd23a}
+.pvbtns{display:flex;gap:8px;width:100%}
+.pvbtns .btn{height:56px}
+#bPvPlay{flex:1.7}#bPvPrac{flex:1;font-size:12px;flex-direction:column;gap:2px}
+.wstar{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:900;color:#ffd23a}
+.wstar .ic{width:16px;height:16px;filter:drop-shadow(0 0 4px rgba(255,200,40,.8))}
 .pv-stats>div{flex:1;background:rgba(4,10,32,.7);border:1.5px solid rgba(96,200,255,.3);border-radius:12px;padding:7px 4px;text-align:center}
 .pv-stats small{display:block;font-size:9.5px;font-weight:900;letter-spacing:.1em;color:#7fa8d8}
 .pv-stats b{font-size:17px;font-weight:900}
@@ -237,17 +251,18 @@ body{font-family:var(--font);color:#fff}
   <section class="scr dim" id="sPreview">
     <div class="hdr"><button class="btn sq glass" data-back="sWorlds" aria-label="Back"><i data-ic="back"></i></button><h2 id="pvHdr">WORLD 1</h2><div class="curs" data-curs="c"></div></div>
     <div class="pv panel">
-      <div class="pv-art"><canvas id="pvArt" width="652" height="500"></canvas>
+      <div class="pv-art"><canvas id="pvArt" width="652" height="400"></canvas>
         <div class="pv-title"><small id="pvWorld">WORLD 1</small><div id="pvName">NEON CITY</div></div>
       </div>
       <div class="chips" id="pvChips"></div>
       <div class="pv-desc" id="pvDesc"></div>
+      <div class="lvrow" id="pvLv"></div>
       <div class="pv-stats">
         <div><small>BEST SCORE</small><b id="pvBest">0</b></div>
         <div><small>BEST COMBO</small><b id="pvCombo">0</b></div>
         <div><small>STARS</small><div class="stars" id="pvStars"></div></div>
       </div>
-      <button class="btn green wide" id="bPvPlay" style="font-size:22px"><i data-ic="play" data-fill="1"></i>PLAY</button>
+      <div class="pvbtns"><button class="btn green" id="bPvPlay" style="font-size:22px"><i data-ic="play" data-fill="1"></i>PLAY</button><button class="btn glass" id="bPvPrac"><i data-ic="retry"></i>PRACTICE</button></div>
     </div>
   </section>
 
@@ -307,7 +322,7 @@ body{font-family:var(--font);color:#fff}
   <!-- RESULT -->
   <section class="scr ov" id="sResult">
     <div class="res panel">
-      <div class="ribbon">LEVEL COMPLETE</div>
+      <div class="ribbon" id="rTitle">LEVEL COMPLETE</div>
       <div class="rstars" id="rStars"></div>
       <div class="newbest" id="rNew">★ NEW BEST ★</div>
       <div class="rgrid">
@@ -495,11 +510,12 @@ const UPG={
  ]
 };
 const UPCOST=[0,25,50,90,140], UPCORE=[0,0,0,1,2];
+const NL=5; // levels per world; world N+1 unlocks after level 3 of world N
 
 /* ---------------- save system ---------------- */
 const SKEY='shiftbound_save_v1';
-function defSave(){return{v:1,coins:120,energy:30,cores:0,unlocked:1,
- lv:Array.from({length:7},()=>({done:false,stars:0,best:0,combo:0,pct:0,perf:0})),
+function defSave(){return{v:2,coins:120,energy:30,cores:0,unlocked:1,
+ lv:Array.from({length:7},()=>Array.from({length:NL},()=>({done:false,stars:0,best:0,combo:0,pct:0,perf:0}))),
  skins:{cyan:true},skin:'cyan',trails:{classic:true},trail:'classic',
  upg:{dash:1,djump:1,magnet:1,shield:1,fever:1,timebat:1,eboost:1,coinx:1},
  set:{music:true,sfx:true,shake:true,vib:true},
@@ -517,18 +533,23 @@ function sanitize(def,src){
 }
 function loadSave(){
  let s;
- try{const r=localStorage.getItem(SKEY);s=r?sanitize(defSave(),JSON.parse(r)):defSave();}catch(e){s=defSave();}
+ try{const r=localStorage.getItem(SKEY);let raw=r?JSON.parse(r):null;
+  // v1 saves had one level per world: it becomes level 1 of that world
+  if(raw&&Array.isArray(raw.lv)&&raw.lv[0]&&!Array.isArray(raw.lv[0]))raw.lv=raw.lv.map(o=>[o]);
+  s=raw?sanitize(defSave(),raw):defSave();}catch(e){s=defSave();}
  s.unlocked=clamp(Math.floor(s.unlocked),1,7);
  for(const k in s.upg)s.upg[k]=clamp(Math.floor(s.upg[k]),1,5);
  s.skins.cyan=true;s.trails.classic=true;
  if(!SKINS.some(k=>k.id===s.skin)||!s.skins[s.skin])s.skin='cyan';
  if(!TRAILS.some(k=>k.id===s.trail)||!s.trails[s.trail])s.trail='classic';
- s.lv.forEach(l=>{l.stars=clamp(Math.floor(l.stars),0,3);});
- for(let i=0;i<7;i++)if(s.lv[i].done)s.unlocked=Math.max(s.unlocked,Math.min(7,i+2));
+ s.lv.forEach(w=>w.forEach(l=>{l.stars=clamp(Math.floor(l.stars),0,3);}));
+ for(let i=0;i<7;i++)if(s.lv[i][2].done)s.unlocked=Math.max(s.unlocked,Math.min(7,i+2));
  s.coins=Math.floor(s.coins);s.energy=Math.floor(s.energy);s.cores=Math.floor(s.cores);
  return s;
 }
 let S=loadSave();
+const LV=(wi,li)=>S.lv[wi][li];
+function lvOpen(wi,li){return wi<S.unlocked&&(li===0||S.lv[wi][li-1].done);}
 function save(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}}
 
 /* ---------------- audio (procedural WebAudio) ---------------- */
@@ -639,10 +660,10 @@ function vib(ms){if(S.set.vib&&navigator.vibrate){try{navigator.vibrate(ms);}cat
 /* =========================================================================
    LEVEL BUILDER — handcrafted patterns, physics-verified jump solver
    ========================================================================= */
-function buildLevel(wi){
- const WD=WORLDS[wi], spd=WD.speed;
- const L={wi,spd,objs:[],sol:[],gates:[],coins:[],cps:[],safe:[],trigs:[],dyn:[],zones:[],echo:{},end:0,warns:[],start:3*T,hasCeil:false};
- const st={c:0,F:12,C:null,g:1,ph:1,w:1,free:0,mz:null,fl:null,cl:null};
+function buildLevel(wi,li){
+ li=li||0;const WD=WORLDS[wi], spd=WD.speed+li*5;
+ const L={wi,li,spd,air:[],objs:[],sol:[],gates:[],coins:[],cps:[],safe:[],trigs:[],dyn:[],zones:[],echo:{},end:0,warns:[],start:3*T,hasCeil:false};
+ const st={c:0,F:12,C:null,g:1,ph:1,w:1,free:0,lastDash:-1e9,mz:null,fl:null,cl:null};
  const cache={};
  function arc(hold,dashAt,v0){
   const key=hold+'|'+dashAt+'|'+v0; if(cache[key])return cache[key];
@@ -700,7 +721,7 @@ function buildLevel(wi){
  const standCY=()=>toY(12,surfY());
  const ceilObs=(a,b)=>st.C===null?[]:[{a,b,lo:gapD(),hi:999999,s:1}];
  const warn=m=>L.warns.push(`[W${wi+1} c=${st.c}] ${m}`);
- const safeAt=x=>L.safe.push({x:Math.round(x),y:surfY(),g:st.g,w:st.w,ph:st.ph});
+ const safeAt=(x,mx)=>L.safe.push({x:Math.round(x),max:Math.round(mx||x),y:surfY(),g:st.g,w:st.w,ph:st.ph,si:L.sol.length});
  function floorSeg(x0,x1,o){
   o=o||{};const y=st.F*T,wd=o.wd||0,ph=o.ph||0,mag=!!st.mz,f=st.fl;
   if(f&&f.x+f.w===x0&&f.y===y&&f.wd===wd&&f.ph===ph&&f.mag===mag){f.w+=x1-x0;return f;}
@@ -734,9 +755,9 @@ function buildLevel(wi){
   if(r.w<10)warn('tight window '+r.w+' '+(o.tag||''));
   const sy=surfY();
   L.sol.push({x:r.px,a:'jump',h:r.op.hold});gate(r.px+11,toY(12,sy),'jump');
-  if(r.op.dash!=null){const di=r.A.dashI;const dx=r.A.xs[di-1];L.sol.push({x:r.px+dx-0.5,a:'dash'});gate(r.px+dx+11,toY(r.A.hs[di-1]+12,sy),'dash');}
+  if(r.op.dash!=null){const di=r.A.dashI;const dx=r.A.xs[di-1];L.sol.push({x:r.px+dx-0.5,a:'dash'});st.lastDash=r.px+dx;gate(r.px+dx+11,toY(r.A.hs[di-1]+12,sy),'dash');}
   if(o.coins!==false){const li=r.r.li;for(const f of [0.25,0.5,0.75]){const i=Math.floor(li*f);coin(r.px+r.A.xs[i]+11,toY(r.A.hs[i]+12,sy),o.cwd);}}
-  st.free=r.r.landX+4;
+  st.free=r.r.landX+4;L.air.push([r.px,r.r.landX]);
   return r;
  }
  const sup=x0=>({a:x0-800,b:x0,lo:-3000,hi:0,s:1});
@@ -747,8 +768,8 @@ function buildLevel(wi){
  }
  function trans(D,kick,acc){return(-kick+Math.sqrt(kick*kick+2*acc*D))/acc;}
  const api={
-  run(n){if(n>=3)safeAt(st.c*T+T);seg(n);},
-  runc(n){if(n>=3)safeAt(st.c*T+T);const y=standCY();for(let i=1;i<n;i++)coin((st.c+i)*T+16,y);seg(n);},
+  run(n){if(n>=3)safeAt(st.c*T+T,(st.c+n-1)*T);seg(n);},
+  runc(n){if(n>=3)safeAt(st.c*T+T,(st.c+n-1)*T);const y=standCY();for(let i=1;i<n;i++)coin((st.c+i)*T+16,y);seg(n);},
   hint(text,icon,dx){add({k:'H',x:(st.c+(dx||0))*T,y:toY(70,surfY()),text,icon});},
   cp(){safeAt(st.c*T+16);},
   ceil(row){st.C=row||3;st.cl=null;},
@@ -756,23 +777,24 @@ function buildLevel(wi){
   spk(n,after,o){
    after=after==null?5:after;o=o||{};const x0=st.c*T,x1=x0+n*T;spikes(x0,n);
    const r=solve({from:st.free,to:x0,obs:[{a:x0+6,b:x1-6,lo:0,hi:13},...ceilObs(x0-300,x1+after*T)],land:{a:x1,b:x1+after*T,h:0},opts:o.dash?DASHO:HOLDS});
-   emit(r,{tag:'spk'});seg(n+after);safeAt(Math.max(st.free+6,x1+16));
+   emit(r,{tag:'spk'});seg(n+after);safeAt(Math.max(st.free+6,x1+16),st.c*T-T);
   },
   spkO(n){spikes(st.c*T,n,{opp:true});seg(n);},
   gap(n,after,o){
    after=after==null?5:after;o=o||{};
+   if(o.dash){const need=st.lastDash+2.0*spd-(st.c*T-3*T);if(need>0)seg(Math.ceil(need/T));}
    const r=genJump(n,0,after,o.dash?DASHO:HOLDS,'gap');emit(r,{tag:'gap'});
-   seg(n,offActive());const la=st.c*T;seg(after);safeAt(Math.max(st.free+6,la+16));
+   seg(n,offActive());const la=st.c*T;seg(after);safeAt(Math.max(st.free+6,la+16),st.c*T-T);
   },
   dgap(n,after){api.gap(n,after==null?6:after,{dash:true});},
   jump(gn,dy,after){
    after=after==null?5:after;const r=genJump(gn,dy,after,HOLDS,'jump');emit(r,{tag:'jump'});
    if(gn>0)seg(gn,offActive());
-   if(st.g===1)st.F-=dy;else st.C+=dy;st.fl=null;st.cl=null;const la=st.c*T;seg(after);safeAt(Math.max(st.free+6,la+16));
+   if(st.g===1)st.F-=dy;else st.C+=dy;st.fl=null;st.cl=null;const la=st.c*T;seg(after);safeAt(Math.max(st.free+6,la+16),st.c*T-T);
   },
   down(k,after){
    const x0=st.c*T;if(st.g===1)st.F+=k;else st.C-=k;st.fl=null;st.cl=null;seg(after==null?5:after);
-   st.free=Math.max(st.free,x0+spd*Math.sqrt(2*k*T/PH.G)+12);
+   const fx=x0+spd*Math.sqrt(2*k*T/PH.G);L.air.push([x0-PW,fx]);st.free=Math.max(st.free,fx+12);
   },
   pad(gn,dy,after){
    after=after==null?6:after;const x0=st.c*T,x1=x0+gn*T,x2=x1+after*T,hh=dy*T;
@@ -780,7 +802,7 @@ function buildLevel(wi){
    if(!r)warn('pad no solution');else{
     const sy=surfY();add({k:'P',x:r.px+PW-1,y:st.g===1?sy-6:sy,w:26,h:6,gd:st.g});
     const li=r.r.li;for(const f of [0.3,0.5,0.7]){const i=Math.floor(li*f);coin(r.px+r.A.xs[i]+11,toY(r.A.hs[i]+12,sy));}
-    st.free=r.r.landX+4;
+    st.free=r.r.landX+4;L.air.push([r.px,r.r.landX]);
    }
    if(gn>0)seg(gn,offActive());if(st.g===1)st.F-=dy;else st.C+=dy;st.fl=null;st.cl=null;seg(after);
   },
@@ -797,14 +819,14 @@ function buildLevel(wi){
   flip(after){
    after=after==null?6:after;if(st.C===null){warn('flip without ceiling');return;}
    const x=Math.max(st.free,st.c*T+4);const dx=spd*trans(gapD()-PHH,PH.GKICK,PH.G);
-   L.sol.push({x,a:'grav'});gate(x+11,standCY(),'grav');
+   L.sol.push({x,a:'grav'});gate(x+11,standCY(),'grav');L.air.push([x,x+dx]);
    st.g*=-1;st.free=x+dx+10;
    seg(Math.max(after,Math.ceil((x+dx-st.c*T)/T)+2));
   },
   flipO(n,after){
    if(st.C===null){warn('flipO without ceiling');return;}
    const x=Math.max(st.free,st.c*T+4);const dx=spd*trans(gapD()-PHH,PH.GKICK,PH.G);
-   L.sol.push({x,a:'grav'});gate(x+11,standCY(),'grav');
+   L.sol.push({x,a:'grav'});gate(x+11,standCY(),'grav');L.air.push([x,x+dx]);
    const s0=Math.ceil((x+2.4*T)/T);
    st.g*=-1;st.free=x+dx+10;
    const total=s0-st.c+n+(after==null?4:after);seg(total);
@@ -814,7 +836,7 @@ function buildLevel(wi){
   magOff(){st.mz.w=st.c*T-st.mz.x;st.mz=null;st.fl=null;st.cl=null;},
   mflip(n){
    const x=Math.max(st.free,st.c*T+4);const dx=spd*trans(gapD()-PHH,PH.MAGKICK,PH.MAGG);
-   L.sol.push({x,a:'jump',h:0.06});gate(x+11,standCY(),'jump');
+   L.sol.push({x,a:'jump',h:0.06});gate(x+11,standCY(),'jump');L.air.push([x,x+dx]);
    const s0=Math.ceil((x+2.4*T)/T);st.g*=-1;seg(n);
    const sn=st.c-1-s0;if(sn>0)spikes(s0*T,sn,{opp:true});
    st.free=x+dx+10;
@@ -824,7 +846,7 @@ function buildLevel(wi){
    const x0=st.c*T;const z=add({k:'M',x:x0,w:n*T});L.zones.push(z);
    st.mz=z;st.cl=null;seg(n,{floor:false});st.mz=null;st.fl=null;st.cl=null;
    const dx=spd*trans(gapD()-PHH,PH.MAGKICK,PH.MAGG);
-   st.g=-1;st.free=x0-PW+dx+10;
+   st.g=-1;st.free=x0-PW+dx+10;L.air.push([x0-PW,x0-PW+dx]);
    for(let i=2;i<n;i+=2)coin(x0+i*T,st.C*T+40);
   },
   // ---------- phase ----------
@@ -892,16 +914,18 @@ function buildLevel(wi){
    L.dyn.push(d);L.trigs.push(d);api._slowAt(d.trig);seg(pre+1+(after==null?5:after));
   },
   ddoor(after){ // closing door that a well-timed DASH beats
+   {const need=st.lastDash+2.0*spd-((st.c+2-12)*T+8);if(need>0)seg(Math.ceil(need/T));}
    const X=(st.c+2)*T;const top=st.C!==null?st.C*T:-360;
    const d=solid(X,top,T,st.F*T-top,{kind:'door',door:{mode:'close',at:1.3},trig:X-12*T,t0:-1});
    L.dyn.push(d);L.trigs.push(d);
-   const x=Math.max(st.free,X-12*T+8);L.sol.push({x,a:'dash'});gate(x+11,standCY(),'dash');
+   const x=Math.max(st.free,X-12*T+8);L.sol.push({x,a:'dash'});st.lastDash=x;gate(x+11,standCY(),'dash');
    seg(3+(after==null?5:after));st.free=Math.max(st.free,X+T+10);
   },
   blink(a,b,p,after,dash){
+   if(dash){const need=st.lastDash+2.0*spd-((st.c+2-12)*T+24);if(need>0)seg(Math.ceil(need/T));}
    const lx=(st.c+2)*T+16;const top=st.C!==null?st.C*T:-200;
    const z=add({k:'Z',x:lx,y:top,h:st.F*T-top,wd:0,ph:0,blink:{a,b,p},trig:lx-12*T,t0:-1});L.trigs.push(z);api._slowAt(z.trig);
-   if(dash){const x=Math.max(st.free,lx-12*T+8);L.sol.push({x,a:'dash'});gate(x+11,standCY(),'dash');}
+   if(dash){const x=Math.max(st.free,lx-12*T+8);L.sol.push({x,a:'dash'});st.lastDash=x;gate(x+11,standCY(),'dash');}
    seg(3+(after==null?5:after));st.free=Math.max(st.free,lx+20);
   },
   fence(len,amp,per,fh){
@@ -927,7 +951,7 @@ function buildLevel(wi){
    if(!best)warn('fence no solution');else{
     if(best.w<10)warn('fence tight '+best.w);
     L.sol.push({x:best.px,a:'jump',h:best.op.hold});gate(best.px+11,standCY(),'jump');
-    st.free=best.px+best.A.xs[best.li]+4;
+    st.free=best.px+best.A.xs[best.li]+4;L.air.push([best.px,best.px+best.A.xs[best.li]]);
    }
    seg(len);
   },
@@ -952,8 +976,9 @@ function buildLevel(wi){
   end(){seg(4);L.end=st.c*T+2*T;add({k:'F',x:L.end,y:surfY()});seg(18);},
   st
  };
- LEVELS[wi](api);
+ if(li)genLevel(api,wi,li);else LEVELS[wi](api);
  L.len=st.c*T;
+ L.sol.forEach((q,i)=>q.i=i);
  L.sol.sort((a,b)=>a.x-b.x);L.gates.sort((a,b)=>a.x-b.x);L.trigs.sort((a,b)=>a.trig-b.trig);L.cps.sort((a,b)=>a.x-b.x);
  // safe respawn points: never inside timed sequences, magnet fields or echo setups, never right before an action
  const ex=[];
@@ -966,9 +991,20 @@ function buildLevel(wi){
  L.safe.sort((a,b)=>a.x-b.x);
  const sf=[];
  for(const s of L.safe){
-  if(s.x<L.start+4*T||s.x>L.end-3*T)continue;
-  if(ex.some(r=>s.x>=r[0]&&s.x<=r[1]))continue;
-  const nx=L.sol.find(q=>q.x>=s.x-11&&q.a!=='clone');if(nx&&nx.x-(s.x-11)<80)continue;
+  if(L.sol.some(q=>q.i>=s.si&&q.x<s.x+11&&q.a!=='clone'))continue;
+  // slide along this flat segment until clear — never past an action, so player state stays valid
+  let ok=null;
+  for(let x=s.x;x<=Math.max(s.x,s.max);x+=8){
+   if(x>s.x&&L.sol.some(q=>q.x>=s.x-11&&q.x<x-11))break;
+   if(x<L.start+4*T||x>L.end-3*T)continue;
+   if(ex.some(r=>x>=r[0]&&x<=r[1]))continue;
+   const rx=x-11;
+   if(L.air.some(a=>a[0]<=rx+2&&a[1]>=rx-6))continue;
+   const nx=L.sol.find(q=>q.x>=rx&&q.a!=='clone');if(nx&&nx.x-rx<80)continue;
+   ok=x;break;
+  }
+  if(ok===null)continue;
+  s.x=ok;
   if(sf.length&&s.x-sf[sf.length-1].x<2*T)continue;
   for(const id in L.echo){const e=L.echo[id];if(s.x>e.x&&s.x<(e.end||e.x+40*T))s.echo=id;}
   sf.push(s);
@@ -1004,7 +1040,79 @@ function buildLevel(wi){
 }
 
 /* =========================================================================
-   LEVEL DESIGNS (one per world)
+   LEVELS 2-5 OF EACH WORLD — fixed-seed compositions of curated chunks.
+   Every chunk returns the player to normal gravity, no ceiling, no field.
+   ========================================================================= */
+const CH={
+ spk:{f:k=>k.b.spk(k.ri(1,1+Math.round(k.d*2)),k.ri(5,6))},
+ gap:{f:k=>k.b.gap(k.ri(2,3+(k.d>0.5?1:0)),k.ri(5,6))},
+ steps:{f:k=>{const a=k.ri(1,2);k.b.jump(0,1,5);k.b.jump(0,a,5);k.b.down(1+a,6);}},
+ pillars:{f:k=>{k.b.jump(3,1,4);k.b.jump(3,1,4);k.b.jump(2,-2,6);}},
+ dgap:{f:k=>k.b.dgap(k.ri(6,7),6)},
+ triplet:{min:0.3,f:k=>{k.b.spk(1,4);k.b.spk(1,4);k.b.spk(1,6);}},
+ pad:{f:k=>{k.b.pad(3,4,7);k.b.down(4,6);}},
+ mover:{f:k=>k.b.mover(2,5,2,1)},
+ spkgap:{f:k=>{k.b.spk(2,4);k.b.gap(3,6);}},
+ flip:{f:k=>{const b=k.b;b.ceil(3);b.run(3);b.flip(7);b.spk(1,5);b.flip(7);b.ceilOff();}},
+ flipO:{f:k=>{const b=k.b;b.ceil(3);b.run(3);b.flipO(3,5);b.gap(2,6);b.flip(7);b.ceilOff();}},
+ flipO2:{min:0.3,f:k=>{const b=k.b;b.ceil(3);b.run(3);b.flipO(4,5);b.spk(2,6);b.flipO(4,5);b.spk(1,6);b.ceilOff();}},
+ mag:{f:k=>{const b=k.b;b.ceil(3);b.run(2);b.magOn();b.run(3);const n=k.d>0.5?6:4;for(let i=0;i<n;i++)b.mflip(k.d>0.6?6:7);b.run(3);b.magOff();b.run(2);b.ceilOff();}},
+ rail:{f:k=>{const b=k.b;b.ceil(3);b.run(3);b.rail(9);b.run(3);b.spk(1,6);b.flip(7);b.ceilOff();}},
+ pf:{f:k=>{k.b.pfloor(6,k.pick([1,2]));k.b.run(5);}},
+ palt:{f:k=>{const b=k.b;b.pfloor(5,1);b.pfloor(5,2);b.pfloor(5,1);if(k.d>0.5)b.pfloor(5,2);b.run(5);}},
+ pwall:{f:k=>{k.b.pwall(1);k.b.run(3);k.b.pwall(2);k.b.run(4);}},
+ pfw:{f:k=>{k.b.pfloor(7,k.pick([1,2]),{wall:true});k.b.run(5);}},
+ pjump:{f:k=>{k.b.pjump(3,1,1,5);k.b.pjump(3,1,2,5);k.b.down(2,6);}},
+ ring:{f:k=>{const c=k.pick([1,2]);k.b.pring(c);k.b.run(4);k.b.pwall(3-c);k.b.run(3);k.b.plaser(3-c);k.b.run(4);}},
+ wwall:{f:k=>{k.b.run(2);k.b.wwall(k.pick([1,2]));k.b.run(4);}},
+ wfl:{f:k=>{k.b.wfloor(6,2);k.b.wfloor(6,1);k.b.run(5);}},
+ wspk:{f:k=>{k.b.run(2);k.b.wspk(3,k.pick([1,2]));k.b.run(3);}},
+ wjump:{f:k=>{k.b.wjump(3,1,2,5);k.b.wjump(3,1,1,5);k.b.down(2,6);}},
+ walt:{f:k=>{const b=k.b;b.wfloor(5,1);b.wfloor(5,2);b.wfloor(5,1);b.wfloor(5,2);b.run(5);}},
+ door:{slow:1,f:k=>{k.b.run(2);k.b.slow();k.b.run(2);k.b.door(7);}},
+ ddoor:{f:k=>{k.b.run(2);k.b.ddoor(7);}},
+ blinkS:{slow:1,f:k=>{k.b.slow();k.b.run(2);k.b.blink(1.0,2.4,9,7);}},
+ blinkD:{f:k=>{k.b.run(2);k.b.blink(1.4,2.8,9,7,true);}},
+ fence:{f:k=>{k.b.run(6);k.b.fence(14,k.ri(40,60),1.8-0.4*k.d);}},
+ door2:{slow:1,min:0.5,f:k=>{k.b.slow();k.b.run(2);k.b.door(1,1.1);k.b.door(6,1.1,1);}},
+ echoG:{clone:1,f:k=>{const b=k.b,id=k.eid++;b.run(10);b.epad(id);k.fill(k.st.c+33);b.egate(id,6);}},
+ echoB:{clone:1,f:k=>{const b=k.b,id=k.eid++;b.run(10);b.epad(id);k.fill(k.st.c+32);b.ebridge(id,4,6);}}
+};
+const COMMON=['spk','gap','steps','pillars','dgap','spkgap'];
+const POOLS=[
+ ['spk','gap','steps','pillars','dgap','triplet','pad','mover','spkgap'],
+ ['flip','flipO','flipO2','mag','rail','spk','gap','dgap'],
+ ['pf','palt','pwall','pfw','pjump','ring','spk','gap','dgap'],
+ ['wwall','wfl','wspk','wjump','walt','spk','gap','dgap'],
+ ['door','ddoor','blinkS','blinkD','fence','door2','spk','gap','dgap'],
+ ['echoG','echoB','echoG','spk','pillars'],
+ ['flip','flipO','mag','wwall','wfl','wjump','ring','door','ddoor','dgap','spk','triplet']
+];
+const SEEDFIX={};
+function genLevel(b,wi,li){
+ const r=seeded(7001+wi*131+li*29+(SEEDFIX[wi*10+li]||0));
+ const d=(li-1)/(NL-2);
+ const k={b,st:b.st,d,eid:1,ri:(a,c)=>a+Math.floor(r()*(c-a+1)),pick:a=>a[Math.floor(r()*a.length)]};
+ k.fill=until=>{while(k.st.c<until){CH[k.pick(['spk','gap','steps','pillars','spkgap'])].f(k);b.run(3);}};
+ const target=Math.round((24+li*1.5)*(WORLDS[wi].speed+li*5)/T);
+ const pool=POOLS[wi].filter(n=>!CH[n].min||d>=CH[n].min);
+ const gapRun=Math.max(2,4-Math.round(d*2));
+ b.run(14);
+ let n=0,last='',lastSlow=-999,lastClone=-999;
+ while(k.st.c<target){
+  let name=k.pick(pool);if(name===last)name=k.pick(pool);
+  const c0=CH[name];
+  if((c0.slow&&k.st.c-lastSlow<60)||(c0.clone&&k.st.c-lastClone<58))name=k.pick(COMMON);
+  const ch=CH[name];
+  if(ch.slow)lastSlow=k.st.c;if(ch.clone)lastClone=k.st.c;
+  ch.f(k);last=name;b.run(gapRun);
+  if(++n%3===0)b.runc(4);
+ }
+ b.end();
+}
+
+/* =========================================================================
+   LEVEL DESIGNS (handcrafted level 1 of each world)
    ========================================================================= */
 const LEVELS=[
  // 1 — NEON CITY: jump, hold, gaps, spikes, dash, pads, moving platforms
@@ -1179,9 +1287,9 @@ function resetObj(o){
   case 'Z':if(o.trig!=null)o.t0=-1;break;
  }
 }
-function startLevel(wi,opts){
- opts=opts||{};
- G.L=buildLevel(wi);G.wi=wi;G.headless=!!opts.headless;
+function startLevel(wi,li,opts){
+ opts=opts||{};li=li||0;
+ G.L=buildLevel(wi,li);G.wi=wi;G.li=li;G.practice=!!opts.practice;G.headless=!!opts.headless;
  G.bot=opts.bot?{i:0,rel:null,shift:opts.shift||0,omit:opts.omit||null}:null;
  G.deaths=0;G.attempt=1;G.cp=null;G.won=false;G.continues=0;G.attemptT=1.4;G.winT=0;G.runT=0;G.maxCombo=0;
  for(const o of G.L.objs)resetObj(o);
@@ -1233,6 +1341,7 @@ function restartRun(){
  G.cp=null;G.continues=0;G.deaths=0;G.maxCombo=0;G.runT=0;G.won=false;
  respawn();G.state='play';showScreen(null);acc=0;
 }
+function practiceRespawn(){G.cp=safeBefore(G.P.x);respawnAt();G.attempt++;G.attemptT=1.1;G.safeT=1;}
 function safeBefore(x){let s=null;for(const q of G.L.safe){if(q.x>=x-8)break;if(q.echo&&!G.L.echo[q.echo].pad.hit)continue;s=q;}return s;}
 function doContinue(){
  const s=safeBefore(G.P.x);
@@ -1387,7 +1496,7 @@ function kill(cause){
  P.alive=false;P.deadT=0;G.deathCause=cause;G.deaths++;G.combo=0;G.fever=0;
  G.deathPct=Math.floor(clamp((P.x-G.L.start)/(G.L.end-G.L.start),0,1)*100);
  if(G.headless)return;
- const lv=S.lv[G.wi];if(!lv.done&&G.deathPct>lv.pct)lv.pct=G.deathPct;
+ const lv=LV(G.wi,G.li);if(!G.practice&&!lv.done&&G.deathPct>lv.pct)lv.pct=G.deathPct;
  S.st.deaths++;SFX.death();vib(45);G.shake=10;G.flash=0.25;G.flashCol='#ff4a5c';
  const sk=SKIN(S.skin);const cx=P.x+11,cy=P.y+12;
  for(let i=0;i<34;i++){const a=rnd(0,TAU),v=rnd(80,420);spawnP(cx,cy,Math.cos(a)*v,Math.sin(a)*v,rnd(0.4,0.9),rnd(2,5),[sk.body,sk.accent,sk.trim,'#ffffff'][i%4],0,600,0.98);}
@@ -1880,6 +1989,10 @@ function drawGame(t,beat){
   for(let i=0;i<3;i++){ctx.save();ctx.scale(0.45,1);ctx.rotate(t*(1.5+i*0.7)*(i%2?-1:1));ctx.lineWidth=4-i;ctx.strokeStyle=['#5dffa0','#38e8ff','#ffffff'][i];ctx.beginPath();ctx.arc(0,0,58-i*12,0.3,TAU-0.6);ctx.stroke();ctx.restore();}
   ctx.restore();
  }
+ if(G.practice){for(const q of L.safe){if(q.x<G.camX-40||q.x>G.camX+W+40)continue;const up=q.g===1,dir=up?-1:1,on=q.x<P.x+11;
+  ctx.fillStyle='rgba(20,40,80,.9)';ctx.fillRect(q.x-2,Math.min(q.y,q.y+dir*36),4,36);
+  ctx.fillStyle=on?'#5dffa0':'#6a8ac0';ctx.beginPath();ctx.moveTo(q.x,q.y+dir*36-7);ctx.lineTo(q.x+6,q.y+dir*36);ctx.lineTo(q.x,q.y+dir*36+7);ctx.lineTo(q.x-6,q.y+dir*36);ctx.closePath();ctx.fill();
+  if(on)glow(ctx,q.x,q.y+dir*36,20,'#5dffa0',0.5);}}
  // gates (timing markers)
  for(const g of VIS.G){
   if(g.j)continue;const col=MECH[g.act]?MECH[g.act][1]:'#38e8ff';
@@ -2117,7 +2230,7 @@ function drawHUD(t,beat){
  const pg=ctx.createLinearGradient(bx,0,bx+bw,0);pg.addColorStop(0,'#2a7bff');pg.addColorStop(1,'#38e8ff');
  if(pr>0){ctx.fillStyle=pg;rr(ctx,bx+1,by+1,Math.max(7,(bw-2)*pr),7,3.5);ctx.fill();}
  for(const q of L.cps){const qx=bx+bw*clamp((q.x-L.start)/(L.end-L.start),0,1);ctx.fillStyle=q.on?'#5dffa0':'#5a7ab0';ctx.beginPath();ctx.moveTo(qx,by-2);ctx.lineTo(qx+4,by+4.5);ctx.lineTo(qx,by+11);ctx.lineTo(qx-4,by+4.5);ctx.closePath();ctx.fill();}
- const best=S.lv[G.wi].pct;if(best>0&&best<100){const bxx=bx+bw*best/100;ctx.fillStyle='#ffd23a';ctx.fillRect(bxx-1,by-3,2,15);}
+ const best=LV(G.wi,G.li).pct;if(best>0&&best<100){const bxx=bx+bw*best/100;ctx.fillStyle='#ffd23a';ctx.fillRect(bxx-1,by-3,2,15);}
  glow(ctx,bx+bw*pr,by+4.5,12,'#38e8ff',0.8);
  // coins
  pill(294,14,94,34,'#ffd23a');ctx.drawImage(coinSpr(),299,20,22,22);
@@ -2146,6 +2259,7 @@ function drawHUD(t,beat){
   ctx.globalAlpha=clamp(G.attemptT,0,1);ctx.font='900 22px system-ui,sans-serif';ctx.textAlign='center';
   ctx.lineWidth=6;ctx.strokeStyle='rgba(3,6,24,.85)';const at='ATTEMPT '+G.attempt;ctx.strokeText(at,W/2,G.levelTop+130);ctx.fillStyle='#fff';ctx.fillText(at,W/2,G.levelTop+130);ctx.globalAlpha=1;
  }
+ if(G.practice){pill(W-104,58,92,24,'#5dffa0');ctx.font='900 11px system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='#5dffa0';ctx.fillText('PRACTICE',W-58,74);}
 }
 /* ---------- touch controls (canvas) ---------- */
 let CTRL=[];
@@ -2299,15 +2413,15 @@ function drawPreview(c,wi,t){
  for(let i=0;i<40;i++){c.fillStyle='rgba(220,240,255,'+(0.3+0.5*Math.abs(Math.sin(t+i)))+')';c.fillRect(r()*W2,r()*H2*0.6,1.5,1.5);}
  if(!CLOUD)CLOUD=makeCloud();if(!ISLAND)ISLAND=makeIsland();
  c.globalAlpha=0.5;c.drawImage(CLOUD,((t*10)%420)-160,H2*0.55,220,90);c.drawImage(CLOUD,W2-((t*7)%420)+100,H2*0.7,180,76);c.globalAlpha=1;
- const iy=H2*0.42+Math.sin(t*1.2)*5;
- glow(c,W2*0.42,iy+40,130,p.haze,0.4);
- c.drawImage(ISLAND,W2*0.42-115,iy,230,176);
+ const iy=H2*0.5+Math.sin(t*1.2)*5,ix=W2*0.34;
+ glow(c,ix,iy+40,130,p.haze,0.4);
+ c.drawImage(ISLAND,ix-115,iy,230,176);
  // motif
- const mx=W2*0.42,my=iy-40;
+ const mx=ix+10,my=iy-36;
  c.globalCompositeOperation='lighter';glow(c,mx,my,60,MECH[wd.mech[0]][1],0.5);c.globalCompositeOperation='source-over';
  c.save();c.translate(mx,my);c.scale(1,0.35);c.lineWidth=3;c.strokeStyle=hexA(MECH[wd.mech[0]][1],0.9);c.beginPath();c.arc(0,60,46,0,TAU);c.stroke();c.restore();
  drawIcon(c,wd.mech[0]==='jump'&&wi===6?'fever':wd.mech[0],mx,my-6,46,'#ffffff',2.6);
- drawRobot(c,W2*0.42-58,iy+14,1.1,{pose:'idle',t});
+ drawRobot(c,ix-58,iy+14,1.1,{pose:'idle',t});
  c.restore();
 }
 
@@ -2419,22 +2533,26 @@ function starsHTML(n,cls){let h='';for(let i=0;i<3;i++)h+=`<span class="star ${i
 function renderWorlds(){
  const el=$('wlist');el.innerHTML='';
  WORLDS.forEach((w,i)=>{
-  const lv=S.lv[i],locked=i>=S.unlocked;
+  const ls=S.lv[i],locked=i>=S.unlocked,done=ls.filter(l=>l.done).length,stars=ls.reduce((a,l)=>a+l.stars,0);
   const d=document.createElement('div');
-  d.className='wcard panel'+(locked?' locked':'')+(!locked&&!lv.done?' next':'');
+  d.className='wcard panel'+(locked?' locked':'')+(!locked&&done<NL?' next':'');
   d.innerHTML=`<canvas width="236" height="132"></canvas><div class="wi"><div class="wn"><b>${i+1}.</b>${w.name}</div>
-   <div class="wp">${locked?'LOCKED':lv.done?'COMPLETE':lv.pct>0?'BEST '+lv.pct+'%':'NEW'}</div>
+   <div class="wp">${locked?'LOCKED':done===NL?'COMPLETE':done+' / '+NL+' LEVELS'}</div>
    <div class="wm">${w.mech.length>3?'ALL MECHANICS':w.mech.map(m=>MECH[m][0]).join(' · ')}</div></div>
-   <div class="stars">${starsHTML(lv.stars)}</div>${locked?`<span class="lock">${svg('lock')}</span>`:`<span class="chev">${svg('right')}</span>`}`;
+   <div class="wstar">${svg('star',true)}${stars}/${NL*3}</div>${locked?`<span class="lock">${svg('lock')}</span>`:`<span class="chev">${svg('right')}</span>`}`;
   const c=d.querySelector('canvas').getContext('2d');c.scale(2,2);drawThumb(c,i,118,66,0.8);
-  d.addEventListener('click',()=>{SFX.click();if(locked){toast('COMPLETE WORLD '+i+' TO UNLOCK');SFX.err();return;}openPreview(i);});
+  d.addEventListener('click',()=>{SFX.click();if(locked){toast('CLEAR 3 LEVELS OF WORLD '+i+' TO UNLOCK');SFX.err();return;}openPreview(i);});
   el.appendChild(d);
  });
 }
-let pvWi=0;
-function openPreview(i){
- pvWi=i;const w=WORLDS[i],lv=S.lv[i];
- $('pvHdr').textContent='WORLD '+(i+1);$('pvWorld').textContent='WORLD '+(i+1);$('pvName').textContent=w.name;
+let pvWi=0,pvLi=0;
+function openPreview(i,li){
+ pvWi=i;const w=WORLDS[i];
+ if(li==null){li=0;while(li<NL-1&&S.lv[i][li].done)li++;}
+ pvLi=li;const lv=LV(i,li);
+ $('pvHdr').textContent='WORLD '+(i+1);$('pvWorld').textContent='WORLD '+(i+1)+' · LEVEL '+(li+1);$('pvName').textContent=w.name;
+ $('pvLv').innerHTML=S.lv[i].map((l,j)=>{const op=lvOpen(i,j);return `<div class="lvb ${j===li?'sel':''} ${op?'':'lock'} ${l.done?'done':''}" data-l="${j}">${op?j+1:svg('lock')}<span class="ms">${[0,1,2].map(k=>`<i class="${k<l.stars?'on':''}"></i>`).join('')}</span></div>`;}).join('');
+ $('pvLv').querySelectorAll('.lvb').forEach(b=>b.addEventListener('click',()=>{const j=+b.dataset.l;SFX.click();if(!lvOpen(i,j)){toast('CLEAR LEVEL '+j+' FIRST');SFX.err();return;}openPreview(i,j);}));
  $('pvChips').innerHTML=w.mech.map(m=>`<div class="chip" style="border-color:${MECH[m][1]}"><span style="color:${MECH[m][1]}">${svg(m==='jump'?'jump':m)}</span>${MECH[m][0]}</div>`).join('');
  $('pvDesc').textContent=w.desc;
  $('pvBest').textContent=lv.best;$('pvCombo').textContent=lv.combo?'×'+lv.combo:'—';$('pvStars').innerHTML=starsHTML(lv.stars);
@@ -2507,9 +2625,9 @@ function renderUpg(){
  });
 }
 function renderStats(){
- const s=S.st,stars=S.lv.reduce((a,l)=>a+l.stars,0),done=S.lv.filter(l=>l.done).length;
+ const s=S.st,all=S.lv.flat(),stars=all.reduce((a,l)=>a+l.stars,0),done=all.filter(l=>l.done).length;
  const tm=Math.floor(s.time/60);
- const rows=[['WORLDS CLEARED',done+' / 7'],['TOTAL STARS',stars+' / 21'],['ATTEMPTS',s.attempts],['DEATHS',s.deaths],['JUMPS',s.jumps],['PERFECT HITS',s.perfects],['BEST COMBO','×'+s.bestCombo],['WORLD SWITCHES',s.switches],['COINS EARNED',s.coins],['PLAY TIME',Math.floor(tm/60)+'h '+(tm%60)+'m']];
+ const rows=[['LEVELS CLEARED',done+' / '+(7*NL)],['TOTAL STARS',stars+' / '+(7*NL*3)],['ATTEMPTS',s.attempts],['DEATHS',s.deaths],['JUMPS',s.jumps],['PERFECT HITS',s.perfects],['BEST COMBO','×'+s.bestCombo],['WORLD SWITCHES',s.switches],['COINS EARNED',s.coins],['PLAY TIME',Math.floor(tm/60)+'h '+(tm%60)+'m']];
  $('statList').innerHTML=rows.map(r=>`<div class="srow"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
 }
 function renderSettings(){
@@ -2555,7 +2673,7 @@ function demoAd(){
 function duck(on){if(!AU.c)return;AU.master.gain.setTargetAtTime(on?0.0001:0.85,AU.c.currentTime,0.08);}
 function showDeath(){
  G.state='dead';
- const lv=S.lv[G.wi],left=CONT_MAX-G.continues;
+ const lv=LV(G.wi,G.li),left=CONT_MAX-G.continues;
  $('dPct').textContent=G.deathPct+'%';
  $('dBest').textContent=lv.done?'WORLD CLEARED':'BEST '+lv.pct+'%';
  $('dBar').style.width='0';setTimeout(()=>{$('dBar').style.width=G.deathPct+'%';},60);
@@ -2579,16 +2697,24 @@ async function continueRun(){
 }
 /* ---------- results ---------- */
 function finishLevel(){
- const L=G.L,wi=G.wi,lv=S.lv[wi];
+ const L=G.L,wi=G.wi,li=G.li,lv=LV(wi,li);
  const cPct=L.totalCoins?G.coinsN/L.totalCoins:1,pPct=L.totalGates?G.perf/L.totalGates:1;
  const stars=1+(cPct>=0.75?1:0)+(pPct>=0.5?1:0);
+ if(G.practice){
+  G.state='result';$('rTitle').textContent='PRACTICE CLEAR';
+  $('rScore').textContent='—';$('rBest').textContent=lv.best;$('rCoins').textContent=G.coinsN+'/'+L.totalCoins;
+  $('rCombo').textContent='×'+G.maxCombo;$('rPerf').textContent=Math.round(pPct*100)+'%';$('rDeaths').textContent=G.deaths;
+  $('rStars').innerHTML='';$('rRew').innerHTML='<div style="border-color:rgba(93,255,160,.5);font-size:12px">Practice gives no rewards — now try it for real!</div>';
+  $('rNew').className='newbest';$('rNext').style.display='none';showScreen('sResult');return;
+ }
+ $('rTitle').textContent='LEVEL COMPLETE';
  const score=Math.max(100,1000+G.coinsV*25+G.perf*100+G.good*50+G.maxCombo*20-G.deaths*25);
  const isBest=score>lv.best;
  const coinsEarned=G.coinsV+Math.round((10+5*stars)*(1+0.15*(S.upg.coinx-1)));
  const energy=Math.round((G.perf+G.good*0.5+8+wi*2)*(1+0.1*(S.upg.eboost-1)));
- let cores=0;if(!lv.done)cores++;if(stars===3&&lv.stars<3)cores++;
+ let cores=0;if(stars===3&&lv.stars<3)cores++;if(!lv.done&&li===NL-1)cores+=2;
  lv.done=true;lv.stars=Math.max(lv.stars,stars);lv.best=Math.max(lv.best,score);lv.combo=Math.max(lv.combo,G.maxCombo);lv.pct=100;lv.perf=Math.max(lv.perf,Math.round(pPct*100));
- S.unlocked=Math.max(S.unlocked,Math.min(7,wi+2));
+ const newWorld=li>=2&&S.unlocked<wi+2&&wi<6;if(li>=2)S.unlocked=Math.max(S.unlocked,Math.min(7,wi+2));
  S.coins+=coinsEarned;S.energy+=energy;S.cores+=cores;S.st.coins+=coinsEarned;S.st.clears++;S.st.bestCombo=Math.max(S.st.bestCombo,G.maxCombo);
  save();
  G.state='result';
@@ -2596,7 +2722,8 @@ function finishLevel(){
  $('rCombo').textContent='×'+G.maxCombo;$('rPerf').textContent=Math.round(pPct*100)+'%';$('rDeaths').textContent=G.deaths;
  $('rStars').innerHTML=[0,1,2].map(i=>`<span class="star ${i===1?'mid':''}">${svg('star',true)}</span>`).join('');
  $('rRew').innerHTML=`<div><div class="coin-i"></div>+${coinsEarned}</div><div><span class="en-i">${svg('bolt',true)}</span>+${energy}</div>`+(cores?`<div><span class="core-i">${svg('core')}</span>+${cores}</div>`:'');
- $('rNew').className='newbest';$('rNext').style.display=wi<6?'':'none';
+ $('rNew').className='newbest';$('rNext').style.display=(li<NL-1||wi<6)?'':'none';
+ if(newWorld)setTimeout(()=>toast('WORLD '+(wi+2)+' UNLOCKED!',true),900);
  showScreen('sResult');
  const st=[...document.querySelectorAll('#rStars .star')];
  st.forEach((s,i)=>{if(i<stars)setTimeout(()=>{s.classList.add('on');SFX.perfect(i*3);},350+i*300);});
@@ -2608,14 +2735,15 @@ function wire(){
  document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{SFX.click();showScreen(b.dataset.go);}));
  document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{SFX.click();showScreen(b.dataset.back);}));
  $('bPlay').addEventListener('click',()=>{auInit();SFX.click();showScreen('sWorlds');});
- $('bPvPlay').addEventListener('click',()=>{auInit();SFX.click();startLevel(pvWi);});
+ $('bPvPlay').addEventListener('click',()=>{auInit();SFX.click();startLevel(pvWi,pvLi);});
+ $('bPvPrac').addEventListener('click',()=>{auInit();SFX.click();startLevel(pvWi,pvLi,{practice:true});});
  $('bResume').addEventListener('click',()=>{SFX.click();resumeGame();});
- $('bRestart').addEventListener('click',()=>{SFX.click();startLevel(G.wi);});
+ $('bRestart').addEventListener('click',()=>{SFX.click();startLevel(G.wi,G.li,{practice:G.practice});});
  $('bHome').addEventListener('click',()=>{SFX.click();G.L=null;showScreen('sMenu');});
  $('pMus').addEventListener('click',()=>{S.set.music=!S.set.music;save();auApply();updPauseBtns();});
  $('pSfx').addEventListener('click',()=>{S.set.sfx=!S.set.sfx;save();auApply();updPauseBtns();SFX.click();});
- $('rRetry').addEventListener('click',()=>{SFX.click();startLevel(G.wi);});
- $('rNext').addEventListener('click',()=>{SFX.click();if(G.wi<6)startLevel(G.wi+1);});
+ $('rRetry').addEventListener('click',()=>{SFX.click();startLevel(G.wi,G.li,{practice:G.practice});});
+ $('rNext').addEventListener('click',()=>{SFX.click();if(G.li<NL-1)startLevel(G.wi,G.li+1);else if(G.wi<6&&G.wi+1<S.unlocked)startLevel(G.wi+1,0);else{G.L=null;showScreen('sWorlds');}});
  $('rHome').addEventListener('click',()=>{SFX.click();G.L=null;showScreen('sMenu');});
  $('bCont').addEventListener('click',()=>{SFX.click();continueRun();});
  $('bDRestart').addEventListener('click',()=>{SFX.click();restartRun();});
@@ -2641,7 +2769,8 @@ function frame(now){
   updateFx(dt);
   const P=G.P;const target=P.x-95;G.camX+=(target-G.camX)*Math.min(1,dt*9);if(G.camX<target-60)G.camX=target-60;
   if(G.won&&G.winT>1.4)finishLevel();
-  else if(!P.alive&&P.deadT>=0.7)showDeath();
+  else if(!P.alive&&G.practice&&P.deadT>=0.45)practiceRespawn();
+  else if(!P.alive&&!G.practice&&P.deadT>=0.7)showDeath();
  } else if(G.state==='countdown'&&G.L){
   updateFx(dt);G.q.length=0;
   G.cdT-=dt;const n=Math.ceil(G.cdT);
@@ -2662,10 +2791,10 @@ function frame(now){
 }
 /* ---------- test hook (headless simulation of the built-in solution path) ---------- */
 window.__SB={
- build:wi=>{const L=buildLevel(wi);return{warns:L.warns,len:L.len,end:L.end,coins:L.totalCoins,gates:L.totalGates,sol:L.sol.length,secs:L.end/WORLDS[wi].speed};},
- sim(wi,shift,maxT,omit){
+ build:(wi,li)=>{const L=buildLevel(wi,li);return{warns:L.warns,len:L.len,end:L.end,coins:L.totalCoins,gates:L.totalGates,sol:L.sol.length,safe:L.safe.length,secs:L.end/L.spd};},
+ sim(wi,li,shift,maxT,omit){
   const prev={state:G.state,L:G.L};
-  startLevel(wi,{bot:true,shift:shift||0,headless:true,omit});
+  startLevel(wi,li,{bot:true,shift:shift||0,headless:true,omit});
   let res=null;
   for(let i=0;i<(maxT||150)*120;i++){
    tick();
@@ -2676,9 +2805,9 @@ window.__SB={
   G.headless=false;G.state=prev.state;G.L=prev.L;G.bot=null;
   return res;
  },
- simCont(wi,fracs){
+ simCont(wi,li,fracs){
   const prev={state:G.state,L:G.L};
-  startLevel(wi,{bot:true,headless:true});
+  startLevel(wi,li,{bot:true,headless:true});
   const L=G.L,kills=fracs.map(f=>L.start+(L.end-L.start)*f);let ki=0,res=null;const log=[];
   for(let i=0;i<200*120;i++){
    if(ki<kills.length&&G.P.alive&&G.P.x>=kills[ki]){kill('test');ki++;}
@@ -2697,8 +2826,8 @@ window.__SB={
   G.headless=false;G.state=prev.state;G.L=prev.L;G.bot=null;
   return res;
  },
- safe:wi=>buildLevel(wi).safe.map(s=>Math.round(s.x/T)),
- raw:wi=>buildLevel(wi),
+ safe:(wi,li)=>buildLevel(wi,li).safe.map(s=>Math.round(s.x/T)),
+ raw:(wi,li)=>buildLevel(wi,li),
  G,S:()=>S,startLevel,act
 };
 /* ---------- boot ---------- */
